@@ -18,7 +18,7 @@
 # ======================================================================
 
 from enum import Enum
-from typing import Any, Dict, List, Set, TypeVar
+from typing import Any, Dict, List, Set, Tuple, TypeVar
 
 from supervisor.events import Event
 
@@ -31,7 +31,7 @@ class SupvisorsInstanceStates(Enum):
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
+    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, RESTART, SHUTTING_DOWN, SHUTDOWN = range(8)
 
 
 class ApplicationStates(Enum):
@@ -41,7 +41,7 @@ class ApplicationStates(Enum):
 
 class StartingStrategies(Enum):
     """ Applicable strategies that can be applied to start processes. """
-    CONFIG, LESS_LOADED, MOST_LOADED, LOCAL = range(4)
+    CONFIG, LESS_LOADED, MOST_LOADED, LOCAL, LESS_LOADED_NODE, MOST_LOADED_NODE = range(6)
 
 
 class ConciliationStrategies(Enum):
@@ -57,7 +57,17 @@ class StartingFailureStrategies(Enum):
 
 class RunningFailureStrategies(Enum):
     """ Applicable strategies that can be applied on a failure of a running application. """
-    CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
+    CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION, SHUTDOWN, RESTART = range(6)
+
+
+class ProcessRequestResult(Enum):
+    """ The possible results after a process request. """
+    IN_PROGRESS, SUCCESS, FAILED, TIMED_OUT = range(4)
+
+
+class DistributionRules(Enum):
+    """ Rule applicable to the distribution of an application. """
+    ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
 
 
 def enum_values(enum_klass) -> List[int]:
@@ -78,6 +88,12 @@ def enum_names(enum_klass) -> List[str]:
     :return: the possible enumeration literals
     """
     return list(map(lambda x: x.name, enum_klass))
+
+
+# State lists commonly used
+ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
+CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
+                  SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
 
 
 # Exceptions
@@ -120,10 +136,30 @@ class ProcessRemovedEvent(ProcessEvent):
     pass
 
 
-# Types for annotations
+# Annotation types
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]
 NameSet = Set[str]
+LoadMap = Dict[str, int]
+
+# Annotation types for statistics
+NamedPid = Tuple[str, int]  # namespec, PID
+NamedPidList = List[NamedPid]
+Jiffies = Tuple[float, float]  # (work, idle)
+JiffiesList = List[Jiffies]  # one entry per processor + 1 for average (first element)
+CPUInstantStats = List[float]  # in percent. one entry per processor + 1 for average (first element)
+CPUHistoryStats = List[List[float]]  # in percent. one list per processor + 1 for average (first element)
+MemHistoryStats = List[float]  # in percent
+IOBytes = Tuple[int, int]  # recv_bytes, sent_bytes
+BytesList = List[float]  # in kilobytes per second
+InterfaceInstantStats = Dict[str, IOBytes]  # {interface: (recv_bytes, sent_bytes)}
+InterfaceIntegratedStats = Dict[str, Tuple[float, float]]  # {interface: (recv_bytes, sent_bytes)}
+InterfaceHistoryStats = Dict[str, Tuple[BytesList, BytesList]]  # {interface: ([recv_bytes], [sent_bytes])}
+ProcessStats = Tuple[float, float]  # jiffies, memory
+ProcessStatsMap = Dict[str, Tuple[int, ProcessStats]]  # {namespec: (PID, ProcessStats)}
+ProcessHistoryStats = Tuple[CPUInstantStats, MemHistoryStats]
+ProcessHistoryStatsMap = Dict[NamedPid, ProcessHistoryStats]
+InstantStatistics = Tuple[float, JiffiesList, float, InterfaceInstantStats, ProcessStatsMap]

@@ -19,7 +19,7 @@ nav li a {
     display: block;
     text-decoration: none;
     color: var(--text-color);
-    padding: 7px 0 7px 4px;
+    padding: 7px 0 5px 4px;
 }
 
 nav .active {

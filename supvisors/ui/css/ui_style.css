@@ -64,6 +64,7 @@ body {
     flex-direction: column;
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
+
 #left_side header, #left_side header a {
    text-align: center;
    color: var(--title-color);
@@ -77,7 +78,7 @@ nav {
     color: var(--text-color);
 }
 
-nav div {
+#instance_list div, #application_list div {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -130,13 +131,12 @@ nav div {
     display: flex;
     flex: 1;
     flex-direction: row;
+    justify-content: space-around;
     overflow: auto;
     margin: 5px;
 }
 
 #process_left_side {
-    display: flex;
-    flex: 1;
     font-family: Verdana, Arial, sans-serif;
     text-align: justify;
     margin-right: 5px;
@@ -445,14 +445,6 @@ ul.vertical li {
 
 
 /*
- * Master Instance style
- */
-.master::after {
-    content: " \272A";
-}
-
-
-/*
  * Common Table style
  */
 table {
@@ -479,20 +471,13 @@ th, td {
 th {
     background-color: var(--th-color);
     text-align: center;
+}
+
+#process_table th {
     position: sticky;
     top: 0;
     z-index: 20;
 }
-
-/* TO BE TESTED
-tr:nth-child(even) td[scope=row] {
-    background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));
-}
-
-tr:nth-child(odd) td[scope=row] {
-    background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
-}
-*/
 
 .brightened {
     background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));
@@ -577,6 +562,11 @@ table .STOPPING {
 
 table .RUNNING {
     background-image: linear-gradient(165deg, white, green, green, white);
+    color: black;
+}
+
+table .RUNNING.crashed {
+    background-image: linear-gradient(165deg, orange, green, green, orange);
     color: black;
 }
 

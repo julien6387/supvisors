@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import math
 import re
 
 from distutils.util import strtobool
@@ -25,6 +26,7 @@ from urllib.parse import quote
 
 from .process import ProcessStatus
 from .ttypes import StartingStrategies, NameList, enum_names
+from .utils import get_bit, set_bit
 from .webutils import SUPVISORS_PAGE, error_message
 
 
@@ -33,8 +35,8 @@ SERVER_URL = 'SERVER_URL'
 SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
-IDENTIFIER = 'identifier'  # nav
-APPLI = 'appliname'  # nav
+IDENTIFIER = 'ident'  # navigation
+APPLI = 'appliname'  # navigation
 
 ACTION = 'action'
 NAMESPEC = 'namespec'   # used for actions
@@ -87,11 +89,6 @@ class ViewContext:
             self.update_cpu_id()
             self.update_interface_name()
 
-    def get_server_port(self):
-        """ Get the port number of the web server. """
-        # TODO: TBC not used
-        return self.http_context.form.get(SERVER_PORT)
-
     def get_action(self):
         """ Extract action requested in context form. """
         return self.http_context.form.get(ACTION)
@@ -135,7 +132,10 @@ class ViewContext:
         """ Extract process name from context.
         ApplicationView may select a process unknown to this Supvisors instance. """
         status = self.supvisors.context.instances[self.parameters[IDENTIFIER]]
-        self._update_string(PROCESS, [x.namespec for x in status.running_processes()])
+        # consider processes running on this Supvisors instance + supervisord
+        running_processes = [x.namespec for x in status.running_processes()]
+        running_processes.append('supervisord')
+        self._update_string(PROCESS, running_processes)
 
     def update_namespec(self):
         """ Extract namespec from context. """
@@ -153,38 +153,54 @@ class ViewContext:
         default_value = next(iter(interfaces), None)
         self._update_string(INTF, interfaces, default_value)
 
+    def get_default_shex(self, expanded: bool) -> bytearray:
+        """ Get a default shex bytearray filled with 1 if expanded.
+
+        :param expanded: a status telling if the bytearray should be filled with 0 or 1
+        :return: the shex bytearray
+        """
+        nb_applications = len(self.supvisors.context.applications)
+        base_value = 0xff if expanded else 0
+        return bytearray([base_value] * math.ceil(nb_applications / 8))
+
     def update_shrink_expand(self):
         """ Extract process display choices from context. """
-        # default is all displayed
-        value = ''.rjust(len(self.supvisors.context.applications.keys()), '1')
+        # default is expanded
+        ba = self.get_default_shex(True)
         # extract mask from context
         str_value = self.http_context.form.get(SHRINK_EXPAND)
         if str_value:
-            # check that value has correct format (only 0-1 and size equal to number of applications)
-            if re.match(r'^[0-1]{%d}$' % len(value), str_value):
-                value = str_value
+            # check that value has correct format (only hex and size twice the size of the bytearray)
+            try:
+                value = bytearray.fromhex(str_value)
+            except ValueError as exc:
+                self.logger.error(f'ViewContext.update_shrink_expand: non-hexadecimal SHRINK_EXPAND={exc}')
             else:
-                self.store_message = error_message('Incorrect SHRINK_EXPAND: {}'.format(str_value))
-        self.logger.trace('ViewContext.update_shrink_expand: SHRINK_EXPAND set to {}'.format(value))
-        self.parameters[SHRINK_EXPAND] = value
+                if len(ba) != len(value):
+                    self.logger.error('ViewContext.update_shrink_expand: SHRINK_EXPAND does not fit with the number'
+                                      ' of applications')
+                else:
+                    ba = value
+        self.logger.debug(f'ViewContext.update_shrink_expand: SHRINK_EXPAND set to {ba.hex()}')
+        self.parameters[SHRINK_EXPAND] = ba.hex()
 
     def url_parameters(self, reset_shex, **kwargs):
-        """ Return the list of parameters for an URL. """
+        """ Return the list of parameters for a URL. """
         parameters = dict(self.parameters, **kwargs)
         if reset_shex:
             del parameters[SHRINK_EXPAND]
-        return '&'.join(['{}={}'.format(key, quote(str(value)))
+        return '&'.join([f'{key}={quote(str(value))}'
                          for key, value in sorted(parameters.items()) if value])
 
-    def format_url(self, net_identifier, page, **kwargs):
+    def format_url(self, identifier, page, **kwargs):
         """ Format URL from parameters. """
         netloc = ''
         # build network location if identifier is provided
-        if net_identifier:
-            instance = self.supvisors.supvisors_mapper.instances[net_identifier]
+        if identifier:
+            instance = self.supvisors.supvisors_mapper.instances[identifier]
             netloc = f'http://{quote(instance.host_name)}:{instance.http_port}/'
         # shex must be reset if the Supvisors instance changes
-        local_identifier = not net_identifier or net_identifier == self.local_identifier
+        local_identifier = not identifier or identifier == self.local_identifier
         # build URL from netloc, page and attributes
         return f'{netloc}{page}?{self.url_parameters(not local_identifier, **kwargs)}'
 
@@ -195,7 +211,7 @@ class ViewContext:
             form = self.http_context.form
             # if redirect requested, go back to main page
             path_translated = '/' + SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
-            location = '{}{}?{}'.format(form[SERVER_URL], path_translated, self.url_parameters(False, **args))
+            location = f'{form[SERVER_URL]}{path_translated}?{self.url_parameters(False, **args)}'
             self.http_context.response[HEADERS][LOCATION] = location
 
     def get_nbcores(self, identifier=None):
@@ -241,14 +257,14 @@ class ViewContext:
         :return: the application shex and the inverted shex
         """
         shex = self.parameters[SHRINK_EXPAND]
+        ba = bytearray.fromhex(shex)
         # get the index of the application in context
-        idx = list(self.supvisors.context.applications.keys()).index(application_name)
+        idx = list(self.supvisors.context.applications).index(application_name)
         # get application shex value
-        application_shex = bool(int(shex[idx]))
+        application_shex = bool(get_bit(ba, idx))
         # get new shex with inverted value for application
-        inverted_shex = list(shex)
-        inverted_shex[idx] = str(int(not application_shex))
-        return application_shex, ''.join(inverted_shex)
+        set_bit(ba, idx, not application_shex)
+        return application_shex, ba.hex()
 
     def _update_string(self, param: str, check_list: NameList, default_value: str = None):
         """ Extract information from context based on allowed values in check_list. """
@@ -259,9 +275,9 @@ class ViewContext:
             if str_value in check_list:
                 value = str_value
             else:
-                self.store_message = error_message('Incorrect {}: {}'.format(param, str_value))
+                self.store_message = error_message(f'Incorrect {param}: {str_value}')
         # assign value found or default
-        self.logger.trace('ViewContext._update_string: {} set to {}'.format(param, value))
+        self.logger.trace(f'ViewContext._update_string: {param} set to {value}')
         self.parameters[param] = value
 
     def _update_integer(self, param, check_list, default_value=0):
@@ -272,15 +288,15 @@ class ViewContext:
             try:
                 int_value = int(str_value)
             except ValueError:
-                self.store_message = error_message('{} is not an integer: {}'.format(param, str_value))
+                self.store_message = error_message(f'{param} is not an integer: {str_value}')
             else:
                 # check that int_value is defined in check list
                 if int_value in check_list:
                     value = int_value
                 else:
-                    self.store_message = error_message('Incorrect {}: {}'.format(param, int_value))
+                    self.store_message = error_message(f'Incorrect {param}: {int_value}')
         # assign value found or default
-        self.logger.trace('ViewContext._update_integer: {} set to {}'.format(param, value))
+        self.logger.trace(f'ViewContext._update_integer: {param} set to {value}')
         self.parameters[param] = value
 
     def _update_boolean(self, param, default_value=False):
@@ -291,9 +307,9 @@ class ViewContext:
             try:
                 value = strtobool(str_value)
             except ValueError:
-                self.store_message = error_message('{} is not a boolean-like: {}'.format(param, str_value))
+                self.store_message = error_message(f'{param} is not a boolean-like: {str_value}')
         # assign value found or default
-        self.logger.trace('ViewContext._update_boolean: {} set to {}'.format(param, value))
+        self.logger.trace(f'ViewContext._update_boolean: {param} set to {value}')
         self.parameters[param] = value
 
     @staticmethod

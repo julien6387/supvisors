@@ -110,10 +110,6 @@ behavior may happen. The present section details where it is applicable.
         Like the host names, the IP addresses are expected to be known to every nodes in the list.
         If it's not the case, check the network configuration.
 
-``address_list``
-
-    *DEPRECATED* Please use ``supvisors_list``. This parameter will be removed in the next |Supvisors| version.
-
 ``rules_files``
 
     A space-separated sequence of file globs, in the same vein as
@@ -127,10 +123,6 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  Yes.
-
-``rules_file``
-
-    *DEPRECATED* Please use ``rules_files``. This parameter will be removed in the next |Supvisors| version.
 
 ``auto_fence``
 
@@ -179,6 +171,18 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
+``inactivity_ticks``
+
+    By default, a remote |Supvisors| instance is considered inactive when no tick has been received from it while 2
+    ticks have been received fom the local |Supvisors| instance, which may be a bit strict in a busy network.
+    This option allows to loosen the constraint. Value in [``2`` ; ``720``].
+
+    *Default*:  ``2``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``core_identifiers``
 
     A subset of the names deduced from ``supvisors_list``, separated by commas. If the |Supvisors| instances of this
@@ -192,10 +196,6 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  Yes.
-
-``force_synchro_if``
-
-    *DEPRECATED* Please use ``core_identifiers``. This parameter will be removed in the next |Supvisors| version.
 
 ``starting_strategy``
 
@@ -368,6 +368,7 @@ Configuration File Example
     internal_port = 60001
     event_port = 60002
     synchro_timeout = 20
+    inactivity_ticks = 3
     core_identifiers = cliche81,cliche82
     starting_strategy = CONFIG
     conciliation_strategy = USER
@@ -436,22 +437,45 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``pattern``
 
-    A substring matching one or more |Supervisor| group names is expected in this attribute.
+    A regex matching one or more |Supervisor| group names is expected in this attribute.
     Refer to `Using patterns`_ for more details.
 
     *Default*:  None.
 
     *Required*:  Yes, unless a ``name`` attribute is provided.
 
-``distributed``
+.. note::
+
+    The options of the ``application`` section MUST be declared in the following order.
+    In the next version of |Supvisors|, it will be possible to declare them in any order.
+
+``distribution``
 
     In the introduction, it is written that the aim of |Supvisors| is to manage distributed applications.
     However, it may happen that some applications are not designed to be distributed (for example due to inter-process
     communication design) and thus distributing the application processes over multiple nodes would just make
     the application non operational.
-    If set to ``true``, |Supvisors| will start all the application processes on the same |Supvisors| instance,
-    provided that such a |Supvisors| instance can be found based on the application rules ``starting_strategy``
-    and ``identifiers``.
+    If set to ``ALL_INSTANCES``, |Supvisors| will distribute the application processes over the applicable |Supvisors|
+    instances.
+    If set to ``SINGLE_INSTANCE``, |Supvisors| will start all the application processes in the same |Supvisors|
+    instance.
+    If set to ``SINGLE_NODE``, |Supvisors| will distribute all the application processes over a set of |Supvisors|
+    instances running on the same node.
+
+    *Default*:  ``ALL_INSTANCES``.
+
+    *Required*:  No.
+
+.. note::
+
+    When a single |Supvisors| instance is running on each node, ``SINGLE_INSTANCE`` and ``SINGLE_NODE`` are strictly
+    equivalent.
+
+``distributed``
+
+    *DEPRECATED* Please use ``distribution``. ``true`` is equivalent to ``ALL_INSTANCES`` in the ``distribution``
+    option and ``false`` is equivalent to ``SINGLE_INSTANCE``. This parameter will be removed in the next |Supvisors|
+    version.
 
     *Default*:  ``true``.
 
@@ -459,19 +483,19 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``identifiers``
 
-    This element is only used when ``distributed`` is set to ``false`` and gives the list of |Supvisors| instances
-    where the application programs can be started. The names are to be taken from the names deduced from the
-    ``supvisors_list`` parameter defined in `rpcinterface extension point`_ or from the declared `Instance aliases`_,
-    and separated by commas.
-    Special values can be applied.
+    This element is only used when ``distribution`` is set to ``SINGLE_INSTANCE`` or ``SINGLE_NODE`` and gives the list
+    of |Supvisors| instances where the application programs can be started. The names are to be taken from the names
+    deduced from the ``supvisors_list`` parameter defined in `rpcinterface extension point`_ or from the declared
+    `Instance aliases`_, and separated by commas.
+    Special values can be used.
 
     The wildcard ``*`` stands for all names deduced from ``supvisors_list``.
     Any name list including a ``*`` is strictly equivalent to ``*`` alone.
 
-    The hashtag ``#`` can be used in a ``pattern`` definition and eventually complemented by a list of deduced names.
-    The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list (made of
-    names deduced from ``supvisors_list``) to the Nth instance of the application, **assuming that 'N' is provided
-    at the end of the application name, preceded by a dash or an underscore**.
+    The hashtag ``#`` can be used with a ``pattern`` definition and eventually complemented by a list of deduced names.
+    The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list
+    (made of names deduced from ``supvisors_list``) to the Nth instance of the application, **assuming that 'N' is
+    provided at the end of the application name, preceded by a dash or an underscore**.
     Yeah, a bit tricky to explain... Examples will be given in `Using patterns and hashtags`_.
 
     *Default*:  ``*``.
@@ -480,12 +504,8 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 .. attention::
 
-    When the application is not to be distributed (``distributed`` set to ``false``), the rule ``identifiers`` of the
-    application programs is not considered.
-
-``addresses``
-
-    *DEPRECATED* Please use ``identifiers``. This parameter will be removed in the next |Supvisors| version.
+    When the distribution of the application is restricted (``distribution`` not set to ``ALL_INSTANCES``), the rule
+    ``identifiers`` of the application programs is not considered.
 
 ``start_sequence``
 
@@ -542,7 +562,8 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     This element gives the strategy applied when the application loses running processes due to a |Supvisors| instance
     that becomes silent (crash, power down, network failure, etc).
     This value can be superseded by the value set at program level.
-    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
+    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION``,
+    ``SHUTDOWN``, ``RESTART`` }
     and are detailed in :ref:`running_failure_strategy`.
 
     *Default*:  ``CONTINUE``.
@@ -551,12 +572,20 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``program``
 
-    This element defines the rules that are applicable to the program whose name matches the ``name`` or ``pattern``
-    attribute of the element. The ``name`` must match exactly a program name
-    in the program list of the
-    `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
+    In a ``programs`` section, this element defines the rules that are applicable to the program whose name matches
+    the ``name`` or ``pattern`` attribute of the element. The ``name`` must match exactly a program name in the program
+    list of the `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
     for the application considered here.
-    Obviously, the definition of an application can include multiple ``program`` elements.
+    *DEPRECATED* The definition of an application can include multiple ``program`` elements.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+``programs``
+
+    This element is the grouping section of all ``program`` rules that are applicable to the application.
+    Obviously, the ``programs`` element of an application can include multiple ``program`` elements.
 
     *Default*:  None.
 
@@ -566,8 +595,13 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 ``<program>`` rules
 ~~~~~~~~~~~~~~~~~~~
 
-The ``program`` element defines the rules applicable to at least one program. This element must be included in an
-``application`` element. Here follows the definition of the attributes and rules applicable to this element.
+The ``program`` element defines the rules applicable to at least one program. This element should be included in an
+``programs`` element. *DEPRECATED* It can be also directly included in an ``application`` element.
+Here follows the definition of the attributes and rules applicable to this element.
+
+.. note::
+
+    The options below can be declared in any order in the ``program`` section.
 
 ``name``
 
@@ -580,7 +614,7 @@ The ``program`` element defines the rules applicable to at least one program. Th
 
 ``pattern``
 
-    A substring matching one or more |Supervisor| program names is expected in this attribute.
+    A regex matching one or more |Supervisor| program names is expected in this attribute.
     Refer to the `Using patterns`_ for more details.
 
     *Default*:  None.
@@ -597,7 +631,7 @@ The ``program`` element defines the rules applicable to at least one program. Th
     The wildcard ``*`` stands for all names deduced from ``supvisors_list``.
     Any name list including a ``*`` is strictly equivalent to ``*`` alone.
 
-    The hashtag ``#`` can be used in a ``pattern`` definition and eventually complemented by a list of deduced names.
+    The hashtag ``#`` can be used with a ``pattern`` definition and eventually complemented by a list of deduced names.
     The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list (made of
     names deduced from ``supvisors_list``) to the Nth instance of the program in a homogeneous process group.
     Examples will be given in `Using patterns and hashtags`_.
@@ -605,10 +639,6 @@ The ``program`` element defines the rules applicable to at least one program. Th
     *Default*:  ``*``.
 
     *Required*:  No.
-
-``addresses``
-
-    *DEPRECATED* Please use ``identifiers``. This parameter will be removed in the next |Supvisors| version.
 
 ``required``
 
@@ -671,11 +701,22 @@ The ``program`` element defines the rules applicable to at least one program. Th
         It is recommended to give a value based on an average usage of the resources in the worst case
         configuration and to add a margin corresponding to the standard deviation.
 
+``starting_failure_strategy``
+
+    This element gives the strategy applied upon a major failure, i.e. happening on a required process,
+    in the starting phase of an application. This value supersedes the value eventually set at application level.
+    The possible values are { ``ABORT``, ``STOP``, ``CONTINUE`` } and are detailed in :ref:`starting_failure_strategy`.
+
+    *Default*:  ``ABORT``.
+
+    *Required*:  No.
+
 ``running_failure_strategy``
 
     This element gives the strategy applied when the process is running in a |Supvisors| instance that becomes silent
-    (crash, power down, network failure, etc). This value supersedes the value set at application level.
-    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
+    (crash, power down, network failure, etc). This value supersedes the value eventually set at application level.
+    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION``,
+    ``SHUTDOWN``, ``RESTART`` }
     and their impact is detailed in :ref:`running_failure_strategy`.
 
     *Default*:  ``CONTINUE``.
@@ -726,7 +767,7 @@ It can be used to configure a set of programs in a more flexible way than just c
 like |Supervisor| does.
 
 The same ``program`` options are applicable, whatever a ``name`` attribute or a ``pattern`` attribute is used.
-For a ``pattern`` attribute, a substring (*not a regexp*) matching one |Supervisor| program name or more is expected.
+For a ``pattern`` attribute, a regex (or a simple substring) matching one |Supervisor| program name or more is expected.
 
 .. code-block:: xml
 
@@ -746,7 +787,7 @@ For a ``pattern`` attribute, a substring (*not a regexp*) matching one |Supervis
     the exact program name set in the ``name`` attribute, and only if not found, |Supvisors| tries to find a
     corresponding ``program`` definition with a matching ``pattern``.
 
-    It also may happen that several patterns match the same program name. In this case, |Supvisors| chooses the
+    It also may happen that multiple patterns match the same program name. In this case, |Supvisors| chooses the
     pattern with the greatest matching, or arbitrarily the first of them if such a rule does not discriminate enough.
     So considering the program :program:`prg_00` and the two matching patterns ``prg`` and ``prg_``, |Supvisors| will
     apply the rules related to ``prg_``.
@@ -811,7 +852,7 @@ Now with this option, the rule becomes more simple.
 
 .. code-block:: xml
 
-    <program pattern="prg_">
+    <program pattern="prg_\d+">
         <identifiers>#</identifiers>
     </program>
 
@@ -819,7 +860,7 @@ It is also possible to give a subset of deduced names.
 
 .. code-block:: xml
 
-    <program pattern="prg_">
+    <program pattern="prg_\d+">
         <identifiers>#,cliche04,cliche02</identifiers>
     </program>
 
@@ -982,20 +1023,22 @@ Here follows a complete example of a rules file. It is used in |Supvisors| self 
             <start_sequence>2</start_sequence>
             <starting_failure_strategy>STOP</starting_failure_strategy>
 
-            <program pattern="mount_disk_">
-                <identifiers>distribute_sublist</identifiers>
-                <start_sequence>1</start_sequence>
-                <required>true</required>
-                <expected_loading>0</expected_loading>
-            </program>
+            <programs>
+                <program pattern="mount_disk_">
+                    <identifiers>distribute_sublist</identifiers>
+                    <start_sequence>1</start_sequence>
+                    <required>true</required>
+                    <expected_loading>0</expected_loading>
+                </program>
 
-            <program name="copy_error">
-                <identifiers>cliche81</identifiers>
-                <start_sequence>2</start_sequence>
-                <required>true</required>
-                <wait_exit>true</wait_exit>
-                <expected_loading>25</expected_loading>
-            </program>
+                <program name="copy_error">
+                    <identifiers>cliche81</identifiers>
+                    <start_sequence>2</start_sequence>
+                    <required>true</required>
+                    <wait_exit>true</wait_exit>
+                    <expected_loading>25</expected_loading>
+                </program>
+            </programs>
 
         </application>
 
@@ -1003,19 +1046,21 @@ Here follows a complete example of a rules file. It is used in |Supvisors| self 
         <application name="database">
             <start_sequence>3</start_sequence>
 
-            <program pattern="movie_server_">
-                <identifiers>#</identifiers>
-                <start_sequence>1</start_sequence>
-                <expected_loading>5</expected_loading>
-                <running_failure_strategy>CONTINUE</running_failure_strategy>
-            </program>
+            <programs>
+                <program pattern="movie_server_">
+                    <identifiers>#</identifiers>
+                    <start_sequence>1</start_sequence>
+                    <expected_loading>5</expected_loading>
+                    <running_failure_strategy>CONTINUE</running_failure_strategy>
+                </program>
 
-            <program pattern="register_movies_">
-                <identifiers>#,cliche81,cliche83:60000</identifiers>
-                <start_sequence>2</start_sequence>
-                <wait_exit>true</wait_exit>
-                <expected_loading>25</expected_loading>
-            </program>
+                <program pattern="register_movies_">
+                    <identifiers>#,cliche81,cliche83:60000</identifiers>
+                    <start_sequence>2</start_sequence>
+                    <wait_exit>true</wait_exit>
+                    <expected_loading>25</expected_loading>
+                </program>
+            </programs>
 
         </application>
 
@@ -1025,82 +1070,86 @@ Here follows a complete example of a rules file. It is used in |Supvisors| self 
             <starting_strategy>CONFIG</starting_strategy>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
-            <program name="manager">
-                <identifiers>*</identifiers>
-                <start_sequence>1</start_sequence>
-                <stop_sequence>3</stop_sequence>
-                <required>true</required>
-                <expected_loading>5</expected_loading>
-                <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
-            </program>
+            <programs>
+                <program name="manager">
+                    <identifiers>*</identifiers>
+                    <start_sequence>1</start_sequence>
+                    <stop_sequence>3</stop_sequence>
+                    <required>true</required>
+                    <expected_loading>5</expected_loading>
+                    <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+                </program>
 
-            <program name="web_server">
-                <identifiers>cliche84</identifiers>
-                <start_sequence>2</start_sequence>
-                <required>true</required>
-                <expected_loading>3</expected_loading>
-            </program>
+                <program name="web_server">
+                    <identifiers>cliche84</identifiers>
+                    <start_sequence>2</start_sequence>
+                    <required>true</required>
+                    <expected_loading>3</expected_loading>
+                </program>
 
-            <program name="hmi">
-                <identifiers>consoles</identifiers>
-                <start_sequence>3</start_sequence>
-                <stop_sequence>1</stop_sequence>
-                <expected_loading>10</expected_loading>
-                <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
-            </program>
+                <program name="hmi">
+                    <identifiers>consoles</identifiers>
+                    <start_sequence>3</start_sequence>
+                    <stop_sequence>1</stop_sequence>
+                    <expected_loading>10</expected_loading>
+                    <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
+                </program>
 
-            <program pattern="disk_01_">
-                <reference>disk_01</reference>
-            </program>
+                <program pattern="disk_01_">
+                    <reference>disk_01</reference>
+                </program>
 
-            <program pattern="disk_02_">
-                <reference>disk_02</reference>
-            </program>
+                <program pattern="disk_02_">
+                    <reference>disk_02</reference>
+                </program>
 
-            <program pattern="disk_03_">
-                <reference>disk_03</reference>
-            </program>
+                <program pattern="disk_03_">
+                    <reference>disk_03</reference>
+                </program>
 
-            <program pattern="error_disk_">
-                <reference>disk_01</reference>
-                <identifiers>*</identifiers>
-            </program>
+                <program pattern="error_disk_">
+                    <reference>disk_01</reference>
+                    <identifiers>*</identifiers>
+                </program>
 
-            <program name="converter_04">
-                <reference>converter</reference>
-                <identifiers>cliche83:60000,cliche81,cliche82</identifiers>
-            </program>
+                <program name="converter_04">
+                    <reference>converter</reference>
+                    <identifiers>cliche83:60000,cliche81,cliche82</identifiers>
+                </program>
 
-            <program name="converter_07">
-                <reference>converter</reference>
-                <identifiers>cliche81,cliche83:60000,cliche82</identifiers>
-            </program>
+                <program name="converter_07">
+                    <reference>converter</reference>
+                    <identifiers>cliche81,cliche83:60000,cliche82</identifiers>
+                </program>
 
-            <program pattern="converter_">
-                <reference>converter</reference>
-            </program>
+                <program pattern="converter_">
+                    <reference>converter</reference>
+                </program>
+            <programs>
 
          </application>
 
         <!-- player application -->
         <application name="player">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>cliche81,cliche83:60000</identifiers>
             <start_sequence>5</start_sequence>
             <starting_strategy>MOST_LOADED</starting_strategy>
             <starting_failure_strategy>ABORT</starting_failure_strategy>
 
-            <program name="test_reader">
-                <start_sequence>1</start_sequence>
-                <required>true</required>
-                <wait_exit>true</wait_exit>
-                <expected_loading>2</expected_loading>
-            </program>
+            <programs>
+                <program name="test_reader">
+                    <start_sequence>1</start_sequence>
+                    <required>true</required>
+                    <wait_exit>true</wait_exit>
+                    <expected_loading>2</expected_loading>
+                </program>
 
-            <program name="movie_player">
-                <start_sequence>2</start_sequence>
-                <expected_loading>13</expected_loading>
-            </program>
+                <program name="movie_player">
+                    <start_sequence>2</start_sequence>
+                    <expected_loading>13</expected_loading>
+                </program>
+            </programs>
 
         </application>
 
@@ -1110,12 +1159,14 @@ Here follows a complete example of a rules file. It is used in |Supvisors| self 
             <stop_sequence>2</stop_sequence>
             <starting_strategy>LESS_LOADED</starting_strategy>
 
-            <program name="web_browser">
-                <identifiers>*</identifiers>
-                <start_sequence>1</start_sequence>
-                <expected_loading>4</expected_loading>
-                <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
-            </program>
+            <programs>
+                <program name="web_browser">
+                    <identifiers>*</identifiers>
+                    <start_sequence>1</start_sequence>
+                    <expected_loading>4</expected_loading>
+                    <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
+                </program>
+            </programs>
 
         </application>
 

@@ -40,8 +40,9 @@ public class SupvisorsStatus {
         OPERATION(2),
         CONCILIATION(3),
         RESTARTING(4),
-        SHUTTING_DOWN(5),
-        SHUTDOWN(6);
+        RESTART(5),
+        SHUTTING_DOWN(6),
+        SHUTDOWN(7);
 
         /** The state code. */
         private int stateCode;

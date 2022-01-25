@@ -40,7 +40,7 @@ def test_creation_no_collector(mocker, supvisors):
     # check attributes
     assert listener.supvisors == supvisors
     assert listener.collector is None
-    assert listener.local_identifier == '127.0.0.1'
+    assert listener.local_identifier == supvisors.supvisors_mapper.local_identifier
     assert listener.pusher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
@@ -49,6 +49,7 @@ def test_creation_no_collector(mocker, supvisors):
     assert (ProcessStateEvent, listener.on_process_state) in callbacks
     assert (ProcessAddedEvent, listener.on_process_added) in callbacks
     assert (ProcessRemovedEvent, listener.on_process_removed) in callbacks
+    assert (ProcessGroupAddedEvent, listener.on_group_added) in callbacks
     assert (Tick5Event, listener.on_tick) in callbacks
     assert (RemoteCommunicationEvent, listener.on_remote_event) in callbacks
 
@@ -59,7 +60,7 @@ def test_creation(mocker, supvisors, listener):
     # check attributes
     assert listener.supvisors is supvisors
     assert listener.collector is mocked_collector
-    assert listener.local_identifier == '127.0.0.1'
+    assert listener.local_identifier == supvisors.supvisors_mapper.local_identifier
     assert listener.pusher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
@@ -68,6 +69,7 @@ def test_creation(mocker, supvisors, listener):
     assert (ProcessStateEvent, listener.on_process_state) in callbacks
     assert (ProcessAddedEvent, listener.on_process_added) in callbacks
     assert (ProcessRemovedEvent, listener.on_process_removed) in callbacks
+    assert (ProcessGroupAddedEvent, listener.on_group_added) in callbacks
     assert (Tick5Event, listener.on_tick) in callbacks
     assert (RemoteCommunicationEvent, listener.on_remote_event) in callbacks
 
@@ -76,12 +78,14 @@ def test_on_running(mocker, listener):
     """ Test the reception of a Supervisor RUNNING event. """
     ref_pusher = listener.pusher
     ref_main_loop = listener.main_loop
-    mocked_infosource = mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler')
+    mocked_replace = mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler')
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'prepare_extra_args')
     mocked_zmq = mocker.patch('supvisors.listener.SupervisorZmq')
     mocked_loop = mocker.patch('supvisors.listener.SupvisorsMainLoop')
     listener.on_running('')
     # test attributes and calls
-    assert mocked_infosource.called
+    assert mocked_replace.called
+    assert mocked_prepare.called
     assert mocked_zmq.called
     assert listener.pusher is not ref_pusher
     assert mocked_loop.called
@@ -167,6 +171,15 @@ def test_on_process_removed(listener):
     listener.on_process_removed(event)
     expected = [call({'name': 'dummy_process', 'group': 'dummy_group'})]
     assert listener.pusher.send_process_removed_event.call_args_list == expected
+
+
+def test_on_group_added(mocker, listener):
+    """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'prepare_extra_args')
+    # test process event
+    event = ProcessGroupAddedEvent('dummy_application')
+    listener.on_group_added(event)
+    assert mocked_prepare.call_args_list == [call('dummy_application')]
 
 
 def test_on_tick(mocker, listener):
@@ -321,18 +334,13 @@ def test_on_remote_event(mocker, listener):
 def test_force_process_state(mocker, listener):
     """ Test the sending of a fake Supervisor process event. """
     mocker.patch('supvisors.listener.time.time', return_value=56)
-    mocker.patch.object(listener.supvisors.supervisor_data, 'get_process_config_options', return_value={'extra_args': '-h'})
     # patch publisher
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
     # test the call
-    listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
-    expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
+    process = Mock(application_name='appli', process_name='process', extra_args='-h')
+    listener.force_process_state(process, ProcessStates.STARTING, '10.0.0.1', ProcessStates.FATAL, 'bad luck')
+    expected = [call({'name': 'process', 'group': 'appli', 'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+                      'forced_state': ProcessStates.FATAL,
                       'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected
     listener.pusher.send_process_state_event.reset_mock()
-    # test the call with unknown process in Supervisor
-    listener.supvisors.supervisor_data.get_process_config_options.side_effect = KeyError
-    listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
-    expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
-                      'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
-    assert listener.pusher.send_process_state_event.call_args_list == expected

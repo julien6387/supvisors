@@ -107,6 +107,19 @@ def test_statistics_functions():
     assert pytest.approx(stddev([2, 5, 4, 6, 3], 4)) == math.sqrt(2)
 
 
+def test_bit_manipulation():
+    """ Test the bit manipulation functions. """
+    ba = bytearray(3)
+    for bit in range(3*8):
+        assert get_bit(ba, bit) == 0
+    for bit in range(3*4):
+        set_bit(ba, 2*bit, 1)
+    assert ba.hex() == '555555'
+    for bit in range(3*4):
+        set_bit(ba, 2*bit, 0)
+    assert ba.hex() == '000000'
+
+
 def test_linear_regression_numpy():
     """ Test the linear regression using numpy (if installed). """
     pytest.importorskip('numpy')

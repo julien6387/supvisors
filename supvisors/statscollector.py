@@ -17,22 +17,22 @@
 # limitations under the License.
 # ======================================================================
 
-from psutil import (cpu_times,
-                    net_io_counters,
-                    virtual_memory,
-                    Process,
-                    NoSuchProcess)
-from time import time
+import os
 
-from supvisors.utils import mean
+from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
+from time import time
+from typing import List
+
+from .ttypes import JiffiesList, InterfaceInstantStats, InstantStatistics, NamedPidList, ProcessStats
+from .utils import mean
 
 
 # CPU statistics
-def instant_cpu_statistics():
+def instant_cpu_statistics() -> JiffiesList:
     """ Return the instant work+idle jiffies for all the processors.
     The average on all processors is inserted in front of the list. """
-    work = []
-    idle = []
+    work: List[float] = []
+    idle: List[float] = []
     # CPU details
     cpu_stats = cpu_times(percpu=True)
     for cpu_stat in cpu_stats:
@@ -47,17 +47,17 @@ def instant_cpu_statistics():
 
 
 # Memory statistics
-def instant_memory_statistics():
+def instant_memory_statistics() -> float:
     """ Return the instant value of the memory reserved.
-    This is different from the memory used as it does not include the percent
-    of memory that is available (in cache or swap). """
+    This is different from the memory used as it does not include the percent of memory that is available
+    (in cache or swap). """
     return virtual_memory().percent
 
 
 # Network statistics
-def instant_io_statistics():
+def instant_io_statistics() -> InterfaceInstantStats:
     """ Return the instant values of receive / sent bytes per network interface. """
-    result = {}
+    result: InterfaceInstantStats = {}
     # IO details
     io_stats = net_io_counters(pernic=True)
     for intf, io_stat in io_stats.items():
@@ -66,14 +66,21 @@ def instant_io_statistics():
 
 
 # Process statistics
-def instant_process_statistics(pid):
+def instant_process_statistics(pid, children=True) -> ProcessStats:
     """ Return the instant jiffies and memory values for the process identified by pid. """
     work = memory = 0
     try:
+        # get main process
         proc = Process(pid)
-        for p in [proc] + proc.children(recursive=True):
-            work += sum(p.cpu_times())
-            memory += p.memory_percent()
+        # Note: using Process.oneshot has no value (2 accesses and memory_percent not included in cache for Linux)
+        # include children CPU times but exclude iowait
+        work = sum(proc.cpu_times()[:4])
+        memory = proc.memory_percent()
+        # consider children
+        if children:
+            for p in proc.children(recursive=True):
+                # children CPU times are already considered in parent
+                memory += p.memory_percent()
     except (NoSuchProcess, ValueError):
         # process may have disappeared in the interval
         pass
@@ -82,9 +89,14 @@ def instant_process_statistics(pid):
 
 
 # Snapshot of all resources
-def instant_statistics(named_pid_list):
+def instant_statistics(named_pid_list: NamedPidList) -> InstantStatistics:
     """ Return a tuple of all measures taken on the CPU, Memory and IO resources. """
     proc_statistics = {process_name: (pid, instant_process_statistics(pid))
                        for process_name, pid in named_pid_list}
+    # add supervisord statistics, without considering its children
+    # supervisord is the father of all named_pids so that should give a grand total
+    self_pid = os.getpid()
+    proc_statistics['supervisord'] = self_pid, instant_process_statistics(self_pid, False)
+    # return a Tuple with everything
     return (time(), instant_cpu_statistics(), instant_memory_statistics(),
             instant_io_statistics(), proc_statistics)

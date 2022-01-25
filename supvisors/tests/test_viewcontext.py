@@ -56,7 +56,7 @@ def test_init(http_context, ctx):
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
     assert ctx.local_identifier == ctx.supvisors.supvisors_mapper.local_identifier
-    assert ctx.parameters == {'identifier': '10.0.0.4', 'namespec': None, 'period': 5,
+    assert ctx.parameters == {'ident': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
     # errors must be set due to dummy values
@@ -71,18 +71,13 @@ def test_init_no_stats(http_context, ctx_no_stats):
     assert ctx_no_stats.http_context is http_context
     assert ctx_no_stats.supvisors is http_context.supervisord.supvisors
     assert ctx_no_stats.local_identifier == ctx_no_stats.supvisors.supvisors_mapper.local_identifier
-    assert ctx_no_stats.parameters == {'identifier': '10.0.0.4', 'namespec': None, 'appliname': None,
+    assert ctx_no_stats.parameters == {'ident': '10.0.0.4', 'namespec': None, 'appliname': None,
                                        'processname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
     # errors must be set due to dummy values
     assert isinstance(ctx_no_stats.store_message, tuple)
     assert len(ctx_no_stats.store_message) == 2
     assert ctx_no_stats.store_message[0] == 'erro'
     assert not ctx_no_stats.redirect
-
-
-def test_get_server_port(ctx):
-    """ Test the ViewContext.get_server_port method. """
-    assert ctx.get_server_port() == 7777
 
 
 def test_get_action(ctx):
@@ -108,10 +103,10 @@ def test_get_gravity(ctx):
 def test_url_parameters(ctx):
     """ Test the ViewContext.url_parameters method. """
     # test default
-    assert ctx.url_parameters(False) == 'identifier=10.0.0.4&period=5&strategy=CONFIG'
-    assert ctx.url_parameters(True) == 'identifier=10.0.0.4&period=5&strategy=CONFIG'
+    assert ctx.url_parameters(False) == 'ident=10.0.0.4&period=5&strategy=CONFIG'
+    assert ctx.url_parameters(True) == 'ident=10.0.0.4&period=5&strategy=CONFIG'
     # update internal parameters
-    ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'identifier': '10.0.0.1', 'cpuid': 3,
+    ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'ident': '10.0.0.1', 'cpuid': 3,
                            'intfname': 'eth0', 'appliname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG',
                            'shex': '10101'})
     # test without additional parameters
@@ -121,7 +116,7 @@ def test_url_parameters(ctx):
     regexp = r'&'.join([url_attr_template for _ in range(9)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'identifier=10.0.0.1', 'cpuid=3', 'intfname=eth0',
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1', 'cpuid=3', 'intfname=eth0',
                        'appliname=dummy_appli', 'period=8', 'strategy=CONFIG', 'shex=10101'))
     assert sorted(matches.groups()) == expected
     # reset shex
@@ -130,25 +125,25 @@ def test_url_parameters(ctx):
     regexp = r'&'.join([url_attr_template for _ in range(8)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'identifier=10.0.0.1', 'cpuid=3', 'intfname=eth0',
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1', 'cpuid=3', 'intfname=eth0',
                        'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # don't reset shex
-    url = ctx.url_parameters(False, **{'identifier': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
+    url = ctx.url_parameters(False, **{'ident': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
     regexp = r'&'.join([url_attr_template for _ in range(9)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'identifier=127.0.0.1', 'cpuid=3', 'intfname=lo',
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1', 'cpuid=3', 'intfname=lo',
                        'shex=args', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # reset shex
-    url = ctx.url_parameters(True, **{'identifier': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
+    url = ctx.url_parameters(True, **{'ident': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
     regexp = r'&'.join([url_attr_template for _ in range(8)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'identifier=127.0.0.1', 'cpuid=3', 'intfname=lo',
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1', 'cpuid=3', 'intfname=lo',
                        'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
     assert sorted(matches.groups()) == expected
 
@@ -276,7 +271,7 @@ def test_update_period(mocker, ctx):
     assert not mocked_update.called
 
 
-def test_update_node_name(ctx):
+def test_update_identifier(ctx):
     """ Test the ViewContext.update_identifier method. """
     # reset parameter because called in constructor
     del ctx.parameters[IDENTIFIER]
@@ -288,7 +283,7 @@ def test_update_node_name(ctx):
     # test call with invalid value
     ctx.http_context.form[IDENTIFIER] = '192.168.1.1'
     ctx.update_identifier()
-    assert ctx.parameters[IDENTIFIER] == '127.0.0.1'
+    assert ctx.parameters[IDENTIFIER] == ctx.local_identifier
 
 
 def test_update_auto_refresh(ctx):
@@ -331,8 +326,8 @@ def test_update_application_name(ctx):
 
 def test_update_process_name(mocker, ctx):
     """ Test the ViewContext.update_process_name method. """
-    ctx.parameters[IDENTIFIER] = '127.0.0.1'
-    node = ctx.supvisors.context.instances['127.0.0.1']
+    ctx.parameters[IDENTIFIER] = ctx.local_identifier
+    node = ctx.supvisors.context.instances[ctx.local_identifier]
     mocker.patch.object(node, 'running_processes', return_value=[])
     # reset parameter because called in constructor
     del ctx.parameters[PROCESS]
@@ -404,16 +399,16 @@ def test_update_interface_name(mocker, ctx):
 def test_format_url(ctx):
     """ Test the ViewContext.format_url method. """
     # test without node and arguments
-    assert ctx.format_url(None, 'index.html') == 'index.html?identifier=10.0.0.4&period=5&strategy=CONFIG'
+    assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4&period=5&strategy=CONFIG'
     # test with local node and arguments
-    base_address = 'http://127.0.0.1:65000/index.html?'
-    url = ctx.format_url('127.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
-    expected = 'appliname=dummy_appli&identifier=10.0.0.4&period=10&shex=args&strategy=CONFIG'
+    base_address = f'http://{ctx.local_identifier}:65000/index.html?'
+    url = ctx.format_url(ctx.local_identifier, 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
+    expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&shex=args&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
     url = ctx.format_url('10.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     base_address = 'http://10.0.0.1:65000/index.html?'
-    expected = 'appliname=dummy_appli&identifier=10.0.0.4&period=10&strategy=CONFIG'
+    expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&strategy=CONFIG'
     assert url == base_address + expected
 
 
@@ -424,7 +419,7 @@ def test_fire_message(ctx):
     # result depends on dict contents so ordering is unreliable
     url = ctx.http_context.response['headers']['Location']
     base_address = 'http://10.0.0.1:7777/index.html?'
-    expected = 'gravity=warning&identifier=10.0.0.4&message=not%20as%20expected&period=5&strategy=CONFIG'
+    expected = 'gravity=warning&ident=10.0.0.4&message=not%20as%20expected&period=5&strategy=CONFIG'
     assert url == base_address + expected
 
 
@@ -450,12 +445,12 @@ def test_get_node_stats(ctx):
     assert ctx.get_instance_stats() is None
     # add statistics data
     stats_data = ctx.http_context.supervisord.supvisors.statistician.data
-    stats_data['127.0.0.1'] = {5: 'data for period 5 at 127.0.0.1',
-                               8: 'data for period 8 at 127.0.0.1'}
+    stats_data[ctx.local_identifier] = {5: 'data for period 5 at self',
+                                        8: 'data for period 8 at self'}
     stats_data['10.0.0.1'] = {5: 'data for period 5 at 10.0.0.1',
                               10: 'data for period 10 at 10.0.0.1'}
     # test with default address
-    assert ctx.get_instance_stats() == 'data for period 5 at 127.0.0.1'
+    assert ctx.get_instance_stats() == 'data for period 5 at self'
     # test with unknown address parameter
     assert ctx.get_instance_stats('10.0.0.2') is None
     # test with known address parameter and existing period
@@ -463,7 +458,7 @@ def test_get_node_stats(ctx):
     # update period
     ctx.parameters[PERIOD] = 8
     # test with default address and existing period
-    assert ctx.get_instance_stats() == 'data for period 8 at 127.0.0.1'
+    assert ctx.get_instance_stats() == 'data for period 8 at self'
     # test with known address parameter but missing period
     assert ctx.get_instance_stats('10.0.0.1') is None
 
@@ -476,7 +471,7 @@ def test_get_process_stats(mocker, ctx):
     # patch get_address_stats so that it returns no result
     with patch.object(ctx, 'get_instance_stats', return_value=None) as mocked_stats:
         assert ctx.get_process_stats('dummy_proc') == (4, None)
-        assert mocked_stats.call_args_list == [call('127.0.0.1')]
+        assert mocked_stats.call_args_list == [call(ctx.local_identifier)]
     mocked_core.reset_mock()
     # patch get_address_stats
     mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
@@ -515,6 +510,13 @@ def test_get_process_status(mocker, ctx):
     assert ctx.get_process_status('dummy_proc') == 'dummy_proc'
 
 
+def test_get_default_shex(ctx):
+    """ Test the ViewContext.get_default_shex method. """
+    ctx.supvisors.context.applications = {f'appli_{x}': Mock() for x in range(15)}
+    assert ctx.get_default_shex(True).hex() == 'ffff'
+    assert ctx.get_default_shex(False).hex() == '0000'
+
+
 def test_update_shrink_expand(ctx):
     """ Test the ViewContext.update_shrink_expand method. """
     # check default
@@ -524,27 +526,44 @@ def test_update_shrink_expand(ctx):
     ctx.supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
     # test with unknown parameter and no default value
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '111'
-    # add unexpected value in form (there should be only 0-1)
-    ctx.http_context.form[SHRINK_EXPAND] = '123'
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
+    # add unexpected value in form (there should be only even number of hexadecimal chars)
+    ctx.http_context.form[SHRINK_EXPAND] = '12A'
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '111'
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
+    ctx.http_context.form[SHRINK_EXPAND] = '12AG'
+    ctx.update_shrink_expand()
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
     # update form with unexpected value (string length should be equal to the number of applications)
     ctx.http_context.form[SHRINK_EXPAND] = '0101'
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '111'
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
     # update form with valid value
-    ctx.http_context.form[SHRINK_EXPAND] = '010'
+    ctx.http_context.form[SHRINK_EXPAND] = '9a'
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '010'
+    assert ctx.parameters[SHRINK_EXPAND] == '9a'
 
 
 def test_get_application_shex(ctx):
     """ Test the ViewContext.get_application_shex method. """
     # patch the context
     ctx.supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
-    ctx.parameters[SHRINK_EXPAND] = '010'
-    # test calls
-    assert ctx.get_application_shex('abc') == (False, '110')
-    assert ctx.get_application_shex('def') == (True, '000')
-    assert ctx.get_application_shex('ghi') == (False, '011')
+    # only 'def' is visible
+    ba = bytearray([0xff])
+    set_bit(ba, 0, 0)
+    set_bit(ba, 2, 0)
+    assert ba.hex() == 'fa'
+    ctx.parameters[SHRINK_EXPAND] = 'fa'
+    # test calls and inversion
+    assert ctx.get_application_shex('abc') == (False, 'fb')
+    assert get_bit(ba.fromhex('fb'), 0)
+    assert get_bit(ba.fromhex('fb'), 1)
+    assert not get_bit(ba.fromhex('fb'), 2)
+    assert ctx.get_application_shex('def') == (True, 'f8')
+    assert not get_bit(ba.fromhex('f8'), 0)
+    assert not get_bit(ba.fromhex('f8'), 1)
+    assert not get_bit(ba.fromhex('f8'), 2)
+    assert ctx.get_application_shex('ghi') == (False, 'fe')
+    assert not get_bit(ba.fromhex('fe'), 0)
+    assert get_bit(ba.fromhex('fe'), 1)
+    assert get_bit(ba.fromhex('fe'), 2)

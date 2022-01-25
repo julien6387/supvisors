@@ -1,8 +1,84 @@
 # Change Log
 
+## 0.12 (2022-01-26)
+
+* Fix crash following a `supervisorctl update` as the group added doesn't include `extra_args` and `command_ref`
+  attributes in the Supervisor internal structure.
+
+* Fix crash when the state of the **Supvisors** master is received before any **Supvisors** instance has been confirmed.
+
+* Fix crash when receiving process state events from a **Supvisors** instance that has been checked while it was in a
+  `RESTARTING` state.
+
+* Fix regression in **Supvisors** restarting / shutting down as the *Master* would actually restart / shut down
+  before notifying the other **Supvisors** instances of its state. The new **Supvisors** state `RESTART` has been
+  introduced. 
+
+* Add `supervisord` entry to the process table of the **Supvisors** instance in the Web UI.
+  This entry provides process statistics and the possibility to view the Supervisor logs.
+
+* Fix issue in Web UI with the Solaris mode not applied to the process CPU plot.
+
+* Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
+
+* Fix process children CPU times counted twice in statistics.
+
+* Add regex support to the `pattern` attribute of the `application` and `program` elements of the **Supvisors** rules
+  file.
+
+* The `distribution` option has been added to replace the `distributed` option in the **Supvisors** rules file.
+  The `distributed` option is deprecated and will be removed in the next version.
+
+* Update the starting strategies so that the node load is considered in the event where multiple **Supvisors** instances
+  are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` starting strategies have been added.
+
+* Update the `RunningFailureHandler` so that `Starter` and `Stopper` actions are all stored before they are actually 
+  triggered.
+
+* Add the `RESTART` and `SHUTDOWN` strategies to the `running_failure_strategy` option.
+
+* Update `Starter` and `Stopper` so that event timeouts are based on ticks rather than time.
+
+* Update `InfanticideStrategy` and `SenicideStrategy` so that the conciliation uses the `Stopper`.
+  This avoids duplicated conciliation requests when entering the `CONCILIATION` state.
+
+* When receiving a forced state due to a `Starter` or `Stopper` timeout, check if the expected process state has been
+  reached before actually forcing the state. Events may have crossed.
+
+* The `programs` section has been added in the `application` section of the **Supvisors** rules file.
+  All `program` definitions should be placed in this section rather than directly in the `application` section.
+  The intention is for the next **Supvisors** version to be able to declare application options in any order.
+  Note that having `program` sections directly in the `application` section is still supported but deprecated
+  and will be removed in the next version.
+
+* Add the `starting_failure_strategy` option in the `program` section of the **Supvisors** rules file.
+  It supersedes the values eventually set in the `application` section.
+
+* Add the `inactivity_ticks` option to the **Supvisors** section of the Supervisor configuration file to enable more
+  flexibility in a congested system.
+
+* Add `node_name` and `port` information to the result of the `get_instance_info` XML-RPC and to the instance status
+  of the **Supvisors** event listener.
+
+* In the Process page of the Web UI, add buttons to shrink / expand all applications.
+
+* Use a different gradient in the Web UI for running processes that have ever crashed.
+
+* Fix CSS process table cell height with recent versions of Firefox.
+
+* Use hexadecimal strings for the `shex` attribute in the Web UI URL. 
+
+* Add `action` class to the start/stop/restart/shutdown buttons in the headers of the **Supvisors** web pages.
+
+* Move PyZmq sockets creation to the main thread so that a bind error is made explicit in log traces.
+
+* Remove support to deprecated options, attributes and XML-RPCs (`address_list`, `force_synchro_if`, `rules_file`,
+  `address_name`, `addresses`, `get_master_address`, `get_address_info` and `get_all_addresses_info`).
+
+
 ## 0.11 (2022-01-02)
 
-* Fixed [Issue #99](https://github.com/julien6387/supvisors/issues/99).
+* Fix [Issue #99](https://github.com/julien6387/supvisors/issues/99).
   Update the **Supvisors** design so that it can be used to supervise multiple Supervisor instances on multiple nodes.
   This update had a major impact on the source code. More particularly:
   - The XML-RPCs `get_master_identifier`, `get_instance_info` and `get_all_instances_info` have been added to replace
@@ -29,7 +105,7 @@
     This option targets the names deduced from the `supvisors_list` option.
   - The `address`-like attributes, XML-RPCs and options are deprecated and will be removed in the next version.
 
-* Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
+* Fix [Issue #98](https://github.com/julien6387/supvisors/issues/98).
   Move the heartbeat emission to the Supvisors thread to avoid being impacted by a Supervisor momentary freeze.
   On the heartbeat reception part, consider that the node is `SILENT` based on a number of ticks instead of time.
 
@@ -113,14 +189,14 @@
 
 * Remove deprecated support of `pattern` elements.
 
-* Fixed issue when using the Web UI Application page from a previous launch.
+* Fix issue when using the Web UI Application page from a previous launch.
 
 * Invert the stop sequence logic, starting from the greatest ``stop_sequence`` number to the lowest one.
 
 * When ``stop_sequence`` is not set in the rules files, it is defaulted to the ``start_sequence`` value.
   With the new stop sequence logic, the stop sequence is by default exactly the opposite of the start sequence.
 
-* Fixed Nodes' column width for `supervisorctl application_rules`.
+* Fix Nodes' column width for `supervisorctl application_rules`.
 
 * `CHANGES.rst` replaced with `CHANGES.md`.
 
@@ -131,33 +207,33 @@
 
 ## 0.8 (2021-08-22)
 
-* Fixed exception in `INITIALIZATION` state when the *Master* declared by other nodes is not RUNNING yet and
+* Fix exception in `INITIALIZATION` state when the *Master* declared by other nodes is not RUNNING yet and
   the *core nodes* are RUNNING.
 
-* Fixed exception when program rules and extra arguments are tested against a program unknown to the local Supervisor.
+* Fix exception when program rules and extra arguments are tested against a program unknown to the local Supervisor.
 
-* Fixed issue about program patterns that were applicable to all elements. The scope of program patterns is now limited
+* Fix issue about program patterns that were applicable to all elements. The scope of program patterns is now limited
   to their owner application.
 
-* Fixed issue with infinite tries of application restart when the process cannot be started due to a lack of resources
+* Fix issue with infinite tries of application restart when the process cannot be started due to a lack of resources
   and `RESTART_APPLICATION` is set on the program in the **Supvisors** rules file.
 
-* Fixed issue about application state not updated after a node has become silent.
+* Fix issue about application state not updated after a node has become silent.
 
-* Fixed issue when choosing a node in `Starter`. Apply the requests that have not been satisfied yet for
+* Fix issue when choosing a node in `Starter`. Apply the requests that have not been satisfied yet for
   non-distributed applications.
 
-* Logic for application major / minor failures reviewed.
+* Review logic for application major / minor failures.
 
 * Simplify the insertion of applications to start or stop in Commander jobs.
 
-* In the rules file, support for application patterns has been added.
+* Add support for application patterns in the **Supvisors** rules file.
 
-* In the rules file, `pattern` elements are **deprecated** and are replaced by `program` elements with a `pattern`
-  attribute instead of a `name` attribute.
+* In the **Supvisors** rules file, `pattern` elements are **deprecated** and are replaced by `program` elements
+  with a `pattern` attribute instead of a `name` attribute.
   Support for `pattern` elements will be removed in the next version of **Supvisors**.
 
-* Node aliases have been added to the rules file.
+* Node aliases have been added to the **Supvisors** rules file.
 
 * Add the current node to all pages of Web UI to be aware of the node that displays the page.
 
@@ -169,8 +245,8 @@
 * In the application navigation menu of the Web UI, add a red light near the Applications title if any application
   has raised a failure.
 
-* In the Application page of the Web UI, default starting strategy is the starting strategy defined in the rules file
-  for the application considered.
+* In the Application page of the Web UI, default starting strategy is the starting strategy defined
+  in the **Supvisors** rules file for the application considered.
 
 * In the Application ang Process page, the detailed process statistics can be deselected.
 
@@ -189,11 +265,11 @@
 
 ## 0.7 (2021-08-15)
 
-* Fixed [Issue #92](https://github.com/julien6387/supvisors/issues/92).
+* Fix [Issue #92](https://github.com/julien6387/supvisors/issues/92).
   The *Master* drives the state of all **Supvisors** instances and a simplified state machine has been assigned
   to non-master **Supvisors** instances. The loss of the *Master* instance is managed in all relevant states.
 
-* Fixed issue about applications that would be started automatically whereas their `start_sequence` is 0.
+* Fix issue about applications that would be started automatically whereas their `start_sequence` is 0.
   The regression has been introduced during the implementation of applications repair in **Supvisors 0.6**.
 
 * Enable stop sequence on *Unmanaged* applications.
@@ -204,16 +280,16 @@
   Non-distributed applications have all their processes started on the same node chosen in accordance with the
   `addresses` and the `starting_strategy`.
 
-* Starting strategy added to the application rules.
+* Add the `starting_strategy` option to the `application` section of the **Supvisors** rules file.
 
-* Fixed issue when choosing a node in `Starter`. The starting strategies considers the current load of the nodes
+* Fix issue when choosing a node in `Starter`. The starting strategies considers the current load of the nodes
   and includes the requests that have not been satisfied yet.
 
-* Fixed issue with infinite process restart when the process crashes and `RESTART_PROCESS` is set on the program
+* Fix issue with infinite process restart when the process crashes and `RESTART_PROCESS` is set on the program
   in the **Supvisors** rules file. When the process crashes, only the *Supervisor* `autorestart` applies.
   The **Supvisors** `RESTART_PROCESS` applies only when the node becomes inactive.
 
-* Fixed exception when forcing the state on a process that is unknown to the local Supervisor.
+* Fix exception when forcing the state on a process that is unknown to the local Supervisor.
 
 * Promote the `RESTART_PROCESS` into `RESTART_APPLICATION` if the application is stopped.
 
@@ -235,7 +311,7 @@
 
 ## 0.6 (2021-08-01)
 
-* Applications that are not declared in the rules file are not *managed*.
+* Applications that are not declared in the **Supvisors** rules file are not *managed*.
   *Unmanaged* applications have no start/stop sequence, no state and status (always STOPPED) and **Supvisors**
   does not raise a conflict if multiple instances are running over multiple nodes.
 
@@ -249,22 +325,22 @@
 
 * Application state is evaluated only against the starting sequence of its processes.
 
-* Fixed blocking issue when *Master* is stopped while in `DEPLOYMENT` state.
+* Fix blocking issue when *Master* is stopped while in `DEPLOYMENT` state.
 
-* Fixed issue with applications that would not fully stop when using the `STOP_APPLICATION` starting failure strategy.
+* Fix issue with applications that would not fully stop when using the `STOP_APPLICATION` starting failure strategy.
 
-* Fixed issue related to [Issue #85](https://github.com/julien6387/supvisors/issues/85).
+* Fix issue related to [Issue #85](https://github.com/julien6387/supvisors/issues/85).
   An exception was raised when the program `procnum` was greater than the list of applicable nodes.
 
-* Fixed [Issue #91](https://github.com/julien6387/supvisors/issues/91).
+* Fix [Issue #91](https://github.com/julien6387/supvisors/issues/91).
   Fix CSS style on the process tables in HTML.
 
-* Fixed [Issue #90](https://github.com/julien6387/supvisors/issues/90).
+* Fix [Issue #90](https://github.com/julien6387/supvisors/issues/90).
   The **Supvisors** *Master* node drives the transition to `OPERATION`.
 
 * In the Web UI, set the process state color to `FATAL` when the process has exited unexpectedly.
 
-* Change the default expected loading to `0` in the program rules.
+* Change the default expected loading to `0` in the `program` section of the **Supvisors** rules file.
 
 * Python `Enum` used for enumerations (not available in Python 2.7).
 
@@ -281,23 +357,24 @@
 
 * New starting strategy `LOCAL` added to command the starting of an application on the local node only.
 
-* Fixed [Issue #87](https://github.com/julien6387/supvisors/issues/87).
+* Fix [Issue #87](https://github.com/julien6387/supvisors/issues/87).
   Under particular circumstances, **Supvisors** could have multiple *Master* nodes.
 
-* Fixed [Issue #86](https://github.com/julien6387/supvisors/issues/86).
+* Fix [Issue #86](https://github.com/julien6387/supvisors/issues/86).
   The starting and stopping sequences may fail and block when a sub-sequence includes only failed programs.
 
-* Fixed [Issue #85](https://github.com/julien6387/supvisors/issues/85).
-  When using `#` in the `address_list` program rule of the **Supvisors** rules file, a subset of nodes can optionally be defined.
+* Fix [Issue #85](https://github.com/julien6387/supvisors/issues/85).
+  When using `#` in the `address_list` program rule of the **Supvisors** rules file, a subset of nodes can optionally
+  be defined.
 
-* Fixed [Issue #84](https://github.com/julien6387/supvisors/issues/84).
+* Fix [Issue #84](https://github.com/julien6387/supvisors/issues/84).
   In the **Supvisors** rules file, program rules can be defined using both model reference and attributes.
 
 * The Web UI uses the default starting strategy of the configuration file.
 
 * The layout of Web UI statistics sections has been rearranged.
 
-* Fixed CSS style missing for `CHECKING` node state in tables.
+* Fix CSS style missing for `CHECKING` node state in tables.
 
 * Star added to the node box of the *Master* instance on the main page.
 
@@ -314,17 +391,17 @@
 
 * Web UI Main page reworked by adding a subdivision of application in node boxes.
 
-* Fixed exception when exiting using `Ctrl+c` from shell.
+* Fix exception when exiting using `Ctrl+c` from shell.
 
-* Fixed exception when rules files is not provided.
+* Fix exception when rules files is not provided.
 
 
 ## 0.3 (2020-12-29)
 
-* Fixed [Issue #81](https://github.com/julien6387/supvisors/issues/81).
+* Fix [Issue #81](https://github.com/julien6387/supvisors/issues/81).
   When **Supvisors** logfile is set to `AUTO`, **Supvisors** uses the same logger as **Supervisor**.
 
-* Fixed [Issue #79](https://github.com/julien6387/supvisors/issues/79).
+* Fix [Issue #79](https://github.com/julien6387/supvisors/issues/79).
   When `FATAL` or `UNKNOWN` Process state is forced by **Supvisors**, `spawnerr` was missing in the listener payload.
 
 * Useless folder `rsc_ref` deleted.
@@ -348,13 +425,13 @@
     * `description` field.
     * `clear logs`, `tail -f stdout`, `tail -f stderr` buttons.
 
-* Fixed [Issue #75](https://github.com/julien6387/supvisors/issues/75).
+* Fix [Issue #75](https://github.com/julien6387/supvisors/issues/75).
   **Supvisors** takes into account the `username` and the `password` of `inet_http_server` in the `supervisord` section.
 
-* Fixed [Issue #17](https://github.com/julien6387/supvisors/issues/17).
+* Fix [Issue #17](https://github.com/julien6387/supvisors/issues/17).
   The user selections on the web UI are passed to the URL.
 
-* Fixed [Issue #72](https://github.com/julien6387/supvisors/issues/72).
+* Fix [Issue #72](https://github.com/julien6387/supvisors/issues/72).
   The extra arguments are shared between all **Supvisors** instances.
 
 * `README.rst` replaced with `README.md`.

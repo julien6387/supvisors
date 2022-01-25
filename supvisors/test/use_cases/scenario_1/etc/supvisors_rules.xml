@@ -12,15 +12,17 @@
         <start_sequence>1</start_sequence>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
-        <program pattern="">
-            <reference>model_scenario_1</reference>
-        </program>
+        <programs>
+            <program pattern="">
+                <reference>model_scenario_1</reference>
+            </program>
 
-        <program pattern="wait_nfs_mount">
-            <reference>model_scenario_1</reference>
-            <start_sequence>1</start_sequence>
-            <wait_exit>true</wait_exit>
-        </program>
+            <program pattern="wait_nfs_mount">
+                <reference>model_scenario_1</reference>
+                <start_sequence>1</start_sequence>
+                <wait_exit>true</wait_exit>
+            </program>
+        </programs>
 	</application>
 
 </root>

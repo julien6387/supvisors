@@ -26,7 +26,7 @@ py_version = sys.version_info[:2]
 if py_version < (3, 4):
     raise RuntimeError('Supvisors requires Python 3.4 or later')
 
-requires = ['supervisor >= 4.2.1', 'pyzmq >= 20.0.0']
+requires = ['supervisor >= 4.2.4', 'pyzmq >= 20.0.0']
 
 ip_require = ['psutil >= 5.7.3']
 statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib >= 3.3.3']

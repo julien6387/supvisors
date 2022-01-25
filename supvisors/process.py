@@ -24,7 +24,7 @@ from supervisor.options import make_namespec, split_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from .ttypes import NameList, Payload, RunningFailureStrategies
+from .ttypes import NameList, Payload, RunningFailureStrategies, StartingFailureStrategies
 from .utils import *
 
 
@@ -40,7 +40,9 @@ class ProcessRules(object):
         - wait_exit: a status telling if Supvisors has to wait for the process to exit before triggering the next phase
           in the starting sequence of the application ;
         - expected_load: the expected loading of the process on the considered hardware (can be anything
-          at the user discretion: CPU, RAM, etc) ;
+          at the user discretion: CPU, RAM, etc.) ;
+        - starting_failure_strategy: supersedes the application rule and defines the strategy to apply
+          when the process crashes when the application is starting ;
         - running_failure_strategy: supersedes the application rule and defines the strategy to apply
           when the process crashes when the application is running.
     """
@@ -61,6 +63,7 @@ class ProcessRules(object):
         self.required: bool = False
         self.wait_exit: bool = False
         self.expected_load: int = 0
+        self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
         self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
 
     def check_start_sequence(self, namespec: str) -> None:
@@ -158,6 +161,7 @@ class ProcessRules(object):
         return (f'identifiers={self.identifiers} hash_identifiers={self.hash_identifiers}'
                 f' start_sequence={self.start_sequence} stop_sequence={self.stop_sequence} required={self.required}'
                 f' wait_exit={self.wait_exit} expected_load={self.expected_load}'
+                f' starting_failure_strategy={self.starting_failure_strategy.name}'
                 f' running_failure_strategy={self.running_failure_strategy.name}')
 
     def serial(self) -> Payload:
@@ -166,9 +170,10 @@ class ProcessRules(object):
 
         :return: the process rules in a dictionary
         """
-        return {'identifiers': self.identifiers, 'addresses': self.identifiers,  # TODO: deprecated
+        return {'identifiers': self.identifiers,
                 'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
                 'required': self.required,  'wait_exit': self.wait_exit, 'expected_loading': self.expected_load,
+                'starting_failure_strategy': self.starting_failure_strategy.name,
                 'running_failure_strategy': self.running_failure_strategy.name}
 
 
@@ -237,16 +242,38 @@ class ProcessStatus(object):
             self._state = new_state
             self.logger.info(f'ProcessStatus.state: {self.namespec} is {self.state_string()}')
 
-    def force_state(self, state: ProcessStates, reason: str = None) -> None:
+    def force_state(self, event: Payload) -> None:
         """ Force the process state due to an unexpected event.
+        This may be caused by a process command that has not been acknowledged in due time, so here is a final check
+        for the expected state, in the event where messages have crossed.
 
-        :param state: the forced state
-        :param reason: the reason why the state is forced
+        :param event: the forced event
         :return: None
         """
-        self.last_event_time = int(time())
-        self.forced_state = state
-        self.forced_reason = reason
+        reached = False
+        # check current state on targeted identifier
+        identifier = event['identifier']
+        if identifier in self.info_map:
+            instance_info = self.info_map[identifier]
+            reached = instance_info['state'] == event['state']
+        # if expected event not reached, apply forced state
+        if not reached:
+            self.last_event_time = int(time())
+            self.forced_state = event['forced_state']
+            self.forced_reason = event['spawnerr']
+            self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.state_string()}'
+                             f' ({self.forced_reason})')
+
+    def reset_forced_state(self, state: ProcessStates = None):
+        """ Reset forced_state upon reception of new information only if not STOPPED (default state in Supervisor).
+
+        :param state: the new state (provided only when Supervisor information is added for the first time)
+        :return: None
+        """
+        if self.forced_state is not None and state != ProcessStates.STOPPED:
+            self.forced_state = None
+            self.forced_reason = ''
+            self.logger.debug(f'ProcessStatus.reset_forced_state: namespec={self.namespec}')
 
     @property
     def extra_args(self) -> str:
@@ -281,7 +308,6 @@ class ProcessStatus(object):
                 'expected_exit': self.expected_exit,
                 'last_event_time': self.last_event_time,
                 'identifiers': list(self.running_identifiers),
-                'addresses': list(self.running_identifiers),  # TODO: DEPRECATED
                 'extra_args': self.extra_args}
 
     # access
@@ -296,8 +322,14 @@ class ProcessStatus(object):
         identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
             identifiers = self.supvisors.supvisors_mapper.instances
-        return [identifier for identifier in identifiers
-                if identifier in self.info_map]
+        return [identifier for identifier in identifiers if identifier in self.info_map]
+
+    def has_crashed(self) -> bool:
+        """ Return True if the any of the processes has ever crashed or has ever exited unexpectedly.
+
+        :return: the crash status of the process
+        """
+        return any(info['has_crashed'] for info in self.info_map.values())
 
     def crashed(self) -> bool:
         """ Return True if the process has crashed or has exited unexpectedly.
@@ -411,67 +443,69 @@ class ProcessStatus(object):
         :param payload: a subset of the dict received from Supervisor.getProcessInfo.
         :return: None
         """
+        info = self.info_map[identifier] = payload
         # keep date of last information received
         # use local time here as there is no guarantee that Supvisors instances will be time-synchronized
         self.last_event_time = int(time())
-        # store information
-        info = self.info_map[identifier] = payload
         info['local_time'] = self.last_event_time
         self.update_uptime(info)
-        # TODO: why reset extra_args ?
-        info['extra_args'] = ''
-        self.extra_args = ''
+        # WARN: when a new Supvisors instance comes in group, extra_args is kept only if information ties in
+        if self.extra_args != info['extra_args']:
+            # difference of view, reset
+            info['extra_args'] = ''
+            self.extra_args = ''
+        # keep history that the process has ever crashed in the Supvisors instance
+        has_crashed = ProcessStatus.is_crashed_event(info['state'], info['expected'])
+        info['has_crashed'] = has_crashed | info.get('has_crashed', False)
+        # log final payload
         self.logger.trace(f'ProcessStatus.add_info: namespec={self.namespec} - payload={info}'
                           f' added to Supvisors={identifier}')
-        # reset forced_state upon reception of new information only if not STOPPED (default state in supervisor)
-        if self.forced_state is not None and info['state'] != ProcessStates.STOPPED:
-            self.forced_state = None
-            self.forced_reason = ''
-            self.logger.debug(f'ProcessStatus.add_info: namespec={self.namespec} - forced_state unset')
+        # process synthetic information
+        self.reset_forced_state(info['state'])
         # update process status
         self.update_status(identifier, info['state'])
 
-    def update_info(self, identifier: str, payload: Payload) -> None:
+    def update_info(self, identifier: str, payload: Payload, external: bool = True) -> None:
         """ Update the internal process information with event payload.
+        Event information is less complete than initial information.
 
         :param identifier: the identifier of the Supvisors instance from which the information has been received
         :param payload: the process information used to refresh internal data
+        :param external: True if the event comes from another Supvisors instance
         :return: None
         """
-        # do not consider process event while not added through tick
-        if identifier in self.info_map:
-            # keep date of last information received
-            # use local time here as there is no guarantee that Supervisors will be time synchronized
-            self.last_event_time = int(time())
-            # last received extra_args are always applicable
-            self.extra_args = payload['extra_args']
-            # refresh internal information
-            info = self.info_map[identifier]
-            self.logger.trace(f'ProcessStatus.update_info: namespec={self.namespec}'
-                              f' - updating info[{identifier}]={info} with payload={payload}')
-            info['local_time'] = self.last_event_time
-            info.update(payload)
-            # re-evaluate description using Supervisor function
-            info['description'] = self.update_description(info)
-            # reset start time if process in a starting state
-            new_state = info['state']
-            if new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
-                info['start'] = info['now']
-            if new_state in STOPPED_STATES:
-                info['stop'] = info['now']
-            self.update_uptime(info)
-            # always reset forced_state upon reception of new information
-            if self.forced_state is not None:
-                self.forced_state = None
-                self.forced_reason = None
-                self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} - forced_state unset')
-            # update / check running Supervisors
-            self.update_status(identifier, new_state)
-            self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} '
-                              f'- new info[{identifier}]={info}')
-        else:
-            self.logger.warn(f'ProcessStatus.update_info: namespec={self.namespec} - ProcessEvent rejected.'
-                             f' TICK expected from Supvisors={identifier}')
+        # refresh internal information
+        info = self.info_map[identifier]
+        self.logger.trace(f'ProcessStatus.update_info: namespec={self.namespec}'
+                          f' - updating info[{identifier}]={info} with payload={payload}')
+        info.update(payload)
+        # keep date of last information received
+        # use local time here as there is no guarantee that Supervisors will be time synchronized
+        self.last_event_time = int(time())
+        info['local_time'] = self.last_event_time
+        # last received extra_args are always applicable
+        self.extra_args = payload['extra_args']
+        # complete missing information
+        info['statename'] = getProcessStateDescription(info['state'])
+        # re-evaluate description using Supervisor function
+        info['description'] = self.update_description(info)
+        # reset start time if process in a starting state
+        new_state = info['state']
+        if new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
+            info['start'] = info['now']
+        if new_state in STOPPED_STATES:
+            info['stop'] = info['now']
+        self.update_uptime(info)
+        # keep history that the process has ever crashed in the Supvisors instance
+        if external:
+            # typically, an instance invalidation will not impact the has_crashed status
+            info['has_crashed'] |= ProcessStatus.is_crashed_event(info['state'], info['expected'])
+        # log final payload
+        self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} - new info[{identifier}]={info}')
+        # process synthetic information
+        self.reset_forced_state()
+        # update / check running Supervisors
+        self.update_status(identifier, new_state)
 
     def update_times(self, identifier: str, remote_time: float) -> None:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
@@ -511,7 +545,7 @@ class ProcessStatus(object):
             info = self.info_map[identifier]
             payload = {'now': info['now'], 'state': ProcessStates.FATAL, 'extra_args': info['extra_args'],
                        'expected': False, 'spawnerr': f'Supervisor {identifier} lost'}
-            self.update_info(identifier, payload)
+            self.update_info(identifier, payload, False)
             failure = self.running_identifiers == set()
         return failure
 
@@ -560,7 +594,7 @@ class ProcessStatus(object):
                     self.state = info['state']
                     self.expected_exit = info['expected']
         # log the new status
-        if LevelsByName.DEBG >= self.logger.level:
+        if LevelsByName.TRAC >= self.logger.level:
             log_trace = f'ProcessStatus.update_status: namespec={self.namespec} is {self.state_string()}'
             if self.running_identifiers:
                 log_trace += f' on {list(self.running_identifiers)}'
@@ -571,7 +605,7 @@ class ProcessStatus(object):
 
         :return: True if a conflict is detected, None otherwise
         """
-        # several processes seems to be in a running state so that becomes tricky
+        # several processes seem to be in a running state so that becomes tricky
         states = {self.info_map[identifier]['state'] for identifier in self.running_identifiers}
         self.logger.debug(f'ProcessStatus.evaluate_conflict: {self.process_name} multiple states'
                           f' {[getProcessStateDescription(x) for x in states]}'

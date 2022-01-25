@@ -18,22 +18,18 @@ package org.supvisors.common;
 
 
 /**
- * The RunningFailureStrategy enumeration.
+ * The DistributionRule enumeration.
  */
-public enum RunningFailureStrategy {
-    CONTINUE(0),
-    RESTART_PROCESS(1),
-    STOP_APPLICATION(2),
-    RESTART_APPLICATION(3),
-    SHUTDOWN(4),
-    RESTART(5);
+public enum DistributionRule {
+    ALL_INSTANCES(0),
+    SINGLE_INSTANCE(1),
+    SINGLE_NODE(2);
 
-    /** The strategy code. */
-    private int strategyCode;
+    /** The distribution code. */
+    private int distributionCode;
 
     /** The constructor links the state code to the state name. */
-    private RunningFailureStrategy(final int strategyCode) {
-        this.strategyCode = strategyCode;
+    private DistributionRule(final int distributionCode) {
+        this.distributionCode = distributionCode;
     }
 }
-

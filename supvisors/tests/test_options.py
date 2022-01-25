@@ -39,10 +39,11 @@ def opt(supervisor):
 @pytest.fixture
 def filled_opt(mocker, supervisor):
     """ Test the values of options with defined Supvisors configuration. """
-    DefinedOptionConfiguration = {'address_list': 'cliche01,cliche03,cliche02',
+    DefinedOptionConfiguration = {'supvisors_list': 'cliche01,cliche03,cliche02',
                                   'rules_files': 'my_movies.xml', 'auto_fence': 'true',
                                   'internal_port': '60001', 'event_port': '60002',
-                                  'synchro_timeout': '20', 'force_synchro_if': 'cliche01,cliche03',
+                                  'synchro_timeout': '20', 'inactivity_ticks': '9',
+                                  'core_identifiers': 'cliche01,cliche03',
                                   'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
                                   'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
                                   'stats_irix_mode': 'true',
@@ -67,6 +68,7 @@ def test_options_creation(opt):
     assert opt.event_port == 0
     assert not opt.auto_fence
     assert opt.synchro_timeout == 15
+    assert opt.inactivity_ticks == 2
     assert opt.core_identifiers == set()
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
@@ -88,6 +90,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
     assert filled_opt.synchro_timeout == 20
+    assert filled_opt.inactivity_ticks == 9
     assert filled_opt.core_identifiers == {'cliche01', 'cliche03'}
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
@@ -104,8 +107,9 @@ def test_filled_options_creation(filled_opt):
 def test_str(opt):
     """ Test the string output. """
     assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0 event_port=0'
-                        ' auto_fence=False synchro_timeout=15 core_identifiers=set() conciliation_strategy=USER'
-                        ' starting_strategy=CONFIG stats_enabled=True stats_periods=[10] stats_histo=200'
+                        ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
+                        ' conciliation_strategy=USER starting_strategy=CONFIG'
+                        ' stats_enabled=True stats_periods=[10] stats_histo=200'
                         f' stats_irix_mode=False logfile={Automatic} logfile_maxbytes={50 * 1024 * 1024}'
                         ' logfile_backups=10 loglevel=20')
 
@@ -152,6 +156,23 @@ def test_timeout():
     # test valid values
     assert SupvisorsOptions.to_timeout('15') == 15
     assert SupvisorsOptions.to_timeout('1200') == 1200
+
+
+def test_ticks():
+    """ Test the conversion of a string to a number of ticks. """
+    error_message = common_error_message.format('inactivity_ticks')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ticks('-1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ticks('0')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ticks('1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ticks('721')
+    # test valid values
+    assert SupvisorsOptions.to_ticks('2') == 2
+    assert SupvisorsOptions.to_ticks('720') == 720
 
 
 def test_conciliation_strategy():

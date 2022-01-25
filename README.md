@@ -51,9 +51,9 @@ but is not maintained anymore.
 |-----------------------------------------------|---------|----------|
 | [Supervisor](http://supervisord.org)          | 4.2.4   |          |
 | [PyZMQ](http://pyzmq.readthedocs.io)          | 20.0.0  |          |
-| [psutil](https://pypi.python.org/pypi/psutil) | 5.7.3   |     X    |
-| [matplotlib](http://matplotlib.org)           | 3.3.3   |     X    |
-| [lxml](http://lxml.de)                        | 4.6.2   |     X    |
+| [psutil](https://pypi.python.org/pypi/psutil) | 5.7.3   | X        |
+| [matplotlib](http://matplotlib.org)           | 3.3.3   | X        |
+| [lxml](http://lxml.de)                        | 4.6.2   | X        |
 
 Please note that some of these dependencies may have their own dependencies.
 
@@ -95,7 +95,6 @@ Not opened yet.
 [pypi-python-versions]: https://img.shields.io/pypi/pyversions/supvisors.svg
 [pypi-url]: https://badge.fury.io/py/supvisors
 
-[ci-image]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml/badge.svg?branch=master
 [ci-image]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml/badge.svg?branch=master
 [ci-url]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml
 

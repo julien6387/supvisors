@@ -31,8 +31,9 @@ from supervisor.states import STOPPED_STATES, SupervisorStates
 
 from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.context import Context
-from supvisors.supervisordata import SupervisorData
 from supvisors.initializer import Supvisors
+from supvisors.supervisordata import SupervisorData
+from supvisors.supvisorszmq import SupervisorZmq
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
 
@@ -48,6 +49,7 @@ class DummyOptions:
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
+        self.inactivity_ticks = 2
         self.force_synchro_if = []
         self.auto_fence = True
         self.rules_files = 'my_movies.xml'
@@ -56,6 +58,7 @@ class DummyOptions:
         self.stats_enabled = True
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
+        self.stats_irix_mode = False
         # logger options
         self.logfile = Automatic
         self.logfile_maxbytes = 10000
@@ -74,30 +77,27 @@ class MockedSupvisors:
         self.supervisor_data = SupervisorData(DummySupervisor(), self.logger)
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
-        identifiers = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5', host_name]
+        identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
+                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:']
         self.supvisors_mapper.configure(identifiers, [])
-        self.supvisors_mapper.local_identifier = '127.0.0.1'
-        # remove gethostname for the tests
-        self.supvisors_mapper.instances.pop(host_name, None)
         self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from node mapper
         self.context = Context(self)
-        # simple mocks
-        self.fsm = Mock()
-        self.pool = Mock()
-        self.requester = Mock()
-        self.statistician = Mock(data={}, nbcores={})
-        self.failure_handler = Mock()
         # mock by spec
-        from supvisors.listener import SupervisorListener
-        self.listener = Mock(spec=SupervisorListener)
-        from supvisors.sparser import Parser
-        self.parser = Mock(spec=Parser)
         from supvisors.commander import Starter, Stopper
+        from supvisors.strategy import RunningFailureHandler
+        from supvisors.statemachine import FiniteStateMachine
+        from supvisors.listener import SupervisorListener
+        from supvisors.sparser import Parser
         self.starter = Mock(spec=Starter)
         self.stopper = Mock(spec=Stopper)
-        from supvisors.supvisorszmq import SupvisorsZmq
-        self.zmq = Mock(spec=SupvisorsZmq)
+        self.failure_handler = Mock(spec=RunningFailureHandler)
+        self.fsm = Mock(spec=FiniteStateMachine)
+        self.statistician = Mock(data={}, nbcores={})
+        self.listener = Mock(spec=SupervisorListener)
+        self.parser = Mock(spec=Parser)
+        # should be set in listener
+        self.zmq = Mock(spec=SupervisorZmq)
         self.zmq.__init__()
 
 
@@ -140,8 +140,8 @@ class DummyServerOptions:
                                 'password': 'p@$$w0rd'}]
         self.here = '.'
         self.environ_expansions = {}
-        self.identifier = 'supervisor'
-        self.serverurl = 'http://127.0.0.1:65000'
+        self.identifier = gethostname()
+        self.serverurl = f'http://{gethostname()}:65000'
         self.mood = SupervisorStates.RUNNING
         self.nodaemon = True
         self.silent = False
@@ -202,7 +202,7 @@ class DummyHttpContext:
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'identifier': '10.0.0.4',
+                     'ident': '10.0.0.4',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',
@@ -254,29 +254,36 @@ ProcessInfoDatabase = [
      'stdout_logfile': './log/xeyes_cliche01.log'}]
 
 
+def extract_and_complete(info):
+    """ Provide payload as processed by Supvisors. """
+    extracted_info = extract_process_info(info)
+    extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': ''})
+    return extracted_info
+
+
 def database_copy():
     """ Return a copy of the whole database. """
-    return [extract_process_info(info) for info in ProcessInfoDatabase]
+    return [extract_and_complete(info) for info in ProcessInfoDatabase]
 
 
 def any_process_info():
     """ Return a copy of any process in database. """
     info = random.choice(ProcessInfoDatabase)
-    return extract_process_info(info)
+    return extract_and_complete(info)
 
 
 def any_stopped_process_info():
     """ Return a copy of any stopped process in database. """
     info = random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES])
-    return extract_process_info(info)
+    return extract_and_complete(info)
 
 
 def any_process_info_by_state(state):
     """ Return a copy of any process in state 'state' in database. """
     info = random.choice([info for info in ProcessInfoDatabase if info['state'] == state])
-    return extract_process_info(info)
+    return extract_and_complete(info)
 
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    return next((extract_process_info(info) for info in ProcessInfoDatabase if info['name'] == name), None)
+    return next((extract_and_complete(info) for info in ProcessInfoDatabase if info['name'] == name), None)

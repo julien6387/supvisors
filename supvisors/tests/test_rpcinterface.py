@@ -24,7 +24,8 @@ from unittest.mock import call, Mock
 from supervisor.loggers import LOG_LEVELS_BY_NUM
 
 from supvisors.rpcinterface import *
-from supvisors.ttypes import ApplicationStates, ConciliationStrategies, SupvisorsStates, SupvisorsFaults
+from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, DistributionRules, SupvisorsStates,
+                              SupvisorsFaults)
 
 from .conftest import create_application
 
@@ -59,8 +60,6 @@ def test_master_node(rpc):
     rpc.supvisors.context.master_identifier = '10.0.0.1'
     # test call
     assert rpc.get_master_identifier() == '10.0.0.1'
-    # TODO: DEPRECATED
-    assert rpc.get_master_address() == '10.0.0.1'
 
 
 def test_strategies(rpc):
@@ -76,12 +75,9 @@ def test_strategies(rpc):
 def test_instance_info(rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
     # test with known address
-    expected = {'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
-                'loading': 0, 'local_time': 0, 'remote_time': 0, 'sequence_counter': 0,
-                'statecode': 0, 'statename': 'UNKNOWN'}
+    expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0, 'local_time': 0,
+                'remote_time': 0, 'sequence_counter': 0, 'statecode': 0, 'statename': 'UNKNOWN'}
     assert rpc.get_instance_info('10.0.0.1') == expected
-    # TODO: DEPRECATED
-    assert rpc.get_address_info('10.0.0.1') == expected
     # test with unknown address
     with pytest.raises(RPCError) as exc:
         rpc.get_instance_info('10.0.0.0')
@@ -95,8 +91,6 @@ def test_all_nodes_info(rpc):
                                        '10.0.0.2': Mock(**{'serial.return_value': 'address_info_2'})}
     # test call
     assert rpc.get_all_instances_info() == ['address_info_1', 'address_info_2']
-    # TODO: DEPRECATED
-    assert rpc.get_all_addresses_info() == ['address_info_1', 'address_info_2']
 
 
 def test_application_info(mocker, rpc):
@@ -200,7 +194,9 @@ def test_application_rules(mocker, rpc):
     mocker.resetall()
     # test RPC call with application name and managed/distributed application
     application.rules.managed = True
-    expected = {'application_name': 'appli', 'managed': True, 'distributed': True,
+    expected = {'application_name': 'appli', 'managed': True, 'distribution': 'ALL_INSTANCES',
+                'distributed': True,  # TODO: DEPRECATED
+                'identifiers': ['*'],
                 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
     assert rpc.get_application_rules('appli') == expected
@@ -208,10 +204,10 @@ def test_application_rules(mocker, rpc):
     assert mocked_get.call_args_list == [call('appli')]
     mocker.resetall()
     # test RPC call with application name and managed/non-distributed application
-    application.rules.distributed = False
-    expected = {'application_name': 'appli', 'managed': True, 'distributed': False,
-                'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
-                'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
+    application.rules.distribution = DistributionRules.SINGLE_INSTANCE
+    expected = {'application_name': 'appli', 'managed': True, 'distribution': 'SINGLE_INSTANCE',
+                'distributed': False,  # TODO: DEPRECATED
+                'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
     assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]
@@ -654,6 +650,7 @@ def test_stop_process(mocker, rpc):
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating_conciliation')
     # get patches
     mocked_stop = rpc.supvisors.stopper.stop_process
+    mocked_next = rpc.supvisors.stopper.next
     mocked_progress = rpc.supvisors.stopper.in_progress
     # patch the instance
     rpc._get_application_process = Mock()
@@ -665,10 +662,12 @@ def test_stop_process(mocker, rpc):
     mocked_progress.return_value = True
     assert rpc.stop_process('appli:*', False)
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call no wait and done
     mocked_progress.return_value = False
@@ -676,20 +675,24 @@ def test_stop_process(mocker, rpc):
         rpc.stop_process('appli:*')
     assert exc.value.args == (Faults.NOT_RUNNING, 'appli:*')
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call with wait and done
     with pytest.raises(RPCError) as exc:
         rpc.stop_process('appli:*', wait=True)
     assert exc.value.args == (Faults.NOT_RUNNING, 'appli:*')
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call with wait and not done
     mocked_progress.return_value = True
@@ -697,7 +700,8 @@ def test_stop_process(mocker, rpc):
     # result is a function for deferred result
     assert callable(deferred)
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_progress.reset_mock()
     # test returned function: return True when job in progress
@@ -862,6 +866,7 @@ def test_update_numprocs(mocker, rpc):
     mocked_numprocs = mocker.patch.object(rpc.supvisors.supervisor_data, 'update_numprocs')
     mocked_delete = mocker.patch.object(rpc.supvisors.supervisor_data, 'delete_processes')
     mocked_stop = rpc.supvisors.stopper.stop_process
+    mocked_next = rpc.supvisors.stopper.next
     mocked_progress = rpc.supvisors.stopper.in_progress
     # test RPC call with unknown program
     rpc.supvisors.server_options.process_groups = {}
@@ -872,6 +877,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_numprocs.called
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program and incorrect numprocs value (not integer)
@@ -884,6 +890,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_numprocs.called
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program and incorrect numprocs value (<= 0)
@@ -896,6 +903,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_numprocs.called
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program, correct numprocs value and wrong program configuration
@@ -908,6 +916,7 @@ def test_update_numprocs(mocker, rpc):
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     mocked_numprocs.reset_mock()
@@ -919,6 +928,7 @@ def test_update_numprocs(mocker, rpc):
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     mocked_numprocs.reset_mock()
@@ -933,14 +943,15 @@ def test_update_numprocs(mocker, rpc):
     assert rpc.update_numprocs('dummy_program', 2)
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
-
     assert mocked_delete.call_args_list == [call(['process_1', 'process_2', 'process_3'])]
-    assert mocked_stop.call_args_list == [call(process_1), call(process_2)]
+    assert mocked_stop.call_args_list == [call(process_1, trigger=False), call(process_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_numprocs.reset_mock()
     mocked_delete.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call with known program, correct numprocs value and numprocs increase (one process to stop)
     rpc.logger.error = print
@@ -953,7 +964,8 @@ def test_update_numprocs(mocker, rpc):
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_delete.called
-    assert mocked_stop.call_args_list == [call(process_1), call(process_2)]
+    assert mocked_stop.call_args_list == [call(process_1, trigger=False), call(process_2, trigger=False)]
+    assert mocked_next.called
     # test deferred function: still in progress
     mocked_progress.return_value = True
     assert deferred() == NOT_DONE_YET
@@ -1153,7 +1165,8 @@ def test_check_from_deployment(mocker, rpc):
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_state')
     # test the call to _check_state
     rpc._check_from_deployment()
-    expected = [x for x in SupvisorsStates if 0 < x.value < 6]
+    excluded_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.RESTART, SupvisorsStates.SHUTDOWN]
+    expected = [x for x in SupvisorsStates if x not in excluded_states]
     assert mocked_check.call_args_list == [call(expected)]
 
 

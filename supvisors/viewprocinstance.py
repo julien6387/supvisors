@@ -17,11 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisor.options import make_namespec
-from supervisor.states import ProcessStates, RUNNING_STATES
+from supervisor.states import RUNNING_STATES
 from supervisor.xmlrpc import RPCError
 
-from .ttypes import Payload, PayloadList
+from .application import ApplicationStatus
+from .instancestatus import SupvisorsInstanceStatus
+from .ttypes import Payload, PayloadList, ProcessHistoryStats
 from .viewcontext import *
 from .viewsupstatus import SupvisorsInstanceView
 from .webutils import *
@@ -42,10 +43,11 @@ class ProcInstanceView(SupvisorsInstanceView):
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
         sorted_data, excluded_data = self.get_process_data()
-        self.write_process_table(root, sorted_data)
+        self.write_process_table(root, sorted_data, excluded_data)
         # check selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
-        if namespec:
+        if namespec and namespec != 'supervisord':
+            # unselect if not running in this Supvisors instance
             status = self.view_ctx.get_process_status(namespec)
             if not status or self.view_ctx.local_identifier not in status.running_identifiers:
                 self.logger.warn(f'ProcInstanceView.write_contents: unselect Process Statistics for {namespec}')
@@ -63,26 +65,21 @@ class ProcInstanceView(SupvisorsInstanceView):
 
         :return: the sorted data and the excluded data.
         """
-        # use Supervisor to get local information on all processes
-        rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
-        try:
-            all_info = rpc_intf.getAllProcessInfo()
-        except RPCError as e:
-            self.logger.warn(f'ProcInstanceView.get_process_data: failed to get all process info'
-                             f' from {self.local_identifier}: {e.text}')
-            return [], []
         # extract what is useful to display
+        status: SupvisorsInstanceStatus = self.sup_ctx.instances[self.view_ctx.local_identifier]
         data = []
-        for info in all_info:
-            namespec = make_namespec(info['group'], info['name'])
-            process = self.sup_ctx.get_process(namespec)
-            unexpected_exit = info['state'] == ProcessStates.EXITED and 'Bad exit code' in info['spawnerr']
+        for namespec, process in status.processes.items():
             expected_load = process.rules.expected_load
+            application: ApplicationStatus = self.sup_ctx.applications[process.application_name]
+            # a 'single' process has the same name as its application and the application contains only one process
+            single = process.process_name == process.application_name and len(application.processes) == 1
+            info = process.info_map[self.view_ctx.local_identifier]
+            crashed = ProcessStatus.is_crashed_event(info['state'], info['expected'])
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
-                       'single': info['group'] == info['name'], 'identifier': self.view_ctx.local_identifier,
+                       'single': single, 'identifier': self.view_ctx.local_identifier,
                        'statename': info['statename'], 'statecode': info['state'],
-                       'gravity': 'FATAL' if unexpected_exit else info['statename'],
+                       'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': info['has_crashed'],
                        'description': info['description'], 'expected_load': expected_load,
                        'nb_cores': nb_cores, 'proc_stats': proc_stats}
             data.append(payload)
@@ -117,6 +114,14 @@ class ProcInstanceView(SupvisorsInstanceView):
             else:
                 # push to excluded data
                 excluded_data.extend(application_processes)
+        # add supervisord payload at the end
+        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
+        payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                   'single': True, 'identifier': self.view_ctx.local_identifier,
+                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
+                   'description': f'Supervisor {self.view_ctx.local_identifier}', 'expected_load': 0,
+                   'nb_cores': nb_cores, 'proc_stats': proc_stats}
+        sorted_data.append(payload)
         return sorted_data, excluded_data
 
     def get_application_summary(self, application_name: str, application_processes: PayloadList) -> Payload:
@@ -126,54 +131,79 @@ class ProcInstanceView(SupvisorsInstanceView):
         :param application_processes: the subset of the application processes running on the same node
         :return: the application payload to be displayed
         """
+        expected_load, nb_cores, appli_stats = self.sum_process_info(application_processes)
+        # create application payload
         application = self.sup_ctx.applications[application_name]
-        expected_load, nb_cores, appli_stats = 0, 0, [[0], [0]]
-        reset = True
-        for proc in application_processes:
-            if proc['statecode'] in RUNNING_STATES:
-                expected_load = expected_load + proc['expected_load']
-                nb_cores = proc.get('nb_cores', 0)
-                # sum CPU / Mem stats
-                proc_stats = proc.get('proc_stats')
-                if proc_stats:
-                    if len(proc_stats[0]) > 0 and len(proc_stats[1]) > 0:
-                        reset = False
-                        appli_stats[0][0] = appli_stats[0][0] + proc_stats[0][-1]
-                        appli_stats[1][0] = appli_stats[1][0] + proc_stats[1][-1]
-        # reset appli_stats if no process involved
-        if reset:
-            appli_stats = None
         payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
                    'identifier': self.view_ctx.local_identifier,
                    'statename': application.state.name, 'statecode': application.state.value,
+                   'gravity': application.state.name, 'has_crashed': False,
                    'description': application.get_operational_status(),
-                   'nb_processes': len(application_processes), 'expected_load': expected_load}
-        payload.update({'nb_cores': nb_cores, 'proc_stats': appli_stats})
+                   'nb_processes': len(application_processes), 'expected_load': expected_load,
+                   'nb_cores': nb_cores, 'proc_stats': appli_stats}
         return payload
 
-    def write_process_table(self, root, data: PayloadList):
-        """ Rendering of the processes managed through Supervisor. """
-        if data:
-            self.write_common_process_table(root)
+    @staticmethod
+    def sum_process_info(data: PayloadList) -> Tuple[int, int, Optional[ProcessHistoryStats]]:
+        """ Get the total resources taken by the processes.
+
+        :param data: the list of process payloads
+        :return: the total expected load, number of processor cores, memory and CPU
+        """
+        expected_load, nb_cores, cpu, mem = 0, 0, 0, 0
+        reset = True
+        for info in data:
+            if info['statecode'] in RUNNING_STATES:
+                expected_load += info['expected_load']
+                nb_cores = info['nb_cores']
+                # sum CPU / Mem stats
+                proc_stats = info['proc_stats']
+                if proc_stats:
+                    if len(proc_stats[0]) and len(proc_stats[1]):
+                        reset = False
+                        # the most recent value is at the end of the list
+                        cpu += proc_stats[0][-1]
+                        mem += proc_stats[1][-1]
+        # reset appli_stats if no process involved
+        # keep output similar to process stats
+        appli_stats = None if reset else [[cpu], [mem]]
+        return expected_load, nb_cores, appli_stats
+
+    def write_process_table(self, root, sorted_data: PayloadList, excluded_data: PayloadList) -> None:
+        """ Rendering of the processes managed in Supervisor.
+
+        :param root: the root element of the page
+        :param sorted_data: the process data displayed
+        :param excluded_data: the process data not displayed
+        :return: None
+        """
+        table_elt = root.findmeld('table_mid')
+        if sorted_data:
+            self.write_global_shex(table_elt)
+            # remove stats columns if statistics are disabled
+            self.write_common_process_table(table_elt)
             # loop on all processes
-            iterator = root.findmeld('tr_mid').repeat(data)
+            iterator = table_elt.findmeld('tr_mid').repeat(sorted_data)
             shaded_appli_tr, shaded_proc_tr = False, False  # used to invert background style
             for tr_elt, info in iterator:
                 if info['process_name']:
                     # this is a process row
-                    elt = tr_elt.findmeld('shex_td_mid')
                     if info['single']:
                         # single line background follows the same logic as applications
                         apply_shade(tr_elt, shaded_appli_tr)
                         shaded_appli_tr = not shaded_appli_tr
                     else:
                         # remove shex td
-                        elt.replace('')
+                        tr_elt.findmeld('shex_td_mid').replace('')
                         # set line background and invert
                         apply_shade(tr_elt, shaded_proc_tr)
                         shaded_proc_tr = not shaded_proc_tr
-                    # write common status (shared between this process view and application view)
-                    self.write_common_process_status(tr_elt, info)
+                    # supervisord line is a bit different
+                    if info['process_name'] == 'supervisord':
+                        self.write_supervisord_status(tr_elt, info)
+                    else:
+                        # write common status (shared between this process view and application view)
+                        self.write_common_process_status(tr_elt, info)
                 else:
                     # this is an application row
                     # force next proc shade
@@ -183,9 +213,36 @@ class ProcInstanceView(SupvisorsInstanceView):
                     # set line background and invert
                     apply_shade(tr_elt, shaded_appli_tr)
                     shaded_appli_tr = not shaded_appli_tr
+            # writes the total statistics line
+            self.write_total_status(table_elt, sorted_data, excluded_data)
         else:
-            table = root.findmeld('table_mid')
-            table.replace('No programs to manage')
+            table_elt.replace('No programs to manage')
+
+    def write_global_shex(self, table_elt) -> None:
+        """ Write global shrink / expand buttons.
+
+        :param table_elt: the table element
+        :return: None
+        """
+        shex = self.view_ctx.parameters[SHRINK_EXPAND]
+        expand_shex = self.view_ctx.get_default_shex(True)
+        shrink_shex = self.view_ctx.get_default_shex(False)
+        # write expand button
+        elt = table_elt.findmeld('expand_a_mid')
+        if shex == expand_shex.hex():
+            elt.replace('')
+        else:
+            elt.content(f'{SHEX_EXPAND}')
+            url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: expand_shex.hex()})
+            elt.attributes(href=url)
+        # write shrink button
+        elt = table_elt.findmeld('shrink_a_mid')
+        if shex == shrink_shex.hex():
+            elt.replace('')
+        else:
+            elt.content(f'{SHEX_SHRINK}')
+            url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: shrink_shex.hex()})
+            elt.attributes(href=url)
 
     def write_application_status(self, tr_elt, info, shaded_tr):
         """ Write the application section into a table. """
@@ -201,7 +258,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt = elt.findmeld('shex_a_mid')
         self.logger.trace(f'ProcInstanceView.write_application_status: application_name={application_name}'
                           f' application_shex={application_shex} inverted_shex={inverted_shex}')
-        elt.content('{}'.format('[\u2013]' if application_shex else '[+]'))
+        elt.content(f'{SHEX_SHRINK if application_shex else SHEX_EXPAND}')
         url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: inverted_shex})
         elt.attributes(href=url)
         # print application name
@@ -216,3 +273,76 @@ class ProcInstanceView(SupvisorsInstanceView):
             elt.content('')
         for mid in ['stop_td_mid', 'restart_td_mid', 'tailout_td_mid', 'tailerr_td_mid']:
             tr_elt.findmeld(mid).replace('')
+
+    def write_supervisord_status(self, tr_elt, info: Payload) -> None:
+        """ Write the supervisord status into a table. """
+        # display Master symbol in shex column
+        if self.sup_ctx.is_master:
+            elt = tr_elt.findmeld('shex_td_mid')
+            elt.content(MASTER_SYMBOL)
+        # print common status
+        self.write_common_status(tr_elt, info)
+        # print process name
+        elt = tr_elt.findmeld('name_a_mid')
+        elt.content(info['process_name'])
+        url = self.view_ctx.format_url('', MAIN_TAIL_PAGE, **{PROCESS: info['namespec']})
+        elt.attributes(href=url, target="_blank")
+        # manage actions
+        self.write_supervisord_button(tr_elt, 'stop_a_mid', self.page_name, **{ACTION: 'shutdownsup'})
+        self.write_supervisord_button(tr_elt, 'restart_a_mid', self.page_name, **{ACTION: 'restartsup'})
+        # manage log actions
+        self.write_supervisord_button(tr_elt, 'clear_a_mid', self.page_name, **{ACTION: 'mainclearlog'})
+        self.write_supervisord_button(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)
+        # start and tail stderr are not applicable
+        tr_elt.findmeld('start_a_mid').content('')
+        tr_elt.findmeld('tailerr_a_mid').content('')
+
+    def write_supervisord_button(self, tr_elt, mid: str, page: str, **action) -> None:
+        """ Write the configuration of the button of supervisord. """
+        elt = tr_elt.findmeld(mid)
+        update_attrib(elt, 'class', 'button on')
+        url = self.view_ctx.format_url('', page, **action)
+        elt.attributes(href=url)
+
+    def write_total_status(self, table_elt, sorted_data: PayloadList, excluded_data: PayloadList):
+        """ Write the total statistics for this Supvisors instance.
+
+        :param table_elt: the table element
+        :param sorted_data: the process data displayed
+        :param excluded_data: the process data not displayed
+        :return: None
+        """
+        tr_elt = table_elt.findmeld('total_mid')
+        if tr_elt is not None:
+            # element may have been removed due to stats option disabled
+            # sum MEM and CPU stats of all processes
+            expected_load, nb_cores, appli_stats = self.sum_process_info(sorted_data + excluded_data)
+            # update Load
+            elt = tr_elt.findmeld('load_total_th_mid')
+            elt.content(f'{expected_load}%')
+            if appli_stats:
+                # update MEM
+                elt = tr_elt.findmeld('mem_total_th_mid')
+                elt.content(f'{appli_stats[1][0]:.2f}%')
+                # update CPU
+                elt = tr_elt.findmeld('cpu_total_th_mid')
+                cpuvalue = appli_stats[0][0]
+                if not self.supvisors.options.stats_irix_mode:
+                    cpuvalue /= nb_cores
+                elt.content(f'{cpuvalue:.2f}%')
+
+    # ACTION part
+    def make_callback(self, namespec, action):
+        """ Triggers processing iaw action requested """
+        if action == 'mainclearlog':
+            return self.clear_log_action()
+        return super().make_callback(namespec, action)
+
+    def clear_log_action(self):
+        """ Clear the log of Supervisor. """
+        rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
+        try:
+            rpc_intf.clearLog()
+        except RPCError as e:
+            return delayed_error(f'clearLog: {e.text}')
+        return delayed_info('Log for Supervisor cleared')

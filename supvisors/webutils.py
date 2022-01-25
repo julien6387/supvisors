@@ -26,14 +26,21 @@ HOST_INSTANCE_PAGE = 'host_instance.html'
 PROC_INSTANCE_PAGE = 'proc_instance.html'
 APPLICATION_PAGE = 'application.html'
 TAIL_PAGE = 'tail.html'
+MAIN_TAIL_PAGE = 'maintail.html'
 STDOUT_PAGE = 'logtail/%s'
 STDERR_PAGE = 'logtail/%s/stderr'
+MAIN_STDOUT_PAGE = 'mainlogtail'
 
 # gravity classes for messages
 # use of 'erro' instead of 'error' in order to avoid HTTP error log traces
 Info = 'info'
 Warn = 'warn'
 Error = 'erro'
+
+# Web UI symbols
+MASTER_SYMBOL = '\u272A'
+SHEX_SHRINK = '[\u2013]'
+SHEX_EXPAND = '[+]'
 
 
 def format_gravity_message(message):

@@ -24,8 +24,8 @@ from unittest.mock import Mock
 from supvisors.ttypes import *
 
 
-def test_AddressStates():
-    """ Test the AddressStates enumeration. """
+def test_SupvisorsInstanceStates():
+    """ Test the SupvisorsInstanceStates enumeration. """
     expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
     assert enum_names(SupvisorsInstanceStates) == expected
     assert enum_values(SupvisorsInstanceStates) == list(range(6))
@@ -40,9 +40,9 @@ def test_ApplicationStates():
 
 def test_StartingStrategies():
     """ Test the StartingStrategies enumeration. """
-    expected = ['CONFIG', 'LESS_LOADED', 'MOST_LOADED', 'LOCAL']
+    expected = ['CONFIG', 'LESS_LOADED', 'MOST_LOADED', 'LOCAL', 'LESS_LOADED_NODE', 'MOST_LOADED_NODE']
     assert enum_names(StartingStrategies) == expected
-    assert enum_values(StartingStrategies) == list(range(4))
+    assert enum_values(StartingStrategies) == list(range(6))
 
 
 def test_ConciliationStrategies():
@@ -61,17 +61,17 @@ def test_StartingFailureStrategies():
 
 def test_RunningFailureStrategies():
     """ Test the RunningFailureStrategies enumeration. """
-    expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION']
+    expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION', 'SHUTDOWN', 'RESTART']
     assert enum_names(RunningFailureStrategies) == expected
-    assert enum_values(RunningFailureStrategies) == list(range(4))
+    assert enum_values(RunningFailureStrategies) == list(range(6))
 
 
 def test_SupvisorsStates():
     """ Test the SupvisorsStates enumeration. """
-    expected = ['INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING',
+    expected = ['INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
                 'SHUTTING_DOWN', 'SHUTDOWN']
     assert enum_names(SupvisorsStates) == expected
-    assert enum_values(SupvisorsStates) == list(range(7))
+    assert enum_values(SupvisorsStates) == list(range(8))
 
 
 def test_exception():

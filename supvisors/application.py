@@ -25,7 +25,7 @@ from supervisor.loggers import Logger
 from supervisor.states import ProcessStates
 
 from .process import ProcessStatus
-from .ttypes import (ApplicationStates, NameList, Payload, StartingStrategies,
+from .ttypes import (ApplicationStates, DistributionRules, NameList, Payload, StartingStrategies,
                      StartingFailureStrategies, RunningFailureStrategies)
 
 
@@ -34,7 +34,7 @@ class ApplicationRules(object):
 
     Attributes are:
         - managed: set to True when application rules are found from the rules file ;
-        - distributed: set to False if all processes must be running on the same Supervisor ;
+        - distribution: the distribution rule of the application ;
         - identifiers: the Supervisors where the application can be started if not distributed (default: all) ;
         - hash_identifiers: when # rule is used, the application can be started on one of the Supervisors identified ;
         - start_sequence: defines the order of this application when starting all the applications
@@ -57,6 +57,7 @@ class ApplicationRules(object):
         # attributes
         self.managed: bool = False
         self.distributed: bool = True
+        self.distribution: DistributionRules = DistributionRules.ALL_INSTANCES
         self.identifiers: NameList = ['*']
         self.hash_identifiers: NameList = []
         self.start_sequence: int = 0
@@ -134,7 +135,7 @@ class ApplicationRules(object):
 
         :return: the printable application rules
         """
-        return (f'managed={self.managed} distributed={self.distributed} identifiers={self.identifiers}'
+        return (f'managed={self.managed} distribution={self.distribution.name} identifiers={self.identifiers}'
                 f' start_sequence={self.start_sequence} stop_sequence={self.stop_sequence}'
                 f' starting_strategy={self.starting_strategy.name}'
                 f' starting_failure_strategy={self.starting_failure_strategy.name}'
@@ -143,19 +144,17 @@ class ApplicationRules(object):
     # serialization
     def serial(self) -> Payload:
         """ Get a serializable form of the application rules.
-        Do not send not applicable information.
+        No information for unmanaged applications.
 
         :return: the application rules in a dictionary
         """
         if self.managed:
-            payload = {'managed': True, 'distributed': self.distributed,
+            payload = {'managed': True, 'distributed': self.distribution == DistributionRules.ALL_INSTANCES,  # DEPRECATED
+                       'distribution': self.distribution.name, 'identifiers': self.identifiers,  # TODO: add / replace by nodes / targets ?
                        'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
                        'starting_strategy': self.starting_strategy.name,
                        'starting_failure_strategy': self.starting_failure_strategy.name,
                        'running_failure_strategy': self.running_failure_strategy.name}
-            if not self.distributed:
-                payload['identifiers'] = self.identifiers
-                payload['addresses'] = self.identifiers  # TODO: DEPRECATED
             return payload
         return {'managed': False}
 

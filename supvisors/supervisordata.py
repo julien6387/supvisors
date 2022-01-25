@@ -126,9 +126,17 @@ class SupervisorData(object):
                 'SUPERVISOR_USERNAME': self.username,
                 'SUPERVISOR_PASSWORD': self.password}
 
-    def prepare_extra_args(self) -> None:
-        """ Add extra_args attributes in Supervisor internal data. """
-        for group in self.supervisord.process_groups.values():
+    def prepare_extra_args(self, group_name: str = None) -> None:
+        """ Add extra_args attributes in Supervisor internal data.
+
+        :param group_name: the name of the group that has been added to the Supervisor internal data
+        :return: None
+        """
+        if group_name:
+            groups = [self.supervisord.process_groups[group_name]]
+        else:
+            groups = self.supervisord.process_groups.values()
+        for group in groups:
             for process in group.processes.values():
                 process.config.command_ref = process.config.command
                 process.config.extra_args = ''
@@ -177,7 +185,7 @@ class SupervisorData(object):
         # apply args to command line
         if extra_args:
             config.command += ' ' + extra_args
-        self.logger.trace('SupervisorData.update_extra_args: {} extra_args={}'.format(namespec, extra_args))
+        self.logger.trace(f'SupervisorData.update_extra_args: {namespec} extra_args={extra_args}')
 
     def update_numprocs(self, program_name: str, numprocs: int) -> Optional[NameList]:
         """ This method is used to dynamically update the program numprocs.

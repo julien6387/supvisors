@@ -6,12 +6,21 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:maxInclusive value="100"/>
         </xs:restriction>
     </xs:simpleType>
+    <xs:simpleType name="DistributionRules" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ALL_INSTANCES" />
+            <xs:enumeration value="SINGLE_INSTANCE" />
+            <xs:enumeration value="SINGLE_NODE" />
+        </xs:restriction>
+    </xs:simpleType>
     <xs:simpleType name="StartingStrategy" final="restriction" >
         <xs:restriction base="xs:string">
             <xs:enumeration value="CONFIG" />
             <xs:enumeration value="LESS_LOADED" />
             <xs:enumeration value="MOST_LOADED" />
             <xs:enumeration value="LOCAL" />
+            <xs:enumeration value="LESS_LOADED_NODE" />
+            <xs:enumeration value="MOST_LOADED_NODE" />
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="StartingFailureStrategy" final="restriction" >
@@ -27,6 +36,8 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:enumeration value="RESTART_PROCESS" />
             <xs:enumeration value="STOP_APPLICATION" />
             <xs:enumeration value="RESTART_APPLICATION" />
+            <xs:enumeration value="SHUTDOWN" />
+            <xs:enumeration value="RESTART" />
         </xs:restriction>
     </xs:simpleType>
     <xs:complexType name="NodeAlias">
@@ -39,24 +50,30 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
     <xs:complexType name="ProgramModel">
         <xs:all>
             <xs:element type="xs:string" name="reference" minOccurs="0"/>
-            <xs:element type="xs:string" name="addresses" minOccurs="0"/>
             <xs:element type="xs:string" name="identifiers" minOccurs="0"/>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0"/>
             <xs:element type="xs:boolean" name="required" minOccurs="0"/>
             <xs:element type="xs:boolean" name="wait_exit" minOccurs="0"/>
             <xs:element type="Loading" name="expected_loading" minOccurs="0"/>
+            <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0"/>
             <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0"/>
         </xs:all>
-	<!-- no way to check one of the two is required unless XSD 1.1 is supported -->
+	    <!-- no way to check that one of the two is required unless XSD 1.1 is supported -->
         <xs:attribute type="xs:string" name="name"/>
         <xs:attribute type="xs:string" name="pattern"/>
     </xs:complexType>
+    <xs:complexType name="Programs">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element type="ProgramModel" name="program"/>
+        </xs:choice>
+    </xs:complexType>
     <xs:complexType name="ApplicationModel">
-        <!-- can't find a way to use xs:all here. need XSD 1.1 -->
+        <!-- can't find a way to use xs:all here because of unbounded ProgramModel.
+        need XSD 1.1 or to insert intermediate type -->
         <xs:sequence>
             <xs:element type="xs:boolean" name="distributed" minOccurs="0"/>
-            <xs:element type="xs:string" name="addresses" minOccurs="0"/>
+            <xs:element type="DistributionRules" name="distribution" minOccurs="0"/>
             <xs:element type="xs:string" name="identifiers" minOccurs="0"/>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0"/>
@@ -66,6 +83,7 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element type="ProgramModel" name="program"/>
             </xs:choice>
+            <xs:element type="Programs" name="programs" minOccurs="0"/>
         </xs:sequence>
 	    <!-- no way to check one of the two is required unless XSD 1.1 is supported -->
         <xs:attribute type="xs:string" name="name"/>
@@ -81,4 +99,3 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         </xs:complexType>
     </xs:element>
 </xs:schema>
-

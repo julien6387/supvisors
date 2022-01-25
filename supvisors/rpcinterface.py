@@ -78,15 +78,6 @@ class RPCInterface(object):
         """
         return self.supvisors.context.master_identifier
 
-    def get_master_address(self):
-        """ Get the identification of the Supvisors instance elected as **Supvisors** Master.
-        *DEPRECATED* use ``get_master_identifier``.
-
-        *@return* ``str``: the Supvisors identifier.
-        """
-        self.logger.warn('RPCInterface.get_master_address: DEPRECATED. use get_master_identifier')
-        return self.get_master_identifier()
-
     def get_strategies(self):
         """ Get the default strategies applied by **Supvisors**:
 
@@ -109,15 +100,6 @@ class RPCInterface(object):
         return [self.get_instance_info(identifier)
                 for identifier in sorted(self.supvisors.context.instances)]
 
-    def get_all_addresses_info(self):
-        """ Get information about all **Supvisors** instances.
-        *DEPRECATED* use ``get_all_instances_info``.
-
-        *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
-        """
-        self.logger.warn('RPCInterface.get_all_addresses_info: DEPRECATED. use get_all_instances_info')
-        return self.get_all_instances_info()
-
     def get_instance_info(self, identifier: str):
         """ Get information about the **Supvisors** instance identified by identifier.
 
@@ -134,19 +116,6 @@ class RPCInterface(object):
             self.logger.error(f'RPCInterface.get_instance_info: {message}')
             raise RPCError(Faults.INCORRECT_PARAMETERS, message)
         return status.serial()
-
-    def get_address_info(self, node_name):
-        """ Get information about the **Supvisors** instance running on the host named node.
-        *DEPRECATED* use ``get_instance_info``.
-
-        *@param* ``str node_name``: the identifier of the Supvisors instance where the Supervisor daemon is running.
-
-        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if the identifier is unknown to **Supvisors**.
-
-        *@return* ``dict``: a structure containing data about the **Supvisors** instance.
-        """
-        self.logger.warn('RPCInterface.get_address_info: DEPRECATED. use get_instance_info')
-        return self.get_instance_info(node_name)
 
     def get_all_applications_info(self):
         """ Get information about all applications managed in **Supvisors**.
@@ -563,7 +532,8 @@ class RPCInterface(object):
         # stop all processes
         for process in processes:
             self.logger.debug(f'RPCInterface.stop_process: stopping process={process.namespec}')
-            self.supvisors.stopper.stop_process(process)
+            self.supvisors.stopper.stop_process(process, trigger=False)
+        self.supvisors.stopper.next()
         in_progress = self.supvisors.stopper.in_progress()
         # if already done, that would mean nothing was running
         if not in_progress:
@@ -701,7 +671,8 @@ class RPCInterface(object):
                                          for del_namespec in del_namespecs]))
         for process in processes_to_stop:
             self.logger.debug(f'RPCInterface.update_numprocs: stopping process={process.namespec}')
-            self.supvisors.stopper.stop_process(process)
+            self.supvisors.stopper.stop_process(process, trigger=False)
+        self.supvisors.stopper.next()
         in_progress = self.supvisors.stopper.in_progress()
         if not in_progress:
             self.supvisors.supervisor_data.delete_processes(del_namespecs)
@@ -957,5 +928,4 @@ class RPCInterface(object):
         option_names = 'startsecs', 'stopwaitsecs', 'extra_args'
         options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
         sub_info.update(options)
-        # TODO: update doc on the XML-RPC (startsecs and stopwaitsecs added)
         return sub_info

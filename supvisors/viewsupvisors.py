@@ -98,9 +98,10 @@ class SupvisorsView(ViewHandler):
             url = self.view_ctx.format_url(status.identifier, PROC_INSTANCE_PAGE)
             elt.attributes(href=url)
             update_attrib(elt, 'class', 'on')
-            if status.identifier == self.sup_ctx.master_identifier:
-                update_attrib(elt, 'class', 'master')
-        elt.content(status.identifier)
+        identifier = status.identifier
+        if identifier == self.sup_ctx.master_identifier:
+            identifier = f'{MASTER_SYMBOL} {identifier}'
+        elt.content(identifier)
         # set Supvisors instance state
         elt = instance_div_elt.findmeld('state_th_mid')
         elt.attrib['class'] = status.state.name + ' state'
@@ -112,7 +113,7 @@ class SupvisorsView(ViewHandler):
             elt.content(simple_localtime(remote_time))
         # set Supvisors instance current load
         elt = instance_div_elt.findmeld('percent_th_mid')
-        elt.content(f'{status.get_loading()}%')
+        elt.content(f'{status.get_load()}%')
 
     @staticmethod
     def _write_instance_box_processes(instance_div_elt, status):
@@ -285,11 +286,11 @@ class SupvisorsView(ViewHandler):
                     return error_message(f'restart: {exc}')
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
-                return info_message('Supvisors restarted')
+                return warn_message('Supvisors restart requested')
 
             onwait.delay = 0.1
             return onwait
-        return delayed_info('Supvisors restarted')
+        return delayed_warn('Supvisors restart requested')
 
     def sup_shutdown_action(self):
         """ Stop all Supervisor instances. """
@@ -305,11 +306,11 @@ class SupvisorsView(ViewHandler):
                     return error_message(f'shutdown: {exc}')
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
-                return info_message('Supvisors shut down')
+                return warn_message('Supvisors shutdown requested')
 
             onwait.delay = 0.1
             return onwait
-        return delayed_info('Supvisors shut down')
+        return delayed_warn('Supvisors shutdown requested')
 
     def stop_action(self, namespec: str, identifier: str) -> Callable:
         """ Stop the conflicting process. """

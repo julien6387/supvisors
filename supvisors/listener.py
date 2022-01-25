@@ -25,11 +25,12 @@ from typing import Any, Optional
 from supervisor import events
 from supervisor.datatypes import boolean
 from supervisor.loggers import Logger
-from supervisor.options import make_namespec, split_namespec
+from supervisor.options import make_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
 from .mainloop import SupvisorsMainLoop
+from .process import ProcessStatus
 from .supvisorszmq import SupervisorZmq, RequestPusher
 from .ttypes import SupvisorsStates, ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent
 from .utils import InternalEventHeaders, RemoteCommEvents
@@ -70,7 +71,7 @@ class SupervisorListener(object):
         # test if statistics collector can be created for local host
         self.collector = None
         try:
-            from supvisors.statscollector import instant_statistics
+            from .statscollector import instant_statistics
             self.collector = instant_statistics
         except ImportError:
             self.logger.info('SupervisorListener: psutil not installed')
@@ -87,6 +88,7 @@ class SupervisorListener(object):
         events.subscribe(events.ProcessStateEvent, self.on_process_state)
         events.subscribe(ProcessAddedEvent, self.on_process_added)
         events.subscribe(ProcessRemovedEvent, self.on_process_removed)
+        events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
 
@@ -97,6 +99,8 @@ class SupervisorListener(object):
         # replace the default handler for web ui
         self.supvisors.supervisor_data.replace_default_handler()
         # update Supervisor internal data for extra_args
+        # WARN: this is also triggered by adding groups in Supervisor, however the initial group added events are sent
+        # before the Supvisors RPC interface is created
         self.supvisors.supervisor_data.prepare_extra_args()
         # create zmq sockets
         self.supvisors.zmq = SupervisorZmq(self.supvisors)
@@ -131,17 +135,19 @@ class SupervisorListener(object):
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
         The event is published to all Supvisors instances. """
         event_name = events.getEventNameByType(event.__class__)
-        namespec = make_namespec(event.process.group.config.name, event.process.config.name)
+        process_config = event.process.config
+        namespec = make_namespec(event.process.group.config.name, process_config.name)
         self.logger.debug(f'SupervisorListener.on_process_state: got {event_name} for {namespec}')
         # create payload from event
-        payload = {'name': event.process.config.name,
+        payload = {'name': process_config.name,
                    'group': event.process.group.config.name,
                    'state': _process_states_by_name[event_name.split('_')[-1]],
-                   'extra_args': event.process.config.extra_args,
                    'now': int(time.time()),
                    'pid': event.process.pid,
                    'expected': event.expected,
                    'spawnerr': event.process.spawnerr}
+        if hasattr(process_config, 'extra_args'):
+            payload['extra_args'] = process_config.extra_args
         self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
         self.pusher.send_process_state_event(payload)
 
@@ -176,16 +182,29 @@ class SupervisorListener(object):
         self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
         self.pusher.send_process_removed_event(payload)
 
+    def on_group_added(self, event: events.ProcessGroupAddedEvent) -> None:
+        """ Called when a group has been added due to a Supervisor configuration update.
+
+        :param event: the ProcessGroupAddedEvent object
+        :return: None
+        """
+        # update Supervisor internal data for extra_args
+        self.logger.debug(f'SupervisorListener.on_group_added: group={event.group}')
+        self.supvisors.supervisor_data.prepare_extra_args(event.group)
+
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.
         The event is published to all Supvisors instances.
-        Then statistics are published and periodic task is triggered. """
+        Then statistics are published and periodic task is triggered.
+
+        :param event: the Supervisor TICK event
+        :return: None
+        """
         self.logger.debug('SupervisorListener.on_tick: got TickEvent from Supervisor')
         payload = {'when': event.when}
         self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
         self.pusher.send_tick_event(payload)
         # get and publish statistics at tick time (optional)
-        # TODO: send only PID in pusher. main loop can collect
         if self.collector and self.supvisors.options.stats_enabled:
             status = self.supvisors.context.instances[self.local_identifier]
             stats = self.collector(status.pid_processes())
@@ -242,28 +261,25 @@ class SupervisorListener(object):
         """ Extract authorization and identifier from data and process event. """
         self.logger.trace(f'SupervisorListener.authorization: got authorization event: {data}')
         # split the line received
-        identifier, authorized, master_identifier, supvisors_state = tuple(x.split('=')[1] for x in data.split())
-        self.supvisors.fsm.on_authorization(identifier, boolean(authorized), master_identifier,
-                                            SupvisorsStates[supvisors_state])
+        identifier, authorized_string, master_identifier, supvisors_state = tuple(x.split('=')[1] for x in data.split())
+        authorized = boolean(authorized_string) if authorized_string != 'None' else None
+        self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier, SupvisorsStates[supvisors_state])
 
-    def force_process_state(self, namespec: str, state: ProcessStates, reason: str) -> None:
+    def force_process_state(self, process: ProcessStatus, expected_state: ProcessStates, identifier: str,
+                            forced_state: ProcessStates, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
 
-        :param namespec: the process namespec
-        :param state: the process state to force
+        :param process: the process structure
+        :param expected_state: the process state expected
+        :param identifier: the identifier of the Supvisors instance where the process state is expected
+        :param forced_state: the process state to force if the expected state has not been received
         :param reason: the reason declared
         :return: None
         """
         # create payload from event
-        application_name, process_name = split_namespec(namespec)
-        payload = {'group': application_name, 'name': process_name, 'state': state, 'forced': True,
-                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason}
-        # get extra_args if process is known to local Supervisor
-        try:
-            options = self.supvisors.supervisor_data.get_process_config_options(namespec, ('extra_args',))
-            payload.update(options)
-        except KeyError:
-            self.logger.trace(f'SupervisorListener.force_process_state: cannot get extra_args from namespec={namespec}'
-                              ' because the program is unknown to local Supervisor')
+        payload = {'group': process.application_name, 'name': process.process_name, 'state': expected_state,
+                   'forced_state': forced_state, 'identifier': identifier,
+                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason,
+                   'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
         self.pusher.send_process_state_event(payload)

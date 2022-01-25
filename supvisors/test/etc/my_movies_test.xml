@@ -1,21 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
-
     <!-- complex test application -->
     <application name="test">
         <start_sequence>1</start_sequence>
         <stop_sequence>0</stop_sequence>
-
-        <program pattern="">
-            <addresses>cliche81</addresses>
-        </program>
-
         <program name="check_start_sequence">
-            <addresses>cliche81</addresses>
+            <identifiers>cliche81</identifiers>
             <start_sequence>1</start_sequence>
             <expected_loading>1</expected_loading>
         </program>
-
+        <program pattern="">
+            <identifiers>cliche81</identifiers>
+        </program>
     </application>
-
 </root>

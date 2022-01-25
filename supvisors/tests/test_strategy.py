@@ -23,30 +23,37 @@ from unittest.mock import Mock, call
 
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.strategy import *
-from supvisors.ttypes import SupvisorsInstanceStates, ConciliationStrategies, RunningFailureStrategies, StartingStrategies
+from supvisors.ttypes import (SupvisorsInstanceStates, ConciliationStrategies, RunningFailureStrategies,
+                              StartingStrategies)
 
 
 def mock_instance(mocker, status: SupvisorsInstanceStatus, node_state: SupvisorsInstanceStates, load: int):
     """ Mock the SupvisorsInstanceStatus. """
     status._state = node_state
-    mocker.patch.object(status, 'get_loading', return_value=load)
+    mocker.patch.object(status, 'get_load', return_value=load)
 
 
 @pytest.fixture
 def filled_instances(mocker, supvisors):
+    local_identifier = supvisors.supvisors_mapper.local_identifier
     instances = supvisors.context.instances
-    mock_instance(mocker, instances['127.0.0.1'], SupvisorsInstanceStates.RUNNING, 50)
+    mock_instance(mocker, instances[local_identifier], SupvisorsInstanceStates.RUNNING, 50)
     mock_instance(mocker, instances['10.0.0.1'], SupvisorsInstanceStates.SILENT, 0)
     mock_instance(mocker, instances['10.0.0.2'], SupvisorsInstanceStates.ISOLATED, 0)
     mock_instance(mocker, instances['10.0.0.3'], SupvisorsInstanceStates.RUNNING, 20)
     mock_instance(mocker, instances['10.0.0.4'], SupvisorsInstanceStates.UNKNOWN, 0)
     mock_instance(mocker, instances['10.0.0.5'], SupvisorsInstanceStates.RUNNING, 80)
+    mock_instance(mocker, instances['test'], SupvisorsInstanceStates.RUNNING, 10)
     return supvisors
 
 
 @pytest.fixture
-def load_request_map():
-    return {'127.0.0.1': 0, '10.0.0.3': 10, '10.0.0.5': 20}
+def load_details(supvisors):
+    local_identifier = supvisors.supvisors_mapper.local_identifier
+    local_node_name = supvisors.supvisors_mapper.instances[local_identifier].host_name
+    return ({local_identifier: 0, '10.0.0.3': 10, '10.0.0.5': 20, 'test': 10},
+            {local_node_name: 50, '10.0.0.3': 20, '10.0.0.5': 80},
+            {local_node_name: 10, '10.0.0.3': 10, '10.0.0.5': 20})
 
 
 @pytest.fixture
@@ -55,60 +62,55 @@ def starting_strategy(filled_instances):
     return AbstractStartingStrategy(filled_instances)
 
 
-def test_is_loading_valid(starting_strategy, load_request_map):
+def test_is_loading_valid(starting_strategy, load_details):
     """ Test the validity of an address with an additional loading. """
-    # test unknown address
-    assert starting_strategy.is_loading_valid('10.0.0.0', 1, load_request_map) == (False, 0)
-    # test not RUNNING address
-    assert starting_strategy.is_loading_valid('10.0.0.1', 1, load_request_map) == (False, 0)
-    assert starting_strategy.is_loading_valid('10.0.0.2', 1, load_request_map) == (False, 0)
-    assert starting_strategy.is_loading_valid('10.0.0.4', 1, load_request_map) == (False, 0)
-    # test loaded RUNNING address
-    assert starting_strategy.is_loading_valid('127.0.0.1', 55, load_request_map) == (False, 50)
-    assert starting_strategy.is_loading_valid('10.0.0.3', 85, load_request_map) == (False, 30)
-    assert starting_strategy.is_loading_valid('10.0.0.5', 25, load_request_map) == (False, 100)
-    # test not loaded RUNNING address
-    assert starting_strategy.is_loading_valid('127.0.0.1', 45, load_request_map) == (True, 50)
-    assert starting_strategy.is_loading_valid('10.0.0.3', 65, load_request_map) == (True, 30)
-    assert starting_strategy.is_loading_valid('10.0.0.5', 0, load_request_map) == (True, 100)
+    local_identifier = starting_strategy.supvisors.supvisors_mapper.local_identifier
+    # test loaded RUNNING instances
+    assert starting_strategy.is_loading_valid(local_identifier, 55, load_details) == (False, 60, 50)
+    assert starting_strategy.is_loading_valid('10.0.0.3', 85, load_details) == (False, 30, 30)
+    assert starting_strategy.is_loading_valid('10.0.0.5', 25, load_details) == (False, 100, 100)
+    # test not loaded RUNNING instances
+    assert starting_strategy.is_loading_valid(local_identifier, 40, load_details) == (True, 60, 50)
+    assert starting_strategy.is_loading_valid('10.0.0.3', 65, load_details) == (True, 30, 30)
+    assert starting_strategy.is_loading_valid('10.0.0.5', 0, load_details) == (True, 100, 100)
 
 
-def test_get_loading_and_validity(starting_strategy, load_request_map):
+def test_get_loading_and_validity(starting_strategy, load_details):
     """ Test the determination of the valid addresses with an additional loading. """
     # test valid addresses with different additional loadings
-    instances = starting_strategy.supvisors.supvisors_mapper.instances
+    local_identifier = starting_strategy.supvisors.supvisors_mapper.local_identifier
+    identifiers = list(load_details[0].keys())
     # first test
-    expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
-                '10.0.0.3': (True, 30), '10.0.0.4': (False, 0), '10.0.0.5': (False, 100)}
-    assert starting_strategy.get_loading_and_validity(instances, 15, load_request_map) == expected
+    expected = {local_identifier: (True, 60, 50), '10.0.0.3': (True, 30, 30), '10.0.0.5': (False, 100, 100),
+                'test': (True, 60, 20)}
+    assert starting_strategy.get_loading_and_validity(identifiers, 15, load_details) == expected
     # second test
-    expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
-                '10.0.0.3': (True, 30), '10.0.0.4': (False, 0), '10.0.0.5': (False, 100)}
-    assert starting_strategy.get_loading_and_validity(starting_strategy.supvisors.context.instances.keys(), 45,
-                                                      load_request_map) == expected
+    expected = {local_identifier: (False, 60, 50), '10.0.0.3': (True, 30, 30), '10.0.0.5': (False, 100, 100),
+                'test': (False, 60, 20)}
+    assert starting_strategy.get_loading_and_validity(identifiers, 45, load_details) == expected
     # third test
-    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (True, 30), '10.0.0.5': (False, 100)}
-    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 65,
-                                                      load_request_map) == expected
+    expected = {local_identifier: (False, 60, 50), '10.0.0.3': (True, 30, 30), '10.0.0.5': (False, 100, 100)}
+    assert starting_strategy.get_loading_and_validity([local_identifier, '10.0.0.3', '10.0.0.5'], 65,
+                                                      load_details) == expected
     # fourth test
-    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (False, 30), '10.0.0.5': (False, 100)}
-    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 85,
-                                                      load_request_map) == expected
+    expected = {local_identifier: (False, 60, 50), '10.0.0.3': (False, 30, 30), '10.0.0.5': (False, 100, 100)}
+    assert starting_strategy.get_loading_and_validity([local_identifier, '10.0.0.3', '10.0.0.5'], 85,
+                                                      load_details) == expected
 
 
-def test_sort_valid_by_loading(starting_strategy):
-    """ Test the sorting of the validity of the addresses. """
+def test_sort_valid_by_instance_load(starting_strategy):
+    """ Test the AbstractStartingStrategy.sort_valid_by_instance_load method. """
     # first test
-    parameters = {'10.0.0.0': (False, 0), '10.0.0.1': (True, 50), '10.0.0.2': (False, 0),
-                  '10.0.0.3': (True, 20), '10.0.0.4': (False, 0), '10.0.0.5': (True, 80)}
-    expected = [('10.0.0.3', 20), ('10.0.0.1', 50), ('10.0.0.5', 80)]
-    assert starting_strategy.sort_valid_by_loading(parameters) == expected
+    parameters = {'10.0.0.0': (False, 0, 0), '10.0.0.1': (True, 20, 50), '10.0.0.2': (False, 0, 0),
+                  '10.0.0.3': (True, 20, 30), '10.0.0.4': (False, 0, 0), '10.0.0.5': (True, 80, 10)}
+    expected = [('10.0.0.5', 80, 10), ('10.0.0.3', 20, 30), ('10.0.0.1', 20, 50)]
+    assert starting_strategy.sort_valid_by_instance_load(parameters) == expected
     # second test
-    parameters = {'10.0.0.1': (False, 50), '10.0.0.3': (True, 20), '10.0.0.5': (False, 80)}
-    assert starting_strategy.sort_valid_by_loading(parameters) == [('10.0.0.3', 20)]
+    parameters = {'10.0.0.1': (False, 0, 50), '10.0.0.3': (True, 30, 20), '10.0.0.5': (False, 80, 10)}
+    assert starting_strategy.sort_valid_by_instance_load(parameters) == [('10.0.0.3', 30, 20)]
     # third test
-    parameters = {'10.0.0.1': (False, 50), '10.0.0.3': (False, 20), '10.0.0.5': (False, 80)}
-    assert starting_strategy.sort_valid_by_loading(parameters) == []
+    parameters = {'10.0.0.1': (False, 0, 50), '10.0.0.3': (False, 30, 20), '10.0.0.5': (False, 80, 10)}
+    assert starting_strategy.sort_valid_by_instance_load(parameters) == []
 
 
 def test_abstract_get_node(starting_strategy):
@@ -118,77 +120,144 @@ def test_abstract_get_node(starting_strategy):
         starting_strategy.get_supvisors_instance(instances, 0, {})
 
 
-def test_config_strategy(filled_instances, load_request_map):
-    """ Test the choice of an address according to the CONFIG strategy. """
+def test_config_strategy(filled_instances, load_details):
+    """ Test the choice of an identifier according to the CONFIG strategy. """
     strategy = ConfigStrategy(filled_instances)
     # test CONFIG strategy with different values
-    instances = filled_instances.supvisors_mapper.instances
-    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 65, load_request_map) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 85, load_request_map) is None
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == local_identifier
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
-def test_less_loaded_strategy(filled_instances, load_request_map):
-    """ Test the choice of an address according to the LESS_LOADED strategy. """
+def test_less_loaded_strategy(filled_instances, load_details):
+    """ Test the choice of an identifier according to the LESS_LOADED strategy. """
     strategy = LessLoadedStrategy(filled_instances)
     # test LESS_LOADED strategy with different values
-    instances = filled_instances.supvisors_mapper.instances
-    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 65, load_request_map) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 85, load_request_map) is None
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == 'test'
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == 'test'
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
-def test_most_loaded_strategy(filled_instances, load_request_map):
-    """ Test the choice of an address according to the MOST_LOADED strategy. """
+def test_less_loaded_node_strategy(filled_instances, load_details):
+    """ Test the choice of an identifier according to the LESS_LOADED_NODE strategy. """
+    strategy = LessLoadedNodeStrategy(filled_instances)
+    # test LESS_LOADED strategy with different values
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_details) is None
+
+
+def test_most_loaded_strategy(filled_instances, load_details):
+    """ Test the choice of an identifier according to the MOST_LOADED strategy. """
     strategy = MostLoadedStrategy(filled_instances)
     # test MOST_LOADED strategy with different values
-    instances = filled_instances.supvisors_mapper.instances
-    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '10.0.0.5'
-    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 65, load_request_map) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 85, load_request_map) is None
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5'
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
-def test_local_strategy(filled_instances, load_request_map):
+def test_most_loaded_node_strategy(filled_instances, load_details):
+    """ Test the choice of an identifier according to the MOST_LOADED_NODE strategy. """
+    strategy = MostLoadedNodeStrategy(filled_instances)
+    # test MOST_LOADED strategy with different values
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5'
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_details) is None
+
+
+def test_local_strategy(filled_instances, load_details):
     """ Test the choice of an address according to the LOCAL strategy. """
     strategy = LocalStrategy(filled_instances)
     # test LOCAL strategy with different values
-    instances = filled_instances.supvisors_mapper.instances
-    assert strategy.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '127.0.0.1'
-    assert strategy.get_supvisors_instance(instances, 65, load_request_map) is None
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    assert strategy.supvisors.supvisors_mapper.local_identifier == local_identifier
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == local_identifier
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
+    assert strategy.get_supvisors_instance(instances, 45, load_details) is None
+    # test with local Supvisors instance not in candidates
+    instances = ['10.0.0.3', '10.0.0.5', 'test']
+    assert strategy.get_supvisors_instance(instances, 0, load_details) is None
 
 
-def test_get_node(filled_instances, load_request_map):
-    """ Test the choice of a node according to a strategy. """
-    filled_instances.starter.get_load_requests.return_value = load_request_map
+def test_get_supvisors_instance_no_candidate(supvisors):
+    """ Test the choice of a Supvisors instance according to a strategy when no candidate is available. """
+    local_identifier = supvisors.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    assert get_supvisors_instance(supvisors, StartingStrategies.CONFIG, instances, 0) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED, instances, 0) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED, instances, 0) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED_NODE, instances, 0) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED_NODE, instances, 0) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LOCAL, instances, 0) is None
+
+
+def test_get_supvisors_instance(filled_instances, load_details):
+    """ Test the choice of a Supvisors instance according to a strategy. """
+    filled_instances.starter.get_load_requests.return_value = load_details[0]
+    # context
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     # test CONFIG strategy
-    instances = filled_instances.supvisors_mapper.instances
-    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 0) == '127.0.0.1'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 15) == '127.0.0.1'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 65) == '10.0.0.3'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 85) is None
+    strategy = StartingStrategies.CONFIG
+    for load, result in [(0, local_identifier), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
     # test LESS_LOADED strategy
-    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 0) == '10.0.0.3'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 15) == '10.0.0.3'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 65) == '10.0.0.3'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 85) is None
+    strategy = StartingStrategies.LESS_LOADED
+    for load, result in [(0, 'test'), (15, 'test'), (65, '10.0.0.3'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
     # test MOST_LOADED strategy
-    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 0) == '10.0.0.5'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 15) == '127.0.0.1'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 65) == '10.0.0.3'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 85) is None
+    strategy = StartingStrategies.MOST_LOADED
+    for load, result in [(0, '10.0.0.5'), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+    # test LESS_LOADED_NODE strategy
+    strategy = StartingStrategies.LESS_LOADED_NODE
+    for load, result in [(0, '10.0.0.3'), (15, '10.0.0.3'), (65, '10.0.0.3'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+    # test MOST_LOADED_NODE strategy
+    strategy = StartingStrategies.MOST_LOADED_NODE
+    for load, result in [(0, '10.0.0.5'), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
     # test LOCAL strategy
-    assert get_supvisors_instance(filled_instances, StartingStrategies.LOCAL, instances, 0) == '127.0.0.1'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.LOCAL, instances, 15) == '127.0.0.1'
-    assert get_supvisors_instance(filled_instances, StartingStrategies.LOCAL, instances, 65) is None
+    strategy = StartingStrategies.LOCAL
+    for load, result in [(0, local_identifier), (15, local_identifier), (65, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+
+
+def test_get_node(mocker, filled_instances):
+    """ Test the choice of a node according to a strategy. """
+    mocked_get_instance = mocker.patch('supvisors.strategy.get_supvisors_instance', return_value=None)
+    # context
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    # test with no instance found
+    strategy = StartingStrategies.CONFIG
+    assert get_node(filled_instances, strategy, instances, 27) is None
+    # test with no instance found
+    mocked_get_instance.return_value = 'test'
+    strategy = StartingStrategies.CONFIG
+    local_instance = filled_instances.supvisors_mapper.instances[local_identifier]
+    assert get_node(filled_instances, strategy, instances, 27) == local_instance.host_name
 
 
 def create_process_status(name, timed_identifiers):
@@ -211,9 +280,10 @@ def test_senicide_strategy(supvisors, conflicts):
     strategy = SenicideStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that the oldest processes are requested to stop on the relevant addresses
-    expected = [call('10.0.0.2', 'conflict_1'), call('10.0.0.3', 'conflict_1'),
-                call('10.0.0.4', 'conflict_2'), call('10.0.0.2', 'conflict_2')]
-    supvisors.zmq.pusher.send_stop_process.assert_has_calls(expected, any_order=True)
+    expected = [call(conflicts[0], {'10.0.0.2', '10.0.0.3'}, False),
+                call(conflicts[1], {'10.0.0.2', '10.0.0.4'}, False)]
+    assert supvisors.stopper.stop_process.call_args_list == expected
+    assert supvisors.stopper.next.called
 
 
 def test_infanticide_strategy(supvisors, conflicts):
@@ -221,9 +291,10 @@ def test_infanticide_strategy(supvisors, conflicts):
     strategy = InfanticideStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that the youngest processes are requested to stop on the relevant addresses
-    expected = [call('10.0.0.1', 'conflict_1'), call('10.0.0.2', 'conflict_1'),
-                call('10.0.0.2', 'conflict_2'), call('10.0.0.0', 'conflict_2')]
-    supvisors.zmq.pusher.send_stop_process.assert_has_calls(expected, any_order=True)
+    expected = [call(conflicts[0], {'10.0.0.1', '10.0.0.2'}, False),
+                call(conflicts[1], {'10.0.0.2', '10.0.0.0'}, False)]
+    assert supvisors.stopper.stop_process.call_args_list == expected
+    assert supvisors.stopper.next.called
 
 
 def test_user_strategy(supvisors, conflicts):
@@ -240,16 +311,16 @@ def test_stop_strategy(supvisors, conflicts):
     strategy = StopStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that all processes are requested to stop through the Stopper
-    assert not supvisors.zmq.pusher.send_stop_process.called
-    expected = [call(conflicts[0]), call(conflicts[1])]
-    supvisors.stopper.stop_process.assert_has_calls(expected, any_order=True)
+    expected = [call(conflicts[0], trigger=False), call(conflicts[1], trigger=False)]
+    assert supvisors.stopper.stop_process.call_args_list == expected
+    assert supvisors.stopper.next.called
 
 
 def test_restart_strategy(supvisors, conflicts):
     """ Test the strategy that consists in stopping all processes and restart a single one. """
     # get patches
-    mocked_add = supvisors.failure_handler.add_job
-    mocked_trigger = supvisors.failure_handler.trigger_jobs
+    mocked_restart = supvisors.stopper.default_restart_process
+    mocked_next = supvisors.stopper.next
     # call the conciliation
     strategy = RestartStrategy(supvisors)
     strategy.conciliate(conflicts)
@@ -257,9 +328,8 @@ def test_restart_strategy(supvisors, conflicts):
     assert not supvisors.stopper.stop_process.called
     assert not supvisors.zmq.pusher.send_stop_process.called
     # test failure_handler call
-    assert mocked_add.call_args_list == [call(RunningFailureStrategies.RESTART_PROCESS, conflicts[0]),
-                                         call(RunningFailureStrategies.RESTART_PROCESS, conflicts[1])]
-    assert mocked_trigger.call_count == 1
+    assert mocked_restart.call_args_list == [call(conflicts[0], False), call(conflicts[1], False)]
+    assert mocked_next.called
 
 
 def test_failure_strategy(supvisors, conflicts):
@@ -271,8 +341,9 @@ def test_failure_strategy(supvisors, conflicts):
     strategy = FailureStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that all processes are requested to stop through the Stopper
-    assert not supvisors.zmq.pusher.send_stop_process.called
-    assert supvisors.stopper.stop_process.call_args_list == [call(conflicts[0]), call(conflicts[1])]
+    assert supvisors.stopper.stop_process.call_args_list == [call(conflicts[0], trigger=False),
+                                                             call(conflicts[1], trigger=False)]
+    assert supvisors.stopper.next.called
     # test failure_handler call
     assert mocked_add.call_args_list == [call(conflicts[0]), call(conflicts[1])]
     assert mocked_trigger.call_count == 1
@@ -328,15 +399,12 @@ def handler(supvisors):
     return RunningFailureHandler(supvisors)
 
 
-def compare_sets(handler, stop_app=None, restart_app=None, restart_proc=None,
-                 continue_proc=None, start_app=None, start_proc=None):
+def compare_sets(handler, stop_app=None, restart_app=None, restart_proc=None, continue_proc=None):
     # define compare function
     assert handler.stop_application_jobs == (stop_app or set())
     assert handler.restart_application_jobs == (restart_app or set())
     assert handler.restart_process_jobs == (restart_proc or set())
     assert handler.continue_process_jobs == (continue_proc or set())
-    assert handler.start_application_jobs == (start_app or set())
-    assert handler.start_process_jobs == (start_proc or set())
 
 
 def test_running_create(handler):
@@ -352,8 +420,6 @@ def test_running_abort(handler):
     handler.restart_application_jobs = {'a', 'b'}
     handler.restart_process_jobs = {1, 0, 'bcd'}
     handler.continue_process_jobs = {'aka', 2}
-    handler.start_application_jobs = {1, None}
-    handler.start_process_jobs = {0}
     # clear all
     handler.abort()
     # test empty structures
@@ -381,14 +447,13 @@ def test_add_stop_application_job(handler, add_jobs):
     application_A, application_B = app_list
     _, _, process_3 = proc_list
     # check that stop_application_jobs is updated and that other jobs are cleaned
-    for job_set in [handler.restart_application_jobs, handler.start_application_jobs]:
-        job_set.update(app_list)
-    for job_set in [handler.restart_process_jobs, handler.start_process_jobs, handler.continue_process_jobs]:
+    handler.restart_application_jobs.update(app_list)
+    for job_set in [handler.restart_process_jobs, handler.continue_process_jobs]:
         job_set.update(proc_list)
     assert application_A not in handler.stop_application_jobs
     handler.add_stop_application_job(application_A)
-    compare_sets(handler, stop_app={application_A}, restart_app={application_B}, start_app={application_B},
-                 restart_proc={process_3}, start_proc={process_3}, continue_proc={process_3})
+    compare_sets(handler, stop_app={application_A}, restart_app={application_B},
+                 restart_proc={process_3}, continue_proc={process_3})
 
 
 def test_add_restart_application_job(handler, add_jobs):
@@ -401,19 +466,13 @@ def test_add_restart_application_job(handler, add_jobs):
     handler.stop_application_jobs.add(application_A)
     handler.add_restart_application_job(application_A)
     compare_sets(handler, stop_app={application_A})
-    # check that restart_application_jobs is not updated when application is already in start_application_jobs
-    handler.stop_application_jobs.discard(application_A)
-    handler.start_application_jobs.add(application_A)
-    handler.add_restart_application_job(application_A)
-    compare_sets(handler, start_app={application_A})
     # check that restart_application_jobs is updated otherwise and that other jobs are cleaned
-    handler.start_application_jobs.discard(application_A)
-    for job_set in [handler.restart_process_jobs, handler.start_process_jobs, handler.continue_process_jobs]:
+    handler.stop_application_jobs = set()
+    for job_set in [handler.restart_process_jobs, handler.continue_process_jobs]:
         job_set.update(proc_list)
     handler.add_restart_application_job(application_A)
     expected_proc_set = {process_1, process_3}
-    compare_sets(handler, restart_app={application_A}, restart_proc=expected_proc_set,
-                 start_proc=expected_proc_set, continue_proc=expected_proc_set)
+    compare_sets(handler, restart_app={application_A}, restart_proc=expected_proc_set, continue_proc=expected_proc_set)
 
 
 def test_add_restart_process_job(add_jobs, handler):
@@ -435,29 +494,12 @@ def test_add_restart_process_job(add_jobs, handler):
     handler.add_restart_process_job(application_A, process_2)
     compare_sets(handler, restart_app={application_A})
     handler.restart_application_jobs.discard(application_A)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_restart_process_job(application_A, process_2)
-    compare_sets(handler, start_app={application_A})
-    handler.start_application_jobs.discard(application_A)
-    # check that add_restart_process_job is not updated when process is already in start_process_jobs
-    handler.start_process_jobs.add(process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.add_restart_process_job(application_A, process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.start_process_jobs.discard(process_2)
     # check that add_restart_process_job is updated when application is already in restart_application_jobs
-    # or in start_application_jobs and not in the application start sequence
+    # and not in the application start sequence
     handler.restart_application_jobs.add(application_A)
     compare_sets(handler, restart_app={application_A})
     handler.add_restart_process_job(application_A, process_1)
     compare_sets(handler, restart_app={application_A}, restart_proc={process_1})
-    handler.restart_application_jobs.discard(application_A)
-    handler.restart_process_jobs.discard(process_1)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_restart_process_job(application_A, process_1)
-    compare_sets(handler, start_app={application_A}, restart_proc={process_1})
 
 
 def test_add_continue_process_job(add_jobs, handler):
@@ -473,41 +515,24 @@ def test_add_continue_process_job(add_jobs, handler):
     compare_sets(handler, stop_app={application_A})
     handler.stop_application_jobs.discard(application_A)
     # check that continue_process_jobs is not updated when application is already in restart_application_jobs
-    # or in start_application_jobs and in the application start sequence
+    # and in the application start sequence
     handler.restart_application_jobs.add(application_A)
     compare_sets(handler, restart_app={application_A})
     handler.add_continue_process_job(application_A, process_2)
     compare_sets(handler, restart_app={application_A})
     handler.restart_application_jobs.discard(application_A)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_continue_process_job(application_A, process_2)
-    compare_sets(handler, start_app={application_A})
-    handler.start_application_jobs.discard(application_A)
     # check that continue_process_jobs is not updated when process is already in restart_process_jobs
-    # or in start_process_jobs
     handler.restart_process_jobs.add(process_2)
     compare_sets(handler, restart_proc={process_2})
     handler.add_continue_process_job(application_A, process_2)
     compare_sets(handler, restart_proc={process_2})
     handler.restart_process_jobs.discard(process_2)
-    handler.start_process_jobs.add(process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.add_continue_process_job(application_A, process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.start_process_jobs.discard(process_2)
     # check that continue_process_jobs is updated when application is already in restart_application_jobs
-    # or in start_application_jobs and not in the application start sequence
+    # and not in the application start sequence
     handler.restart_application_jobs.add(application_A)
     compare_sets(handler, restart_app={application_A})
     handler.add_continue_process_job(application_A, process_1)
     compare_sets(handler, restart_app={application_A}, continue_proc={process_1})
-    handler.restart_application_jobs.discard(application_A)
-    handler.continue_process_jobs.discard(process_1)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_continue_process_job(application_A, process_1)
-    compare_sets(handler, start_app={application_A}, continue_proc={process_1})
 
 
 def test_add_job(mocker, handler):
@@ -601,7 +626,7 @@ def test_trigger_stop_application_jobs(add_jobs, handler):
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_stop_application_jobs({'dummy_application_B'})
     compare_sets(handler, stop_app={application_B})
-    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A)]
+    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A, False)]
 
 
 def test_restart_application_jobs(add_jobs, handler):
@@ -615,8 +640,8 @@ def test_restart_application_jobs(add_jobs, handler):
     compare_sets(handler, restart_app=set(app_list))
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_restart_application_jobs({'dummy_application_B'})
-    compare_sets(handler, restart_app={application_B}, start_app={application_A})
-    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A)]
+    compare_sets(handler, restart_app={application_B})
+    assert handler.supvisors.stopper.default_restart_application.call_args_list == [call(application_A, False)]
 
 
 def test_trigger_restart_process_jobs(add_jobs, handler):
@@ -630,49 +655,10 @@ def test_trigger_restart_process_jobs(add_jobs, handler):
     compare_sets(handler, restart_proc=set(proc_list))
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_restart_process_jobs({'dummy_application_B'})
-    compare_sets(handler, restart_proc={process_3}, start_proc={process_1, process_2})
-    handler.supvisors.stopper.stop_process.assert_has_calls([call(process_1), call(process_2)], any_order=True)
-    assert not call(process_3) in handler.supvisors.stopper.stop_process.call_args_list
-
-
-def test_trigger_start_application_jobs(add_jobs, handler):
-    """ Test the triggering of start application jobs. """
-    # create dummy applications and processes
-    _, app_list = add_jobs
-    application_A, application_B = app_list
-    # check that continue_process_jobs is not updated when application is already in stop_application_jobs
-    compare_sets(handler)
-    # update context
-    for application, stopped in zip(app_list, [True, False]):
-        application.stopped.return_value = stopped
-    compare_sets(handler)
-    handler.start_application_jobs.update(app_list)
-    compare_sets(handler, start_app=set(app_list))
-    # test start_application calls depending on application state and involvement in Starter
-    handler.trigger_start_application_jobs({'dummy_application_A'})
-    compare_sets(handler, start_app=set(app_list))
-    assert not handler.supvisors.starter.default_start_process.called
-    # test start_process calls depending on process state and involvement in Starter
-    handler.trigger_start_application_jobs({'dummy_application_B'})
-    compare_sets(handler, start_app={application_B})
-    assert handler.supvisors.starter.default_start_application.call_args_list == [call(application_A)]
-
-
-def test_trigger_start_process_jobs(add_jobs, handler):
-    """ Test the triggering of start process jobs. """
-    # create dummy applications and processes
-    proc_list, _ = add_jobs
-    process_1, process_2, process_3 = proc_list
-    # update context
-    for process, stopped in zip(proc_list, [True, False, True]):
-        process.stopped.return_value = stopped
-    compare_sets(handler)
-    handler.start_process_jobs.update(proc_list)
-    compare_sets(handler, start_proc=set(proc_list))
-    # test start_process calls depending on process state and involvement in Starter
-    handler.trigger_start_process_jobs({'dummy_application_B'})
-    compare_sets(handler, start_proc={process_2, process_3})
-    assert handler.supvisors.starter.default_start_process.call_args_list == [call(process_1)]
+    compare_sets(handler, restart_proc={process_3})
+    handler.supvisors.stopper.default_restart_process.assert_has_calls([call(process_1, False), call(process_2, False)],
+                                                                       any_order=True)
+    assert not call(process_3, False) in handler.supvisors.stopper.default_restart_process.call_args_list
 
 
 def test_trigger_continue_process_jobs(add_jobs, handler):
@@ -693,8 +679,6 @@ def test_trigger_jobs(mocker, handler):
     mocker.patch.object(handler, 'trigger_stop_application_jobs')
     mocker.patch.object(handler, 'trigger_restart_application_jobs')
     mocker.patch.object(handler, 'trigger_restart_process_jobs')
-    mocker.patch.object(handler, 'trigger_start_application_jobs')
-    mocker.patch.object(handler, 'trigger_start_process_jobs')
     mocker.patch.object(handler, 'trigger_continue_process_jobs')
     mocker.patch.object(handler, 'get_application_job_names', return_value={'dummy_application_A'})
     # test calls
@@ -702,6 +686,6 @@ def test_trigger_jobs(mocker, handler):
     assert handler.trigger_stop_application_jobs.call_args_list == [call({'dummy_application_A'})]
     assert handler.trigger_restart_application_jobs.call_args_list == [call({'dummy_application_A'})]
     assert handler.trigger_restart_process_jobs.call_args_list == [call({'dummy_application_A'})]
-    assert handler.trigger_start_application_jobs.call_args_list == [call({'dummy_application_A'})]
-    assert handler.trigger_start_process_jobs.call_args_list == [call({'dummy_application_A'})]
     assert handler.trigger_continue_process_jobs.call_args_list == [call()]
+    assert handler.supvisors.starter.next.call_args_list == [call()]
+    assert handler.supvisors.stopper.next.call_args_list == [call()]

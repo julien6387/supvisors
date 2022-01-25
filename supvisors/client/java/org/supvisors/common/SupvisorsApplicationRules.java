@@ -33,7 +33,10 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /** The managed status of the application. */
     private Boolean isManaged;
 
-    /** The distribution status of the application. */
+    /** The distribution rule of the application. */
+    private DistributionRule distribution;
+
+    /** DEPRECATED - The distribution status of the application. */
     private Boolean isDistributed;
 
     /**
@@ -66,11 +69,10 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
         this.applicationName = (String) rulesInfo.get("application_name");
         this.isManaged = (Boolean) rulesInfo.get("managed");
         if (this.isManaged) {
+            this.distribution = DistributionRule.valueOf((String) rulesInfo.get("distribution"));
             this.isDistributed = (Boolean) rulesInfo.get("distributed");
-            if (!this.isDistributed) {
-                Object[] identifiers = (Object[]) rulesInfo.get("identifiers");
-                this.identifiers = Arrays.asList(identifiers);
-            }
+            Object[] identifiers = (Object[]) rulesInfo.get("identifiers");
+            this.identifiers = Arrays.asList(identifiers);
             this.startSequence = (Integer) rulesInfo.get("start_sequence");
             this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
             this.startingStrategy = StartingStrategy.valueOf((String) rulesInfo.get("starting_strategy"));
@@ -104,6 +106,15 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
      */
     public Boolean isManaged() {
         return this.isManaged;
+    }
+
+    /**
+     * The getDistribution method returns the distribution rule of the application in Supvisors.
+     *
+     * @return DistributionRule: The distribution rule.
+     */
+    public DistributionRule getDistribution() {
+        return this.distribution;
     }
 
     /**
@@ -182,11 +193,10 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
         String rulesString = "SupvisorsApplicationRules(applicationName=" + this.applicationName
             + " managed=" + this.isManaged;
         if (this.isManaged) {
-            rulesString += " distributed=" + this.isDistributed;
-            if (!this.isDistributed) {
-                rulesString += " identifiers=" + this.identifiers;
-            }
-            rulesString += " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
+            rulesString += " distribution=" + this.distribution
+                + " [DEPRECATED]distributed=" + this.isDistributed
+                + " identifiers=" + this.identifiers
+                + " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
                 + " startingStrategy=" + this.startingStrategy
                 + " startingFailureStrategy=" + this.startingFailureStrategy
                 + " runningFailureStrategy=" + this.runningFailureStrategy;

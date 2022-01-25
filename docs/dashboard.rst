@@ -14,7 +14,7 @@ the same infrastructure.
 
 .. important:: *About the browser compliance*.
 
-    The CSS of the web pages has been written for Firefox ESR 78.5.0.
+    The CSS of the web pages has been written for Firefox ESR 91.3.0.
     The compatibility with other browsers or other versions of Firefox is unknown.
 
 All pages are divided into 3 parts:
@@ -271,9 +271,20 @@ description and enables the user to perform some actions on them:
     * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process
       is ``RUNNING``).
 
+.. note::
+
+    For ``RUNNING`` processes, the color gradient used is different if the process has ever crashed since Supvisors
+    has been started. The aim is to inform that process logs should be considered.
+
+    +------------------------------------+-------------------------------------------+
+    | 'standard' ``RUNNING`` process     | ``RUNNING`` process with a crash history  |
+    +====================================+===========================================+
+    | .. centered:: |standard_running|   | .. centered:: |crashed_running|           |
+    +------------------------------------+-------------------------------------------+
+
 All processes are grouped by their application name and |Supvisors| provides expand / shrink actions per application
-to enable the user to show / hide blocks of processes.
-The application line displays:
+to enable the user to show / hide blocks of processes. Global expand / shrink actions are provided too in the top left
+cell of the table. The application line displays:
 
     * the overall state of the application, considering all |Supvisors| instances where it may be distributed,
     * a basic description of the operational status of the application,
@@ -402,3 +413,9 @@ will fail.
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 
 .. include:: common.rst
+
+.. |standard_running| image:: images/standard_running.png
+    :alt: RUNNING standard
+
+.. |crashed_running| image:: images/crashed_running.png
+    :alt: RUNNING crashed

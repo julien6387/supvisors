@@ -17,11 +17,19 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict
+from typing import Dict, List, Optional, Tuple
+
+from .ttypes import (CPUHistoryStats, CPUInstantStats, InstantStatistics, InterfaceHistoryStats, InterfaceInstantStats,
+                     InterfaceIntegratedStats, JiffiesList, MemHistoryStats, ProcessHistoryStatsMap)
+
+# additional annotation types
+FloatList = List[float]
+ProcessIntegratedStatsMap = Dict[Tuple[str, int], Tuple[float, float]]  # {(namespec, pid): (cpu, mem)}
+IntegratedStats = Tuple[float, CPUInstantStats, float, InterfaceIntegratedStats, ProcessIntegratedStatsMap]
 
 
 # CPU statistics
-def cpu_statistics(last, ref):
+def cpu_statistics(last: JiffiesList, ref: JiffiesList) -> CPUInstantStats:
     """ Return the CPU loading for all the processors between last and ref measures.
     The average on all processors is inserted in front of the list. """
     cpu = []
@@ -33,7 +41,7 @@ def cpu_statistics(last, ref):
     return cpu
 
 
-def cpu_total_work(last, ref):
+def cpu_total_work(last: JiffiesList, ref: JiffiesList) -> float:
     """ Return the total work on the average CPU between last and ref measures. """
     work = last[0][0] - ref[0][0]
     idle = last[0][1] - ref[0][1]
@@ -41,7 +49,7 @@ def cpu_total_work(last, ref):
 
 
 # Network statistics
-def io_statistics(last, ref, duration):
+def io_statistics(last: InterfaceInstantStats, ref: InterfaceInstantStats, duration: float) -> InterfaceIntegratedStats:
     """ Return the rate of receive / sent bytes per second per network interface. """
     io_stats = {}
     for intf, (last_recv, last_sent) in last.items():
@@ -59,15 +67,15 @@ def io_statistics(last, ref, duration):
 
 
 # Process statistics
-def cpu_process_statistics(last, ref, total_work):
+def cpu_process_statistics(last: float, ref: float, total_work: float) -> float:
     """ Return the CPU loading of the process between last and ref measures. """
     # process may have been started between ref and last
     return 100.0 * (last - ref) / total_work
 
 
 # Calculate resources taken between two snapshots
-def statistics(last, ref):
-    """ Return resources statistics from two series of measures. """
+def statistics(last: InstantStatistics, ref: InstantStatistics) -> IntegratedStats:
+    """ Return resources' statistics from two series of measures. """
     # for use in client display
     duration = last[0] - ref[0]
     cpu = cpu_statistics(last[1], ref[1])
@@ -100,15 +108,15 @@ class StatisticsInstance(object):
         # keep reference to the logger
         self.logger = logger
         # parameters
-        self.period = period // 5
-        self.depth = depth
-        self.counter = -1
-        self.ref_stats = None
+        self.period: int = period // 5
+        self.depth: int = depth
+        self.counter: int = -1
+        self.ref_stats: Optional[InstantStatistics] = None
         # data structures
-        self.cpu = []
-        self.mem = []
-        self.io = {}
-        self.proc = {}
+        self.cpu: CPUHistoryStats = []
+        self.mem: MemHistoryStats = []
+        self.io: InterfaceHistoryStats = {}
+        self.proc: ProcessHistoryStatsMap = {}
 
     def clear(self):
         """ Reset all attributes. """
@@ -125,18 +133,18 @@ class StatisticsInstance(object):
         return next((stats for (process_name, pid), stats in self.proc.items()
                      if process_name == namespec), None)
 
-    def _push_cpu_stats(self, cpu_stats):
+    def _push_cpu_stats(self, cpu_stats: FloatList):
         """ Add new CPU statistics. """
         for lst in self.cpu:
             lst.append(cpu_stats.pop(0))
             self.trunc_depth(lst)
 
-    def _push_mem_stats(self, mem_stats):
+    def _push_mem_stats(self, mem_stats: float):
         """ Add new MEM statistics. """
         self.mem.append(mem_stats)
         self.trunc_depth(self.mem)
 
-    def _push_io_stats(self, io_stats):
+    def _push_io_stats(self, io_stats: InterfaceIntegratedStats):
         """ Add new IO statistics. """
         # on certain node configurations, interface list may be dynamic
         # unlike processes, it is interesting to log when it happens
@@ -185,7 +193,7 @@ class StatisticsInstance(object):
         for named_pid, (cpu_value, mem_value) in proc_stats.items():
             self.proc[named_pid] = [cpu_value], [mem_value]
 
-    def push_statistics(self, stats):
+    def push_statistics(self, stats: InstantStatistics):
         """ Calculates new statistics given a new series of measures. """
         self.counter += 1
         if self.counter % self.period == 0:
@@ -233,7 +241,7 @@ class StatisticsCompiler(object):
         for period in self.data[identifier].values():
             period.clear()
 
-    def push_statistics(self, identifier: str, stats):
+    def push_statistics(self, identifier: str, stats: InstantStatistics):
         """ Insert a new statistics measure for identifier. """
         for stats_instance in self.data[identifier].values():
             stats_instance.push_statistics(stats)

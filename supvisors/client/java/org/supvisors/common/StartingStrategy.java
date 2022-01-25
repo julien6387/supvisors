@@ -24,7 +24,9 @@ public enum StartingStrategy {
     CONFIG(0),
     LESS_LOADED(1),
     MOST_LOADED(2),
-    LOCAL(3);
+    LOCAL(3),
+    LESS_LOADED_NODE(4),
+    MOST_LOADED_NODE(5);
 
     /** The strategy code. */
     private int strategyCode;

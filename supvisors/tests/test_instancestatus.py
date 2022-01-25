@@ -40,7 +40,7 @@ def supvisors_id(supvisors):
 @pytest.fixture
 def status(supvisors, supvisors_id):
     """ Create an empty SupvisorsInstanceStatus. """
-    return SupvisorsInstanceStatus(supvisors_id, supvisors.logger)
+    return SupvisorsInstanceStatus(supvisors_id, supvisors)
 
 
 @pytest.fixture
@@ -55,7 +55,8 @@ def filled_status(supvisors, status):
 
 def test_create(supvisors, supvisors_id, status):
     """ Test the values set at SupvisorsInstanceStatus construction. """
-    assert status.logger == supvisors.logger
+    assert status.supvisors is supvisors
+    assert status.logger is supvisors.logger
     assert status.supvisors_id is supvisors_id
     assert status.identifier == 'supvisors'
     assert status.state == SupvisorsInstanceStates.UNKNOWN
@@ -85,9 +86,9 @@ def test_serialization(status):
     status.local_time = 60
     # test to_json method
     serialized = status.serial()
-    assert serialized == {'identifier': 'supvisors', 'address_name': 'supvisors',  # TODO: DEPRECATED
-                          'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
-                          'remote_time': 50, 'local_time': 60, 'sequence_counter': 28}
+    assert serialized == {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
+                          'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time': 60,
+                          'sequence_counter': 28}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -168,15 +169,15 @@ def test_pid_process(filled_status):
     assert {('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)} == set(filled_status.pid_processes())
 
 
-def test_get_loading(filled_status):
-    """ Test the SupvisorsInstanceStatus.get_loading method. """
+def test_get_load(filled_status):
+    """ Test the SupvisorsInstanceStatus.get_load method. """
     # check the loading of the address: gives 0 by default because no rule has been loaded
-    assert filled_status.get_loading() == 0
+    assert filled_status.get_load() == 0
     # change expected_loading of any stopped process
     process = random.choice([proc for proc in filled_status.processes.values() if proc.stopped()])
     process.rules.expected_load = 50
-    assert filled_status.get_loading() == 0
+    assert filled_status.get_load() == 0
     # change expected_loading of any running process
     process = random.choice([proc for proc in filled_status.processes.values() if proc.running()])
     process.rules.expected_load = 50
-    assert filled_status.get_loading() == 50
+    assert filled_status.get_load() == 50

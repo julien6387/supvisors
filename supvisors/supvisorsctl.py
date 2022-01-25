@@ -118,10 +118,12 @@ class ControllerPlugin(ControllerPluginBase):
             else:
                 # create template. identifier has variable length
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
-                template = f'%(identifier)-{max_identifiers}s%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
+                max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
+                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s%(state)-11s'
+                            '%(load)-6s%(ltime)-10s%(counter)-9s')
                 # print title
-                payload = {'identifier': 'Supervisor', 'state': 'State', 'load': 'Load',
-                           'ltime': 'Time', 'counter': 'Counter'}
+                payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port', 'state': 'State',
+                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter'}
                 self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
@@ -129,7 +131,9 @@ class ControllerPlugin(ControllerPluginBase):
                 # print filtered payloads
                 for info in info_list:
                     if output_all or info['identifier'] in identifiers:
-                        payload = {'identifier': info['identifier'], 'state': info['statename'],
+                        payload = {'identifier': info['identifier'],
+                                   'node_name': info['node_name'], 'port': info['port'],
+                                   'state': info['statename'],
                                    'load': '{}%'.format(info['loading']),
                                    'counter': info['sequence_counter'],
                                    'ltime': simple_localtime(info['local_time'])}
@@ -140,18 +144,6 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('instance_status <identifier>\t\t\tGet the status of the Supvisors instance.')
         self.ctl.output('instance_status <identifier> <identifier>\t\tGet the status for multiple Supvisors instances')
         self.ctl.output('instance_status\t\t\t\tGet the status of all remote Supvisors instances.')
-
-    def do_address_status(self, arg):
-        """ *DEPRECATED* Command to get the status of instances known to Supvisors. """
-        # TODO: DEPRECATED
-        self.ctl.output('*** DEPRECATED *** use instance_status')
-        self.do_instance_status(arg)
-
-    def help_address_status(self):
-        """ *DEPRECATED* Print the help of the address_status command."""
-        # TODO: DEPRECATED
-        self.ctl.output('*** DEPRECATED *** use instance_status')
-        self.help_instance_status()
 
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):

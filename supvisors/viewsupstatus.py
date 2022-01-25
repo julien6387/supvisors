@@ -39,7 +39,7 @@ class SupvisorsInstanceView(StatusView):
         self.page_name = page_name
 
     def render(self):
-        """ Catch render to force the use of ViewHandler's method. """
+        """ Catch render to force the use of ViewHandler's method instead of StatusView's method. """
         return ViewHandler.render(self)
 
     # LEFT SIDE / NAVIGATION part
@@ -52,23 +52,24 @@ class SupvisorsInstanceView(StatusView):
         """ Rendering of the header part of the Supvisors Instance page. """
         # set Supvisors instance identifier
         elt = root.findmeld('instance_mid')
+        identifier = self.local_identifier
         if self.sup_ctx.is_master:
-            elt.attrib['class'] = 'master'
-        elt.content(self.local_identifier)
+            identifier = f'{MASTER_SYMBOL} {identifier}'
+        elt.content(identifier)
         # set Supvisors instance state
         status = self.sup_ctx.instances[self.local_identifier]
         elt = root.findmeld('state_mid')
         elt.content(status.state.name)
         # set Supvisors instance load
         elt = root.findmeld('percent_mid')
-        elt.content(f'{status.get_loading()}%')
+        elt.content(f'{status.get_load()}%')
         # write statistics parameters
         self.write_periods(root)
         # write actions related to the Supvisors instance
         self.write_instance_actions(root, status)
 
     def write_instance_actions(self, root, status: SupvisorsInstanceStatus):
-        """ Write actions related to the node. """
+        """ Write actions related to the Supvisors instance. """
         # configure switch page
         if self.supvisors.options.stats_enabled:
             # update process button

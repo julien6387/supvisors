@@ -21,6 +21,7 @@ import pytest
 
 from supvisors.application import ApplicationRules, ApplicationStatus
 from supvisors.process import ProcessRules, ProcessStatus
+from unittest.mock import Mock
 
 from .base import DummySupervisor, MockedSupvisors, any_process_info
 
@@ -51,24 +52,16 @@ def supvisors():
     return MockedSupvisors()
 
 
-# fixture for simple classes replacing meld behaviour
-class DummyElement:
-    def __init__(self):
-        self.attrib = {}
-        self.attributes = {}
+# Easy XHTML element creation
+def create_element(mid_map=None):
+    mock = Mock(attrib={'class': ''}, **{'findmeld.side_effect': lambda x: mid_map[x] if mid_map else None,
+                                         'repeat.return_value': None})
 
-    def content(self, cnt):
-        self.attrib['content'] = cnt
-
-
-class DummyRoot:
-    def __init__(self):
-        self.elts = {}
-
-    def findmeld(self, name):
-        return self.elts.setdefault(name, DummyElement())
-
-
-@pytest.fixture
-def root():
-    return DummyRoot()
+    def reset_all():
+        mock.attrib = {'class': ''}
+        mock.reset_mock()
+        if mid_map:
+            for mid in mid_map.values():
+                mid.reset_all()
+    mock.reset_all = reset_all
+    return mock

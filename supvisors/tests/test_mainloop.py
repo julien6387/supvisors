@@ -39,8 +39,28 @@ def mocked_rpc():
 
 
 @pytest.fixture
-def main_loop(supvisors):
+def main_loop(mocker, supvisors):
+    mocked_zmq = Mock(publisher=Mock(), subscriber=Mock(), puller=Mock(), poller=Mock(), spec=SupvisorsZmq)
+    mocker.patch('supvisors.mainloop.SupvisorsZmq', return_value=mocked_zmq)
     return SupvisorsMainLoop(supvisors)
+
+
+def test_creation_error(mocker, supvisors, mocked_rpc):
+    """ Test the values set at construction. """
+    mocker.patch('supvisors.mainloop.SupvisorsZmq', side_effect=ZMQError)
+    main_loop = SupvisorsMainLoop(supvisors)
+    server_url = main_loop.supvisors.supervisor_data.supervisord.options.serverurl
+    assert isinstance(main_loop, Thread)
+    assert main_loop.supvisors is supvisors
+    assert not main_loop.stop_event.is_set()
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': server_url,
+                                     'SUPERVISOR_USERNAME': 'user',
+                                     'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
+    assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+    assert main_loop.supervisor_time == 0
+    assert main_loop.reference_time == 0.0
+    assert main_loop.reference_counter == 0
+    assert main_loop.sockets is None
 
 
 def test_creation(supvisors, mocked_rpc, main_loop):
@@ -48,13 +68,15 @@ def test_creation(supvisors, mocked_rpc, main_loop):
     assert isinstance(main_loop, Thread)
     assert main_loop.supvisors is supvisors
     assert not main_loop.stop_event.is_set()
-    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+    server_url = main_loop.supvisors.supervisor_data.supervisord.options.serverurl
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': server_url,
                                      'SUPERVISOR_USERNAME': 'user',
                                      'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
     assert main_loop.supervisor_time == 0
     assert main_loop.reference_time == 0.0
     assert main_loop.reference_counter == 0
+    assert main_loop.sockets is not None
 
 
 def test_stopping(mocked_rpc, main_loop):
@@ -75,20 +97,23 @@ def test_stop(mocker, mocked_rpc, main_loop):
     mocker.patch.object(main_loop, 'is_alive', return_value=True)
     main_loop.stop()
     assert main_loop.stop_event.is_set()
-    assert mocked_join.call_count == 1
+    assert mocked_join.called
 
 
 def test_run(mocker, main_loop):
     """ Test the running of the main loop thread. """
+    mocker.patch('supvisors.mainloop.time', return_value=1234)
     mocked_beat = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.manage_heartbeat')
     mocked_evt = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_events')
     mocked_req = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_requests')
-    mocked_poll = mocker.patch('supvisors.supvisorszmq.SupvisorsZmq.poll')
     # patch one loops
     mocker.patch.object(main_loop, 'stopping', side_effect=[False, False, True])
     main_loop.run()
+    assert main_loop.supervisor_time == 1234
+    assert main_loop.reference_time == 1234
+    assert main_loop.reference_counter == 0
     # test that mocked functions were called once
-    assert mocked_poll.call_args_list == [call()]
+    assert main_loop.sockets.poll.call_args_list == [call()]
     assert mocked_beat.call_count == 1
     assert mocked_evt.call_count == 1
     assert mocked_req.call_count == 1
@@ -98,21 +123,20 @@ def test_manage_heartbeat(mocker, main_loop):
     """ Test the management of the Supvisors heartbeat. """
     mocker.patch('supvisors.mainloop.time', return_value=3600)
     mocker.patch('supvisors.mainloop.stderr')
-    publisher = Mock()
     # check initial status
     assert main_loop.supervisor_time == 0
     assert main_loop.reference_time == 0.0
     assert main_loop.reference_counter == 0
     # test when period not reached
     main_loop.reference_time = 3597
-    main_loop.manage_heartbeat(publisher)
+    main_loop.manage_heartbeat()
     assert main_loop.reference_counter == 0
-    assert not publisher.send_tick_event.called
+    assert not main_loop.sockets.publisher.send_tick_event.called
     # test when period reached
     main_loop.reference_time = 3594
-    main_loop.manage_heartbeat(publisher)
+    main_loop.manage_heartbeat()
     assert main_loop.reference_counter == 1
-    assert publisher.send_tick_event.call_args_list == [call({'sequence_counter': 1, 'when': 3600})]
+    assert main_loop.sockets.publisher.send_tick_event.call_args_list == [call({'sequence_counter': 1, 'when': 3600})]
 
 
 def test_check_events(mocker, main_loop):
@@ -121,128 +145,188 @@ def test_check_events(mocker, main_loop):
     # prepare context
     mocked_sockets = Mock(**{'check_subscriber.return_value': None})
     # test with empty socks
-    main_loop.check_events(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_subscriber.call_args_list == [call('poll result')]
+    main_loop.sockets.check_subscriber.return_value = None
+    main_loop.check_events('poll result')
+    assert main_loop.sockets.check_subscriber.call_args_list == [call('poll result')]
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_subscriber.reset_mock()
+    main_loop.sockets.check_subscriber.reset_mock()
     # test with appropriate socks but with exception
-    mocked_sockets.check_subscriber.return_value = 'a message'
-    main_loop.check_events(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_subscriber.call_args_list == [call('poll result')]
+    main_loop.sockets.check_subscriber.return_value = 'a message'
+    main_loop.check_events('poll result')
+    assert main_loop.sockets.check_subscriber.call_args_list == [call('poll result')]
     assert mocked_send.call_args_list == [call('event', '"a message"')]
 
 
 def test_check_requests(mocker, main_loop):
     """ Test the processing of the requests received. """
     mocked_send = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_request')
-    mocked_sockets = Mock(**{'check_puller.return_value': None})
     # store reference time
     ref_time = main_loop.supervisor_time
     # test with empty socks
-    main_loop.check_requests(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+    main_loop.sockets.check_puller.return_value = None
+    main_loop.check_requests('poll result')
+    assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
     assert main_loop.supervisor_time == ref_time
-    assert not mocked_sockets.publisher.forward_event.called
-    assert not mocked_sockets.disconnect_subscriber.called
+    assert not main_loop.sockets.publisher.forward_event.called
+    assert not main_loop.sockets.disconnect_subscriber.called
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_puller.reset_mock()
+    main_loop.sockets.check_puller.reset_mock()
     # test with node isolation message
-    mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
-    main_loop.check_requests(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+    main_loop.sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
+    main_loop.check_requests('poll result')
+    assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
     assert main_loop.supervisor_time == ref_time
-    assert not mocked_sockets.publisher.forward_event.called
-    assert mocked_sockets.disconnect_subscriber.call_args_list == [call('a message')]
+    assert not main_loop.sockets.publisher.forward_event.called
+    assert main_loop.sockets.disconnect_subscriber.call_args_list == [call('a message')]
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_puller.reset_mock()
-    mocked_sockets.disconnect_subscriber.reset_mock()
+    main_loop.sockets.check_puller.reset_mock()
+    main_loop.sockets.disconnect_subscriber.reset_mock()
     # test with other deferred message
     for event in DeferredRequestHeaders:
         if event != DeferredRequestHeaders.ISOLATE_INSTANCES:
-            mocked_sockets.check_puller.return_value = event.value, 'a message'
-            main_loop.check_requests(mocked_sockets, 'poll result')
-            assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+            main_loop.sockets.check_puller.return_value = event.value, 'a message'
+            main_loop.check_requests('poll result')
+            assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
             assert main_loop.supervisor_time == ref_time
-            assert not mocked_sockets.publisher.forward_event.called
-            assert not mocked_sockets.disconnect_subscriber.called
+            assert not main_loop.sockets.publisher.forward_event.called
+            assert not main_loop.sockets.disconnect_subscriber.called
             assert mocked_send.call_args_list == [call(event, 'a message')]
             # reset mocks
-            mocked_sockets.check_puller.reset_mock()
+            main_loop.sockets.check_puller.reset_mock()
             mocked_send.reset_mock()
     # test with tick message
-    mocked_sockets.check_puller.return_value = InternalEventHeaders.TICK.value, ('127.0.0.1', {'when': 1234})
-    main_loop.check_requests(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+    main_loop.sockets.check_puller.return_value = InternalEventHeaders.TICK.value, ('127.0.0.1', {'when': 1234})
+    main_loop.check_requests('poll result')
+    assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
     assert main_loop.supervisor_time == 1234
-    assert not mocked_sockets.publisher.forward_event.called
-    assert not mocked_sockets.disconnect_subscriber.called
+    assert not main_loop.sockets.publisher.forward_event.called
+    assert not main_loop.sockets.disconnect_subscriber.called
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_puller.reset_mock()
+    main_loop.sockets.check_puller.reset_mock()
     # test with deferred publication message
     for event in InternalEventHeaders:
         if event != InternalEventHeaders.TICK:
-            mocked_sockets.check_puller.return_value = event.value, 'a message'
-            main_loop.check_requests(mocked_sockets, 'poll result')
-            assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+            main_loop.sockets.check_puller.return_value = event.value, 'a message'
+            main_loop.check_requests('poll result')
+            assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
             assert main_loop.supervisor_time == 1234
-            assert mocked_sockets.publisher.forward_event.call_args_list == [call((event.value, 'a message'))]
-            assert not mocked_sockets.disconnect_subscriber.called
+            assert main_loop.sockets.publisher.forward_event.call_args_list == [call((event.value, 'a message'))]
+            assert not main_loop.sockets.disconnect_subscriber.called
             assert not mocked_send.called
             # reset mocks
-            mocked_sockets.check_puller.reset_mock()
-            mocked_sockets.publisher.forward_event.reset_mock()
+            main_loop.sockets.check_puller.reset_mock()
+            main_loop.sockets.publisher.forward_event.reset_mock()
 
 
-def test_check_instance(mocker, mocked_rpc, main_loop):
-    """ Test the protocol to get the processes handled by a remote Supervisor. """
+def test_check_instance_no_com(mocker, mocked_rpc, main_loop):
+    """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that does not respond. """
     mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
-    # test rpc error: no event is sent to local Supervisor
+    mocked_rpc.reset_mock()
+    # test rpc error: SHUTDOWN event is sent to local Supervisor
     mocked_rpc.side_effect = ValueError
     main_loop.check_instance('10.0.0.1')
-    assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
-    assert mocked_evt.call_count == 0
-    # test with a mocked rpc interface
-    dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
-                   'now': 10, 'pid': 1234, 'spawnerr': ''}]
-    rpc_intf = DummyRpcInterface()
-    mocked_all = rpc_intf.supervisor.getAllProcessInfo = Mock()
-    mocked_local = rpc_intf.supvisors.get_all_local_process_info = Mock(return_value=dummy_info)
-    mocked_addr = rpc_intf.supvisors.get_instance_info = Mock()
-    rpc_intf.supvisors.get_master_identifier = Mock(return_value='10.0.0.5')
-    rpc_intf.supvisors.get_supvisors_state = Mock(return_value={'statename': 'RUNNING'})
-    mocked_rpc.return_value = rpc_intf
-    mocked_rpc.side_effect = None
+    assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+    message = 'identifier=10.0.0.1 authorized=None master_identifier= supvisors_state=SHUTDOWN'
+    assert mocked_evt.call_args_list == [call('auth', message)]
+
+
+def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
+    """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that has isolated the local instance. """
+    mocker.patch('supvisors.mainloop.stderr')
+    mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
-    # test with node in isolation
+    # test with a mocked rpc interface
+    rpc_intf = DummyRpcInterface()
+    mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info')
+    mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
+    mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
+    mocker.patch.object(rpc_intf.supvisors, 'get_supvisors_state',
+                        return_value={'statecode': SupvisorsStates.OPERATION})
+    mocked_rpc.return_value = rpc_intf
+    # test with local Supvisors instance isolated by remote
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
-        mocked_addr.return_value = {'statecode': state}
+        mocked_instance.return_value = {'statecode': state}
         main_loop.check_instance('10.0.0.1:60000')
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-        expected = 'identifier=10.0.0.1:60000 authorized=False master_identifier=10.0.0.5 supvisors_state=RUNNING'
+        expected = 'identifier=10.0.0.1:60000 authorized=False master_identifier=10.0.0.5 supvisors_state=OPERATION'
         assert mocked_evt.call_args_list == [call('auth', expected)]
-        assert not mocked_all.called
+        assert not mocked_local.called
         # reset counters
         mocked_evt.reset_mock()
         mocked_rpc.reset_mock()
-    # test with node not in isolation
+
+
+def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
+    """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that has not isolated the local instance
+    but that is about to restart or shut down. """
+    mocker.patch('supvisors.mainloop.stderr')
+    mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
+    mocked_rpc.reset_mock()
+    # test with a mocked rpc interface
+    dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'now': 10, 'pid': 1234, 'spawnerr': ''}]
+    rpc_intf = DummyRpcInterface()
+    mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info', side_effect=ValueError)
+    mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
+    mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
+    mocker.patch.object(rpc_intf.supvisors, 'get_supvisors_state', return_value={'statecode': 20})
+    mocked_rpc.return_value = rpc_intf
+    # test with local Supvisors instance not isolated by remote
+    # exception on get_all_local_process_info
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING,
                   SupvisorsInstanceStates.SILENT]:
-        mocked_addr.return_value = {'statecode': state}
-        main_loop.check_instance('10.0.0.1')
-        assert mocked_rpc.call_count == 1
-        assert mocked_rpc.call_args == call(main_loop.srv_url.env)
-        assert mocked_evt.call_count == 2
-        assert mocked_local.call_count == 1
-        # reset counters
-        mocked_evt.reset_mock()
-        mocked_local.reset_mock()
-        mocked_rpc.reset_mock()
+        for fsm_state in SupvisorsStates:
+            rpc_intf.supvisors.get_supvisors_state.return_value = {'statecode': fsm_state.value}
+            mocked_instance.return_value = {'statecode': state}
+            main_loop.check_instance('10.0.0.1')
+            assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+            expected = ('identifier=10.0.0.1 authorized=True master_identifier=10.0.0.5'
+                        f' supvisors_state={fsm_state.name}')
+            assert mocked_evt.call_args_list == [call('auth', expected)]
+            assert mocked_local.called
+            # reset counters
+            mocked_evt.reset_mock()
+            mocked_local.reset_mock()
+            mocked_rpc.reset_mock()
+
+
+def test_check_instance_normal(mocker, mocked_rpc, main_loop):
+    """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that has not isolated the local instance
+    and that provide process information. """
+    mocker.patch('supvisors.mainloop.stderr')
+    mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
+    mocked_rpc.reset_mock()
+    # test with a mocked rpc interface
+    dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'now': 10, 'pid': 1234, 'spawnerr': ''}]
+    rpc_intf = DummyRpcInterface()
+    mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info', return_value=dummy_info)
+    mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
+    mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
+    mocker.patch.object(rpc_intf.supvisors, 'get_supvisors_state', return_value={'statecode': 20})
+    mocked_rpc.return_value = rpc_intf
+    # test with local Supvisors instance not isolated by remote and with remote not in closing state
+    for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING,
+                  SupvisorsInstanceStates.SILENT]:
+        for fsm_state in [SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION,
+                          SupvisorsStates.CONCILIATION]:
+            rpc_intf.supvisors.get_supvisors_state.return_value = {'statecode': fsm_state.value}
+            mocked_instance.return_value = {'statecode': state}
+            main_loop.check_instance('10.0.0.1')
+            assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+            expected = ('identifier=10.0.0.1 authorized=True master_identifier=10.0.0.5'
+                        f' supvisors_state={fsm_state.name}')
+            json_payload = ('["10.0.0.1", [{"name": "proc", "group": "appli", "state": 10, "start": 5, "now": 10,'
+                            ' "pid": 1234, "spawnerr": ""}]]')
+            assert mocked_evt.call_args_list == [call('auth', expected), call('info', json_payload)]
+            assert mocked_local.called
+            # reset counters
+            mocked_evt.reset_mock()
+            mocked_local.reset_mock()
+            mocked_rpc.reset_mock()
 
 
 def test_start_process(mocker, mocked_rpc, main_loop):

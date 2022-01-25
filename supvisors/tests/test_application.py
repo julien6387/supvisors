@@ -85,10 +85,10 @@ def test_rules_check_hash_identifiers(rules):
     assert rules.identifiers == []
     assert rules.start_sequence == 0
     # 3. update rules to test '#' with all instances available
-    # address '127.0.0.1' has an index of 1-1 in address_mapper
+    # address '10.0.0.1' has an index of 1-1 in supvisors_mapper
     rules.start_sequence = 1
     rules.check_hash_identifiers('sample_test_1')
-    assert rules.identifiers == ['127.0.0.1']
+    assert rules.identifiers == ['10.0.0.1']
     assert rules.start_sequence == 1
     # 4. update rules to test '#' with a subset of instances available
     rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
@@ -124,8 +124,8 @@ def test_rules_check_dependencies(mocker, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "managed=False distributed=True identifiers=['*'] start_sequence=0 stop_sequence=-1"\
-                         " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE"
+    assert str(rules) == ("managed=False distribution=ALL_INSTANCES identifiers=['*'] start_sequence=0 stop_sequence=-1"
+                          " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE")
 
 
 def test_rules_serial(rules):
@@ -134,13 +134,15 @@ def test_rules_serial(rules):
     assert rules.serial() == {'managed': False}
     # check managed and distributed
     rules.managed = True
-    assert rules.serial() == {'managed': True, 'distributed': True,
+    assert rules.serial() == {'managed': True, 'distributed': True,  # TODO: DEPRECATED
+                              'distribution': 'ALL_INSTANCES', 'identifiers': ['*'],
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
-    rules.distributed = False
-    assert rules.serial() == {'managed': True, 'distributed': False, 'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
+    rules.distribution = DistributionRules.SINGLE_INSTANCE
+    assert rules.serial() == {'managed': True, 'distributed': False,  # TODO: DEPRECATED
+                              'distribution': 'SINGLE_INSTANCE', 'identifiers': ['*'],
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}

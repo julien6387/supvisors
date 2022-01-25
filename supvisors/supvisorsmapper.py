@@ -123,6 +123,7 @@ class SupvisorsMapper(object):
         - logger: the reference to the common logger ;
         - _instances: the list of Supvisors instances declared in the supvisors section of the Supervisor
           configuration file ;
+        - _nodes: the list of Supvisors instances grouped by node names ;
         - _core_identifiers: the list of Supvisors core identifiers declared in the supvisors section of the Supervisor
           configuration file ;
         - local_node_references: the list of known aliases of the current node, i.e. the host name
@@ -131,7 +132,7 @@ class SupvisorsMapper(object):
     """
 
     # annotation types
-    InstanceMap = Dict[str, SupvisorsInstanceId]
+    InstancesMap = Dict[str, SupvisorsInstanceId]
 
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes.
@@ -142,7 +143,8 @@ class SupvisorsMapper(object):
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         # init attributes
-        self._instances: SupvisorsMapper.InstanceMap = OrderedDict()
+        self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
+        self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
         self.local_node_references = [gethostname(), *self.ipv4()]
         self.logger.debug(f'SupvisorsMapper: local_node_references={self.local_node_references}')
@@ -157,12 +159,20 @@ class SupvisorsMapper(object):
         return self._instances[self.local_identifier]
 
     @property
-    def instances(self) -> InstanceMap:
+    def instances(self) -> InstancesMap:
         """ Property getter for the _instances attribute.
 
         :return: the list of Supvisors instances configured in Supvisors
         """
         return self._instances
+
+    @property
+    def nodes(self) -> NameList:
+        """ Property getter for the _nodes attribute.
+
+        :return: the Supvisors identifiers per node
+        """
+        return self._nodes
 
     @property
     def core_identifiers(self) -> NameList:
@@ -186,11 +196,13 @@ class SupvisorsMapper(object):
             if supvisors_id.identifier:
                 self.logger.debug(f'SupvisorsMapper.configure: new SupvisorsInstanceId={supvisors_id}')
                 self._instances[supvisors_id.identifier] = supvisors_id
+                self._nodes.setdefault(supvisors_id.host_name, []).append(supvisors_id.identifier)
             else:
                 message = f'could not parse Supvisors identification from {item}'
                 self.logger.error(f'SupvisorsMapper.instances: {message}')
                 raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')
+        self.logger.debug(f'SupvisorsMapper.configure: nodes={self.nodes}')
         # get local Supervisor identification from list
         self.find_local_identifier()
         # check core identifiers

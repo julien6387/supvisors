@@ -38,27 +38,32 @@ class SupvisorsOptions(object):
     """ Holder of the Supvisors options.
 
     Attributes are:
-        - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running,
-        - rules_files: list of absolute or relative paths to the XML rules files,
-        - internal_port: port number used to publish local events to remote Supvisors instances,
-        - event_port: port number used to publish all Supvisors events,
-        - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
-        - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish,
-        - core_identifiers: subset of supvisors_list identifiers that will force the end of synchro when all RUNNING,
+        - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
+        - rules_files: list of absolute or relative paths to the XML rules files ;
+        - internal_port: port number used to publish local events to remote Supvisors instances ;
+        - event_port: port number used to publish all Supvisors events ;
+        - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive ;
+        - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish ;
+        - inactivity_ticks: number of local ticks to wait before considering a remote Supvisors instance inactive ;
+        - core_identifiers: subset of supvisors_list identifiers that will force the end of synchro when all RUNNING ;
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
-          instances of the same program,
-        - starting_strategy: strategy used to start processes on Supvisors instances,
-        - stats_enable: when False, no statistics will be collected and displayed from this node,
-        - stats_periods: list of periods for which the statistics will be provided in the Supvisors Web UI,
-        - stats_histo: depth of statistics history,
-        - logfile: absolute or relative path of the Supvisors log file,
-        - logfile_maxbytes: maximum size of the Supvisors log file,
-        - logfile_backups: number of Supvisors backup log files,
+          instances of the same program ;
+        - starting_strategy: strategy used to start processes on Supvisors instances ;
+        - stats_enable: when False, no statistics will be collected and displayed from this Supvisors instance ;
+        - stats_periods: list of periods for which the statistics will be provided in the Supvisors Web UI ;
+        - stats_histo: depth of statistics history ;
+        - stats_irix_mode: choice of CPU value display between IRIX and Solaris ;
+        - logfile: absolute or relative path of the Supvisors log file ;
+        - logfile_maxbytes: maximum size of the Supvisors log file ;
+        - logfile_backups: number of Supvisors backup log files ;
         - loglevel: logging level.
     """
 
     SYNCHRO_TIMEOUT_MIN = 15
     SYNCHRO_TIMEOUT_MAX = 1200
+
+    INACTIVITY_TICKS_MIN = 2
+    INACTIVITY_TICKS_MAX = 720
 
     def __init__(self, supervisord, **config):
         """ Initialization of the attributes.
@@ -68,13 +73,11 @@ class SupvisorsOptions(object):
         """
         self.supervisord_options = supervisord.options
         # get values from config
-        if 'address_list' in config:
-            print('SupvisorsOptions: address_list is DEPRECATED. please use supvisors_list')
-        supvisors_list = config.get('supvisors_list', config.get('address_list', gethostname()))
+        supvisors_list = config.get('supvisors_list', gethostname())
         supvisors_list = filter(None, list_of_strings(supvisors_list))
         self.supvisors_list = list(OrderedDict.fromkeys(supvisors_list))
         # keep rules_file for next version but state obsolescence
-        self.rules_files = config.get('rules_files', config.get('rules_file', None))
+        self.rules_files = config.get('rules_files', None)
         if self.rules_files:
             self.rules_files = self.to_filepaths(self.rules_files)
         # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
@@ -82,10 +85,9 @@ class SupvisorsOptions(object):
         self.event_port = self.to_port_num(config.get('event_port', '0'))
         self.auto_fence = boolean(config.get('auto_fence', 'false'))
         self.synchro_timeout = self.to_timeout(config.get('synchro_timeout', str(self.SYNCHRO_TIMEOUT_MIN)))
+        self.inactivity_ticks = self.to_ticks(config.get('inactivity_ticks', str(self.INACTIVITY_TICKS_MIN)))
         # get the minimum list of identifiers to end the synchronization phase
-        if 'force_synchro_if' in config:
-            print('SupvisorsOptions: force_synchro_if is DEPRECATED. please use core_identifiers')
-        core_identifiers = config.get('core_identifiers', config.get('force_synchro_if', None))
+        core_identifiers = config.get('core_identifiers', None)
         self.core_identifiers = set(filter(None, list_of_strings(core_identifiers)))
         # get strategies
         self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))
@@ -105,7 +107,8 @@ class SupvisorsOptions(object):
         """ Contents as string. """
         return (f'supvisors_list={self.supvisors_list} rules_files={self.rules_files}'
                 f' internal_port={self.internal_port} event_port={self.event_port} auto_fence={self.auto_fence}'
-                f' synchro_timeout={self.synchro_timeout} core_identifiers={self.core_identifiers}'
+                f' synchro_timeout={self.synchro_timeout} inactivity_ticks={self.inactivity_ticks}'
+                f' core_identifiers={self.core_identifiers}'
                 f' conciliation_strategy={self.conciliation_strategy.name}'
                 f' starting_strategy={self.starting_strategy.name}'
                 f' stats_enabled={self.stats_enabled} stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
@@ -158,6 +161,20 @@ class SupvisorsOptions(object):
         raise ValueError(f'invalid value for synchro_timeout: {value}.'
                          f' expected in [{SupvisorsOptions.SYNCHRO_TIMEOUT_MIN};'
                          f'{SupvisorsOptions.SYNCHRO_TIMEOUT_MAX}] (seconds)')
+
+    @staticmethod
+    def to_ticks(value: str) -> int:
+        """ Convert a string into a number of ticks, in [2;720].
+
+        :param value: the number of ticks as a string
+        :return: the number of ticks as an integer
+        """
+        value = integer(value)
+        if SupvisorsOptions.INACTIVITY_TICKS_MIN <= value <= SupvisorsOptions.INACTIVITY_TICKS_MAX:
+            return value
+        raise ValueError(f'invalid value for inactivity_ticks: {value}.'
+                         f' expected in [{SupvisorsOptions.INACTIVITY_TICKS_MIN};'
+                         f'{SupvisorsOptions.INACTIVITY_TICKS_MAX}]')
 
     @staticmethod
     def to_conciliation_strategy(value):

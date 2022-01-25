@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+import re
+
 from distutils.util import strtobool
 from os import path
 from sys import stderr
@@ -27,7 +29,8 @@ from supervisor.options import split_namespec
 
 from .application import ApplicationRules
 from .process import ProcessRules
-from .ttypes import StartingStrategies, StartingFailureStrategies, RunningFailureStrategies, EnumClassType, enum_names
+from .ttypes import (DistributionRules, StartingStrategies, StartingFailureStrategies,
+                     RunningFailureStrategies, EnumClassType, enum_names)
 
 # XSD for XML validation
 supvisors_folder = path.dirname(__file__)
@@ -44,7 +47,7 @@ class Parser(object):
     AnyRules = Union[ApplicationRules, ProcessRules]
 
     def __init__(self, supvisors: Any) -> None:
-        """ The constructor parses the XML file and stores references to models and patterns found.
+        """ The constructor parses the XML file and stores references the models and patterns found.
 
         :param supvisors: the global Supvisors structure.
         """
@@ -80,10 +83,19 @@ class Parser(object):
             app_elements = root.findall('./application[@pattern]')
             self.application_patterns.update({app_element.get('pattern'): app_element
                                               for app_element in app_elements})
-            # get program patterns sorted by application
+            # DEPRECATED: get program patterns sorted by application
             app_elements = root.findall('./application/program[@pattern]/..')
             for app_element in app_elements:
                 prg_elements = app_element.findall('./program[@pattern]')
+                prg_patterns = self.program_patterns.setdefault(app_element, {})
+                prg_patterns.update({prg_element.get('pattern'): prg_element
+                                     for prg_element in prg_elements})
+                self.logger.warn(f'Parser.load_rules_files: DEPRECATED move program definitions'
+                                 ' into a <programs> section')
+            # NEW: get program patterns sorted by application
+            app_elements = root.findall('./application/programs/program[@pattern]/../..')
+            for app_element in app_elements:
+                prg_elements = app_element.findall('./programs/program[@pattern]')
                 prg_patterns = self.program_patterns.setdefault(app_element, {})
                 prg_patterns.update({prg_element.get('pattern'): prg_element
                                      for prg_element in prg_elements})
@@ -108,12 +120,18 @@ class Parser(object):
         :param rules: the application rules to load
         :return: None
         """
-        # find application element using an xpath
+        # find application element using a xpath
         self.logger.trace(f'Parser.load_application_rules: searching application element for {application_name}')
         application_elt = self.get_application_element(application_name)
         if application_elt is not None:
             rules.managed = True
-            self.load_boolean(application_elt, 'distributed', rules)
+            # TODO: DEPRECATED
+            if application_elt.findtext('distributed'):
+                self.logger.warn(f'Parser.load_application_rules: DEPRECATED element distributed in {application_name}')
+                self.load_boolean(application_elt, 'distributed', rules)
+                rules.distribution = (DistributionRules.ALL_INSTANCES if rules.distributed
+                                      else DistributionRules.SINGLE_INSTANCE)
+            self.load_enum(application_elt, 'distribution', DistributionRules, rules)
             self.load_identifiers(application_elt, rules)
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
@@ -144,15 +162,8 @@ class Parser(object):
                           f' found={application_elt is not None}')
         if application_elt is None:
             # if not found as it is, try to find a corresponding pattern
-            # TODO: use regexp ?
-            patterns = [name for name, element in self.application_patterns.items() if name in application_name]
-            self.logger.trace(f'Parser.get_application_element: found patterns={patterns}'
-                              f' for application={application_name}')
-            if patterns:
-                pattern = max(patterns, key=len)
-                application_elt = self.application_patterns[pattern]
-                self.logger.trace(f'Parser.get_application_element: pattern={pattern}'
-                                  f' chosen for application={application_name}')
+            pattern = self.get_best_pattern(application_name, self.application_patterns)
+            application_elt = self.application_patterns.get(pattern)
         return application_elt
 
     def load_program_rules(self, namespec: str, rules: ProcessRules) -> None:
@@ -201,6 +212,7 @@ class Parser(object):
         self.load_boolean(program_elt, 'required', rules)
         self.load_boolean(program_elt, 'wait_exit', rules)
         self.load_expected_loading(program_elt, rules)
+        self.load_enum(program_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
         self.load_enum(program_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
 
     @staticmethod
@@ -226,21 +238,43 @@ class Parser(object):
         if application_elt is None:
             self.logger.debug(f'Parser.get_program_element: no application element found for program={namespec}')
             return None
-        program_elt = application_elt.find('./program[@name="{}"]'.format(process_name))
-        self.logger.trace(f'Parser.get_program_element: direct search for program={namespec}'
-                          f' found={program_elt is not None}')
+        program_elt = application_elt.find(f'./programs/program[@name="{process_name}"]')
+        self.logger.trace(f'Parser.get_program_element: direct search for program={namespec} found'
+                          f' {program_elt is not None}')
+        if program_elt is None:
+            program_elt = application_elt.find(f'./program[@name="{process_name}"]')
+            self.logger.trace(f'Parser.get_program_element: direct search for program={namespec} found'
+                              f' {program_elt is not None}')
+            if program_elt is not None:
+                self.logger.warn(f'Parser.get_program_element: DEPRECATED move program definitions'
+                                 ' into a <programs> section')
         if program_elt is None:
             # if not found as it is, try to find a corresponding pattern
-            # TODO: use regexp ?
             if application_elt in self.program_patterns:
                 prg_patterns = self.program_patterns[application_elt]
-                patterns = [name for name in prg_patterns.keys() if name in process_name]
-                self.logger.trace(f'Parser.get_program_element: found patterns={patterns} for program={namespec}')
-                if patterns:
-                    pattern = max(patterns, key=len)
-                    program_elt = prg_patterns[pattern]
-                    self.logger.trace(f'Parser.get_program_element: pattern={pattern} chosen for program={namespec}')
+                pattern = self.get_best_pattern(process_name, prg_patterns.keys())
+                program_elt = prg_patterns.get(pattern)
         return program_elt
+
+    def get_best_pattern(self, name: str, patterns: Dict):
+        """ Return the pattern having the greatest capture for the string considered.
+
+        :param name: the string to match
+        :param patterns: the applicable patterns
+        :return: the best pattern that matches the string
+        """
+        matching_patterns = []
+        for pattern in patterns:
+            # use a matching capture to get the regex performance
+            mo = re.search(f'({pattern})', name)
+            if mo:
+                matching_patterns.append((pattern, mo.group()))
+        self.logger.trace(f'Parser.get_best_pattern: found patterns={patterns} for {name}')
+        if matching_patterns:
+            # the best pattern is the one having the greatest capture
+            pattern, performance = max(matching_patterns, key=lambda x: len(x[1]))
+            self.logger.debug(f'Parser.get_best_pattern: pattern={pattern} (perf={performance}) selected for {name}')
+            return pattern
 
     def get_model_element(self, elt: Any) -> Optional[Any]:
         """ Find if element references a model
@@ -292,10 +326,6 @@ class Parser(object):
         :return: None
         """
         value = elt.findtext('identifiers')
-        if not value:
-            value = elt.findtext('addresses')
-            if value:
-                self.logger.warn('Parser.load_identifiers: addresses is DEPRECATED. please use identifiers')
         if value:
             rules.identifiers = self.check_identifier_list(value)
             if '#' in rules.identifiers:

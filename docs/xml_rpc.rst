@@ -41,11 +41,9 @@ Status
             ================== ========= ===========
             'statecode'        ``int``   The state of |Supvisors|, in [0;6].
             'statename'        ``str``   The string state of |Supvisors|, in [``'INITIALIZATION'``, ``'DEPLOYMENT'``,
-                                         ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
-                                         ``'SHUTDOWN'``].
+                                         ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'RESTART'``,
+                                         ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
             ================== ========= ===========
-
-        .. automethod:: get_master_address()
 
         .. automethod:: get_master_identifier()
 
@@ -60,16 +58,14 @@ Status
             'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DEPLOYMENT`` state.
             ================== ========= ===========
 
-        .. automethod:: get_address_info(node_name)
-
-        .. automethod:: get_instance_info(node_name)
+        .. automethod:: get_instance_info(instance)
 
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'address_name'     ``str``   *DEPRECATED* The deduced name of the |Supvisors| instance.
-                                         This entry will be removed in the next version.
             'identifier'       ``str``   The deduced name of the |Supvisors| instance.
+            'node_name'        ``str``   The name of the node where the |Supvisors| instance is running.
+            'port'             ``int``   The HTTP port of the |Supvisors| instance.
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
                                          ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
@@ -77,12 +73,10 @@ Status
                                          in the remote reference time.
             'local_time'       ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the local reference time.
-            'loading'          ``int``   The sum of the expected loading of the processes running on the node,
-                                         in [0;100]%.
+            'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
+                                         instance, in [0;100]%.
             'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
             ================== ========= ===========
-
-        .. automethod:: get_all_addresses_info()
 
         .. automethod:: get_all_instances_info()
 
@@ -114,9 +108,6 @@ Status
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
             'last_event_time'  ``int``         The timestamp of the last event received for this process.
-            'addresses'        ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances where the
-                                               process is running.
-                                               This entry will be removed in the next version.
             'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
                                                running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
@@ -162,26 +153,27 @@ Status
             'application_name'          ``str``         The Application name.
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
-            'distributed'               ``bool``        The Application distribution status in |Supvisors|.
-            'addresses'                 ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
-                                                        where the non-distributed application processes can be started,
-                                                        provided only if ``distributed`` is ``False``.
-                                                        This entry will be removed in the next version.
+            'distribution'              ``str``         The distribution rule of the application,
+                                                        in [``'ALL_INSTANCES'``, ``'SINGLE_INSTANCE'``,
+                                                        ``'SINGLE_NODE'``].
+            'distributed'               ``bool``        *DEPRECATED* The Application distribution status in |Supvisors|.
+                                                        This entry will be removed in the next |Supvisors| version.
             'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
-                                                        non-distributed application processes can be started, provided
-                                                        only if ``distributed`` is ``False``.
+                                                        non-fully distributed application processes can be started,
+                                                        provided only if ``distribution`` is not ``ALL_INSTANCES``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
                                                         in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications,
                                                         in [0;127].
             'starting_strategy'         ``str``         The strategy applied when starting application automatically,
                                                         in [``'CONFIG'``, ``'LESS_LOADED'``, ``'MOST_LOADED'``,
-                                                        ``'LOCAL'``].
+                                                        ``'LOCAL'``, ``'LESS_LOADED_NODE'``, ``'MOST_LOADED_NODE'``].
             'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting
                                                         application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
             'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running
                                                         application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
-                                                        ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
+                                                        ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``,
+                                                        ``'SHUTDOWN'``, ``'RESTART'``].
             =========================== =============== ===========
 
         .. automethod:: get_process_rules(namespec)
@@ -191,9 +183,6 @@ Status
             ========================== =============== ===========
             'application_name'         ``str``         The Application name the process belongs to.
             'process_name'             ``str``         The Process name.
-            'addresses'                ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
-                                                       where the process can be started.
-                                                       This entry will be removed in the next version.
             'identifiers'              ``list(str)``   The deduced names of all |Supvisors| instances where the process
                                                        can be started.
             'start_sequence'           ``int``         The Process starting rank when starting the related application,
@@ -206,7 +195,8 @@ Status
             'loading'                  ``int``         The Process expected loading when ``RUNNING``, in [0;100]%.
             'running_failure_strategy' ``str``         The strategy applied when a process crashes in a running
                                                        application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
-                                                       ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
+                                                       ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``,
+                                                       ``'SHUTDOWN'``, ``'RESTART'``].
             ========================== =============== ===========
 
         .. automethod:: get_conflicts()
