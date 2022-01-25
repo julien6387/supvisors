@@ -430,19 +430,19 @@ over the X instances of the :program:`Scenario 2` application, as required in |R
         <application pattern="scen2_hci_"/>
     </root>
 
-|Req 2 abbr| is just about declaring the ``distributed`` element to ``false``. It tells |Supvisors| that all the
-programs of the application have to be started on the same |Supvisors| instance.
+|Req 2 abbr| is just about declaring the ``distribution`` element to ``SINGLE_INSTANCE``. It tells |Supvisors| that
+all the programs of the application have to be started in the same |Supvisors| instance.
 
 .. code-block:: xml
 
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <application pattern="scen2_srv_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
         </application>
 
         <application pattern="scen2_hci_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
         </application>
     </root>
 
@@ -458,12 +458,12 @@ For better readability, Instance aliases are introduced.
         <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
 
         <application pattern="scen2_srv_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>servers</identifiers>
         </application>
 
         <application pattern="scen2_hci_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>consoles</identifiers>
         </application>
     </root>
@@ -513,42 +513,44 @@ operational as a standalone application, even if it's not connected to other pos
         </model>
 
         <application pattern="scen2_srv_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>servers</identifiers>
             <start_sequence>1</start_sequence>
-
-            <program name="scen2_common_bus_interface">
-                <reference>model_services</reference>
-                <start_sequence>4</start_sequence>
-            </program>
-            <program name="scen2_check_common_data_bus">
-                <reference>check_data_bus</reference>
-                <start_sequence>3</start_sequence>
-            </program>
-            <pattern name="">
-                <reference>model_services</reference>
-            </pattern>
-            <program name="scen2_check_internal_data_bus">
-                <reference>check_data_bus</reference>
-            </program>
-            <program name="scen2_internal_data_bus">
-                <reference>data_bus</reference>
-            </program>
+            <programs>
+                <program name="scen2_common_bus_interface">
+                    <reference>model_services</reference>
+                    <start_sequence>4</start_sequence>
+                </program>
+                <program name="scen2_check_common_data_bus">
+                    <reference>check_data_bus</reference>
+                    <start_sequence>3</start_sequence>
+                </program>
+                <pattern name="">
+                    <reference>model_services</reference>
+                </pattern>
+                <program name="scen2_check_internal_data_bus">
+                    <reference>check_data_bus</reference>
+                </program>
+                <program name="scen2_internal_data_bus">
+                    <reference>data_bus</reference>
+                </program>
+            </programs>
         </application>
 
         <application pattern="scen2_hci_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>consoles</identifiers>
-
-            <program pattern="">
-                <start_sequence>3</start_sequence>
-            </program>
-            <program name="scen2_check_internal_data_bus">
-                <reference>check_data_bus</reference>
-            </program>
-            <program name="scen2_internal_data_bus">
-                <reference>data_bus</reference>
-            </program>
+            <programs>
+                <program pattern="">
+                    <start_sequence>3</start_sequence>
+                </program>
+                <program name="scen2_check_internal_data_bus">
+                    <reference>check_data_bus</reference>
+                </program>
+                <program name="scen2_internal_data_bus">
+                    <reference>data_bus</reference>
+                </program>
+            </programs>
         </application>
     </root>
 
@@ -617,50 +619,52 @@ responsibility to merge the status of :program:`scen2_srv_N` and :program:`scen2
         <!-- Scenario 2 Applications -->
         <!-- Services -->
         <application pattern="scen2_srv_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>servers</identifiers>
             <start_sequence>1</start_sequence>
             <starting_strategy>LESS_LOADED</starting_strategy>
             <starting_failure_strategy>STOP</starting_failure_strategy>
-
-            <program name="scen2_common_bus_interface">
-                <reference>model_services</reference>
-                <start_sequence>4</start_sequence>
-            </program>
-            <program name="scen2_check_common_data_bus">
-                <reference>check_data_bus</reference>
-                <start_sequence>3</start_sequence>
-            </program>
-            <pattern name="">
-                <reference>model_services</reference>
-            </pattern>
-            <program name="scen2_check_internal_data_bus">
-                <reference>check_data_bus</reference>
-            </program>
-            <program name="scen2_internal_data_bus">
-                <reference>data_bus</reference>
-                <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
-            </program>
+            <programs>
+                <program name="scen2_common_bus_interface">
+                    <reference>model_services</reference>
+                    <start_sequence>4</start_sequence>
+                </program>
+                <program name="scen2_check_common_data_bus">
+                    <reference>check_data_bus</reference>
+                    <start_sequence>3</start_sequence>
+                </program>
+                <pattern name="">
+                    <reference>model_services</reference>
+                </pattern>
+                <program name="scen2_check_internal_data_bus">
+                    <reference>check_data_bus</reference>
+                </program>
+                <program name="scen2_internal_data_bus">
+                    <reference>data_bus</reference>
+                    <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+                </program>
+            </programs>
         </application>
 
         <!-- HCI -->
         <application pattern="scen2_hci_">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>consoles</identifiers>
             <starting_strategy>LOCAL</starting_strategy>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-
-            <program pattern="">
-                <start_sequence>3</start_sequence>
-                <expected_loading>8</expected_loading>
-            </program>
-            <program name="scen2_check_internal_data_bus">
-                <reference>check_data_bus</reference>
-            </program>
-            <program name="scen2_internal_data_bus">
-                <reference>data_bus</reference>
-                <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
-            </program>
+            <programs>
+                <program pattern="">
+                    <start_sequence>3</start_sequence>
+                    <expected_loading>8</expected_loading>
+                </program>
+                <program name="scen2_check_internal_data_bus">
+                    <reference>check_data_bus</reference>
+                </program>
+                <program name="scen2_internal_data_bus">
+                    <reference>data_bus</reference>
+                    <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
+                </program>
+            </programs>
         </application>
 
     </root>

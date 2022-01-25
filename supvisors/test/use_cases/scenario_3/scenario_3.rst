@@ -198,10 +198,6 @@ files from the |Supervisor| configuration file.
     to group all the applications of the different use cases into an unique |Supvisors| configuration. Adding ``scen3``
     at this point is just to avoid overwriting of program definitions.
 
-
-XXX difference scenario 2 / impact
-
-
 Based on the expected names of the consoles, an additional script is used to sort the files generated.
 The resulting file tree is as follows.
 
@@ -297,16 +293,16 @@ running.
     * :program:`scen3_check_internal_data_bus` and :program:`scen3_check_common_data_bus` for :program:`scen3_srv`.
     * :program:`scen3_check_internal_data_bus` for :program:`scen3_hci`
 
-The ``distributed`` options is not set for the :program:`scen3_srv` application. As it is defaulted to ``true`` and as
-all :program:`scen3_srv` programs are configured with the ``addresses`` option set with the servers alias,
+The ``distribution`` options is not set for the :program:`scen3_srv` application. As it is defaulted to ``true`` and as
+all :program:`scen3_srv` programs are configured with the ``identifiers`` option set with the servers alias,
 :program:`scen3_srv` will be distributed over the servers when starting, as required by |Req 10 abbr|.
 
-The ``distributed`` options is set to ``false`` for the :program:`scen3_hci`. In this case, only the ``addresses``
-option set to the application element is taken into account and NOT the ``addresses`` options set to the program
+The ``distribution`` options is set to ``false`` for the :program:`scen3_hci`. In this case, only the ``identifiers``
+option set to the application element is taken into account and NOT the ``identifiers`` options set to the program
 elements. The value ``#,consoles`` used here needs some further explanation.
 
-When using hashtags in ``addresses``, applications and programs cannot be started anywhere until |Supvisors| solves the
-'equation'. As defined in :ref:`patterns_hashtags`, an association will be made between the Nth application
+When using hashtags in ``identifiers``, applications and programs cannot be started anywhere until |Supvisors| solves
+the 'equation'. As defined in :ref:`patterns_hashtags`, an association will be made between the Nth application
 :program:`scen3_hci_N` and the Nth element of the ``consoles`` list. In the example, :program:`scen3_hci_01` will be
 mapped with |Supvisors| instance ``console_1`` once resolved.
 
@@ -346,14 +342,14 @@ Here follows the resulting rules file.
 
         <!-- models -->
         <model name="model_services">
-            <addresses>servers</addresses>
+            <identifiers>servers</identifiers>
             <start_sequence>2</start_sequence>
             <required>true</required>
             <expected_loading>2</expected_loading>
             <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
         </model>
         <model name="check_data_bus">
-            <addresses>servers</addresses>
+            <identifiers>servers</identifiers>
             <start_sequence>1</start_sequence>
             <required>true</required>
             <wait_exit>true</wait_exit>
@@ -365,37 +361,39 @@ Here follows the resulting rules file.
             <start_sequence>1</start_sequence>
             <starting_strategy>LESS_LOADED</starting_strategy>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-
-            <program name="scen3_common_bus_interface">
-                <reference>model_services</reference>
-                <start_sequence>3</start_sequence>
-            </program>
-            <program name="scen3_check_common_data_bus">
-                <reference>check_data_bus</reference>
-                <start_sequence>2</start_sequence>
-            </program>
-            <program pattern="">
-                <reference>model_services</reference>
-            </program>
-            <program name="scen3_check_internal_data_bus">
-                <reference>check_data_bus</reference>
-            </program>
+            <programs>
+                <program name="scen3_common_bus_interface">
+                    <reference>model_services</reference>
+                    <start_sequence>3</start_sequence>
+                </program>
+                <program name="scen3_check_common_data_bus">
+                    <reference>check_data_bus</reference>
+                    <start_sequence>2</start_sequence>
+                </program>
+                <program pattern="">
+                    <reference>model_services</reference>
+                </program>
+                <program name="scen3_check_internal_data_bus">
+                    <reference>check_data_bus</reference>
+                </program>
+            </programs>
         </application>
 
         <!-- HCI -->
         <application pattern="scen3_hci_">
-            <distributed>false</distributed>
-            <addresses>#,consoles</addresses>
+            <distribution>SINGLE_INSTANCE</distribution>
+            <identifiers>#,consoles</identifiers>
             <start_sequence>3</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-
-            <program pattern="">
-                <start_sequence>2</start_sequence>
-                <expected_loading>8</expected_loading>
-            </program>
-            <program name="scen3_check_internal_data_bus">
-                <reference>check_data_bus</reference>
-            </program>
+            <programs>
+                <program pattern="">
+                    <start_sequence>2</start_sequence>
+                    <expected_loading>8</expected_loading>
+                </program>
+                <program name="scen3_check_internal_data_bus">
+                    <reference>check_data_bus</reference>
+                </program>
+            </programs>
         </application>
 
     </root>

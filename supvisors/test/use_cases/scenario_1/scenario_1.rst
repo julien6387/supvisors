@@ -219,67 +219,69 @@ to be started on the same node.
     <root>
         <!-- models -->
         <model name="model_cliche81">
-            <addresses>cliche81</addresses>
+            <identifiers>cliche81</identifiers>
             <start_sequence>2</start_sequence>
             <required>true</required>
         </model>
         <model name="model_cliche82">
             <reference>model_cliche81</reference>
-            <addresses>cliche82</addresses>
+            <identifiers>cliche82</identifiers>
         </model>
         <model name="model_cliche83">
             <reference>model_cliche81</reference>
-            <addresses>cliche83</addresses>
+            <identifiers>cliche83</identifiers>
         </model>
         <!-- Scenario 1 Application -->
         <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <!-- Programs on cliche81 -->
-            <program name="scen1_hci">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="scen1_config_manager">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="scen1_data_processing">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="scen1_external_interface">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="scen1_data_recorder">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="scen1_wait_nfs_mount_1">
-                <reference>model_cliche81</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche82 -->
-            <program name="scen1_sensor_acquisition_1">
-                <reference>model_cliche82</reference>
-            </program>
-            <program name="scen1_sensor_processing_1">
-                <reference>model_cliche82</reference>
-            </program>
-            <program name="scen1_wait_nfs_mount_2">
-                <reference>model_cliche82</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche83 -->
-            <program name="scen1_sensor_acquisition_2">
-                <reference>model_cliche83</reference>
-            </program>
-            <program name="scen1_sensor_processing_2">
-                <reference>model_cliche83</reference>
-            </program>
-            <program name="scen1_wait_nfs_mount_3">
-                <reference>model_cliche83</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
+            <programs>
+                <!-- Programs on cliche81 -->
+                <program name="scen1_hci">
+                    <reference>model_cliche81</reference>
+                </program>
+                <program name="scen1_config_manager">
+                    <reference>model_cliche81</reference>
+                </program>
+                <program name="scen1_data_processing">
+                    <reference>model_cliche81</reference>
+                </program>
+                <program name="scen1_external_interface">
+                    <reference>model_cliche81</reference>
+                </program>
+                <program name="scen1_data_recorder">
+                    <reference>model_cliche81</reference>
+                </program>
+                <program name="scen1_wait_nfs_mount_1">
+                    <reference>model_cliche81</reference>
+                    <start_sequence>1</start_sequence>
+                    <wait_exit>true</wait_exit>
+                </program>
+                <!-- Programs on cliche82 -->
+                <program name="scen1_sensor_acquisition_1">
+                    <reference>model_cliche82</reference>
+                </program>
+                <program name="scen1_sensor_processing_1">
+                    <reference>model_cliche82</reference>
+                </program>
+                <program name="scen1_wait_nfs_mount_2">
+                    <reference>model_cliche82</reference>
+                    <start_sequence>1</start_sequence>
+                    <wait_exit>true</wait_exit>
+                </program>
+                <!-- Programs on cliche83 -->
+                <program name="scen1_sensor_acquisition_2">
+                    <reference>model_cliche83</reference>
+                </program>
+                <program name="scen1_sensor_processing_2">
+                    <reference>model_cliche83</reference>
+                </program>
+                <program name="scen1_wait_nfs_mount_3">
+                    <reference>model_cliche83</reference>
+                    <start_sequence>1</start_sequence>
+                    <wait_exit>true</wait_exit>
+                </program>
+            </programs>
         </application>
     </root>
 
@@ -312,49 +314,51 @@ a bit.
     <root>
         <!-- models -->
         <model name="model_cliche81">
-            <addresses>cliche81</addresses>
+            <identifiers>cliche81</identifiers>
             <start_sequence>2</start_sequence>
             <required>true</required>
         </model>
         <model name="model_cliche82">
             <reference>model_cliche81</reference>
-            <addresses>cliche82</addresses>
+            <identifiers>cliche82</identifiers>
         </model>
         <model name="model_cliche83">
             <reference>model_cliche81</reference>
-            <addresses>cliche83</addresses>
+            <identifiers>cliche83</identifiers>
         </model>
         <!-- Scenario 1 Application -->
         <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <!-- Programs on cliche81 -->
-            <program pattern="cliche81_">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="scen1_wait_nfs_mount_1">
-                <reference>model_cliche81</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche82 -->
-            <program pattern="cliche82_">
-                <reference>model_cliche82</reference>
-            </program>
-            <program name="scen1_wait_nfs_mount_2">
-                <reference>model_cliche82</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche83 -->
-            <program pattern="cliche83_">
-                <reference>model_cliche83</reference>
-            </program>
-            <program name="scen1_wait_nfs_mount_3">
-                <reference>model_cliche83</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
+            <programs>
+                <!-- Programs on cliche81 -->
+                <program pattern="cliche81_">
+                    <reference>model_cliche81</reference>
+                </program>
+                <program name="scen1_wait_nfs_mount_1">
+                    <reference>model_cliche81</reference>
+                    <start_sequence>1</start_sequence>
+                    <wait_exit>true</wait_exit>
+                </program>
+                <!-- Programs on cliche82 -->
+                <program pattern="cliche82_">
+                    <reference>model_cliche82</reference>
+                </program>
+                <program name="scen1_wait_nfs_mount_2">
+                    <reference>model_cliche82</reference>
+                    <start_sequence>1</start_sequence>
+                    <wait_exit>true</wait_exit>
+                </program>
+                <!-- Programs on cliche83 -->
+                <program pattern="cliche83_">
+                    <reference>model_cliche83</reference>
+                </program>
+                <program name="scen1_wait_nfs_mount_3">
+                    <reference>model_cliche83</reference>
+                    <start_sequence>1</start_sequence>
+                    <wait_exit>true</wait_exit>
+                </program>
+            </programs>
         </application>
     </root>
 
@@ -370,12 +374,14 @@ host name - assumed called ``cliche81`` here for the example.
         <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <!-- Programs on localhost -->
-            <program pattern="">
-                <addresses>cliche81</addresses>
-                <start_sequence>1</start_sequence>
-                <required>true</required>
-            </program>
+            <programs>
+                <!-- Programs on localhost -->
+                <program pattern="">
+                    <identifiers>cliche81</identifiers>
+                    <start_sequence>1</start_sequence>
+                    <required>true</required>
+                </program>
+            </programs>
         </application>
     </root>
 
@@ -401,20 +407,22 @@ But actually, there is a much more simple solution in the present case. Let's co
         <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <program pattern="">
-                <reference>model_scenario_1</reference>
-            </program>
-            <program pattern="wait_nfs_mount">
-                <reference>model_scenario_1</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
+            <programs>
+                <program pattern="">
+                    <reference>model_scenario_1</reference>
+                </program>
+                <program pattern="wait_nfs_mount">
+                    <reference>model_scenario_1</reference>
+                    <start_sequence>1</start_sequence>
+                    <wait_exit>true</wait_exit>
+                </program>
+            </programs>
         </application>
     </root>
 
 Much shorter. Yet it does the same. For both the distributed application and the non-distributed application !
 
-The main point is that the ``addresses`` attribute is not used at all. Clearly, this gives |Supvisors|
+The main point is that the ``identifiers`` attribute is not used at all. Clearly, this gives |Supvisors|
 the authorization to start all programs on every nodes. However |Supvisors| knows about the |Supervisor| configuration
 in the 3 nodes. When choosing a node to start a program, |Supvisors| considers the intersection between the authorized
 nodes - all of them here - and the possible nodes, i.e. the active nodes where the program is defined in |Supervisor|.
@@ -441,13 +449,13 @@ of the |Supvisors| plugin.
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
-    address_list = cliche81,cliche82,cliche83
-    rules_file = etc/supvisors_rules.xml
+    supvisors_list = cliche81,cliche82,cliche83
+    rules_files = etc/supvisors_rules.xml
 
     [ctlplugin:supvisors]
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
 
-And the equivalent in the ``supervisord_localhost.conf`` configuration file. No ``address_list`` is provided here as
+And the equivalent in the ``supervisord_localhost.conf`` configuration file. No ``supvisors_list`` is provided here as
 the default value is the local host name, which is perfectly suitable here.
 
 .. code-block:: ini
@@ -457,7 +465,7 @@ the default value is the local host name, which is perfectly suitable here.
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
-    rules_file = etc/supvisors_rules.xml
+    rules_files = etc/supvisors_rules.xml
 
     [ctlplugin:supvisors]
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
