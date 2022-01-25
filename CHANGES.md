@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.12 (2022-01-xx)
+## 0.12 (2022-01-26)
 
 * Fix crash following a `supervisorctl update` as the group added doesn't include `extra_args` and `command_ref`
   attributes in the Supervisor internal structure.
