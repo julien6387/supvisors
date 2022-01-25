@@ -383,18 +383,19 @@ class Context(object):
         return invalidated_identifiers, process_failures
 
     def check_process(self, instance_status: SupvisorsInstanceStatus,
-                      event: Payload) -> Optional[Tuple[ApplicationStatus, ProcessStatus]]:
+                      event: Payload, check_source=True) -> Optional[Tuple[ApplicationStatus, ProcessStatus]]:
         """ Check and return the internal data corresponding to the process event.
 
         :param instance_status: the Supvisors instance from which the event has been received
         :param event: the event payload
+        :param check_source: if True, the process should contain information related to the Supvisors instance
         :return: None
         """
         namespec = make_namespec(event['group'], event['name'])
         try:
             application = self.applications[event['group']]
             process = application.processes[event['name']]
-            assert instance_status.identifier in process.info_map
+            assert not check_source or instance_status.identifier in process.info_map
             return application, process
         except (AssertionError, KeyError):
             # if the event is received during a Supvisors closing state, it can be ignored
@@ -461,11 +462,13 @@ class Context(object):
             # accept events only in RUNNING state
             if instance_status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_process_event: got event {event} from Supvisors={identifier}')
-                app_proc = self.check_process(instance_status, event)
+                # WARN: the Master may send a process event corresponding a process that is not configured in it
+                forced_event = 'forced_state' in event
+                app_proc = self.check_process(instance_status, event, not forced_event)
                 if app_proc:
                     application, process = app_proc
                     # refresh process info depending on the nature of the process event
-                    if 'forced_state' in event:
+                    if forced_event:
                         process.force_state(event)
                         # remove the 'forced_state' information before publication
                         event['state'] = process.state
