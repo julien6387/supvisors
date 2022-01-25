@@ -64,6 +64,8 @@
 
 * Use a different gradient in the Web UI for running processes that have ever crashed.
 
+* Fix CSS process table cell height with recent versions of Firefox.
+
 * Use hexadecimal strings for the `shex` attribute in the Web UI URL. 
 
 * Add `action` class to the start/stop/restart/shutdown buttons in the headers of the **Supvisors** web pages.

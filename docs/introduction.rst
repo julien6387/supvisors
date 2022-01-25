@@ -59,7 +59,7 @@ Platform Requirements
 A previous release of |Supvisors| (version 0.1, available on PyPi) works with Python 2.7 (and previous versions
 of |Supervisor|, i.e. 3.3.0) but is not maintained anymore.
 
-The CSS of the Dashboard has been written for Firefox ESR 78.5.0.
+The CSS of the Dashboard has been written for Firefox ESR 91.3.0.
 The compatibility with other browsers or other versions of Firefox is unknown.
 
 

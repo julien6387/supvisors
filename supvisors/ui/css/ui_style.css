@@ -131,13 +131,12 @@ nav {
     display: flex;
     flex: 1;
     flex-direction: row;
+    justify-content: space-around;
     overflow: auto;
     margin: 5px;
 }
 
 #process_left_side {
-    display: flex;
-    flex: 1;
     font-family: Verdana, Arial, sans-serif;
     text-align: justify;
     margin-right: 5px;

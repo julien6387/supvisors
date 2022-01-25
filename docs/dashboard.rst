@@ -14,7 +14,7 @@ the same infrastructure.
 
 .. important:: *About the browser compliance*.
 
-    The CSS of the web pages has been written for Firefox ESR 78.5.0.
+    The CSS of the web pages has been written for Firefox ESR 91.3.0.
     The compatibility with other browsers or other versions of Firefox is unknown.
 
 All pages are divided into 3 parts:
