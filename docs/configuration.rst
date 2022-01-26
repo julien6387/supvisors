@@ -446,8 +446,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 .. note::
 
-    The options of the ``application`` section MUST be declared in the following order.
-    In the next version of |Supvisors|, it will be possible to declare them in any order.
+    The options below can be declared in any order in the ``application`` section.
 
 ``distribution``
 
@@ -470,16 +469,6 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     When a single |Supvisors| instance is running on each node, ``SINGLE_INSTANCE`` and ``SINGLE_NODE`` are strictly
     equivalent.
-
-``distributed``
-
-    *DEPRECATED* Please use ``distribution``. ``true`` is equivalent to ``ALL_INSTANCES`` in the ``distribution``
-    option and ``false`` is equivalent to ``SINGLE_INSTANCE``. This parameter will be removed in the next |Supvisors|
-    version.
-
-    *Default*:  ``true``.
-
-    *Required*:  No.
 
 ``identifiers``
 
@@ -570,22 +559,21 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     *Required*:  No.
 
+``programs``
+
+    This element is the grouping section of all ``program`` rules that are applicable to the application.
+    Obviously, the ``programs`` element of an application can include multiple ``program`` elements.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
 ``program``
 
     In a ``programs`` section, this element defines the rules that are applicable to the program whose name matches
     the ``name`` or ``pattern`` attribute of the element. The ``name`` must match exactly a program name in the program
     list of the `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
     for the application considered here.
-    *DEPRECATED* The definition of an application can include multiple ``program`` elements.
-
-    *Default*:  None.
-
-    *Required*:  No.
-
-``programs``
-
-    This element is the grouping section of all ``program`` rules that are applicable to the application.
-    Obviously, the ``programs`` element of an application can include multiple ``program`` elements.
 
     *Default*:  None.
 

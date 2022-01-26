@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.13 (2022-xx-xx)
+
+* The application rules of a **Supvisors** rules file can be inserted in any order.
+
+* Remove support to deprecated option `distributed` and to the possibility to have the `program` element directly
+  under the `application element` in a **Supvisors** rules file.
+
+
 ## 0.12 (2022-01-26)
 
 * Fix crash following a `supervisorctl update` as the group added doesn't include `extra_args` and `command_ref`

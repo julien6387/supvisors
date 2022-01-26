@@ -56,7 +56,6 @@ class ApplicationRules(object):
         self.logger: Logger = supvisors.logger
         # attributes
         self.managed: bool = False
-        self.distributed: bool = True
         self.distribution: DistributionRules = DistributionRules.ALL_INSTANCES
         self.identifiers: NameList = ['*']
         self.hash_identifiers: NameList = []
@@ -149,8 +148,7 @@ class ApplicationRules(object):
         :return: the application rules in a dictionary
         """
         if self.managed:
-            payload = {'managed': True, 'distributed': self.distribution == DistributionRules.ALL_INSTANCES,  # DEPRECATED
-                       'distribution': self.distribution.name, 'identifiers': self.identifiers,  # TODO: add / replace by nodes / targets ?
+            payload = {'managed': True, 'distribution': self.distribution.name, 'identifiers': self.identifiers,
                        'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
                        'starting_strategy': self.starting_strategy.name,
                        'starting_failure_strategy': self.starting_failure_strategy.name,

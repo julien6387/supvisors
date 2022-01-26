@@ -156,8 +156,6 @@ Status
             'distribution'              ``str``         The distribution rule of the application,
                                                         in [``'ALL_INSTANCES'``, ``'SINGLE_INSTANCE'``,
                                                         ``'SINGLE_NODE'``].
-            'distributed'               ``bool``        *DEPRECATED* The Application distribution status in |Supvisors|.
-                                                        This entry will be removed in the next |Supvisors| version.
             'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
                                                         non-fully distributed application processes can be started,
                                                         provided only if ``distribution`` is not ``ALL_INSTANCES``.

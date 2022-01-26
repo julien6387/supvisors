@@ -125,12 +125,6 @@ class Parser(object):
         application_elt = self.get_application_element(application_name)
         if application_elt is not None:
             rules.managed = True
-            # TODO: DEPRECATED
-            if application_elt.findtext('distributed'):
-                self.logger.warn(f'Parser.load_application_rules: DEPRECATED element distributed in {application_name}')
-                self.load_boolean(application_elt, 'distributed', rules)
-                rules.distribution = (DistributionRules.ALL_INSTANCES if rules.distributed
-                                      else DistributionRules.SINGLE_INSTANCE)
             self.load_enum(application_elt, 'distribution', DistributionRules, rules)
             self.load_identifiers(application_elt, rules)
             self.load_sequence(application_elt, 'start_sequence', rules)
