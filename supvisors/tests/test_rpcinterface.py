@@ -195,7 +195,6 @@ def test_application_rules(mocker, rpc):
     # test RPC call with application name and managed/distributed application
     application.rules.managed = True
     expected = {'application_name': 'appli', 'managed': True, 'distribution': 'ALL_INSTANCES',
-                'distributed': True,  # TODO: DEPRECATED
                 'identifiers': ['*'],
                 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
@@ -206,7 +205,6 @@ def test_application_rules(mocker, rpc):
     # test RPC call with application name and managed/non-distributed application
     application.rules.distribution = DistributionRules.SINGLE_INSTANCE
     expected = {'application_name': 'appli', 'managed': True, 'distribution': 'SINGLE_INSTANCE',
-                'distributed': False,  # TODO: DEPRECATED
                 'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
     assert rpc.get_application_rules('appli') == expected

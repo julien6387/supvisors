@@ -39,7 +39,7 @@ def test_rules_create(rules):
     """ Test the values set at construction. """
     # check application default rules
     assert not rules.managed
-    assert rules.distributed
+    assert rules.distribution == DistributionRules.ALL_INSTANCES
     assert rules.identifiers == ['*']
     assert rules.hash_identifiers == []
     assert rules.start_sequence == 0
@@ -134,15 +134,13 @@ def test_rules_serial(rules):
     assert rules.serial() == {'managed': False}
     # check managed and distributed
     rules.managed = True
-    assert rules.serial() == {'managed': True, 'distributed': True,  # TODO: DEPRECATED
-                              'distribution': 'ALL_INSTANCES', 'identifiers': ['*'],
+    assert rules.serial() == {'managed': True, 'distribution': 'ALL_INSTANCES', 'identifiers': ['*'],
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
     rules.distribution = DistributionRules.SINGLE_INSTANCE
-    assert rules.serial() == {'managed': True, 'distributed': False,  # TODO: DEPRECATED
-                              'distribution': 'SINGLE_INSTANCE', 'identifiers': ['*'],
+    assert rules.serial() == {'managed': True, 'distribution': 'SINGLE_INSTANCE', 'identifiers': ['*'],
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
@@ -162,7 +160,7 @@ def test_application_create(supvisors):
     assert not application.stop_sequence
     # check application default rules
     assert not application.rules.managed
-    assert application.rules.distributed
+    assert application.rules.distribution == DistributionRules.ALL_INSTANCES
     assert application.rules.start_sequence == 0
     assert application.rules.stop_sequence == -1
     assert application.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
