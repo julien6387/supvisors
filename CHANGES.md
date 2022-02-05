@@ -10,6 +10,9 @@
 
 * The application rules of a **Supvisors** rules file can be inserted in any order.
 
+* Protect the Supervisor thread against any exception that could be raised by **Supvisors** when processing a Supervisor
+  event.
+
 * Remove support to deprecated option `distributed` and to the possibility to have the `program` element directly
   under the `application element` in a **Supvisors** rules file.
 
