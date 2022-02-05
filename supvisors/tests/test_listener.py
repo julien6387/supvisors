@@ -293,9 +293,8 @@ def test_unstack_info(listener):
 
 def test_authorization(listener):
     """ Test the processing of a Supvisors authorization. """
-    from supvisors.ttypes import SupvisorsStates
-    listener.authorization('info1=10.0.0.5:60000 info2=False info3=10.0.0.1 info4=SHUTTING_DOWN')
-    expected = [call('10.0.0.5:60000', False, '10.0.0.1', SupvisorsStates.SHUTTING_DOWN)]
+    listener.authorization('["10.0.0.5:60000", false, "10.0.0.1"]')
+    expected = [call('10.0.0.5:60000', False, '10.0.0.1')]
     assert listener.supvisors.fsm.on_authorization.call_args_list == expected
 
 

@@ -61,13 +61,21 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to get the Supvisors state. """
         if self._upcheck():
             try:
-                state = self.supvisors().get_supvisors_state()
+                state_modes = self.supvisors().get_supvisors_state()
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                template = '%(code)-3s%(state)-12s'
-                line = template % {'code': state['statecode'], 'state': state['statename']}
+                max_starting = ControllerPlugin.max_template([state_modes], 'starting_jobs', 'Starting')
+                max_stopping = ControllerPlugin.max_template([state_modes], 'stopping_jobs', 'Stopping')
+                template = f'%(state)-16s%(starting)-{max_starting}s%(stopping)-{max_stopping}s'
+                # print title
+                payload = {'state': 'State', 'starting': 'Starting', 'stopping': 'Stopping'}
+                self.ctl.output(template % payload)
+                # print data
+                line = template % {'state': state_modes['fsm_statename'],
+                                   'starting': state_modes['starting_jobs'],
+                                   'stopping': state_modes['stopping_jobs']}
                 self.ctl.output(line)
 
     def help_sstate(self):
@@ -120,10 +128,11 @@ class ControllerPlugin(ControllerPluginBase):
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
                 max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
                 template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s%(state)-11s'
-                            '%(load)-6s%(ltime)-10s%(counter)-9s')
+                            '%(load)-6s%(ltime)-10s%(counter)-9s%(fsm_state)-16s%(starting)-10s%(stopping)-10s')
                 # print title
                 payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port', 'state': 'State',
-                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter'}
+                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
+                           'fsm_state': 'FSM', 'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
@@ -134,9 +143,12 @@ class ControllerPlugin(ControllerPluginBase):
                         payload = {'identifier': info['identifier'],
                                    'node_name': info['node_name'], 'port': info['port'],
                                    'state': info['statename'],
-                                   'load': '{}%'.format(info['loading']),
+                                   'load': f"{info['loading']}%",
+                                   'ltime': simple_localtime(info['local_time']),
                                    'counter': info['sequence_counter'],
-                                   'ltime': simple_localtime(info['local_time'])}
+                                   'fsm_state': info['fsm_statename'],
+                                   'starting': info['starting_jobs'],
+                                   'stopping': info['stopping_jobs']}
                         self.ctl.output(template % payload)
 
     def help_instance_status(self):

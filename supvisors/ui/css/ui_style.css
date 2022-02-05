@@ -54,7 +54,7 @@ body {
 
 
 /*
- * Left Side Layout
+ * Left Side (Menu) Layout
 */
 #left_side {
     min-width: 230px;
@@ -119,11 +119,19 @@ nav {
     align-items: center;
 }
 
-#contents {
-    flex: 1;
+#state_modes {
+    flex: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    flex-direction: row;
+    justify-content: start;
+}
+
+#state_modes div {
+    margin: auto 5px;
+}
+
+#state_modes div h3 {
+    margin: auto;
 }
 
 /* Supervisor page: Process section */
@@ -321,7 +329,7 @@ a {
  * Blink Style
  *
  */
-#left_side header a.blink {
+#left_side header a.blink, .blink {
     color: var(--blink-color);
     animation: blinker 1.2s linear infinite;
 }

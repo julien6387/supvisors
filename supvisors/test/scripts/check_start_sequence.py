@@ -75,8 +75,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_mount_disk_starting(self):
         """ Check the starting of the mount_disk program. """
-        config = [('mount_disk_00', self.HOST_02),
-                  ('mount_disk_01', self.HOST_03)]
+        config = [('mount_disk_00', self.HOST_02), ('mount_disk_01', self.HOST_03)]
         # define the expected events for the mount_disk program
         application = self.context.get_application('import_database')
         for program_name, identifier in config:
@@ -104,8 +103,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_mount_disk_stopping(self):
         """ Program the stopping of the program.state program. """
-        config = [('mount_disk_00', self.HOST_02),
-                  ('mount_disk_01', self.HOST_03)]
+        config = [('mount_disk_00', self.HOST_02), ('mount_disk_01', self.HOST_03)]
         # define the expected events for the mount_disk program
         application = self.context.get_application('import_database')
         for program_name, identifier in config:
@@ -133,8 +131,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_movie_server_starting(self):
         """ Check the starting of the movie_server programs. """
-        config = [('movie_server_01', self.HOST_01),
-                  ('movie_server_02', self.HOST_02),
+        config = [('movie_server_01', self.HOST_01), ('movie_server_02', self.HOST_02),
                   ('movie_server_03', self.HOST_03)]
         # define the expected events for the movie_server_xx programs
         application = self.context.get_application('database')
@@ -151,8 +148,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_register_movies_starting(self):
         """ Check the starting of the register_movies programs. """
-        config = [('register_movies_01', self.HOST_01),
-                  ('register_movies_02', self.HOST_03)]
+        config = [('register_movies_01', self.HOST_01), ('register_movies_02', self.HOST_03)]
         # define the expected events for the register_movies_xx programs
         application = self.context.get_application('database')
         for program_name, identifier in config:
@@ -170,8 +166,8 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_my_movies_starting(self):
         """ Check the starting of the my_movies application.
         The manager process is started first, then the web_server, finally the hmi.
-        In the my_movies application, there should be a major_failure due to the web_server
-        that is configured not to start. """
+        In the my_movies application, there should be a major_failure because of the web_server that is configured
+        not to start. """
         # define 'my_movies' application
         application = Application('my_movies')
         self.context.add_application(application)

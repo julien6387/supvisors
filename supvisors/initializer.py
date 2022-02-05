@@ -34,6 +34,7 @@ from .sparser import Parser
 from .statemachine import FiniteStateMachine
 from .statscompiler import StatisticsCompiler
 from .strategy import RunningFailureHandler
+from .supvisorszmq import SupervisorZmq
 
 
 class Supvisors(object):
@@ -47,7 +48,8 @@ class Supvisors(object):
 
         :param supervisor: the Supervisor global structure
         """
-        # declare zmq context (will be created in listener)
+        # WARN: the PyZmq sockets cannot be created at this level
+        # Before running, Supervisor forks when daemonized and the PyZmq sockets are then lost
         self.zmq = None
         # get options from config
         self.options = SupvisorsOptions(supervisor, **config)
@@ -75,8 +77,6 @@ class Supvisors(object):
         # create the failure handler of crashing processes
         # WARN: must be created before the state machine
         self.failure_handler = RunningFailureHandler(self)
-        # create state machine
-        self.fsm = FiniteStateMachine(self)
         # check parsing
         try:
             self.parser = Parser(self)
@@ -85,6 +85,8 @@ class Supvisors(object):
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)
+        # create state machine
+        self.fsm = FiniteStateMachine(self)
 
     def create_logger(self, supervisor: Supervisor) -> Logger:
         """ Create the logger that will be used in Supvisors.

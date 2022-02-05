@@ -79,6 +79,8 @@ class SupervisorListener(object):
         # other attributes
         self.local_identifier: str = supvisors.supvisors_mapper.local_identifier
         self.pusher: Optional[RequestPusher] = None
+        # WARN: the SupvisorsMainLoop cannot be created at this level
+        # Before running, Supervisor forks when daemonized and the PyZmq sockets are then lost
         self.main_loop: Optional[SupvisorsMainLoop] = None
         # add new events to Supervisor EventTypes
         add_process_events()
@@ -106,10 +108,11 @@ class SupervisorListener(object):
         self.supvisors.zmq = SupervisorZmq(self.supvisors)
         # keep a reference to the internal pusher used to defer the events publication
         self.pusher = self.supvisors.zmq.pusher
-        # start the main loop
-        # env is needed to create XML-RPC proxy
+        # At this point, Supervisor has forked if necessary so the main loop can be started
         self.main_loop = SupvisorsMainLoop(self.supvisors)
         self.main_loop.start()
+        # Trigger the FSM
+        self.supvisors.fsm.next()
 
     def on_stopping(self, _):
         """ Called when Supervisor is STOPPING.
@@ -250,20 +253,18 @@ class SupervisorListener(object):
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}')
             self.supvisors.fsm.on_state_event(event_identifier, event_data)
 
-    def unstack_info(self, message: str):
+    def unstack_info(self, message: str) -> None:
         """ Unstack the process info received. """
         # unstack the queue for process info
         identifier, info = json.loads(message)
         self.logger.trace(f'SupervisorListener.unstack_info: got process info event from {identifier}')
         self.supvisors.fsm.on_process_info(identifier, info)
 
-    def authorization(self, data):
+    def authorization(self, message: str) -> None:
         """ Extract authorization and identifier from data and process event. """
-        self.logger.trace(f'SupervisorListener.authorization: got authorization event: {data}')
-        # split the line received
-        identifier, authorized_string, master_identifier, supvisors_state = tuple(x.split('=')[1] for x in data.split())
-        authorized = boolean(authorized_string) if authorized_string != 'None' else None
-        self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier, SupvisorsStates[supvisors_state])
+        identifier, authorized, master_identifier = json.loads(message)
+        self.logger.trace(f'SupervisorListener.authorization: got authorization event from {identifier}')
+        self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier)
 
     def force_process_state(self, process: ProcessStatus, expected_state: ProcessStates, identifier: str,
                             forced_state: ProcessStates, reason: str) -> None:

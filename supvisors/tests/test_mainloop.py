@@ -20,7 +20,7 @@
 import pytest
 
 from supvisors.mainloop import *
-from supvisors.ttypes import SupvisorsInstanceStates
+from supvisors.ttypes import SupvisorsStates, SupvisorsInstanceStates
 from supvisors.utils import DeferredRequestHeaders
 
 from threading import Thread
@@ -155,7 +155,7 @@ def test_check_events(mocker, main_loop):
     main_loop.sockets.check_subscriber.return_value = 'a message'
     main_loop.check_events('poll result')
     assert main_loop.sockets.check_subscriber.call_args_list == [call('poll result')]
-    assert mocked_send.call_args_list == [call('event', '"a message"')]
+    assert mocked_send.call_args_list == [call('event', 'a message')]
 
 
 def test_check_requests(mocker, main_loop):
@@ -231,8 +231,9 @@ def test_check_instance_no_com(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = ValueError
     main_loop.check_instance('10.0.0.1')
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-    message = 'identifier=10.0.0.1 authorized=None master_identifier= supvisors_state=SHUTDOWN'
-    assert mocked_evt.call_args_list == [call('auth', message)]
+    auth_message = '10.0.0.1', None, ''
+    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', {})
+    assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message)]
 
 
 def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
@@ -245,16 +246,16 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info')
     mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
-    mocker.patch.object(rpc_intf.supvisors, 'get_supvisors_state',
-                        return_value={'statecode': SupvisorsStates.OPERATION})
     mocked_rpc.return_value = rpc_intf
     # test with local Supvisors instance isolated by remote
+    instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'starting_jobs': False, 'stopping_jobs': True}
+    auth_message = '10.0.0.1:60000', False, '10.0.0.5'
+    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1:60000', instance_info)
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
-        mocked_instance.return_value = {'statecode': state}
+        mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
         main_loop.check_instance('10.0.0.1:60000')
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-        expected = 'identifier=10.0.0.1:60000 authorized=False master_identifier=10.0.0.5 supvisors_state=OPERATION'
-        assert mocked_evt.call_args_list == [call('auth', expected)]
+        assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message)]
         assert not mocked_local.called
         # reset counters
         mocked_evt.reset_mock()
@@ -268,30 +269,27 @@ def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
     # test with a mocked rpc interface
-    dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'now': 10, 'pid': 1234, 'spawnerr': ''}]
     rpc_intf = DummyRpcInterface()
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info', side_effect=ValueError)
     mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
-    mocker.patch.object(rpc_intf.supvisors, 'get_supvisors_state', return_value={'statecode': 20})
     mocked_rpc.return_value = rpc_intf
     # test with local Supvisors instance not isolated by remote
     # exception on get_all_local_process_info
+    instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'starting_jobs': False, 'stopping_jobs': True}
+    auth_message = '10.0.0.1', True, '10.0.0.5'
+    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', instance_info)
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING,
                   SupvisorsInstanceStates.SILENT]:
-        for fsm_state in SupvisorsStates:
-            rpc_intf.supvisors.get_supvisors_state.return_value = {'statecode': fsm_state.value}
-            mocked_instance.return_value = {'statecode': state}
-            main_loop.check_instance('10.0.0.1')
-            assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-            expected = ('identifier=10.0.0.1 authorized=True master_identifier=10.0.0.5'
-                        f' supvisors_state={fsm_state.name}')
-            assert mocked_evt.call_args_list == [call('auth', expected)]
-            assert mocked_local.called
-            # reset counters
-            mocked_evt.reset_mock()
-            mocked_local.reset_mock()
-            mocked_rpc.reset_mock()
+        mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
+        main_loop.check_instance('10.0.0.1')
+        assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+        assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message)]
+        assert mocked_local.called
+        # reset counters
+        mocked_evt.reset_mock()
+        mocked_local.reset_mock()
+        mocked_rpc.reset_mock()
 
 
 def test_check_instance_normal(mocker, mocked_rpc, main_loop):
@@ -306,27 +304,24 @@ def test_check_instance_normal(mocker, mocked_rpc, main_loop):
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info', return_value=dummy_info)
     mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
-    mocker.patch.object(rpc_intf.supvisors, 'get_supvisors_state', return_value={'statecode': 20})
     mocked_rpc.return_value = rpc_intf
     # test with local Supvisors instance not isolated by remote and with remote not in closing state
+    instance_info = {'fsm_statecode': SupvisorsStates.OPERATION.value, 'starting_jobs': True, 'stopping_jobs': False}
+    auth_message = '10.0.0.1', True, '10.0.0.5'
+    info_message = '10.0.0.1', dummy_info
+    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', instance_info)
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING,
                   SupvisorsInstanceStates.SILENT]:
-        for fsm_state in [SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION,
-                          SupvisorsStates.CONCILIATION]:
-            rpc_intf.supvisors.get_supvisors_state.return_value = {'statecode': fsm_state.value}
-            mocked_instance.return_value = {'statecode': state}
-            main_loop.check_instance('10.0.0.1')
-            assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-            expected = ('identifier=10.0.0.1 authorized=True master_identifier=10.0.0.5'
-                        f' supvisors_state={fsm_state.name}')
-            json_payload = ('["10.0.0.1", [{"name": "proc", "group": "appli", "state": 10, "start": 5, "now": 10,'
-                            ' "pid": 1234, "spawnerr": ""}]]')
-            assert mocked_evt.call_args_list == [call('auth', expected), call('info', json_payload)]
-            assert mocked_local.called
-            # reset counters
-            mocked_evt.reset_mock()
-            mocked_local.reset_mock()
-            mocked_rpc.reset_mock()
+        mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
+        main_loop.check_instance('10.0.0.1')
+        assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+        assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message),
+                                             call('info', info_message)]
+        assert mocked_local.called
+        # reset counters
+        mocked_evt.reset_mock()
+        mocked_local.reset_mock()
+        mocked_rpc.reset_mock()
 
 
 def test_start_process(mocker, mocked_rpc, main_loop):
@@ -478,7 +473,7 @@ def test_comm_event(mocker, mocked_rpc, main_loop):
     # test with a mocked rpc interface
     mocked_supervisor = mocker.patch.object(main_loop.proxy.supervisor, 'sendRemoteCommEvent')
     main_loop.send_remote_comm_event('event type', 'event data')
-    assert mocked_supervisor.call_args_list == [call('event type', 'event data')]
+    assert mocked_supervisor.call_args_list == [call('event type', '"event data"')]
 
 
 def check_call(main_loop, mocked_loop, method_name, request, args):

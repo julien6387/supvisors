@@ -31,6 +31,38 @@ from .base import database_copy
 from .conftest import create_any_process, create_process
 
 
+def test_state_modes():
+    """ Test the values set at StateModes construction. """
+    sm_1 = StateModes()
+    assert sm_1.state == SupvisorsStates.OFF
+    assert not sm_1.starting_jobs
+    assert not sm_1.stopping_jobs
+    assert sm_1.serial() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                             'starting_jobs': False, 'stopping_jobs': False}
+    sm_1.apply(fsm_state=SupvisorsStates.OPERATION)
+    assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'starting_jobs': False, 'stopping_jobs': False}
+    sm_1.apply(starter=True)
+    assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'starting_jobs': True, 'stopping_jobs': False}
+    sm_1.apply(stopper=True)
+    assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'starting_jobs': True, 'stopping_jobs': True}
+    with pytest.raises(TypeError):
+        sm_1.apply(Starter=True)
+    assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'starting_jobs': True, 'stopping_jobs': True}
+    sm_2 = copy(sm_1)
+    assert sm_1.state == SupvisorsStates.OPERATION
+    assert sm_1.starting_jobs
+    assert sm_1.stopping_jobs
+    assert sm_1 == sm_2
+    sm_2.update({'fsm_statecode': SupvisorsStates.SHUTTING_DOWN, 'starting_jobs': False, 'stopping_jobs': True})
+    assert sm_1 != sm_2
+    assert sm_2.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+                             'starting_jobs': False, 'stopping_jobs': True}
+
+
 @pytest.fixture
 def supvisors_id(supvisors):
     """ Create a SupvisorsInstanceId. """
@@ -65,16 +97,24 @@ def test_create(supvisors, supvisors_id, status):
     assert status.remote_time == 0.0
     assert status.local_time == 0.0
     assert status.processes == {}
+    assert status.state_modes == StateModes()
 
 
-def test_isolation(status):
-    """ Test the SupvisorsInstanceStatus.in_isolation method. """
+def test_reset(status):
+    """ Test the SupvisorsInstanceStatus.reset method. """
     for state in SupvisorsInstanceStates:
         status._state = state
-        assert (status.in_isolation() and
-                state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED] or
-                not status.in_isolation() and state not in [SupvisorsInstanceStates.ISOLATING,
-                                                            SupvisorsInstanceStates.ISOLATED])
+        status.local_sequence_counter = 10
+        status.remote_time = 28.452
+        status.local_time = 27.456
+        status.reset()
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
+            assert status.state == SupvisorsInstanceStates.UNKNOWN
+        else:
+            assert status.state == state
+        assert status.local_sequence_counter == 0
+        assert status.remote_time == 0.0
+        assert status.local_time == 0.0
 
 
 def test_serialization(status):
@@ -88,7 +128,8 @@ def test_serialization(status):
     serialized = status.serial()
     assert serialized == {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
                           'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time': 60,
-                          'sequence_counter': 28}
+                          'sequence_counter': 28, 'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                          'starting_jobs': False, 'stopping_jobs': False}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -97,19 +138,79 @@ def test_serialization(status):
 
 def test_transitions(status):
     """ Test the state transitions of SupvisorsInstanceStatus. """
+    silent_states = [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATING,
+                     SupvisorsInstanceStates.ISOLATED]
     for state1 in SupvisorsInstanceStates:
         for state2 in SupvisorsInstanceStates:
             # check all possible transitions from each state
             status._state = state1
+            status.state_modes.state = SupvisorsStates.OPERATION
             if state2 in status._Transitions[state1]:
                 status.state = state2
                 assert status.state == state2
                 assert status.state.name == state2.name
+                if state2 in silent_states:
+                    assert status.state_modes.state == SupvisorsStates.OFF
+                else:
+                    assert status.state_modes.state == SupvisorsStates.OPERATION
             elif state1 == state2:
                 assert status.state == state1
+                assert status.state_modes.state == SupvisorsStates.OPERATION
             else:
                 with pytest.raises(InvalidTransition):
                     status.state = state2
+                assert status.state_modes.state == SupvisorsStates.OPERATION
+
+
+def test_update_state_modes(status):
+    """ Test the SupvisorsInstanceStatus.update_state_modes method. """
+    assert status.state_modes == StateModes()
+    status.update_state_modes({'fsm_statecode': SupvisorsStates.SHUTTING_DOWN,
+                               'starting_jobs': False, 'stopping_jobs': True})
+    assert status.state_modes.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+                                           'starting_jobs': False, 'stopping_jobs': True}
+
+
+def test_apply_state_modes(status):
+    """ Test the SupvisorsInstanceStatus.apply_state_modes method. """
+    assert status.state_modes == StateModes()
+    assert status.apply_state_modes({}) == (False, StateModes())
+    event = {'starter': True}
+    assert status.apply_state_modes(event) == (True, StateModes(starting_jobs=True))
+    event = {'stopper': False}
+    assert status.apply_state_modes(event) == (False, StateModes(starting_jobs=True))
+    event = {'fsm_state': SupvisorsStates.RESTARTING}
+    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.RESTARTING, True))
+    event = {'fsm_state': SupvisorsStates.INITIALIZATION, 'stopper': True}
+    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.INITIALIZATION, True, True))
+    assert status.apply_state_modes(event) == (False, StateModes(SupvisorsStates.INITIALIZATION, True, True))
+
+
+def test_inactive(status):
+    """ Test the SupvisorsInstanceStatus.inactive method. """
+    # test active
+    status.local_sequence_counter = 8
+    for state in SupvisorsInstanceStates:
+        status._state = state
+        assert not status.inactive(10)
+    # test not active
+    status.local_sequence_counter = 7
+    for state in SupvisorsInstanceStates:
+        status._state = state
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
+            assert status.inactive(10)
+        else:
+            assert not status.inactive(10)
+
+
+def test_isolation(status):
+    """ Test the SupvisorsInstanceStatus.in_isolation method. """
+    for state in SupvisorsInstanceStates:
+        status._state = state
+        assert (status.in_isolation() and
+                state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED] or
+                not status.in_isolation() and state not in [SupvisorsInstanceStates.ISOLATING,
+                                                            SupvisorsInstanceStates.ISOLATED])
 
 
 def test_add_process(supvisors, status):

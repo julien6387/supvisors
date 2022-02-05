@@ -843,7 +843,7 @@ class Commander(object):
         # pickup logic
         self.pickup_logic = None
         # used for Logger so that Starter / Stopper are printed instead of Commander
-        self.klass = type(self).__name__
+        self.class_name = type(self).__name__
 
     # misc methods
     def in_progress(self) -> bool:
@@ -851,7 +851,7 @@ class Commander(object):
 
         :return: the progress status
         """
-        self.logger.trace(f'{self.klass}.in_progress: planned_jobs={self.planned_jobs}'
+        self.logger.trace(f'{self.class_name}.in_progress: planned_jobs={self.planned_jobs}'
                           f' current_jobs={self.current_jobs}')
         return len(self.planned_jobs) > 0 or len(self.current_jobs) > 0
 
@@ -900,21 +900,23 @@ class Commander(object):
                 self.after(application_job)
                 del self.current_jobs[application_name]
         # if no more current_jobs, pop lower sequence from planned_jobs and trigger application_jobs
-        self.logger.debug(f'{self.klass}.next: current_jobs={list(self.current_jobs.keys())}')
+        self.logger.debug(f'{self.class_name}.next: current_jobs={list(self.current_jobs.keys())}')
         if self.planned_jobs and not self.current_jobs:
             # pop next sequence of application jobs
             self.logger.trace(f'Commander.next: planned_jobs={self.planned_jobs}')
             sequence_number = self.pickup_logic(self.planned_jobs)
             self.current_jobs = self.planned_jobs.pop(sequence_number)
-            self.logger.debug(f'{self.klass}.next: sequence={sequence_number}'
+            self.logger.debug(f'{self.class_name}.next: sequence={sequence_number}'
                               f' current_jobs={self.current_jobs}')
             # iterate on copy to avoid problems with key deletions
             for application_name, application_job in self.current_jobs.items():
-                self.logger.info(f'{self.klass}.next: start processing {application_name}')
+                self.logger.info(f'{self.class_name}.next: start processing {application_name}')
                 application_job.before()
                 application_job.next()
             # recursive call in the event where there's already nothing left to do
             self.next()
+        # update context state and modes
+        self.supvisors.context.publish_state_modes({self.class_name.lower(): self.in_progress()})
 
     # periodic check
     def check(self) -> None:

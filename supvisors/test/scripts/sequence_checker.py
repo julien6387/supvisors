@@ -194,9 +194,9 @@ class SequenceChecker(SupvisorsEventQueues):
 
     def __init__(self, zcontext, logger):
         """ Initialization of the attributes.
-        Test relies on 3 instances so theoretically, only 3 notifications are needed to know the running instances.
-        The asynchronism forces to work on 5 notifications.
-        The startsecs of the ini file of this program is then set to 30 seconds.
+        Test relies on 4 instances so theoretically, only 4 notifications are needed to know the running instances.
+        The asynchronism forces working on 4*2-1 notifications.
+        The startsecs of the ini file of this program is then set to 40 seconds.
         """
         SupvisorsEventQueues.__init__(self, zcontext, logger)
         # create a set of instances
@@ -215,7 +215,7 @@ class SequenceChecker(SupvisorsEventQueues):
             self.identifiers.add(data['identifier'])
         # check the number of notifications
         self.nb_identifiers_notifications += 1
-        if self.nb_identifiers_notifications == 9:
+        if self.nb_identifiers_notifications == 7:
             self.logger.info(f'instances: {self.identifiers}')
             # got all notification, unsubscribe from SupvisorsInstanceStatus
             self.subscriber.unsubscribe_instance_status()
@@ -253,11 +253,12 @@ class CheckSequenceTest(unittest.TestCase):
 
     def get_instances(self):
         """ Wait for instance_queue to put the list of active instances. """
+        # 9 notifications are expected. if there's only one Supvisors instance, it may take up to 9*5=45 seconds
         try:
-            self.identifiers = self.evloop.instance_queue.get(True, 30)
+            self.identifiers = self.evloop.instance_queue.get(True, 40)
             self.assertGreater(len(self.identifiers), 0)
         except Empty:
-            self.fail('failed to get the instances event in the last 20 seconds')
+            self.fail('failed to get the instances event in the last 40 seconds')
 
     def check_events(self, application_name=None):
         """ Receive and check events for processes and applications. """

@@ -1017,7 +1017,7 @@ def test_commander_creation(supvisors, commander):
     assert commander.planned_jobs == {}
     assert commander.current_jobs == {}
     assert commander.pickup_logic is None
-    assert commander.klass == 'Commander'
+    assert commander.class_name == 'Commander'
 
 
 def test_commander_print(commander, application_job_1, application_job_2):
@@ -1106,6 +1106,7 @@ def test_commander_next(mocker, commander, application_job_1, application_job_2)
     mocked_job2_progress = mocker.patch.object(application_job_2, 'in_progress', return_value=False)
     mocked_after = mocker.patch.object(commander, 'after')
     # fill planned_jobs
+    commander.class_name = 'starter'
     commander.pickup_logic = min
     commander.planned_jobs = {0: {'appli_1': application_job_1}, 1: {'appli_2': application_job_2}}
     # first call
@@ -1119,6 +1120,7 @@ def test_commander_next(mocker, commander, application_job_1, application_job_2)
     assert not mocked_job2_next.called
     assert not mocked_job2_progress.called
     assert not mocked_after.called
+    assert commander.supvisors.context.local_instance.state_modes.starting_jobs
     mocker.resetall()
     # set application_job_1 not in progress anymore
     # will be removed from current_jobs and application_job_2
@@ -1134,6 +1136,7 @@ def test_commander_next(mocker, commander, application_job_1, application_job_2)
     assert mocked_job2_next.called
     assert mocked_job2_progress.called
     assert mocked_after.call_args_list == [call(application_job_1), call(application_job_2)]
+    assert not commander.supvisors.context.local_instance.state_modes.starting_jobs
 
 
 def test_commander_check(mocker, commander, application_job_1, application_job_2):

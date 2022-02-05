@@ -81,29 +81,45 @@ def test_write_header(mocker, view):
     instance_mid = create_element()
     state_mid = create_element()
     percent_mid = create_element()
-    mocked_root = create_element({'instance_mid': instance_mid, 'state_mid': state_mid, 'percent_mid': percent_mid})
+    starting_mid = create_element()
+    stopping_mid = create_element()
+    mocked_root = create_element({'instance_mid': instance_mid, 'state_mid': state_mid, 'percent_mid': percent_mid,
+                                  'starting_mid': starting_mid, 'stopping_mid': stopping_mid})
     # first call tests with not master
-    mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING, **{'get_load.return_value': 12})
+    mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING,
+                         state_modes=Mock(starting_jobs=False, stopping_jobs=True),
+                         **{'get_load.return_value': 12})
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
     view.sup_ctx._is_master = False
     view.sup_ctx.instances[local_identifier] = mocked_status
     view.write_header(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),
+                                                   call('starting_mid'), call('stopping_mid')]
     assert instance_mid.content.call_args_list == [call(local_identifier)]
     assert state_mid.content.call_args_list == [call('RUNNING')]
     assert percent_mid.content.call_args_list == [call('12%')]
+    assert starting_mid.attrib['class'] == ''
+    assert starting_mid.replace.call_args_list == [call('')]
+    assert stopping_mid.attrib['class'] == 'blink'
+    assert not stopping_mid.replace.called
     assert mocked_periods.call_args_list == [call(mocked_root)]
     assert mocked_actions.call_args_list == [call(mocked_root, mocked_status)]
     # reset mocks
     mocker.resetall()
     mocked_root.reset_all()
-    # second call tests with master
+    # second call tests with master and both Starter and Stopper having jobs
     view.sup_ctx._is_master = True
+    mocked_status.state_modes.starting_jobs = True
     view.write_header(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),
+                                                   call('starting_mid'), call('stopping_mid')]
     assert instance_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} {local_identifier}')]
     assert state_mid.content.call_args_list == [call('RUNNING')]
     assert percent_mid.content.call_args_list == [call('12%')]
+    assert starting_mid.attrib['class'] == 'blink'
+    assert not starting_mid.replace.called
+    assert stopping_mid.attrib['class'] == 'blink'
+    assert not stopping_mid.replace.called
     assert mocked_periods.call_args_list == [call(mocked_root)]
     assert mocked_actions.call_args_list == [call(mocked_root, mocked_status)]
 

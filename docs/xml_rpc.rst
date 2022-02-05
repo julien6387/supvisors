@@ -36,14 +36,16 @@ Status
 
         .. automethod:: get_supvisors_state()
 
-            ================== ========= ===========
-            Key                Type      Description
-            ================== ========= ===========
-            'statecode'        ``int``   The state of |Supvisors|, in [0;6].
-            'statename'        ``str``   The string state of |Supvisors|, in [``'INITIALIZATION'``, ``'DEPLOYMENT'``,
-                                         ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'RESTART'``,
-                                         ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
-            ================== ========= ===========
+            ================== ============= ===========
+            Key                Type          Description
+            ================== ============= ===========
+            'statecode'        ``int``       The |Supvisors| state, in [0;9].
+            'statename'        ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
+                                             ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                             ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
+            'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
+            'stopping_jobs'    ``list(str)`` The list of |Supvisors| instances having stopping jobs in progress.
+            ================== ============= ===========
 
         .. automethod:: get_master_identifier()
 
@@ -53,8 +55,8 @@ Status
             Key                Type      Description
             ================== ========= ===========
             'auto-fencing'     ``bool``  The application status of the auto-fencing in |Supvisors|.
-            'conciliation'     ``str``   The conciliation strategy applied when |Supvisors| is
-                                         in the ``CONCILIATION`` state.
+            'conciliation'     ``str``   The conciliation strategy applied when |Supvisors| is in the ``CONCILIATION``
+                                         state.
             'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DEPLOYMENT`` state.
             ================== ========= ===========
 
@@ -76,6 +78,12 @@ Status
             'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
                                          instance, in [0;100]%.
             'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
+            'fsm_statecode'	   ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
+            'fsm_statename'    ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
+                                         ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                         ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
+            'starting_jobs'    ``bool``  True if the |Supvisors| instance has starting jobs in progress.
+            'stopping_jobs'    ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
             ================== ========= ===========
 
         .. automethod:: get_all_instances_info()

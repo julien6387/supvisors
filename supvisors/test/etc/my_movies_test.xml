@@ -4,13 +4,15 @@
     <application name="test">
         <start_sequence>1</start_sequence>
         <stop_sequence>0</stop_sequence>
-        <program name="check_start_sequence">
-            <identifiers>cliche81</identifiers>
-            <start_sequence>1</start_sequence>
-            <expected_loading>1</expected_loading>
-        </program>
-        <program pattern="">
-            <identifiers>cliche81</identifiers>
-        </program>
+        <programs>
+            <program name="check_start_sequence">
+                <identifiers>cliche81</identifiers>
+                <start_sequence>1</start_sequence>
+                <expected_loading>1</expected_loading>
+            </program>
+            <program pattern="">
+                <identifiers>cliche81</identifiers>
+            </program>
+        </programs>
     </application>
 </root>

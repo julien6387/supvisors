@@ -2,6 +2,12 @@
 
 ## 0.13 (2022-xx-xx)
 
+* Add the principle of **Supvisors** modes to the output of the XML-RPCs `get_supvisors_state` and `get_instance_info`.
+  The modes are linked to the existence of jobs in progress in `Starter` and `Stopper`.
+
+* The **Supvisors** modes are displayed to the Main page of the Web UI and the **Supvisors** instance modes are
+  displayed to the Process and Host pages of the Web UI. 
+
 * The application rules of a **Supvisors** rules file can be inserted in any order.
 
 * Remove support to deprecated option `distributed` and to the possibility to have the `program` element directly
@@ -27,7 +33,7 @@
 
 * Fix issue in Web UI with the Solaris mode not applied to the process CPU plot.
 
-* Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
+* Fix CSS for Supvisors instance boxes (table headers un-stickied) in the Main page of the Web UI.
 
 * Fix process children CPU times counted twice in statistics.
 

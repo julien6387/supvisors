@@ -23,6 +23,7 @@ from unittest.mock import call, Mock
 
 from supervisor.loggers import LOG_LEVELS_BY_NUM
 
+from supvisors.instancestatus import StateModes
 from supvisors.rpcinterface import *
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, DistributionRules, SupvisorsStates,
                               SupvisorsFaults)
@@ -48,10 +49,8 @@ def test_api_version(rpc):
 
 def test_supvisors_state(rpc):
     """ Test the get_supvisors_state RPC. """
-    # prepare context
-    rpc.supvisors.fsm.serial.return_value = 'RUNNING'
-    # test call
-    assert rpc.get_supvisors_state() == 'RUNNING'
+    assert rpc.get_supvisors_state() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                                         'starting_jobs': [], 'stopping_jobs': []}
 
 
 def test_master_node(rpc):
@@ -74,18 +73,22 @@ def test_strategies(rpc):
 
 def test_instance_info(rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
-    # test with known address
+    rpc.supvisors.context.instances['10.0.0.1'].state_modes = StateModes(SupvisorsStates.CONCILIATION, False, True)
+    # test with known identifier
     expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0, 'local_time': 0,
-                'remote_time': 0, 'sequence_counter': 0, 'statecode': 0, 'statename': 'UNKNOWN'}
+                'remote_time': 0, 'sequence_counter': 0, 'statecode': 0, 'statename': 'UNKNOWN',
+                'fsm_statecode': 4, 'fsm_statename': 'CONCILIATION', 'starting_jobs': False, 'stopping_jobs': True}
     assert rpc.get_instance_info('10.0.0.1') == expected
-    # test with unknown address
+    # test with unknown identifier
     with pytest.raises(RPCError) as exc:
         rpc.get_instance_info('10.0.0.0')
     assert exc.value.args == (Faults.INCORRECT_PARAMETERS, '10.0.0.0 unknown to Supvisors')
 
 
-def test_all_nodes_info(rpc):
+def test_all_instances_info(rpc):
     """ Test the get_all_instances_info RPC. """
+    rpc.supvisors.starter.in_progress.return_value = False
+    rpc.supvisors.stopper.in_progress.return_value = True
     # prepare context
     rpc.supvisors.context.instances = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info_1'}),
                                        '10.0.0.2': Mock(**{'serial.return_value': 'address_info_2'})}
@@ -1163,7 +1166,8 @@ def test_check_from_deployment(mocker, rpc):
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_state')
     # test the call to _check_state
     rpc._check_from_deployment()
-    excluded_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.RESTART, SupvisorsStates.SHUTDOWN]
+    excluded_states = [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION, SupvisorsStates.RESTART,
+                       SupvisorsStates.SHUTDOWN]
     expected = [x for x in SupvisorsStates if x not in excluded_states]
     assert mocked_check.call_args_list == [call(expected)]
 

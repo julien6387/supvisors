@@ -65,11 +65,13 @@ class RPCInterface(object):
         return API_VERSION
 
     def get_supvisors_state(self):
-        """ Return the state of **Supvisors**.
+        """ Return the state and modes of **Supvisors**.
+        The Supvisors state is the FSM state and is a reflection of the Supvisors Master instance state.
+        The Supvisors modes provides the identifiers having starting or stopping jobs.
 
-        *@return* ``dict``: the state of **Supvisors** as an integer and a string.
+        *@return* ``dict``: the state and modes of **Supvisors**.
         """
-        return self.supvisors.fsm.serial()
+        return self.supvisors.context.get_state_modes()
 
     def get_master_identifier(self):
         """ Get the identification of the Supvisors instance elected as **Supvisors** Master.
@@ -115,6 +117,7 @@ class RPCInterface(object):
             message = f'{identifier} unknown to Supvisors'
             self.logger.error(f'RPCInterface.get_instance_info: {message}')
             raise RPCError(Faults.INCORRECT_PARAMETERS, message)
+        # get Supvisors instance status and complement with Starter and Stopper progress
         return status.serial()
 
     def get_all_applications_info(self):

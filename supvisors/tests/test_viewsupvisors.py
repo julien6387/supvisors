@@ -46,6 +46,7 @@ def view(http_context):
     view.view_ctx = Mock(parameters={}, **{'format_url.return_value': 'an url'})
     return view
 
+
 def test_init(view):
     """ Test the values set at construction. """
     # test instance inheritance
@@ -73,13 +74,21 @@ def test_write_navigation(mocker, view):
 def test_write_header(view):
     """ Test the write_header method. """
     # patch context
-    view.supvisors.fsm.state = SupvisorsStates.OPERATION
+    view.sup_ctx.last_state_modes = {'fsm_statename': SupvisorsStates.DEPLOYMENT.name,
+                                     'starting_jobs': True, 'stopping_jobs': False}
     # build root structure
-    mocked_state_mid = Mock()
-    mocked_root = Mock(**{'findmeld.return_value': mocked_state_mid})
+    state_mid = create_element()
+    starting_mid = create_element()
+    stopping_mid = create_element()
+    mocked_root = create_element({'state_mid': state_mid, 'starting_mid': starting_mid, 'stopping_mid': stopping_mid})
     # test call with no auto-refresh
     view.write_header(mocked_root)
-    assert mocked_state_mid.content.call_args_list == [call('OPERATION')]
+    assert mocked_root.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid')]
+    assert state_mid.content.call_args_list == [call('DEPLOYMENT')]
+    assert starting_mid.attrib['class'] == 'blink'
+    assert not starting_mid.replace.called
+    assert stopping_mid.attrib['class'] == ''
+    assert stopping_mid.replace.call_args_list == [call('')]
 
 
 def test_write_contents(mocker, view):

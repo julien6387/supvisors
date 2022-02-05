@@ -246,7 +246,8 @@ def test_strategies(controller, plugin, mocked_check):
 def test_sstate(controller, plugin, mocked_check):
     """ Test the sstate request. """
     mocked_rpc = plugin.supvisors().get_supvisors_state
-    mocked_rpc.return_value = {'statecode': 10, 'statename': 'running'}
+    mocked_rpc.return_value = {'fsm_statecode': 10, 'fsm_statename': 'running',
+                               'starting_jobs': [], 'stopping_jobs': ['10.0.0.1', 'test']}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstate, plugin.do_sstate, '', [call()])
 
 
@@ -254,9 +255,11 @@ def test_instance_status(controller, plugin, mocked_check):
     """ Test the instance_status request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
     mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 60000,
-                                'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12},
+                                'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12,
+                                'fsm_statename': 'OPERATION', 'starting_jobs': True, 'stopping_jobs': False},
                                {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 60000,
-                                'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15}]
+                                'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15,
+                                'fsm_statename': 'CONCILATION', 'starting_jobs': False, 'stopping_jobs': True}]
     _check_call(controller, mocked_check, mocked_rpc,  plugin.help_instance_status, plugin.do_instance_status,
                 '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_instance_status, plugin.do_instance_status,

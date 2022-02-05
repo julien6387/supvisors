@@ -65,6 +65,25 @@ All hyperlinks are active. The browser is redirected to the corresponding `Appli
 
 The bottom part of the menu contains a contact link and copyright information.
 
+
+Common footer
+-------------
+
+The bottom part of all pages displays two information areas:
+
+    * the acknowledgement area, used to print the result of the actions requested from the buttons of the Web UI ;
+    * the time when the page has been generated.
+
+Depending on the result, the acknowledgement area may have a different background color:
+
+    * grey by default, when no action is pending ;
+    * blue for a successful result ;
+    * amber when an action could not be performed but when the result is already as expected (e.g. a process is already
+      started) ;
+    * amber too as an acknowledgement of an action having a major impact (e.g. a shutdown or a restart) ;
+    * red in the event of an error (e.g. start / stop failed).
+
+
 .. _dashboard_main:
 
 Main Page
@@ -79,7 +98,7 @@ The Main Page shows a synoptic of the |Supvisors| status.
 Main Page Header
 ~~~~~~~~~~~~~~~~
 
-The state of |Supvisors| is displayed on the left side of the header:
+The |Supvisors| state is displayed on the left side of the header:
 
 ``INITIALIZATION``
     
@@ -141,6 +160,15 @@ The state of |Supvisors| is displayed on the left side of the header:
 
     The |Supvisors| :ref:`xml_rpc` is NOT available in this state.
 
+The |Supvisors| modes are displayed alongside the state if activated:
+
+``starting``
+
+    This mode is visible and blinking when the ``Starter`` of any of the |Supvisors| instances has jobs in progress.
+
+``stopping``
+
+    This mode is visible and blinking when the ``Stopper`` of any of the |Supvisors| instances has jobs in progress.
 
 On the right side, 3 buttons are available:
 
@@ -224,9 +252,16 @@ The status of the |Supvisors| instance is displayed on the left side of the head
 
     * the |Supvisors| instance deduced name, marked with the ✪ sign if it is the *Master* ;
     * the current loading of the processes running in this |Supvisors| instance ;
-    * the |Supvisors| instance state ;
-    * the date of the last tick received by the |Supvisors| instance (hopefully less than 5 seconds from the current
-      system time).
+    * the |Supvisors| instance state and modes.
+
+.. note::
+
+    The |Supvisors| instance modes are visible and blinking when the ``Starter`` or the ``Stopper`` of the considered
+    |Supvisors| instance has jobs in progress.
+    It doesn't mean that a process is starting or stopping in the local |Supervisor|.
+    It means that the |Supvisors| instance is managing a start or a stop sequence, which could lead to processes being
+    started or stopped on any other |Supervisor| instance managed by |Supvisors|.
+
 
 In the middle of the header, the 'Statistics View' box enables the user to choose the information presented
 on this page.
