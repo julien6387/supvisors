@@ -39,8 +39,8 @@ Status
             ================== ============= ===========
             Key                Type          Description
             ================== ============= ===========
-            'statecode'        ``int``       The |Supvisors| state, in [0;9].
-            'statename'        ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
+            'fsm_statecode'    ``int``       The |Supvisors| state, in [0;9].
+            'fsm_statename'    ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
                                              ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
                                              ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
             'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
@@ -78,7 +78,7 @@ Status
             'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
                                          instance, in [0;100]%.
             'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
-            'fsm_statecode'	   ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
+            'fsm_statecode'    ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
             'fsm_statename'    ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
                                          ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
                                          ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].

@@ -20,10 +20,10 @@
 import pytest
 import random
 
-from unittest.mock import call, Mock
-
+from socket import gethostname
 from supvisors.context import *
 from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, SupvisorsStates
+from unittest.mock import call, Mock
 
 from .base import database_copy, any_process_info
 from .conftest import create_application, create_process
@@ -62,8 +62,9 @@ def test_create(supvisors, context):
     for identifier, instance_status in context.instances.items():
         assert instance_status.identifier == identifier
         assert isinstance(instance_status, SupvisorsInstanceStatus)
-    assert context.local_identifier == 'cliche81'
-    assert context.local_instance == context.instances['cliche81']
+    hostname = gethostname()
+    assert context.local_identifier == hostname
+    assert context.local_instance == context.instances[hostname]
     assert context.applications == {}
     assert context._master_identifier == ''
     assert not context._is_master

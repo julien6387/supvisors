@@ -219,12 +219,17 @@ class SupervisorListener(object):
         by the local Supervisor. """
         self.logger.trace(f'SupervisorListener.on_remote_event: got RemoteCommunicationEvent {event.type}'
                           f' / {event.data}')
-        if event.type == RemoteCommEvents.SUPVISORS_AUTH:
-            self.authorization(event.data)
-        elif event.type == RemoteCommEvents.SUPVISORS_EVENT:
-            self.unstack_event(event.data)
-        elif event.type == RemoteCommEvents.SUPVISORS_INFO:
-            self.unstack_info(event.data)
+        try:
+            if event.type == RemoteCommEvents.SUPVISORS_AUTH:
+                self.authorization(event.data)
+            elif event.type == RemoteCommEvents.SUPVISORS_EVENT:
+                self.unstack_event(event.data)
+            elif event.type == RemoteCommEvents.SUPVISORS_INFO:
+                self.unstack_info(event.data)
+        except Exception as exc:
+            # Supervisor is a lot more mature than Supvisors
+            #
+            self.logger.critical(f'SupervisorListener.on_remote_event: {exc}')
 
     def unstack_event(self, message: str):
         """ Unstack and process one event from the event queue. """
