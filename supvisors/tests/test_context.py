@@ -511,10 +511,11 @@ def test_on_instance_state_event_isolated(context):
 def test_on_instance_state_event_normal_self(context):
     """ Test the Context.on_instance_state_event method with self identifier. """
     mocked_send = context.supvisors.zmq.publisher.send_supvisors_status
-    context.instances['cliche81']._state = SupvisorsInstanceStates.RUNNING
+    hostname = gethostname()
+    context.instances[hostname]._state = SupvisorsInstanceStates.RUNNING
     event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'starting_jobs': True, 'stopping_jobs': False}
-    context.on_instance_state_event('cliche81', event)
-    assert context.instances['cliche81'].state_modes == StateModes()
+    context.on_instance_state_event(hostname, event)
+    assert context.instances[hostname].state_modes == StateModes()
     expected = {'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': [], 'stopping_jobs': []}
     assert mocked_send.call_args_list == [call(expected)]
 
