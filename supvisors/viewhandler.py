@@ -146,6 +146,8 @@ class ViewHandler(MeldView):
                     update_attrib(li_elt, 'class', 'active')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('instance_a_mid')
+                if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
+                    update_attrib(elt, 'class', 'blink')
                 if status.state == SupvisorsInstanceStates.RUNNING:
                     # go to web page located on the Supvisors instance so as to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
@@ -165,6 +167,8 @@ class ViewHandler(MeldView):
         # write applications
         mid_elt = root.findmeld('appli_li_mid')
         applications = self.sup_ctx.get_managed_applications().values()
+        working_apps = (self.supvisors.starter.get_application_job_names()
+                        | self.supvisors.stopper.get_application_job_names())
         # forced to list otherwise not easily testable
         for li_elt, item in mid_elt.repeat(sorted(applications, key=lambda x: x.application_name)):
             failure = item.major_failure or item.minor_failure
@@ -177,7 +181,9 @@ class ViewHandler(MeldView):
                 update_attrib(li_elt, 'class', 'failure')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
-            if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:
+            if item.application_name in working_apps:
+                update_attrib(elt, 'class', 'blink')
+            if self.supvisors.fsm.state in [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION]:
                 update_attrib(elt, 'class', 'off')
             else:
                 # force default application starting strategy

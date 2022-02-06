@@ -6,7 +6,9 @@
   The modes are linked to the existence of jobs in progress in `Starter` and `Stopper`.
 
 * The **Supvisors** modes are displayed to the Main page of the Web UI and the **Supvisors** instance modes are
-  displayed to the Process and Host pages of the Web UI. 
+  displayed to the Process and Host pages of the Web UI. In the navigation menu, the local **Supvisors** instance
+  points out the **Supvisors** instances where the modes are activated, and the applications involved in its own
+  `Starter` or `Stopper`.
 
 * The application rules of a **Supvisors** rules file can be inserted in any order.
 

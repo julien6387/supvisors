@@ -45,6 +45,8 @@ The color gives the state of the |Supvisors| instance:
     * green for ``RUNNING`` ;
     * red for ``ISOLATED``.
 
+The |Supvisors| instance is blinking when it is managing starting or stopping jobs.
+
 Only the hyperlinks of the ``RUNNING`` |Supvisors| instances are active.
 The browser is redirected to the `Supervisor page`_ of the targeted |Supvisors| instance.
 The |Supvisors| instance playing the role of *Master* is pointed out with the ✪ sign.
@@ -59,6 +61,8 @@ The color gives the state of the Application, as seen by the |Supvisors| instanc
     * yellow-to-green gradient for ``STARTING`` ;
     * green-to-yellow gradient for ``STOPPING`` ;
     * green for ``RUNNING``.
+
+The application is blinking when it is part of the starting or stopping jobs managed by the local |Supvisors| instance.
 
 An additional red light is displayed in the event where a failure has been raised on the application.
 All hyperlinks are active. The browser is redirected to the corresponding `Application page`_ on the local Web Server.
