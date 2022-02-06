@@ -736,6 +736,7 @@ class ApplicationStartJobs(ApplicationJobs):
                     command.update_identifier(identifier)
             if command.identifier:
                 # use asynchronous xml rpc to start program
+                # FIXME: what if start_args goes on exception ? we're blocked
                 self.supvisors.zmq.pusher.send_start_process(command.identifier, process.namespec, command.extra_args)
                 command.update_sequence_counter()
                 self.logger.info(f'ApplicationStartJobs.process_job: {process.namespec} requested to start'
