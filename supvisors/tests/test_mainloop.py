@@ -19,10 +19,10 @@
 
 import pytest
 
+from socket import gethostname
 from supvisors.mainloop import *
 from supvisors.ttypes import SupvisorsStates, SupvisorsInstanceStates
 from supvisors.utils import DeferredRequestHeaders
-
 from threading import Thread
 from unittest.mock import call, patch, Mock, DEFAULT
 
@@ -239,6 +239,7 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
+    hostname = gethostname()
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info')
@@ -252,7 +253,7 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
         main_loop.check_instance('10.0.0.1:60000')
-        assert mocked_instance.call_args_list == [call('cliche81'), call('10.0.0.1:60000')]
+        assert mocked_instance.call_args_list == [call(hostname), call('10.0.0.1:60000')]
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message)]
         assert not mocked_local.called
@@ -268,6 +269,7 @@ def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
     mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
+    hostname = gethostname()
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info', side_effect=ValueError)
@@ -283,10 +285,12 @@ def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
                   SupvisorsInstanceStates.SILENT]:
         mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
         main_loop.check_instance('10.0.0.1')
+        assert mocked_instance.call_args_list == [call(hostname), call('10.0.0.1')]
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message)]
         assert mocked_local.called
         # reset counters
+        mocked_instance.reset_mock()
         mocked_evt.reset_mock()
         mocked_local.reset_mock()
         mocked_rpc.reset_mock()
@@ -298,6 +302,7 @@ def test_check_instance_normal(mocker, mocked_rpc, main_loop):
     mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
+    hostname = gethostname()
     # test with a mocked rpc interface
     dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'now': 10, 'pid': 1234, 'spawnerr': ''}]
     rpc_intf = DummyRpcInterface()
@@ -314,11 +319,13 @@ def test_check_instance_normal(mocker, mocked_rpc, main_loop):
                   SupvisorsInstanceStates.SILENT]:
         mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
         main_loop.check_instance('10.0.0.1')
+        assert mocked_instance.call_args_list == [call(hostname), call('10.0.0.1')]
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message),
                                              call('info', info_message)]
         assert mocked_local.called
         # reset counters
+        mocked_instance.reset_mock()
         mocked_evt.reset_mock()
         mocked_local.reset_mock()
         mocked_rpc.reset_mock()
