@@ -423,6 +423,7 @@ def test_write_application_status(mocker, view):
 def test_write_supervisord_status(mocker, view):
     """ Test the write_supervisord_status method. """
     mocked_button = mocker.patch.object(view, 'write_supervisord_button')
+    mocked_off = mocker.patch.object(view, 'write_supervisord_off_button')
     mocked_common = mocker.patch.object(view, 'write_common_status')
     # patch the view context
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
@@ -438,7 +439,7 @@ def test_write_supervisord_status(mocker, view):
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_common.call_args_list == [call(tr_elt, info)]
-    assert tr_elt.findmeld.call_args_list == [call('name_a_mid'), call('start_a_mid'), call('tailerr_a_mid')]
+    assert tr_elt.findmeld.call_args_list == [call('name_a_mid')]
     assert not shex_elt.content.called
     assert name_elt.content.call_args_list == [call('supervisord')]
     assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord')]
@@ -447,8 +448,7 @@ def test_write_supervisord_status(mocker, view):
                                             call(tr_elt, 'restart_a_mid', 'proc_instance.html', action='restartsup'),
                                             call(tr_elt, 'clear_a_mid', 'proc_instance.html', action='mainclearlog'),
                                             call(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)]
-    assert start_elt.content.call_args_list == [call('')]
-    assert tailerr_elt.content.call_args_list == [call('')]
+    assert mocked_off.call_args_list == [call(tr_elt, 'start_a_mid'), call(tr_elt, 'tailerr_a_mid')]
     mocker.resetall()
     tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
@@ -457,8 +457,7 @@ def test_write_supervisord_status(mocker, view):
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_common.call_args_list == [call(tr_elt, info)]
-    assert tr_elt.findmeld.call_args_list == [call('shex_td_mid'), call('name_a_mid'), call('start_a_mid'),
-                                              call('tailerr_a_mid')]
+    assert tr_elt.findmeld.call_args_list == [call('shex_td_mid'), call('name_a_mid')]
     assert shex_elt.content.call_args_list == [call(MASTER_SYMBOL)]
     assert name_elt.content.call_args_list == [call('supervisord')]
     assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord')]
@@ -467,8 +466,7 @@ def test_write_supervisord_status(mocker, view):
                                             call(tr_elt, 'restart_a_mid', 'proc_instance.html', action='restartsup'),
                                             call(tr_elt, 'clear_a_mid', 'proc_instance.html', action='mainclearlog'),
                                             call(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)]
-    assert start_elt.content.call_args_list == [call('')]
-    assert tailerr_elt.content.call_args_list == [call('')]
+    assert mocked_off.call_args_list == [call(tr_elt, 'start_a_mid'), call(tr_elt, 'tailerr_a_mid')]
 
 
 def test_write_supervisord_button(view):
@@ -494,6 +492,18 @@ def test_write_supervisord_button(view):
     assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html')]
     assert a_elt.attrib == {'class': 'active button on'}
     assert a_elt.attributes.call_args_list == [call(href='an url')]
+
+
+def test_write_supervisord_off_button(view):
+    """ Test the ProcInstanceView.write_supervisord_button method. """
+    # patch the meld elements
+    start_a_mid = create_element()
+    tr_elt = create_element({'start_a_mid': start_a_mid})
+    # test call
+    view.write_supervisord_off_button(tr_elt, 'start_a_mid')
+    assert tr_elt.findmeld.call_args_list == [call('start_a_mid')]
+    assert start_a_mid.attrib == {'class': 'button off'}
+    assert not start_a_mid.attributes.called
 
 
 def test_write_total_status(mocker, view):

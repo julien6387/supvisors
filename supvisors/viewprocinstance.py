@@ -294,8 +294,8 @@ class ProcInstanceView(SupvisorsInstanceView):
         self.write_supervisord_button(tr_elt, 'clear_a_mid', self.page_name, **{ACTION: 'mainclearlog'})
         self.write_supervisord_button(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)
         # start and tail stderr are not applicable
-        tr_elt.findmeld('start_a_mid').content('')
-        tr_elt.findmeld('tailerr_a_mid').content('')
+        self.write_supervisord_off_button(tr_elt, 'start_a_mid')
+        self.write_supervisord_off_button(tr_elt, 'tailerr_a_mid')
 
     def write_supervisord_button(self, tr_elt, mid: str, page: str, **action) -> None:
         """ Write the configuration of the button of supervisord. """
@@ -303,6 +303,12 @@ class ProcInstanceView(SupvisorsInstanceView):
         update_attrib(elt, 'class', 'button on')
         url = self.view_ctx.format_url('', page, **action)
         elt.attributes(href=url)
+
+    @staticmethod
+    def write_supervisord_off_button(tr_elt, mid: str) -> None:
+        """ Write the configuration of the button of supervisord. """
+        elt = tr_elt.findmeld(mid)
+        update_attrib(elt, 'class', 'button off')
 
     def write_total_status(self, table_elt, sorted_data: PayloadList, excluded_data: PayloadList):
         """ Write the total statistics for this Supvisors instance.
