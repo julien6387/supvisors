@@ -215,13 +215,15 @@ class SupvisorsMainLoop(Thread):
             # get remote perception of master node and state
             master_identifier = supvisors_rpc.get_master_identifier()
             # check authorization
-            status_payload = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
+            local_status_payload = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
+            # check how the remote Supvisors instance defines itself
+            remote_status_payload = supvisors_rpc.get_instance_info(identifier)
             state_modes_keys = ['fsm_statecode', 'starting_jobs', 'stopping_jobs']
-            state_modes_payload = {key: status_payload[key] for key in state_modes_keys}
+            state_modes_payload = {key: remote_status_payload[key] for key in state_modes_keys}
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to check Supvisors={identifier}', file=stderr)
         else:
-            instance_state = SupvisorsInstanceStates(status_payload['statecode'])
+            instance_state = SupvisorsInstanceStates(local_status_payload['statecode'])
             # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
             authorized = instance_state not in ISOLATION_STATES
         # get process info if authorized and remote not restarting or shutting down

@@ -553,16 +553,18 @@ class FiniteStateMachine:
         # consider the Master event
         if not self.context.is_master and identifier == self.context.master_identifier:
             master_state = SupvisorsStates(event['fsm_statecode'])
-            self.logger.info(f'FiniteStateMachine.on_state_event: Master Supvisors={identifier} transitioned'
-                             f' to state={master_state}')
-            self.master_state = master_state
-            # WARN: cannot wait for next tick. There is a chance that the Master transitions goes fast and important
-            # actions can be missed in the Slave StateMachine
-            # More particularly, if the SHUTTING_DOWN state is missed, the corresponding exit action is not executed
-            # and the Supervisor instance will not shut down
-            # WARN: do not apply directly the master state as the current Supvisors instance may need to stay in
-            # INITIALIZATION state
-            self.set_state(self.instance.next())
+            # state event may be triggered for mode change
+            if master_state != self.master_state:
+                self.logger.info(f'FiniteStateMachine.on_state_event: Master Supvisors={identifier} just transitioned'
+                                 f' to state={master_state}')
+                self.master_state = master_state
+                # WARN: cannot wait for next tick. There is a chance that the Master transitions goes fast and important
+                # actions can be missed in the Slave StateMachine
+                # More particularly, if the SHUTTING_DOWN state is missed, the corresponding exit action is not executed
+                # and the Supervisor instance will not shut down
+                # WARN: do not apply directly the master state as the current Supvisors instance may need to stay in
+                # INITIALIZATION state
+                self.set_state(self.instance.next())
 
     def on_process_info(self, identifier: str, info: PayloadList) -> None:
         """ This event is used to fill the internal structures with processes available on the Supvisors instance.

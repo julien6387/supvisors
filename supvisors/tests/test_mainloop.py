@@ -142,8 +142,6 @@ def test_manage_heartbeat(mocker, main_loop):
 def test_check_events(mocker, main_loop):
     """ Test the processing of the events received. """
     mocked_send = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
-    # prepare context
-    mocked_sockets = Mock(**{'check_subscriber.return_value': None})
     # test with empty socks
     main_loop.sockets.check_subscriber.return_value = None
     main_loop.check_events('poll result')
@@ -254,10 +252,12 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
         main_loop.check_instance('10.0.0.1:60000')
+        assert mocked_instance.call_args_list == [call('cliche81'), call('10.0.0.1:60000')]
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         assert mocked_evt.call_args_list == [call('auth', auth_message), call('event', state_message)]
         assert not mocked_local.called
         # reset counters
+        mocked_instance.reset_mock()
         mocked_evt.reset_mock()
         mocked_rpc.reset_mock()
 
