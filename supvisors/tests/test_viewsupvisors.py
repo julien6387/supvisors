@@ -71,11 +71,12 @@ def test_write_navigation(mocker, view):
     assert mocked_nav.call_args_list == [call(mocked_root)]
 
 
-def test_write_header(view):
+def test_write_header(mocker, view):
     """ Test the write_header method. """
     # patch context
-    view.sup_ctx.last_state_modes = {'fsm_statename': SupvisorsStates.DEPLOYMENT.name,
-                                     'starting_jobs': True, 'stopping_jobs': False}
+    mocker.patch.object(view.sup_ctx, 'get_state_modes',
+                        return_value={'fsm_statename': SupvisorsStates.DEPLOYMENT.name,
+                                      'starting_jobs': True, 'stopping_jobs': False})
     # build root structure
     state_mid = create_element()
     starting_mid = create_element()

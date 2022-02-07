@@ -64,7 +64,7 @@ class SupvisorsView(ViewHandler):
 
     def write_header(self, root) -> None:
         """ Rendering of the header part of the Supvisors main page. """
-        state_modes = self.sup_ctx.last_state_modes
+        state_modes = self.sup_ctx.get_state_modes()
         # set Supvisors state
         elt = root.findmeld('state_mid')
         elt.content(state_modes['fsm_statename'])
