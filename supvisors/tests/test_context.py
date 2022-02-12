@@ -214,7 +214,7 @@ def test_instances_by_states(context):
     assert context.running_identifiers() == ['10.0.0.4', local_identifier]
     assert context.isolating_instances() == ['10.0.0.2']
     assert context.isolation_instances() == ['10.0.0.2', '10.0.0.3']
-    assert context.active_instances() == ['10.0.0.1', '10.0.0.4', '10.0.0.5', 'cliche81', 'test']
+    assert context.active_instances() == ['10.0.0.1', '10.0.0.4', '10.0.0.5', gethostname(), 'test']
     assert sorted(context.isolation_instances() + context.active_instances()) == all_instances
     assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == \
            ['10.0.0.3', '10.0.0.4', local_identifier]

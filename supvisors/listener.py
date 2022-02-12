@@ -279,7 +279,7 @@ class SupervisorListener(object):
         elif event_type == InternalEventHeaders.STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
             # unless the function is explicitly disabled
-            self.logger.trace(f'SupervisorListener.unstack_event: got STATISTICS from {event_identifier}: {event_data}')
+            self.logger.info(f'SupervisorListener.unstack_event: got STATISTICS from {event_identifier}: {event_data}')
             if self.supvisors.options.stats_enabled:
                 self.supvisors.statistician.push_statistics(event_identifier, event_data)
         elif event_type == InternalEventHeaders.STATE.value:
