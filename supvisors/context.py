@@ -46,7 +46,7 @@ class Context(object):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        self.logger = supvisors.logger
+        self.logger: Logger = supvisors.logger
         # the Supvisors instances
         self.instances: Context.InstancesMap = {
             identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
@@ -164,6 +164,11 @@ class Context(object):
     def isolation_instances(self) -> NameList:
         """ Return the identifiers of the Supervisors in ISOLATING or ISOLATED state. """
         return self.instances_by_states([SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED])
+
+    def active_instances(self) -> NameList:
+        """ Return the identifiers of the Supervisors NOT in ISOLATING or ISOLATED state. """
+        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING,
+                                         SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.SILENT])
 
     def instances_by_states(self, states: List[SupvisorsInstanceStates]) -> NameList:
         """ Return the Supervisor identifiers sorted by Supervisor state. """
@@ -465,13 +470,13 @@ class Context(object):
         :param check_source: if True, the process should contain information related to the Supvisors instance
         :return: None
         """
-        namespec = make_namespec(event['group'], event['name'])
         try:
             application = self.applications[event['group']]
             process = application.processes[event['name']]
             assert not check_source or instance_status.identifier in process.info_map
             return application, process
         except (AssertionError, KeyError):
+            namespec = make_namespec(event['group'], event['name'])
             # if the event is received during a Supvisors closing state, it can be ignored
             # otherwise, it means that there's a discrepancy in the internal context, which requires CHECKING
             if self.supvisors.fsm.state in CLOSING_STATES:
@@ -537,17 +542,24 @@ class Context(object):
             if instance_status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_process_event: got event {event} from Supvisors={identifier}')
                 # WARN: the Master may send a process event corresponding a process that is not configured in it
-                forced_event = 'forced_state' in event
+                forced_event = 'forced' in event
                 app_proc = self.check_process(instance_status, event, not forced_event)
-                if app_proc:
+                if not app_proc:
+                    self.logger.trace('Context.on_process_event: could not find any process corresponding'
+                                      f' to event={event}')
+                else:
                     application, process = app_proc
+                    updated = True
                     # refresh process info depending on the nature of the process event
                     if forced_event:
-                        process.force_state(event)
-                        # remove the 'forced_state' information before publication
-                        event['state'] = process.state
-                        del event['forced_state']
-                        del event['identifier']
+                        updated = process.force_state(event)
+                        self.logger.trace(f'Context.on_process_event: {process.namespec} forced event'
+                                          f' considered={updated}')
+                        if updated:
+                            # remove the 'forced' status before publication
+                            event['state'] = process.state
+                            del event['forced']
+                            del event['identifier']
                     else:
                         # update the ProcessStatus based on new information received from a local Supvisors instance
                         process.update_info(identifier, event)
@@ -558,14 +570,16 @@ class Context(object):
                             # process not found in Supervisor internal structure
                             self.logger.debug(f'Context.on_process_event: cannot apply extra args to {process.namespec}'
                                               ' unknown to local Supervisor')
-                    # refresh application status
-                    application.update_status()
-                    # publish process event, status and application status
-                    publisher = self.supvisors.zmq.publisher
-                    publisher.send_process_event(identifier, event)
-                    publisher.send_process_status(process.serial())
-                    publisher.send_application_status(application.serial())
-                    return process
+                    # forced event may be dismissed
+                    if updated:
+                        # refresh application status
+                        application.update_status()
+                        # publish process event, status and application status
+                        publisher = self.supvisors.zmq.publisher
+                        publisher.send_process_event(identifier, event)
+                        publisher.send_process_status(process.serial())
+                        publisher.send_application_status(application.serial())
+                        return process
         else:
             self.logger.error(f'Context.on_process_event: got process event from unknown Supvisors={identifier}')
 

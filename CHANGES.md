@@ -2,6 +2,8 @@
 
 ## 0.13 (2022-xx-xx)
 
+* Fix issue where **Supvisors** may be blocked in the `DEPLOYMENT` phase due to late process events.
+
 * Add the principle of **Supvisors** modes to the output of the XML-RPCs `get_supvisors_state` and `get_instance_info`.
   The modes are linked to the existence of jobs in progress in `Starter` and `Stopper`.
 

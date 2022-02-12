@@ -242,27 +242,32 @@ class ProcessStatus(object):
             self._state = new_state
             self.logger.info(f'ProcessStatus.state: {self.namespec} is {self.state_string()}')
 
-    def force_state(self, event: Payload) -> None:
+    def force_state(self, event: Payload) -> bool:
         """ Force the process state due to an unexpected event.
         This may be caused by a process command that has not been acknowledged in due time, so here is a final check
-        for the expected state, in the event where messages have crossed.
+        in the event where messages have crossed.
 
         :param event: the forced event
-        :return: None
+        :return: True if the process state has been forced
         """
-        reached = False
+        force_state = True
         # check current state on targeted identifier
+        # Note: identifier may correspond to the Master identifier when it did not find any candidate Supvisors instance
+        # to start the process and this process may not be configured in the Supervisor of the Master
         identifier = event['identifier']
         if identifier in self.info_map:
             instance_info = self.info_map[identifier]
-            reached = instance_info['state'] == event['state']
-        # if expected event not reached, apply forced state
-        if not reached:
+            force_state = instance_info['now'] <= event['now']
+        # apply forced state only if no event has been received since the forced state has been evaluated
+        if force_state:
             self.last_event_time = int(time())
-            self.forced_state = event['forced_state']
+            self.forced_state = event['state']
             self.forced_reason = event['spawnerr']
             self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.state_string()}'
                              f' ({self.forced_reason})')
+        else:
+            self.logger.debug(f'ProcessStatus.force_state: forced event dismissed for {self.namespec}')
+        return force_state
 
     def reset_forced_state(self, state: ProcessStates = None):
         """ Reset forced_state upon reception of new information only if not STOPPED (default state in Supervisor).

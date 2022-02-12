@@ -73,8 +73,9 @@ def test_abstract_state(supvisors_ctx):
     assert supvisors_ctx.stopper.abort.called
 
 
-def test_initialization_state(supvisors_ctx):
+def test_initialization_state(mocker, supvisors_ctx):
     """ Test the Initialization state of the fsm. """
+    mocker.patch('supvisors.statemachine.time', return_value=1234)
     state = InitializationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
     local_identifier = state.local_identifier
@@ -112,7 +113,7 @@ def test_initialization_state(supvisors_ctx):
     nodes['10.0.0.3']._state = SupvisorsInstanceStates.UNKNOWN
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # SYNCHRO_TIMEOUT_MIN not passed yet
-    state.context.start_date = time() - 10
+    state.context.start_date = 1224
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
     # no master set

@@ -139,10 +139,15 @@ class InitializationState(AbstractState):
             if len(self.context.unknown_identifiers()) == 0:
                 self.logger.info('InitializationState.next: all Supvisors instances are in a known state')
                 return SupvisorsStates.DEPLOYMENT
-            # for an end of sync based on a subset of Supvisors instances, cannot get out of this state before
+            # even when based on a subset of Supvisors instances, the synchronization phase cannot be ended before
             # SYNCHRO_TIMEOUT_MIN seconds have passed
+            # a margin (1s per instance) is added to consider the number of active Supvisors instances,
+            # without exceeding the value given in the synchro_timeout option
             # in case of a Supervisor restart, this gives a chance to all Supvisors instances to send their tick
-            if uptime > self.supvisors.options.SYNCHRO_TIMEOUT_MIN:
+            delay = min(self.supvisors.options.synchro_timeout,
+                        max(self.supvisors.options.SYNCHRO_TIMEOUT_MIN, len(self.supvisors.context.active_instances())))
+            self.logger.trace(f'InitializationState.next: delay={delay}')
+            if uptime > delay:
                 # check synchro on core instances
                 if self.context.running_core_identifiers():
                     # if ok, master must be running if already known

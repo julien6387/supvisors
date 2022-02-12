@@ -391,9 +391,9 @@ def test_force_process_state(mocker, listener):
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
     # test the call
     process = Mock(application_name='appli', process_name='process', extra_args='-h')
-    listener.force_process_state(process, ProcessStates.STARTING, '10.0.0.1', ProcessStates.FATAL, 'bad luck')
-    expected = [call({'name': 'process', 'group': 'appli', 'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
-                      'forced_state': ProcessStates.FATAL,
-                      'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
+    listener.force_process_state(process, '10.0.0.1', 56, ProcessStates.FATAL, 'bad luck')
+    expected = [call({'name': 'process', 'group': 'appli', 'state': ProcessStates.FATAL, 'identifier': '10.0.0.1',
+                      'forced': True, 'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False,
+                      'spawnerr': 'bad luck'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected
     listener.pusher.send_process_state_event.reset_mock()

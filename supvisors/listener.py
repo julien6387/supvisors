@@ -299,21 +299,21 @@ class SupervisorListener(object):
         self.logger.trace(f'SupervisorListener.authorization: got authorization event from {identifier}')
         self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier)
 
-    def force_process_state(self, process: ProcessStatus, expected_state: ProcessStates, identifier: str,
+    def force_process_state(self, process: ProcessStatus, identifier: str, event_date: int,
                             forced_state: ProcessStates, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
 
         :param process: the process structure
-        :param expected_state: the process state expected
         :param identifier: the identifier of the Supvisors instance where the process state is expected
+        :param event_date: the date of the last process event received, used for the evaluation of the error
         :param forced_state: the process state to force if the expected state has not been received
         :param reason: the reason declared
         :return: None
         """
         # create payload from event
-        payload = {'group': process.application_name, 'name': process.process_name, 'state': expected_state,
-                   'forced_state': forced_state, 'identifier': identifier,
-                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason,
+        payload = {'group': process.application_name, 'name': process.process_name, 'state': forced_state,
+                   'forced': True, 'identifier': identifier,
+                   'now': event_date, 'pid': 0, 'expected': False, 'spawnerr': reason,
                    'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
         self.pusher.send_process_state_event(payload)
