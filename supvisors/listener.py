@@ -287,7 +287,11 @@ class SupervisorListener(object):
             self.supvisors.fsm.on_state_event(event_identifier, event_data)
 
     def unstack_info(self, message: str) -> None:
-        """ Unstack the process info received. """
+        """ Unstack the process info received.
+
+        :param message: the JSON message received.
+        :return: None
+        """
         # unstack the queue for process info
         identifier, info = json.loads(message)
         self.logger.trace(f'SupervisorListener.unstack_info: got process info event from {identifier}')

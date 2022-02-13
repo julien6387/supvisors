@@ -508,9 +508,9 @@ def test_start_args(mocker, rpc):
     # test RPC call with start exceptions
     # NO_FILE exception triggers an update of the process state
     with pytest.raises(RPCError) as exc:
-        rpc.start_args('appli:proc')
+        rpc.start_args('appli:proc', 'dummy arguments')
     assert exc.value.args == (Faults.NO_FILE, 'no file')
-    assert mocked_extra.call_args_list == [call('appli:proc', '')]
+    assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
     assert mocked_startProcess.call_args_list == [call('appli:proc', True)]
     assert mocked_force.call_args_list == [call('appli:proc', 'NO_FILE: no file')]
     # reset patches
@@ -519,9 +519,9 @@ def test_start_args(mocker, rpc):
     mocked_startProcess.reset_mock()
     # NOT_EXECUTABLE exception triggers an update of the process state
     with pytest.raises(RPCError) as exc:
-        rpc.start_args('appli:proc', wait=False)
+        rpc.start_args('appli:proc', 'dummy arguments', wait=False)
     assert exc.value.args == (Faults.NOT_EXECUTABLE, )
-    assert mocked_extra.call_args_list == [call('appli:proc', '')]
+    assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
     assert mocked_startProcess.call_args_list == [call('appli:proc', False)]
     assert mocked_force.call_args_list == [call('appli:proc', 'NOT_EXECUTABLE')]
     # reset patches
@@ -530,17 +530,17 @@ def test_start_args(mocker, rpc):
     mocked_startProcess.reset_mock()
     # other exception doesn't trigger an update of the process state
     with pytest.raises(RPCError) as exc:
-        rpc.start_args('appli:proc', wait=False)
+        rpc.start_args('appli:proc', 'dummy arguments', wait=False)
     assert exc.value.args == (Faults.ABNORMAL_TERMINATION, )
-    assert mocked_extra.call_args_list == [call('appli:proc', '')]
+    assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
     assert mocked_startProcess.call_args_list == [call('appli:proc', False)]
     assert not mocked_force.called
     # reset patches
     mocked_extra.reset_mock()
     mocked_startProcess.reset_mock()
     # finally, normal behaviour
-    assert rpc.start_args('appli:proc') == 'done'
-    assert mocked_extra.call_args_list == [call('appli:proc', '')]
+    assert rpc.start_args('appli:proc', 'dummy arguments') == 'done'
+    assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
     assert mocked_startProcess.call_args_list == [call('appli:proc', True)]
     assert not mocked_force.called
 

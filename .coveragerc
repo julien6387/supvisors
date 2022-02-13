@@ -1,6 +1,7 @@
 [run]
 omit =
     supvisors/client/*
+    supvisors/tools/supvisorsflask.py
     supvisors/__init__.py
     supvisors/tests/__init__.py
     supvisors/tools/__init__.py

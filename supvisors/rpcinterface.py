@@ -30,7 +30,7 @@ from .application import ApplicationStatus
 from .process import ProcessStatus
 from .strategy import conciliate_conflicts
 from .ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
-                     SupvisorsFaults, enum_values, enum_names, EnumClassType, EnumType)
+                     SupvisorsFaults, Payload, PayloadList, enum_values, enum_names, EnumClassType, EnumType)
 from .utils import extract_process_info
 
 
@@ -56,60 +56,59 @@ class RPCInterface(object):
         self.logger: Logger = supvisors.logger
 
     # RPC Status methods
-    def get_api_version(self):
+    def get_api_version(self) -> str:
         """ Return the version of the RPC API used by **Supvisors**.
 
-        *@return* ``str``: the version id.
+        :return: the **Supvisors** version.
         """
         self.logger.blather('RPCInterface.get_api_version: do NOT make it static as it breaks the RPC Interface')
         return API_VERSION
 
-    def get_supvisors_state(self):
+    def get_supvisors_state(self) -> Payload:
         """ Return the state and modes of **Supvisors**.
-        The Supvisors state is the FSM state and is a reflection of the Supvisors Master instance state.
-        The Supvisors modes provides the identifiers having starting or stopping jobs.
+        The **Supvisors** state is the FSM state and is a reflection of the **Supvisors** *Master* instance state.
+        The **Supvisors** modes provides the identifiers of the **Supvisors** instances having starting
+        or stopping jobs in progress.
 
-        *@return* ``dict``: the state and modes of **Supvisors**.
+        :return: the state and modes of **Supvisors**.
         """
         return self.supvisors.context.get_state_modes()
 
-    def get_master_identifier(self):
-        """ Get the identification of the Supvisors instance elected as **Supvisors** Master.
+    def get_master_identifier(self) -> str:
+        """ Get the identification of the **Supvisors** instance elected as **Supvisors** *Master*.
 
-        *@return* ``str``: the Supvisors identifier.
+        :return: the identifier of the **Supvisors** *Master* instance.
         """
         return self.supvisors.context.master_identifier
 
-    def get_strategies(self):
+    def get_strategies(self) -> Payload:
         """ Get the default strategies applied by **Supvisors**:
 
             * auto-fencing: Supvisors instance isolation if it becomes inactive,
             * starting: used in the ``DEPLOYMENT`` state to start applications,
             * conciliation: used in the ``CONCILIATION`` state to conciliate conflicts.
 
-        *@return* ``dict``: a structure containing data about the strategies applied.
+        :return: a structure containing information about the strategies applied.
         """
         options = self.supvisors.options
         return {'auto-fencing': options.auto_fence,
                 'starting': options.starting_strategy.name,
                 'conciliation': options.conciliation_strategy.name}
 
-    def get_all_instances_info(self):
+    def get_all_instances_info(self) -> PayloadList:
         """ Get information about all **Supvisors** instances.
 
-        *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
+        :return: a list of structures containing information about all **Supvisors** instances.
         """
         return [self.get_instance_info(identifier)
                 for identifier in sorted(self.supvisors.context.instances)]
 
-    def get_instance_info(self, identifier: str):
-        """ Get information about the **Supvisors** instance identified by identifier.
+    def get_instance_info(self, identifier: str) -> Payload:
+        """ Get information about the **Supvisors** instance identified by ``identifier``.
 
-        *@param* ``str identifier``: the identifier of the Supvisors instance where the Supervisor daemon is running.
-
-        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if the identifier is unknown to **Supvisors**.
-
-        *@return* ``dict``: a structure containing data about the **Supvisors** instance.
+        :param identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
+        :return: a structure containing information about the **Supvisors** instance.
+        :raises RPCError: with code ``Faults.INCORRECT_PARAMETERS`` if ``identifier`` is unknown to **Supvisors**.
         """
         try:
             status = self.supvisors.context.instances[identifier]
@@ -120,75 +119,64 @@ class RPCInterface(object):
         # get Supvisors instance status and complement with Starter and Stopper progress
         return status.serial()
 
-    def get_all_applications_info(self):
+    def get_all_applications_info(self) -> PayloadList:
         """ Get information about all applications managed in **Supvisors**.
 
-        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-        ``INITIALIZATION`` state.
-
-        *@return* ``list(dict)``: a list of structures containing data about all applications.
+        :return: a list of structures containing information about all applications.
+        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+            ``INITIALIZATION`` state.
         """
         self._check_from_deployment()
         return [self.get_application_info(application_name)
                 for application_name in self.supvisors.context.applications.keys()]
 
-    def get_application_info(self, application_name):
-        """ Get information about an application named application_name.
+    def get_application_info(self, application_name: str) -> Payload:
+        """ Get information about an application named ``application_name``.
 
-        *@param* ``str application_name``: the name of the application.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
-
-        *@return* ``dict``: a structure containing data about the application.
+        :param application_name: the name of the application.
+        :return: a structure containing information about the application.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors**.
         """
         self._check_from_deployment()
         return self._get_application(application_name).serial()
 
-    def get_application_rules(self, application_name):
-        """ Get the rules used to start / stop the application named application_name.
+    def get_application_rules(self, application_name: str) -> PayloadList:
+        """ Get the rules used to start / stop the application named ``application_name``.
 
-        *@param* ``str application_name``: the name of the application.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
-
-        *@return* ``list(dict)``: a list of structures containing the rules.
+        :param application_name: the name of the application.
+        :return: a list of structures containing the rules.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors**.
         """
         self._check_from_deployment()
         result = self._get_application(application_name).rules.serial()
         result.update({'application_name': application_name})
         return result
 
-    def get_all_process_info(self):
+    def get_all_process_info(self) -> PayloadList:
         """ Get synthetic information about all processes.
 
-        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-        ``INITIALIZATION`` state,
-
-        *@return* ``list(dict)``: a list of structures containing data about the processes.
+        :return: a list of structures containing information about the processes.
+        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+            ``INITIALIZATION`` state.
         """
         self._check_from_deployment()
         return [process.serial()
                 for application in self.supvisors.context.applications.values()
                 for process in application.processes.values()]
 
-    def get_process_info(self, namespec):
-        """ Get synthetic information about a process named namespec.
+    def get_process_info(self, namespec: str) -> PayloadList:
+        """ Get synthetic information about a process named ``namespec``.
         It gives a synthetic status, based on the process information coming from all running **Supvisors** instances.
 
-        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
-
-        *@return* ``list(dict)``: a list of structures containing data about the processes.
+        :param namespec: the process namespec (``name``, ``group:name``, or ``group:*``).
+        :return: a list of structures containing information about the processes.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
         """
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
@@ -196,43 +184,38 @@ class RPCInterface(object):
             return [process.serial()]
         return [proc.serial() for proc in application.processes.values()]
 
-    def get_all_local_process_info(self):
+    def get_all_local_process_info(self) -> PayloadList:
         """ Get information about all processes located on this Supvisors instance.
-        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in INITIALIZATION state,
+        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in ``INITIALIZATION`` state,
         and giving the extra arguments of the process.
 
-        *@return* ``list(dict)``: a list of structures containing data about the processes.
+        :return: a list of structures containing information about the processes.
         """
         supervisor_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
         all_info = supervisor_intf.getAllProcessInfo()
         return [self._get_local_info(info) for info in all_info]
 
-    def get_local_process_info(self, namespec):
-        """ Get local information about a process named namespec.
-        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in INITIALIZATION state,
+    def get_local_process_info(self, namespec: str) -> Payload:
+        """ Get local information about a process named ``namespec``.
+        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in ``INITIALIZATION`` state,
         and giving the extra arguments of the process.
 
-        *@param* ``str namespec``: the process namespec (``name``, ``group:name``).
-
-        *@throws* ``RPCError`` with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
-
-        *@return* ``dict``: a structure containing data about the process.
+        :param namespec: the process namespec (``name``, ``group:name``).
+        :return: a structure containing information about the process.
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
         """
         supervisor_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
         info = supervisor_intf.getProcessInfo(namespec)
         return self._get_local_info(info)
 
-    def get_process_rules(self, namespec):
-        """ Get the rules used to start / stop the process named namespec.
+    def get_process_rules(self, namespec: str) -> PayloadList:
+        """ Get the rules used to start / stop the process named ``namespec``.
 
-        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
-
-        *@return* ``list(dict)``: a list of structures containing the rules.
+        :param namespec: the process namespec (``name``, ``group:name``, or ``group:*``).
+        :return: a list of structures containing the rules.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
         """
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
@@ -240,40 +223,35 @@ class RPCInterface(object):
             return [self._get_internal_process_rules(process)]
         return [self._get_internal_process_rules(proc) for proc in application.processes.values()]
 
-    def get_conflicts(self):
+    def get_conflicts(self) -> PayloadList:
         """ Get the conflicting processes among the managed applications.
 
-        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-        ``INITIALIZATION`` state,
-
-        *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
+        :return: a list of structures containing information about the conflicting processes.
+        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+            ``INITIALIZATION`` state,
         """
         self._check_from_deployment()
         return [process.serial() for process in self.supvisors.context.conflicts()]
 
     # RPC Command methods
-    def start_application(self, strategy: EnumParameterType, application_name, wait=True):
-        """ Start the *Managed* application named application_name iaw the strategy and the rules file.
+    def start_application(self, strategy: EnumParameterType, application_name: str, wait: bool = True) -> bool:
+        """ Start the *Managed* application named ``application_name`` iaw the strategy and the rules file.
         To start *Unmanaged* applications, use ``supervisor.start('group:*')``.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instance,
-        as a string or as a value.
-
-        *@param* ``str application_name``: the name of the application.
-
-        *@param* ``bool wait``: wait for the application to be fully started.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
-            * with code ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors**,
-            * with code ``Faults.ALREADY_STARTED`` if the application is ``STARTING``, ``STOPPING`` or ``RUNNING``,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if the application could not be started.
-
-        *@return* ``bool``: always ``True`` unless error or nothing to start.
+        :param strategy: the strategy used to choose a **Supvisors** instance, as a string or as a value.
+        :param application_name: the name of the application.
+        :param wait: if ``True``, wait for the application to be fully started before returning.
+        :return: always ``True`` unless error or nothing to start.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
+            ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors** ;
+            ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors** ;
+            ``Faults.ALREADY_STARTED`` if the application is ``STARTING``, ``STOPPING`` or ``RUNNING`` ;
+            ``Faults.ABNORMAL_TERMINATION`` if the application could not be started.
         """
+        self.logger.trace(f'RPCInterface.start_application: strategy={strategy} application={application_name}'
+                          f' wait={wait}')
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
         # check application is known
@@ -306,24 +284,20 @@ class RPCInterface(object):
             return onwait  # deferred
         return in_progress
 
-    def stop_application(self, application_name, wait=True):
-        """ Stop the *Managed* application named application_name.
+    def stop_application(self, application_name: str, wait: bool = True) -> bool:
+        """ Stop the *Managed* application named ``application_name``.
         To stop *Unmanaged* applications, use ``supervisor.stop('group:*')``.
 
-        *@param* ``str application_name``: the name of the application.
-
-        *@param* ``bool wait``: wait for the application to be fully stopped.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`
-              or ``CONCILIATION``,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
-            * with code ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors**,
-            * with code ``Faults.NOT_RUNNING`` if application is ``STOPPED``,
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param application_name: the name of the application.
+        :param wait: if ``True``, wait for the application to be fully stopped.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION`` ;
+            ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors** ;
+            ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors** ;
+            ``Faults.NOT_RUNNING`` if application is ``STOPPED``.
         """
+        self.logger.trace(f'RPCInterface.stop_application: application={application_name} wait={wait}')
         self._check_operating_conciliation()
         # check application is known
         if application_name not in self.supvisors.context.applications.keys():
@@ -353,29 +327,23 @@ class RPCInterface(object):
             return onwait  # deferred
         return in_progress
 
-    def restart_application(self, strategy: EnumParameterType, application_name, wait=True):
-        """ Restart the application named application_name iaw the strategy and the rules file.
+    def restart_application(self, strategy: EnumParameterType, application_name: str, wait: bool = True) -> bool:
+        """ Restart the application named ``application_name`` iaw the strategy and the rules file.
         To restart *Unmanaged* applications, use ``supervisor.stop('group:*')``, then ``supervisor.start('group:*')``.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instance,
-        as a string or as a value.
-
-        *@param* ``str application_name``: the name of the application.
-
-        *@param* ``bool wait``: wait for the application to be fully restarted.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
-            * with code ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors**,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param strategy: the strategy used to choose a **Supvisors** instance, as a string or as a value.
+        :param application_name: the name of the application.
+        :param wait: if ``True``, wait for the application to be fully restarted.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
+            ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors** ;
+            ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors** ;
+            ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
         """
         self.logger.trace(f'RPCInterface.restart_application: strategy={strategy} application={application_name}'
-                          ' wait={wait}')
+                          f' wait={wait}')
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
         # check application name
@@ -410,25 +378,20 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
-    def start_args(self, namespec, extra_args='', wait=True):
-        """ Start a process on the local Supvisors instance.
+    def start_args(self, namespec: str, extra_args: str, wait: bool = True) -> bool:
+        """ Start the process named ``namespec`` on the local Supvisors instance.
         The behaviour is different from ``supervisor.startProcess`` as it sets the process state to ``FATAL``
         instead of throwing an exception to the RPC client.
         This RPC makes it also possible to pass extra arguments to the program command line.
 
-        *@param* ``str namespec``: the process namespec.
-
-        *@param* ``str extra_args``: extra arguments to be passed to the command line of the program.
-
-        *@param* ``bool wait``: wait for the process to be fully started.
-
-        *@throws* ``RPCError``:
-
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to the local Supervisor,
-            * with code ``Faults.ALREADY_STARTED`` if process is ``RUNNING``,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param namespec: the process namespec.
+        :param extra_args: the extra arguments to be passed to the command line of the program.
+        :param wait: if ``True``, wait for the process to be fully started.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to the local Supervisor ;
+            ``Faults.ALREADY_STARTED`` if process is ``RUNNING`` ;
+            ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
         """
         # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT state)
         _, process = self._get_application_process(namespec)
@@ -456,28 +419,22 @@ class RPCInterface(object):
             raise
         return cb
 
-    def start_process(self, strategy: EnumParameterType, namespec, extra_args='', wait=True):
-        """ Start a process named namespec iaw the strategy and some of the rules file.
+    def start_process(self, strategy: EnumParameterType, namespec: str, extra_args: str = '',
+                      wait: bool = True) -> bool:
+        """ Start a process named ``namespec`` iaw the strategy and the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instance,
-        as a string or as a value.
-
-        *@param* ``str namespec``: the process namespec (``name``,``group:name``, or ``group:*``).
-
-        *@param* ``str extra_args``: extra arguments to be passed to command line.
-
-        *@param* ``bool wait``: wait for the process to be fully started.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
-            * with code ``Faults.ALREADY_STARTED`` if process is in a running state,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param strategy: the strategy used to choose a **Supvisors** instance, as a string or as a value.
+        :param namespec: the process namespec (``name``,``group:name``, or ``group:*``).
+        :param extra_args: the optional extra arguments to be passed to command line.
+        :param wait: if ``True``, wait for the process to be fully started.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors** ;
+            ``Faults.ALREADY_STARTED`` if process is in a running state ;
+            ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
         """
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
@@ -512,21 +469,16 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
-    def stop_process(self, namespec, wait=True):
-        """ Stop the process named namespec where it is running.
+    def stop_process(self, namespec: str, wait: bool = True) -> bool:
+        """ Stop the process named ``namespec`` on the **Supvisors** instance where it is running.
 
-        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
-
-        *@param* ``bool wait``: wait for process to be fully stopped.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``
-              or ``CONCILIATION``,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
-            * with code ``Faults.NOT_RUNNING`` if process is in a stopped state,
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param namespec: the process namespec (``name``, ``group:name``, or ``group:*``).
+        :param wait: if ``True``, wait for process to be fully stopped.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION`` ;
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors** ;
+            ``Faults.NOT_RUNNING`` if process is in a stopped state.
         """
         self._check_operating_conciliation()
         # check names
@@ -563,28 +515,23 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
-    def restart_process(self, strategy: EnumParameterType, namespec: str, extra_args: str = '', wait: bool = True):
-        """ Restart the process named namespec iaw the strategy and some of the rules defined in the rules file.
+    def restart_process(self, strategy: EnumParameterType, namespec: str, extra_args: str = '',
+                        wait: bool = True) -> bool:
+        """ Restart the process named ``namespec`` iaw the strategy and the rules defined in the rules file.
+        Note that the process will not necessarily start in the same **Supvisors** instance as the starting context
+        will be re-evaluated.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instances,
-        as a string or as a value.
-
-        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
-
-        *@param* ``str extra_args``: extra arguments to be passed to the command line.
-        If None, use the arguments passed with the last call.
-
-        *@param* ``bool wait``: wait for process to be fully restarted.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be restarted.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param strategy: the strategy used to choose a **Supvisors** instance, as a string or as a value.
+        :param namespec: the process namespec (``name``, ``group:name``, or ``group:*``).
+        :param extra_args: the extra arguments to be passed to the command line.
+        :param wait: if ``True``, wait for process to be fully restarted.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors** ;
+            ``Faults.ABNORMAL_TERMINATION`` if process could not be restarted.
         """
         self.logger.trace(f'RPCInterface.restart_process: strategy={strategy} process={namespec} args={extra_args}'
                           ' wait={wait}')
@@ -629,22 +576,18 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
-    def update_numprocs(self, program_name: str, numprocs: int):
+    def update_numprocs(self, program_name: str, numprocs: int) -> bool:
         """ Update dynamically the numprocs of the program.
 
-        *@param* ``str program_name``: the program name, as found in the section of the Supervisor configuration files.
-        Programs, FastCGI programs and event listeners are supported.
-
-        *@param* ``int numprocs``: the new numprocs value (must be > 0).
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.BAD_NAME`` if program_name is unknown to **Supvisors**,
-            * with code ``Faults.INCORRECT_PARAMETERS`` if numprocs is not a strictly positive integer,
-            * with code ``SupvisorsFaults.SUPVISORS_CONF_ERROR`` if the program configuration does not support numprocs.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param program_name: the program name, as found in the section of the Supervisor configuration files.
+            Programs, FastCGI programs and event listeners are supported.
+        :param numprocs: the new numprocs value (must be strictly positive).
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.BAD_NAME`` if ``program_name`` is unknown to **Supvisors** ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``numprocs`` is not a strictly positive integer ;
+            ``SupvisorsFaults.SUPVISORS_CONF_ERROR`` if the program configuration does not support numprocs.
         """
         self._check_operating()
         # test that program_name is known to the ServerOptions
@@ -703,18 +646,15 @@ class RPCInterface(object):
         return onwait  # deferred
 
     def conciliate(self, strategy: EnumParameterType) -> bool:
-        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state,
-        with an ``USER`` conciliation strategy (using other strategies would trigger an automatic behavior that wouldn't
+        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state and if the default
+        conciliation strategy is ``USER`` (using other strategies would trigger an automatic behavior that wouldn't
         give a chance to this XML-RPC).
 
-        *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate, as a string or as a value.
-
-        *@throws* ``RPCError``:
-
-            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
-            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**.
-
-        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when the conciliation strategy is ``USER``.
+        :param strategy: the strategy used to conciliate, as a string or as a value.
+        :return: ``True`` if conciliation is triggered, ``False`` when the conciliation strategy is ``USER``.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors**.
         """
         self._check_conciliation()
         strategy_enum = self._get_conciliation_strategy(strategy)
@@ -724,15 +664,13 @@ class RPCInterface(object):
             return True
         return False
 
-    def restart_sequence(self, wait=True):
+    def restart_sequence(self, wait=True) -> bool:
         """ Triggers the whole starting sequence by going back to the DEPLOYMENT state.
 
-        *@param* ``bool wait``: wait for Supvisors to reach the OPERATION state.
-
-        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in
-        ``OPERATION`` state.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param wait: if ``True``, wait for **Supvisors** to reach the OPERATION state.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in
+            ``OPERATION`` state.
         """
         self._check_operating()
         # call for restart sequence. will be re-directed to master if local Supvisors instance is not
@@ -758,10 +696,9 @@ class RPCInterface(object):
     def restart(self) -> bool:
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-        ``INITIALIZATION`` state.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+            ``INITIALIZATION`` state.
         """
         self._check_from_deployment()
         self.supvisors.fsm.on_restart()
@@ -770,10 +707,9 @@ class RPCInterface(object):
     def shutdown(self) -> bool:
         """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-        ``INITIALIZATION`` state.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+            ``INITIALIZATION`` state.
         """
         self._check_from_deployment()
         self.supvisors.fsm.on_shutdown()
@@ -783,11 +719,9 @@ class RPCInterface(object):
         """ Change the logger level for the local **Supvisors**.
         If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.
 
-        *@param* ``LevelsByName level``: the new logger level, as a string or as a value.
-
-        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if level is unknown to **Supervisor**.
-
-        *@return* ``bool``: always ``True`` unless error.
+        :param level_param: the new logger level, as a string or as a value.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code ``Faults.INCORRECT_PARAMETERS`` if ``level_param`` is unknown to **Supervisor**.
         """
         level = self._get_logger_level(level_param)
         self.logger.level = level

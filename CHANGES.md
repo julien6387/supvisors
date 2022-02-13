@@ -17,6 +17,8 @@
 * Protect the Supervisor thread against any exception that could be raised by **Supvisors** when processing a Supervisor
   event.
 
+* Provide a Flask server that can be added as a Supervisor program to interact with **Supvisors** using a REST API.
+
 * Update the CSS style of the inactive buttons in the Web UI.
 
 * Remove support to deprecated option `distributed` and to the possibility to have the `program` element directly

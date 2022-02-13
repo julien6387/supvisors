@@ -23,7 +23,7 @@ import sys
 from argparse import Action, ArgumentParser
 from configparser import ConfigParser
 from pathlib import Path
-from typing import Dict, Mapping, List, Tuple
+from typing import Dict, Mapping
 
 
 def is_folder(arg_parser, arg):
