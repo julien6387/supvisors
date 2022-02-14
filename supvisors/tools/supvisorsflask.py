@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # ======================================================================
-# Copyright 2012 Julien LE CLEACH
+# Copyright 2022 Julien LE CLEACH
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
 # ======================================================================
 
 import os
-import re
 import sys
 
 from argparse import ArgumentParser
 from flask import Flask, g, jsonify
 from flask_restx import Resource, Api
 from supervisor.childutils import getRPCInterface
+from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
+from supervisor.xmlrpc import SystemNamespaceRPCInterface
 from supvisors.rpcinterface import RPCInterface
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies, enum_names
 from urllib.parse import urlparse
@@ -35,12 +36,16 @@ StartingStrategiesParam = ', '.join(enum_names(StartingStrategies))
 ConciliationStrategiesParam = ', '.join(enum_names(ConciliationStrategies))
 LoggerLevelsParam = ', '.join(RPCInterface.get_logger_levels().values())
 
-DOC_TITLE_PATTERN = re.compile(r'^\s*(.*)\n*\s*\n')
-
 
 def get_docstring_description(func) -> str:
     """ Extract the first part of the docstring. """
-    return DOC_TITLE_PATTERN.match(func.__doc__).group(1)
+    description = []
+    for line in func.__doc__.split('\n'):
+        stripped_line = line.strip()
+        if stripped_line.startswith('@') or stripped_line.startswith(':'):
+            break
+        description.append(stripped_line)
+    return ' '.join(description)
 
 
 # Create the Flask application
@@ -57,9 +62,290 @@ def get_supervisor_proxy():
     api.version = g.proxy.supvisors.get_api_version()
 
 
+# System part
+system_ns = api.namespace('system', description='System operations')
+
+
+@system_ns.route('/listMethods', methods=('GET',))
+@system_ns.doc(description=get_docstring_description(SystemNamespaceRPCInterface.listMethods))
+class SystemListMethods(Resource):
+    def get(self):
+        return jsonify(g.proxy.system.listMethods())
+
+
+@system_ns.route('/methodHelp/<string:name>', methods=('GET',))
+@system_ns.doc(description=get_docstring_description(SystemNamespaceRPCInterface.methodHelp))
+class SystemMethodHelp(Resource):
+    @api.doc(params={'name': 'the name of the method'})
+    def get(self, name):
+        return jsonify(g.proxy.system.methodHelp(name))
+
+
+@system_ns.route('/methodSignature/<string:name>', methods=('GET',))
+@system_ns.doc(description=get_docstring_description(SystemNamespaceRPCInterface.methodSignature))
+class SystemMethodSignature(Resource):
+    @api.doc(params={'name': 'the name of the method'})
+    def get(self, name):
+        return jsonify(g.proxy.system.methodSignature(name))
+
+
 # Supervisor part
 supervisor_ns = api.namespace('supervisor', description='Supervisor operations')
-# TODO
+
+
+@supervisor_ns.route('/getAPIVersion', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getAPIVersion))
+class SupervisorApiVersion(Resource):
+    def get(self):
+        return g.proxy.supervisor.getAPIVersion()
+
+
+@supervisor_ns.route('/getSupervisorVersion', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getSupervisorVersion))
+class SupervisorVersion(Resource):
+    def get(self):
+        return g.proxy.supervisor.getSupervisorVersion()
+
+
+@supervisor_ns.route('/getIdentification', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getIdentification))
+class SupervisorIdentification(Resource):
+    def get(self):
+        return g.proxy.supervisor.getIdentification()
+
+
+@supervisor_ns.route('/getState', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getState))
+class SupervisorState(Resource):
+    def get(self):
+        return g.proxy.supervisor.getState()
+
+
+@supervisor_ns.route('/getPID', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getPID))
+class SupervisorPid(Resource):
+    def get(self):
+        return g.proxy.supervisor.getPID()
+
+
+@supervisor_ns.route('/readLog/<int:offset>/<int:length>', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.readLog))
+class SupervisorReadLog(Resource):
+    @api.doc(params={'offset': 'the offset to start reading from',
+                     'length': 'the number of bytes to read from the log'})
+    def get(self, offset, length):
+        return g.proxy.supervisor.readLog(offset, length)
+
+
+@supervisor_ns.route('/clearLog', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.clearLog))
+class SupervisorClearLog(Resource):
+    def post(self):
+        return g.proxy.supervisor.clearLog()
+
+
+@supervisor_ns.route('/shutdown', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.shutdown))
+class SupervisorShutdown(Resource):
+    def post(self):
+        return g.proxy.supervisor.shutdown()
+
+
+@supervisor_ns.route('/restart', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.restart))
+class SupervisorRestart(Resource):
+    def post(self):
+        return g.proxy.supervisor.restart()
+
+
+@supervisor_ns.route('/reloadConfig', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.reloadConfig))
+class SupervisorReloadConfig(Resource):
+    def post(self):
+        return g.proxy.supervisor.reloadConfig()
+
+
+@supervisor_ns.route('/addProcessGroup/<string:name>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.addProcessGroup))
+class SupervisorAddProcessGroup(Resource):
+    @api.doc(params={'name': 'the name of the process group to add'})
+    def post(self, name):
+        return g.proxy.supervisor.addProcessGroup(name)
+
+
+@supervisor_ns.route('/removeProcessGroup/<string:name>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.removeProcessGroup))
+class SupervisorRemoveProcessGroup(Resource):
+    @api.doc(params={'name': 'the name of the process group to remove'})
+    def post(self, name):
+        return g.proxy.supervisor.removeProcessGroup(name)
+
+
+@supervisor_ns.route('/startProcess/<string:name>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.startProcess))
+class SupervisorStartProcess(Resource):
+    @api.doc(params={'name': 'the process name (or group:name, or group:*)'})
+    def post(self, name):
+        return g.proxy.supervisor.startProcess(name)
+
+
+@supervisor_ns.route('/startProcessGroup/<string:name>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.startProcessGroup))
+class SupervisorStartProcessGroup(Resource):
+    @api.doc(params={'name': 'the group name'})
+    def post(self, name):
+        return g.proxy.supervisor.startProcessGroup(name)
+
+
+@supervisor_ns.route('/startAllProcesses', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.startAllProcesses))
+class SupervisorStartAllProcesses(Resource):
+    def post(self):
+        return g.proxy.supervisor.startAllProcesses()
+
+
+@supervisor_ns.route('/stopProcess/<string:name>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.stopProcess))
+class SupervisorStopProcess(Resource):
+    @api.doc(params={'name': 'the name of the process to stop (or group:name)'})
+    def post(self, name):
+        return g.proxy.supervisor.stopProcess(name)
+
+
+@supervisor_ns.route('/stopProcessGroup/<string:name>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.stopProcessGroup))
+class SupervisorStopProcessGroup(Resource):
+    @api.doc(params={'name': 'the group name'})
+    def post(self, name):
+        return g.proxy.supervisor.stopProcessGroup(name)
+
+
+@supervisor_ns.route('/stopAllProcesses', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.stopAllProcesses))
+class SupervisorStopAllProcesses(Resource):
+    def post(self):
+        return g.proxy.supervisor.stopAllProcesses()
+
+
+@supervisor_ns.route('/signalProcess/<string:name>/<string:signal>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.signalProcess))
+class SupervisorSignalProcess(Resource):
+    @api.doc(params={'name': 'the name of the process to signal (or group:name)',
+                     'signal': "the signal to send, as name ('HUP') or number ('1')"})
+    def post(self, name, signal):
+        return g.proxy.supervisor.signalProcess(name, signal)
+
+
+@supervisor_ns.route('/signalProcessGroup/<string:name>/<string:signal>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.signalProcessGroup))
+class SupervisorSignalProcessGroup(Resource):
+    @api.doc(params={'name': 'the group name',
+                     'signal': "the signal to send, as name ('HUP') or number ('1')"})
+    def post(self, name, signal):
+        return g.proxy.supervisor.signalProcessGroup(name, signal)
+
+
+@supervisor_ns.route('/signalAllProcesses/<string:signal>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.signalAllProcesses))
+class SupervisorSignalAllProcesses(Resource):
+    @api.doc(params={'signal': "the signal to send, as name ('HUP') or number ('1')"})
+    def post(self, signal):
+        return g.proxy.supervisor.signalAllProcesses(signal)
+
+
+@supervisor_ns.route('/getAllConfigInfo', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getAllConfigInfo))
+class SupervisorAllConfigInfo(Resource):
+    def get(self):
+        return jsonify(g.proxy.supervisor.getAllConfigInfo())
+
+
+@supervisor_ns.route('/getProcessInfo/<string:name>', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getProcessInfo))
+class SupervisorAllConfigInfo(Resource):
+    @api.doc(params={'name': 'the name of the process (or group:name)'})
+    def get(self, name):
+        return g.proxy.supervisor.getProcessInfo(name)
+
+
+@supervisor_ns.route('/getAllProcessInfo', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getAllProcessInfo))
+class SupervisorAllProcessInfo(Resource):
+    def get(self):
+        return jsonify(g.proxy.supervisor.getAllProcessInfo())
+
+
+@supervisor_ns.route('/readProcessStdoutLog/<string:name>/<int:offset>/<int:length>', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.readProcessStdoutLog))
+class SupervisorReadProcessStdoutLog(Resource):
+    @api.doc(params={'name': 'the name of the process (or group:name)',
+                     'offset': 'the offset to start reading from',
+                     'length': 'the number of bytes to read from the log'})
+    def get(self, name, offset, length):
+        return g.proxy.supervisor.readProcessStdoutLog(name, offset, length)
+
+
+@supervisor_ns.route('/readProcessStderrLog/<string:name>/<int:offset>/<int:length>', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.readProcessStderrLog))
+class SupervisorReadProcessStderrLog(Resource):
+    @api.doc(params={'name': 'the name of the process (or group:name)',
+                     'offset': 'the offset to start reading from',
+                     'length': 'the number of bytes to read from the log'})
+    def get(self, name, offset, length):
+        return g.proxy.supervisor.readProcessStderrLog(name, offset, length)
+
+
+@supervisor_ns.route('/tailProcessStdoutLog/<string:name>/<int:offset>/<int:length>', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.tailProcessStdoutLog))
+class SupervisorTailProcessStdoutLog(Resource):
+    @api.doc(params={'name': 'the name of the process (or group:name)',
+                     'offset': 'the offset to start reading from',
+                     'length': 'the number of bytes to read from the log'})
+    def get(self, name, offset, length):
+        return g.proxy.supervisor.tailProcessStdoutLog(name, offset, length)
+
+
+@supervisor_ns.route('/tailProcessStderrLog/<string:name>/<int:offset>/<int:length>', methods=('GET',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.tailProcessStderrLog))
+class SupervisorTailProcessStderrLog(Resource):
+    @api.doc(params={'name': 'the name of the process (or group:name)',
+                     'offset': 'the offset to start reading from',
+                     'length': 'the number of bytes to read from the log'})
+    def get(self, name, offset, length):
+        return g.proxy.supervisor.tailProcessStderrLog(name, offset, length)
+
+
+@supervisor_ns.route('/clearProcessLogs/<string:name>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.clearProcessLogs))
+class SupervisorClearProcessLogs(Resource):
+    @api.doc(params={'name': 'the name of the process (or group:name)'})
+    def post(self, name):
+        return g.proxy.supervisor.clearProcessLogs(name)
+
+
+@supervisor_ns.route('/clearAllProcessLogs', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.clearAllProcessLogs))
+class SupervisorClearAllProcessLogs(Resource):
+    def post(self):
+        return g.proxy.supervisor.clearAllProcessLogs()
+
+
+@supervisor_ns.route('/sendProcessStdin/<string:name>/<string:chars>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.sendProcessStdin))
+class SupervisorSendProcessStdin(Resource):
+    @api.doc(params={'name': 'the process name to send chars to (or group:name)',
+                     'chars': 'the character data to send to the process'})
+    def post(self, name, chars):
+        return g.proxy.supervisor.sendProcessStdin(name, chars)
+
+
+@supervisor_ns.route('/sendRemoteCommEvent/<string:event_type>/<string:data>', methods=('POST',))
+@supervisor_ns.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.sendRemoteCommEvent))
+class SupervisorSendProcessStdin(Resource):
+    @api.doc(params={'event_type': 'the string for the "type" key in the event header',
+                     'data': 'the data for the event body'})
+    def post(self, event_type, data):
+        return g.proxy.supervisor.sendRemoteCommEvent(event_type, data)
 
 
 # Supvisors part
