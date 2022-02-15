@@ -24,6 +24,7 @@ from argparse import ArgumentParser
 from flask import Flask, g, jsonify
 from flask_restx import Resource, Api
 from supervisor.childutils import getRPCInterface
+from supervisor.compat import xmlrpclib
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.xmlrpc import SystemNamespaceRPCInterface
 from supvisors.rpcinterface import RPCInterface
@@ -53,8 +54,21 @@ app = Flask('supvisors')
 api = Api(app, title='Supvisors Flask interface')
 
 
+@api.errorhandler
+def default_error_handler(error):
+    """ Default error handler. """
+    return {'message': str(error)}, getattr(error, 'code', 500)
+
+
+@api.errorhandler(xmlrpclib.Fault)
+def supervisor_error_handler(error):
+    """ Supervisor error handler. """
+    return {'message': error.faultString, 'code': error.faultCode}, 400
+
+
 @app.before_request
 def get_supervisor_proxy():
+    """ Get Supervisor proxy before any request. """
     # get the Supervisor proxy
     supervisor_url = app.config.get('url')
     g.proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': supervisor_url})
