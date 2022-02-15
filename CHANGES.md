@@ -21,6 +21,8 @@
 
 * Update the CSS style of the inactive buttons in the Web UI.
 
+* Update the Web UI to allow multiple processes per line in the **Supvisors** instance boxes.
+
 * Remove support to deprecated option `distributed` and to the possibility to have the `program` element directly
   under the `application element` in a **Supvisors** rules file.
 

@@ -6,16 +6,16 @@
     margin-top: 10px;
 }
 
+#conflict_part {
+    flex: 1;
+}
+
 #box_part {
     display: flex;
     flex: 1;
     height: 90px;
     justify-content: space-around;
     flex-wrap: wrap;
-}
-
-#conflict_part {
-    flex: 1;
 }
 
 .instanceBox {
@@ -40,8 +40,11 @@
     vertical-align: top;
 }
 
+.instanceBox td.process_list {
+    max-width: 250px;
+}
+
 .instanceBox .button {
-    /*display: inline-block;*/
     padding: 2px 4px;
     margin-bottom: 4px;
     background-color: #007600;
