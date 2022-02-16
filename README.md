@@ -1,5 +1,6 @@
 # **Supvisors**
 [![PyPI version][pypi-image]][pypi-url] [![Python Versions][pypi-python-versions]][pypi-url]
+[![License][license-image]][license-url]
 [![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url]
 [![Documentation Status][docs-image]][docs-url]
 
@@ -106,6 +107,9 @@ Not opened yet.
 [pypi-image]: https://badge.fury.io/py/supvisors.svg
 [pypi-python-versions]: https://img.shields.io/pypi/pyversions/supvisors.svg
 [pypi-url]: https://badge.fury.io/py/supvisors
+
+[license-image]: https://img.shields.io/badge/License-Apache_2.0-blue.svg
+[license-url]: https://opensource.org/licenses/Apache-2.0
 
 [ci-image]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml/badge.svg?branch=master
 [ci-url]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml
