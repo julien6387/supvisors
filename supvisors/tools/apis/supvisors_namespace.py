@@ -18,7 +18,8 @@
 # ======================================================================
 
 from flask import g, jsonify
-from flask_restx import Namespace, Resource
+from flask_restx import Namespace, Resource, inputs
+
 from supvisors.rpcinterface import RPCInterface
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies, enum_names
 
@@ -33,6 +34,19 @@ LoggerLevelsParam = ', '.join(RPCInterface.get_logger_levels().values())
 api = Namespace('supvisors', description='Supvisors operations')
 
 
+# Request parsers
+wait_parser = api.parser()
+wait_parser.add_argument('wait', type=inputs.boolean, default=True,
+                         help='if true, wait until completion of the request')
+
+start_process_parser = api.parser()
+start_process_parser.add_argument('extra_args', type=str, default='',
+                                  help='the extra arguments to be passed to the command line of the program')
+start_process_parser.add_argument('wait', type=inputs.boolean, default=True,
+                                  help='if true, wait until completion of the request')
+
+
+# Routes
 @api.route('/api_version', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_api_version))
 class SupvisorsApiVersion(Resource):
@@ -150,26 +164,32 @@ class SupvisorsConflicts(Resource):
 class SupvisorsStartApplication(Resource):
     @api.doc(params={'strategy': f'the starting strategy in {{{StartingStrategiesParam}}}',
                      'application_name': 'the name of the application to start'})
+    @api.expect(wait_parser)
     def post(self, strategy, application_name):
-        return g.proxy.supvisors.start_application(strategy, application_name)
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.start_application(strategy, application_name, args.wait)
 
 
 @api.route(f'/stop_application/<string:application_name>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.stop_application))
 class SupvisorsStopApplication(Resource):
     @api.doc(params={'application_name': 'the name of the application to stop'})
+    @api.expect(wait_parser)
     def post(self, application_name):
-        return g.proxy.supvisors.stop_application(application_name)
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.stop_application(application_name, args.wait)
 
 
 @api.route(f'/restart_application/<any({StartingStrategiesParam}):strategy>/<string:application_name>',
-                    methods=('POST',))
+           methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.restart_application))
 class SupvisorsRestartApplication(Resource):
     @api.doc(params={'strategy': f'the starting strategy in {{{StartingStrategiesParam}}}',
                      'application_name': 'the name of the application to restart'})
+    @api.expect(wait_parser)
     def post(self, strategy, application_name):
-        return g.proxy.supvisors.restart_application(strategy, application_name)
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.restart_application(strategy, application_name, args.wait)
 
 
 @api.route(f'/start_args/<string:namespec>/<string:extra_args>', methods=('POST',))
@@ -177,38 +197,42 @@ class SupvisorsRestartApplication(Resource):
 class SupvisorsStartArgs(Resource):
     @api.doc(params={'namespec': 'the namespec of the process to start',
                      'extra_args': 'the extra arguments to be passed to the command line of the program'})
+    @api.expect(wait_parser)
     def post(self, namespec, extra_args):
-        return g.proxy.supvisors.start_args(namespec, extra_args)
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.start_args(namespec, extra_args, args.wait)
 
 
-@api.route(f'/start_process/<any({StartingStrategiesParam}):strategy>/<string:namespec>/<string:extra_args>',
-                    methods=('POST',))
+@api.route(f'/start_process/<any({StartingStrategiesParam}):strategy>/<string:namespec>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.start_process))
 class SupvisorsStartProcess(Resource):
     @api.doc(params={'strategy': f'the starting strategy in {{{StartingStrategiesParam}}}',
-                     'namespec': 'the namespec of the process to start',
-                     'extra_args': 'the extra arguments to be passed to the command line of the program'})
-    def post(self, strategy, namespec, extra_args):
-        return g.proxy.supvisors.start_process(strategy, namespec, extra_args)
+                     'namespec': 'the namespec of the process to start'})
+    @api.expect(start_process_parser)
+    def post(self, strategy, namespec):
+        args = start_process_parser.parse_args()
+        return g.proxy.supvisors.start_process(strategy, namespec, args.extra_args, args.wait)
 
 
 @api.route(f'/stop_process/<string:namespec>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.stop_process))
 class SupvisorsStopProcess(Resource):
     @api.doc(params={'namespec': 'the namespec of the process to stop'})
+    @api.expect(wait_parser)
     def post(self, namespec):
-        return g.proxy.supvisors.stop_process(namespec)
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.stop_process(namespec, args.wait)
 
 
-@api.route(f'/restart_process/<any({StartingStrategiesParam}):strategy>/<string:namespec>/<string:extra_args>',
-                    methods=('POST',))
+@api.route(f'/restart_process/<any({StartingStrategiesParam}):strategy>/<string:namespec>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.restart_process))
 class SupvisorsRestartProcess(Resource):
     @api.doc(params={'strategy': f'the starting strategy in {{{StartingStrategiesParam}}}',
-                     'namespec': 'the namespec of the process to restart',
-                     'extra_args': 'the extra arguments to be passed to the command line of the program'})
-    def post(self, strategy, namespec, extra_args):
-        return g.proxy.supvisors.restart_process(strategy, namespec, extra_args)
+                     'namespec': 'the namespec of the process to restart'})
+    @api.expect(start_process_parser)
+    def post(self, strategy, namespec):
+        args = start_process_parser.parse_args()
+        return g.proxy.supvisors.restart_process(strategy, namespec, args.extra_args, args.wait)
 
 
 @api.route(f'/update_numprocs/<string:program_name>/<int:numprocs>', methods=('POST',))
@@ -231,8 +255,10 @@ class SupvisorsConciliate(Resource):
 @api.route(f'/restart_sequence', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.restart_sequence))
 class SupvisorsRestartSequence(Resource):
+    @api.expect(wait_parser)
     def post(self):
-        return g.proxy.supvisors.restart_sequence()
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.restart_sequence(args.wait)
 
 
 @api.route(f'/restart', methods=('POST',))

@@ -54,10 +54,10 @@ Platform Requirements
 
 |Supvisors| will not run at all under any version of Windows.
 
-|Supvisors| works with Python 3.6 or later but will not work under any version of Python 2.
+|Supvisors| works with :command:`Python 3.6` or later but will not work under any version of :command:`Python 2`.
 
-A previous release of |Supvisors| (version 0.1, available on PyPi) works with Python 2.7 (and previous versions
-of |Supervisor|, i.e. 3.3.0) but is not maintained anymore.
+A previous release of |Supvisors| (version 0.1, available on PyPi) works with :command:`Python 2.7` (and previous
+versions of |Supervisor|, i.e. 3.3.0) but is not maintained anymore.
 
 The CSS of the Dashboard has been written for Firefox ESR 91.3.0.
 The compatibility with other browsers or other versions of Firefox is unknown.
@@ -68,19 +68,21 @@ Installation
 
 |Supvisors| has the following dependencies:
 
-+---------------+------------+-----------------------------------------------------------------+
-| Package       | Release    | Usage                                                           |
-+===============+============+=================================================================+
-| |Supervisor|  | 4.2.4      | Base software, extended by |Supvisors|                          |
-+---------------+------------+-----------------------------------------------------------------+
-| PyZMQ_        | 22.0.3     | Python binding of ZeroMQ                                        |
-+---------------+------------+-----------------------------------------------------------------+
-| psutil_       | 5.7.3      | *Information about system usage (optional)*                     |
-+---------------+------------+-----------------------------------------------------------------+
-| matplotlib_   | 3.3.3      | *Graphs for Dashboard (optional)*                               |
-+---------------+------------+-----------------------------------------------------------------+
-| lxml_         | 4.6.2      | *XSD validation of the XML rules file (optional)*               |
-+---------------+------------+-----------------------------------------------------------------+
++----------------+------------+-----------------------------------------------------------------+
+| Package        | Release    | Usage                                                           |
++================+============+=================================================================+
+| |Supervisor|   | 4.2.4      | Base software, extended by |Supvisors|                          |
++----------------+------------+-----------------------------------------------------------------+
+| PyZMQ_         | 22.0.3     | :command:`Python` binding of ZeroMQ                             |
++----------------+------------+-----------------------------------------------------------------+
+| psutil_        | 5.7.3      | *Information about system usage (optional)*                     |
++----------------+------------+-----------------------------------------------------------------+
+| matplotlib_    | 3.3.3      | *Graphs for Dashboard (optional)*                               |
++----------------+------------+-----------------------------------------------------------------+
+| lxml_          | 4.6.2      | *XSD validation of the XML rules file (optional)*               |
++----------------+------------+-----------------------------------------------------------------+
+| |Flask-RESTX|  | 0.5.1      | *Flask web server with REST API (optional)*                     |
++----------------+------------+-----------------------------------------------------------------+
 
 With an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -105,6 +107,9 @@ Supvisors can be installed with ``pip install``:
    # install for use of IP aliases only (includes psutil)
    [bash] > pip install supvisors[ip_address]
 
+   # install for the REST API (includes flask-restx)
+   [bash] > pip install supvisors[flask]
+
 Without an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -120,6 +125,17 @@ Install |Supvisors| with the following command:
 
    [bash] > python setup.py install
 
+Additional commands
+~~~~~~~~~~~~~~~~~~~
+
+During the installation, a few additional commands are added to the ``BINDIR`` (directory that the :command:`Python`
+installation has been configured with):
+
+    * :command:`supvisorsctl` provides access to the extended **Supvisors** API when used with the option ``-s URL``,
+      which is missed from the |Supervisor| :command:`supervisorctl` (refer to the :ref:`extended_supervisorctl` part).
+    * :command:`supvisorsflask` provides a |Flask-RESTX| application that exposes the |Supervisor| and |Supvisors|
+      XML-RPC APIs through a REST API (refer to the :ref:`rest_api` page).
+
 
 Running |Supvisors|
 -------------------
@@ -127,8 +143,8 @@ Running |Supvisors|
 |Supvisors| runs as a plugin of |Supervisor| so it follows the same principle as
 `Running Supervisor <http://supervisord.org/running.html>`_ but using multiple UNIX-like operating systems.
 
-Although |Supvisors| was originally designed to handle exactly one Supervisor instance per node, it can handle
-multiple Supervisor instances on each node since the version 0.11.
+Although |Supvisors| was originally designed to handle exactly one |Supervisor| instance per node, it can handle
+multiple |Supervisor| instances on each node since the version 0.11.
 
 However, the |Supervisor| configuration file **MUST**:
 
@@ -136,7 +152,7 @@ However, the |Supervisor| configuration file **MUST**:
       `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_
       section settings) ;
     * include the ``[rpcinterface:supvisors]`` and the ``[ctlplugin:supvisors]`` sections
-      (refer to the :ref:`Configuration` part) ;
+      (refer to the :ref:`configuration` page) ;
     * be consistent on all considered nodes, more particularly attention must be paid to the list of declared
       |Supvisors| instances and the IP ports used.
 

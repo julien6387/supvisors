@@ -47,4 +47,6 @@ def main():
         print(f'ArgumentParser: {args}')
     # start the Flask application
     app.config['url'] = args.supervisor_url
-    app.run(debug=args.debug, host=args.server, port=args.port)
+    flask_options = {k: v for k, v in vars(args).items()
+                     if k in ['host', 'port', 'debug'] and v is not None}
+    app.run(**flask_options)

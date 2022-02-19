@@ -23,7 +23,7 @@ from typing import Dict, Union
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription
-from supervisor.options import make_namespec, split_namespec
+from supervisor.options import make_namespec, split_namespec, VERSION
 from supervisor.xmlrpc import Faults, RPCError
 
 from .application import ApplicationStatus
@@ -54,6 +54,7 @@ class RPCInterface(object):
         """
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
+        self.logger.info(f'RPCInterface: using Supvisors={API_VERSION} Supervisor={VERSION}')
 
     # RPC Status methods
     def get_api_version(self) -> str:
@@ -436,6 +437,8 @@ class RPCInterface(object):
             ``Faults.ALREADY_STARTED`` if process is in a running state ;
             ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
         """
+        self.logger.trace(f'RPCInterface.start_process: namespec={namespec} strategy={strategy} extra_args={extra_args}'
+                          f' wait={wait}')
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
         # check names

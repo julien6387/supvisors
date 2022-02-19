@@ -7,7 +7,7 @@ The |Supvisors| XML-RPC API is an extension of the |Supervisor| XML-RPC API.
 Detailed information can be found in the
 `Supervisor XML-RPC API Documentation <http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
 
-The ``supvisors`` namespace has been added to the :program:`supervisord` XML-RPC interface.
+The ``supvisors`` namespace has been added to the ``supervisor`` XML-RPC interface.
 
 The XML-RPC :command:`system.listMethods` provides the list of methods supported for both |Supervisor| and |Supvisors|.
 
@@ -266,13 +266,13 @@ Process Control
 XML-RPC Clients
 ---------------
 
-This section explains how to use the XML-RPC API from a Python or JAVA client.
+This section explains how to use the XML-RPC API from a :program:`Python` or :program:`JAVA` client.
 
 
-Python Client
-~~~~~~~~~~~~~
+:program:`Python` Client
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-To perform an XML-RPC from a python client, |Supervisor| provides the ``getRPCInterface`` function of the
+To perform an XML-RPC from a :program:`Python` client, |Supervisor| provides the ``getRPCInterface`` function of the
 :program:`supervisor.childutils` module.
 
 The parameter requires a dictionary with the following variables set:
@@ -281,33 +281,39 @@ The parameter requires a dictionary with the following variables set:
     * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be void),
     * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be void).
 
-If the Python client has been spawned by Supervisor, the environment already contains these parameters but they are
-configured to communicate with the local |Supervisor| instance. If the Python client has to communicate with another
-|Supervisor| instance, the parameters must be set accordingly.
+If the :program:`Python` client has been spawned by |Supervisor|, the environment already contains these parameters
+but they are configured to communicate with the local |Supervisor| instance.
 
-.. code-block:: python
+>>> import os
+>>> from supervisor.childutils import getRPCInterface
+>>> proxy = getRPCInterface(os.environ)
+>>> proxy.supvisors.get_instance_info('cliche81')
+{'identifier': 'cliche81', 'node_name': 'cliche81', 'port': 60000, 'statecode': 2, 'statename': 'RUNNING',
+'sequence_counter': 885, 'remote_time': 1645285505, 'local_time': 1645285505, 'loading': 24,
+'fsm_statecode': 3, 'fsm_statename': 'OPERATION', 'starting_jobs': False, 'stopping_jobs': False}
 
-    import os
-    from supervisor.childutils import getRPCInterface
+If the :program:`Python` client has to communicate with another |Supervisor| instance, the parameters must be set
+accordingly.
 
-    proxy = getRPCInterface(os.environ)
-    proxy.supervisor.getState()
-    proxy.supvisors.get_supvisors_state()
+>>> from supervisor.childutils import getRPCInterface
+>>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://cliche81:60000'})
+>>> proxy.supvisors.get_supvisors_state()
+{'fsm_statecode': 3, 'fsm_statename': 'OPERATION', 'starting_jobs': [], 'stopping_jobs': []}
 
 
-JAVA Client
-~~~~~~~~~~~
+:program:`JAVA` Client
+~~~~~~~~~~~~~~~~~~~~~~
 
-There is JAVA client *supervisord4j* referenced in the `Supervisor documentation
+There is :program:`JAVA` client *supervisord4j* referenced in the `Supervisor documentation
 <http://supervisord.org/plugins.html#libraries-that-integrate-third-party-applications-with-supervisor>`_.
 However, it comes with the following drawbacks, taken from the ``README.md`` of
 `supervisord4j <https://github.com/satifanie/supervisord4j>`_:
 
-    * of course, it doesn't include the |Supvisors| XML-RPC API,
     * some XML-RPC are not implemented,
-    * some implemented XML-RPC are not tested.
+    * some implemented XML-RPC are not tested,
+    * of course, it doesn't include the |Supvisors| XML-RPC API.
 
-The |Supvisors| release comes with a JAR file including a JAVA client.
+The |Supvisors| release comes with a ``JAR`` file including a :program:`JAVA` client.
 It can be downloaded from the `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_.
 
 The package ``org.supvisors.rpc`` implements all XML-RPC of all interfaces (``system``, ``supervisor``
@@ -319,7 +325,6 @@ This package requires the following additional dependency:
 
 The binary JAR of :program:`Apache XML-RPC 3.1.3` is available in the
 `Apache MAVEN repository <https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
-
 
 .. code-block:: java
 

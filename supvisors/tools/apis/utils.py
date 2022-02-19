@@ -61,12 +61,13 @@ def parse_args(args):
     # check if this process has been spawned by Supervisor
     supervisor_url = os.environ.get('SUPERVISOR_SERVER_URL')
     # create argument parser
-    parser = ArgumentParser(description='Start a Flask application to interact with Supvisors')
-    parser.add_argument('-s', '--server', type=str, default='0.0.0.0', help='the Flask server IP address')
-    parser.add_argument('-p', '--port', type=int, default='5000', help='the Flask server port number')
+    parser = ArgumentParser(description='Start a Flask application to interact with Supvisors', add_help=False)
+    parser.add_argument('--help', action='help', help='show this help message and exit')
     parser.add_argument('-u', '--supervisor_url', type=lambda x: is_url(parser, x),
                         default=supervisor_url, required=not supervisor_url,
                         help='the Supervisor URL, required if supvisorsflask is not spawned by Supervisor')
+    parser.add_argument('-h', '--host', type=str, help='the Flask server IP address')
+    parser.add_argument('-p', '--port', type=int, help='the Flask server port number')
     parser.add_argument('-d', '--debug', action='store_true', help='the Flask Debug mode')
     # parse arguments from command line
     args = parser.parse_args(args)

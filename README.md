@@ -1,8 +1,11 @@
 # **Supvisors**
-[![PyPI version][pypi-image]][pypi-url] [![Python Versions][pypi-python-versions]][pypi-url]
+[![PyPI version][pypi-image]][pypi-url]
+[![Python Versions][pypi-python-versions]][pypi-url]
 [![License][license-image]][license-url]
-[![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url]
+[![Build Status][ci-image]][ci-url]
+[![Coverage Status][coveralls-image]][coveralls-url]
 [![Documentation Status][docs-image]][docs-url]
+[![Downloads][downloads-image]][downloads-url]
 
 
 **Supvisors** is a Control System for Distributed Applications, based on multiple instances of Supervisor
@@ -119,3 +122,6 @@ Not opened yet.
 
 [docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=master
 [docs-url]: https://supvisors.readthedocs.io/en/master
+
+[downloads-image]: https://pepy.tech/badge/supvisors/month
+[downloads-url]: https://pepy.tech/project/supvisors
