@@ -101,8 +101,8 @@ def test_rules_check_hash_identifiers(rules):
     rules.hash_identifiers = ['10.0.0.1']
     rules.identifiers = []
     rules.check_hash_identifiers('sample_test_2')
-    assert rules.identifiers == []
-    assert rules.start_sequence == 0
+    assert rules.identifiers == ['10.0.0.1']
+    assert rules.start_sequence == 1
 
 
 def test_rules_check_dependencies(mocker, rules):

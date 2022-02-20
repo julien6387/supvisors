@@ -862,15 +862,15 @@ It is also possible to give a subset of deduced names.
 
 .. important::
 
-    In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in
-    ``supvisors_list``.
+    In the initial |Supvisors| design, it was expected that the ``numprocs`` value set in the program configuration file
+    would match the number of elements in ``supvisors_list``.
 
-    If the number of elements in ``supvisors_list`` is greater than the ``numprocs`` value, programs will
+    However, if the number of elements in ``supvisors_list`` is greater than the ``numprocs`` value, programs will
     be assigned to the ``numprocs`` first |Supvisors| instances.
 
     On the other side, if the number of elements in ``supvisors_list`` is lower than the ``numprocs`` value,
-    the last programs won't be assigned to any |Supvisors| instance and it won't be possible to start them using
-    |Supvisors|. Nevertheless, in this case, it will be still possible to start them with |Supervisor| directly.
+    the assignment will roll over the elements in ``supvisors_list`` in a *modulo* fashion. As a consequence,
+    there will be multiple programs assigned to a single |Supvisors| instance.
 
 .. attention::
 

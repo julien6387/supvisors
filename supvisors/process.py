@@ -117,29 +117,26 @@ class ProcessRules(object):
         :param namespec: the namespec of the program considered.
         :return: None
         """
-        error = True
         _, process_name = split_namespec(namespec)
         try:
             procnumber = self.supvisors.server_options.procnumbers[process_name]
         except KeyError:
             self.logger.error(f'ProcessRules.check_hash_identifiers: cannot apply "#" to unknown program={namespec}')
+            self.logger.debug(f'ProcessRules.check_hash_identifiers: namespec={namespec} reset start_sequence')
+            self.start_sequence = 0
         else:
-            self.logger.debug(f'ProcessRules.check_hash_identifiers: namespec={namespec} procnumber={procnumber}')
+            self.logger.trace(f'ProcessRules.check_hash_identifiers: namespec={namespec} procnumber={procnumber}')
             if '*' in self.hash_identifiers:
                 # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
                 ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
             else:
                 # the subset of applicable identifiers is the second element of rule 'identifiers'
                 ref_identifiers = self.hash_identifiers
-            if procnumber < len(ref_identifiers):
-                self.identifiers = [ref_identifiers[procnumber]]
-                error = False
-            else:
-                self.logger.error(f'ProcessRules.check_hash_identifiers: namespec={namespec} has no applicable'
-                                  ' Supvisors identifier')
-        if error:
-            self.logger.warn(f'ProcessRules.check_hash_identifiers: namespec={namespec} start_sequence reset')
-            self.start_sequence = 0
+            # if there are more program instances than possible identifiers, roll over
+            index = procnumber % len(ref_identifiers)
+            self.identifiers = [ref_identifiers[index]]
+            self.logger.debug(f'ProcessRules.check_hash_identifiers: namespec={namespec}'
+                              f' identifiers={self.identifiers}')
 
     def check_dependencies(self, namespec: str) -> None:
         """ Update rules after they have been read from the rules file.

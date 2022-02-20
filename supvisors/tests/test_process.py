@@ -170,7 +170,7 @@ def test_rules_check_hash_identifiers(rules):
     assert rules.hash_identifiers == ['*']
     assert rules.identifiers == []
     # 2. update rules to test '#' with all instances available
-    # address '10.0.0.3' has an index of 2 in address_mapper
+    # address '10.0.0.3' has an index of 2 in supvisors_mapper
     rules.check_hash_identifiers('sample_test_1:xclock')
     assert rules.identifiers == ['10.0.0.3']
     # 3. update rules to test '#' with a subset of instances available
@@ -183,7 +183,7 @@ def test_rules_check_hash_identifiers(rules):
     rules.hash_identifiers = ['10.0.0.1']
     rules.identifiers = []
     rules.check_hash_identifiers('sample_test_1:xclock')
-    assert rules.identifiers == []
+    assert rules.identifiers == ['10.0.0.1']
 
 
 def test_rules_check_dependencies(mocker, rules):

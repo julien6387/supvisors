@@ -101,7 +101,7 @@ class ApplicationRules(object):
             if application_number < 0:
                 self.logger.error(f'ApplicationRules.check_hash_identifiers: index of {application_name} must be > 0')
             else:
-                self.logger.debug(f'ApplicationRules.check_hash_identifiers: application_name={application_name}'
+                self.logger.trace(f'ApplicationRules.check_hash_identifiers: application_name={application_name}'
                                   f' application_number={application_number}')
                 if '*' in self.hash_identifiers:
                     # all identifiers defined in the supvisors section of the supervisor configuration are applicable
@@ -109,14 +109,14 @@ class ApplicationRules(object):
                 else:
                     # the subset of applicable identifiers is the hash_identifiers
                     ref_identifiers = self.hash_identifiers
-                if application_number < len(ref_identifiers):
-                    self.identifiers = [ref_identifiers[application_number]]
-                    error = False
-                else:
-                    self.logger.error(f'ApplicationRules.check_hash_identifiers: {application_name} has no'
-                                      ' applicable identifier')
+                # if there are more application instances than possible identifiers, roll over
+                index = application_number % len(ref_identifiers)
+                self.identifiers = [ref_identifiers[index]]
+                self.logger.debug(f'ApplicationRules.check_hash_identifiers: application_name={application_name}'
+                                  f' identifiers={self.identifiers}')
+                error = False
         if error:
-            self.logger.warn(f'ApplicationRules.check_hash_identifiers: {application_name} start_sequence reset')
+            self.logger.debug(f'ApplicationRules.check_hash_identifiers: {application_name} start_sequence reset')
             self.start_sequence = 0
 
     def check_dependencies(self, application_name: str) -> None:

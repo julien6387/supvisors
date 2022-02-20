@@ -12,6 +12,10 @@
   points out the **Supvisors** instances where the modes are activated, and the applications involved in its own
   `Starter` or `Stopper`.
 
+* When using ``#`` in the ``identifiers`` of the Application or Program rules and with a number of candidate
+  applications or processes greater than the candidate ``identifiers``, the assignment is performed by rolling over
+  the ``identifiers`` list. 
+
 * The application rules of a **Supvisors** rules file can be inserted in any order.
 
 * Protect the Supervisor thread against any exception that could be raised by **Supvisors** when processing a Supervisor
