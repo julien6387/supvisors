@@ -41,3 +41,4 @@ def default_error_handler(error):
 def supervisor_error_handler(error):
     """ Supervisor error handler. """
     return {'message': error.faultString, 'code': error.faultCode}, 400
+

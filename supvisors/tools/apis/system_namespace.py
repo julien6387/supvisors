@@ -39,7 +39,7 @@ class SystemListMethods(Resource):
 class SystemMethodHelp(Resource):
     @api.doc(params={'name': 'the name of the method'})
     def get(self, name):
-        return jsonify(g.proxy.system.methodHelp(name))
+        return g.proxy.system.methodHelp(name)
 
 
 @api.route('/methodSignature/<string:name>', methods=('GET',))

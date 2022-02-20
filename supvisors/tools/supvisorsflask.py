@@ -25,6 +25,7 @@ from supervisor.childutils import getRPCInterface
 from .apis import api
 from .apis.utils import parse_args
 
+
 # Create the Flask application
 app = Flask('supvisors')
 api.init_app(app)

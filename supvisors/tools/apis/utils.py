@@ -45,10 +45,10 @@ def is_url(arg_parser, arg):
     """
     try:
         result = urlparse(arg)
-    except ValueError:
-        arg_parser.error(f'Could not parse the URL provided: {arg}')
-    if all([result.scheme, result.netloc]):
-        return arg
+        if all([result.scheme, result.netloc, result.port]):
+            return arg
+    except ValueError as exc:
+        arg_parser.error(f'Could not parse the URL provided: {arg} ({exc})')
     arg_parser.error(f'The URL provided is invalid: {arg}')
 
 
@@ -71,7 +71,4 @@ def parse_args(args):
     parser.add_argument('-d', '--debug', action='store_true', help='the Flask Debug mode')
     # parse arguments from command line
     args = parser.parse_args(args)
-    # if URL is not provided, check if this process is started by Supervisor
-    if not args.supervisor_url:
-        raise parser.error('supervisor_url must be provided when not spawned by Supervisor')
     return args

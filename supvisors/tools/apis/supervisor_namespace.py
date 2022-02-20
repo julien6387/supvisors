@@ -62,7 +62,7 @@ class SupervisorPid(Resource):
         return g.proxy.supervisor.getPID()
 
 
-@api.route('/readLog/<int:offset>/<int:length>', methods=('GET',))
+@api.route('/readLog/<int(signed=True):offset>/<int:length>', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.readLog))
 class SupervisorReadLog(Resource):
     @api.doc(params={'offset': 'the offset to start reading from',
@@ -209,7 +209,7 @@ class SupervisorAllProcessInfo(Resource):
         return jsonify(g.proxy.supervisor.getAllProcessInfo())
 
 
-@api.route('/readProcessStdoutLog/<string:name>/<int:offset>/<int:length>', methods=('GET',))
+@api.route('/readProcessStdoutLog/<string:name>/<int(signed=True):offset>/<int:length>', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.readProcessStdoutLog))
 class SupervisorReadProcessStdoutLog(Resource):
     @api.doc(params={'name': 'the name of the process (or group:name)',
@@ -219,7 +219,7 @@ class SupervisorReadProcessStdoutLog(Resource):
         return g.proxy.supervisor.readProcessStdoutLog(name, offset, length)
 
 
-@api.route('/readProcessStderrLog/<string:name>/<int:offset>/<int:length>', methods=('GET',))
+@api.route('/readProcessStderrLog/<string:name>/<int(signed=True):offset>/<int:length>', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.readProcessStderrLog))
 class SupervisorReadProcessStderrLog(Resource):
     @api.doc(params={'name': 'the name of the process (or group:name)',
