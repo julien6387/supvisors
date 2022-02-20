@@ -27,7 +27,7 @@ from .apis.utils import parse_args
 
 
 # Create the Flask application
-app = Flask('supvisors')
+app = Flask(__name__)
 api.init_app(app)
 
 
