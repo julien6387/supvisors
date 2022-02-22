@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+import os
 
 import pytest
 
@@ -112,13 +113,16 @@ def test_write_contents(mocker, view):
 
 def test_get_process_data(mocker, view):
     """ Test the ProcInstanceView.get_process_data method. """
-    mocker.patch.object(view, 'sort_data', side_effect=lambda x: (sorted(x, key=lambda info: info['namespec']), []))
+    mocker.patch.object(view, 'sort_data', side_effect=lambda x: (sorted(x, key=lambda y: y['namespec']), []))
+    mocked_data = mocker.patch.object(view, 'get_supervisord_data', return_value={'namespec': 'supervisord'})
+    # get context
+    instance_status = view.sup_ctx.instances['10.0.0.1']
     # test with empty context
     view.view_ctx = Mock(local_identifier='10.0.0.1',
                          **{'get_process_stats.side_effect': [(2, 'stats #1'), (1, None), (4, 'stats #3')]})
-    assert view.get_process_data() == ([], [])
+    assert view.get_process_data() == ([{'namespec': 'supervisord'}], [])
+    assert mocked_data.call_args_list == [call(instance_status)]
     # patch context
-    instance_status = view.sup_ctx.instances['10.0.0.1']
     for application_name in ['sample_test_1', 'crash', 'firefox']:
         view.sup_ctx.applications[application_name] = create_application(application_name, view.supvisors)
     for process_name, load, has_crashed in [('xfontsel', 8, True), ('segv', 17, False), ('firefox', 26, False)]:
@@ -150,8 +154,32 @@ def test_get_process_data(mocker, view):
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED', 'has_crashed': False,
              'description': 'Sep 14 05:18 PM',
              'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
-    assert sorted_data == [data2, data3, data1]
+    assert sorted_data == [data2, data3, data1, {'namespec': 'supervisord'}]
     assert excluded_data == []
+
+
+def test_get_supervisord_data(view):
+    """ Test the ProcInstanceView.get_supervisord_data method. """
+    view.view_ctx = Mock(local_identifier='10.0.0.1', **{'get_process_stats.return_value': (2, 'stats #1')})
+    # get context
+    instance_status = view.sup_ctx.instances['10.0.0.1']
+    pid = os.getpid()
+    # test call on empty time values
+    supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                        'single': True, 'identifier': '10.0.0.1',
+                        'description': f'pid {pid}, uptime 0:00:00',
+                        'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
+                        'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
+    assert view.get_supervisord_data(instance_status) == supervisord_info
+    # test call on relevant time values
+    instance_status.start_time = 1000
+    instance_status.local_time = 185618
+    supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                        'single': True, 'identifier': '10.0.0.1',
+                        'description': f'pid {pid}, uptime 2 days, 3:16:58',
+                        'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
+                        'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
+    assert view.get_supervisord_data(instance_status) == supervisord_info
 
 
 def test_sort_data(mocker, view):
@@ -161,12 +189,6 @@ def test_sort_data(mocker, view):
                                      {'application_name': 'sample_test_1', 'process_name': None},
                                      {'application_name': 'sample_test_2', 'process_name': None}] * 2)
     view.view_ctx = Mock(local_identifier='10.0.0.1', **{'get_process_stats.return_value': (2, 'stats #1')})
-    # test empty parameter. supervisord always added
-    supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'description': 'Supervisor 10.0.0.1', 'identifier': '10.0.0.1',
-                        'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
-                        'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
-    assert view.sort_data([]) == ([supervisord_info], [])
     # build process list
     processes = [{'application_name': info['group'], 'process_name': info['name'],
                   'single': info['group'] == info['name']}
@@ -188,8 +210,7 @@ def test_sort_data(mocker, view):
                       {'application_name': 'sample_test_2', 'process_name': None},
                       {'application_name': 'sample_test_2', 'process_name': 'sleep', 'single': False},
                       {'application_name': 'sample_test_2', 'process_name': 'yeux_00', 'single': False},
-                      {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'single': False},
-                      supervisord_info]
+                      {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'single': False}]
     assert excluded == []
     # test with some shex on applications
     actual, excluded = view.sort_data(processes)
@@ -198,8 +219,7 @@ def test_sort_data(mocker, view):
                       {'application_name': 'crash', 'process_name': 'segv', 'single': False},
                       {'application_name': 'firefox', 'process_name': 'firefox', 'single': True},
                       {'application_name': 'sample_test_1', 'process_name': None},
-                      {'application_name': 'sample_test_2', 'process_name': None},
-                      supervisord_info]
+                      {'application_name': 'sample_test_2', 'process_name': None}]
     sorted_excluded = sorted(excluded, key=lambda x: x['process_name'])
     assert sorted_excluded == [{'application_name': 'sample_test_2', 'process_name': 'sleep', 'single': False},
                                {'application_name': 'sample_test_1', 'process_name': 'xclock', 'single': False},

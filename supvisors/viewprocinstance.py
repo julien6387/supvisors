@@ -17,7 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisor.states import RUNNING_STATES
+import os
+
+from supervisor.states import ProcessStates, RUNNING_STATES
 from supervisor.xmlrpc import RPCError
 
 from .application import ApplicationStatus
@@ -84,7 +86,27 @@ class ProcInstanceView(SupvisorsInstanceView):
                        'nb_cores': nb_cores, 'proc_stats': proc_stats}
             data.append(payload)
         # re-arrange data
-        return self.sort_data(data)
+        sorted_data, excluded_data = self.sort_data(data)
+        # add supervisord payload at the end of sorted data
+        sorted_data.append(self.get_supervisord_data(status))
+        return sorted_data, excluded_data
+
+    def get_supervisord_data(self, status: SupvisorsInstanceStatus) -> Payload:
+        """ Collect sorted data on supervisord process.
+
+        :param status: the local Supvisors instance
+        :return: the supervisord data.
+        """
+        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
+        payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                   'single': True, 'identifier': self.view_ctx.local_identifier,
+                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
+                   'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
+        # add description (pid / uptime) as done by Supervisor
+        info = {'state': ProcessStates.RUNNING, 'start': status.start_time, 'now': status.local_time,
+                'pid': os.getpid()}
+        payload['description'] = ProcessStatus.update_description(info)
+        return payload
 
     def sort_data(self, data: PayloadList) -> Tuple[PayloadList, PayloadList]:
         """ This method sorts a process list by application and using the alphabetical order.
@@ -114,14 +136,6 @@ class ProcInstanceView(SupvisorsInstanceView):
             else:
                 # push to excluded data
                 excluded_data.extend(application_processes)
-        # add supervisord payload at the end
-        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
-        payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                   'single': True, 'identifier': self.view_ctx.local_identifier,
-                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
-                   'description': f'Supervisor {self.view_ctx.local_identifier}', 'expected_load': 0,
-                   'nb_cores': nb_cores, 'proc_stats': proc_stats}
-        sorted_data.append(payload)
         return sorted_data, excluded_data
 
     def get_application_summary(self, application_name: str, application_processes: PayloadList) -> Payload:

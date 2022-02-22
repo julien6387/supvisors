@@ -94,6 +94,7 @@ def test_create(supvisors, supvisors_id, status):
     assert status.state == SupvisorsInstanceStates.UNKNOWN
     assert status.sequence_counter == 0
     assert status.local_sequence_counter == 0
+    assert status.start_time == 0.0
     assert status.remote_time == 0.0
     assert status.local_time == 0.0
     assert status.processes == {}
@@ -231,8 +232,10 @@ def test_update_times(filled_status):
     # update times and check
     now = time.time()
     filled_status.update_times(28, now + 10, 27, now)
+    ref_start_time = now - 28 * TICK_PERIOD
     assert filled_status.sequence_counter == 28
     assert filled_status.local_sequence_counter == 27
+    assert filled_status.start_time == ref_start_time
     assert filled_status.remote_time == now + 10
     assert filled_status.local_time == now
     # test process times: only RUNNING and STOPPING have a positive uptime
@@ -247,6 +250,13 @@ def test_update_times(filled_status):
             assert new_info[2] > ref_info[2]
         else:
             assert new_info[2] == ref_info[2]
+    # update times aa second time to check that start_time hasn't changed
+    filled_status.update_times(29, now + 15, 28, now + 5)
+    assert filled_status.sequence_counter == 29
+    assert filled_status.local_sequence_counter == 28
+    assert filled_status.start_time == ref_start_time
+    assert filled_status.remote_time == now + 15
+    assert filled_status.local_time == now + 5
 
 
 def test_get_remote_time(filled_status):

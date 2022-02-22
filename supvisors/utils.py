@@ -23,6 +23,14 @@ from time import gmtime, localtime, strftime, time
 from urllib.parse import urlparse
 
 
+# Constants
+# TICK period in seconds for internal Supvisors heartbeat
+TICK_PERIOD = 5
+
+# a Supervisor TICK is expected every 5 seconds
+SUPERVISOR_ALERT_TIMEOUT = 10
+
+
 # for internal publish / subscribe
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """

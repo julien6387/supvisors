@@ -26,6 +26,7 @@ from supervisor.xmlrpc import capped_int
 from .supvisorsmapper import SupvisorsInstanceId
 from .process import ProcessStatus
 from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition, NamedPidList, Payload
+from .utils import TICK_PERIOD
 
 
 class StateModes(object):
@@ -113,6 +114,7 @@ class SupvisorsInstanceStatus(object):
         self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.UNKNOWN
         self.sequence_counter: int = 0
         self.local_sequence_counter: int = 0
+        self.start_time: int = 0
         self.remote_time: float = 0.0
         self.local_time: float = 0.0
         self.processes: Dict[str, ProcessStatus] = {}
@@ -204,7 +206,18 @@ class SupvisorsInstanceStatus(object):
         return self.state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
 
     def update_times(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
-        """ Update the time attributes of the current object, including the time attributes of all its processes. """
+        """ Update the time attributes of the current object, including the time attributes of all its processes.
+
+        :param sequence_counter: the TICK counter
+        :param remote_time: the timestamp received from the Supvisors instance
+        :param local_sequence_counter: the last TICK counter received from the local Supvisors instance
+        :param local_time: the timestamp received from the Supvisors instance, in the local reference time
+        :return:
+        """
+        if not self.start_time:
+            # deduce start time from sequence_counter and TICK_PERIOD
+            # approximation is good enough as it is just for Web UI display
+            self.start_time = local_time - TICK_PERIOD * sequence_counter
         self.sequence_counter = sequence_counter
         self.local_sequence_counter = local_sequence_counter
         self.remote_time = remote_time

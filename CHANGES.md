@@ -16,6 +16,8 @@
   applications or processes greater than the candidate ``identifiers``, the assignment is performed by rolling over
   the ``identifiers`` list. 
 
+* Add pid and uptime information to the `supervisord` entry of the process table in the Web UI.
+
 * The application rules of a **Supvisors** rules file can be inserted in any order.
 
 * Protect the Supervisor thread against any exception that could be raised by **Supvisors** when processing a Supervisor

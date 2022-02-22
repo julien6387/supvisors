@@ -32,7 +32,8 @@ from supervisor.xmlrpc import RPCError
 
 from .supvisorszmq import SupvisorsZmq
 from .ttypes import SupvisorsInstanceStates, ISOLATION_STATES
-from .utils import DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl
+from .utils import (TICK_PERIOD, SUPERVISOR_ALERT_TIMEOUT,
+                    DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl)
 
 
 class SupvisorsMainLoop(Thread):
@@ -45,12 +46,6 @@ class SupvisorsMainLoop(Thread):
         - env: the environment variables linked to Supervisor security access,
         - proxy: the proxy to the internal RPC interface.
     """
-
-    # TICK period in seconds for internal Supvisors heartbeat
-    TICK_PERIOD = 5
-
-    # a Supervisor TICK is expected every 5 seconds
-    SUPERVISOR_ALERT_TIMEOUT = 10
 
     # to avoid a long list of exceptions in catches
     RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError,
@@ -125,7 +120,7 @@ class SupvisorsMainLoop(Thread):
         In addition to that, a minimum TICK of 5 seconds may be questioned at some point if more responsiveness is
         expected, in which case the period of the Supvisors heartbeat could be decreased if necessary. """
         current_time = time()
-        current_counter = int((current_time - self.reference_time) / SupvisorsMainLoop.TICK_PERIOD)
+        current_counter = int((current_time - self.reference_time) / TICK_PERIOD)
         if current_counter > self.reference_counter:
             # send the Supvisors TICK to other Supvisors instances
             self.reference_counter = current_counter
@@ -140,7 +135,7 @@ class SupvisorsMainLoop(Thread):
             self.sockets.publisher.send_tick_event(payload)
             # check that Supervisor thread is alive
             supervisor_silence = current_time - self.supervisor_time
-            if supervisor_silence > SupvisorsMainLoop.SUPERVISOR_ALERT_TIMEOUT:
+            if supervisor_silence > SUPERVISOR_ALERT_TIMEOUT:
                 print(f'[ERROR] no TICK received from Supervisor for {supervisor_silence} seconds', file=stderr)
 
     def check_events(self, poll_result) -> None:
