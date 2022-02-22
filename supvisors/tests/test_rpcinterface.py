@@ -40,6 +40,10 @@ def rpc(supvisors):
 def test_creation(supvisors, rpc):
     """ Test the values set at construction. """
     assert rpc.supvisors is supvisors
+    assert rpc.logger is supvisors.logger
+    assert SupvisorsFaults.SUPVISORS_CONF_ERROR.value == Faults.SUPVISORS_CONF_ERROR
+    assert SupvisorsFaults.BAD_SUPVISORS_STATE.value == Faults.BAD_SUPVISORS_STATE
+    assert SupvisorsFaults.NOT_MANAGED.value == Faults.NOT_MANAGED
 
 
 def test_api_version(rpc):

@@ -22,11 +22,9 @@ import os
 from supervisor.options import ServerOptions
 from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
-from supervisor.xmlrpc import Faults
 
 from .initializer import Supvisors
 from .rpcinterface import RPCInterface
-from .ttypes import SupvisorsFaults
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
 from .viewhostinstance import HostInstanceView
@@ -34,15 +32,6 @@ from .viewimage import *
 from .viewmaintail import MainTailView
 from .viewprocinstance import ProcInstanceView
 from .viewsupvisors import SupvisorsView
-
-
-def expand_faults():
-    """ Expand supervisord Fault definition.
-
-    :return: None
-    """
-    for x in SupvisorsFaults:
-        setattr(Faults, x.name, x.value)
 
 
 def update_views() -> None:
@@ -88,8 +77,6 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     :param config: the config attributes read from the Supvisors section
     :return: the Supvisors XML-RPC interface
     """
-    # update Supervisor Fault definition
-    expand_faults()
     # update Supervisor http web pages
     update_views()
     # patch the Supervisor ServerOptions.cleanup_fds
