@@ -514,7 +514,7 @@ def test_stop_process(controller, plugin, mocked_check):
 
 
 def test_update_numprocs(controller, plugin, mocked_check):
-    """ Test the conciliate request. """
+    """ Test the update_numprocs request. """
     plugin.do_update_numprocs('')
     _check_output_error(controller, True)
     assert mocked_check.call_args_list == [call()]
@@ -533,6 +533,30 @@ def test_update_numprocs(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().update_numprocs
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_update_numprocs, plugin.do_update_numprocs,
                 'dummy_process 2', [call('dummy_process', 2)])
+
+
+def test_enable(controller, plugin, mocked_check):
+    """ Test the enable request. """
+    plugin.do_enable('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    mocked_rpc = plugin.supvisors().enable
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable, plugin.do_enable,
+                'dummy_process', [call('dummy_process')])
+
+
+def test_disable(controller, plugin, mocked_check):
+    """ Test the disable request. """
+    plugin.do_disable('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    mocked_rpc = plugin.supvisors().disable
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable, plugin.do_disable,
+                'dummy_process', [call('dummy_process')])
 
 
 def test_conciliate(controller, plugin, mocked_check):

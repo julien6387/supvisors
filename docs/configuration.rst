@@ -197,6 +197,19 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  Yes.
 
+``disabilities_file``
+
+    The file path that will be used to persist the program disabilities. This option has been added in support of the
+    |Supervisor| request `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_.
+    The persisted data will be serialized in a ``JSON`` string so a ``.json`` extension is recommended.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+
 ``starting_strategy``
 
     The strategy used to start applications on |Supvisors| instances.
@@ -370,6 +383,7 @@ Configuration File Example
     synchro_timeout = 20
     inactivity_ticks = 3
     core_identifiers = cliche81,cliche82
+    disabilities_file = /tmp/disabilities.json
     starting_strategy = CONFIG
     conciliation_strategy = USER
     stats_enabled = true

@@ -28,13 +28,13 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    address_status     loglevel             sshutdown           stop_application
-    application_info   master               sstate              stop_process
-    application_rules  process_rules        sstatus             strategies
-    conciliate         restart_application  start_application   sversion
-    conflicts          restart_process      start_args          update_numprocs
+    application_info   local_status         sreload            start_process_args
+    application_rules  loglevel             sshutdown          stop_application
+    conciliate         master               sstate             stop_process
+    conflicts          process_rules        sstatus            strategies
+    disable            restart_application  start_application  sversion
+    enable             restart_process      start_args         update_numprocs
     instance_status    restart_sequence     start_process
-    local_status       sreload              start_process_args
 
 .. _extended_status:
 
@@ -271,5 +271,13 @@ Process Control
 ``update_numprocs program_name numprocs``
 
     Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners).
+
+``enable program_name``
+
+    Enable the processes corresponding to the program.
+
+``disable program_name``
+
+    Stop and disable the processes corresponding to the program.
 
 .. include:: common.rst

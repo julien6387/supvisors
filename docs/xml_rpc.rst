@@ -149,6 +149,7 @@ Status
             'stopwaitsecs'     ``int``         The configured duration between process STOPPING and STOPPED.
             'pid'              ``int``         The UNIX process identifier.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
+            'disabled'         ``bool``        A status telling if the process is disabled.
             ================== =============== ===========
 
         .. automethod:: get_all_local_process_info()
@@ -262,6 +263,27 @@ Process Control
 
         .. automethod:: update_numprocs(program_name, numprocs)
 
+            .. hint::
+
+                This XML-RPC is the implementation of the following |Supervisor| request:
+
+                    * `#177 - Dynamic numproc change <https://github.com/Supervisor/supervisor/issues/177>`_
+
+        .. automethod:: enable(program_name)
+
+            .. hint::
+
+                This XML-RPC is a part of the implementation of the following |Supervisor| request:
+
+                    * `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_
+
+        .. automethod:: disable(program_name, wait=True)
+
+            .. hint::
+
+                This XML-RPC is a part of the implementation of the following |Supervisor| request:
+
+                    * `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_
 
 XML-RPC Clients
 ---------------

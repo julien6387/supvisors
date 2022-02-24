@@ -50,6 +50,23 @@ def expand_faults():
         setattr(Faults, x.name, x.value)
 
 
+def startProcess(self, name, wait=True):
+    """ Overridden startProcess to handle a disabled process.
+
+    :param name: the process namespec
+    :param wait: wait for the process to be fully started
+    :return: always ``True`` unless error.
+    """
+    # raise exception is process is disabled
+    self._update('startProcess')
+    group, process = self._getGroupAndProcess(name)
+    if process and process.config.disabled:
+        raise RPCError(SupvisorsFaults.DISABLED.value, name)
+    # call normal behavior
+    # original method has been renamed on-the-fly as _startProcess
+    return self._startProcess(name, wait)
+
+
 class RPCInterface(object):
     """ This class holds the XML-RPC extension provided by **Supvisors**. """
 
@@ -592,6 +609,7 @@ class RPCInterface(object):
 
     def update_numprocs(self, program_name: str, numprocs: int) -> bool:
         """ Update dynamically the numprocs of the program.
+        Implementation of Supervisor issue #177 - Dynamic numproc change.
 
         :param program_name: the program name, as found in the section of the Supervisor configuration files.
             Programs, FastCGI programs and event listeners are supported.
@@ -603,9 +621,10 @@ class RPCInterface(object):
             ``Faults.INCORRECT_PARAMETERS`` if ``numprocs`` is not a strictly positive integer ;
             ``SupvisorsFaults.SUPVISORS_CONF_ERROR`` if the program configuration does not support numprocs.
         """
+        self.logger.trace(f'RPCInterface.update_numprocs: program={program_name} numprocs={numprocs}')
         self._check_operating()
         # test that program_name is known to the ServerOptions
-        if program_name not in self.supvisors.server_options.process_groups:
+        if program_name not in self.supvisors.server_options.program_processes:
             self.logger.error(f'RPCInterface.update_numprocs: program={program_name} unknown')
             raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
         # test that numprocs is strictly positive
@@ -626,10 +645,14 @@ class RPCInterface(object):
             return True
         # if the value is lower than the current one, processes must be stopped before they are deleted
         self.logger.info(f'RPCInterface.update_numprocs: obsolete processes={del_namespecs}')
+        # FIXME: should be done only on local Supervisor instance
+        #  use ProcessStatus.running_on(self.supvisors.supvisors_mapper.local_identifier)
         processes_to_stop = list(filter(ProcessStatus.running,
                                         [self._get_application_process(del_namespec)[1]
                                          for del_namespec in del_namespecs]))
         for process in processes_to_stop:
+            # FIXME: should be done only on local Supervisor instance
+            #  use stop_process(process, [self.supvisors.supvisors_mapper.local_identifier], False)
             self.logger.debug(f'RPCInterface.update_numprocs: stopping process={process.namespec}')
             self.supvisors.stopper.stop_process(process, trigger=False)
         self.supvisors.stopper.next()
@@ -658,6 +681,83 @@ class RPCInterface(object):
 
         onwait.delay = 0.5
         return onwait  # deferred
+
+    def enable(self, program_name) -> str:
+        """ Enable the process, i.e. remove the disabled flag on the corresponding processes if set.
+        This information is persisted on disk so that it is taken into account on Supervisor restart.
+        Implementation of Supervisor issue #591 - New Feature: disable/enable.
+
+        :param program_name: the name of the program
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.BAD_NAME`` if ``program_name`` is unknown to **Supvisors**.
+        """
+        self.logger.trace(f'RPCInterface.enable: {program_name}')
+        self._check_operating()
+        # test that program_name is known to the ServerOptions
+        if program_name not in self.supvisors.server_options.program_processes:
+            self.logger.error(f'RPCInterface.enable: program={program_name} unknown')
+            raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
+        # re-enable the corresponding process to be started
+        self.supvisors.supervisor_data.enable_processes(program_name)
+        return True
+
+    def disable(self, program_name: str, wait: bool = True) -> bool:
+        """ Disable the program, i.e. stop the corresponding processes if necessary and prevent them to start.
+        This information is persisted on disk so that it is taken into account on Supervisor restart.
+        Implementation of Supervisor issue #591 - New Feature: disable/enable.
+
+        :param program_name: the name of the program
+        :param wait: if ``True``, wait for the corresponding processes to be fully stopped.
+        :return: always ``True`` unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.BAD_NAME`` if ``program_name`` is unknown to **Supvisors**.
+        """
+        self.logger.trace(f'RPCInterface.disable: {program_name}')
+        self._check_operating()
+        # test that program_name is known to the ServerOptions
+        if program_name not in self.supvisors.server_options.program_processes:
+            self.logger.error(f'RPCInterface.disable: program={program_name} unknown')
+            raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
+        # whatever they are already stopped or not, it is safe to disable the processes right now
+        self.supvisors.supervisor_data.disable_processes(program_name)
+        # get corresponding subprocesses
+        subprocesses = self.supvisors.supervisor_data.get_subprocesses(program_name)
+        # stop all running processes related to the program
+        self.logger.warn(f'RPCInterface.disable: {program_name} - processes={subprocesses}')
+        # FIXME: should be done only on local Supervisor instance
+        #  use ProcessStatus.running_on(self.supvisors.supvisors_mapper.local_identifier)
+        processes_to_stop = list(filter(ProcessStatus.running,
+                                        [self._get_application_process(namespec)[1]
+                                         for namespec in subprocesses]))
+        for process in processes_to_stop:
+            # FIXME: should be done only on local Supervisor instance
+            #  use stop_process(process, [self.supvisors.supvisors_mapper.local_identifier], False)
+            self.logger.debug(f'RPCInterface.disable: stopping process={process.namespec}')
+            self.supvisors.stopper.stop_process(process, trigger=False)
+        self.supvisors.stopper.next()
+        if wait:
+            # wait until processes are in STOPPED_STATES
+            def onwait():
+                # check stopper
+                if self.supvisors.stopper.in_progress():
+                    return NOT_DONE_YET
+                # report errors if any
+                proc_errors = []
+                for proc in processes_to_stop:
+                    if proc.running():
+                        self.logger.error(f'RPCInterface.disable: process={proc.namespec} still running')
+                        proc_errors.append(proc.namespec)
+                if proc_errors:
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                return True
+
+            # deferred
+            onwait.delay = 0.5
+            return onwait
+        return True
 
     def conciliate(self, strategy: EnumParameterType) -> bool:
         """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state and if the default
@@ -876,7 +976,7 @@ class RPCInterface(object):
         sub_info = extract_process_info(info)
         namespec = make_namespec(info['group'], info['name'])
         # add startsecs, stopwaitsecs and extra_args values
-        option_names = 'startsecs', 'stopwaitsecs', 'extra_args'
+        option_names = 'startsecs', 'stopwaitsecs', 'extra_args', 'disabled'
         options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
         sub_info.update(options)
         return sub_info

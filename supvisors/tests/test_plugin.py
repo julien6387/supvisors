@@ -20,11 +20,31 @@
 import re
 
 from supervisor.web import OKView, TailView
+from supvisors.plugin import *
 from unittest.mock import call
 
-from supvisors.plugin import *
-
 from .base import DummySupervisor
+
+
+def test_patch_591():
+    """ Test the patch_591 function. """
+    # check initial context
+    assert not hasattr(SupervisorNamespaceRPCInterface, '_startProcess')
+    assert not hasattr(Subprocess, '_spawn')
+    ref_startProcess = SupervisorNamespaceRPCInterface.startProcess
+    ref_spawn = Subprocess.spawn
+    # check monkeypatch
+    patch_591()
+    assert SupervisorNamespaceRPCInterface._startProcess is ref_startProcess
+    assert Subprocess._spawn is ref_spawn
+    assert SupervisorNamespaceRPCInterface.startProcess is startProcess
+    assert Subprocess.spawn is spawn
+    # check again monkeypatch to ensure that Supvisors patches do not override renamed Supervisor functions
+    patch_591()
+    assert SupervisorNamespaceRPCInterface._startProcess is ref_startProcess
+    assert Subprocess._spawn is ref_spawn
+    assert SupervisorNamespaceRPCInterface.startProcess is startProcess
+    assert Subprocess.spawn is spawn
 
 
 def test_update_views():
@@ -69,6 +89,7 @@ def test_update_views():
 
 def test_make_rpc(mocker):
     """ Test the make_supvisors_rpcinterface function. """
+    mocked_591 = mocker.patch('supvisors.plugin.patch_591')
     mocked_views = mocker.patch('supvisors.plugin.update_views')
     mocker.patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
     mocked_rpc = mocker.patch('supvisors.plugin.RPCInterface')
@@ -80,6 +101,7 @@ def test_make_rpc(mocker):
     # test the calls to previous functions
     assert supervisord.supvisors == 'a Supvisors instance'
     assert mocked_rpc.call_args_list == [call(supervisord.supvisors)]
+    assert mocked_591.call_args_list == [call()]
     assert mocked_views.call_args_list == [call()]
     # test inclusion of Supvisors into Supervisor
     assert ServerOptions.cleanup_fds is not cleanup

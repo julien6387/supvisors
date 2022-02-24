@@ -98,12 +98,8 @@ class SupervisorListener(object):
         This method start the Supvisors main loop. """
         self.logger.info('SupervisorListener.on_running: local supervisord is RUNNING')
         try:
-            # replace the default handler for web ui
-            self.supvisors.supervisor_data.replace_default_handler()
-            # update Supervisor internal data for extra_args
-            # WARN: this is also triggered by adding groups in Supervisor, however the initial group added events
-            # are sent before the Supvisors RPC interface is created
-            self.supvisors.supervisor_data.prepare_extra_args()
+            # update Supervisor internal data for Supvisors support
+            self.supvisors.supervisor_data.update_supervisor()
             # create zmq sockets
             self.supvisors.zmq = SupervisorZmq(self.supvisors)
             # keep a reference to the internal pusher used to defer the events publication
@@ -215,7 +211,7 @@ class SupervisorListener(object):
         try:
             # update Supervisor internal data for extra_args
             self.logger.debug(f'SupervisorListener.on_group_added: group={event.group}')
-            self.supvisors.supervisor_data.prepare_extra_args(event.group)
+            self.supvisors.supervisor_data.update_internal_data(event.group)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {exc}')

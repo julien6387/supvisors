@@ -34,7 +34,6 @@ from .sparser import Parser
 from .statemachine import FiniteStateMachine
 from .statscompiler import StatisticsCompiler
 from .strategy import RunningFailureHandler
-from .supvisorszmq import SupervisorZmq
 
 
 class Supvisors(object):
@@ -55,11 +54,11 @@ class Supvisors(object):
         self.options = SupvisorsOptions(supervisor, **config)
         # create logger
         self.logger = self.create_logger(supervisor)
-        # re-realize configuration to get
+        # re-realize configuration to get process configuration not stored in Supervisor
         self.server_options = SupvisorsServerOptions(self.logger)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor info source
-        self.supervisor_data = SupervisorData(supervisor, self.logger)
+        self.supervisor_data = SupervisorData(self, supervisor)
         # get declared Supvisors instances and check local identifier
         self.supvisors_mapper = SupvisorsMapper(self)
         try:

@@ -30,14 +30,14 @@ from supvisors.supervisordata import *
 def source(supervisor, supvisors):
     """ Return the instance to test. """
     supervisor.supvisors = supvisors
-    return SupervisorData(supervisor, supvisors.logger)
+    return SupervisorData(supvisors, supervisor)
 
 
 def test_unix_server(mocker, supervisor, supvisors):
     """ Test that using UNIX HTTP server is not compliant with the use of Supvisors. """
     mocker.patch.dict(supervisor.options.server_configs[0], {'section': 'unix_http_server'})
     with pytest.raises(ValueError):
-        SupervisorData(supervisor, supvisors.logger)
+        SupervisorData(supvisors, supervisor)
 
 
 def test_creation(supervisor, source):
@@ -141,12 +141,14 @@ def test_extra_args(source):
                    for appli in source.supervisord.process_groups.values()
                    for process in appli.processes.values())
     # add context to one group of the internal data
-    source.prepare_extra_args('dummy_application')
+    source.supvisors.server_options.processes_program = {'dummy_process_1': 'dummy_process',
+                                                         'dummy_process_2': 'dummy_process'}
+    source.update_internal_data('dummy_application')
     # test internal data: 'dummy_application' processes should have additional attributes
     assert all(hasattr(process.config, 'command_ref') and hasattr(process.config, 'extra_args')
                for process in source.supervisord.process_groups['dummy_application'].processes.values())
     # add context to internal data
-    source.prepare_extra_args()
+    source.update_internal_data()
     # test internal data: all should have additional attributes
     assert all(hasattr(process.config, 'command_ref') and hasattr(process.config, 'extra_args')
                for appli in source.supervisord.process_groups.values()
@@ -183,8 +185,8 @@ def test_update_numprocs(mocker, source):
     mocked_obsolete = mocker.patch.object(source, '_get_obsolete_processes', return_value=['dummy_program_2'])
     mocked_add = mocker.patch.object(source, '_add_processes')
     # set context
-    source.supervisord.supvisors.server_options.process_groups = process_groups = {}
-    process_groups['dummy_program'] = {'dummy_group': ['dummy_program_1', 'dummy_program_2']}
+    source.supervisord.supvisors.server_options.program_processes = program_processes = {}
+    program_processes['dummy_program'] = {'dummy_group': ['dummy_program_1', 'dummy_program_2']}
     # test numprocs increase
     source.update_numprocs('dummy_program', 3)
     assert not mocked_obsolete.called

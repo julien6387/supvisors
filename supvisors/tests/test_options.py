@@ -44,6 +44,7 @@ def filled_opt(mocker, supervisor):
                                   'internal_port': '60001', 'event_port': '60002',
                                   'synchro_timeout': '20', 'inactivity_ticks': '9',
                                   'core_identifiers': 'cliche01,cliche03',
+                                  'disabilities_file': '/tmp/disabilities.json',
                                   'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
                                   'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
                                   'stats_irix_mode': 'true',
@@ -70,6 +71,7 @@ def test_options_creation(opt):
     assert opt.synchro_timeout == 15
     assert opt.inactivity_ticks == 2
     assert opt.core_identifiers == set()
+    assert opt.disabilities_file is None
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
     assert opt.stats_enabled
@@ -92,6 +94,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.synchro_timeout == 20
     assert filled_opt.inactivity_ticks == 9
     assert filled_opt.core_identifiers == {'cliche01', 'cliche03'}
+    assert filled_opt.disabilities_file == '/tmp/disabilities.json'
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
     assert not filled_opt.stats_enabled
@@ -108,7 +111,7 @@ def test_str(opt):
     """ Test the string output. """
     assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0 event_port=0'
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
-                        ' conciliation_strategy=USER starting_strategy=CONFIG'
+                        ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
                         ' stats_enabled=True stats_periods=[10] stats_histo=200'
                         f' stats_irix_mode=False logfile={Automatic} logfile_maxbytes={50 * 1024 * 1024}'
                         ' logfile_backups=10 loglevel=20')
@@ -268,14 +271,18 @@ def test_server_options(mocker, server_opt):
     # test attributes
     assert server_opt.parser is None
     assert server_opt.program_class == {}
-    assert server_opt.process_groups == {}
+    assert server_opt.program_processes == {}
+    assert server_opt.processes_program == {}
     assert server_opt.procnumbers == {}
     # call realize
     server = create_server(mocker, server_opt, ProgramConfiguration)
+    assert server_opt.processes_program == {'dumber_10': 'dumber', 'dumber_11': 'dumber', 'dummy': 'dummy',
+                                            'dummy_0': 'dummies', 'dummy_1': 'dummies', 'dummy_2': 'dummies',
+                                            'dummy_ears_20': 'dummy_ears', 'dummy_ears_21': 'dummy_ears'}
     assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1,
                                   'dummy_ears_20': 0, 'dummy_ears_21': 1}
     expected_printable = {program_name: {group_name: [process.name for process in processes]}
-                          for program_name, program_configs in server.process_groups.items()
+                          for program_name, program_configs in server.program_processes.items()
                           for group_name, processes in program_configs.items()}
     assert expected_printable == {'dumber': {'dumber': ['dumber_10', 'dumber_11']},
                                   'dummies': {'dummy_group': ['dummy_0', 'dummy_1', 'dummy_2']},

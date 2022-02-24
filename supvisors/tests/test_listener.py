@@ -85,13 +85,11 @@ def test_on_running(mocker, listener):
     """ Test the reception of a Supervisor RUNNING event. """
     ref_pusher = listener.pusher
     ref_main_loop = listener.main_loop
-    mocked_replace = mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler')
-    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'prepare_extra_args')
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_supervisor')
     mocked_zmq = mocker.patch('supvisors.listener.SupervisorZmq')
     mocked_loop = mocker.patch('supvisors.listener.SupvisorsMainLoop')
     listener.on_running('')
     # test attributes and calls
-    assert mocked_replace.called
     assert mocked_prepare.called
     assert mocked_zmq.called
     assert listener.pusher is not ref_pusher
@@ -210,7 +208,7 @@ def test_on_group_added_exception(listener):
 
 def test_on_group_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
-    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'prepare_extra_args')
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_internal_data')
     # test process event
     event = ProcessGroupAddedEvent('dummy_application')
     listener.on_group_added(event)

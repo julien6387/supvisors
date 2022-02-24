@@ -39,6 +39,7 @@ Also provided in the scope of this project:
 * [#177 - Dynamic numproc change](https://github.com/Supervisor/supervisor/issues/177)
 * [#456 - Add the ability to set different "restart policies" on process workers](https://github.com/Supervisor/supervisor/issues/456)
 * [#520 - allow a program to wait for another to stop before being stopped?](https://github.com/Supervisor/supervisor/issues/520)
+* [#591 - New Feature: disable/enable](https://github.com/Supervisor/supervisor/issues/591)
 * [#723 - Restart waits for all processes to stop before starting any](https://github.com/Supervisor/supervisor/issues/723)
 * [#763 - unexpected exit not easy to read in status or getProcessInfo](https://github.com/Supervisor/supervisor/issues/763)
 * [#874 - Bring down one process when other process gets killed in a group](https://github.com/Supervisor/supervisor/issues/874)

@@ -29,7 +29,7 @@ from supervisor.options import ClientOptions, make_namespec, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
-from .rpcinterface import API_VERSION, RPCInterface
+from .rpcinterface import API_VERSION, RPCInterface, expand_faults
 from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, enum_names
 from .utils import simple_localtime
 
@@ -757,7 +757,9 @@ class ControllerPlugin(ControllerPluginBase):
                         "Restart all processes using strategy.")
 
     def do_update_numprocs(self, arg):
-        """ Command to dynamically update the numprocs of the program. """
+        """ Command to dynamically update the numprocs of the program.
+        Implementation of Supervisor issue #177 - Dynamic numproc change.
+        """
         if self._upcheck():
             args = arg.split()
             if len(args) < 2:
@@ -784,6 +786,52 @@ class ControllerPlugin(ControllerPluginBase):
     def help_update_numprocs(self):
         """ Print the help of the update_numprocs command. """
         self.ctl.output('update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs.')
+
+    def do_enable(self, arg):
+        """ Command to enable the processes corresponding to the program.
+        Implementation of Supervisor issue #591 - New Feature: disable/enable.
+        """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: enable requires a program name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_enable()
+                return
+            try:
+                result = self.supvisors().enable(args[0])
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{args[0]} enabled: {result}')
+
+    def help_enable(self):
+        """ Print the help of the enable command. """
+        self.ctl.output('enable program_name\t\t\t\tEnable the program.')
+
+    def do_disable(self, arg):
+        """ Command to disable the processes corresponding to the program.
+        Implementation of Supervisor issue #591 - New Feature: disable/enable.
+        """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: disable requires a program name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_disable()
+                return
+            try:
+                result = self.supvisors().disable(args[0])
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{args[0]} disabled: {result}')
+
+    def help_disable(self):
+        """ Print the help of the disable command. """
+        self.ctl.output('disable program_name\t\t\t\tDisable the program.')
 
     def do_conciliate(self, arg):
         """ Command to conciliate conflicts (applicable with default USER strategy). """
@@ -928,6 +976,8 @@ def make_supvisors_controller_plugin(controller):
 
 # Copied and adapted from supervisor.supervisorctl source code
 def main(args=None, options=None):
+    # update Supervisor Fault definition
+    expand_faults()
     # read options
     if options is None:
         options = ClientOptions()

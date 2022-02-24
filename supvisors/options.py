@@ -25,7 +25,7 @@ from collections import OrderedDict
 from socket import gethostname
 from typing import Dict, List, TypeVar
 
-from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byte_size,
+from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byte_size, existing_dirpath,
                                   logging_level, list_of_strings)
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
@@ -46,6 +46,7 @@ class SupvisorsOptions(object):
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish ;
         - inactivity_ticks: number of local ticks to wait before considering a remote Supvisors instance inactive ;
         - core_identifiers: subset of supvisors_list identifiers that will force the end of synchro when all RUNNING ;
+        - disabilities_file: the file used to persist the process disabilities ;
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program ;
         - starting_strategy: strategy used to start processes on Supvisors instances ;
@@ -76,7 +77,6 @@ class SupvisorsOptions(object):
         supvisors_list = config.get('supvisors_list', gethostname())
         supvisors_list = filter(None, list_of_strings(supvisors_list))
         self.supvisors_list = list(OrderedDict.fromkeys(supvisors_list))
-        # keep rules_file for next version but state obsolescence
         self.rules_files = config.get('rules_files', None)
         if self.rules_files:
             self.rules_files = self.to_filepaths(self.rules_files)
@@ -89,6 +89,10 @@ class SupvisorsOptions(object):
         # get the minimum list of identifiers to end the synchronization phase
         core_identifiers = config.get('core_identifiers', None)
         self.core_identifiers = set(filter(None, list_of_strings(core_identifiers)))
+        # get disabilities file
+        self.disabilities_file = config.get('disabilities_file', None)
+        if self.disabilities_file:
+            self.disabilities_file = existing_dirpath(self.disabilities_file)
         # get strategies
         self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))
         self.starting_strategy = self.to_starting_strategy(config.get('starting_strategy', 'CONFIG'))
@@ -108,7 +112,7 @@ class SupvisorsOptions(object):
         return (f'supvisors_list={self.supvisors_list} rules_files={self.rules_files}'
                 f' internal_port={self.internal_port} event_port={self.event_port} auto_fence={self.auto_fence}'
                 f' synchro_timeout={self.synchro_timeout} inactivity_ticks={self.inactivity_ticks}'
-                f' core_identifiers={self.core_identifiers}'
+                f' core_identifiers={self.core_identifiers} disabilities_file={self.disabilities_file}'
                 f' conciliation_strategy={self.conciliation_strategy.name}'
                 f' starting_strategy={self.starting_strategy.name}'
                 f' stats_enabled={self.stats_enabled} stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
@@ -231,7 +235,16 @@ class SupvisorsOptions(object):
 
 
 class SupvisorsServerOptions(ServerOptions):
-    """ Class used to parse the options of the 'supvisors' section in the supervisor configuration file. """
+    """ Class used to parse the options of the 'supvisors' section in the supervisor configuration file.
+
+    Attributes are:
+        - parser: the config parser ;
+        - program_class: the Supervisor class type of the program among {ProcessConfig, FastCGIProcessConfig,
+          EventListenerConfig} ;
+        - program_processes: for each program, the group names using it and the corresponding process configurations ;
+        - process_programs: the program associated to each process (key is a process name, not a namespec).
+        - procnumbers: the index of each process (key is a process name, not a namespec).
+    """
 
     # annotation types
     ProcessConfigList = List[ProcessConfig]
@@ -248,7 +261,8 @@ class SupvisorsServerOptions(ServerOptions):
         # attributes
         self.parser = None
         self.program_class: SupvisorsServerOptions.ProcessClassInfo = {}
-        self.process_groups: SupvisorsServerOptions.ProcessGroupInfo = {}
+        self.program_processes: SupvisorsServerOptions.ProcessGroupInfo = {}
+        self.processes_program: Dict[str, str] = {}
         self.procnumbers: Dict[str, int] = {}
 
     def _processes_from_section(self, parser, section, group_name, klass=None) -> List[ProcessConfig]:
@@ -267,15 +281,16 @@ class SupvisorsServerOptions(ServerOptions):
         self.parser = parser
         # call super behaviour
         process_configs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
-        # store the number of each program
-        for idx, program in enumerate(process_configs):
-            self.procnumbers[program.name] = idx
         # store process configurations and groups
         program_name = section.split(':', 1)[1]
-        process_group = self.process_groups.setdefault(program_name, {})
-        process_group[group_name] = process_configs
+        program_groups = self.program_processes.setdefault(program_name, {})
+        program_groups[group_name] = process_configs
         # store the program class type
         self.program_class[program_name] = klass
+        # store the number and the program of each process
+        for idx, process_config in enumerate(process_configs):
+            self.procnumbers[process_config.name] = idx
+            self.processes_program[process_config.name] = program_name
         # return original result
         return process_configs
 
@@ -313,7 +328,7 @@ class SupvisorsServerOptions(ServerOptions):
         """
         # reset corresponding store procnumbers
         program_name = section.split(':')[1]
-        for process_list in self.process_groups[program_name].values():
+        for process_list in self.program_processes[program_name].values():
             for process in process_list:
                 self.procnumbers.pop(process.name, None)
         # call parser again

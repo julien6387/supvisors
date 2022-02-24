@@ -2,6 +2,10 @@
 
 ## 0.13 (2022-xx-xx)
 
+* Implement [Supervisor Issue #591](https://github.com/Supervisor/supervisor/issues/591).
+  It is possible to disable/enable programs using the new `disable` and `enable` XML-RPCs. 
+  A new option `disabilities_file` has been added to support the persistence.
+
 * Fix issue where **Supvisors** may be blocked in the `DEPLOYMENT` phase due to late process events.
 
 * Add the principle of **Supvisors** modes to the output of the XML-RPCs `get_supvisors_state` and `get_instance_info`.

@@ -863,7 +863,7 @@ def test_restart_process_wait(mocker, rpc):
 
 
 def test_update_numprocs(mocker, rpc):
-    """ Test the stop_process RPC. """
+    """ Test the update_numprocs RPC. """
     mocked_running = mocker.patch('supvisors.process.ProcessStatus.running')
     mocked_check = mocker.patch.object(rpc, '_check_operating')
     mocked_get = mocker.patch.object(rpc, '_get_application_process')
@@ -874,7 +874,7 @@ def test_update_numprocs(mocker, rpc):
     mocked_next = rpc.supvisors.stopper.next
     mocked_progress = rpc.supvisors.stopper.in_progress
     # test RPC call with unknown program
-    rpc.supvisors.server_options.process_groups = {}
+    rpc.supvisors.server_options.program_processes = {}
     with pytest.raises(RPCError) as exc:
         rpc.update_numprocs('dummy_program', 1)
     assert exc.value.args == (Faults.BAD_NAME, 'program dummy_program unknown to Supvisors')
@@ -886,7 +886,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program and incorrect numprocs value (not integer)
-    rpc.supvisors.server_options.process_groups = {'dummy_program': {}}
+    rpc.supvisors.server_options.program_processes = {'dummy_program': {}}
     with pytest.raises(RPCError) as exc:
         rpc.update_numprocs('dummy_program', 'one')
     assert exc.value.args == (Faults.INCORRECT_PARAMETERS,
@@ -899,7 +899,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program and incorrect numprocs value (<= 0)
-    rpc.supvisors.server_options.process_groups = {'dummy_program': {}}
+    rpc.supvisors.server_options.program_processes = {'dummy_program': {}}
     with pytest.raises(RPCError) as exc:
         rpc.update_numprocs('dummy_program', 0)
     assert exc.value.args == (Faults.INCORRECT_PARAMETERS,

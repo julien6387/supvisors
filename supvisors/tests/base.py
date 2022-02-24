@@ -50,7 +50,8 @@ class DummyOptions:
         self.event_port = 65200
         self.synchro_timeout = 10
         self.inactivity_ticks = 2
-        self.force_synchro_if = []
+        self.core_identifiers = []
+        self.disabilities_file = 'disabilities.json'
         self.auto_fence = True
         self.rules_files = 'my_movies.xml'
         self.starting_strategy = StartingStrategies.CONFIG
@@ -74,7 +75,7 @@ class MockedSupvisors:
         self.options = DummyOptions()
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
         # mock the supervisord source
-        self.supervisor_data = SupervisorData(DummySupervisor(), self.logger)
+        self.supervisor_data = SupervisorData(self, DummySupervisor())
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
@@ -162,7 +163,8 @@ class DummyServerOptions:
 class DummyProcessConfig:
     """ Simple supervisor process config with simple attributes. """
 
-    def __init__(self, command, autorestart):
+    def __init__(self, name, command, autorestart):
+        self.name = name
         self.command = command
         self.autorestart = autorestart
 
@@ -170,10 +172,10 @@ class DummyProcessConfig:
 class DummyProcess:
     """ Simple supervisor process with simple attributes. """
 
-    def __init__(self, command, autorestart):
+    def __init__(self, name, command, autorestart):
         self.state = 'STOPPED'
         self.spawnerr = ''
-        self.config = DummyProcessConfig(command, autorestart)
+        self.config = DummyProcessConfig(name, command, autorestart)
 
     def give_up(self):
         self.state = 'FATAL'
@@ -185,9 +187,11 @@ class DummySupervisor:
     def __init__(self):
         self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
+        dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True)
+        dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False)
         self.process_groups = {'dummy_application': Mock(config='dummy_application_config',
-                                                         processes={'dummy_process_1': DummyProcess('ls', True),
-                                                                    'dummy_process_2': DummyProcess('cat', False)})}
+                                                         processes={'dummy_process_1': dummy_process_1,
+                                                                    'dummy_process_2': dummy_process_2})}
 
 
 class DummyHttpContext:
