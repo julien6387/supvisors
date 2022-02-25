@@ -46,6 +46,7 @@ def test_creation(supervisor, source):
     assert source.server_config is source.supervisord.options.server_configs[0]
     assert source._supervisor_rpc_interface is None
     assert source._supvisors_rpc_interface is None
+    assert source.disabilities == {}
 
 
 def test_accessors(source):
@@ -65,6 +66,15 @@ def test_env(source):
     """ Test the environment build. """
     assert source.get_env() == {'SUPERVISOR_SERVER_URL': f'http://{gethostname()}:65000',
                                 'SUPERVISOR_USERNAME': 'user', 'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
+
+
+def test_update_supervisor(mocker, source):
+    """ Test the update_supervisor method. """
+    mocked_replace = mocker.patch.object(source, 'replace_default_handler')
+    mocked_update = mocker.patch.object(source, 'update_internal_data')
+    source.update_supervisor()
+    assert mocked_replace.called
+    assert mocked_update.called
 
 
 def test_close_server(source):
@@ -311,3 +321,112 @@ def test_replace_handler(source):
         source.replace_default_handler()
     # keep reference to handler
     assert isinstance(source.supervisord.options.httpserver.handlers[1], default_handler.default_handler)
+
+
+def test_get_subprocesses(source):
+    """ Test the get_subprocesses method. """
+    # set context
+    dummy_program_1, dummy_program_2 = Mock(), Mock()
+    dummy_program_1.name = 'dummy_program_1'
+    dummy_program_2.name = 'dummy_program_2'
+    source.supervisord.supvisors.server_options.program_processes = program_processes = {}
+    program_processes['dummy_program'] = {'dummy_group': [dummy_program_1, dummy_program_2]}
+    assert source.get_subprocesses('dummy_program') == ['dummy_group:dummy_program_1', 'dummy_group:dummy_program_2']
+
+
+def test_enable_disable(mocker, source):
+    """ Test the disabling / enabling of a program. """
+    mocked_write = mocker.patch.object(source, 'write_disabilities')
+    # test initial status
+    assert not any(hasattr(process.config, 'disabled')
+                   for appli in source.supervisord.process_groups.values()
+                   for process in appli.processes.values())
+    # add context to one group of the internal data
+    source.supvisors.server_options.processes_program = {'dummy_process_1': 'dummy_process',
+                                                         'dummy_process_2': 'dummy_process'}
+    source.update_internal_data('dummy_application')
+    # test internal data: 'dummy_application' processes should have additional attributes
+    assert all(not process.config.disabled
+               for process in source.supervisord.process_groups['dummy_application'].processes.values())
+    # add context to internal data
+    source.update_internal_data()
+    # test internal data: all should have additional attributes
+    assert all(not process.config.disabled
+               for appli in source.supervisord.process_groups.values()
+               for process in appli.processes.values())
+    # test unknown program
+    source.enable_program('unknown_program')
+    assert mocked_write.called
+    mocked_write.reset_mock()
+    assert source.disabilities == {'dummy_process': False, 'unknown_program': False}
+    assert all(not process.config.disabled
+               for appli in source.supervisord.process_groups.values()
+               for process in appli.processes.values())
+    source.disable_program('unknown_program')
+    assert mocked_write.called
+    mocked_write.reset_mock()
+    assert source.disabilities == {'dummy_process': False, 'unknown_program': True}
+    assert all(not process.config.disabled
+               for appli in source.supervisord.process_groups.values()
+               for process in appli.processes.values())
+    # test unknown program
+    source.disable_program('dummy_process')
+    assert mocked_write.called
+    mocked_write.reset_mock()
+    assert source.disabilities == {'dummy_process': True, 'unknown_program': True}
+    assert all(process.config.disabled
+               for process in source.supervisord.process_groups['dummy_application'].processes.values())
+    source.enable_program('dummy_process')
+    assert mocked_write.called
+    mocked_write.reset_mock()
+    assert source.disabilities == {'dummy_process': False, 'unknown_program': True}
+    assert all(not process.config.disabled and process.laststart == 0 and process.state == 'STARTING'
+               for process in source.supervisord.process_groups['dummy_application'].processes.values())
+
+
+def test_disabilities_serialization(mocker, source):
+    """ Test the serialization of the disabilities. """
+    # patch open
+    mocked_open = mocker.patch('builtins.open', mocker.mock_open())
+    # read_disabilities has already been called once in the constructor based on a non-existing file
+    assert source.disabilities == {}
+    # fill context and write
+    source.disabilities['program_1'] = True
+    source.disabilities['program_2'] = False
+    source.write_disabilities()
+    mocked_open.assert_called_once_with(source.supvisors.options.disabilities_file, 'w+')
+    handle = mocked_open()
+    json_expected = '{"program_1": true, "program_2": false}'
+    assert handle.write.call_args_list == [call(json_expected)]
+    # empty context and read
+    mocked_open = mocker.patch('builtins.open', mocker.mock_open(read_data=json_expected))
+    mocker.patch('os.path.isfile', return_value=True)
+    source.disabilities = {}
+    source.read_disabilities()
+    assert source.disabilities == {'program_1': True, 'program_2': False}
+    mocked_open.assert_called_once_with(source.supvisors.options.disabilities_file)
+    handle = mocked_open()
+    assert handle.read.call_args_list == [call()]
+    # test with disabilities files not set
+    source.supvisors.options.disabilities_file = None
+    source.disabilities = {}
+    source.read_disabilities()
+    assert source.disabilities == {}
+
+
+def test_spawn(mocker):
+    """ Test the spawn method.
+    This method is designed to be added to Supervisor by monkeypatch. """
+    Subprocess._spawn, Subprocess.spawn = Subprocess.spawn, spawn
+    # create a disabled process
+    process = Subprocess(Mock(disabled=True))
+    # patch the legacy Subprocess
+    mocked_spawn = mocker.patch.object(process, '_spawn', return_value='spawned')
+    # check that spawn does not work
+    assert process.spawn() is None
+    assert not mocked_spawn.called
+    # enable the process
+    process.config.disabled = False
+    # check that spawn does work
+    assert process.spawn() == 'spawned'
+    assert mocked_spawn.called

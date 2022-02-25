@@ -644,7 +644,7 @@ class RPCInterface(object):
         if not del_namespecs:
             return True
         # if the value is lower than the current one, processes must be stopped before they are deleted
-        self.logger.info(f'RPCInterface.update_numprocs: obsolete processes={del_namespecs}')
+        self.logger.debug(f'RPCInterface.update_numprocs: obsolete processes={del_namespecs}')
         # FIXME: should be done only on local Supervisor instance
         #  use ProcessStatus.running_on(self.supvisors.supvisors_mapper.local_identifier)
         processes_to_stop = list(filter(ProcessStatus.running,
@@ -700,7 +700,7 @@ class RPCInterface(object):
             self.logger.error(f'RPCInterface.enable: program={program_name} unknown')
             raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
         # re-enable the corresponding process to be started
-        self.supvisors.supervisor_data.enable_processes(program_name)
+        self.supvisors.supervisor_data.enable_program(program_name)
         return True
 
     def disable(self, program_name: str, wait: bool = True) -> bool:
@@ -722,11 +722,11 @@ class RPCInterface(object):
             self.logger.error(f'RPCInterface.disable: program={program_name} unknown')
             raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
         # whatever they are already stopped or not, it is safe to disable the processes right now
-        self.supvisors.supervisor_data.disable_processes(program_name)
+        self.supvisors.supervisor_data.disable_program(program_name)
         # get corresponding subprocesses
         subprocesses = self.supvisors.supervisor_data.get_subprocesses(program_name)
         # stop all running processes related to the program
-        self.logger.warn(f'RPCInterface.disable: {program_name} - processes={subprocesses}')
+        self.logger.debug(f'RPCInterface.disable: {program_name} - processes={subprocesses}')
         # FIXME: should be done only on local Supervisor instance
         #  use ProcessStatus.running_on(self.supvisors.supvisors_mapper.local_identifier)
         processes_to_stop = list(filter(ProcessStatus.running,
@@ -738,7 +738,7 @@ class RPCInterface(object):
             self.logger.debug(f'RPCInterface.disable: stopping process={process.namespec}')
             self.supvisors.stopper.stop_process(process, trigger=False)
         self.supvisors.stopper.next()
-        if wait:
+        if wait and self.supvisors.stopper.in_progress():
             # wait until processes are in STOPPED_STATES
             def onwait():
                 # check stopper

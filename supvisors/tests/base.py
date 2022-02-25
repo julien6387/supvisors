@@ -29,10 +29,11 @@ from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES, SupervisorStates
 
-from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
+from supvisors.rpcinterface import RPCInterface
 from supvisors.supervisordata import SupervisorData
+from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.supvisorszmq import SupervisorZmq
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
@@ -114,7 +115,6 @@ class DummyRpcInterface:
     """ Simple RPC mock. """
 
     def __init__(self):
-        from supvisors.rpcinterface import RPCInterface
         # create rpc interfaces to have a skeleton
         self.supervisor = SupervisorNamespaceRPCInterface(DummySupervisor())
         self.supvisors = RPCInterface(MockedSupvisors())
@@ -175,10 +175,14 @@ class DummyProcess:
     def __init__(self, name, command, autorestart):
         self.state = 'STOPPED'
         self.spawnerr = ''
+        self.laststart = 1234
         self.config = DummyProcessConfig(name, command, autorestart)
 
     def give_up(self):
         self.state = 'FATAL'
+
+    def transition(self):
+        self.state = 'STARTING'
 
 
 class DummySupervisor:

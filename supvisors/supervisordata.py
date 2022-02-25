@@ -187,8 +187,8 @@ class SupervisorData(object):
             users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            self.logger.warn('SupervisorData.replace_default_handler: Server running without any HTTP'
-                             ' authentication checking')
+            self.logger.debug('SupervisorData.replace_default_handler: Server running without any HTTP'
+                              ' authentication checking')
         # replace Supervisor default handler at the end of the list
         self.httpserver.handlers.pop()
         self.httpserver.install_handler(defaulthandler, True)
@@ -406,7 +406,7 @@ class SupervisorData(object):
                 for group_name, process_config_list in program_groups.items()
                 for process_config in process_config_list]
 
-    def enable_processes(self, program_name: str) -> None:
+    def enable_program(self, program_name: str) -> None:
         """ Re-enable the processes to be started and trigger their autostart if configured to.
 
         :param program_name: the program to enable
@@ -427,7 +427,7 @@ class SupervisorData(object):
         # persist disabilities file
         self.write_disabilities()
 
-    def disable_processes(self, program_name: str) -> None:
+    def disable_program(self, program_name: str) -> None:
         """ Disable the processes so that they cannot be started.
         It is assumed here that they have been stopped properly before.
 

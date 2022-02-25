@@ -85,7 +85,7 @@ is unknown. Other releases are likely working as well.
 Supvisors can be installed with `pip install`:
 
 ```bash
-   # minimal install (including Supervisor and PyZMQ)
+   # minimal install (including only Supervisor and PyZMQ)
    [bash] > pip install supvisors
 
    # extra install for all optional dependencies

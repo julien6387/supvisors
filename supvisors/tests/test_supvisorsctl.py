@@ -312,10 +312,10 @@ def test_local_status(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().get_all_local_process_info
     mocked_rpc.return_value = [{'group': 'appli_1', 'name': 'proc_1',
                                 'state': 20, 'start': 1234, 'now': 4321, 'pid': 14725,
-                                'extra_args': '-x dummy'},
+                                'extra_args': '-x dummy', 'disabled': False},
                                {'group': 'appli_2', 'name': 'proc_3',
                                 'state': 0, 'start': 0, 'now': 0, 'pid': 0,
-                                'extra_args': ''}]
+                                'extra_args': '', 'disabled': True}]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_local_status, plugin.do_local_status,
                 '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_local_status, plugin.do_local_status,

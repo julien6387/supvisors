@@ -154,9 +154,9 @@ class SupervisorListener(object):
                        'now': int(time.time()),
                        'pid': event.process.pid,
                        'expected': event.expected,
-                       'spawnerr': event.process.spawnerr}
-            if hasattr(process_config, 'extra_args'):
-                payload['extra_args'] = process_config.extra_args
+                       'spawnerr': event.process.spawnerr,
+                       'extra_args': process_config.extra_args,
+                       'disabled': process_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
             self.pusher.send_process_state_event(payload)
         except Exception as exc:

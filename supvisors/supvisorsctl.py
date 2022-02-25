@@ -341,17 +341,17 @@ class ControllerPlugin(ControllerPluginBase):
             if match_list:
                 max_appli = ControllerPlugin.max_template(match_list, 'group', 'Application')
                 max_proc = ControllerPlugin.max_template(match_list, 'name', 'Process')
-                template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(start)-12s'
+                template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(disabled)-10s%(state)-12s%(start)-12s'
                             '%(now)-12s%(pid)-8s%(args)s')
                 # print title
-                payload = {'appli': 'Application', 'proc': 'Process', 'state': 'State', 'start': 'Start',
-                           'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
+                payload = {'appli': 'Application', 'proc': 'Process', 'disabled': 'Disabled', 'state': 'State',
+                           'start': 'Start', 'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
                 self.ctl.output(template % payload)
                 # print filtered payloads
                 for info in match_list:
                     start_time = simple_localtime(info['start']) if info['start'] else 0
                     now_time = simple_localtime(info['now']) if info['now'] else 0
-                    payload = {'appli': info['group'], 'proc': info['name'],
+                    payload = {'appli': info['group'], 'proc': info['name'], 'disabled': info['disabled'],
                                'state': getProcessStateDescription(info['state']),
                                'start': start_time, 'now': now_time, 'pid': info['pid'],
                                'args': info['extra_args']}

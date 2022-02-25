@@ -132,8 +132,7 @@ def test_on_stopping(mocker, listener):
 
 
 def test_on_process_state_exception(listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing
-    a ProcessStateEvent. """
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessStateEvent. """
     listener.on_process_state(None)
 
 
@@ -146,11 +145,12 @@ def test_on_process_state(mocker, listener):
     process = Mock(pid=1234, spawnerr='resource not available',
                    **{'config.name': 'dummy_process',
                       'config.extra_args': '-s test',
+                      'config.disabled': True,
                       'group.config.name': 'dummy_group'})
     event = ProcessStateFatalEvent(process, '')
     listener.on_process_state(event)
     expected = [call({'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
-                      'extra_args': '-s test', 'now': 77, 'pid': 1234,
+                      'extra_args': '-s test', 'now': 77, 'pid': 1234, 'disabled': True,
                       'expected': True, 'spawnerr': 'resource not available'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected
 
