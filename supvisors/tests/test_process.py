@@ -755,6 +755,33 @@ def test_update_info(supvisors):
     assert info['expected']
 
 
+def test_update_disability(supvisors):
+    """ Test the update of the disabled entry for a process info belonging to a ProcessStatus. """
+    # add 2 process infos into a process status
+    info = any_process_info_by_state(ProcessStates.STOPPING)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
+    # check initial state
+    assert not process.info_map['10.0.0.1']['disabled']
+    assert not process.info_map['10.0.0.2']['disabled']
+    # disable on identifier 2
+    process.update_disability('10.0.0.2', True)
+    # check that only identifier 2 is updated
+    assert not process.info_map['10.0.0.1']['disabled']
+    assert process.info_map['10.0.0.2']['disabled']
+    # disable on identifier 1
+    process.update_disability('10.0.0.1', True)
+    # check that identifier 1 is updated too
+    assert process.info_map['10.0.0.1']['disabled']
+    assert process.info_map['10.0.0.2']['disabled']
+    # reset all
+    process.update_disability('10.0.0.1', False)
+    process.update_disability('10.0.0.2', False)
+    assert not process.info_map['10.0.0.1']['disabled']
+    assert not process.info_map['10.0.0.2']['disabled']
+
+
 def test_update_times(supvisors):
     """ Test the update of the time entries for a process info belonging to a ProcessStatus. """
     # add 2 process infos into a process status
@@ -766,20 +793,20 @@ def test_update_times(supvisors):
     now_1 = process.info_map['10.0.0.1']['now']
     uptime_1 = process.info_map['10.0.0.1']['uptime']
     now_2 = process.info_map['10.0.0.2']['now']
-    # update times on address 2
+    # update times on identifier 2
     process.update_times('10.0.0.2', now_2 + 10)
-    # check that nothing changed for address 1
+    # check that nothing changed for identifier 1
     assert process.info_map['10.0.0.1']['now'] == now_1
     assert process.info_map['10.0.0.1']['uptime'] == uptime_1
     # check that times changed for address 2 (uptime excepted)
     assert process.info_map['10.0.0.2']['now'] == now_2 + 10
     assert process.info_map['10.0.0.2']['uptime'] == 0
-    # update times on address 1
+    # update times on identifier 1
     process.update_times('10.0.0.1', now_1 + 20)
-    # check that times changed for address 1 (including uptime)
+    # check that times changed for identifier 1 (including uptime)
     assert process.info_map['10.0.0.1']['now'] == now_1 + 20
     assert process.info_map['10.0.0.1']['uptime'] == uptime_1 + 20
-    # check that nothing changed for address 2
+    # check that nothing changed for identifier 2
     assert process.info_map['10.0.0.2']['now'] == now_2 + 10
     assert process.info_map['10.0.0.2']['uptime'] == 0
 

@@ -526,6 +526,29 @@ class Context(object):
                     # WARN: process_failures are not triggered as the processes have been properly stopped
                     # as a consequence of the user action
 
+    def on_process_disability_event(self, identifier: str, event: Payload) -> None:
+        """ Method called upon reception of a process enabled event from the remote Supvisors instance.
+        Following an XML-RPC enable/disable on a program, the corresponding process are allowed to be started or not.
+
+        :param identifier: the identifier of the Supvisors instance from which the event has been received
+        :param event: the event payload
+        :return: None
+        """
+        if self.supvisors.supvisors_mapper.valid(identifier):
+            instance_status = self.instances[identifier]
+            # accept events only in RUNNING state
+            if instance_status.state == SupvisorsInstanceStates.RUNNING:
+                self.logger.debug(f'Context.on_process_enabled_event: got event {event} from Supvisors={identifier}')
+                # get internal data
+                app_proc = self.check_process(instance_status, event)
+                if app_proc:
+                    process = app_proc[1]
+                    # update the process info entry related to the node
+                    process.update_disability(identifier, event['disabled'])
+                    # at the moment, process disability has no impact on the application and process status
+                    # so only the process event publication makes sense
+                    self.supvisors.zmq.publisher.send_process_event(identifier, event)
+
     def on_process_state_event(self, identifier: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
         Supvisors checks that the handling of the event is valid in case of auto fencing.

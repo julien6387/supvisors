@@ -80,7 +80,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'single': single, 'identifier': self.view_ctx.local_identifier,
-                       'statename': info['statename'], 'statecode': info['state'],
+                       'statename': info['statename'], 'statecode': info['state'], 'disabled': info['disabled'],
                        'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': info['has_crashed'],
                        'description': info['description'], 'expected_load': expected_load,
                        'nb_cores': nb_cores, 'proc_stats': proc_stats}
@@ -99,7 +99,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         """
         nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
         payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                   'single': True, 'identifier': self.view_ctx.local_identifier,
+                   'single': True, 'identifier': self.view_ctx.local_identifier, 'disabled': False,
                    'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
                    'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
@@ -149,7 +149,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         # create application payload
         application = self.sup_ctx.applications[application_name]
         payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
-                   'identifier': self.view_ctx.local_identifier,
+                   'identifier': self.view_ctx.local_identifier, 'disabled': False,
                    'statename': application.state.name, 'statecode': application.state.value,
                    'gravity': application.state.name, 'has_crashed': False,
                    'description': application.get_operational_status(),

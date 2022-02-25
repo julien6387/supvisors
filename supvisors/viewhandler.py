@@ -285,20 +285,20 @@ class ViewHandler(MeldView):
     def write_process_start_button(self, tr_elt, info):
         """ Write the configuration of the start button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name,
-                                   'start', info['namespec'], info['statecode'], STOPPED_STATES)
+        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name, 'start', info['namespec'],
+                                   info['statecode'], [] if info['disabled'] else STOPPED_STATES)
 
     def write_process_stop_button(self, tr_elt, info):
         """ Write the configuration of the stop button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name,
-                                   'stop', info['namespec'], info['statecode'], RUNNING_STATES)
+        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name, 'stop', info['namespec'],
+                                   info['statecode'], RUNNING_STATES)
 
     def write_process_restart_button(self, tr_elt, info):
         """ Write the configuration of the restart button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name,
-                                   'restart', info['namespec'], info['statecode'], RUNNING_STATES)
+        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restart', info['namespec'],
+                                   info['statecode'], [] if info['disabled'] else RUNNING_STATES)
 
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
@@ -351,6 +351,8 @@ class ViewHandler(MeldView):
         update_attrib(elt, 'class', info['gravity'])
         if info['has_crashed']:
             update_attrib(elt, 'class', 'crashed')
+        if info['disabled']:
+            update_attrib(elt, 'class', 'disabled')
         elt.content(info['statename'])
         # print description
         elt = tr_elt.findmeld('desc_td_mid')

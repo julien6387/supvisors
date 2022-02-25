@@ -136,6 +136,14 @@ class ProcessRemovedEvent(ProcessEvent):
     pass
 
 
+class ProcessEnabledEvent(ProcessEvent):
+    pass
+
+
+class ProcessDisabledEvent(ProcessEvent):
+    pass
+
+
 # Annotation types
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')

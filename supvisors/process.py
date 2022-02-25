@@ -509,6 +509,16 @@ class ProcessStatus(object):
         # update / check running Supervisors
         self.update_status(identifier, new_state)
 
+    def update_disability(self, identifier: str, disabled: bool) -> None:
+        """ Update the disabled status of the process.
+
+        :param identifier: the identifier of the Supvisors instance from which the disability has been received
+        :param disabled: set to True if the process is disabled
+        :return: None
+        """
+        if identifier in self.info_map:
+            self.info_map[identifier]['disabled'] = disabled
+
     def update_times(self, identifier: str, remote_time: float) -> None:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
 

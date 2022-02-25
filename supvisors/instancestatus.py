@@ -182,7 +182,7 @@ class SupvisorsInstanceStatus(object):
         """
         self.state_modes.update(event)
 
-    def apply_state_modes(self, event: Payload) -> Tuple[bool, Payload]:
+    def apply_state_modes(self, event: Payload) -> Tuple[bool, StateModes]:
         """ Apply the change on a copy of states_modes.
 
         :param event: the state or the mode updated

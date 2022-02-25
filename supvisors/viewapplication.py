@@ -149,7 +149,7 @@ class ApplicationView(ViewHandler):
             unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
             data.append({'application_name': process.application_name, 'process_name': process.process_name,
-                         'namespec': namespec, 'identifier': node_name,
+                         'namespec': namespec, 'identifier': node_name, 'disabled': False,
                          'statename': process.state_string(), 'statecode': process.state,
                          'gravity': 'FATAL' if unexpected_exit else process.state_string(),
                          'has_crashed': process.has_crashed(),

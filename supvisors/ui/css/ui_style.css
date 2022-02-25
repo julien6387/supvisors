@@ -543,11 +543,6 @@ table .desc {
 /*
  * State gradients
  */
-table .UNKNOWN {
-    background-image: linear-gradient(165deg, white, grey, grey, white);
-    color: black;
-}
-
 table .CHECKING {
     background-image: linear-gradient(165deg, white, grey, green, white);
     color: black;
@@ -580,6 +575,11 @@ table .RUNNING.crashed {
 
 table .FATAL, table .ISOLATED {
     background-image: linear-gradient(165deg, white, red, red, white);
+    color: black;
+}
+
+table .UNKNOWN, table .disabled {
+    background-image: linear-gradient(165deg, white, grey, grey, white);
     color: black;
 }
 

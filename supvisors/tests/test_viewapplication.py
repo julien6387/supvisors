@@ -105,7 +105,7 @@ def test_write_header(mocker, view):
     assert state_mid.content.call_args_list == [call('STOPPED')]
     assert led_mid.attrib['class'] == 'status_empty'
     assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
+    assert mocked_period.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
     mocked_root.reset_all()
     mocker.resetall()
@@ -117,7 +117,7 @@ def test_write_header(mocker, view):
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_green'
     assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
+    assert mocked_period.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
     mocked_root.reset_all()
     mocker.resetall()
@@ -128,7 +128,7 @@ def test_write_header(mocker, view):
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_yellow'
     assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
+    assert mocked_period.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
     mocked_root.reset_all()
     mocker.resetall()
@@ -139,7 +139,7 @@ def test_write_header(mocker, view):
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_red'
     assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
+    assert mocked_period.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
 
 
@@ -276,11 +276,11 @@ def test_get_process_data(mocker, view):
     view.view_ctx = Mock(**{'get_process_stats.return_value': (4, mocked_stats)})
     mocker.patch.object(view, 'get_process_last_desc', return_value=('10.0.0.1', 'something'))
     # test call
-    data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1',
+    data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1', 'disabled': False,
              'identifier': '10.0.0.1', 'statename': 'stopped', 'statecode': 'stopped', 'gravity': 'stopped',
              'has_crashed': False, 'running_identifiers': [], 'description': 'something',
              'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats}
-    data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
+    data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2', 'disabled': False,
              'identifier': '10.0.0.1', 'statename': 'running', 'statecode': 'running', 'gravity': 'running',
              'has_crashed': True, 'running_identifiers': ['10.0.0.1', '10.0.0.3'], 'description': 'something',
              'expected_load': 1, 'nb_cores': 4, 'proc_stats': mocked_stats}

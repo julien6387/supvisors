@@ -265,7 +265,7 @@ ProcessInfoDatabase = [
 def extract_and_complete(info):
     """ Provide payload as processed by Supvisors. """
     extracted_info = extract_process_info(info)
-    extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': ''})
+    extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': '', 'disabled': False})
     return extracted_info
 
 

@@ -546,6 +546,16 @@ class FiniteStateMachine:
         """
         self.context.on_process_removed_event(identifier, event)
 
+    def on_process_disability_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to fill the internal structures when a process has been enabled or disabled
+        on a Supvisors instance.
+
+        :param identifier: the identifier of the Supvisors instance that sent the event
+        :param event: the process identification
+        :return: None
+        """
+        self.context.on_process_disability_event(identifier, event)
+
     def on_state_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to get the FSM state of the master Supvisors instance.
 

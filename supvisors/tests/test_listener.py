@@ -183,8 +183,7 @@ def test_on_process_added(listener):
 
 
 def test_on_process_removed_exception(listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing
-    a ProcessRemovedEvent. """
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessRemovedEvent. """
     listener.on_process_removed(None)
 
 
@@ -198,6 +197,44 @@ def test_on_process_removed(listener):
     listener.on_process_removed(event)
     expected = [call({'name': 'dummy_process', 'group': 'dummy_group'})]
     assert listener.pusher.send_process_removed_event.call_args_list == expected
+
+
+def test_on_process_enabled_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessEnabledEvent. """
+    listener.pusher = Mock(**{'send_process_disability_event.return_value': None})
+    listener.on_process_enabled(None)
+    assert not listener.pusher.send_process_disability_event.called
+
+
+def test_on_process_enabled(listener):
+    """ Test the reception of a Supervisor PROCESS_ENABLED event. """
+    # create a publisher patch
+    listener.pusher = Mock(**{'send_process_enabled_event.return_value': None})
+    # test process event
+    process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
+    event = ProcessEnabledEvent(process)
+    listener.on_process_enabled(event)
+    expected = [call({'name': 'dummy_process', 'group': 'dummy_group', 'disabled': False})]
+    assert listener.pusher.send_process_disability_event.call_args_list == expected
+
+
+def test_on_process_disabled_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessDisabledEvent. """
+    listener.pusher = Mock(**{'send_process_disability_event.return_value': None})
+    listener.on_process_disabled(None)
+    assert not listener.pusher.send_process_disability_event.called
+
+
+def test_on_process_disabled(listener):
+    """ Test the reception of a Supervisor PROCESS_DISABLED event. """
+    # create a publisher patch
+    listener.pusher = Mock(**{'send_process_disabled_event.return_value': None})
+    # test process event
+    process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
+    event = ProcessDisabledEvent(process)
+    listener.on_process_disabled(event)
+    expected = [call({'name': 'dummy_process', 'group': 'dummy_group', 'disabled': True})]
+    assert listener.pusher.send_process_disability_event.call_args_list == expected
 
 
 def test_on_group_added_exception(listener):
@@ -249,73 +286,106 @@ def test_on_tick(mocker, listener):
     assert not listener.pusher.send_statistics.called
 
 
-def test_unstack_event(listener):
-    """ Test the processing of a Supvisors event. """
-    # test tick event
+def test_unstack_event_tick(listener):
+    """ Test the processing of a Supvisors TICK event. """
     listener.unstack_event('[0, ["10.0.0.1", "data"]]')
-    assert listener.supvisors.fsm.on_tick_event.call_args_list == [call('10.0.0.1', 'data')]
+    expected = [call('10.0.0.1', 'data')]
+    assert listener.supvisors.fsm.on_tick_event.call_args_list == expected
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_tick_event.reset_mock()
-    # test process state event
+
+
+def test_unstack_event_process_state(listener):
+    """ Test the processing of a Supvisors process state event. """
     listener.unstack_event('[1, ["10.0.0.2", {"name": "dummy"}]]')
+    expected = [call('10.0.0.2', {'name': 'dummy'})]
     assert not listener.supvisors.fsm.on_tick_event.called
-    assert listener.supvisors.fsm.on_process_state_event.call_args_list == [call('10.0.0.2', {'name': 'dummy'})]
-    assert not listener.supvisors.fsm.on_state_event.called
+    assert listener.supvisors.fsm.on_process_state_event.call_args_list == expected
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
+    assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_process_state_event.reset_mock()
-    # test process added event
+
+
+def test_unstack_event_process_added(listener):
+    """ Test the processing of a Supvisors process added event. """
     listener.unstack_event('[2, ["10.0.0.1", {"group": "dummy_group", "name": "dummy_process"}]]')
+    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
-    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert listener.supvisors.fsm.on_process_added_event.call_args_list == expected
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_process_added_event.reset_mock()
-    # test process removed event
+
+
+def test_unstack_event_process_removed(listener):
+    """ Test the processing of a Supvisors process removed event. """
     listener.unstack_event('[3, ["10.0.0.1", {"group": "dummy_group", "name": "dummy_process"}]]')
+    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
-    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert listener.supvisors.fsm.on_process_removed_event.call_args_list == expected
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_process_removed_event.reset_mock()
-    # test statistics event
-    listener.unstack_event('[4, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
+
+
+def test_unstack_event_process_disability(listener):
+    """ Test the processing of a Supvisors process enabled event. """
+    listener.unstack_event('[4, ["10.0.0.1", {"group": "dummy_group", "name": "dummy_process"}]]')
+    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert listener.supvisors.fsm.on_process_disability_event.call_args_list == expected
+    assert not listener.supvisors.fsm.on_state_event.called
+    assert not listener.supvisors.statistician.push_statistics.called
+
+
+def test_unstack_event_statistics_enabled(listener):
+    """ Test the processing of a Supvisors statistics event when enabled. """
+    listener.unstack_event('[5, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
+    assert not listener.supvisors.fsm.on_tick_event.called
+    assert not listener.supvisors.fsm.on_process_state_event.called
+    assert not listener.supvisors.fsm.on_process_added_event.called
+    assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     expected = [call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}, {}])]
     assert listener.supvisors.statistician.push_statistics.call_args_list == expected
-    listener.supvisors.statistician.push_statistics.reset_mock()
-    # test statistics event when statistics disabled
+
+
+def test_unstack_event_statistics_disabled(listener):
+    """ Test the processing of a Supvisors statistics event when disabled. """
     listener.supvisors.options.stats_enabled = False
-    listener.unstack_event('[4, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
+    listener.unstack_event('[5, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.options.stats_enabled = True
-    # test state event
-    listener.unstack_event('[5, ["10.0.0.1", {"statecode": 10, "statename": "RUNNING"}]]')
+
+
+def test_unstack_event_state(listener):
+    """ Test the processing of a Supvisors state event. """
+    listener.unstack_event('[6, ["10.0.0.1", {"statecode": 10, "statename": "RUNNING"}]]')
+    expected = [call('10.0.0.1', {'statecode': 10, 'statename': 'RUNNING'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
-    expected = [call('10.0.0.1', {'statecode': 10, 'statename': 'RUNNING'})]
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert listener.supvisors.fsm.on_state_event.call_args_list == expected
     assert not listener.supvisors.statistician.push_statistics.called
 

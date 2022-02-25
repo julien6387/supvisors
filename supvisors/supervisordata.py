@@ -27,11 +27,10 @@ from supervisor.http import supervisor_auth_handler
 from supervisor.loggers import Logger
 from supervisor.medusa import default_handler, filesys
 from supervisor.options import make_namespec, split_namespec, ProcessConfig
-from supervisor.process import Subprocess
 from supervisor.states import ProcessStates
 
 from .options import SupvisorsServerOptions
-from .ttypes import ProcessAddedEvent, ProcessRemovedEvent, NameList
+from .ttypes import ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent, NameList
 
 
 def spawn(self):
@@ -74,7 +73,7 @@ class SupervisorData(object):
 
         :return: the Supervisor RPC handler
         """
-        # not very proud of the following lines but could not access it any other way
+        # not very proud of the following lines but did not find any other way to access
         if not self._supervisor_rpc_interface:
             handler = self.httpserver.handlers[0]
             # if authentication used, handler is wrapped
@@ -395,7 +394,7 @@ class SupervisorData(object):
             with open(disabilities_file, 'w+') as out_file:
                 out_file.write(json.dumps(self.disabilities))
 
-    def get_subprocesses(self, program_name) -> Dict[str, Subprocess]:
+    def get_subprocesses(self, program_name) -> NameList:
         """ Find all processes related to the program definition.
 
         :param program_name: the name of the program, as declared in the configuration files
@@ -421,6 +420,8 @@ class SupervisorData(object):
             for process in group.processes.values():
                 if processes_program[process.config.name] == program_name:
                     process.config.disabled = False
+                    # fire event to Supervisor listeners
+                    notify(ProcessEnabledEvent(process))
                     # if autostart configured, process transition will do the job if laststart is reset
                     process.laststart = 0
                     process.transition()
@@ -443,5 +444,7 @@ class SupervisorData(object):
             for process in group.processes.values():
                 if processes_program[process.config.name] == program_name:
                     process.config.disabled = True
+                    # fire event to Supervisor listeners
+                    notify(ProcessDisabledEvent(process))
         # persist disabilities file
         self.write_disabilities()

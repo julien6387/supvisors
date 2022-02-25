@@ -620,8 +620,14 @@ def test_write_process_start_button(mocker, handler):
     """ Test the write_process_start_button method. """
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
-    # test call indirection
-    info = {'namespec': 'dummy_proc', 'statecode': 'stopped'}
+    # test call redirection when program is disabled
+    info = {'namespec': 'dummy_proc', 'statecode': 'stopped', 'disabled': True}
+    handler.write_process_start_button('elt', info)
+    assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc',
+                                                 'stopped', [])]
+    mocked_button.reset_mock()
+    # test call redirection when program is enabled
+    info['disabled'] = False
     handler.write_process_start_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc',
                                                  'stopped', STOPPED_STATES)]
@@ -631,7 +637,7 @@ def test_write_process_stop_button(mocker, handler):
     """ Test the write_process_stop_button method. """
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
-    # test call indirection
+    # test call redirection
     info = {'namespec': 'dummy_proc', 'statecode': 'starting'}
     handler.write_process_stop_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'stop_a_mid', '', 'My Page', 'stop', 'dummy_proc',
@@ -642,11 +648,17 @@ def test_write_process_restart_button(mocker, handler):
     """ Test the write_process_restart_button method. """
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
-    # test call indirection
-    info = {'namespec': 'dummy_proc', 'statecode': 'running'}
+    # test call redirection when program is disabled
+    info = {'namespec': 'dummy_proc', 'statecode': 'running', 'disabled': True}
     handler.write_process_restart_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page',
-                                                 'restart', 'dummy_proc', 'running', RUNNING_STATES)]
+    assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc',
+                                                 'running', [])]
+    mocked_button.reset_mock()
+    # test call redirection when program is enabled
+    info['disabled'] = False
+    handler.write_process_restart_button('elt', info)
+    assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc',
+                                                 'running', RUNNING_STATES)]
 
 
 def test_write_process_clear_button(mocker, handler):
@@ -760,11 +772,11 @@ def test_write_common_status(mocker, handler):
     mid_map = {'state_td_mid': state_elt, 'desc_td_mid': desc_elt, 'load_td_mid': load_elt}
     tr_elt = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
     # test call on process that never crashed
-    param = {'expected_load': 35, 'statename': 'exited', 'gravity': 'exited',
+    param = {'expected_load': 35, 'statename': 'exited', 'gravity': 'exited', 'disabled': True,
              'has_crashed': False, 'description': 'something'}
     handler.write_common_status(tr_elt, param)
     assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
-    assert state_elt.attrib['class'] == 'exited'
+    assert state_elt.attrib['class'] == 'exited disabled'
     assert state_elt.content.call_args_list == [call('exited')]
     assert desc_elt.content.call_args_list == [call('something')]
     assert load_elt.content.call_args_list == [call('35%')]
@@ -776,7 +788,7 @@ def test_write_common_status(mocker, handler):
     for mid in mid_map.values():
         mid.reset_mock()
     # test call on process that ever crashed
-    param.update({'gravity': 'fatal', 'has_crashed': True})
+    param.update({'gravity': 'fatal', 'has_crashed': True, 'disabled': False})
     handler.write_common_status(tr_elt, param)
     assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
     assert state_elt.attrib['class'] == 'fatal crashed'

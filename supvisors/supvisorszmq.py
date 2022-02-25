@@ -25,7 +25,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
 from supervisor.loggers import Logger
 
-from .supvisorsmapper import SupvisorsInstanceId, SupvisorsMapper
+from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import NameList, Payload
 from .utils import *
 
@@ -463,7 +463,7 @@ class RequestPusher(object):
     def send_process_added_event(self, payload: Payload) -> None:
         """ Publish the process added event with PyZmq.
 
-        :param payload: the process added to publish
+        :param payload: the added process to publish
         :return: None
         """
         self.send_message(InternalEventHeaders.PROCESS_ADDED, (self.identifier, payload))
@@ -471,10 +471,18 @@ class RequestPusher(object):
     def send_process_removed_event(self, payload: Payload) -> None:
         """ Publish the process removed event with PyZmq.
 
-        :param payload: the process removed to publish
+        :param payload: the removed process to publish
         :return: None
         """
         self.send_message(InternalEventHeaders.PROCESS_REMOVED, (self.identifier, payload))
+
+    def send_process_disability_event(self, payload: Payload) -> None:
+        """ Publish the process disability event with PyZmq.
+
+        :param payload: the enabled/disabled process to publish
+        :return: None
+        """
+        self.send_message(InternalEventHeaders.PROCESS_DISABILITY, (self.identifier, payload))
 
     def send_statistics(self, payload: Payload) -> None:
         """ Publish the statistics with PyZmq.

@@ -20,6 +20,7 @@
 import pytest
 
 from socket import gethostname
+from supervisor.process import Subprocess
 from supervisor.states import SupervisorStates
 from unittest.mock import call, patch, Mock
 
@@ -336,6 +337,7 @@ def test_get_subprocesses(source):
 
 def test_enable_disable(mocker, source):
     """ Test the disabling / enabling of a program. """
+    mocked_notify = mocker.patch('supvisors.supervisordata.notify')
     mocked_write = mocker.patch.object(source, 'write_disabilities')
     # test initial status
     assert not any(hasattr(process.config, 'disabled')
@@ -356,29 +358,47 @@ def test_enable_disable(mocker, source):
                for process in appli.processes.values())
     # test unknown program
     source.enable_program('unknown_program')
+    assert not mocked_notify.called
     assert mocked_write.called
-    mocked_write.reset_mock()
+    mocker.resetall()
     assert source.disabilities == {'dummy_process': False, 'unknown_program': False}
     assert all(not process.config.disabled
                for appli in source.supervisord.process_groups.values()
                for process in appli.processes.values())
     source.disable_program('unknown_program')
+    assert not mocked_notify.called
     assert mocked_write.called
-    mocked_write.reset_mock()
+    mocker.resetall()
     assert source.disabilities == {'dummy_process': False, 'unknown_program': True}
     assert all(not process.config.disabled
                for appli in source.supervisord.process_groups.values()
                for process in appli.processes.values())
-    # test unknown program
+    # test known program
     source.disable_program('dummy_process')
+    expected = list(source.supvisors.server_options.processes_program.keys())
+    notify_call_1 = mocked_notify.call_args_list[0][0][0]
+    assert isinstance(notify_call_1, ProcessDisabledEvent)
+    assert notify_call_1.process.config.name in expected
+    expected.remove(notify_call_1.process.config.name)
+    notify_call_2 = mocked_notify.call_args_list[1][0][0]
+    assert isinstance(notify_call_2, ProcessDisabledEvent)
+    assert notify_call_2.process.config.name in expected
     assert mocked_write.called
-    mocked_write.reset_mock()
+    mocker.resetall()
     assert source.disabilities == {'dummy_process': True, 'unknown_program': True}
     assert all(process.config.disabled
                for process in source.supervisord.process_groups['dummy_application'].processes.values())
     source.enable_program('dummy_process')
+    expected = list(source.supvisors.server_options.processes_program.keys())
+    notify_call_1 = mocked_notify.call_args_list[0][0][0]
+    assert isinstance(notify_call_1, ProcessEnabledEvent)
+    assert notify_call_1.process.config.name in expected
+    expected.remove(notify_call_1.process.config.name)
+    notify_call_2 = mocked_notify.call_args_list[1][0][0]
+    assert isinstance(notify_call_2, ProcessEnabledEvent)
+    assert notify_call_2.process.config.name in expected
     assert mocked_write.called
-    mocked_write.reset_mock()
+    mocker.resetall()
     assert source.disabilities == {'dummy_process': False, 'unknown_program': True}
     assert all(not process.config.disabled and process.laststart == 0 and process.state == 'STARTING'
                for process in source.supervisord.process_groups['dummy_application'].processes.values())

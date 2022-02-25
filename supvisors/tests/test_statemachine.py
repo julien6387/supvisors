@@ -929,6 +929,13 @@ def test_on_process_removed_event(mocker, fsm):
     assert mocked_context.call_args_list == [call('10.0.0.1', {'info': 'dummy_info'})]
 
 
+def test_on_process_disability_event(mocker, fsm):
+    """ Test the actions triggered in state machine upon reception of a process enabled event. """
+    mocked_context = mocker.patch.object(fsm.context, 'on_process_disability_event')
+    fsm.on_process_disability_event('10.0.0.1', {'info': 'dummy_info', 'disabled': True})
+    assert mocked_context.call_args_list == [call('10.0.0.1', {'info': 'dummy_info', 'disabled': True})]
+
+
 def test_on_process_info(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a process information. """
     # inject process info and test call to context load_processes
