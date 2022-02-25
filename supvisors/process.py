@@ -315,16 +315,18 @@ class ProcessStatus(object):
     # access
     def possible_identifiers(self) -> NameList:
         """ Return the list of identifier where the program could be started.
-        To achieve that, two conditions:
+        To achieve that, three conditions:
             - the Supervisor of the Supvisors instance must know the program ;
-            - the Supvisors identifier must be declared in the rules file.
+            - the Supvisors identifier must be declared in the rules file ;
+            - the program shall not be disabled.
 
         :return: the list of identifiers where the program could be started
         """
         identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
-            identifiers = self.supvisors.supvisors_mapper.instances
-        return [identifier for identifier in identifiers if identifier in self.info_map]
+            identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        return [identifier for identifier in identifiers
+                if identifier in self.info_map and not self.info_map[identifier]['disabled']]
 
     def has_crashed(self) -> bool:
         """ Return True if the any of the processes has ever crashed or has ever exited unexpectedly.

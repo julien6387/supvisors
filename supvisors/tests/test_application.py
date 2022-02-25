@@ -301,13 +301,13 @@ def test_application_possible_identifiers(supvisors):
     info = any_process_info_by_state(ProcessStates.STARTING)
     process1 = create_process(info, supvisors)
     for node_name in ['10.0.0.2', '10.0.0.3', '10.0.0.4']:
-        process1.add_info(node_name, info)
+        process1.add_info(node_name, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
     process2 = create_process(info, supvisors)
     for node_name in ['10.0.0.1', '10.0.0.4']:
-        process2.add_info(node_name, info)
+        process2.add_info(node_name, info.copy())
     application.add_process(process2)
     # default identifiers is '*' in process rules
     assert application.possible_identifiers() == ['10.0.0.4']
@@ -315,15 +315,19 @@ def test_application_possible_identifiers(supvisors):
     application.rules.identifiers = ['10.0.0.1', '10.0.0.2']
     assert application.possible_identifiers() == []
     # increase received status
-    process1.add_info('10.0.0.1', info)
+    process1.add_info('10.0.0.1', info.copy())
     assert application.possible_identifiers() == ['10.0.0.1']
+    # disable program on '10.0.0.1'
+    process2.update_disability('10.0.0.1', True)
+    assert application.possible_identifiers() == []
     # reset rules
     application.rules.identifiers = ['*']
-    assert application.possible_identifiers() == ['10.0.0.1', '10.0.0.4']
-    # test with full status and all instances in rules
+    assert application.possible_identifiers() == ['10.0.0.4']
+    # test with full status and all instances in rules + re-enable on '10.0.0.1'
+    process2.update_disability('10.0.0.1', False)
     for node_name in supvisors.supvisors_mapper.instances:
-        process1.add_info(node_name, info)
-        process2.add_info(node_name, info)
+        process1.add_info(node_name, info.copy())
+        process2.add_info(node_name, info.copy())
     assert sorted(application.possible_identifiers()) == sorted(supvisors.supvisors_mapper.instances.keys())
     # restrict again instances in rules
     application.rules.identifiers = ['10.0.0.5']

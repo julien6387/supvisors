@@ -305,17 +305,19 @@ class ApplicationStatus(object):
 
     def possible_identifiers(self) -> NameList:
         """ Return the list of Supervisor identifiers where the application could be started.
-        To achieve that, two conditions:
+        To achieve that, three conditions:
             - the Supervisor must know all the application programs ;
-            - the Supervisor identifier must be declared in the rules file.
+            - the Supervisor identifier must be declared in the rules file ;
+            - the programs shall not be disabled.
 
         :return: the list of identifiers where the program could be started
         """
         identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
-            identifiers = self.supvisors.supvisors_mapper.instances
+            identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         # get the identifiers common to all application processes
-        actual_identifiers = [set(process.info_map.keys()) for process in self.processes.values()]
+        actual_identifiers = [{identifier for identifier, info in process.info_map.items() if not info['disabled']}
+                              for process in self.processes.values()]
         if actual_identifiers:
             actual_identifiers = actual_identifiers[0].intersection(*actual_identifiers)
         # intersect with rules

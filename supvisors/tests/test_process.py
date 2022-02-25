@@ -241,21 +241,25 @@ def test_process_possible_identifiers(supvisors):
     info = any_process_info()
     process = create_process(info, supvisors)
     process.add_info('10.0.0.2', info)
-    process.add_info('10.0.0.4', info)
-    # default identifiers is '*' in process rules
+    process.add_info('10.0.0.4', info.copy())
+    # default identifiers is '*' in process rules and all are enabled
     assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
     # set a subset of identifiers in process rules so that there's no intersection with received status
     process.rules.identifiers = ['10.0.0.1', '10.0.0.3']
     assert process.possible_identifiers() == []
     # increase received status
-    process.add_info('10.0.0.3', info)
+    process.add_info('10.0.0.3', info.copy())
     assert process.possible_identifiers() == ['10.0.0.3']
+    # disable program on '10.0.0.3'
+    process.update_disability('10.0.0.3', True)
+    assert process.possible_identifiers() == []
     # reset rules
     process.rules.identifiers = ['*']
-    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.3', '10.0.0.4']
-    # test with full status and all instances in rules
+    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
+    # test with full status and all instances in rules + re-enable on '10.0.0.3'
+    process.update_disability('10.0.0.3', False)
     for node_name in supvisors.supvisors_mapper.instances:
-        process.add_info(node_name, info)
+        process.add_info(node_name, info.copy())
     assert process.possible_identifiers() == list(supvisors.supvisors_mapper.instances.keys())
     # restrict again instances in rules
     process.rules.identifiers = ['10.0.0.5']
