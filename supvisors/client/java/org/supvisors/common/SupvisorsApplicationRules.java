@@ -36,9 +36,6 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /** The distribution rule of the application. */
     private DistributionRule distribution;
 
-    /** DEPRECATED - The distribution status of the application. */
-    private Boolean isDistributed;
-
     /**
      * The identifiers of the applicable Supvisors instances when the application cannot be distributed.
      * If all known Supvisors instances are applicable, '*' is used.
@@ -70,7 +67,6 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
         this.isManaged = (Boolean) rulesInfo.get("managed");
         if (this.isManaged) {
             this.distribution = DistributionRule.valueOf((String) rulesInfo.get("distribution"));
-            this.isDistributed = (Boolean) rulesInfo.get("distributed");
             Object[] identifiers = (Object[]) rulesInfo.get("identifiers");
             this.identifiers = Arrays.asList(identifiers);
             this.startSequence = (Integer) rulesInfo.get("start_sequence");
@@ -115,15 +111,6 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
      */
     public DistributionRule getDistribution() {
         return this.distribution;
-    }
-
-    /**
-     * The isDistributed method returns the distribution status of the application in Supvisors.
-     *
-     * @return Boolean: The distribution status.
-     */
-    public Boolean isDistributed() {
-        return this.isDistributed;
     }
 
     /**
@@ -194,7 +181,6 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
             + " managed=" + this.isManaged;
         if (this.isManaged) {
             rulesString += " distribution=" + this.distribution
-                + " [DEPRECATED]distributed=" + this.isDistributed
                 + " identifiers=" + this.identifiers
                 + " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
                 + " startingStrategy=" + this.startingStrategy

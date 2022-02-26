@@ -289,8 +289,8 @@ class SupvisorsServerOptions(ServerOptions):
         self.program_class[program_name] = klass
         # store the number and the program of each process
         for idx, process_config in enumerate(process_configs):
-            self.procnumbers[process_config.name] = idx
             self.processes_program[process_config.name] = program_name
+            self.procnumbers[process_config.name] = idx
         # return original result
         return process_configs
 
@@ -326,10 +326,11 @@ class SupvisorsServerOptions(ServerOptions):
         :param group_name: the group that embeds the program definition
         :return: the list of ProcessConfig
         """
-        # reset corresponding store procnumbers
+        # reset corresponding stored procnumbers
         program_name = section.split(':')[1]
         for process_list in self.program_processes[program_name].values():
             for process in process_list:
+                self.processes_program.pop(process.name, None)
                 self.procnumbers.pop(process.name, None)
         # call parser again
         klass = self.program_class[program_name]

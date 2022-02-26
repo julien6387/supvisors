@@ -5,6 +5,8 @@
 * Implement [Supervisor Issue #591](https://github.com/Supervisor/supervisor/issues/591).
   It is possible to disable/enable programs using the new `disable` and `enable` XML-RPCs. 
   A new option `disabilities_file` has been added to support the persistence.
+  The `disabled` status of the processes is made available through the `supvisors.get_local_process_info` XML-RPC and
+  in the process table of the Web UI.
 
 * Fix issue where **Supvisors** may be blocked in the `DEPLOYMENT` phase due to late process events.
 

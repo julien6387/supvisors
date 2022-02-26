@@ -21,6 +21,8 @@ import errno
 import socket
 import sys
 
+from types import MethodType
+
 from supervisor import supervisorctl
 from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
@@ -30,13 +32,35 @@ from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
 from .rpcinterface import API_VERSION, RPCInterface, expand_faults
-from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, enum_names
+from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, Payload, enum_names
 from .utils import simple_localtime
 
 
+def _startresult(self, result):
+    """ This method replaces the Supervisor method in DefaultControllerPlugin.
+
+    :param result: the command result
+    :return: the result to output
+    """
+    if result['status'] == xmlrpc.Faults.DISABLED:
+        name = make_namespec(result['group'], result['name'])
+        return f'{name}: ERROR disabled'
+    return self._startresult_ref(result)
+
+
 class ControllerPlugin(ControllerPluginBase):
-    """ The ControllerPlugin is the implementation of the Supvisors plugin
-    that is embodied in the supervisorctl command. """
+    """ The ControllerPlugin is the implementation of the Supvisors plugin that is embodied in the supervisorctl
+    command. """
+
+    def __init__(self, controller):
+        super().__init__(controller)
+        # update Supervisor Fault definition
+        expand_faults()
+        # patch supervisor plugin to manage new Faults.DISABLED code in RPCError
+        supervisor_plugin = controller.options.plugins[0]
+        if not hasattr(supervisor_plugin, '_startresult_ref'):
+            supervisor_plugin._startresult_ref = supervisor_plugin._startresult
+            supervisor_plugin._startresult = MethodType(_startresult, supervisor_plugin)
 
     def supvisors(self) -> RPCInterface:
         """ Get a proxy to the Supvisors RPC interface. """
@@ -976,8 +1000,6 @@ def make_supvisors_controller_plugin(controller):
 
 # Copied and adapted from supervisor.supervisorctl source code
 def main(args=None, options=None):
-    # update Supervisor Fault definition
-    expand_faults()
     # read options
     if options is None:
         options = ClientOptions()

@@ -295,11 +295,12 @@ class SupervisorData(object):
             # rebuild the process configs from the new Supervisor configuration
             process_configs = server_options.reload_processes_from_section(section, group_name)
             # the new processes are those over the previous size
-            self._add_supervisor_processes(group_name, process_configs[current_numprocs:])
+            self._add_supervisor_processes(program_name, group_name, process_configs[current_numprocs:])
 
-    def _add_supervisor_processes(self, group_name: str, new_configs: List[ProcessConfig]) -> None:
+    def _add_supervisor_processes(self, program_name: str, group_name: str, new_configs: List[ProcessConfig]) -> None:
         """ Add new processes to the Supervisor group from the configuration built.
 
+        :param program_name: the program which definition has to be updated
         :param group_name: the group that embed the program definition
         :param new_configs: the new process configurations to add to the group
         :return: None
@@ -313,7 +314,8 @@ class SupervisorData(object):
             # WARN: replace process_config Supvisors server_options by Supervisor options
             # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
             process_config.options = self.supervisord.options
-            # prepare extra args
+            # additional Supvisors attributes
+            process_config.disabled = self.disabilities[program_name]
             process_config.command_ref = process_config.command
             process_config.extra_args = ''
             # prepare log files

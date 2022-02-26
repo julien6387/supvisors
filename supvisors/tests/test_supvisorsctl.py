@@ -19,17 +19,19 @@
 
 import pytest
 
+from supervisor.supervisorctl import DefaultControllerPlugin
 from supervisor.xmlrpc import Faults
 from unittest.mock import call, Mock
 
 from supvisors.supvisorsctl import *
+from supvisors.ttypes import SupvisorsFaults
 
 
 @pytest.fixture
 def controller():
     controller = Mock(spec=Controller, exitstatus=LSBInitExitStatuses.SUCCESS)
     controller.get_server_proxy.return_value = Mock(spec=RPCInterface)
-    controller.options = Mock(serverurl='dummy_url')
+    controller.options = Mock(serverurl='dummy_url', plugins=[DefaultControllerPlugin(controller)])
     return controller
 
 
@@ -215,6 +217,20 @@ def _check_stop_process_command(controller, mocked_check, mocked_info, mocked_rp
     assert mocked_info.call_args_list == [call()]
     assert mocked_rpc.call_count == 0
     _check_output_error(controller, True)
+
+
+def test_creation(controller, plugin):
+    """ Test the creation of the Supvisors ControllerPlugin and the _startresult patch applied to the Supervisor
+    DefaultControllerPlugin. """
+    assert plugin.ctl is controller
+    # check that the Supervisor Faults have been expanded
+    assert Faults.DISABLED == SupvisorsFaults.DISABLED.value
+    # check that the Supervisor plugin has been patched and test the patch
+    supervisor_plugin = controller.options.plugins[0]
+    result = {'group': 'dummy_group', 'name': 'dummy_process', 'status': Faults.DISABLED}
+    assert supervisor_plugin._startresult(result) == 'dummy_group:dummy_process: ERROR disabled'
+    result['status'] = Faults.SUCCESS
+    assert supervisor_plugin._startresult(result) == 'dummy_group:dummy_process: started'
 
 
 def test_supvisors(controller, plugin):

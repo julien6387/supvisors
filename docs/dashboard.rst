@@ -288,7 +288,7 @@ Processes Section
 ~~~~~~~~~~~~~~~~~
 
 .. image:: images/supvisors_address_process_section.png
-    :alt: Processes Section of Supvisors Address Page
+    :alt: Processes Section of Supervisor Page
     :align: center
 
 The **Processes Section** looks like the page provided by |Supervisor|.
@@ -303,6 +303,9 @@ description and enables the user to perform some actions on them:
     * Tail stdout log (auto-refreshed) ;
     * Tail stderr log (auto-refreshed).
 
+The activation of the Start, Stop and Restart buttons is depending on the process state. In addition to that, a stopped
+process cannot be started if the the corresponding program has been disabled.
+
 |Supvisors| shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file ;
@@ -312,8 +315,23 @@ description and enables the user to perform some actions on them:
 
 .. note::
 
-    For ``RUNNING`` processes, the color gradient used is different if the process has ever crashed since Supvisors
-    has been started. The aim is to inform that process logs should be considered.
+    CPU usage and memory are available only if the optional module |psutil| has been installed and if the statistics
+    are not disabled through the ``stats_enabled`` option of the :ref:`supvisors_section` of the |Supervisor|
+    configuration file.
+
+Here is the color code used for process states:
+
+    * grey if the process state is ``UNKNOWN`` or if the process is disabled ;
+    * yellow if the process is ``STOPPED`` or expectedly ``EXITED`` ;
+    * yellow-green gradient if the process is ``STARTING`` or ``BACKOFF`` ;
+    * green if the process is ``RUNNING`` ;
+    * green-yellow gradient if the process is ``STOPPING`` ;
+    * red if the process is ``FATAL`` or unexpectedly ``EXITED``.
+
+.. note::
+
+    For ``RUNNING`` processes, the color code used is a bit different if the process has ever crashed since |Supvisors|
+    has been started. The aim is to inform that process logs should be consulted.
 
     +------------------------------------+-------------------------------------------+
     | 'standard' ``RUNNING`` process     | ``RUNNING`` process with a crash history  |
@@ -333,9 +351,8 @@ cell of the table. The application line displays:
         * the sum of their CPU usage ;
         * the sum of their instant memory occupation.
 
-A click on the CPU or RAM measures shows detailed statistics about the process. This is not active
-on the application values.
-More particularly, |Supvisors| displays on the right side of the page a table showing for both CPU and Memory:
+A click on the CPU or RAM measures shows detailed statistics about the process. This is not active on the application
+values. More particularly, |Supvisors| displays on the right side of the page a table showing for both CPU and Memory:
 
     * the last measure ;
     * the mean value ;
@@ -348,8 +365,8 @@ A color and a sign are associated to the last value, so that:
     * red and ↘ point out a decrease of the value since the last measure ;
     * blue and ↝ point out the stability of the value since the last measure.
 
-Underneath, |Supvisors| shows two graphs (CPU and Memory) built from the series of measures taken
-from the selected process:
+Underneath, |Supvisors| shows two graphs (CPU and Memory) built from the series of measures taken from the selected
+process:
 
     * the history of the values with a plain line ;
     * the mean value with a dashed line and value in the top right corner ;
@@ -360,7 +377,7 @@ Host Section
 ~~~~~~~~~~~~
 
 .. image:: images/supvisors_address_host_section.png
-    :alt: Host Section of Supvisors Address Page
+    :alt: Host Section of Supervisor Page
     :align: center
 
 The Host Section contains CPU, Memory and Network statistics for the considered node.
@@ -410,8 +427,8 @@ to start the application programs listed below.
 Strategies are detailed in :ref:`starting_strategy`.
 
 The third part of the header is the 'Statistics Period' box that enables the user to choose the period used
-for the statistics of this page. The periods can be updated in the :ref:`supvisors_section`
-of the |Supervisor| configuration file.
+for the statistics of this page. The periods can be updated in the :ref:`supvisors_section` of the |Supervisor|
+configuration file.
 
 On the right side, 4 buttons are available:
 

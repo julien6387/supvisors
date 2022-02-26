@@ -24,7 +24,7 @@ from supervisor.xmlrpc import RPCError
 
 from .application import ApplicationStatus
 from .instancestatus import SupvisorsInstanceStatus
-from .ttypes import Payload, PayloadList, ProcessHistoryStats
+from .ttypes import SupvisorsFaults, Payload, PayloadList, ProcessHistoryStats
 from .viewcontext import *
 from .viewsupstatus import SupvisorsInstanceView
 from .webutils import *
@@ -356,7 +356,16 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Triggers processing iaw action requested """
         if action == 'mainclearlog':
             return self.clear_log_action()
-        return super().make_callback(namespec, action)
+        result = super().make_callback(namespec, action)
+        # WARN: this ugly part is necessary to handle the DISABLED exception that can be raised from Supervisor
+        #  startProcess. It is not possible to patch Supervisor make_callback without copying a huge piece of source
+        #  code from Supervisor, so here is an inspection of the make_callback result to check for a callable declaring
+        #  an 'unexpected rpc fault [103]'
+        if callable(result):
+            message = result()
+            if type(message) is str and f'[{SupvisorsFaults.DISABLED.value}]' in message:
+                return delayed_error(f'Process {namespec}: disabled')
+        return result
 
     def clear_log_action(self):
         """ Clear the log of Supervisor. """

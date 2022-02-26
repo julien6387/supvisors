@@ -20,7 +20,7 @@
 import json
 import time
 
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from supervisor import events
 from supervisor.loggers import Logger
@@ -31,7 +31,8 @@ from supervisor.xmlrpc import RPCError
 from .mainloop import SupvisorsMainLoop
 from .process import ProcessStatus
 from .supvisorszmq import SupervisorZmq, RequestPusher
-from .ttypes import ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent
+from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
+                     Payload)
 from .utils import InternalEventHeaders, RemoteCommEvents
 
 # get reverted map for ProcessStates
@@ -91,8 +92,8 @@ class SupervisorListener(object):
         events.subscribe(events.ProcessStateEvent, self.on_process_state)
         events.subscribe(ProcessAddedEvent, self.on_process_added)
         events.subscribe(ProcessRemovedEvent, self.on_process_removed)
-        events.subscribe(ProcessEnabledEvent, self.on_process_enabled)
-        events.subscribe(ProcessDisabledEvent, self.on_process_disabled)
+        events.subscribe(ProcessEnabledEvent, self.on_process_disability)
+        events.subscribe(ProcessDisabledEvent, self.on_process_disability)
         events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
@@ -167,6 +168,20 @@ class SupervisorListener(object):
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {exc}')
 
+    def _get_local_process_info(self, namespec: str) -> Payload:
+        """ Use the Supvisors RPCInterface to get local information on this process.
+
+        :param namespec: the process namespec
+        :return: the process local information
+        """
+        #
+        try:
+            rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
+            return rpc_intf.get_local_process_info(namespec)
+        except RPCError as e:
+            self.logger.error(f'SupervisorListener.get_local_process_info: failed to get process info for {namespec}:'
+                              f' {e.text}')
+
     def on_process_added(self, event: ProcessAddedEvent) -> None:
         """ Called when a process has been added due to a numprocs change.
 
@@ -177,13 +192,8 @@ class SupervisorListener(object):
             namespec = make_namespec(event.process.group.config.name, event.process.config.name)
             self.logger.debug(f'SupervisorListener.on_process_added: got ProcessAddedEvent for {namespec}')
             # use RPCInterface to get local information on this process
-            rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
-            try:
-                process_info = rpc_intf.get_local_process_info(namespec)
-            except RPCError as e:
-                self.logger.error(f'SupervisorListener.on_process_added: failed to get process info for {namespec}:'
-                                  f' {e.text}')
-            else:
+            process_info = self._get_local_process_info(namespec)
+            if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
                 self.pusher.send_process_added_event(process_info)
         except Exception as exc:
@@ -206,37 +216,24 @@ class SupervisorListener(object):
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_removed: {exc}')
 
-    def on_process_enabled(self, event: ProcessEnabledEvent) -> None:
-        """ Called when a process has been enabled.
+    def on_process_disability(self, event: Union[ProcessEnabledEvent, ProcessDisabledEvent]) -> None:
+        """ Called when a process has been enabled or disabled.
 
-        :param event: the ProcessEnabledEvent object
+        :param event: the ProcessEnabledEvent or ProcessDisabledEvent object
         :return: None
         """
         try:
             namespec = make_namespec(event.process.group.config.name, event.process.config.name)
-            self.logger.debug(f'SupervisorListener.on_process_enabled: got ProcessEnabledEvent for {namespec}')
-            payload = {'name': event.process.config.name, 'group': event.process.group.config.name, 'disabled': False}
-            self.logger.trace(f'SupervisorListener.on_process_enabled: payload={payload}')
-            self.pusher.send_process_disability_event(payload)
+            self.logger.debug('SupervisorListener.on_process_disability: got ProcessEnabledEvent or'
+                              f' ProcessDisabledEvent for {namespec}')
+            # use RPCInterface to get local information on this process
+            process_info = self._get_local_process_info(namespec)
+            if process_info:
+                self.logger.trace(f'SupervisorListener.on_process_disability: process_info={process_info}')
+                self.pusher.send_process_disability_event(process_info)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_process_enabled: {exc}')
-
-    def on_process_disabled(self, event: ProcessDisabledEvent) -> None:
-        """ Called when a process has been disabled.
-
-        :param event: the ProcessDisabledEvent object
-        :return: None
-        """
-        try:
-            namespec = make_namespec(event.process.group.config.name, event.process.config.name)
-            self.logger.debug(f'SupervisorListener.on_process_disabled: got ProcessEnabledEvent for {namespec}')
-            payload = {'name': event.process.config.name, 'group': event.process.group.config.name, 'disabled': True}
-            self.logger.trace(f'SupervisorListener.on_process_disabled: payload={payload}')
-            self.pusher.send_process_disability_event(payload)
-        except Exception as exc:
-            # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_process_disabled: {exc}')
+            self.logger.critical(f'SupervisorListener.on_process_disability: {exc}')
 
     def on_group_added(self, event: events.ProcessGroupAddedEvent) -> None:
         """ Called when a group has been added due to a Supervisor configuration update.

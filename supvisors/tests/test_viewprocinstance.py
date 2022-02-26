@@ -16,12 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
-import os
 
 import pytest
 
 from random import shuffle
-from supervisor.states import ProcessStates
 from supervisor.web import MeldView, StatusView
 from unittest.mock import call, Mock
 
@@ -593,15 +591,30 @@ def test_write_total_status(mocker, view):
 
 def test_make_callback(mocker, view):
     """ Test the ProcInstanceView.make_callback method. """
+    mocker.patch('supvisors.webutils.ctime', return_value='19:10:20')
     mocked_parent = mocker.patch('supvisors.viewsupstatus.SupvisorsInstanceView.make_callback', return_value='default')
     mocked_action = mocker.patch.object(view, 'clear_log_action', return_value='clear')
-    # test restart
+    # test mainclearlog
     assert view.make_callback('namespec', 'mainclearlog') == 'clear'
     assert mocked_action.call_args_list == [call()]
     assert not mocked_parent.called
     mocked_action.reset_mock()
-    # test restart
+    # test other commands
     assert view.make_callback('namespec', 'other') == 'default'
+    assert mocked_parent.call_args_list == [call('namespec', 'other')]
+    assert not mocked_action.called
+    mocked_parent.reset_mock()
+    # test another command returning an error message different from DISABLED code
+    mocked_parent.return_value = lambda: 'abnormal termination'
+    result = view.make_callback('namespec', 'other')
+    assert result() == 'abnormal termination'
+    assert mocked_parent.call_args_list == [call('namespec', 'other')]
+    assert not mocked_action.called
+    mocked_parent.reset_mock()
+    # test another command returning an error message
+    mocked_parent.return_value = lambda: 'unexpected rpc fault [103]'
+    result = view.make_callback('namespec', 'other')
+    assert result() == ('erro', 'Process namespec: disabled at 19:10:20')
     assert mocked_parent.call_args_list == [call('namespec', 'other')]
     assert not mocked_action.called
 

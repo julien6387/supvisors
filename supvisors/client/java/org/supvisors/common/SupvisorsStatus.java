@@ -16,7 +16,9 @@
 
 package org.supvisors.common;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 
 /**
@@ -57,12 +59,26 @@ public class SupvisorsStatus {
     private State statename;
 
     /**
+     * The identifiers of where starting jobs are in progress.
+     */
+    private List startingJobs;
+
+    /**
+     * The identifiers of where stopping jobs are in progress.
+     */
+    private List stoppingJobs;
+
+    /**
      * The constructor gets the state information from an HashMap.
      *
      * @param HashMap stateInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsStatus(HashMap stateInfo)  {
-        this.statename = State.valueOf((String) stateInfo.get("statename"));
+        this.statename = State.valueOf((String) stateInfo.get("fsm_statename"));
+        Object[] startingJobs = (Object[]) stateInfo.get("starting_jobs");
+        this.startingJobs = Arrays.asList(startingJobs);
+        Object[] stoppingJobs = (Object[]) stateInfo.get("stopping_jobs");
+        this.stoppingJobs = Arrays.asList(stoppingJobs);
     }
 
     /**
@@ -75,12 +91,32 @@ public class SupvisorsStatus {
     }
 
     /**
+     * The getStartingJobs method returns the identifiers of the Supvisors instances where starting jobs are in progress.
+     *
+     * @return List: The list of identifiers where Supvisors has starting jobs.
+     */
+    public List getStartingJobs() {
+        return this.startingJobs;
+    }
+
+    /**
+     * The getStoppingJobs method returns the identifiers of the Supvisors instances where stopping jobs are in progress.
+     *
+     * @return List: The list of identifiers where Supvisors has stopping jobs.
+     */
+    public List getStoppingJobs() {
+        return this.stoppingJobs;
+    }
+
+    /**
      * The toString method returns a printable form of the contents of the instance.
      *
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsState(state=" + this.statename + ")";
+        return "SupvisorsState(state=" + this.statename
+            + " startingJobs=" + this.startingJobs
+            + " stoppingJobs=" + this.stoppingJobs + ")";
     }
 
 }

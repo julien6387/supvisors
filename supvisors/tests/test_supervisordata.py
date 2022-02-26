@@ -228,7 +228,7 @@ def test_add_processes(mocker, source):
     source._add_processes('dummy_program', 2, 1, ['dummy_group'])
     assert mocked_update.call_args_list == [call('dummy_program', 2)]
     assert mocked_reload.call_args_list == [call('program:dummy_program', 'dummy_group')]
-    assert mocked_add.call_args_list == [call('dummy_group', [process_2])]
+    assert mocked_add.call_args_list == [call('dummy_program', 'dummy_group', [process_2])]
 
 
 def test_add_supervisor_processes(mocker, source):
@@ -241,11 +241,13 @@ def test_add_supervisor_processes(mocker, source):
     program_2.name = 'dummy_program_02'
     source.supervisord.process_groups = {'dummy_group': Mock(processes={'dummy_program_01': process_1},
                                                              config=Mock(process_configs=[process_1]))}
+    source.disabilities['dummy_program'] = True
     # test call
-    source._add_supervisor_processes('dummy_group', [program_2])
+    source._add_supervisor_processes('dummy_program', 'dummy_group', [program_2])
     assert program_2.options == source.supervisord.options
     assert program_2.command_ref == 'bin/program_2'
     assert program_2.extra_args == ''
+    assert program_2.disabled
     assert program_2.create_autochildlogs.call_args_list == [call()]
     assert source.supervisord.process_groups['dummy_group'].processes == {'dummy_program_01': process_1,
                                                                           'dummy_program_02': process_2}

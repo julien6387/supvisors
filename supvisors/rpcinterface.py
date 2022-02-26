@@ -419,6 +419,7 @@ class RPCInterface(object):
         :return: always ``True`` unless error.
         :raises RPCError: with code:
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to the local Supervisor ;
+            ``SupvisorsFaults.DISABLED`` if process is *disabled* ;
             ``Faults.ALREADY_STARTED`` if process is ``RUNNING`` ;
             ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
         """
@@ -442,9 +443,8 @@ class RPCInterface(object):
                 self.logger.warn(f'RPCInterface.start_args: force Supervisor internal state of {namespec} to FATAL')
                 # at this stage, process is known to the local Supervisor. no need to test again
                 self.supvisors.supervisor_data.force_process_fatal(namespec, why.text)
-            # else process is already started
-            # this is unexpected as Supvisors checks the process state before it sends this request
-            # anyway raise exception again
+            # else process is already started or disabled
+            # raise exception again
             raise
         return cb
 
@@ -657,6 +657,7 @@ class RPCInterface(object):
             self.supvisors.stopper.stop_process(process, trigger=False)
         self.supvisors.stopper.next()
         in_progress = self.supvisors.stopper.in_progress()
+        self.logger.info(f'RPCInterface.update_numprocs: in_progress={in_progress}')
         if not in_progress:
             self.supvisors.supervisor_data.delete_processes(del_namespecs)
             return True
@@ -664,6 +665,7 @@ class RPCInterface(object):
         # wait until processes are in STOPPED_STATES
         def onwait():
             # check stopper
+            self.logger.info(f'RPCInterface.update_numprocs: in_progress={self.supvisors.stopper.in_progress()}')
             if self.supvisors.stopper.in_progress():
                 return NOT_DONE_YET
             proc_errors = []
@@ -677,12 +679,13 @@ class RPCInterface(object):
             self.supvisors.supervisor_data.delete_processes(del_namespecs)
             if proc_errors:
                 raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+            # FIXME: wait for del_namespecs to be actually removed from Supvisors context
             return True
 
         onwait.delay = 0.5
         return onwait  # deferred
 
-    def enable(self, program_name) -> str:
+    def enable(self, program_name: str) -> bool:
         """ Enable the process, i.e. remove the disabled flag on the corresponding processes if set.
         This information is persisted on disk so that it is taken into account on Supervisor restart.
         Implementation of Supervisor issue #591 - New Feature: disable/enable.
@@ -933,8 +936,8 @@ class RPCInterface(object):
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
         if self.supvisors.fsm.state not in states:
             raise RPCError(SupvisorsFaults.BAD_SUPVISORS_STATE.value,
-                           'Supvisors (state={}) not in state {} to perform request'
-                           .format(self.supvisors.fsm.state.name, [state.name for state in states]))
+                           f'Supvisors (state={self.supvisors.fsm.state.name}) not in state'
+                           f' {[state.name for state in states]} to perform request')
 
     def _get_application_process(self, namespec):
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.

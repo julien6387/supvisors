@@ -138,6 +138,8 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.stop_process.return_value = True
     proxy.supvisors.restart_process.return_value = True
     proxy.supvisors.update_numprocs.return_value = True
+    proxy.supvisors.enable.return_value = True
+    proxy.supvisors.disable.return_value = True
     proxy.supvisors.conciliate.return_value = True
     proxy.supvisors.restart_sequence.return_value = True
     proxy.supvisors.restart.return_value = True

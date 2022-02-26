@@ -15,6 +15,11 @@ The additional commands provided by |Supvisors| are available by typing :command
     The use of :program:`supvisorsctl` is thus preferred to avoid issues, although :program:`supervisorctl` is suitable
     when used - explicitly or not - with a configuration file.
 
+    In the same vein, the implementation of `Supervisor #591 <https://github.com/Supervisor/supervisor/issues/1455>`_
+    has introduced a new ``RPCError`` exception code (``Faults.DISABLED``) that can be raised from |Supervisor|
+    ``startProcess`` XML-RPC. Again, using :program:`supervisorctl` with the option ``-s URL`` will raise an unknown
+    result code where :program:`supvisorsctl` will handle it properly.
+
 .. code-block:: bash
 
     [bash] > supvisorsctl help

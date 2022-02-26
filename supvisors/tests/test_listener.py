@@ -75,8 +75,7 @@ def test_creation(mocker, supvisors, listener):
 
 
 def test_on_running_exception(mocker, listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing
-    a SupervisorRunningEvent. """
+    """ Test the protection of the Supervisor thread in case of exception while processing a SupervisorRunningEvent. """
     mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler', side_effect=TypeError)
     listener.on_running('')
 
@@ -99,8 +98,8 @@ def test_on_running(mocker, listener):
 
 
 def test_on_stopping_exception(mocker, listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing
-    a SupervisorStoppingEvent. """
+    """ Test the protection of the Supervisor thread in case of exception while processing a
+    SupervisorStoppingEvent. """
     mocker.patch.object(listener.supvisors.supervisor_data, 'close_httpservers', side_effect=TypeError)
     listener.on_stopping('')
 
@@ -156,20 +155,32 @@ def test_on_process_state(mocker, listener):
 
 
 def test_on_process_added_exception(listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing
-    a ProcessAddedEvent. """
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessAddedEvent. """
     listener.on_process_added(None)
 
 
-def test_on_process_added(listener):
+def test_get_local_process_info(listener):
+    """ Test the SupervisorListener._get_local_process_info method """
+    process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
+                    'extra_args': '-s test', 'disabled': True, 'now': 77, 'pid': 1234,
+                    'expected': True, 'spawnerr': 'resource not available'}
+    rpc = listener.supvisors.supervisor_data.supvisors_rpc_interface.get_local_process_info
+    # test normal behavior
+    rpc.return_value = process_info
+    assert listener._get_local_process_info('dummy_group:dummy_process') == process_info
+    # test exception
+    rpc.side_effect = RPCError(Faults.BAD_NAME, 'dummy_group:dummy_process')
+    assert listener._get_local_process_info('dummy_group:dummy_process') is None
+
+
+def test_on_process_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_ADDED event. """
-    # create a publisher patch
-    listener.pusher = Mock(**{'send_process_added_event.return_value': None})
+    # patch context
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
                     'extra_args': '-s test', 'now': 77, 'pid': 1234,
                     'expected': True, 'spawnerr': 'resource not available'}
-    rpc = listener.supvisors.supervisor_data.supvisors_rpc_interface.get_local_process_info
-    rpc.return_value = process_info
+    mocked_get = mocker.patch.object(listener, '_get_local_process_info', return_value=process_info)
+    listener.pusher = Mock(**{'send_process_added_event.return_value': None})
     # test process event
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessAddedEvent(process)
@@ -177,7 +188,7 @@ def test_on_process_added(listener):
     assert listener.pusher.send_process_added_event.call_args_list == [call(process_info)]
     listener.pusher.send_process_added_event.reset_mock()
     # test exception
-    rpc.side_effect = RPCError(Faults.BAD_NAME, 'dummy_group:dummy_process')
+    mocked_get.return_value = None
     listener.on_process_added(event)
     assert not listener.pusher.send_process_added_event.called
 
@@ -199,42 +210,35 @@ def test_on_process_removed(listener):
     assert listener.pusher.send_process_removed_event.call_args_list == expected
 
 
-def test_on_process_enabled_exception(listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessEnabledEvent. """
+def test_on_process_disability_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessEnabledEvent or
+    a ProcessDisabledEvent. """
     listener.pusher = Mock(**{'send_process_disability_event.return_value': None})
-    listener.on_process_enabled(None)
+    listener.on_process_disability(None)
     assert not listener.pusher.send_process_disability_event.called
 
 
-def test_on_process_enabled(listener):
-    """ Test the reception of a Supervisor PROCESS_ENABLED event. """
-    # create a publisher patch
-    listener.pusher = Mock(**{'send_process_enabled_event.return_value': None})
-    # test process event
+def test_on_process_disability(mocker, listener):
+    """ Test the reception of a Supervisor PROCESS_ENABLED or a PROCESS_DISABLED event. """
+    # patch context
+    process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
+                    'extra_args': '-s test', 'now': 77, 'pid': 1234,
+                    'expected': True, 'spawnerr': 'resource not available'}
+    mocker.patch.object(listener, '_get_local_process_info', return_value=process_info)
+    listener.pusher = Mock(**{'send_process_disability_event.return_value': None})
+    # test PROCESS_ENABLED event
+    process_info['disabled'] = False
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessEnabledEvent(process)
-    listener.on_process_enabled(event)
-    expected = [call({'name': 'dummy_process', 'group': 'dummy_group', 'disabled': False})]
-    assert listener.pusher.send_process_disability_event.call_args_list == expected
-
-
-def test_on_process_disabled_exception(listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessDisabledEvent. """
-    listener.pusher = Mock(**{'send_process_disability_event.return_value': None})
-    listener.on_process_disabled(None)
-    assert not listener.pusher.send_process_disability_event.called
-
-
-def test_on_process_disabled(listener):
-    """ Test the reception of a Supervisor PROCESS_DISABLED event. """
-    # create a publisher patch
-    listener.pusher = Mock(**{'send_process_disabled_event.return_value': None})
-    # test process event
+    listener.on_process_disability(event)
+    assert listener.pusher.send_process_disability_event.call_args_list == [call(process_info)]
+    listener.pusher.send_process_disability_event.reset_mock()
+    # test PROCESS_DISABLED event
+    process_info['disabled'] = True
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessDisabledEvent(process)
-    listener.on_process_disabled(event)
-    expected = [call({'name': 'dummy_process', 'group': 'dummy_group', 'disabled': True})]
-    assert listener.pusher.send_process_disability_event.call_args_list == expected
+    listener.on_process_disability(event)
+    assert listener.pusher.send_process_disability_event.call_args_list == [call(process_info)]
 
 
 def test_on_group_added_exception(listener):

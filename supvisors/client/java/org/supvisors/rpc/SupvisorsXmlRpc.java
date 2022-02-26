@@ -133,6 +133,20 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The getApplicationRules methods returns rules used to start/stop applications known in Supvisors.
+     *
+     * @param String applicationName: The name of the application.
+     * @return SupvisorsApplicationRules: The rules of the application.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is still in INITIALIZATION state,
+     * @throws XmlRpcException: with code BAD_NAME if applicationName is unknown to Supvisors.
+     */
+    public SupvisorsApplicationRules getApplicationRules(final String applicationName) throws XmlRpcException {
+        Object[] params = new Object[]{applicationName};
+        HashMap result = client.rpcCall(Namespace + "get_application_rules", params, HashMap.class);
+        return new SupvisorsApplicationRules(result);
+    }
+
+    /**
      * The getAllProcessInfo methods returns information about all processes known in Supvisors.
      * It just complements the supervisor.getAllProcessInfo by telling where the process is running.
      *
@@ -185,20 +199,6 @@ public class SupvisorsXmlRpc {
         Object[] params = new Object[]{namespec};
         HashMap result = client.rpcCall(Namespace + "get_local_process_info", params, HashMap.class);
         return new SupvisorsProcessEvent(result);
-    }
-
-    /**
-     * The getApplicationRules methods returns rules used to start/stop applications known in Supvisors.
-     *
-     * @param String applicationName: The name of the application.
-     * @return SupvisorsApplicationRules: The rules of the application.
-     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is still in INITIALIZATION state,
-     * @throws XmlRpcException: with code BAD_NAME if applicationName is unknown to Supvisors.
-     */
-    public SupvisorsApplicationRules getApplicationRules(final String applicationName) throws XmlRpcException {
-        Object[] params = new Object[]{applicationName};
-        HashMap result = client.rpcCall(Namespace + "get_application_rules", params, HashMap.class);
-        return new SupvisorsApplicationRules(result);
     }
 
     /**
@@ -294,6 +294,7 @@ public class SupvisorsXmlRpc {
      * @return Boolean: Always True unless error or nothing to start.
      * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
      * @throws XmlRpcException: with code BAD_EXTRA_ARGUMENTS if program is required or has a start sequence.
+     * @throws XmlRpcException: with code DISABLED if process is disabled.
      * @throws XmlRpcException: with code ALREADY_STARTED if process is running.
      * @throws XmlRpcException: with code ABNORMAL_TERMINATION if process could not be started.
      */
@@ -358,6 +359,49 @@ public class SupvisorsXmlRpc {
             final String extraArgs, final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{strategy.ordinal(), namespec, extraArgs, wait};
         return client.rpcCall(Namespace + "restart_process", params, Boolean.class);
+    }
+
+    /**
+     * The updateNumprocs methods dynamically increases or decreases the number of processes in a homogeneous group.
+     *
+     * @param String programName: The name of the program.
+     * @param Integer numProcs: The new number of processes.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state CONCILIATION.
+     * @throws XmlRpcException: with code BAD_NAME if programName is unknown to Supvisors.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if numProcs is not a strictly positive integer.
+     * @throws XmlRpcException: with code SUPVISORS_CONF_ERROR if the program is not configured using numprocs.
+     */
+    public Boolean updateNumprocs(final String programName, final Integer numProcs) throws XmlRpcException {
+        Object[] params = new Object[]{programName, numProcs};
+        return client.rpcCall(Namespace + "update_numprocs", params, Boolean.class);
+    }
+
+    /**
+     * The enable methods allows the processes corresponding to the program to be started again.
+     *
+     * @param String programName: The name of the program.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state CONCILIATION.
+     * @throws XmlRpcException: with code BAD_NAME if programName is unknown to Supvisors.
+     */
+    public Boolean enable(final String programName) throws XmlRpcException {
+        Object[] params = new Object[]{programName};
+        return client.rpcCall(Namespace + "enable", params, Boolean.class);
+    }
+
+    /**
+     * The disable methods stops the processes corresponding to the program and prevents them to be started again.
+     *
+     * @param String programName: The name of the program.
+     * @param Boolean wait: If true, the RPC returns only when the processes are fully stopped.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state CONCILIATION.
+     * @throws XmlRpcException: with code BAD_NAME if programName is unknown to Supvisors.
+     */
+    public Boolean disable(final String programName, final Boolean wait) throws XmlRpcException {
+        Object[] params = new Object[]{programName, wait};
+        return client.rpcCall(Namespace + "disable", params, Boolean.class);
     }
 
     /**
@@ -490,6 +534,13 @@ public class SupvisorsXmlRpc {
         System.out.println(supvisors.startProcess(StartingStrategy.MOST_LOADED, "my_movies:converter_03", "-x 8", true));
         System.out.println("### Testing supvisors.restartProcess(...) ###");
         System.out.println(supvisors.restartProcess(StartingStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
+        System.out.println("### Testing supvisors.update_numprocs(...) ###");
+        System.out.println(supvisors.updateNumprocs("converter", 10));
+        System.out.println(supvisors.updateNumprocs("converter", 15));
+        System.out.println("### Testing supvisors.disable(...) ###");
+        System.out.println(supvisors.disable("converter", true));
+        System.out.println("### Testing supvisors.enable(...) ###");
+        System.out.println(supvisors.enable("converter"));
 
         // test supvisors request rpc
         System.out.println("### Testing supvisors.conciliate(...) ###");

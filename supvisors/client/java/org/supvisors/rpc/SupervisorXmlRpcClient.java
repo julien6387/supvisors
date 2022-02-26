@@ -44,7 +44,7 @@ public class SupervisorXmlRpcClient {
 
     /**
      * The constructor performs the connection with the XML-RPC server of the Supervisor running on address,
-     * without HTTP authentification.
+     * without HTTP authentication.
      *
      * @param String address: The host name or IP address.
      * @param int port: The port used to connect the server.
@@ -55,7 +55,7 @@ public class SupervisorXmlRpcClient {
 
     /**
      * The constructor performs the connection with the XML-RPC server of the Supervisor running on address,
-     * with basic HTTP authentification.
+     * with basic HTTP authentication.
      *
      * @param String address: The host name or IP address.
      * @param int port: The port used to connect the server.

@@ -715,6 +715,28 @@ def test_supvisors_update_numprocs(xml_rpc, client):
     check_post_success(client, f'{base_url}/converter/10', mocked_func, [call('converter', 10)])
 
 
+def test_supvisors_enable(xml_rpc, client):
+    """ Check the enable REST API. """
+    base_url = '/supvisors/enable'
+    mocked_func = xml_rpc.supvisors.enable
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/converter', mocked_func, [call('converter')])
+
+
+def test_supvisors_disable(xml_rpc, client):
+    """ Check the disable REST API. """
+    base_url = '/supvisors/disable'
+    mocked_func = xml_rpc.supvisors.disable
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/converter', mocked_func, [call('converter', True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/converter?wait=false', mocked_func, [call('converter', False)])
+
+
 def test_supvisors_conciliate(xml_rpc, client):
     """ Check the conciliate REST API. """
     base_url = '/supvisors/conciliate'
