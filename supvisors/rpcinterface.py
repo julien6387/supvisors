@@ -27,10 +27,8 @@ from supervisor.options import make_namespec, split_namespec, VERSION
 from supervisor.xmlrpc import Faults, RPCError
 
 from .application import ApplicationStatus
-from .process import ProcessStatus
 from .strategy import conciliate_conflicts
-from .ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
-                     SupvisorsFaults, Payload, PayloadList, enum_values, enum_names, EnumClassType, EnumType)
+from .ttypes import *
 from .utils import extract_process_info
 
 
@@ -607,13 +605,101 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
-    def update_numprocs(self, program_name: str, numprocs: int) -> bool:
+    def _increase_numprocs(self, process_namespecs: NameList, wait: bool) -> bool:
+        """ Following a call to update_numprocs, a number of processes have to be added to the internal configuration.
+
+        :param process_namespecs: the namespecs of the processes to stop and remove
+        :param wait: if ``True``, wait for the confirmation that processes have been added to Supvisors.
+        :return: a callable if wait is requested or ``True``.
+        """
+        # no special job to do if wait not wanted. all the necessary configuration is already in progress
+        if wait:
+            # if the value is lower than the current one, processes must be stopped before they are deleted
+            self.logger.debug(f'RPCInterface._increase_numprocs: new processes={process_namespecs}')
+            local_identifier = self.supvisors.supvisors_mapper.local_identifier
+
+            # mandatory wait until processes are added to Supvisors
+            def onwait():
+                for namespec in process_namespecs:
+                    # process may have been deleted if there is no more Supervisor instance supporting it
+                    try:
+                        proc = self.supvisors.context.get_process(namespec)
+                        if local_identifier not in proc.info_map:
+                            return NOT_DONE_YET
+                    except KeyError:
+                        self.logger.debug(f'RPCInterface._decrease_numprocs: processes {namespec} does not exist yet')
+                        return NOT_DONE_YET
+                return True
+
+            onwait.delay = 0.5
+            return onwait  # deferred
+        return True
+
+    def _decrease_numprocs(self, process_namespecs: NameList, wait: bool) -> bool:
+        """ Following a call to update_numprocs, a number of processes have to be stopped and removed.
+
+        :param process_namespecs: the namespecs of the processes to stop and remove
+        :param wait: if ``True``, wait for the confirmation that processes have been removed from Supvisors.
+        :return: a callable for the deferred actions.
+        """
+        # if the value is lower than the current one, processes must be stopped before they are deleted
+        self.logger.debug(f'RPCInterface._decrease_numprocs: obsolete processes={process_namespecs}')
+        local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        processes_to_stop = list(filter(lambda x: x.running_on(local_identifier),
+                                        [self.supvisors.context.get_process(del_namespec)
+                                         for del_namespec in process_namespecs]))
+        for process in processes_to_stop:
+            self.logger.debug(f'RPCInterface._decrease_numprocs: stopping process={process.namespec}')
+            self.supvisors.stopper.stop_process(process, [local_identifier], False)
+        self.supvisors.stopper.next()
+
+        # mandatory wait until processes are removed from Supervisor because processes will be deleted
+        # only when they are properly stopped
+        # optional wait is about waiting for Supvisors to receive the events and consolidate its internal data
+        def onwait():
+            # check stop phase
+            if onwait.checkstop:
+                # check stopper
+                if self.supvisors.stopper.in_progress():
+                    return NOT_DONE_YET
+                onwait.checkstop = False
+                # when stopper is done, delete the processes that have been stopped
+                proc_errors = []
+                for proc in processes_to_stop:
+                    if proc.running():
+                        self.logger.error(f'RPCInterface._decrease_numprocs: process={proc.namespec} still running')
+                        proc_errors.append(proc.namespec)
+                        # WARN: do not delete a process that is running
+                        process_namespecs.remove(proc.namespec)
+                # complete removal in Supervisor
+                self.logger.debug(f'RPCInterface._decrease_numprocs: delete processes {process_namespecs}')
+                self.supvisors.supervisor_data.delete_processes(process_namespecs)
+                if proc_errors:
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+            # when removal is done in Supervisor, wait for confirmation in Supvisors
+            if wait and not onwait.checkstop:
+                for namespec in process_namespecs:
+                    # process may have been deleted if there is no more Supervisor instance supporting it
+                    try:
+                        proc = self.supvisors.context.get_process(namespec)
+                        if local_identifier in proc.info_map:
+                            return NOT_DONE_YET
+                    except KeyError:
+                        self.logger.debug(f'RPCInterface._decrease_numprocs: processes {namespec} has been deleted')
+            return True
+
+        onwait.delay = 0.5
+        onwait.checkstop = True
+        return onwait  # deferred
+
+    def update_numprocs(self, program_name: str, numprocs: int, wait: bool = True) -> bool:
         """ Update dynamically the numprocs of the program.
         Implementation of Supervisor issue #177 - Dynamic numproc change.
 
         :param program_name: the program name, as found in the section of the Supervisor configuration files.
             Programs, FastCGI programs and event listeners are supported.
         :param numprocs: the new numprocs value (must be strictly positive).
+        :param wait: if ``True``, wait for the confirmation that processes have been added or removed into Supvisors.
         :return: always ``True`` unless error.
         :raises RPCError: with code:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
@@ -636,61 +722,24 @@ class RPCInterface(object):
             raise RPCError(Faults.INCORRECT_PARAMETERS,
                            f'incorrect value for numprocs: {numprocs} (integer > 0 expected)')
         try:
-            del_namespecs = self.supvisors.supervisor_data.update_numprocs(program_name, value)
+            add_namespecs, del_namespecs = self.supvisors.supervisor_data.update_numprocs(program_name, value)
         except ValueError as exc:
             self.logger.error(f'RPCInterface.update_numprocs: numprocs invalid to program={program_name}')
             raise RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, f'numprocs not applicable: {exc}')
-        # if the value is greater than the current one, the job is done
-        if not del_namespecs:
-            return True
-        # if the value is lower than the current one, processes must be stopped before they are deleted
-        self.logger.debug(f'RPCInterface.update_numprocs: obsolete processes={del_namespecs}')
-        # FIXME: should be done only on local Supervisor instance
-        #  use ProcessStatus.running_on(self.supvisors.supvisors_mapper.local_identifier)
-        processes_to_stop = list(filter(ProcessStatus.running,
-                                        [self._get_application_process(del_namespec)[1]
-                                         for del_namespec in del_namespecs]))
-        for process in processes_to_stop:
-            # FIXME: should be done only on local Supervisor instance
-            #  use stop_process(process, [self.supvisors.supvisors_mapper.local_identifier], False)
-            self.logger.debug(f'RPCInterface.update_numprocs: stopping process={process.namespec}')
-            self.supvisors.stopper.stop_process(process, trigger=False)
-        self.supvisors.stopper.next()
-        in_progress = self.supvisors.stopper.in_progress()
-        self.logger.info(f'RPCInterface.update_numprocs: in_progress={in_progress}')
-        if not in_progress:
-            self.supvisors.supervisor_data.delete_processes(del_namespecs)
-            return True
+        # use different methods for the next activities
+        if add_namespecs:
+            return self._increase_numprocs(add_namespecs, wait)
+        if del_namespecs:
+            return self._decrease_numprocs(del_namespecs, wait)
+        return True
 
-        # wait until processes are in STOPPED_STATES
-        def onwait():
-            # check stopper
-            self.logger.info(f'RPCInterface.update_numprocs: in_progress={self.supvisors.stopper.in_progress()}')
-            if self.supvisors.stopper.in_progress():
-                return NOT_DONE_YET
-            proc_errors = []
-            for proc in processes_to_stop:
-                if proc.running():
-                    self.logger.error(f'RPCInterface.update_numprocs: process={proc.namespec} still running')
-                    proc_errors.append(proc.namespec)
-                    # WARN: do not delete a process that is running
-                    del_namespecs.remove(proc.namespec)
-            # complete removal in Supervisor
-            self.supvisors.supervisor_data.delete_processes(del_namespecs)
-            if proc_errors:
-                raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
-            # FIXME: wait for del_namespecs to be actually removed from Supvisors context
-            return True
-
-        onwait.delay = 0.5
-        return onwait  # deferred
-
-    def enable(self, program_name: str) -> bool:
+    def enable(self, program_name: str, wait: bool = True) -> bool:
         """ Enable the process, i.e. remove the disabled flag on the corresponding processes if set.
         This information is persisted on disk so that it is taken into account on Supervisor restart.
         Implementation of Supervisor issue #591 - New Feature: disable/enable.
 
         :param program_name: the name of the program
+        :param wait: if ``True``, wait for the corresponding processes to be fully stopped.
         :return: always ``True`` unless error.
         :raises RPCError: with code:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
@@ -704,6 +753,22 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
         # re-enable the corresponding process to be started
         self.supvisors.supervisor_data.enable_program(program_name)
+        if wait:
+            # get corresponding subprocesses
+            subprocesses = self.supvisors.supervisor_data.get_subprocesses(program_name)
+            local_identifier = self.supvisors.supvisors_mapper.local_identifier
+
+            # wait until processes are removed from Supvisors
+            def onwait():
+                for namespec in subprocesses:
+                    proc = self._get_application_process(namespec)[1]
+                    if not proc.enabled_on(local_identifier):
+                        return NOT_DONE_YET
+                return True
+
+            # deferred
+            onwait.delay = 0.5
+            return onwait
         return True
 
     def disable(self, program_name: str, wait: bool = True) -> bool:
@@ -730,35 +795,41 @@ class RPCInterface(object):
         subprocesses = self.supvisors.supervisor_data.get_subprocesses(program_name)
         # stop all running processes related to the program
         self.logger.debug(f'RPCInterface.disable: {program_name} - processes={subprocesses}')
-        # FIXME: should be done only on local Supervisor instance
-        #  use ProcessStatus.running_on(self.supvisors.supvisors_mapper.local_identifier)
-        processes_to_stop = list(filter(ProcessStatus.running,
+        local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        processes_to_stop = list(filter(lambda x: x.running_on(local_identifier),
                                         [self._get_application_process(namespec)[1]
                                          for namespec in subprocesses]))
         for process in processes_to_stop:
-            # FIXME: should be done only on local Supervisor instance
-            #  use stop_process(process, [self.supvisors.supvisors_mapper.local_identifier], False)
             self.logger.debug(f'RPCInterface.disable: stopping process={process.namespec}')
-            self.supvisors.stopper.stop_process(process, trigger=False)
+            self.supvisors.stopper.stop_process(process, [local_identifier], False)
         self.supvisors.stopper.next()
-        if wait and self.supvisors.stopper.in_progress():
+        if wait:
             # wait until processes are in STOPPED_STATES
             def onwait():
                 # check stopper
-                if self.supvisors.stopper.in_progress():
-                    return NOT_DONE_YET
-                # report errors if any
-                proc_errors = []
-                for proc in processes_to_stop:
-                    if proc.running():
-                        self.logger.error(f'RPCInterface.disable: process={proc.namespec} still running')
-                        proc_errors.append(proc.namespec)
-                if proc_errors:
-                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                if onwait.waitstop:
+                    if self.supvisors.stopper.in_progress():
+                        return NOT_DONE_YET
+                    onwait.waitstop = False
+                    # report errors if any
+                    proc_errors = []
+                    for proc in processes_to_stop:
+                        if proc.running():
+                            self.logger.error(f'RPCInterface.disable: process={proc.namespec} still running')
+                            proc_errors.append(proc.namespec)
+                    if proc_errors:
+                        raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                # wait until processes are disabled in Supvisors
+                if not onwait.waitstop:
+                    for namespec in subprocesses:
+                        proc = self._get_application_process(namespec)[1]
+                        if proc.enabled_on(local_identifier):
+                            return NOT_DONE_YET
                 return True
 
             # deferred
             onwait.delay = 0.5
+            onwait.waitstop = True
             return onwait
         return True
 

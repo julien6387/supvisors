@@ -712,7 +712,9 @@ def test_supvisors_update_numprocs(xml_rpc, client):
     # test error with incorrect parameter (not an integer)
     check_post_error(client, f'{base_url}/converter/hello', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/converter/10', mocked_func, [call('converter', 10)])
+    check_post_success(client, f'{base_url}/converter/10', mocked_func, [call('converter', 10, True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/converter/10?wait=false', mocked_func, [call('converter', 10, False)])
 
 
 def test_supvisors_enable(xml_rpc, client):
@@ -722,7 +724,9 @@ def test_supvisors_enable(xml_rpc, client):
     # test error with missing parameter
     check_post_error(client, f'{base_url}', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/converter', mocked_func, [call('converter')])
+    check_post_success(client, f'{base_url}/converter', mocked_func, [call('converter', True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/converter?wait=false', mocked_func, [call('converter', False)])
 
 
 def test_supvisors_disable(xml_rpc, client):

@@ -194,17 +194,17 @@ def test_update_numprocs(mocker, source):
     """ Test the possibility to update numprocs. """
     # get patches
     mocked_obsolete = mocker.patch.object(source, '_get_obsolete_processes', return_value=['dummy_program_2'])
-    mocked_add = mocker.patch.object(source, '_add_processes')
+    mocked_add = mocker.patch.object(source, '_add_processes', return_value=['dummy_program_3'])
     # set context
     source.supervisord.supvisors.server_options.program_processes = program_processes = {}
     program_processes['dummy_program'] = {'dummy_group': ['dummy_program_1', 'dummy_program_2']}
     # test numprocs increase
-    source.update_numprocs('dummy_program', 3)
+    assert source.update_numprocs('dummy_program', 3) == (['dummy_program_3'], [])
     assert not mocked_obsolete.called
     assert mocked_add.call_args_list == [call('dummy_program', 3, 2, ['dummy_group'])]
     mocker.resetall()
     # test numprocs decrease
-    assert source.update_numprocs('dummy_program', 1) == ['dummy_program_2']
+    assert source.update_numprocs('dummy_program', 1) == ([], ['dummy_program_2'])
     assert mocked_obsolete.call_args_list == [call('dummy_program', 1,
                                                    {'dummy_group': ['dummy_program_1', 'dummy_program_2']})]
     assert not mocked_add.called
@@ -223,9 +223,10 @@ def test_add_processes(mocker, source):
     mocked_reload = source.supervisord.supvisors.server_options.reload_processes_from_section
     process_1, process_2 = Mock(), Mock()
     mocked_reload.return_value = [process_1, process_2]
-    mocked_add = mocker.patch.object(source, '_add_supervisor_processes')
+    expected = ['dummy_group:dummy_program_01', 'dummy_group:dummy_program_02']
+    mocked_add = mocker.patch.object(source, '_add_supervisor_processes', return_value=expected)
     # test call
-    source._add_processes('dummy_program', 2, 1, ['dummy_group'])
+    assert source._add_processes('dummy_program', 2, 1, ['dummy_group']) == expected
     assert mocked_update.call_args_list == [call('dummy_program', 2)]
     assert mocked_reload.call_args_list == [call('program:dummy_program', 'dummy_group')]
     assert mocked_add.call_args_list == [call('dummy_program', 'dummy_group', [process_2])]
@@ -243,7 +244,8 @@ def test_add_supervisor_processes(mocker, source):
                                                              config=Mock(process_configs=[process_1]))}
     source.disabilities['dummy_program'] = True
     # test call
-    source._add_supervisor_processes('dummy_program', 'dummy_group', [program_2])
+    expected = ['dummy_group:dummy_program_02']
+    assert source._add_supervisor_processes('dummy_program', 'dummy_group', [program_2]) == expected
     assert program_2.options == source.supervisord.options
     assert program_2.command_ref == 'bin/program_2'
     assert program_2.extra_args == ''

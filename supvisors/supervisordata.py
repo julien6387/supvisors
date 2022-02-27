@@ -20,7 +20,7 @@
 import json
 import os
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Tuple
 
 from supervisor.events import notify
 from supervisor.http import supervisor_auth_handler
@@ -257,13 +257,13 @@ class SupervisorData(object):
         process.give_up()
 
     # Supervisor issue #177
-    def update_numprocs(self, program_name: str, numprocs: int) -> Optional[NameList]:
+    def update_numprocs(self, program_name: str, numprocs: int) -> Tuple[NameList, NameList]:
         """ This method is used to dynamically update the program numprocs.
         Implementation of Supervisor issue #177 - Dynamic numproc change
 
         :param program_name: the program name, as found in the sections of the Supervisor configuration files
         :param numprocs: the new numprocs value
-        :return: the list of processes to eventually stop before removal
+        :return: the list of processes added and removed (and eventually stop before removal)
         """
         self.logger.trace(f'SupervisorData.update_numprocs: {program_name} - numprocs={numprocs}')
         # re-evaluate for all groups including the program
@@ -273,13 +273,14 @@ class SupervisorData(object):
         self.logger.debug(f'SupervisorData.update_numprocs: {program_name} - current_numprocs={current_numprocs}')
         if current_numprocs > numprocs:
             # return the processes to stop if numprocs decreases
-            return self._get_obsolete_processes(program_name, numprocs, program_groups)
+            return [], self._get_obsolete_processes(program_name, numprocs, program_groups)
         if current_numprocs < numprocs:
             # add the new processes into Supervisor
-            self._add_processes(program_name, numprocs, current_numprocs, list(program_groups.keys()))
+            return self._add_processes(program_name, numprocs, current_numprocs, list(program_groups.keys())), []
         # else equal / no change
+        return None, None
 
-    def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> None:
+    def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> NameList:
         """ Add new processes to all Supervisor groups already including it.
 
         :param program_name: the program which definition has to be updated
@@ -288,6 +289,7 @@ class SupervisorData(object):
         :param groups: the groups that embed the processes issued from the existing program definition
         :return: None
         """
+        new_process_namespecs = []
         # update ServerOptions parser with new numprocs for program
         server_options = self.supervisord.supvisors.server_options
         section = server_options.update_numprocs(program_name, new_numprocs)
@@ -295,22 +297,27 @@ class SupervisorData(object):
             # rebuild the process configs from the new Supervisor configuration
             process_configs = server_options.reload_processes_from_section(section, group_name)
             # the new processes are those over the previous size
-            self._add_supervisor_processes(program_name, group_name, process_configs[current_numprocs:])
+            new_namespecs = self._add_supervisor_processes(program_name, group_name, process_configs[current_numprocs:])
+            new_process_namespecs.extend(new_namespecs)
+        return new_process_namespecs
 
-    def _add_supervisor_processes(self, program_name: str, group_name: str, new_configs: List[ProcessConfig]) -> None:
+    def _add_supervisor_processes(self, program_name: str, group_name: str,
+                                  new_configs: List[ProcessConfig]) -> NameList:
         """ Add new processes to the Supervisor group from the configuration built.
 
         :param program_name: the program which definition has to be updated
         :param group_name: the group that embed the program definition
         :param new_configs: the new process configurations to add to the group
-        :return: None
+        :return: the new process namespecs
         """
+        new_process_namespecs = []
         # add new process configs to group in Supervisor
         group = self.supervisord.process_groups[group_name]
         group.config.process_configs.extend(new_configs)
         # create processes from new process configs
         for process_config in new_configs:
             self.logger.info(f'SupervisorData._add_supervisor_processes: add process={process_config.name}')
+            new_process_namespecs.append(make_namespec(group_name, process_config.name))
             # WARN: replace process_config Supvisors server_options by Supervisor options
             # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
             process_config.options = self.supervisord.options
@@ -324,6 +331,7 @@ class SupervisorData(object):
             group.processes[process_config.name] = process = process_config.make_process(group)
             # fire event to Supervisor listeners
             notify(ProcessAddedEvent(process))
+        return new_process_namespecs
 
     def _get_obsolete_processes(self, program_name: str, numprocs: int,
                                 program_configs: SupvisorsServerOptions.ProcessConfigInfo) -> NameList:
@@ -333,7 +341,7 @@ class SupervisorData(object):
         :param program_name: the program which definition has to be updated
         :param numprocs: the new numprocs value
         :param program_configs: the current program configurations per group
-        :return: The obsolete processes
+        :return: the obsolete process namespecs
         """
         # do not remove process configs yet as they may need to be stopped before
         obsolete_processes = [make_namespec(group_name, process_config.name)

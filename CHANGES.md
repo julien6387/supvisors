@@ -10,6 +10,8 @@
 
 * Fix issue where **Supvisors** may be blocked in the `DEPLOYMENT` phase due to late process events.
 
+* Add a `wait` parameter to the `update_numprocs` XML-RPC.
+
 * Add the principle of **Supvisors** modes to the output of the XML-RPCs `get_supvisors_state` and `get_instance_info`.
   The modes are linked to the existence of jobs in progress in `Starter` and `Stopper`.
 

@@ -313,6 +313,14 @@ class ProcessStatus(object):
                 'extra_args': self.extra_args}
 
     # access
+    def enabled_on(self, identifier: str) -> bool:
+        """ Check if the process is disabled on the Supvisors instance identified.
+
+        :param identifier: the Supvisors instance identifier
+        :return: the disabled status of the process on the considered Supvisors instance
+        """
+        return identifier in self.info_map and not self.info_map[identifier]['disabled']
+
     def possible_identifiers(self) -> NameList:
         """ Return the list of identifier where the program could be started.
         To achieve that, three conditions:
@@ -325,8 +333,7 @@ class ProcessStatus(object):
         identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
             identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        return [identifier for identifier in identifiers
-                if identifier in self.info_map and not self.info_map[identifier]['disabled']]
+        return [identifier for identifier in identifiers if self.enabled_on(identifier)]
 
     def has_crashed(self) -> bool:
         """ Return True if the any of the processes has ever crashed or has ever exited unexpectedly.

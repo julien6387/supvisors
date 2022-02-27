@@ -240,16 +240,20 @@ class SupvisorsRestartProcess(Resource):
 class SupvisorsUpdateNumprocs(Resource):
     @api.doc(params={'program_name': 'the program name, as found in the section of the Supervisor configuration files',
                      'numprocs': 'the new numprocs value'})
+    @api.expect(wait_parser)
     def post(self, program_name, numprocs):
-        return g.proxy.supvisors.update_numprocs(program_name, numprocs)
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.update_numprocs(program_name, numprocs, args.wait)
 
 
 @api.route(f'/enable/<string:program_name>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.enable))
 class SupvisorsEnable(Resource):
     @api.doc(params={'program_name': 'the program name, as found in the section of the Supervisor configuration files'})
+    @api.expect(wait_parser)
     def post(self, program_name):
-        return g.proxy.supvisors.enable(program_name)
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.enable(program_name, args.wait)
 
 
 @api.route(f'/disable/<string:program_name>', methods=('POST',))

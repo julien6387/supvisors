@@ -236,6 +236,20 @@ def test_process_create(supvisors):
     assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
 
 
+def test_process_enabled_on(supvisors):
+    """ Test the ProcessStatus.enabled_on method. """
+    info = any_process_info()
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.2', info)
+    # test with identifier not found in process info_map
+    assert not process.enabled_on('10.0.0.1')
+    # test with identifier found in process info_map and enabled
+    assert process.enabled_on('10.0.0.2')
+    # test with identifier found in process info_map and disabled
+    info['disabled'] = True
+    assert not process.enabled_on('10.0.0.2')
+
+
 def test_process_possible_identifiers(supvisors):
     """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
