@@ -32,12 +32,12 @@ class CheckStopSequenceTest(CheckSequenceTest):
         This process is the first to be started. """
         # store a proxy to perform XML-RPC requests
         self.proxy = getRPCInterface(os.environ)
-        # wait for insatnce_queue to trigger
+        # wait for instance_queue to trigger
         self.get_instances()
         # define the context to know which process is running
         self.create_context()
         # start a converter to sync
-        self.proxy.supvisors.start_args('my_movies:converter_05')
+        self.proxy.supvisors.start_args('my_movies:converter_05', '')
         # empty queues (pull STARTING / RUNNING events)
         self.check_converter_running()
         # send restart request
@@ -115,6 +115,13 @@ class CheckStopSequenceTest(CheckSequenceTest):
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # configure evtlistener stop sequence
         program = self.context.get_program('evt_listener:evt_listener_00')
+        if program:
+            if program.state in RUNNING_STATES:
+                for identifier in program.identifiers:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # configure supvisorsflask stop sequence
+        program = self.context.get_program('service:supvisorsflask')
         if program:
             if program.state in RUNNING_STATES:
                 for identifier in program.identifiers:
