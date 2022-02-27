@@ -327,6 +327,28 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The startAnyProcess methods starts a process whose namespec shall match the regular expression,
+     * in accordance with the rules for the application and its processes.
+     * This method makes it also possible to pass extra arguments to the program command line.
+     *
+     * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
+     * @param String regex: The regular expression used to find a process to start.
+     * @param String extraArgs: The extra arguments to be passed to the command line of the program.
+     * @param Boolean wait: If true, the RPC returns only when the process is fully started.
+     * @return String: The namespec of the process started, unless error.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION.
+     * @throws XmlRpcException: with code BAD_STRATEGY if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
+     * @throws XmlRpcException: with code ALREADY_STARTED if process is running.
+     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if process could not be started.
+     */
+    public String startAnyProcess(final StartingStrategy strategy, final String regex,
+            final String extraArgs, final Boolean wait) throws XmlRpcException {
+        Object[] params = new Object[]{strategy.ordinal(), regex, extraArgs, wait};
+        return client.rpcCall(Namespace + "start_any_process", params, String.class);
+    }
+
+    /**
      * The stopProcess methods stops a process where it is running.
      *
      * @param String namespec: The name of the process to start.
@@ -533,8 +555,10 @@ public class SupvisorsXmlRpc {
         System.out.println(supvisors.restartProcess(StartingStrategy.CONFIG, "my_movies:converter_02", "", true));
         System.out.println("### Testing supvisors.stopProcess(...) ###");
         System.out.println(supvisors.stopProcess("my_movies:converter_02", false));
-        System.out.println("### Testing supvisors.startProcess(...) ###");
+        System.out.println("### Testing supvisors.startProcess(...) with extra args ###");
         System.out.println(supvisors.startProcess(StartingStrategy.MOST_LOADED, "my_movies:converter_03", "-x 8", true));
+        System.out.println("### Testing supvisors.startAnyProcess(...) with extra args ###");
+        System.out.println(supvisors.startAnyProcess(StartingStrategy.MOST_LOADED, "converter", "-x 5", false));
         System.out.println("### Testing supvisors.restartProcess(...) ###");
         System.out.println(supvisors.restartProcess(StartingStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
         System.out.println("### Testing supvisors.update_numprocs(...) ###");

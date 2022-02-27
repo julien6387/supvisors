@@ -48,9 +48,9 @@ def filled_context(context):
     context.supvisors.parser.load_application_rules = load_application_rules
     for info in database_copy():
         process = context.setdefault_process(info)
-        node_name = random.choice(list(context.instances.keys()))
-        process.add_info(node_name, info)
-        context.instances[node_name].add_process(process)
+        identifier = random.choice(list(context.instances.keys()))
+        process.add_info(identifier, info)
+        context.instances[identifier].add_process(process)
     return context
 
 
@@ -319,6 +319,22 @@ def test_get_process(filled_context):
         filled_context.get_process('unknown:xclock')
     with pytest.raises(KeyError):
         filled_context.get_process('sample_test_2:xclock')
+
+
+def test_find_runnable_processes(filled_context):
+    """ Test getting all processes that are not running and whose namespec matches a regex. """
+    all_stopped_namespecs = ['firefox', 'sample_test_1:xclock', 'sample_test_1:xlogo',
+                             'sample_test_2:sleep', 'sample_test_2:yeux_00']
+    # use regex that returns everything
+    processes = filled_context.find_runnable_processes('')
+    assert sorted([process.namespec for process in processes]) == all_stopped_namespecs
+    processes = filled_context.find_runnable_processes('^.*$')
+    assert sorted([process.namespec for process in processes]) == all_stopped_namespecs
+    # use regex that returns a selection
+    processes = filled_context.find_runnable_processes(':x')
+    assert sorted([process.namespec for process in processes]) == ['sample_test_1:xclock', 'sample_test_1:xlogo']
+    processes = filled_context.find_runnable_processes('[ox]$')
+    assert sorted([process.namespec for process in processes]) == ['firefox', 'sample_test_1:xlogo']
 
 
 def test_conflicts(filled_context):

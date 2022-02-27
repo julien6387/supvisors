@@ -649,7 +649,7 @@ def test_supvisors_start_args(xml_rpc, client):
 
 
 def test_supvisors_start_process(xml_rpc, client):
-    """ Check the start_args REST API. """
+    """ Check the start_process REST API. """
     base_url = '/supvisors/start_process'
     mocked_func = xml_rpc.supvisors.start_process
     # test error with missing parameter
@@ -666,6 +666,26 @@ def test_supvisors_start_process(xml_rpc, client):
     mocked_func.reset_mock()
     check_post_success(client, f'{base_url}/LESS_LOADED_NODE/my_movies:converter_02?extra_args=-x%202&wait=false',
                        mocked_func, [call('LESS_LOADED_NODE', 'my_movies:converter_02', '-x 2', False)])
+
+
+def test_supvisors_start_any_process(xml_rpc, client):
+    """ Check the start_any_process REST API. """
+    base_url = '/supvisors/start_any_process'
+    mocked_func = xml_rpc.supvisors.start_any_process
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    check_post_error(client, f'{base_url}/CONFIG', mocked_func)
+    # test error with incorrect parameter (unknown strategy)
+    check_post_error(client, f'{base_url}/NAWAK/converter', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/MOST_LOADED/converter', mocked_func,
+                       [call('MOST_LOADED', 'converter', '', True)], 'dummy_group:dummy_process')
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/LOCAL/converter?extra_args=-x 2', mocked_func,
+                       [call('LOCAL', 'converter', '-x 2', True)], 'dummy_group:dummy_process')
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/LESS_LOADED_NODE/converter?extra_args=-x%202&wait=false',
+                       mocked_func, [call('LESS_LOADED_NODE', 'converter', '-x 2', False)], 'dummy_group:dummy_process')
 
 
 def test_supvisors_stop_process(xml_rpc, client):

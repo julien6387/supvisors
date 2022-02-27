@@ -481,6 +481,56 @@ def test_start_process(controller, plugin, mocked_check):
                                  ('appli_1:proc_1', 'appli_2:proc_3'))
 
 
+def test_start_any_process(controller, plugin, mocked_check):
+    """ Test the start_any_process request. """
+    # test the request using few arguments
+    plugin.do_start_any_process('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    plugin.do_start_any_process('CONFIG')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    plugin.do_start_any_process('strategy regex')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test request to start the process
+    mocked_rpc = plugin.supvisors().start_any_process
+    _check_call(controller, mocked_check, mocked_rpc,
+                plugin.help_start_any_process, plugin.do_start_any_process,
+                'LESS_LOADED :x [abc]', [call(1, ':x'), call(1, '[abc]')])
+
+
+def test_start_any_process_args(controller, plugin, mocked_check):
+    """ Test the start_any_process_args request. """
+    # test the request using few arguments
+    plugin.do_start_any_process_args('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    plugin.do_start_any_process_args('CONFIG')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    plugin.do_start_any_process_args('CONFIG regex')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    plugin.do_start_any_process_args('strategy regex a list of arguments')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test request to start the process
+    mocked_rpc = plugin.supvisors().start_any_process
+    _check_call(controller, mocked_check, mocked_rpc,
+                plugin.help_start_any_process_args, plugin.do_start_any_process_args,
+                'LESS_LOADED :x  a list of arguments', [call(1, ':x', 'a list of arguments')])
+
+
 def test_restart_process(controller, plugin, mocked_check):
     """ Test the restart_process request. """
     mocked_info = plugin.supvisors().get_all_process_info

@@ -19,7 +19,7 @@
 
 import os
 
-from typing import Dict, Union
+from typing import Union
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription
@@ -27,7 +27,7 @@ from supervisor.options import make_namespec, split_namespec, VERSION
 from supervisor.xmlrpc import Faults, RPCError
 
 from .application import ApplicationStatus
-from .strategy import conciliate_conflicts
+from .strategy import get_supvisors_instance, conciliate_conflicts
 from .ttypes import *
 from .utils import extract_process_info
 
@@ -498,6 +498,44 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
+    def start_any_process(self, strategy: EnumParameterType, regex: str, extra_args: str = '',
+                          wait: bool = True) -> bool:
+        """ Start a process named ``namespec`` iaw the strategy and the rules file.
+        WARN: the 'wait_exit' rule is not considered here.
+
+        :param strategy: the strategy used to choose a **Supvisors** instance, as a string or as a value.
+        :param regex: a regular expression to match process namespecs.
+        :param extra_args: the optional extra arguments to be passed to command line.
+        :param wait: if ``True``, wait for the process to be fully started.
+        :return: the namespec of the process started unless error.
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
+            ``Faults.BAD_NAME`` if no running process found matching ``regex`` in **Supvisors** ;
+            ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
+        """
+        self.logger.trace(f'RPCInterface.start_process: regex={regex} strategy={strategy} extra_args={extra_args}'
+                          f' wait={wait}')
+        self._check_operating()
+        strategy_enum = self._get_starting_strategy(strategy)
+        # get the processes whose namespec matches the regex and that are not running
+        processes = self.supvisors.context.find_runnable_processes(regex)
+        namespec = next((process.namespec for process in processes
+                         if get_supvisors_instance(self.supvisors, strategy_enum, process.possible_identifiers(),
+                                                   process.rules.expected_load)), None)
+        if not namespec:
+            raise RPCError(Faults.BAD_NAME, f'no candidate process matching "{regex}"')
+        # start the chosen one and return its namespec
+        bool_or_callable = self.start_process(strategy, namespec, extra_args, wait)
+        if wait and callable(bool_or_callable):
+            def onwait():
+                if bool_or_callable() is True:
+                    return namespec
+                return NOT_DONE_YET
+            onwait.delay = 0.5
+            return onwait  # deferred
+        return namespec
+
     def stop_process(self, namespec: str, wait: bool = True) -> bool:
         """ Stop the process named ``namespec`` on the **Supvisors** instance where it is running.
 
@@ -539,7 +577,6 @@ class RPCInterface(object):
                 if proc_errors:
                     raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
                 return True
-
             onwait.delay = 0.5
             return onwait  # deferred
         return True
@@ -599,7 +636,6 @@ class RPCInterface(object):
                 if proc_errors:
                     raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
                 return True
-
             onwait.delay = 0.5
             onwait.waitstop = True
             return onwait  # deferred

@@ -257,11 +257,13 @@ Process Control
 
         .. automethod:: start_process(strategy, namespec, extra_args='', wait=True)
 
+        .. automethod:: start_any_process(strategy, regex, extra_args='', wait=True)
+
         .. automethod:: stop_process(namespec, wait=True)
 
         .. automethod:: restart_process(strategy, namespec, extra_args='', wait=True)
 
-        .. automethod:: update_numprocs(program_name, numprocs)
+        .. automethod:: update_numprocs(program_name, numprocs, wait=True)
 
             .. hint::
 
@@ -269,7 +271,7 @@ Process Control
 
                     * `#177 - Dynamic numproc change <https://github.com/Supervisor/supervisor/issues/177>`_
 
-        .. automethod:: enable(program_name)
+        .. automethod:: enable(program_name, wait=True)
 
             .. hint::
 

@@ -214,6 +214,17 @@ class SupvisorsStartProcess(Resource):
         return g.proxy.supvisors.start_process(strategy, namespec, args.extra_args, args.wait)
 
 
+@api.route(f'/start_any_process/<any({StartingStrategiesParam}):strategy>/<string:regex>', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.start_any_process))
+class SupvisorsStartAnyProcess(Resource):
+    @api.doc(params={'strategy': f'the starting strategy in {{{StartingStrategiesParam}}}',
+                     'regex': 'the regular expression used to find a process to start'})
+    @api.expect(start_process_parser)
+    def post(self, strategy, regex):
+        args = start_process_parser.parse_args()
+        return g.proxy.supvisors.start_any_process(strategy, regex, args.extra_args, args.wait)
+
+
 @api.route(f'/stop_process/<string:namespec>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.stop_process))
 class SupvisorsStopProcess(Resource):

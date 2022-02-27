@@ -135,6 +135,7 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.restart_application.return_value = True
     proxy.supvisors.start_args.return_value = True
     proxy.supvisors.start_process.return_value = True
+    proxy.supvisors.start_any_process.return_value = 'dummy_group:dummy_process'
     proxy.supvisors.stop_process.return_value = True
     proxy.supvisors.restart_process.return_value = True
     proxy.supvisors.update_numprocs.return_value = True

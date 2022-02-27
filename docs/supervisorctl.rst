@@ -33,13 +33,15 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    application_info   local_status         sreload            start_process_args
-    application_rules  loglevel             sshutdown          stop_application
-    conciliate         master               sstate             stop_process
-    conflicts          process_rules        sstatus            strategies
-    disable            restart_application  start_application  sversion
-    enable             restart_process      start_args         update_numprocs
-    instance_status    restart_sequence     start_process
+    application_info   master               start_any_process       sversion
+    application_rules  process_rules        start_any_process_args  update_numprocs
+    conciliate         restart_application  start_application
+    conflicts          restart_process      start_args
+    disable            restart_sequence     start_process
+    enable             sreload              start_process_args
+    instance_status    sshutdown            stop_application
+    local_status       sstate               stop_process
+    loglevel           sstatus              strategies
 
 .. _extended_status:
 
@@ -239,6 +241,14 @@ Process Control
 
     Start multiple named processes with a starting strategy.
 
+``start_any_process strategy regex``
+
+    Start a process whose namespec matches the regular expression and with a starting strategy.
+
+``start_any_process strategy regex1 regex2``
+
+    Start multiple processes whose namespec matches the regular expressions and with a starting strategy.
+
 ``start_args proc arg_list``
 
     Start the process named proc in the local |Supvisors| instance and with the additional arguments arg_list passed
@@ -248,6 +258,11 @@ Process Control
 
     Start the process named proc with a starting strategy and with the additional arguments arg_list passed
     to the command line.
+
+``start_any_process_args strategy regex arg_list``
+
+    Start a process whose namespec matches the regular expression, using a starting strategy and additional arguments
+    arg_list passed to the command line.
 
 ``stop_process``
 

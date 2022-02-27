@@ -677,14 +677,49 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('start_process <strategy> <proc> <proc>\t\tStart multiple named processes with strategy.')
         self.ctl.output('start_process <strategy>\t\t\tStart all processes with strategy.')
 
-    # start a process using strategy and rules
+    def do_start_any_process(self, arg):
+        """ Command to start processes using regular expressions, with a strategy and rules. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: start_any_process requires a strategy and at least a regular expression')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process()
+                return
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for start_any_process.'
+                                f' use one of {enum_names(StartingStrategies)}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process()
+                return
+            regexes = args[1:]
+            for regex in sorted(regexes):
+                try:
+                    result = self.supvisors().start_any_process(strategy.value, regex)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'"{regex}": ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'{result} started')
+
+    def help_start_any_process(self):
+        """ Print the help of the start_any_process command."""
+        self.ctl.output('start_any_process <strategy> <regex>\t\t\t'
+                        'Start a process whose namespec matches the regular expression and with a starting strategy.')
+        self.ctl.output('start_any_process <strategy> <regex> <regex>\t\t'
+                        'Start multiple processes whose namespec matches the regular expressions'
+                        ' and with a starting strategy.')
+
+    # start a process using strategy, rules and additional arguments
     def do_start_process_args(self, arg):
         """ Command to start a process with a strategy, rules and additional arguments. """
         if self._upcheck():
             args = arg.split()
             if len(args) < 3:
                 self.ctl.output('ERROR: start_process_args requires a strategy, '
-                                'a program name and extra arguments')
+                                'a program namespec and extra arguments')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process_args()
                 return
@@ -709,6 +744,39 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the start_process_args command."""
         self.ctl.output('start_process <strategy> <proc> <arg_list>\t'
                         'Start the process named proc with additional arguments arg_list.')
+
+    def do_start_any_process_args(self, arg):
+        """ Command to start processes using regular expressions, with a strategy and rules. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 3:
+                self.ctl.output('ERROR: start_any_process_args requires a strategy, a regular expression'
+                                ' and extra arguments')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process_args()
+                return
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for start_any_process_args.'
+                                f' use one of {enum_names(StartingStrategies)}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process_args()
+                return
+            regex = args[1]
+            try:
+                result = self.supvisors().start_any_process(strategy.value, regex, ' '.join(args[2:]))
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'"{regex}": ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{result} started')
+
+    def help_start_any_process_args(self):
+        """ Print the help of the start_any_process_args command."""
+        self.ctl.output('start_any_process_args <strategy> <regex> <arg_list>\t'
+                        'Start a process whose namespec matches the regular expression, using a starting strategy and'
+                        ' additional arguments arg_list.')
 
     def do_stop_process(self, arg):
         """ Command to stop processes with rules. """

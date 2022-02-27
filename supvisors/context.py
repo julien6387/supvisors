@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+import re
+
 from typing import List
 
 from .instancestatus import *
@@ -223,6 +225,16 @@ class Context(object):
         """
         application_name, process_name = split_namespec(namespec)
         return self.applications[application_name].processes[process_name]
+
+    def find_runnable_processes(self, regex: str) -> List[ProcessStatus]:
+        """ Get all processes whose namespec matches the regex.
+        The processes shall not be already running.
+
+        :return: the candidate processes
+        """
+        return [process for application in self.applications.values()
+                for process in application.processes.values()
+                if re.search(rf'{regex}', process.namespec) and not process.running()]
 
     def conflicting(self) -> bool:
         """ Check if any conflicting ProcessStatus is detected.
