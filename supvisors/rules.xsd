@@ -69,10 +69,7 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         </xs:choice>
     </xs:complexType>
     <xs:complexType name="ApplicationModel">
-        <!-- can't find a way to use xs:all here because of unbounded ProgramModel.
-        need XSD 1.1 or to insert intermediate type -->
-        <xs:sequence>
-            <xs:element type="xs:boolean" name="distributed" minOccurs="0"/>
+        <xs:all>
             <xs:element type="DistributionRules" name="distribution" minOccurs="0"/>
             <xs:element type="xs:string" name="identifiers" minOccurs="0"/>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
@@ -80,11 +77,8 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:element type="StartingStrategy" name="starting_strategy" minOccurs="0"/>
             <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0"/>
             <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0"/>
-            <xs:choice minOccurs="0" maxOccurs="unbounded">
-                <xs:element type="ProgramModel" name="program"/>
-            </xs:choice>
             <xs:element type="Programs" name="programs" minOccurs="0"/>
-        </xs:sequence>
+        </xs:all>
 	    <!-- no way to check one of the two is required unless XSD 1.1 is supported -->
         <xs:attribute type="xs:string" name="name"/>
         <xs:attribute type="xs:string" name="pattern"/>

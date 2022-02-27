@@ -73,8 +73,9 @@ def test_abstract_state(supvisors_ctx):
     assert supvisors_ctx.stopper.abort.called
 
 
-def test_initialization_state(supvisors_ctx):
+def test_initialization_state(mocker, supvisors_ctx):
     """ Test the Initialization state of the fsm. """
+    mocker.patch('supvisors.statemachine.time', return_value=1234)
     state = InitializationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
     local_identifier = state.local_identifier
@@ -112,7 +113,7 @@ def test_initialization_state(supvisors_ctx):
     nodes['10.0.0.3']._state = SupvisorsInstanceStates.UNKNOWN
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # SYNCHRO_TIMEOUT_MIN not passed yet
-    state.context.start_date = time() - 10
+    state.context.start_date = 1224
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
     # no master set
@@ -431,8 +432,8 @@ def test_creation(supvisors, fsm):
     assert fsm.supvisors is supvisors
     assert not fsm.redeploy_mark
     # test that the INITIALIZATION state is triggered at creation
-    assert fsm.state == SupvisorsStates.INITIALIZATION
-    assert isinstance(fsm.instance, InitializationState)
+    assert fsm.state == SupvisorsStates.OFF
+    assert isinstance(fsm.instance, OffState)
 
 
 def test_state_string(fsm):
@@ -443,40 +444,33 @@ def test_state_string(fsm):
         assert fsm.state.name == state.name
 
 
-def test_serial(fsm):
-    """ Test the serialization of state machine. """
-    # test serialization for all states
-    for state in SupvisorsStates:
-        fsm.state = state
-        assert fsm.serial() == {'statecode': state.value, 'statename': state.name}
-
-
 # Patch all state events
 MASTER_STATES = [cls.__name__ for cls in FiniteStateMachine._MasterStateInstances.values()]
-SLAVE_STATES = ['InitializationState', 'SlaveMainState', 'SlaveRestartingState', 'RestartState',
+SLAVE_STATES = ['OffState', 'InitializationState', 'SlaveMainState', 'SlaveRestartingState', 'RestartState',
                 'SlaveShuttingDownState', 'ShutdownState']
 EVENTS = ['enter', 'next', 'exit']
 
 
 @pytest.fixture
 def mock_master_events(mocker):
-    return [mocker.patch('supvisors.statemachine.%s.%s' % (cls, evt), return_value=None)
-            for cls in MASTER_STATES
-            for evt in EVENTS]
+    return [[mocker.patch(f'supvisors.statemachine.{cls}.{evt}', return_value=None)
+             for evt in EVENTS]
+            for cls in MASTER_STATES]
 
 
 @pytest.fixture
 def mock_slave_events(mocker):
-    return [mocker.patch('supvisors.statemachine.%s.%s' % (cls, evt), return_value=None)
-            for cls in SLAVE_STATES
-            for evt in EVENTS]
+    return [[mocker.patch(f'supvisors.statemachine.{cls}.{evt}', return_value=None)
+             for evt in EVENTS]
+            for cls in SLAVE_STATES]
 
 
 def compare_calls(call_counts, mock_events):
     """ Compare call counts of mocked methods. """
-    for call_count, mocked in zip(call_counts, mock_events):
-        assert mocked.call_count == call_count
-        mocked.reset_mock()
+    for state_call_counts, state_mock_events in zip(call_counts, mock_events):
+        for call_count, mocked in zip(state_call_counts, state_mock_events):
+            assert mocked.call_count == call_count
+            mocked.reset_mock()
 
 
 def test_master_simple_set_state(fsm, mock_master_events):
@@ -488,18 +482,18 @@ def test_master_simple_set_state(fsm, mock_master_events):
     instance_ref = fsm.instance
     # test set_state with identical state parameter
     fsm.set_state(SupvisorsStates.INITIALIZATION)
-    compare_calls([0, 0, 0, 0, 0, 0], mock_master_events)
-    assert fsm.instance is instance_ref
+    compare_calls([(0, 0, 1), (1, 1, 0), (0, 0, 0)], mock_master_events)
+    assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.INITIALIZATION
     # test set_state with not authorized transition for master
     fsm.context._is_master = True
     fsm.set_state(SupvisorsStates.OPERATION)
-    compare_calls([0, 0, 0, 0, 0, 0], mock_master_events)
-    assert fsm.instance is instance_ref
+    compare_calls([(0, 0, 0), (0, 0, 0), (0, 0, 0)], mock_master_events)
+    assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.INITIALIZATION
     # test set_state with authorized transition
     fsm.set_state(SupvisorsStates.DEPLOYMENT)
-    compare_calls([0, 0, 1, 1, 1, 0], mock_master_events)
+    compare_calls([(0, 0, 0), (0, 0, 1), (1, 1, 0)], mock_master_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.DEPLOYMENT
 
@@ -508,38 +502,39 @@ def test_slave_simple_set_state(fsm, mock_slave_events):
     """ Test single transitions of the state machine using set_state method.
     All transition are applicable for Slave states.
     """
-    fsm.supvisors.logger.info = print
     fsm.master_state = SupvisorsStates.CONCILIATION
     instance_ref = fsm.instance
     # test set_state with identical state parameter
     fsm.set_state(SupvisorsStates.INITIALIZATION)
-    compare_calls([0, 0, 0, 0, 0, 0], mock_slave_events)
-    assert fsm.instance is instance_ref
+    compare_calls([(0, 0, 1), (1, 1, 0), (0, 0, 0)], mock_slave_events)
+    assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.INITIALIZATION
     # test set_state with not authorized transition
     fsm.set_state(SupvisorsStates.OPERATION)
-    compare_calls([0, 0, 1, 1, 1, 0], mock_slave_events)
+    compare_calls([(0, 0, 0), (0, 0, 1), (1, 1, 0)], mock_slave_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.OPERATION
     # test set_state with authorized transition
     fsm.set_state(SupvisorsStates.DEPLOYMENT)
-    compare_calls([0, 0, 0, 1, 1, 1], mock_slave_events)
+    compare_calls([(0, 0, 0), (0, 0, 0), (1, 1, 1)], mock_slave_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.DEPLOYMENT
     # test set_state with unauthorized transition
     fsm.set_state(SupvisorsStates.SHUTDOWN)
-    compare_calls([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0], mock_slave_events)
+    compare_calls([(0, 0, 0), (0, 0, 0), (0, 0, 1), (0, 0, 0), (0, 0, 0), (0, 0, 0), (1, 1, 0)], mock_slave_events)
     assert fsm.state == SupvisorsStates.SHUTDOWN
 
 
 def test_master_complex_set_state(fsm, mock_master_events):
     """ Test multiple transitions of the Master FSM using set_state method. """
-    mock_master_events[4].return_value = SupvisorsStates.OPERATION
+    mock_master_events[0][1].return_value = SupvisorsStates.INITIALIZATION
+    mock_master_events[1][1].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[2][1].return_value = SupvisorsStates.OPERATION
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
-    fsm.set_state(SupvisorsStates.DEPLOYMENT)
-    compare_calls([0, 0, 1, 1, 1, 1, 1, 1, 0], mock_master_events)
+    fsm.set_state(SupvisorsStates.INITIALIZATION)
+    compare_calls([(0, 0, 1), (1, 1, 1), (1, 1, 1), (1, 1, 0)], mock_master_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.OPERATION
 
@@ -555,42 +550,45 @@ def test_fsm_next(mocker, fsm):
 
 def test_master_no_next(fsm, mock_master_events):
     """ Test no transition of the state machine using next method. """
-    mock_master_events[1].return_value = SupvisorsStates.INITIALIZATION
+    mock_master_events[0][1].return_value = SupvisorsStates.OFF
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
     fsm.next()
-    compare_calls([0, 1, 0], mock_master_events)
+    compare_calls([(0, 1, 0)], mock_master_events)
     assert fsm.instance is instance_ref
-    assert fsm.state == SupvisorsStates.INITIALIZATION
+    assert fsm.state == SupvisorsStates.OFF
 
 
 def test_master_simple_next(fsm, mock_master_events):
     """ Test single transition of the state machine using next_method. """
-    mock_master_events[1].return_value = SupvisorsStates.DEPLOYMENT
-    mock_master_events[4].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[0][1].return_value = SupvisorsStates.INITIALIZATION
+    mock_master_events[1][1].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[2][1].return_value = SupvisorsStates.DEPLOYMENT
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
     fsm.next()
-    compare_calls([0, 1, 1, 1, 1, 0], mock_master_events)
+    compare_calls([(0, 1, 1), (1, 1, 1), (1, 1, 0)], mock_master_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.DEPLOYMENT
 
 
 def test_master_complex_next(fsm, mock_master_events):
     """ Test multiple transitions of the state machine using next_method. """
-    mock_master_events[1].side_effect = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.DEPLOYMENT]
-    mock_master_events[4].side_effect = [SupvisorsStates.OPERATION, SupvisorsStates.OPERATION]
-    mock_master_events[7].side_effect = [SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION,
-                                         SupvisorsStates.RESTARTING]
-    mock_master_events[10].side_effect = [SupvisorsStates.OPERATION]
-    mock_master_events[13].return_value = SupvisorsStates.RESTART
+    mock_master_events[0][1].return_value = SupvisorsStates.INITIALIZATION
+    mock_master_events[1][1].side_effect = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.DEPLOYMENT]
+    mock_master_events[2][1].side_effect = [SupvisorsStates.OPERATION, SupvisorsStates.OPERATION]
+    mock_master_events[3][1].side_effect = [SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION,
+                                            SupvisorsStates.RESTARTING]
+    mock_master_events[4][1].side_effect = [SupvisorsStates.OPERATION]
+    mock_master_events[5][1].return_value = SupvisorsStates.RESTART
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
     fsm.next()
-    compare_calls([1, 2, 2, 2, 2, 2, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0], mock_master_events)
+    compare_calls([(0, 1, 1), (2, 2, 2), (2, 2, 2), (3, 3, 3), (1, 1, 1), (1, 1, 1), (1, 1, 0), (0, 0, 0), (0, 0, 0)],
+                  mock_master_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.RESTART
 
@@ -931,6 +929,13 @@ def test_on_process_removed_event(mocker, fsm):
     assert mocked_context.call_args_list == [call('10.0.0.1', {'info': 'dummy_info'})]
 
 
+def test_on_process_disability_event(mocker, fsm):
+    """ Test the actions triggered in state machine upon reception of a process enabled event. """
+    mocked_context = mocker.patch.object(fsm.context, 'on_process_disability_event')
+    fsm.on_process_disability_event('10.0.0.1', {'info': 'dummy_info', 'disabled': True})
+    assert mocked_context.call_args_list == [call('10.0.0.1', {'info': 'dummy_info', 'disabled': True})]
+
+
 def test_on_process_info(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a process information. """
     # inject process info and test call to context load_processes
@@ -944,16 +949,17 @@ def test_on_state_event(mocker, fsm):
     mocked_state = mocker.patch.object(fsm, 'set_state')
     fsm.master_state = SupvisorsStates.OPERATION
     fsm.context.master_identifier = '10.0.0.1'
+    payload = {'starting_jobs': False, 'stopping_jobs': False}
     # test event not sent by Master node
     for state in SupvisorsStates:
-        payload = {'statecode': state}
+        payload['fsm_statecode'] = state.value
         fsm.on_state_event('10.0.0.2', payload)
         assert fsm.master_state == SupvisorsStates.OPERATION
         assert not mocked_state.called
     # test event sent by Master node
     for state in SupvisorsStates:
         mocker.patch.object(fsm.instance, 'next', return_value=state)
-        payload = {'statecode': state}
+        payload['fsm_statecode'] = state.value
         fsm.on_state_event('10.0.0.1', payload)
         assert fsm.master_state == state
         assert mocked_state.call_args_list == [call(state)]
@@ -969,8 +975,9 @@ def test_on_authorization(mocker, fsm):
     nodes = fsm.context.instances
     nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.RUNNING
+    fsm.set_state(SupvisorsStates.INITIALIZATION)
     # test rejected authorization
-    fsm.on_authorization('10.0.0.1', False, '10.0.0.5', SupvisorsStates.INITIALIZATION)
+    fsm.on_authorization('10.0.0.1', False, '10.0.0.5')
     assert mocked_auth.call_args_list == [call('10.0.0.1', False)]
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.context.master_identifier == ''
@@ -979,7 +986,7 @@ def test_on_authorization(mocker, fsm):
     mocked_auth.reset_mock()
     mocked_auth.return_value = True
     # test authorization when no master node provided
-    fsm.on_authorization('10.0.0.1', True, '', SupvisorsStates.INITIALIZATION)
+    fsm.on_authorization('10.0.0.1', True, '')
     assert mocked_auth.call_args == call('10.0.0.1', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.context.master_identifier == ''
@@ -987,46 +994,38 @@ def test_on_authorization(mocker, fsm):
     # reset mocks
     mocked_auth.reset_mock()
     # test authorization and master node assignment
-    fsm.on_authorization('10.0.0.1', True, '10.0.0.5', SupvisorsStates.INITIALIZATION)
+    fsm.on_authorization('10.0.0.1', True, '10.0.0.5')
     assert mocked_auth.call_args == call('10.0.0.1', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.context.master_identifier == '10.0.0.5'
     assert not fsm.redeploy_mark
     # reset mocks
     mocked_auth.reset_mock()
-    # test authorization and master node operational
-    fsm.on_authorization('10.0.0.5', True, '10.0.0.5', SupvisorsStates.OPERATION)
-    assert mocked_auth.call_args == call('10.0.0.5', True)
-    assert fsm.state == SupvisorsStates.INITIALIZATION
-    assert fsm.master_state == SupvisorsStates.OPERATION
-    assert fsm.context._master_identifier == '10.0.0.5'
-    assert not fsm.redeploy_mark
-    # reset mocks
-    mocked_auth.reset_mock()
     # test authorization and master node conflict
     fsm.state = SupvisorsStates.OPERATION
-    fsm.on_authorization('10.0.0.3', True, '10.0.0.4', SupvisorsStates.OPERATION)
+    fsm.instance = MasterOperationState(fsm.supvisors)
+    fsm.on_authorization('10.0.0.3', True, '10.0.0.4')
     assert mocked_auth.call_args == call('10.0.0.3', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
-    assert fsm.master_state == SupvisorsStates.OPERATION
     assert fsm.context.master_identifier == ''
     assert not fsm.redeploy_mark
     # change context while instance is not master
     nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.RUNNING
+    fsm.master_state = SupvisorsStates.OPERATION
     # as local is not master and master is operational, automatic transition
     fsm.set_state(SupvisorsStates.DEPLOYMENT)
     assert fsm.state == SupvisorsStates.OPERATION
     # set current instance as master
     fsm.supvisors.context._is_master = True
     # test authorization when no master node provided
-    fsm.on_authorization('10.0.0.4', True, '', SupvisorsStates.INITIALIZATION)
+    fsm.on_authorization('10.0.0.4', True, '')
     assert mocked_auth.call_args == call('10.0.0.4', True)
     assert fsm.state == SupvisorsStates.OPERATION
     assert fsm.supvisors.context.master_identifier == '10.0.0.5'
     assert fsm.redeploy_mark
     # test authorization and master node conflict
-    fsm.on_authorization('10.0.0.5', True, '10.0.0.4', SupvisorsStates.OPERATION)
+    fsm.on_authorization('10.0.0.5', True, '10.0.0.4')
     assert mocked_auth.call_args == call('10.0.0.5', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.supvisors.context.master_identifier == ''

@@ -64,9 +64,17 @@ class SupvisorsView(ViewHandler):
 
     def write_header(self, root) -> None:
         """ Rendering of the header part of the Supvisors main page. """
+        state_modes = self.sup_ctx.get_state_modes()
         # set Supvisors state
         elt = root.findmeld('state_mid')
-        elt.content(self.supvisors.fsm.state.name)
+        elt.content(state_modes['fsm_statename'])
+        # set Supvisors modes
+        for mid, attr in [('starting_mid', 'starting_jobs'), ('stopping_mid', 'stopping_jobs')]:
+            elt = root.findmeld(mid)
+            if state_modes[attr]:
+                update_attrib(elt, 'class', 'blink')
+            else:
+                elt.replace('')
 
     def write_contents(self, root) -> None:
         """ Rendering of the contents of the Supvisors main page.

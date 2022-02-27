@@ -49,8 +49,16 @@
 
         <div id="right_side">
             <header>
-                <div>
-                    <h3><code meld:id="state_mid">SupvisorsStates</code></h3>
+                <div id="state_modes">
+                    <div>
+                        <h3><code meld:id="state_mid">SupvisorsStates</code></h3>
+                    </div>
+                    <div>
+                        <ul class="vertical">
+                            <li><code meld:id="starting_mid">starting</code></li>
+                            <li><code meld:id="stopping_mid">stopping</code></li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div>
@@ -94,12 +102,10 @@
                             <tbody>
                                 <tr meld:id="appli_tr_mid">
                                     <td meld:id="app_name_td_mid"></td>
-                                    <td colspan="2">
-                                        <ul class="vertical">
-                                            <li meld:id="process_li_mid">
-                                                <a href="#" meld:id="process_a_mid" class="button"></a>
-                                            </li>
-                                        </ul>
+                                    <td colspan="2" class="process_list">
+                                        <span meld:id="process_li_mid">
+                                            <a href="#" meld:id="process_a_mid" class="button"></a>
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>
@@ -116,7 +122,9 @@
                             <tr>
                                 <td>
                                     <ul class="vertical">
-                                        <li meld:id="global_strategy_li_mid"><a href="#" meld:id="global_strategy_a_mid" class="button on">--</a></li>
+                                        <li meld:id="global_strategy_li_mid">
+                                            <a href="#" meld:id="global_strategy_a_mid" class="button on">--</a>
+                                        </li>
                                     </ul>
                                 </td>
                             </tr>

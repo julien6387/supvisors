@@ -54,7 +54,7 @@ body {
 
 
 /*
- * Left Side Layout
+ * Left Side (Menu) Layout
 */
 #left_side {
     min-width: 230px;
@@ -119,11 +119,19 @@ nav {
     align-items: center;
 }
 
-#contents {
-    flex: 1;
+#state_modes {
+    flex: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    flex-direction: row;
+    justify-content: start;
+}
+
+#state_modes div {
+    margin: auto 5px;
+}
+
+#state_modes div h3 {
+    margin: auto;
 }
 
 /* Supervisor page: Process section */
@@ -194,8 +202,6 @@ nav {
 }
 
 #cpu_stats {
-    display: flex;
-    flex: 1;
     overflow-y: auto;
     flex-direction: column;
     grid-column: 2;
@@ -214,8 +220,6 @@ nav {
 }
 
 #io_stats {
-    display: flex;
-    flex: 1;
     overflow-y: auto;
     flex-direction: column;
     grid-column: 3;
@@ -321,7 +325,7 @@ a {
  * Blink Style
  *
  */
-#left_side header a.blink {
+#left_side header a.blink, .blink {
     color: var(--blink-color);
     animation: blinker 1.2s linear infinite;
 }
@@ -535,11 +539,6 @@ table .desc {
 /*
  * State gradients
  */
-table .UNKNOWN {
-    background-image: linear-gradient(165deg, white, grey, grey, white);
-    color: black;
-}
-
 table .CHECKING {
     background-image: linear-gradient(165deg, white, grey, green, white);
     color: black;
@@ -572,6 +571,11 @@ table .RUNNING.crashed {
 
 table .FATAL, table .ISOLATED {
     background-image: linear-gradient(165deg, white, red, red, white);
+    color: black;
+}
+
+table .UNKNOWN, table .disabled {
+    background-image: linear-gradient(165deg, white, grey, grey, white);
     color: black;
 }
 

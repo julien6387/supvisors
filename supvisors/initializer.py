@@ -47,17 +47,18 @@ class Supvisors(object):
 
         :param supervisor: the Supervisor global structure
         """
-        # declare zmq context (will be created in listener)
+        # WARN: the PyZmq sockets cannot be created at this level
+        # Before running, Supervisor forks when daemonized and the PyZmq sockets are then lost
         self.zmq = None
         # get options from config
         self.options = SupvisorsOptions(supervisor, **config)
         # create logger
         self.logger = self.create_logger(supervisor)
-        # re-realize configuration to get
+        # re-realize configuration to get process configuration not stored in Supervisor
         self.server_options = SupvisorsServerOptions(self.logger)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor info source
-        self.supervisor_data = SupervisorData(supervisor, self.logger)
+        self.supervisor_data = SupervisorData(self, supervisor)
         # get declared Supvisors instances and check local identifier
         self.supvisors_mapper = SupvisorsMapper(self)
         try:
@@ -75,8 +76,6 @@ class Supvisors(object):
         # create the failure handler of crashing processes
         # WARN: must be created before the state machine
         self.failure_handler = RunningFailureHandler(self)
-        # create state machine
-        self.fsm = FiniteStateMachine(self)
         # check parsing
         try:
             self.parser = Parser(self)
@@ -85,6 +84,8 @@ class Supvisors(object):
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)
+        # create state machine
+        self.fsm = FiniteStateMachine(self)
 
     def create_logger(self, supervisor: Supervisor) -> Logger:
         """ Create the logger that will be used in Supvisors.

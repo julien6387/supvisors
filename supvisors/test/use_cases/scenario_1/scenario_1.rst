@@ -504,6 +504,7 @@ The operational status of :program:`Scenario 1` required by the |Req 3 abbr| is 
 
     * the :ref:`dashboard_application` of the |Supvisors| Web UI, as a LED near the application state,
     * the :ref:`xml_rpc` (example below),
+    * the :ref:`rest_api` (if :program:`supvisorsflask` is started),
     * the :ref:`extended_status` of the extended :program:`supervisorctl` or :program:`supvisorsctl` (example below),
     * the :ref:`event_interface`.
 
@@ -525,6 +526,7 @@ The operational status of :program:`Scenario 1` required by the |Req 3 abbr| is 
 To restart the whole application (|Req 5 abbr|), the following methods are available:
 
     * the :ref:`xml_rpc` (example below),
+    * the :ref:`rest_api` (if :program:`supvisorsflask` is started),
     * the :ref:`extended_status` of the extended :program:`supervisorctl` or :program:`supvisorsctl` (example below),
     * the restart button |restart| at the top right of the :ref:`dashboard_application` of the |Supvisors| Web UI.
 

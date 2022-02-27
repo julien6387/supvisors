@@ -74,7 +74,7 @@ By default, the |Supvisors| *Master* instance is the |Supvisors| instance having
 the active |Supvisors| instances, unless the attribute ``core_identifiers`` is used. In the latter case, candidates
 are taken from this list in priority.
 
-.. important:: *About late |Supvisors| instances*
+.. important:: *About late Supvisors instances*
 
     Back to this case, here is what happens when a |Supvisors| instance is started while the others are already in
     ``OPERATION``.

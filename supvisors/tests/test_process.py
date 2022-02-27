@@ -170,7 +170,7 @@ def test_rules_check_hash_identifiers(rules):
     assert rules.hash_identifiers == ['*']
     assert rules.identifiers == []
     # 2. update rules to test '#' with all instances available
-    # address '10.0.0.3' has an index of 2 in address_mapper
+    # address '10.0.0.3' has an index of 2 in supvisors_mapper
     rules.check_hash_identifiers('sample_test_1:xclock')
     assert rules.identifiers == ['10.0.0.3']
     # 3. update rules to test '#' with a subset of instances available
@@ -183,7 +183,7 @@ def test_rules_check_hash_identifiers(rules):
     rules.hash_identifiers = ['10.0.0.1']
     rules.identifiers = []
     rules.check_hash_identifiers('sample_test_1:xclock')
-    assert rules.identifiers == []
+    assert rules.identifiers == ['10.0.0.1']
 
 
 def test_rules_check_dependencies(mocker, rules):
@@ -236,26 +236,44 @@ def test_process_create(supvisors):
     assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
 
 
+def test_process_enabled_on(supvisors):
+    """ Test the ProcessStatus.enabled_on method. """
+    info = any_process_info()
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.2', info)
+    # test with identifier not found in process info_map
+    assert not process.enabled_on('10.0.0.1')
+    # test with identifier found in process info_map and enabled
+    assert process.enabled_on('10.0.0.2')
+    # test with identifier found in process info_map and disabled
+    info['disabled'] = True
+    assert not process.enabled_on('10.0.0.2')
+
+
 def test_process_possible_identifiers(supvisors):
     """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
     process = create_process(info, supvisors)
     process.add_info('10.0.0.2', info)
-    process.add_info('10.0.0.4', info)
-    # default identifiers is '*' in process rules
+    process.add_info('10.0.0.4', info.copy())
+    # default identifiers is '*' in process rules and all are enabled
     assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
     # set a subset of identifiers in process rules so that there's no intersection with received status
     process.rules.identifiers = ['10.0.0.1', '10.0.0.3']
     assert process.possible_identifiers() == []
     # increase received status
-    process.add_info('10.0.0.3', info)
+    process.add_info('10.0.0.3', info.copy())
     assert process.possible_identifiers() == ['10.0.0.3']
+    # disable program on '10.0.0.3'
+    process.update_disability('10.0.0.3', True)
+    assert process.possible_identifiers() == []
     # reset rules
     process.rules.identifiers = ['*']
-    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.3', '10.0.0.4']
-    # test with full status and all instances in rules
+    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
+    # test with full status and all instances in rules + re-enable on '10.0.0.3'
+    process.update_disability('10.0.0.3', False)
     for node_name in supvisors.supvisors_mapper.instances:
-        process.add_info(node_name, info)
+        process.add_info(node_name, info.copy())
     assert process.possible_identifiers() == list(supvisors.supvisors_mapper.instances.keys())
     # restrict again instances in rules
     process.rules.identifiers = ['10.0.0.5']
@@ -275,9 +293,8 @@ def test_status_stopped_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.2',
-             'forced_state': ProcessStates.FATAL, 'spawnerr': ''}
-    process.force_state(event)
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.2', 'now': time(), 'spawnerr': ''}
+    assert process.force_state(event)
     assert process._state == ProcessStates.STOPPED
     assert process.stopped()
     assert not process.running()
@@ -313,9 +330,8 @@ def test_status_backoff_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.RUNNING, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.STOPPED, 'spawnerr': ''}
-    process.force_state(event)
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    assert process.force_state(event)
     assert process._state == ProcessStates.BACKOFF
     assert process.stopped()
     assert not process.running()
@@ -345,10 +361,9 @@ def test_status_running_process(supvisors):
     assert process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    # here, the expected state has been reached so the forced state is ignored
-    event = {'state': ProcessStates.RUNNING, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.FATAL, 'spawnerr': ''}
-    process.force_state(event)
+    # here, the stored event is more recent so the forced state is ignored
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': 0, 'spawnerr': ''}
+    assert not process.force_state(event)
     assert process._state == ProcessStates.RUNNING
     assert not process.stopped()
     assert process.running()
@@ -372,9 +387,8 @@ def test_status_stopping_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.STOPPED, 'spawnerr': ''}
-    process.force_state(event)
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    assert process.force_state(event)
     assert process._state == ProcessStates.STOPPING
     assert process.stopped()
     assert not process.running()
@@ -404,9 +418,8 @@ def test_status_fatal_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.RUNNING, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.STOPPED, 'spawnerr': ''}
-    process.force_state(event)
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    assert process.force_state(event)
     assert process._state == ProcessStates.FATAL
     assert process.stopped()
     assert not process.running()
@@ -447,9 +460,8 @@ def test_status_exited_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.FATAL, 'spawnerr': ''}
-    process.force_state(event)
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    assert process.force_state(event)
     assert process._state == ProcessStates.EXITED
     assert process.stopped()
     assert not process.running()
@@ -516,9 +528,8 @@ def test_serialization(supvisors):
     loaded = pickle.loads(dumped)
     assert loaded == serialized
     # test again with forced state
-    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.FATAL, 'spawnerr': 'anything'}
-    process.force_state(event)
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': 'anything'}
+    assert process.force_state(event)
     assert process._state == ProcessStates.STOPPED
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
@@ -530,9 +541,9 @@ def test_get_last_description(supvisors):
     """ Test the ViewContext.get_process_last_desc method. """
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
-    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0},
-                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started'},
-                        '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3'}}
+    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0, 'now': 50},
+                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started', 'now': 55},
+                        '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3', 'now': 53}}
     # state is not forced by default
     # test method return on non-running process
     assert process.get_last_description() == ('10.0.0.1', 'desc1 on 10.0.0.1')
@@ -543,9 +554,8 @@ def test_get_last_description(supvisors):
     process.running_identifiers.add('10.0.0.2')
     assert process.get_last_description() == ('10.0.0.2', 'Not started')
     # test again with forced state
-    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.FATAL, 'spawnerr': 'global crash'}
-    process.force_state(event)
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': 50, 'spawnerr': 'global crash'}
+    assert process.force_state(event)
     assert process.get_last_description() == (None, 'global crash')
     process.running_identifiers = set()
     assert process.get_last_description() == (None, 'global crash')
@@ -580,9 +590,8 @@ def test_add_info(supvisors):
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason == ''
-    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.FATAL, 'spawnerr': 'failure'}
-    process.force_state(event)
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': 'failure'}
+    assert process.force_state(event)
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
     assert process.state == ProcessStates.FATAL
@@ -678,9 +687,8 @@ def test_update_info(supvisors):
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason == ''
-    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
-             'forced_state': ProcessStates.FATAL, 'spawnerr': 'failure'}
-    process.force_state(event)
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': 'failure'}
+    assert process.force_state(event)
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
     assert process.state == ProcessStates.FATAL
@@ -765,6 +773,33 @@ def test_update_info(supvisors):
     assert info['expected']
 
 
+def test_update_disability(supvisors):
+    """ Test the update of the disabled entry for a process info belonging to a ProcessStatus. """
+    # add 2 process infos into a process status
+    info = any_process_info_by_state(ProcessStates.STOPPING)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
+    # check initial state
+    assert not process.info_map['10.0.0.1']['disabled']
+    assert not process.info_map['10.0.0.2']['disabled']
+    # disable on identifier 2
+    process.update_disability('10.0.0.2', True)
+    # check that only identifier 2 is updated
+    assert not process.info_map['10.0.0.1']['disabled']
+    assert process.info_map['10.0.0.2']['disabled']
+    # disable on identifier 1
+    process.update_disability('10.0.0.1', True)
+    # check that identifier 1 is updated too
+    assert process.info_map['10.0.0.1']['disabled']
+    assert process.info_map['10.0.0.2']['disabled']
+    # reset all
+    process.update_disability('10.0.0.1', False)
+    process.update_disability('10.0.0.2', False)
+    assert not process.info_map['10.0.0.1']['disabled']
+    assert not process.info_map['10.0.0.2']['disabled']
+
+
 def test_update_times(supvisors):
     """ Test the update of the time entries for a process info belonging to a ProcessStatus. """
     # add 2 process infos into a process status
@@ -776,20 +811,20 @@ def test_update_times(supvisors):
     now_1 = process.info_map['10.0.0.1']['now']
     uptime_1 = process.info_map['10.0.0.1']['uptime']
     now_2 = process.info_map['10.0.0.2']['now']
-    # update times on address 2
+    # update times on identifier 2
     process.update_times('10.0.0.2', now_2 + 10)
-    # check that nothing changed for address 1
+    # check that nothing changed for identifier 1
     assert process.info_map['10.0.0.1']['now'] == now_1
     assert process.info_map['10.0.0.1']['uptime'] == uptime_1
     # check that times changed for address 2 (uptime excepted)
     assert process.info_map['10.0.0.2']['now'] == now_2 + 10
     assert process.info_map['10.0.0.2']['uptime'] == 0
-    # update times on address 1
+    # update times on identifier 1
     process.update_times('10.0.0.1', now_1 + 20)
-    # check that times changed for address 1 (including uptime)
+    # check that times changed for identifier 1 (including uptime)
     assert process.info_map['10.0.0.1']['now'] == now_1 + 20
     assert process.info_map['10.0.0.1']['uptime'] == uptime_1 + 20
-    # check that nothing changed for address 2
+    # check that nothing changed for identifier 2
     assert process.info_map['10.0.0.2']['now'] == now_2 + 10
     assert process.info_map['10.0.0.2']['uptime'] == 0
 

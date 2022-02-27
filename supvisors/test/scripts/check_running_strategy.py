@@ -22,7 +22,7 @@ import unittest
 
 from queue import Empty
 from supervisor.states import ProcessStates
-from supvisors.ttypes import StartingStrategies
+from supvisors.ttypes import StartingStrategies, SupvisorsStates
 
 from .event_queues import SupvisorsEventQueues
 from .running_identifiers import RunningIdentifiersTest
@@ -44,34 +44,41 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
         # other events may be triggered from tearDown too
         has_events = True
         while has_events:
+            has_events = False
             try:
                 self.evloop.event_queue.get(True, 8)
+                has_events |= True
             except Empty:
-                # no more events: exit
-                has_events = False
+                pass
             try:
                 self.evloop.application_queue.get(True, 2)
-                has_events = True
+                has_events |= True
             except Empty:
-                # no more events: exit
-                has_events = False
+                pass
 
     def tearDown(self):
         """ The tearDown restarts the processes that may have been stopped,
         in accordance with initial configuration. """
         try:
             self.local_supvisors.start_process(StartingStrategies.CONFIG, 'database:movie_server_01')
-        except:
+        except Exception:
             # exception is expected if process already running
             pass
         try:
             self.local_supvisors.start_application(StartingStrategies.CONFIG, 'my_movies')
-        except:
+        except Exception:
             # exception is expected if application already running
             pass
         # wait for the OPERATION state and flush
-        if self.local_supvisors.get_supvisors_state()['statename'] != 'OPERATION':
-            self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'statename': 'OPERATION'}], 60)
+        supvisors_state = SupvisorsStates.OPERATION
+        try:
+            supvisors_state = self.local_supvisors.get_supvisors_state()['fsm_statename']
+        except Exception:
+            # exception is expected if application already running
+            pass
+        if supvisors_state != 'OPERATION':
+            self.logger.info(f'wait for Supvisors to be in OPERATION state (current={supvisors_state})')
+            self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'fsm_statename': 'OPERATION'}], 60)
         self.evloop.flush()
         # call parent
         RunningIdentifiersTest.tearDown(self)

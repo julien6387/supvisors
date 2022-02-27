@@ -19,17 +19,19 @@
 
 import pytest
 
+from supervisor.supervisorctl import DefaultControllerPlugin
 from supervisor.xmlrpc import Faults
 from unittest.mock import call, Mock
 
 from supvisors.supvisorsctl import *
+from supvisors.ttypes import SupvisorsFaults
 
 
 @pytest.fixture
 def controller():
     controller = Mock(spec=Controller, exitstatus=LSBInitExitStatuses.SUCCESS)
     controller.get_server_proxy.return_value = Mock(spec=RPCInterface)
-    controller.options = Mock(serverurl='dummy_url')
+    controller.options = Mock(serverurl='dummy_url', plugins=[DefaultControllerPlugin(controller)])
     return controller
 
 
@@ -217,6 +219,20 @@ def _check_stop_process_command(controller, mocked_check, mocked_info, mocked_rp
     _check_output_error(controller, True)
 
 
+def test_creation(controller, plugin):
+    """ Test the creation of the Supvisors ControllerPlugin and the _startresult patch applied to the Supervisor
+    DefaultControllerPlugin. """
+    assert plugin.ctl is controller
+    # check that the Supervisor Faults have been expanded
+    assert Faults.DISABLED == SupvisorsFaults.DISABLED.value
+    # check that the Supervisor plugin has been patched and test the patch
+    supervisor_plugin = controller.options.plugins[0]
+    result = {'group': 'dummy_group', 'name': 'dummy_process', 'status': Faults.DISABLED}
+    assert supervisor_plugin._startresult(result) == 'dummy_group:dummy_process: ERROR disabled'
+    result['status'] = Faults.SUCCESS
+    assert supervisor_plugin._startresult(result) == 'dummy_group:dummy_process: started'
+
+
 def test_supvisors(controller, plugin):
     """ Test the access to Supvisors proxy. """
     # test the proxy
@@ -246,7 +262,8 @@ def test_strategies(controller, plugin, mocked_check):
 def test_sstate(controller, plugin, mocked_check):
     """ Test the sstate request. """
     mocked_rpc = plugin.supvisors().get_supvisors_state
-    mocked_rpc.return_value = {'statecode': 10, 'statename': 'running'}
+    mocked_rpc.return_value = {'fsm_statecode': 10, 'fsm_statename': 'running',
+                               'starting_jobs': [], 'stopping_jobs': ['10.0.0.1', 'test']}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstate, plugin.do_sstate, '', [call()])
 
 
@@ -254,9 +271,11 @@ def test_instance_status(controller, plugin, mocked_check):
     """ Test the instance_status request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
     mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 60000,
-                                'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12},
+                                'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12,
+                                'fsm_statename': 'OPERATION', 'starting_jobs': True, 'stopping_jobs': False},
                                {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 60000,
-                                'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15}]
+                                'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15,
+                                'fsm_statename': 'CONCILATION', 'starting_jobs': False, 'stopping_jobs': True}]
     _check_call(controller, mocked_check, mocked_rpc,  plugin.help_instance_status, plugin.do_instance_status,
                 '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_instance_status, plugin.do_instance_status,
@@ -309,10 +328,10 @@ def test_local_status(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().get_all_local_process_info
     mocked_rpc.return_value = [{'group': 'appli_1', 'name': 'proc_1',
                                 'state': 20, 'start': 1234, 'now': 4321, 'pid': 14725,
-                                'extra_args': '-x dummy'},
+                                'extra_args': '-x dummy', 'disabled': False},
                                {'group': 'appli_2', 'name': 'proc_3',
                                 'state': 0, 'start': 0, 'now': 0, 'pid': 0,
-                                'extra_args': ''}]
+                                'extra_args': '', 'disabled': True}]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_local_status, plugin.do_local_status,
                 '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_local_status, plugin.do_local_status,
@@ -462,6 +481,56 @@ def test_start_process(controller, plugin, mocked_check):
                                  ('appli_1:proc_1', 'appli_2:proc_3'))
 
 
+def test_start_any_process(controller, plugin, mocked_check):
+    """ Test the start_any_process request. """
+    # test the request using few arguments
+    plugin.do_start_any_process('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    plugin.do_start_any_process('CONFIG')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    plugin.do_start_any_process('strategy regex')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test request to start the process
+    mocked_rpc = plugin.supvisors().start_any_process
+    _check_call(controller, mocked_check, mocked_rpc,
+                plugin.help_start_any_process, plugin.do_start_any_process,
+                'LESS_LOADED :x [abc]', [call(1, ':x'), call(1, '[abc]')])
+
+
+def test_start_any_process_args(controller, plugin, mocked_check):
+    """ Test the start_any_process_args request. """
+    # test the request using few arguments
+    plugin.do_start_any_process_args('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    plugin.do_start_any_process_args('CONFIG')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    plugin.do_start_any_process_args('CONFIG regex')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    plugin.do_start_any_process_args('strategy regex a list of arguments')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test request to start the process
+    mocked_rpc = plugin.supvisors().start_any_process
+    _check_call(controller, mocked_check, mocked_rpc,
+                plugin.help_start_any_process_args, plugin.do_start_any_process_args,
+                'LESS_LOADED :x  a list of arguments', [call(1, ':x', 'a list of arguments')])
+
+
 def test_restart_process(controller, plugin, mocked_check):
     """ Test the restart_process request. """
     mocked_info = plugin.supvisors().get_all_process_info
@@ -511,7 +580,7 @@ def test_stop_process(controller, plugin, mocked_check):
 
 
 def test_update_numprocs(controller, plugin, mocked_check):
-    """ Test the conciliate request. """
+    """ Test the update_numprocs request. """
     plugin.do_update_numprocs('')
     _check_output_error(controller, True)
     assert mocked_check.call_args_list == [call()]
@@ -530,6 +599,30 @@ def test_update_numprocs(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().update_numprocs
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_update_numprocs, plugin.do_update_numprocs,
                 'dummy_process 2', [call('dummy_process', 2)])
+
+
+def test_enable(controller, plugin, mocked_check):
+    """ Test the enable request. """
+    plugin.do_enable('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    mocked_rpc = plugin.supvisors().enable
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable, plugin.do_enable,
+                'dummy_process', [call('dummy_process')])
+
+
+def test_disable(controller, plugin, mocked_check):
+    """ Test the disable request. """
+    plugin.do_disable('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    mocked_rpc = plugin.supvisors().disable
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable, plugin.do_disable,
+                'dummy_process', [call('dummy_process')])
 
 
 def test_conciliate(controller, plugin, mocked_check):

@@ -57,12 +57,20 @@ class SupvisorsInstanceView(StatusView):
             identifier = f'{MASTER_SYMBOL} {identifier}'
         elt.content(identifier)
         # set Supvisors instance state
-        status = self.sup_ctx.instances[self.local_identifier]
+        status: SupvisorsInstanceStatus = self.sup_ctx.instances[self.local_identifier]
         elt = root.findmeld('state_mid')
         elt.content(status.state.name)
         # set Supvisors instance load
         elt = root.findmeld('percent_mid')
         elt.content(f'{status.get_load()}%')
+        # set Supvisors instance modes
+        for mid, progress in [('starting_mid', status.state_modes.starting_jobs),
+                              ('stopping_mid', status.state_modes.stopping_jobs)]:
+            elt = root.findmeld(mid)
+            if progress:
+                update_attrib(elt, 'class', 'blink')
+            else:
+                elt.replace('')
         # write statistics parameters
         self.write_periods(root)
         # write actions related to the Supvisors instance

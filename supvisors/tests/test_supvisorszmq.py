@@ -255,6 +255,12 @@ def test_push_process_removed_event(mocker, pusher, puller):
     _test_push_event(mocker, pusher, puller, pusher.send_process_removed_event, InternalEventHeaders.PROCESS_REMOVED)
 
 
+def test_push_process_disability_event(mocker, pusher, puller):
+    """ The method tests that the PROCESS_DISABILITY event is sent and received correctly through PyZmq PUSH / PULL. """
+    _test_push_event(mocker, pusher, puller, pusher.send_process_disability_event,
+                     InternalEventHeaders.PROCESS_DISABILITY)
+
+
 def test_push_statistics_event(mocker, pusher, puller):
     """ The method tests that the STATISTICS event is sent and received correctly through PyZmq PUSH / PULL. """
     _test_push_event(mocker, pusher, puller, pusher.send_statistics, InternalEventHeaders.STATISTICS)

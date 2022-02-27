@@ -200,6 +200,8 @@ The initial |Supervisor| configuration is as follows:
             └── group_server.ini
 
 
+.. _supvisors_breed:
+
 Homogeneous applications
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -690,6 +692,7 @@ The operational status of :program:`Scenario 2` required by the |Req 3 abbr| is 
 
     * the :ref:`dashboard_application` of the |Supvisors| Web UI, as a LED near the application state,
     * the :ref:`xml_rpc` (example below),
+    * the :ref:`rest_api` (if :program:`supvisorsflask` is started),
     * the :ref:`extended_status` of the extended :program:`supervisorctl` or :program:`supvisorsctl` (example below),
     * the :ref:`event_interface`.
 
@@ -731,6 +734,7 @@ To start a :program:`scen2_hci` in accordance with |Req 20 abbr|, |Req 21 abbr| 
 methods are available:
 
     * the :ref:`xml_rpc` (example below - **beware of the target**),
+    * the :ref:`rest_api` (if :program:`supvisorsflask` is started),
     * the :ref:`application_control` of the extended :program:`supervisorctl` or :program:`supvisorsctl` (examples
       below):
 
@@ -781,6 +785,7 @@ rejected.
 To stop a :program:`scen2_hci` (|Req 27 abbr|), the following methods are available:
 
     * the :ref:`xml_rpc` (example below - **whatever the target**),
+    * the :ref:`rest_api` (if :program:`supvisorsflask` is started),
     * the :ref:`application_control` of the extended :program:`supervisorctl` or :program:`supvisorsctl` **from any
       |Supvisors| instance** (example below),
     * the stop button |stop| at the top right of the :ref:`dashboard_application` of the |Supvisors| Web UI,

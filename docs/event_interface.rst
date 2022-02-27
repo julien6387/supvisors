@@ -134,6 +134,7 @@ Key                Value
 'pid'              The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
 'identifier'       The deduced name of the |Supvisors| instance that sent the initial event.
 'extra_args'       The additional arguments passed to the command line of the process.
+'disabled'         True if the process is disabled on the |Supvisors| instance.
 ================== ==================
 
 

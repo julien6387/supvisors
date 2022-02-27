@@ -31,7 +31,7 @@ class SupvisorsInstanceStates(Enum):
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, RESTART, SHUTTING_DOWN, SHUTDOWN = range(8)
+    OFF, INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, RESTART, SHUTTING_DOWN, SHUTDOWN = range(9)
 
 
 class ApplicationStates(Enum):
@@ -112,7 +112,7 @@ FAULTS_OFFSET = 100
 
 
 class SupvisorsFaults(Enum):
-    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, NOT_MANAGED = range(FAULTS_OFFSET, FAULTS_OFFSET + 3)
+    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, NOT_MANAGED, DISABLED = range(FAULTS_OFFSET, FAULTS_OFFSET + 4)
 
 
 # Additional events
@@ -133,6 +133,14 @@ class ProcessAddedEvent(ProcessEvent):
 
 
 class ProcessRemovedEvent(ProcessEvent):
+    pass
+
+
+class ProcessEnabledEvent(ProcessEvent):
+    pass
+
+
+class ProcessDisabledEvent(ProcessEvent):
     pass
 
 

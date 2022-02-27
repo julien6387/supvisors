@@ -45,6 +45,8 @@ The color gives the state of the |Supvisors| instance:
     * green for ``RUNNING`` ;
     * red for ``ISOLATED``.
 
+The |Supvisors| instance is blinking when it is managing starting or stopping jobs.
+
 Only the hyperlinks of the ``RUNNING`` |Supvisors| instances are active.
 The browser is redirected to the `Supervisor page`_ of the targeted |Supvisors| instance.
 The |Supvisors| instance playing the role of *Master* is pointed out with the ✪ sign.
@@ -60,10 +62,31 @@ The color gives the state of the Application, as seen by the |Supvisors| instanc
     * green-to-yellow gradient for ``STOPPING`` ;
     * green for ``RUNNING``.
 
+The application is blinking when it is part of the starting or stopping jobs managed by the local |Supvisors| instance.
+
 An additional red light is displayed in the event where a failure has been raised on the application.
 All hyperlinks are active. The browser is redirected to the corresponding `Application page`_ on the local Web Server.
 
 The bottom part of the menu contains a contact link and copyright information.
+
+
+Common footer
+-------------
+
+The bottom part of all pages displays two information areas:
+
+    * the acknowledgement area, used to print the result of the actions requested from the buttons of the Web UI ;
+    * the time when the page has been generated.
+
+Depending on the result, the acknowledgement area may have a different background color:
+
+    * grey by default, when no action is pending ;
+    * blue for a successful result ;
+    * amber when an action could not be performed but when the result is already as expected (e.g. a process is already
+      started) ;
+    * amber too as an acknowledgement of an action having a major impact (e.g. a shutdown or a restart) ;
+    * red in the event of an error (e.g. start / stop failed).
+
 
 .. _dashboard_main:
 
@@ -79,7 +102,7 @@ The Main Page shows a synoptic of the |Supvisors| status.
 Main Page Header
 ~~~~~~~~~~~~~~~~
 
-The state of |Supvisors| is displayed on the left side of the header:
+The |Supvisors| state is displayed on the left side of the header:
 
 ``INITIALIZATION``
     
@@ -141,6 +164,15 @@ The state of |Supvisors| is displayed on the left side of the header:
 
     The |Supvisors| :ref:`xml_rpc` is NOT available in this state.
 
+The |Supvisors| modes are displayed alongside the state if activated:
+
+``starting``
+
+    This mode is visible and blinking when the ``Starter`` of any of the |Supvisors| instances has jobs in progress.
+
+``stopping``
+
+    This mode is visible and blinking when the ``Stopper`` of any of the |Supvisors| instances has jobs in progress.
 
 On the right side, 3 buttons are available:
 
@@ -224,9 +256,16 @@ The status of the |Supvisors| instance is displayed on the left side of the head
 
     * the |Supvisors| instance deduced name, marked with the ✪ sign if it is the *Master* ;
     * the current loading of the processes running in this |Supvisors| instance ;
-    * the |Supvisors| instance state ;
-    * the date of the last tick received by the |Supvisors| instance (hopefully less than 5 seconds from the current
-      system time).
+    * the |Supvisors| instance state and modes.
+
+.. note::
+
+    The |Supvisors| instance modes are visible and blinking when the ``Starter`` or the ``Stopper`` of the considered
+    |Supvisors| instance has jobs in progress.
+    It doesn't mean that a process is starting or stopping in the local |Supervisor|.
+    It means that the |Supvisors| instance is managing a start or a stop sequence, which could lead to processes being
+    started or stopped on any other |Supervisor| instance managed by |Supvisors|.
+
 
 In the middle of the header, the 'Statistics View' box enables the user to choose the information presented
 on this page.
@@ -249,7 +288,7 @@ Processes Section
 ~~~~~~~~~~~~~~~~~
 
 .. image:: images/supvisors_address_process_section.png
-    :alt: Processes Section of Supvisors Address Page
+    :alt: Processes Section of Supervisor Page
     :align: center
 
 The **Processes Section** looks like the page provided by |Supervisor|.
@@ -264,6 +303,9 @@ description and enables the user to perform some actions on them:
     * Tail stdout log (auto-refreshed) ;
     * Tail stderr log (auto-refreshed).
 
+The activation of the Start, Stop and Restart buttons is depending on the process state. In addition to that, a stopped
+process cannot be started if the the corresponding program has been disabled.
+
 |Supvisors| shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file ;
@@ -273,8 +315,23 @@ description and enables the user to perform some actions on them:
 
 .. note::
 
-    For ``RUNNING`` processes, the color gradient used is different if the process has ever crashed since Supvisors
-    has been started. The aim is to inform that process logs should be considered.
+    CPU usage and memory are available only if the optional module |psutil| has been installed and if the statistics
+    are not disabled through the ``stats_enabled`` option of the :ref:`supvisors_section` of the |Supervisor|
+    configuration file.
+
+Here is the color code used for process states:
+
+    * grey if the process state is ``UNKNOWN`` or if the process is disabled ;
+    * yellow if the process is ``STOPPED`` or expectedly ``EXITED`` ;
+    * yellow-green gradient if the process is ``STARTING`` or ``BACKOFF`` ;
+    * green if the process is ``RUNNING`` ;
+    * green-yellow gradient if the process is ``STOPPING`` ;
+    * red if the process is ``FATAL`` or unexpectedly ``EXITED``.
+
+.. note::
+
+    For ``RUNNING`` processes, the color code used is a bit different if the process has ever crashed since |Supvisors|
+    has been started. The aim is to inform that process logs should be consulted.
 
     +------------------------------------+-------------------------------------------+
     | 'standard' ``RUNNING`` process     | ``RUNNING`` process with a crash history  |
@@ -294,9 +351,8 @@ cell of the table. The application line displays:
         * the sum of their CPU usage ;
         * the sum of their instant memory occupation.
 
-A click on the CPU or RAM measures shows detailed statistics about the process. This is not active
-on the application values.
-More particularly, |Supvisors| displays on the right side of the page a table showing for both CPU and Memory:
+A click on the CPU or RAM measures shows detailed statistics about the process. This is not active on the application
+values. More particularly, |Supvisors| displays on the right side of the page a table showing for both CPU and Memory:
 
     * the last measure ;
     * the mean value ;
@@ -309,8 +365,8 @@ A color and a sign are associated to the last value, so that:
     * red and ↘ point out a decrease of the value since the last measure ;
     * blue and ↝ point out the stability of the value since the last measure.
 
-Underneath, |Supvisors| shows two graphs (CPU and Memory) built from the series of measures taken
-from the selected process:
+Underneath, |Supvisors| shows two graphs (CPU and Memory) built from the series of measures taken from the selected
+process:
 
     * the history of the values with a plain line ;
     * the mean value with a dashed line and value in the top right corner ;
@@ -321,7 +377,7 @@ Host Section
 ~~~~~~~~~~~~
 
 .. image:: images/supvisors_address_host_section.png
-    :alt: Host Section of Supvisors Address Page
+    :alt: Host Section of Supervisor Page
     :align: center
 
 The Host Section contains CPU, Memory and Network statistics for the considered node.
@@ -371,8 +427,8 @@ to start the application programs listed below.
 Strategies are detailed in :ref:`starting_strategy`.
 
 The third part of the header is the 'Statistics Period' box that enables the user to choose the period used
-for the statistics of this page. The periods can be updated in the :ref:`supvisors_section`
-of the |Supervisor| configuration file.
+for the statistics of this page. The periods can be updated in the :ref:`supvisors_section` of the |Supervisor|
+configuration file.
 
 On the right side, 4 buttons are available:
 

@@ -21,6 +21,8 @@ import errno
 import socket
 import sys
 
+from types import MethodType
+
 from supervisor import supervisorctl
 from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
@@ -29,14 +31,36 @@ from supervisor.options import ClientOptions, make_namespec, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
-from .rpcinterface import API_VERSION, RPCInterface
-from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, enum_names
+from .rpcinterface import API_VERSION, RPCInterface, expand_faults
+from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, Payload, enum_names
 from .utils import simple_localtime
 
 
+def _startresult(self, result):
+    """ This method replaces the Supervisor method in DefaultControllerPlugin.
+
+    :param result: the command result
+    :return: the result to output
+    """
+    if result['status'] == xmlrpc.Faults.DISABLED:
+        name = make_namespec(result['group'], result['name'])
+        return f'{name}: ERROR disabled'
+    return self._startresult_ref(result)
+
+
 class ControllerPlugin(ControllerPluginBase):
-    """ The ControllerPlugin is the implementation of the Supvisors plugin
-    that is embodied in the supervisorctl command. """
+    """ The ControllerPlugin is the implementation of the Supvisors plugin that is embodied in the supervisorctl
+    command. """
+
+    def __init__(self, controller):
+        super().__init__(controller)
+        # update Supervisor Fault definition
+        expand_faults()
+        # patch supervisor plugin to manage new Faults.DISABLED code in RPCError
+        supervisor_plugin = controller.options.plugins[0]
+        if not hasattr(supervisor_plugin, '_startresult_ref'):
+            supervisor_plugin._startresult_ref = supervisor_plugin._startresult
+            supervisor_plugin._startresult = MethodType(_startresult, supervisor_plugin)
 
     def supvisors(self) -> RPCInterface:
         """ Get a proxy to the Supvisors RPC interface. """
@@ -61,13 +85,21 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to get the Supvisors state. """
         if self._upcheck():
             try:
-                state = self.supvisors().get_supvisors_state()
+                state_modes = self.supvisors().get_supvisors_state()
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                template = '%(code)-3s%(state)-12s'
-                line = template % {'code': state['statecode'], 'state': state['statename']}
+                max_starting = ControllerPlugin.max_template([state_modes], 'starting_jobs', 'Starting')
+                max_stopping = ControllerPlugin.max_template([state_modes], 'stopping_jobs', 'Stopping')
+                template = f'%(state)-16s%(starting)-{max_starting}s%(stopping)-{max_stopping}s'
+                # print title
+                payload = {'state': 'State', 'starting': 'Starting', 'stopping': 'Stopping'}
+                self.ctl.output(template % payload)
+                # print data
+                line = template % {'state': state_modes['fsm_statename'],
+                                   'starting': state_modes['starting_jobs'],
+                                   'stopping': state_modes['stopping_jobs']}
                 self.ctl.output(line)
 
     def help_sstate(self):
@@ -120,10 +152,11 @@ class ControllerPlugin(ControllerPluginBase):
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
                 max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
                 template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s%(state)-11s'
-                            '%(load)-6s%(ltime)-10s%(counter)-9s')
+                            '%(load)-6s%(ltime)-10s%(counter)-9s%(fsm_state)-16s%(starting)-10s%(stopping)-10s')
                 # print title
                 payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port', 'state': 'State',
-                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter'}
+                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
+                           'fsm_state': 'FSM', 'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
@@ -134,9 +167,12 @@ class ControllerPlugin(ControllerPluginBase):
                         payload = {'identifier': info['identifier'],
                                    'node_name': info['node_name'], 'port': info['port'],
                                    'state': info['statename'],
-                                   'load': '{}%'.format(info['loading']),
+                                   'load': f"{info['loading']}%",
+                                   'ltime': simple_localtime(info['local_time']),
                                    'counter': info['sequence_counter'],
-                                   'ltime': simple_localtime(info['local_time'])}
+                                   'fsm_state': info['fsm_statename'],
+                                   'starting': info['starting_jobs'],
+                                   'stopping': info['stopping_jobs']}
                         self.ctl.output(template % payload)
 
     def help_instance_status(self):
@@ -329,17 +365,17 @@ class ControllerPlugin(ControllerPluginBase):
             if match_list:
                 max_appli = ControllerPlugin.max_template(match_list, 'group', 'Application')
                 max_proc = ControllerPlugin.max_template(match_list, 'name', 'Process')
-                template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(start)-12s'
+                template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(disabled)-10s%(state)-12s%(start)-12s'
                             '%(now)-12s%(pid)-8s%(args)s')
                 # print title
-                payload = {'appli': 'Application', 'proc': 'Process', 'state': 'State', 'start': 'Start',
-                           'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
+                payload = {'appli': 'Application', 'proc': 'Process', 'disabled': 'Disabled', 'state': 'State',
+                           'start': 'Start', 'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
                 self.ctl.output(template % payload)
                 # print filtered payloads
                 for info in match_list:
                     start_time = simple_localtime(info['start']) if info['start'] else 0
                     now_time = simple_localtime(info['now']) if info['now'] else 0
-                    payload = {'appli': info['group'], 'proc': info['name'],
+                    payload = {'appli': info['group'], 'proc': info['name'], 'disabled': info['disabled'],
                                'state': getProcessStateDescription(info['state']),
                                'start': start_time, 'now': now_time, 'pid': info['pid'],
                                'args': info['extra_args']}
@@ -641,14 +677,49 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('start_process <strategy> <proc> <proc>\t\tStart multiple named processes with strategy.')
         self.ctl.output('start_process <strategy>\t\t\tStart all processes with strategy.')
 
-    # start a process using strategy and rules
+    def do_start_any_process(self, arg):
+        """ Command to start processes using regular expressions, with a strategy and rules. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: start_any_process requires a strategy and at least a regular expression')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process()
+                return
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for start_any_process.'
+                                f' use one of {enum_names(StartingStrategies)}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process()
+                return
+            regexes = args[1:]
+            for regex in sorted(regexes):
+                try:
+                    result = self.supvisors().start_any_process(strategy.value, regex)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'"{regex}": ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'{result} started')
+
+    def help_start_any_process(self):
+        """ Print the help of the start_any_process command."""
+        self.ctl.output('start_any_process <strategy> <regex>\t\t\t'
+                        'Start a process whose namespec matches the regular expression and with a starting strategy.')
+        self.ctl.output('start_any_process <strategy> <regex> <regex>\t\t'
+                        'Start multiple processes whose namespec matches the regular expressions'
+                        ' and with a starting strategy.')
+
+    # start a process using strategy, rules and additional arguments
     def do_start_process_args(self, arg):
         """ Command to start a process with a strategy, rules and additional arguments. """
         if self._upcheck():
             args = arg.split()
             if len(args) < 3:
                 self.ctl.output('ERROR: start_process_args requires a strategy, '
-                                'a program name and extra arguments')
+                                'a program namespec and extra arguments')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process_args()
                 return
@@ -673,6 +744,39 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the start_process_args command."""
         self.ctl.output('start_process <strategy> <proc> <arg_list>\t'
                         'Start the process named proc with additional arguments arg_list.')
+
+    def do_start_any_process_args(self, arg):
+        """ Command to start processes using regular expressions, with a strategy and rules. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 3:
+                self.ctl.output('ERROR: start_any_process_args requires a strategy, a regular expression'
+                                ' and extra arguments')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process_args()
+                return
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for start_any_process_args.'
+                                f' use one of {enum_names(StartingStrategies)}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_start_any_process_args()
+                return
+            regex = args[1]
+            try:
+                result = self.supvisors().start_any_process(strategy.value, regex, ' '.join(args[2:]))
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'"{regex}": ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{result} started')
+
+    def help_start_any_process_args(self):
+        """ Print the help of the start_any_process_args command."""
+        self.ctl.output('start_any_process_args <strategy> <regex> <arg_list>\t'
+                        'Start a process whose namespec matches the regular expression, using a starting strategy and'
+                        ' additional arguments arg_list.')
 
     def do_stop_process(self, arg):
         """ Command to stop processes with rules. """
@@ -745,7 +849,9 @@ class ControllerPlugin(ControllerPluginBase):
                         "Restart all processes using strategy.")
 
     def do_update_numprocs(self, arg):
-        """ Command to dynamically update the numprocs of the program. """
+        """ Command to dynamically update the numprocs of the program.
+        Implementation of Supervisor issue #177 - Dynamic numproc change.
+        """
         if self._upcheck():
             args = arg.split()
             if len(args) < 2:
@@ -772,6 +878,52 @@ class ControllerPlugin(ControllerPluginBase):
     def help_update_numprocs(self):
         """ Print the help of the update_numprocs command. """
         self.ctl.output('update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs.')
+
+    def do_enable(self, arg):
+        """ Command to enable the processes corresponding to the program.
+        Implementation of Supervisor issue #591 - New Feature: disable/enable.
+        """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: enable requires a program name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_enable()
+                return
+            try:
+                result = self.supvisors().enable(args[0])
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{args[0]} enabled: {result}')
+
+    def help_enable(self):
+        """ Print the help of the enable command. """
+        self.ctl.output('enable program_name\t\t\t\tEnable the program.')
+
+    def do_disable(self, arg):
+        """ Command to disable the processes corresponding to the program.
+        Implementation of Supervisor issue #591 - New Feature: disable/enable.
+        """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: disable requires a program name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_disable()
+                return
+            try:
+                result = self.supvisors().disable(args[0])
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{args[0]} disabled: {result}')
+
+    def help_disable(self):
+        """ Print the help of the disable command. """
+        self.ctl.output('disable program_name\t\t\t\tDisable the program.')
 
     def do_conciliate(self, arg):
         """ Command to conciliate conflicts (applicable with default USER strategy). """

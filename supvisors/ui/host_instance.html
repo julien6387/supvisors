@@ -50,7 +50,17 @@
             <header>
                 <div>
                     <h2><span meld:id="instance_mid">Supervisor</span> - <span meld:id="percent_mid">50%</span></h2>
-                    <h3><code meld:id="state_mid" class="classState">RemoteStates</code></h3>
+                    <div id="state_modes">
+                        <div>
+                            <h3><code meld:id="state_mid">SupvisorsStates</code></h3>
+                        </div>
+                        <div>
+                            <ul class="vertical">
+                                <li><code meld:id="starting_mid">starting</code></li>
+                                <li><code meld:id="stopping_mid">stopping</code></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
 
                 <div meld:id="view_div_mid">
@@ -101,13 +111,14 @@
             </header>
 
             <div id="instance_contents" meld:id="stats_div_mid">
-                    <div id="rsc_grid">
-                        <figure id="mem_fig">
-                            <img src="host_mem.png" alt="Host Memory Graph"/>
-                        </figure>
-                        <div id="mem_stats">
-                            <h6>Memory Statistics</h6>
-                            <div><table>
+                <div id="rsc_grid">
+                    <figure id="mem_fig">
+                        <img src="host_mem.png" alt="Host Memory Graph"/>
+                    </figure>
+                    <div id="mem_stats">
+                        <h6>Memory Statistics</h6>
+                        <div>
+                            <table>
                                 <tr>
                                     <th rowspan="2">
                                         <a href="#" class="button off active">mem</a>
@@ -123,15 +134,17 @@
                                     <td meld:id="memslope_td_mid">--</td>
                                     <td meld:id="memdev_td_mid">--</td>
                                 </tr>
-                            </table></div>
+                            </table>
                         </div>
-                        <figure id="cpu_fig">
-                            <img src="host_cpu.png" alt="Host CPU Graph"/>
-                        </figure>
-                        <div id="cpu_stats">
-                            <h6>Processor Statistics</h6>
-                            <div>
-                            <table>
+                    </div>
+                    <figure id="cpu_fig">
+                        <img src="host_cpu.png" alt="Host CPU Graph"/>
+                    </figure>
+                    <div id="cpu_stats">
+                        <h6>Processor Statistics</h6>
+                        <div>
+                        <table>
+                            <thead>
                                 <tr>
                                     <th>#</th>
                                     <th>Last %</th>
@@ -139,6 +152,8 @@
                                     <th>Slope %</th>
                                     <th>SD %</th>
                                 </tr>
+                            </thead>
+                            <tbody>
                                 <tr meld:id="cpu_tr_mid" class="brightened">
                                     <td>
                                         <a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a>
@@ -148,36 +163,43 @@
                                     <td meld:id="cpuslope_td_mid">--</td>
                                     <td meld:id="cpudev_td_mid">--</td>
                                 </tr>
-                            </table>
-                            </div>
-                        </div>
-                        <figure id="io_fig">
-                            <img src="host_io.png" alt="Host Network Graph"/>
-                        </figure>
-                        <div id="io_stats">
-                            <h6>Network Statistics</h6>
-                            <div><table>
-                                <tr>
-                                    <th>Interface</th>
-                                    <th>Rx/Tx</th>
-                                    <th>Last kbit/s</th>
-                                    <th>Mean kbit/s</th>
-                                    <th>Slope %</th>
-                                    <th>SD kbit/s</th>
-                                </tr>
-                                <tr meld:id="intf_tr_mid" class="brightened">
-                                    <td meld:id="intf_td_mid">
-                                        <a href="#" meld:id="intf_a_mid" class="button on">eth#</a>
-                                    </td>
-                                    <td meld:id="intfrxtx_td_mid">--</td>
-                                    <td meld:id="intfval_td_mid">--</td>
-                                    <td meld:id="intfavg_td_mid">--</td>
-                                    <td meld:id="intfslope_td_mid">--</td>
-                                    <td meld:id="intfdev_td_mid">--</td>
-                                </tr>
-                            </table></div>
+                            </tbody>
+                        </table>
                         </div>
                     </div>
+                    <figure id="io_fig">
+                        <img src="host_io.png" alt="Host Network Graph"/>
+                    </figure>
+                    <div id="io_stats">
+                        <h6>Network Statistics</h6>
+                        <div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Interface</th>
+                                        <th>Rx/Tx</th>
+                                        <th>Last kbit/s</th>
+                                        <th>Mean kbit/s</th>
+                                        <th>Slope %</th>
+                                        <th>SD kbit/s</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr meld:id="intf_tr_mid" class="brightened">
+                                        <td meld:id="intf_td_mid">
+                                            <a href="#" meld:id="intf_a_mid" class="button on">eth#</a>
+                                        </td>
+                                        <td meld:id="intfrxtx_td_mid">--</td>
+                                        <td meld:id="intfval_td_mid">--</td>
+                                        <td meld:id="intfavg_td_mid">--</td>
+                                        <td meld:id="intfslope_td_mid">--</td>
+                                        <td meld:id="intfdev_td_mid">--</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="statusBox">

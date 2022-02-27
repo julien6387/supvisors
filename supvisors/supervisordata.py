@@ -17,9 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
+import json
 import os
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Tuple
 
 from supervisor.events import notify
 from supervisor.http import supervisor_auth_handler
@@ -29,20 +30,30 @@ from supervisor.options import make_namespec, split_namespec, ProcessConfig
 from supervisor.states import ProcessStates
 
 from .options import SupvisorsServerOptions
-from .ttypes import ProcessAddedEvent, ProcessRemovedEvent, NameList
+from .ttypes import ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent, NameList
+
+
+def spawn(self):
+    """ Overridden Subprocess spawn to handle disabled processes.
+
+    :return: the process id or None if the fork() call fails.
+    """
+    if not self.config.disabled:
+        return self._spawn()
 
 
 class SupervisorData(object):
     """ Supvisors is started in Supervisor so Supervisor internal data is available from the supervisord structure. """
 
-    def __init__(self, supervisord, logger: Logger):
+    def __init__(self, supvisors, supervisord):
         """ Initialization of the attributes.
 
+        :param supvisors: the Supvisors global structure
         :param supervisord: the Supervisor global structure
-        :param logger: the Supvisors logger
         """
+        self.supvisors = supvisors
         self.supervisord = supervisord
-        self.logger: Logger = logger
+        self.logger: Logger = supvisors.logger
         self.server_config = supervisord.options.server_configs[0]
         # server MUST be http, not unix
         server_section = self.server_config['section']
@@ -51,15 +62,18 @@ class SupervisorData(object):
         # shortcuts (not available yet)
         self._supervisor_rpc_interface = None
         self._supvisors_rpc_interface = None
+        # disabilities for local processes (Supervisor issue #591)
+        self.disabilities = {}
+        self.read_disabilities()
 
     @property
     def supervisor_rpc_interface(self):
         """ Get the internal Supervisor RPC handler.
-        XML-RPC call in an other XML-RPC call on the same server is blocking.
+        XML-RPC call in another XML-RPC call on the same server is blocking.
 
         :return: the Supervisor RPC handler
         """
-        # not very proud of the following lines but could not access it any other way
+        # not very proud of the following lines but did not find any other way to access
         if not self._supervisor_rpc_interface:
             handler = self.httpserver.handlers[0]
             # if authentication used, handler is wrapped
@@ -71,7 +85,7 @@ class SupervisorData(object):
     @property
     def supvisors_rpc_interface(self):
         """ Get the internal Supvisors RPC handler.
-        XML-RPC call in an other XML-RPC call on the same server is blocking.
+        XML-RPC call in another XML-RPC call on the same server is blocking.
 
         :return: the Supvisors RPC handler
         """
@@ -126,20 +140,57 @@ class SupervisorData(object):
                 'SUPERVISOR_USERNAME': self.username,
                 'SUPERVISOR_PASSWORD': self.password}
 
-    def prepare_extra_args(self, group_name: str = None) -> None:
-        """ Add extra_args attributes in Supervisor internal data.
+    def update_supervisor(self) -> None:
+        """ Update Supervisor internal data for Supvisors support.
+
+        :return: None
+        """
+        # replace the default handler for web ui
+        self.replace_default_handler()
+        # update Supervisor internal data for extra_args and disabilities
+        # WARN: this is also triggered by adding groups in Supervisor, however the initial group added events
+        # are sent before the Supvisors RPC interface is created
+        self.update_internal_data()
+
+    def update_internal_data(self, group_name: str = None) -> None:
+        """ Add extra attributes to Supervisor internal data.
 
         :param group_name: the name of the group that has been added to the Supervisor internal data
         :return: None
         """
+        # determine targets
         if group_name:
             groups = [self.supervisord.process_groups[group_name]]
         else:
             groups = self.supervisord.process_groups.values()
+        # apply the new configuration
         for group in groups:
             for process in group.processes.values():
+                # prepare process disability
+                program = self.supvisors.server_options.processes_program[process.config.name]
+                process.config.disabled = self.disabilities.setdefault(program, False)
+                # prepare extra arguments
                 process.config.command_ref = process.config.command
                 process.config.extra_args = ''
+
+    def replace_default_handler(self) -> None:
+        """ This method replaces Supervisor web UI with Supvisors web UI. """
+        # create default handler pointing on Supvisors ui directory
+        here = os.path.abspath(os.path.dirname(__file__))
+        templatedir = os.path.join(here, 'ui')
+        filesystem = filesys.os_filesystem(templatedir)
+        defaulthandler = default_handler.default_handler(filesystem)
+        # deal with authentication
+        if self.username:
+            # wrap the default handler in an authentication handler
+            users = {self.username: self.password}
+            defaulthandler = supervisor_auth_handler(users, defaulthandler)
+        else:
+            self.logger.debug('SupervisorData.replace_default_handler: Server running without any HTTP'
+                              ' authentication checking')
+        # replace Supervisor default handler at the end of the list
+        self.httpserver.handlers.pop()
+        self.httpserver.install_handler(defaulthandler, True)
 
     def close_httpservers(self) -> None:
         """ Call the close_httpservers of Supervisor.
@@ -148,6 +199,7 @@ class SupervisorData(object):
         self.supervisord.options.close_httpservers()
         self.supervisord.options.httpservers = ()
 
+    # Access to Group / Process structures and configurations
     def _get_process(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
         # WARN: the method may throw a KeyError exception
@@ -176,8 +228,16 @@ class SupervisorData(object):
         process_config = self._get_process_config(namespec)
         return {option_name: getattr(process_config, option_name) for option_name in option_names}
 
+    # Supervisor issue #1023
     def update_extra_args(self, namespec: str, extra_args: str) -> None:
-        """ This method is used to add extra arguments to the command line. """
+        """ This method is used to add extra arguments to the command line.
+        Implementation of Supervisor issue #1023 - Pass arguments to program when starting a job.
+
+        :param namespec: the process namespec
+        :param extra_args: the arguments to be added to the program command line
+        :return: None
+        """
+        """  """
         config = self._get_process_config(namespec)
         # reset command line
         config.command = config.command_ref
@@ -187,29 +247,40 @@ class SupervisorData(object):
             config.command += ' ' + extra_args
         self.logger.trace(f'SupervisorData.update_extra_args: {namespec} extra_args={extra_args}')
 
-    def update_numprocs(self, program_name: str, numprocs: int) -> Optional[NameList]:
+    def force_process_fatal(self, namespec: str, reason: str) -> None:
+        """ This method forces the FATAL process state into Supervisor internal data and dispatches process event
+        to event listeners. """
+        process = self._get_process(namespec)
+        # need to force BACKOFF state to go through assertion
+        process.state = ProcessStates.BACKOFF
+        process.spawnerr = reason
+        process.give_up()
+
+    # Supervisor issue #177
+    def update_numprocs(self, program_name: str, numprocs: int) -> Tuple[NameList, NameList]:
         """ This method is used to dynamically update the program numprocs.
+        Implementation of Supervisor issue #177 - Dynamic numproc change
 
         :param program_name: the program name, as found in the sections of the Supervisor configuration files
         :param numprocs: the new numprocs value
-        :return: the list of processes to eventually stop before removal
+        :return: the list of processes added and removed (and eventually stop before removal)
         """
-        self.logger.trace('SupervisorData.update_numprocs: {} - numprocs={}'.format(program_name, numprocs))
+        self.logger.trace(f'SupervisorData.update_numprocs: {program_name} - numprocs={numprocs}')
         # re-evaluate for all groups including the program
         server_options = self.supervisord.supvisors.server_options
-        program_configs = server_options.process_groups[program_name]
-        current_numprocs = len(next(iter(program_configs.values())))
-        self.logger.debug('SupervisorData.update_numprocs: {} - current_numprocs={}'
-                          .format(program_name, current_numprocs))
+        program_groups = server_options.program_processes[program_name]
+        current_numprocs = len(next(iter(program_groups.values())))
+        self.logger.debug(f'SupervisorData.update_numprocs: {program_name} - current_numprocs={current_numprocs}')
         if current_numprocs > numprocs:
             # return the processes to stop if numprocs decreases
-            return self._get_obsolete_processes(program_name, numprocs, program_configs)
+            return [], self._get_obsolete_processes(program_name, numprocs, program_groups)
         if current_numprocs < numprocs:
             # add the new processes into Supervisor
-            self._add_processes(program_name, numprocs, current_numprocs, list(program_configs.keys()))
+            return self._add_processes(program_name, numprocs, current_numprocs, list(program_groups.keys())), []
         # else equal / no change
+        return None, None
 
-    def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> None:
+    def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> NameList:
         """ Add new processes to all Supervisor groups already including it.
 
         :param program_name: the program which definition has to be updated
@@ -218,6 +289,7 @@ class SupervisorData(object):
         :param groups: the groups that embed the processes issued from the existing program definition
         :return: None
         """
+        new_process_namespecs = []
         # update ServerOptions parser with new numprocs for program
         server_options = self.supervisord.supvisors.server_options
         section = server_options.update_numprocs(program_name, new_numprocs)
@@ -225,25 +297,32 @@ class SupervisorData(object):
             # rebuild the process configs from the new Supervisor configuration
             process_configs = server_options.reload_processes_from_section(section, group_name)
             # the new processes are those over the previous size
-            self._add_supervisor_processes(group_name, process_configs[current_numprocs:])
+            new_namespecs = self._add_supervisor_processes(program_name, group_name, process_configs[current_numprocs:])
+            new_process_namespecs.extend(new_namespecs)
+        return new_process_namespecs
 
-    def _add_supervisor_processes(self, group_name: str, new_configs: List[ProcessConfig]) -> None:
+    def _add_supervisor_processes(self, program_name: str, group_name: str,
+                                  new_configs: List[ProcessConfig]) -> NameList:
         """ Add new processes to the Supervisor group from the configuration built.
 
+        :param program_name: the program which definition has to be updated
         :param group_name: the group that embed the program definition
         :param new_configs: the new process configurations to add to the group
-        :return: None
+        :return: the new process namespecs
         """
+        new_process_namespecs = []
         # add new process configs to group in Supervisor
         group = self.supervisord.process_groups[group_name]
         group.config.process_configs.extend(new_configs)
         # create processes from new process configs
         for process_config in new_configs:
-            self.logger.info('SupervisorData._add_supervisor_processes: add process={}'.format(process_config.name))
+            self.logger.info(f'SupervisorData._add_supervisor_processes: add process={process_config.name}')
+            new_process_namespecs.append(make_namespec(group_name, process_config.name))
             # WARN: replace process_config Supvisors server_options by Supervisor options
             # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
             process_config.options = self.supervisord.options
-            # prepare extra args
+            # additional Supvisors attributes
+            process_config.disabled = self.disabilities[program_name]
             process_config.command_ref = process_config.command
             process_config.extra_args = ''
             # prepare log files
@@ -252,6 +331,7 @@ class SupervisorData(object):
             group.processes[process_config.name] = process = process_config.make_process(group)
             # fire event to Supervisor listeners
             notify(ProcessAddedEvent(process))
+        return new_process_namespecs
 
     def _get_obsolete_processes(self, program_name: str, numprocs: int,
                                 program_configs: SupvisorsServerOptions.ProcessConfigInfo) -> NameList:
@@ -261,7 +341,7 @@ class SupervisorData(object):
         :param program_name: the program which definition has to be updated
         :param numprocs: the new numprocs value
         :param program_configs: the current program configurations per group
-        :return: The obsolete processes
+        :return: the obsolete process namespecs
         """
         # do not remove process configs yet as they may need to be stopped before
         obsolete_processes = [make_namespec(group_name, process_config.name)
@@ -292,30 +372,89 @@ class SupervisorData(object):
             # delete the process from the group
             del group.processes[process_name]
 
-    def force_process_fatal(self, namespec: str, reason: str) -> None:
-        """ This method forces the FATAL process state into Supervisor internal data and dispatches process event
-        to event listeners. """
-        process = self._get_process(namespec)
-        # need to force BACKOFF state to go through assertion
-        process.state = ProcessStates.BACKOFF
-        process.spawnerr = reason
-        process.give_up()
+    # Supervisor issue #591
+    def read_disabilities(self) -> None:
+        """ Read disabilities file and apply data to Supervisor processes.
 
-    def replace_default_handler(self) -> None:
-        """ This method replaces Supervisor web ui with Supvisors web ui. """
-        # create default handler pointing on Supvisors ui directory
-        here = os.path.abspath(os.path.dirname(__file__))
-        templatedir = os.path.join(here, 'ui')
-        filesystem = filesys.os_filesystem(templatedir)
-        defaulthandler = default_handler.default_handler(filesystem)
-        # deal with authentication
-        if self.username:
-            # wrap the default handler in an authentication handler
-            users = {self.username: self.password}
-            defaulthandler = supervisor_auth_handler(users, defaulthandler)
+        :return: None
+        """
+        self.disabilities = {}
+        disabilities_file = self.supvisors.options.disabilities_file
+        self.logger.debug(f'SupervisorData.read_disabilities: disabilities_file={disabilities_file}')
+        if disabilities_file:
+            if os.path.isfile(disabilities_file):
+                with open(disabilities_file) as in_file:
+                    data = json.load(in_file)
+                    if type(data) is dict:
+                        self.disabilities = data
+                        self.logger.debug(f'SupervisorData.read_disabilities: disabilities={self.disabilities}')
+            else:
+                self.logger.debug(f'SupervisorData.read_disabilities: disabilities_file={disabilities_file} not found')
         else:
-            self.logger.warn('SupervisorData.replace_default_handler: Server running without any HTTP'
-                             ' authentication checking')
-        # replace Supervisor default handler at the end of the list
-        self.httpserver.handlers.pop()
-        self.httpserver.install_handler(defaulthandler, True)
+            self.logger.warn('SupervisorData.read_disabilities: no persistence for program disabilities')
+
+    def write_disabilities(self) -> None:
+        """ Write disabilities file from Supervisor processes.
+
+        :return: None
+        """
+        disabilities_file = self.supvisors.options.disabilities_file
+        if disabilities_file:
+            # serialize to the file defined in options
+            with open(disabilities_file, 'w+') as out_file:
+                out_file.write(json.dumps(self.disabilities))
+
+    def get_subprocesses(self, program_name) -> NameList:
+        """ Find all processes related to the program definition.
+
+        :param program_name: the name of the program, as declared in the configuration files
+        :return: the Subprocess instances corresponding to the program
+        """
+        program_groups = self.supvisors.server_options.program_processes[program_name]
+        return [make_namespec(group_name, process_config.name)
+                for group_name, process_config_list in program_groups.items()
+                for process_config in process_config_list]
+
+    def enable_program(self, program_name: str) -> None:
+        """ Re-enable the processes to be started and trigger their autostart if configured to.
+
+        :param program_name: the program to enable
+        :return: None
+        """
+        # store the disability value
+        self.disabilities[program_name] = False
+        # mark the processes as enabled
+        # WARN: do NOT use the ProcessConfig from SupvisorsServerOptions because they are unknown to Supervisor
+        processes_program = self.supvisors.server_options.processes_program
+        for group_name, group in self.supervisord.process_groups.items():
+            for process in group.processes.values():
+                if processes_program[process.config.name] == program_name:
+                    process.config.disabled = False
+                    # fire event to Supervisor listeners
+                    notify(ProcessEnabledEvent(process))
+                    # if autostart configured, process transition will do the job if laststart is reset
+                    process.laststart = 0
+                    process.transition()
+        # persist disabilities file
+        self.write_disabilities()
+
+    def disable_program(self, program_name: str) -> None:
+        """ Disable the processes so that they cannot be started.
+        It is assumed here that they have been stopped properly before.
+
+        :param program_name: the program to disable
+        :return: None
+        """
+        # store the disability value
+        self.disabilities[program_name] = True
+        # mark the processes as disabled
+        # WARN: do NOT use the ProcessConfig from SupvisorsServerOptions because they are unknown to Supervisor
+        processes_program = self.supvisors.server_options.processes_program
+        for group_name, group in self.supervisord.process_groups.items():
+            for process in group.processes.values():
+                if processes_program[process.config.name] == program_name:
+                    process.config.disabled = True
+                    # fire event to Supervisor listeners
+                    notify(ProcessDisabledEvent(process))
+        # persist disabilities file
+        self.write_disabilities()

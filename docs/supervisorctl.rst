@@ -15,6 +15,11 @@ The additional commands provided by |Supvisors| are available by typing :command
     The use of :program:`supvisorsctl` is thus preferred to avoid issues, although :program:`supervisorctl` is suitable
     when used - explicitly or not - with a configuration file.
 
+    In the same vein, the implementation of `Supervisor #591 <https://github.com/Supervisor/supervisor/issues/1455>`_
+    has introduced a new ``RPCError`` exception code (``Faults.DISABLED``) that can be raised from |Supervisor|
+    ``startProcess`` XML-RPC. Again, using :program:`supervisorctl` with the option ``-s URL`` will raise an unknown
+    result code where :program:`supvisorsctl` will handle it properly.
+
 .. code-block:: bash
 
     [bash] > supvisorsctl help
@@ -28,13 +33,15 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    address_status     loglevel             sshutdown           stop_application
-    application_info   master               sstate              stop_process
-    application_rules  process_rules        sstatus             strategies
-    conciliate         restart_application  start_application   sversion
-    conflicts          restart_process      start_args          update_numprocs
-    instance_status    restart_sequence     start_process
-    local_status       sreload              start_process_args
+    application_info   master               start_any_process       sversion
+    application_rules  process_rules        start_any_process_args  update_numprocs
+    conciliate         restart_application  start_application
+    conflicts          restart_process      start_args
+    disable            restart_sequence     start_process
+    enable             sreload              start_process_args
+    instance_status    sshutdown            stop_application
+    local_status       sstate               stop_process
+    loglevel           sstatus              strategies
 
 .. _extended_status:
 
@@ -234,6 +241,14 @@ Process Control
 
     Start multiple named processes with a starting strategy.
 
+``start_any_process strategy regex``
+
+    Start a process whose namespec matches the regular expression and with a starting strategy.
+
+``start_any_process strategy regex1 regex2``
+
+    Start multiple processes whose namespec matches the regular expressions and with a starting strategy.
+
 ``start_args proc arg_list``
 
     Start the process named proc in the local |Supvisors| instance and with the additional arguments arg_list passed
@@ -243,6 +258,11 @@ Process Control
 
     Start the process named proc with a starting strategy and with the additional arguments arg_list passed
     to the command line.
+
+``start_any_process_args strategy regex arg_list``
+
+    Start a process whose namespec matches the regular expression, using a starting strategy and additional arguments
+    arg_list passed to the command line.
 
 ``stop_process``
 
@@ -271,5 +291,13 @@ Process Control
 ``update_numprocs program_name numprocs``
 
     Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners).
+
+``enable program_name``
+
+    Enable the processes corresponding to the program.
+
+``disable program_name``
+
+    Stop and disable the processes corresponding to the program.
 
 .. include:: common.rst

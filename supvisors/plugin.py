@@ -20,13 +20,14 @@
 import os
 
 from supervisor.options import ServerOptions
+from supervisor.process import Subprocess
+from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
-from supervisor.xmlrpc import Faults
 
 from .initializer import Supvisors
-from .rpcinterface import RPCInterface
-from .ttypes import SupvisorsFaults
+from .rpcinterface import RPCInterface, startProcess
+from .supervisordata import spawn
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
 from .viewhostinstance import HostInstanceView
@@ -36,17 +37,22 @@ from .viewprocinstance import ProcInstanceView
 from .viewsupvisors import SupvisorsView
 
 
-def expand_faults():
-    """ Expand supervisord Fault definition.
+def patch_591() -> None:
+    """ Apply on-the-fly patches to Supervisor to implement Supervisor issue #591.
 
     :return: None
     """
-    for x in SupvisorsFaults:
-        setattr(Faults, x.name, x.value)
+    # monkeypatch SupervisorNamespaceRPCInterface.startProcess
+    if not hasattr(SupervisorNamespaceRPCInterface, '_startProcess'):
+        SupervisorNamespaceRPCInterface._startProcess = SupervisorNamespaceRPCInterface.startProcess
+        SupervisorNamespaceRPCInterface.startProcess = startProcess
+    # monkeypatch Subprocess.spawn
+    if not hasattr(Subprocess, '_spawn'):
+        Subprocess._spawn, Subprocess.spawn = Subprocess.spawn, spawn
 
 
 def update_views() -> None:
-    """ Trick to replace Supervisor Web UI.
+    """ Trick to replace the Supervisor Web UI.
 
     :return: None
     """
@@ -88,9 +94,9 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     :param config: the config attributes read from the Supvisors section
     :return: the Supvisors XML-RPC interface
     """
-    # update Supervisor Fault definition
-    expand_faults()
-    # update Supervisor http web pages
+    # apply patch for Supervisor issue #591
+    patch_591()
+    # replace Supervisor http web pages
     update_views()
     # patch the Supervisor ServerOptions.cleanup_fds
     ServerOptions.cleanup_fds = cleanup_fds

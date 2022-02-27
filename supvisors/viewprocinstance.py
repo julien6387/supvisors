@@ -17,12 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisor.states import RUNNING_STATES
+import os
+
+from supervisor.states import ProcessStates, RUNNING_STATES
 from supervisor.xmlrpc import RPCError
 
 from .application import ApplicationStatus
 from .instancestatus import SupvisorsInstanceStatus
-from .ttypes import Payload, PayloadList, ProcessHistoryStats
+from .ttypes import SupvisorsFaults, Payload, PayloadList, ProcessHistoryStats
 from .viewcontext import *
 from .viewsupstatus import SupvisorsInstanceView
 from .webutils import *
@@ -78,13 +80,33 @@ class ProcInstanceView(SupvisorsInstanceView):
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'single': single, 'identifier': self.view_ctx.local_identifier,
-                       'statename': info['statename'], 'statecode': info['state'],
+                       'statename': info['statename'], 'statecode': info['state'], 'disabled': info['disabled'],
                        'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': info['has_crashed'],
                        'description': info['description'], 'expected_load': expected_load,
                        'nb_cores': nb_cores, 'proc_stats': proc_stats}
             data.append(payload)
         # re-arrange data
-        return self.sort_data(data)
+        sorted_data, excluded_data = self.sort_data(data)
+        # add supervisord payload at the end of sorted data
+        sorted_data.append(self.get_supervisord_data(status))
+        return sorted_data, excluded_data
+
+    def get_supervisord_data(self, status: SupvisorsInstanceStatus) -> Payload:
+        """ Collect sorted data on supervisord process.
+
+        :param status: the local Supvisors instance
+        :return: the supervisord data.
+        """
+        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
+        payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                   'single': True, 'identifier': self.view_ctx.local_identifier, 'disabled': False,
+                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
+                   'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
+        # add description (pid / uptime) as done by Supervisor
+        info = {'state': ProcessStates.RUNNING, 'start': status.start_time, 'now': status.local_time,
+                'pid': os.getpid()}
+        payload['description'] = ProcessStatus.update_description(info)
+        return payload
 
     def sort_data(self, data: PayloadList) -> Tuple[PayloadList, PayloadList]:
         """ This method sorts a process list by application and using the alphabetical order.
@@ -114,14 +136,6 @@ class ProcInstanceView(SupvisorsInstanceView):
             else:
                 # push to excluded data
                 excluded_data.extend(application_processes)
-        # add supervisord payload at the end
-        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
-        payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                   'single': True, 'identifier': self.view_ctx.local_identifier,
-                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
-                   'description': f'Supervisor {self.view_ctx.local_identifier}', 'expected_load': 0,
-                   'nb_cores': nb_cores, 'proc_stats': proc_stats}
-        sorted_data.append(payload)
         return sorted_data, excluded_data
 
     def get_application_summary(self, application_name: str, application_processes: PayloadList) -> Payload:
@@ -135,7 +149,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         # create application payload
         application = self.sup_ctx.applications[application_name]
         payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
-                   'identifier': self.view_ctx.local_identifier,
+                   'identifier': self.view_ctx.local_identifier, 'disabled': False,
                    'statename': application.state.name, 'statecode': application.state.value,
                    'gravity': application.state.name, 'has_crashed': False,
                    'description': application.get_operational_status(),
@@ -294,8 +308,8 @@ class ProcInstanceView(SupvisorsInstanceView):
         self.write_supervisord_button(tr_elt, 'clear_a_mid', self.page_name, **{ACTION: 'mainclearlog'})
         self.write_supervisord_button(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)
         # start and tail stderr are not applicable
-        tr_elt.findmeld('start_a_mid').content('')
-        tr_elt.findmeld('tailerr_a_mid').content('')
+        self.write_supervisord_off_button(tr_elt, 'start_a_mid')
+        self.write_supervisord_off_button(tr_elt, 'tailerr_a_mid')
 
     def write_supervisord_button(self, tr_elt, mid: str, page: str, **action) -> None:
         """ Write the configuration of the button of supervisord. """
@@ -303,6 +317,12 @@ class ProcInstanceView(SupvisorsInstanceView):
         update_attrib(elt, 'class', 'button on')
         url = self.view_ctx.format_url('', page, **action)
         elt.attributes(href=url)
+
+    @staticmethod
+    def write_supervisord_off_button(tr_elt, mid: str) -> None:
+        """ Write the configuration of the button of supervisord. """
+        elt = tr_elt.findmeld(mid)
+        update_attrib(elt, 'class', 'button off')
 
     def write_total_status(self, table_elt, sorted_data: PayloadList, excluded_data: PayloadList):
         """ Write the total statistics for this Supvisors instance.
@@ -336,7 +356,16 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Triggers processing iaw action requested """
         if action == 'mainclearlog':
             return self.clear_log_action()
-        return super().make_callback(namespec, action)
+        result = super().make_callback(namespec, action)
+        # WARN: this ugly part is necessary to handle the DISABLED exception that can be raised from Supervisor
+        #  startProcess. It is not possible to patch Supervisor make_callback without copying a huge piece of source
+        #  code from Supervisor, so here is an inspection of the make_callback result to check for a callable declaring
+        #  an 'unexpected rpc fault [103]'
+        if callable(result):
+            message = result()
+            if type(message) is str and f'[{SupvisorsFaults.DISABLED.value}]' in message:
+                return delayed_error(f'Process {namespec}: disabled')
+        return result
 
     def clear_log_action(self):
         """ Clear the log of Supervisor. """

@@ -11,6 +11,7 @@
     configuration.rst
     dashboard.rst
     xml_rpc.rst
+    flask.rst
     supervisorctl.rst
     event_interface.rst
     special.rst

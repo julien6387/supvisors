@@ -1,5 +1,50 @@
 # Change Log
 
+## 0.13 (2022-02-27)
+
+* Implement [Supervisor Issue #591](https://github.com/Supervisor/supervisor/issues/591).
+  It is possible to disable/enable programs using the new `disable` and `enable` XML-RPCs. 
+  A new option `disabilities_file` has been added to support the persistence.
+  The `disabled` status of the processes is made available through the `supvisors.get_local_process_info` XML-RPC and
+  in the process table of the Web UI.
+
+* Fix issue where **Supvisors** may be blocked in the `DEPLOYMENT` phase due to late process events.
+
+* Add a new `start_any_process` XML-RPC that starts one process whose namespec matches the regular expression.
+
+* Add a `wait` parameter to the `update_numprocs` XML-RPC.
+
+* Add the principle of **Supvisors** modes to the output of the XML-RPCs `get_supvisors_state` and `get_instance_info`.
+  The modes are linked to the existence of jobs in progress in `Starter` and `Stopper`.
+
+* The **Supvisors** modes are displayed to the Main page of the Web UI and the **Supvisors** instance modes are
+  displayed to the Process and Host pages of the Web UI. In the navigation menu, the local **Supvisors** instance
+  points out the **Supvisors** instances where the modes are activated, and the applications involved in its own
+  `Starter` or `Stopper`.
+
+* When using ``#`` in the ``identifiers`` of the Application or Program rules and with a number of candidate
+  applications or processes greater than the candidate ``identifiers``, the assignment is performed by rolling over
+  the ``identifiers`` list. 
+
+* Add pid and uptime information to the `supervisord` entry of the process table in the Web UI.
+
+* The application rules of a **Supvisors** rules file can be inserted in any order.
+
+* Protect the Supervisor thread against any exception that could be raised by **Supvisors** when processing a Supervisor
+  event.
+
+* Provide a Flask server that can be added as a Supervisor program to interact with **Supvisors** using a REST API.
+
+* Update the CSS style of the inactive buttons in the Web UI.
+
+* Fix CSS resources table cell height with recent versions of Firefox.
+
+* Update the Web UI to allow multiple processes per line in the **Supvisors** instance boxes.
+
+* Remove support to deprecated option `distributed` and to the possibility to have the `program` element directly
+  under the `application element` in a **Supvisors** rules file.
+
+
 ## 0.12 (2022-01-26)
 
 * Fix crash following a `supervisorctl update` as the group added doesn't include `extra_args` and `command_ref`
@@ -19,7 +64,7 @@
 
 * Fix issue in Web UI with the Solaris mode not applied to the process CPU plot.
 
-* Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
+* Fix CSS for Supvisors instance boxes (table headers un-stickied) in the Main page of the Web UI.
 
 * Fix process children CPU times counted twice in statistics.
 

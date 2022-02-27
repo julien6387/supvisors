@@ -406,6 +406,7 @@ The operational status of :program:`Scenario 3` required by the |Req 2 abbr| is 
 
     * the :ref:`dashboard_application` of the |Supvisors| Web UI, as a LED near the application state,
     * the :ref:`xml_rpc` (example below),
+    * the :ref:`rest_api` (if :program:`supvisorsflask` is started),
     * the :ref:`extended_status` of the extended :program:`supervisorctl` or :program:`supvisorsctl` (example below),
     * the :ref:`event_interface`.
 

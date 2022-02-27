@@ -34,6 +34,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         """ Initialization of the attributes. """
         # create logger using a BoundIO
         SupvisorsEventInterface.__init__(self, zcontext, self.PORT, logger)
+        self.subscriber.subscribe_all()
         # create queues to store messages
         self.supvisors_queue = Queue()
         self.instance_queue = Queue()

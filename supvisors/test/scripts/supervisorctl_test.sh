@@ -42,12 +42,21 @@ sendRequest process_rules database:movie_server_02 player:movie_player
 sendRequest start_process CONFIG my_movies:converter_01
 sendRequest restart_process LESS_LOADED my_movies:converter_01
 sendRequest stop_process my_movies:converter_01
+sendRequest start_any_process CONFIG converter
 
 sendRequest start_args my_movies:converter_02 -x 3 -d \'additional arguments\'
 sleep 3
 
 sendRequest start_process_args MOST_LOADED my_movies:converter_02 -x 3 -d \'additional arguments\'
 sleep 3
+
+sendRequest start_any_process_args CONFIG converter -x 3
+sleep 3
+
+sendRequest update_numprocs converter 10
+sendRequest update_numprocs converter 15
+sendRequest disable converter
+sendRequest enable converter 15
 
 # command requests on applications
 sendRequest restart_application MOST_LOADED database

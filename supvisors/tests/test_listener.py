@@ -74,23 +74,34 @@ def test_creation(mocker, supvisors, listener):
     assert (RemoteCommunicationEvent, listener.on_remote_event) in callbacks
 
 
+def test_on_running_exception(mocker, listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a SupervisorRunningEvent. """
+    mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler', side_effect=TypeError)
+    listener.on_running('')
+
+
 def test_on_running(mocker, listener):
     """ Test the reception of a Supervisor RUNNING event. """
     ref_pusher = listener.pusher
     ref_main_loop = listener.main_loop
-    mocked_replace = mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler')
-    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'prepare_extra_args')
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_supervisor')
     mocked_zmq = mocker.patch('supvisors.listener.SupervisorZmq')
     mocked_loop = mocker.patch('supvisors.listener.SupvisorsMainLoop')
     listener.on_running('')
     # test attributes and calls
-    assert mocked_replace.called
     assert mocked_prepare.called
     assert mocked_zmq.called
     assert listener.pusher is not ref_pusher
     assert mocked_loop.called
     assert listener.main_loop is not ref_main_loop
     assert listener.main_loop.start.called
+
+
+def test_on_stopping_exception(mocker, listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a
+    SupervisorStoppingEvent. """
+    mocker.patch.object(listener.supvisors.supervisor_data, 'close_httpservers', side_effect=TypeError)
+    listener.on_stopping('')
 
 
 def test_on_stopping(mocker, listener):
@@ -119,36 +130,57 @@ def test_on_stopping(mocker, listener):
     assert listener.supvisors.logger.close.called
 
 
+def test_on_process_state_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessStateEvent. """
+    listener.on_process_state(None)
+
+
 def test_on_process_state(mocker, listener):
     """ Test the reception of a Supervisor PROCESS event. """
     mocker.patch('supvisors.listener.time.time', return_value=77)
     # create a publisher patch
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
-    # test non-process event
-    with pytest.raises(AttributeError):
-        listener.on_process_state(Tick60Event(0, None))
     # test process event
     process = Mock(pid=1234, spawnerr='resource not available',
                    **{'config.name': 'dummy_process',
                       'config.extra_args': '-s test',
+                      'config.disabled': True,
                       'group.config.name': 'dummy_group'})
     event = ProcessStateFatalEvent(process, '')
     listener.on_process_state(event)
     expected = [call({'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
-                      'extra_args': '-s test', 'now': 77, 'pid': 1234,
+                      'extra_args': '-s test', 'now': 77, 'pid': 1234, 'disabled': True,
                       'expected': True, 'spawnerr': 'resource not available'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected
 
 
-def test_on_process_added(listener):
+def test_on_process_added_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessAddedEvent. """
+    listener.on_process_added(None)
+
+
+def test_get_local_process_info(listener):
+    """ Test the SupervisorListener._get_local_process_info method """
+    process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
+                    'extra_args': '-s test', 'disabled': True, 'now': 77, 'pid': 1234,
+                    'expected': True, 'spawnerr': 'resource not available'}
+    rpc = listener.supvisors.supervisor_data.supvisors_rpc_interface.get_local_process_info
+    # test normal behavior
+    rpc.return_value = process_info
+    assert listener._get_local_process_info('dummy_group:dummy_process') == process_info
+    # test exception
+    rpc.side_effect = RPCError(Faults.BAD_NAME, 'dummy_group:dummy_process')
+    assert listener._get_local_process_info('dummy_group:dummy_process') is None
+
+
+def test_on_process_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_ADDED event. """
-    # create a publisher patch
-    listener.pusher = Mock(**{'send_process_added_event.return_value': None})
+    # patch context
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
                     'extra_args': '-s test', 'now': 77, 'pid': 1234,
                     'expected': True, 'spawnerr': 'resource not available'}
-    rpc = listener.supvisors.supervisor_data.supvisors_rpc_interface.get_local_process_info
-    rpc.return_value = process_info
+    mocked_get = mocker.patch.object(listener, '_get_local_process_info', return_value=process_info)
+    listener.pusher = Mock(**{'send_process_added_event.return_value': None})
     # test process event
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessAddedEvent(process)
@@ -156,9 +188,14 @@ def test_on_process_added(listener):
     assert listener.pusher.send_process_added_event.call_args_list == [call(process_info)]
     listener.pusher.send_process_added_event.reset_mock()
     # test exception
-    rpc.side_effect = RPCError(Faults.BAD_NAME, 'dummy_group:dummy_process')
+    mocked_get.return_value = None
     listener.on_process_added(event)
     assert not listener.pusher.send_process_added_event.called
+
+
+def test_on_process_removed_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessRemovedEvent. """
+    listener.on_process_removed(None)
 
 
 def test_on_process_removed(listener):
@@ -173,13 +210,55 @@ def test_on_process_removed(listener):
     assert listener.pusher.send_process_removed_event.call_args_list == expected
 
 
+def test_on_process_disability_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a ProcessEnabledEvent or
+    a ProcessDisabledEvent. """
+    listener.pusher = Mock(**{'send_process_disability_event.return_value': None})
+    listener.on_process_disability(None)
+    assert not listener.pusher.send_process_disability_event.called
+
+
+def test_on_process_disability(mocker, listener):
+    """ Test the reception of a Supervisor PROCESS_ENABLED or a PROCESS_DISABLED event. """
+    # patch context
+    process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
+                    'extra_args': '-s test', 'now': 77, 'pid': 1234,
+                    'expected': True, 'spawnerr': 'resource not available'}
+    mocker.patch.object(listener, '_get_local_process_info', return_value=process_info)
+    listener.pusher = Mock(**{'send_process_disability_event.return_value': None})
+    # test PROCESS_ENABLED event
+    process_info['disabled'] = False
+    process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
+    event = ProcessEnabledEvent(process)
+    listener.on_process_disability(event)
+    assert listener.pusher.send_process_disability_event.call_args_list == [call(process_info)]
+    listener.pusher.send_process_disability_event.reset_mock()
+    # test PROCESS_DISABLED event
+    process_info['disabled'] = True
+    process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
+    event = ProcessDisabledEvent(process)
+    listener.on_process_disability(event)
+    assert listener.pusher.send_process_disability_event.call_args_list == [call(process_info)]
+
+
+def test_on_group_added_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing
+    a ProcessGroupAddedEvent. """
+    listener.on_group_added(None)
+
+
 def test_on_group_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
-    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'prepare_extra_args')
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_internal_data')
     # test process event
     event = ProcessGroupAddedEvent('dummy_application')
     listener.on_group_added(event)
     assert mocked_prepare.call_args_list == [call('dummy_application')]
+
+
+def test_on_tick_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a TickEvent. """
+    listener.on_tick(None)
 
 
 def test_on_tick(mocker, listener):
@@ -189,9 +268,6 @@ def test_on_tick(mocker, listener):
     listener.pusher = Mock(**{'send_tick_event.return_value': None,
                               'send_statistics.return_value': None})
     listener.supvisors.context.instances['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
-    # test non-process event
-    with pytest.raises(AttributeError):
-        listener.on_tick(ProcessStateFatalEvent(None, ''))
     # test process event
     event = Tick60Event(120, None)
     listener.on_tick(event)
@@ -214,73 +290,106 @@ def test_on_tick(mocker, listener):
     assert not listener.pusher.send_statistics.called
 
 
-def test_unstack_event(listener):
-    """ Test the processing of a Supvisors event. """
-    # test tick event
+def test_unstack_event_tick(listener):
+    """ Test the processing of a Supvisors TICK event. """
     listener.unstack_event('[0, ["10.0.0.1", "data"]]')
-    assert listener.supvisors.fsm.on_tick_event.call_args_list == [call('10.0.0.1', 'data')]
+    expected = [call('10.0.0.1', 'data')]
+    assert listener.supvisors.fsm.on_tick_event.call_args_list == expected
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_tick_event.reset_mock()
-    # test process state event
+
+
+def test_unstack_event_process_state(listener):
+    """ Test the processing of a Supvisors process state event. """
     listener.unstack_event('[1, ["10.0.0.2", {"name": "dummy"}]]')
+    expected = [call('10.0.0.2', {'name': 'dummy'})]
     assert not listener.supvisors.fsm.on_tick_event.called
-    assert listener.supvisors.fsm.on_process_state_event.call_args_list == [call('10.0.0.2', {'name': 'dummy'})]
-    assert not listener.supvisors.fsm.on_state_event.called
+    assert listener.supvisors.fsm.on_process_state_event.call_args_list == expected
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
+    assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_process_state_event.reset_mock()
-    # test process added event
+
+
+def test_unstack_event_process_added(listener):
+    """ Test the processing of a Supvisors process added event. """
     listener.unstack_event('[2, ["10.0.0.1", {"group": "dummy_group", "name": "dummy_process"}]]')
+    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
-    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert listener.supvisors.fsm.on_process_added_event.call_args_list == expected
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_process_added_event.reset_mock()
-    # test process removed event
+
+
+def test_unstack_event_process_removed(listener):
+    """ Test the processing of a Supvisors process removed event. """
     listener.unstack_event('[3, ["10.0.0.1", {"group": "dummy_group", "name": "dummy_process"}]]')
+    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
-    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert listener.supvisors.fsm.on_process_removed_event.call_args_list == expected
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.fsm.on_process_removed_event.reset_mock()
-    # test statistics event
-    listener.unstack_event('[4, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
+
+
+def test_unstack_event_process_disability(listener):
+    """ Test the processing of a Supvisors process enabled event. """
+    listener.unstack_event('[4, ["10.0.0.1", {"group": "dummy_group", "name": "dummy_process"}]]')
+    expected = [call('10.0.0.1', {'group': 'dummy_group', 'name': 'dummy_process'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert listener.supvisors.fsm.on_process_disability_event.call_args_list == expected
+    assert not listener.supvisors.fsm.on_state_event.called
+    assert not listener.supvisors.statistician.push_statistics.called
+
+
+def test_unstack_event_statistics_enabled(listener):
+    """ Test the processing of a Supvisors statistics event when enabled. """
+    listener.unstack_event('[5, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
+    assert not listener.supvisors.fsm.on_tick_event.called
+    assert not listener.supvisors.fsm.on_process_state_event.called
+    assert not listener.supvisors.fsm.on_process_added_event.called
+    assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     expected = [call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}, {}])]
     assert listener.supvisors.statistician.push_statistics.call_args_list == expected
-    listener.supvisors.statistician.push_statistics.reset_mock()
-    # test statistics event when statistics disabled
+
+
+def test_unstack_event_statistics_disabled(listener):
+    """ Test the processing of a Supvisors statistics event when disabled. """
     listener.supvisors.options.stats_enabled = False
-    listener.unstack_event('[4, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
+    listener.unstack_event('[5, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert not listener.supvisors.fsm.on_state_event.called
     assert not listener.supvisors.statistician.push_statistics.called
-    listener.supvisors.options.stats_enabled = True
-    # test state event
-    listener.unstack_event('[5, ["10.0.0.1", {"statecode": 10, "statename": "RUNNING"}]]')
+
+
+def test_unstack_event_state(listener):
+    """ Test the processing of a Supvisors state event. """
+    listener.unstack_event('[6, ["10.0.0.1", {"statecode": 10, "statename": "RUNNING"}]]')
+    expected = [call('10.0.0.1', {'statecode': 10, 'statename': 'RUNNING'})]
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
     assert not listener.supvisors.fsm.on_process_added_event.called
     assert not listener.supvisors.fsm.on_process_removed_event.called
-    expected = [call('10.0.0.1', {'statecode': 10, 'statename': 'RUNNING'})]
+    assert not listener.supvisors.fsm.on_process_disability_event.called
     assert listener.supvisors.fsm.on_state_event.call_args_list == expected
     assert not listener.supvisors.statistician.push_statistics.called
 
@@ -293,10 +402,26 @@ def test_unstack_info(listener):
 
 def test_authorization(listener):
     """ Test the processing of a Supvisors authorization. """
-    from supvisors.ttypes import SupvisorsStates
-    listener.authorization('info1=10.0.0.5:60000 info2=False info3=10.0.0.1 info4=SHUTTING_DOWN')
-    expected = [call('10.0.0.5:60000', False, '10.0.0.1', SupvisorsStates.SHUTTING_DOWN)]
+    listener.authorization('["10.0.0.5:60000", false, "10.0.0.1"]')
+    expected = [call('10.0.0.5:60000', False, '10.0.0.1')]
     assert listener.supvisors.fsm.on_authorization.call_args_list == expected
+
+
+def test_on_remote_event_exception(mocker, listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing
+    a RemoteCommunicationEvent. """
+    mocker.patch.object(listener, 'unstack_event', side_effect=KeyError)
+    mocker.patch.object(listener, 'unstack_info', side_effect=KeyError)
+    mocker.patch.object(listener, 'authorization', side_effect=KeyError)
+    # test event
+    event = Mock(type='event', data={'state': 'RUNNING'})
+    listener.on_remote_event(event)
+    # test info
+    event = Mock(type='info', data={'name': 'dummy_process'})
+    listener.on_remote_event(event)
+    # test authorization
+    event = Mock(type='auth', data=('10.0.0.1', True))
+    listener.on_remote_event(event)
 
 
 def test_on_remote_event(mocker, listener):
@@ -306,28 +431,28 @@ def test_on_remote_event(mocker, listener):
     # test unknown type
     event = Mock(type='unknown', data='')
     listener.on_remote_event(event)
-    listener.unstack_event.assert_not_called()
-    listener.unstack_info.assert_not_called()
-    listener.authorization.assert_not_called()
+    assert not listener.unstack_event.called
+    assert not listener.unstack_info.called
+    assert not listener.authorization.called
     # test event
     event = Mock(type='event', data={'state': 'RUNNING'})
     listener.on_remote_event(event)
     assert listener.unstack_event.call_args_list == [call({'state': 'RUNNING'})]
-    listener.unstack_info.assert_not_called()
-    listener.authorization.assert_not_called()
+    assert not listener.unstack_info.called
+    assert not listener.authorization.called
     listener.unstack_event.reset_mock()
     # test info
     event = Mock(type='info', data={'name': 'dummy_process'})
     listener.on_remote_event(event)
-    listener.unstack_event.assert_not_called()
+    assert not listener.unstack_event.called
     assert listener.unstack_info.call_args_list == [call({'name': 'dummy_process'})]
-    listener.authorization.assert_not_called()
+    assert not listener.authorization.called
     listener.unstack_info.reset_mock()
     # test authorization
     event = Mock(type='auth', data=('10.0.0.1', True))
     listener.on_remote_event(event)
-    listener.unstack_event.assert_not_called()
-    listener.unstack_info.assert_not_called()
+    assert not listener.unstack_event.called
+    assert not listener.unstack_info.called
     assert listener.authorization.call_args_list == [call(('10.0.0.1', True))]
 
 
@@ -338,9 +463,9 @@ def test_force_process_state(mocker, listener):
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
     # test the call
     process = Mock(application_name='appli', process_name='process', extra_args='-h')
-    listener.force_process_state(process, ProcessStates.STARTING, '10.0.0.1', ProcessStates.FATAL, 'bad luck')
-    expected = [call({'name': 'process', 'group': 'appli', 'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
-                      'forced_state': ProcessStates.FATAL,
-                      'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
+    listener.force_process_state(process, '10.0.0.1', 56, ProcessStates.FATAL, 'bad luck')
+    expected = [call({'name': 'process', 'group': 'appli', 'state': ProcessStates.FATAL, 'identifier': '10.0.0.1',
+                      'forced': True, 'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False,
+                      'spawnerr': 'bad luck'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected
     listener.pusher.send_process_state_event.reset_mock()

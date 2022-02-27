@@ -7,7 +7,7 @@ The |Supvisors| XML-RPC API is an extension of the |Supervisor| XML-RPC API.
 Detailed information can be found in the
 `Supervisor XML-RPC API Documentation <http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
 
-The ``supvisors`` namespace has been added to the :program:`supervisord` XML-RPC interface.
+The ``supvisors`` namespace has been added to the ``supervisor`` XML-RPC interface.
 
 The XML-RPC :command:`system.listMethods` provides the list of methods supported for both |Supervisor| and |Supvisors|.
 
@@ -36,14 +36,16 @@ Status
 
         .. automethod:: get_supvisors_state()
 
-            ================== ========= ===========
-            Key                Type      Description
-            ================== ========= ===========
-            'statecode'        ``int``   The state of |Supvisors|, in [0;6].
-            'statename'        ``str``   The string state of |Supvisors|, in [``'INITIALIZATION'``, ``'DEPLOYMENT'``,
-                                         ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'RESTART'``,
-                                         ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
-            ================== ========= ===========
+            ================== ============= ===========
+            Key                Type          Description
+            ================== ============= ===========
+            'fsm_statecode'    ``int``       The |Supvisors| state, in [0;9].
+            'fsm_statename'    ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
+                                             ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                             ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
+            'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
+            'stopping_jobs'    ``list(str)`` The list of |Supvisors| instances having stopping jobs in progress.
+            ================== ============= ===========
 
         .. automethod:: get_master_identifier()
 
@@ -53,8 +55,8 @@ Status
             Key                Type      Description
             ================== ========= ===========
             'auto-fencing'     ``bool``  The application status of the auto-fencing in |Supvisors|.
-            'conciliation'     ``str``   The conciliation strategy applied when |Supvisors| is
-                                         in the ``CONCILIATION`` state.
+            'conciliation'     ``str``   The conciliation strategy applied when |Supvisors| is in the ``CONCILIATION``
+                                         state.
             'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DEPLOYMENT`` state.
             ================== ========= ===========
 
@@ -76,6 +78,12 @@ Status
             'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
                                          instance, in [0;100]%.
             'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
+            'fsm_statecode'    ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
+            'fsm_statename'    ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
+                                         ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                         ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
+            'starting_jobs'    ``bool``  True if the |Supvisors| instance has starting jobs in progress.
+            'stopping_jobs'    ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
             ================== ========= ===========
 
         .. automethod:: get_all_instances_info()
@@ -141,6 +149,7 @@ Status
             'stopwaitsecs'     ``int``         The configured duration between process STOPPING and STOPPED.
             'pid'              ``int``         The UNIX process identifier.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
+            'disabled'         ``bool``        A status telling if the process is disabled.
             ================== =============== ===========
 
         .. automethod:: get_all_local_process_info()
@@ -156,8 +165,6 @@ Status
             'distribution'              ``str``         The distribution rule of the application,
                                                         in [``'ALL_INSTANCES'``, ``'SINGLE_INSTANCE'``,
                                                         ``'SINGLE_NODE'``].
-            'distributed'               ``bool``        *DEPRECATED* The Application distribution status in |Supvisors|.
-                                                        This entry will be removed in the next |Supvisors| version.
             'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
                                                         non-fully distributed application processes can be started,
                                                         provided only if ``distribution`` is not ``ALL_INSTANCES``.
@@ -250,23 +257,46 @@ Process Control
 
         .. automethod:: start_process(strategy, namespec, extra_args='', wait=True)
 
+        .. automethod:: start_any_process(strategy, regex, extra_args='', wait=True)
+
         .. automethod:: stop_process(namespec, wait=True)
 
         .. automethod:: restart_process(strategy, namespec, extra_args='', wait=True)
 
-        .. automethod:: update_numprocs(program_name, numprocs)
+        .. automethod:: update_numprocs(program_name, numprocs, wait=True)
 
+            .. hint::
+
+                This XML-RPC is the implementation of the following |Supervisor| request:
+
+                    * `#177 - Dynamic numproc change <https://github.com/Supervisor/supervisor/issues/177>`_
+
+        .. automethod:: enable(program_name, wait=True)
+
+            .. hint::
+
+                This XML-RPC is a part of the implementation of the following |Supervisor| request:
+
+                    * `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_
+
+        .. automethod:: disable(program_name, wait=True)
+
+            .. hint::
+
+                This XML-RPC is a part of the implementation of the following |Supervisor| request:
+
+                    * `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_
 
 XML-RPC Clients
 ---------------
 
-This section explains how to use the XML-RPC API from a Python or JAVA client.
+This section explains how to use the XML-RPC API from a :program:`Python` or :program:`JAVA` client.
 
 
-Python Client
-~~~~~~~~~~~~~
+:program:`Python` Client
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-To perform an XML-RPC from a python client, |Supervisor| provides the ``getRPCInterface`` function of the
+To perform an XML-RPC from a :program:`Python` client, |Supervisor| provides the ``getRPCInterface`` function of the
 :program:`supervisor.childutils` module.
 
 The parameter requires a dictionary with the following variables set:
@@ -275,33 +305,39 @@ The parameter requires a dictionary with the following variables set:
     * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be void),
     * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be void).
 
-If the Python client has been spawned by Supervisor, the environment already contains these parameters but they are
-configured to communicate with the local |Supervisor| instance. If the Python client has to communicate with another
-|Supervisor| instance, the parameters must be set accordingly.
+If the :program:`Python` client has been spawned by |Supervisor|, the environment already contains these parameters
+but they are configured to communicate with the local |Supervisor| instance.
 
-.. code-block:: python
+>>> import os
+>>> from supervisor.childutils import getRPCInterface
+>>> proxy = getRPCInterface(os.environ)
+>>> proxy.supvisors.get_instance_info('cliche81')
+{'identifier': 'cliche81', 'node_name': 'cliche81', 'port': 60000, 'statecode': 2, 'statename': 'RUNNING',
+'sequence_counter': 885, 'remote_time': 1645285505, 'local_time': 1645285505, 'loading': 24,
+'fsm_statecode': 3, 'fsm_statename': 'OPERATION', 'starting_jobs': False, 'stopping_jobs': False}
 
-    import os
-    from supervisor.childutils import getRPCInterface
+If the :program:`Python` client has to communicate with another |Supervisor| instance, the parameters must be set
+accordingly.
 
-    proxy = getRPCInterface(os.environ)
-    proxy.supervisor.getState()
-    proxy.supvisors.get_supvisors_state()
+>>> from supervisor.childutils import getRPCInterface
+>>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://cliche81:60000'})
+>>> proxy.supvisors.get_supvisors_state()
+{'fsm_statecode': 3, 'fsm_statename': 'OPERATION', 'starting_jobs': [], 'stopping_jobs': []}
 
 
-JAVA Client
-~~~~~~~~~~~
+:program:`JAVA` Client
+~~~~~~~~~~~~~~~~~~~~~~
 
-There is JAVA client *supervisord4j* referenced in the `Supervisor documentation
+There is :program:`JAVA` client *supervisord4j* referenced in the `Supervisor documentation
 <http://supervisord.org/plugins.html#libraries-that-integrate-third-party-applications-with-supervisor>`_.
 However, it comes with the following drawbacks, taken from the ``README.md`` of
 `supervisord4j <https://github.com/satifanie/supervisord4j>`_:
 
-    * of course, it doesn't include the |Supvisors| XML-RPC API,
     * some XML-RPC are not implemented,
-    * some implemented XML-RPC are not tested.
+    * some implemented XML-RPC are not tested,
+    * of course, it doesn't include the |Supvisors| XML-RPC API.
 
-The |Supvisors| release comes with a JAR file including a JAVA client.
+The |Supvisors| release comes with a ``JAR`` file including a :program:`JAVA` client.
 It can be downloaded from the `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_.
 
 The package ``org.supvisors.rpc`` implements all XML-RPC of all interfaces (``system``, ``supervisor``
@@ -313,7 +349,6 @@ This package requires the following additional dependency:
 
 The binary JAR of :program:`Apache XML-RPC 3.1.3` is available in the
 `Apache MAVEN repository <https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
-
 
 .. code-block:: java
 

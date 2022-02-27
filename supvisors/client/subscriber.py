@@ -59,7 +59,7 @@ class SupvisorsEventInterface(threading.Thread):
         - stop_event: when set, breaks the infinite loop of the thread.
 
     Constants:
-        - _Poll_timeout: duration used to time out the PyZMQ_ poller, defaulted to 500 milli-seconds.
+        - _Poll_timeout: duration used to time out the PyZMQ_ poller, defaulted to 500 milliseconds.
     """
 
     _Poll_timeout = 500
@@ -72,8 +72,8 @@ class SupvisorsEventInterface(threading.Thread):
         self.zmq_context = zmq_context
         self.event_port = event_port
         self.logger = logger
-        # subscriber will be created in the thread
-        self.subscriber = None
+        # create event socket
+        self.subscriber = EventSubscriber(self.zmq_context, self.event_port, self.logger)
         # create stop event
         self.stop_event = threading.Event()
 
@@ -84,9 +84,6 @@ class SupvisorsEventInterface(threading.Thread):
 
     def run(self):
         """ Main loop of the thread. """
-        # create event socket
-        self.subscriber = EventSubscriber(self.zmq_context, self.event_port, self.logger)
-        self.configure()
         # create poller and register event subscriber
         poller = zmq.Poller()
         poller.register(self.subscriber.socket, zmq.POLLIN)
@@ -100,7 +97,7 @@ class SupvisorsEventInterface(threading.Thread):
                 try:
                     message = self.subscriber.receive()
                 except Exception as e:
-                    self.logger.error('failed to get data from subscriber: {}'.format(e.message))
+                    self.logger.error(f'failed to get data from subscriber: {e.message}')
                 else:
                     if message[0] == EventHeaders.SUPVISORS:
                         self.on_supvisors_status(message[1])
@@ -115,30 +112,25 @@ class SupvisorsEventInterface(threading.Thread):
         self.logger.warn('exiting main loop')
         self.subscriber.close()
 
-    def configure(self):
-        """ Default is subscription to everything. """
-        self.logger.info('subscribe to all messages')
-        self.subscriber.subscribe_all()
-
     def on_supvisors_status(self, data):
         """ Just logs the contents of the |Supvisors| Status message. """
-        self.logger.info('got Supvisors Status message: {}'.format(data))
+        self.logger.info(f'got Supvisors Status message: {data}')
 
     def on_instance_status(self, data):
         """ Just logs the contents of the Supvisors Instance Status message. """
-        self.logger.info('got SupvisorsInstanceStatus message: {}'.format(data))
+        self.logger.info(f'got SupvisorsInstanceStatus message: {data}')
 
     def on_application_status(self, data):
         """ Just logs the contents of the Application Status message. """
-        self.logger.info('got Application Status message: {}'.format(data))
+        self.logger.info(f'got Application Status message: {data}')
 
     def on_process_event(self, data):
         """ Just logs the contents of the Process Event message. """
-        self.logger.info('got Process Event message: {}'.format(data))
+        self.logger.info(f'got Process Event message: {data}')
 
     def on_process_status(self, data):
         """ Just logs the contents of the Process Status message. """
-        self.logger.info('got Process Status message: {}'.format(data))
+        self.logger.info(f'got Process Status message: {data}')
 
 
 if __name__ == '__main__':

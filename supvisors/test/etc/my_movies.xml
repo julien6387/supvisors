@@ -30,7 +30,6 @@
     <application name="import_database">
         <start_sequence>2</start_sequence>
         <starting_failure_strategy>STOP</starting_failure_strategy>
-
         <programs>
             <program pattern="mount_disk_\d+">
                 <identifiers>distribute_sublist</identifiers>
@@ -38,7 +37,6 @@
                 <required>true</required>
                 <expected_loading>0</expected_loading>
             </program>
-
             <program name="copy_error">
                 <identifiers>cliche81</identifiers>
                 <start_sequence>2</start_sequence>
@@ -47,13 +45,11 @@
                 <expected_loading>25</expected_loading>
             </program>
         </programs>
-
     </application>
 
     <!-- movies_database application -->
     <application name="database">
         <start_sequence>3</start_sequence>
-
         <programs>
             <program pattern="^movie">
                 <identifiers>#</identifiers>
@@ -61,7 +57,6 @@
                 <expected_loading>5</expected_loading>
                 <running_failure_strategy>CONTINUE</running_failure_strategy>
             </program>
-
             <program pattern="^register">
                 <identifiers>#,cliche81,cliche83:60000</identifiers>
                 <start_sequence>2</start_sequence>
@@ -69,7 +64,6 @@
                 <expected_loading>25</expected_loading>
             </program>
         </programs>
-
     </application>
 
     <!-- my_movies application -->
@@ -77,7 +71,6 @@
         <start_sequence>4</start_sequence>
         <starting_strategy>CONFIG</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-
         <programs>
             <program name="manager">
                 <identifiers>*</identifiers>
@@ -87,14 +80,12 @@
                 <expected_loading>5</expected_loading>
                 <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
             </program>
-
             <program name="web_server">
                 <identifiers>cliche84</identifiers>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <expected_loading>3</expected_loading>
             </program>
-
             <program name="hmi">
                 <identifiers>consoles</identifiers>
                 <start_sequence>3</start_sequence>
@@ -102,55 +93,44 @@
                 <expected_loading>10</expected_loading>
                 <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
             </program>
-
             <program pattern="disk_01_">
                 <reference>disk_01</reference>
             </program>
-
             <program pattern="disk_02_">
                 <reference>disk_02</reference>
             </program>
-
             <program pattern="disk_03_">
                 <reference>disk_03</reference>
             </program>
-
             <program pattern="error_disk_">
                 <reference>disk_01</reference>
                 <identifiers>*</identifiers>
             </program>
-
             <program name="converter_04">
                 <reference>converter</reference>
                 <identifiers>cliche83:60000,cliche81,cliche82</identifiers>
             </program>
-
             <program name="converter_07">
                 <reference>converter</reference>
                 <identifiers>cliche81,cliche83:60000,cliche82</identifiers>
             </program>
-
             <program pattern="^converter_\d+$">
                 <reference>converter</reference>
             </program>
-
             <program name="converter_14">
                 <reference>converter</reference>
                 <running_failure_strategy>RESTART</running_failure_strategy>
             </program>
-
         </programs>
-
      </application>
 
     <!-- player application -->
     <application name="player">
-        <distributed>false</distributed>
+        <distribution>SINGLE_INSTANCE</distribution>
         <identifiers>cliche81,cliche83:60000</identifiers>
         <start_sequence>5</start_sequence>
         <starting_strategy>MOST_LOADED</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
-
         <programs>
             <program name="test_reader">
                 <start_sequence>1</start_sequence>
@@ -158,7 +138,6 @@
                 <wait_exit>true</wait_exit>
                 <expected_loading>2</expected_loading>
             </program>
-
             <program name="movie_player">
                 <start_sequence>2</start_sequence>
                 <expected_loading>13</expected_loading>
@@ -172,7 +151,6 @@
         <start_sequence>6</start_sequence>
         <stop_sequence>2</stop_sequence>
         <starting_strategy>LESS_LOADED_NODE</starting_strategy>
-
         <programs>
             <program name="web_browser">
                 <identifiers>*</identifiers>

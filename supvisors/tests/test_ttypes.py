@@ -68,10 +68,10 @@ def test_RunningFailureStrategies():
 
 def test_SupvisorsStates():
     """ Test the SupvisorsStates enumeration. """
-    expected = ['INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
+    expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
                 'SHUTTING_DOWN', 'SHUTDOWN']
     assert enum_names(SupvisorsStates) == expected
-    assert enum_values(SupvisorsStates) == list(range(8))
+    assert enum_values(SupvisorsStates) == list(range(9))
 
 
 def test_exception():
@@ -84,9 +84,9 @@ def test_exception():
 
 def test_SupvisorsFaults():
     """ Test the SupvisorsFaults enumeration. """
-    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED']
+    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED', 'DISABLED']
     assert enum_names(SupvisorsFaults) == expected
-    assert enum_values(SupvisorsFaults) == list(range(100, 103))
+    assert enum_values(SupvisorsFaults) == list(range(100, 104))
 
 
 def test_process_event():

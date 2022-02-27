@@ -49,8 +49,8 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /** The extra arguments passed to the command line. */
     private String extra_args;
 
-    /** A status telling if the process has exited expectantly. */
-    private Boolean deleted;
+    /** A status telling if the process has been disabled. */
+    private Boolean disabled;
 
     /**
      * This constructor gets all information from an HashMap.
@@ -67,6 +67,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
         // identifier is not set in this message
         this.identifier = null;
         this.extra_args = (String) processInfo.get("extra_args");
+        this.disabled = (Boolean) processInfo.get("disabled");
    }
 
     /**
@@ -167,7 +168,8 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
             + " now=" + this.now
             + " pid=" + this.pid
             + " identifier=" + this.identifier
-            + " extraArgs=\"" + this.extra_args + "\")";
+            + " extraArgs=\"" + this.extra_args + "\""
+            + " disabled=" + this.disabled + ")";
     }
 
 }

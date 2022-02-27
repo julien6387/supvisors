@@ -31,8 +31,9 @@ from supervisor.childutils import getRPCInterface
 from supervisor.xmlrpc import RPCError
 
 from .supvisorszmq import SupvisorsZmq
-from .ttypes import SupvisorsInstanceStates, SupvisorsStates, CLOSING_STATES, ISOLATION_STATES
-from .utils import DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl
+from .ttypes import SupvisorsInstanceStates, ISOLATION_STATES
+from .utils import (TICK_PERIOD, SUPERVISOR_ALERT_TIMEOUT,
+                    DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl)
 
 
 class SupvisorsMainLoop(Thread):
@@ -45,12 +46,6 @@ class SupvisorsMainLoop(Thread):
         - env: the environment variables linked to Supervisor security access,
         - proxy: the proxy to the internal RPC interface.
     """
-
-    # TICK period in seconds for internal Supvisors heartbeat
-    TICK_PERIOD = 5
-
-    # a Supervisor TICK is expected every 5 seconds
-    SUPERVISOR_ALERT_TIMEOUT = 10
 
     # to avoid a long list of exceptions in catches
     RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError,
@@ -125,7 +120,7 @@ class SupvisorsMainLoop(Thread):
         In addition to that, a minimum TICK of 5 seconds may be questioned at some point if more responsiveness is
         expected, in which case the period of the Supvisors heartbeat could be decreased if necessary. """
         current_time = time()
-        current_counter = int((current_time - self.reference_time) / SupvisorsMainLoop.TICK_PERIOD)
+        current_counter = int((current_time - self.reference_time) / TICK_PERIOD)
         if current_counter > self.reference_counter:
             # send the Supvisors TICK to other Supvisors instances
             self.reference_counter = current_counter
@@ -140,7 +135,7 @@ class SupvisorsMainLoop(Thread):
             self.sockets.publisher.send_tick_event(payload)
             # check that Supervisor thread is alive
             supervisor_silence = current_time - self.supervisor_time
-            if supervisor_silence > SupvisorsMainLoop.SUPERVISOR_ALERT_TIMEOUT:
+            if supervisor_silence > SUPERVISOR_ALERT_TIMEOUT:
                 print(f'[ERROR] no TICK received from Supervisor for {supervisor_silence} seconds', file=stderr)
 
     def check_events(self, poll_result) -> None:
@@ -150,7 +145,7 @@ class SupvisorsMainLoop(Thread):
             # The events received are not processed directly in this thread because it would conflict
             # with the processing in the Supervisor thread, as they use the same data.
             # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
-            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, message)
 
     def check_requests(self, poll_result) -> None:
         """ Defer internal requests. """
@@ -207,21 +202,23 @@ class SupvisorsMainLoop(Thread):
         """
         authorized = None
         master_identifier = ''
-        supvisors_state = SupvisorsStates.SHUTDOWN
+        state_modes_payload = {}
         all_info = []
         # get authorization from remote Supvisors instance
         try:
             supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
             # get remote perception of master node and state
             master_identifier = supvisors_rpc.get_master_identifier()
-            supvisors_payload = supvisors_rpc.get_supvisors_state()
             # check authorization
-            status_payload = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
+            local_status_payload = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
+            # check how the remote Supvisors instance defines itself
+            remote_status_payload = supvisors_rpc.get_instance_info(identifier)
+            state_modes_keys = ['fsm_statecode', 'starting_jobs', 'stopping_jobs']
+            state_modes_payload = {key: remote_status_payload[key] for key in state_modes_keys}
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to check Supvisors={identifier}', file=stderr)
         else:
-            supvisors_state = SupvisorsStates(supvisors_payload['statecode'])
-            instance_state = SupvisorsInstanceStates(status_payload['statecode'])
+            instance_state = SupvisorsInstanceStates(local_status_payload['statecode'])
             # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
             authorized = instance_state not in ISOLATION_STATES
         # get process info if authorized and remote not restarting or shutting down
@@ -235,13 +232,15 @@ class SupvisorsMainLoop(Thread):
                 # not able to respond to the request (long shot but not impossible)
                 # do NOT set authorized to False in this case or an unwanted isolation may happen
         # inform local Supvisors that authorization is available
-        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                    f'identifier={identifier} authorized={authorized}'
-                                    f' master_identifier={master_identifier}'
-                                    f' supvisors_state={supvisors_state.name}')
+        message = identifier, authorized, master_identifier
+        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, message)
+        # provide the local Supvisors with the remote Supvisors instance state and modes
+        message = InternalEventHeaders.STATE.value, (identifier, state_modes_payload)
+        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, message)
         # inform local Supvisors about the processes available remotely
         if all_info:
-            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((identifier, all_info)))
+            message = identifier, all_info
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, message)
 
     def start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """
@@ -303,7 +302,7 @@ class SupvisorsMainLoop(Thread):
     def send_remote_comm_event(self, event_type: str, event_data) -> None:
         """ Shortcut for the use of sendRemoteCommEvent. """
         try:
-            self.proxy.supervisor.sendRemoteCommEvent(event_type, event_data)
+            self.proxy.supervisor.sendRemoteCommEvent(event_type, json.dumps(event_data))
         except SupvisorsMainLoop.RpcExceptions:
             # expected on restart / shutdown
             print(f'[ERROR] failed to send event to Supervisor: {event_type} - {event_data}', file=stderr)

@@ -1,6 +1,8 @@
 .. |Supvisors| replace:: **Supvisors**
 .. |Supervisor| replace:: Supervisor_
 .. |psutil| replace:: psutil_
+.. |Flask-RESTX| replace:: Flask-RESTX_
+.. |Flask| replace:: Flask_
 
 .. |start| image:: images/start_button.png
     :alt: Start button
@@ -25,3 +27,5 @@
 .. _psutil: https://pypi.python.org/pypi/psutil
 .. _matplotlib: http://matplotlib.org
 .. _lxml: http://lxml.de
+.. _Flask-RESTX: https://flask-restx.readthedocs.io
+.. _Flask: https://flask.palletsprojects.com

@@ -197,6 +197,19 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  Yes.
 
+``disabilities_file``
+
+    The file path that will be used to persist the program disabilities. This option has been added in support of the
+    |Supervisor| request `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_.
+    The persisted data will be serialized in a ``JSON`` string so a ``.json`` extension is recommended.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+
 ``starting_strategy``
 
     The strategy used to start applications on |Supvisors| instances.
@@ -370,6 +383,7 @@ Configuration File Example
     synchro_timeout = 20
     inactivity_ticks = 3
     core_identifiers = cliche81,cliche82
+    disabilities_file = /tmp/disabilities.json
     starting_strategy = CONFIG
     conciliation_strategy = USER
     stats_enabled = true
@@ -446,8 +460,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 .. note::
 
-    The options of the ``application`` section MUST be declared in the following order.
-    In the next version of |Supvisors|, it will be possible to declare them in any order.
+    The options below can be declared in any order in the ``application`` section.
 
 ``distribution``
 
@@ -470,16 +483,6 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     When a single |Supvisors| instance is running on each node, ``SINGLE_INSTANCE`` and ``SINGLE_NODE`` are strictly
     equivalent.
-
-``distributed``
-
-    *DEPRECATED* Please use ``distribution``. ``true`` is equivalent to ``ALL_INSTANCES`` in the ``distribution``
-    option and ``false`` is equivalent to ``SINGLE_INSTANCE``. This parameter will be removed in the next |Supvisors|
-    version.
-
-    *Default*:  ``true``.
-
-    *Required*:  No.
 
 ``identifiers``
 
@@ -570,22 +573,21 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     *Required*:  No.
 
+``programs``
+
+    This element is the grouping section of all ``program`` rules that are applicable to the application.
+    Obviously, the ``programs`` element of an application can include multiple ``program`` elements.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
 ``program``
 
     In a ``programs`` section, this element defines the rules that are applicable to the program whose name matches
     the ``name`` or ``pattern`` attribute of the element. The ``name`` must match exactly a program name in the program
     list of the `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
     for the application considered here.
-    *DEPRECATED* The definition of an application can include multiple ``program`` elements.
-
-    *Default*:  None.
-
-    *Required*:  No.
-
-``programs``
-
-    This element is the grouping section of all ``program`` rules that are applicable to the application.
-    Obviously, the ``programs`` element of an application can include multiple ``program`` elements.
 
     *Default*:  None.
 
@@ -874,15 +876,15 @@ It is also possible to give a subset of deduced names.
 
 .. important::
 
-    In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in
-    ``supvisors_list``.
+    In the initial |Supvisors| design, it was expected that the ``numprocs`` value set in the program configuration file
+    would match the number of elements in ``supvisors_list``.
 
-    If the number of elements in ``supvisors_list`` is greater than the ``numprocs`` value, programs will
+    However, if the number of elements in ``supvisors_list`` is greater than the ``numprocs`` value, programs will
     be assigned to the ``numprocs`` first |Supvisors| instances.
 
     On the other side, if the number of elements in ``supvisors_list`` is lower than the ``numprocs`` value,
-    the last programs won't be assigned to any |Supvisors| instance and it won't be possible to start them using
-    |Supvisors|. Nevertheless, in this case, it will be still possible to start them with |Supervisor| directly.
+    the assignment will roll over the elements in ``supvisors_list`` in a *modulo* fashion. As a consequence,
+    there will be multiple programs assigned to a single |Supvisors| instance.
 
 .. attention::
 

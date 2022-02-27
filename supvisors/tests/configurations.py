@@ -101,58 +101,59 @@ InvalidXmlTest = b'''\
     </application>
 
     <application name="dummy_application_B">
-        <distributed>non</distributed>
-        <start_sequence>1</start_sequence>
-        <stop_sequence>4</stop_sequence>
         <starting_failure_strategy>STOP</starting_failure_strategy>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
+        <distribution>non</distribution>
+        <start_sequence>1</start_sequence>
+        <stop_sequence>4</stop_sequence>
 
-        <program name="dummy_program_B0">
-        </program>
+        <programs>
+            <program name="dummy_program_B0"/>
 
-        <program name="dummy_program_B1">
-            <identifiers>nodes_prg_B1</identifiers>
-            <start_sequence>3</start_sequence>
-            <stop_sequence>50</stop_sequence>
-            <required>true</required>
-            <wait_exit>false</wait_exit>
-            <expected_loading>5</expected_loading>
-            <running_failure_strategy>CONTINUE</running_failure_strategy>
-         </program>
+            <program name="dummy_program_B1">
+                <identifiers>nodes_prg_B1</identifiers>
+                <start_sequence>3</start_sequence>
+                <stop_sequence>50</stop_sequence>
+                <required>true</required>
+                <wait_exit>false</wait_exit>
+                <expected_loading>5</expected_loading>
+                <running_failure_strategy>CONTINUE</running_failure_strategy>
+             </program>
+    
+            <program name="dummy_program_B2">
+                <identifiers>10.0.0.3</identifiers>
+                <required>true</required>
+                <expected_loading>-1</expected_loading>
+                <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
+            </program>
 
-        <program name="dummy_program_B2">
-            <identifiers>10.0.0.3</identifiers>
-            <required>true</required>
-            <expected_loading>-1</expected_loading>
-            <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
-        </program>
+            <program name="dummy_program_B3">
+                <identifiers>nodes_prg_B3</identifiers>
+                <required>false</required>
+                <expected_loading>100</expected_loading>
+                <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
+            </program>
+    
+            <program name="dummy_program_B4">
+                <identifiers>10.0.0.1, 10.0.0.2</identifiers>
+                <start_sequence>-1</start_sequence>
+                <stop_sequence>-2</stop_sequence>
+                <required>28</required>
+                <wait_exit>77</wait_exit>
+                <expected_loading>-1</expected_loading>
+                <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+            </program>
 
-        <program name="dummy_program_B3">
-            <identifiers>nodes_prg_B3</identifiers>
-            <required>false</required>
-            <expected_loading>100</expected_loading>
-            <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
-        </program>
-
-        <program name="dummy_program_B4">
-            <identifiers>10.0.0.1, 10.0.0.2</identifiers>
-            <start_sequence>-1</start_sequence>
-            <stop_sequence>-2</stop_sequence>
-            <required>28</required>
-            <wait_exit>77</wait_exit>
-            <expected_loading>-1</expected_loading>
-            <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
-        </program>
-
-        <program name="dummy_program_B5">
-            <identifiers>10.0.0.3, 10.0.0.1, 10.0.0.5</identifiers>
-            <start_sequence>start</start_sequence>
-            <stop_sequence>stop</stop_sequence>
-            <required>req</required>
-            <wait_exit>wait</wait_exit>
-            <expected_loading>fifty</expected_loading>
-            <running_failure_strategy>BACK</running_failure_strategy>
-        </program>
+            <program name="dummy_program_B5">
+                <identifiers>10.0.0.3, 10.0.0.1, 10.0.0.5</identifiers>
+                <start_sequence>start</start_sequence>
+                <stop_sequence>stop</stop_sequence>
+                <required>req</required>
+                <wait_exit>wait</wait_exit>
+                <expected_loading>fifty</expected_loading>
+                <running_failure_strategy>BACK</running_failure_strategy>
+            </program>
+        </programs>
 
     </application>
 
@@ -164,30 +165,32 @@ InvalidXmlTest = b'''\
         <starting_failure_strategy>ABORT</starting_failure_strategy>
         <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
 
-        <program name="dummy_program_C0">
-            <reference></reference>
-        </program>
-
-        <program name="dummy_program_C1">
-            <reference>unknown</reference>
-        </program>
-
-        <program name="dummy_program_C2">
-            <reference>dummy_model_01</reference>
-        </program>
-
-        <program name="dummy_program_C3">
-            <reference>dummy_model_02</reference>
-        </program>
-
-        <program name="dummy_program_C4">
-            <reference>dummy_model_03</reference>
-            <identifiers>#</identifiers>
-            <start_sequence>3</start_sequence>
-            <required>true</required>
-            <wait_exit>false</wait_exit>
-            <expected_loading>5</expected_loading>
-        </program>
+        <programs>
+            <program name="dummy_program_C0">
+                <reference></reference>
+            </program>
+    
+            <program name="dummy_program_C1">
+                <reference>unknown</reference>
+            </program>
+    
+            <program name="dummy_program_C2">
+                <reference>dummy_model_01</reference>
+            </program>
+    
+            <program name="dummy_program_C3">
+                <reference>dummy_model_02</reference>
+            </program>
+    
+            <program name="dummy_program_C4">
+                <reference>dummy_model_03</reference>
+                <identifiers>#</identifiers>
+                <start_sequence>3</start_sequence>
+                <required>true</required>
+                <wait_exit>false</wait_exit>
+                <expected_loading>5</expected_loading>
+            </program>
+        </programs>
 
     </application>
 
@@ -197,20 +200,20 @@ InvalidXmlTest = b'''\
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
 
-        <program pattern="dummies_">
-            <reference>dummy_model_03</reference>
-        </program>
-
-        <program pattern="^dummies_01_">
-            <identifiers>#</identifiers>
-            <start_sequence>1</start_sequence>
-            <stop_sequence>1</stop_sequence>
-            <required>false</required>
-            <wait_exit>true</wait_exit>
-            <expected_loading>75</expected_loading>
-        </program>
-
         <programs>
+            <program pattern="dummies_">
+                <reference>dummy_model_03</reference>
+            </program>
+    
+            <program pattern="^dummies_01_">
+                <identifiers>#</identifiers>
+                <start_sequence>1</start_sequence>
+                <stop_sequence>1</stop_sequence>
+                <required>false</required>
+                <wait_exit>true</wait_exit>
+                <expected_loading>75</expected_loading>
+            </program>
+
             <program pattern="d.*02.*">
                 <reference>dummy_model_04</reference>
             </program>
@@ -334,7 +337,7 @@ XmlTest = b'''\
     </application>
 
     <application pattern="application_D">
-        <distributed>false</distributed>
+        <distribution>SINGLE_INSTANCE</distribution>
         <identifiers>nodes_appli_D</identifiers>
         <start_sequence>-1</start_sequence>
         <stop_sequence>100</stop_sequence>
@@ -342,21 +345,21 @@ XmlTest = b'''\
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <running_failure_strategy>SHUTDOWN</running_failure_strategy>
 
-        <program pattern="dummies_">
-            <reference>dummy_model_03</reference>
-            <start_sequence>50</start_sequence>
-        </program>
-
-        <program pattern="^d.*s_01_">
-            <identifiers>#, 10.0.0.1, 10.0.0.5</identifiers>
-            <start_sequence>1</start_sequence>
-            <stop_sequence>1</stop_sequence>
-            <required>false</required>
-            <wait_exit>true</wait_exit>
-            <expected_loading>75</expected_loading>
-        </program>
-
         <programs>
+            <program pattern="dummies_">
+                <reference>dummy_model_03</reference>
+                <start_sequence>50</start_sequence>
+            </program>
+    
+            <program pattern="^d.*s_01_">
+                <identifiers>#, 10.0.0.1, 10.0.0.5</identifiers>
+                <start_sequence>1</start_sequence>
+                <stop_sequence>1</stop_sequence>
+                <required>false</required>
+                <wait_exit>true</wait_exit>
+                <expected_loading>75</expected_loading>
+            </program>
+
             <program pattern="dum+ies_02_">
                 <reference>dummy_model_04</reference>
             </program>
@@ -366,9 +369,11 @@ XmlTest = b'''\
 
     <application name="dummy_application_E">
         <starting_strategy>MOST_LOADED</starting_strategy>
-        <program name="dummy_program_E">
-            <reference>dummy_model_05</reference>
-        </program>
+        <programs>
+            <program name="dummy_program_E">
+                <reference>dummy_model_05</reference>
+            </program>
+        </programs>
     </application>
 
 </root>

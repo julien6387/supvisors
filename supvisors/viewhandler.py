@@ -146,6 +146,8 @@ class ViewHandler(MeldView):
                     update_attrib(li_elt, 'class', 'active')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('instance_a_mid')
+                if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
+                    update_attrib(elt, 'class', 'blink')
                 if status.state == SupvisorsInstanceStates.RUNNING:
                     # go to web page located on the Supvisors instance so as to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
@@ -165,6 +167,8 @@ class ViewHandler(MeldView):
         # write applications
         mid_elt = root.findmeld('appli_li_mid')
         applications = self.sup_ctx.get_managed_applications().values()
+        working_apps = (self.supvisors.starter.get_application_job_names()
+                        | self.supvisors.stopper.get_application_job_names())
         # forced to list otherwise not easily testable
         for li_elt, item in mid_elt.repeat(sorted(applications, key=lambda x: x.application_name)):
             failure = item.major_failure or item.minor_failure
@@ -177,7 +181,9 @@ class ViewHandler(MeldView):
                 update_attrib(li_elt, 'class', 'failure')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
-            if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:
+            if item.application_name in working_apps:
+                update_attrib(elt, 'class', 'blink')
+            if self.supvisors.fsm.state in [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION]:
                 update_attrib(elt, 'class', 'off')
             else:
                 # force default application starting strategy
@@ -279,20 +285,20 @@ class ViewHandler(MeldView):
     def write_process_start_button(self, tr_elt, info):
         """ Write the configuration of the start button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name,
-                                   'start', info['namespec'], info['statecode'], STOPPED_STATES)
+        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name, 'start', info['namespec'],
+                                   info['statecode'], [] if info['disabled'] else STOPPED_STATES)
 
     def write_process_stop_button(self, tr_elt, info):
         """ Write the configuration of the stop button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name,
-                                   'stop', info['namespec'], info['statecode'], RUNNING_STATES)
+        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name, 'stop', info['namespec'],
+                                   info['statecode'], RUNNING_STATES)
 
     def write_process_restart_button(self, tr_elt, info):
         """ Write the configuration of the restart button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name,
-                                   'restart', info['namespec'], info['statecode'], RUNNING_STATES)
+        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restart', info['namespec'],
+                                   info['statecode'], [] if info['disabled'] else RUNNING_STATES)
 
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
@@ -345,6 +351,8 @@ class ViewHandler(MeldView):
         update_attrib(elt, 'class', info['gravity'])
         if info['has_crashed']:
             update_attrib(elt, 'class', 'crashed')
+        if info['disabled']:
+            update_attrib(elt, 'class', 'disabled')
         elt.content(info['statename'])
         # print description
         elt = tr_elt.findmeld('desc_td_mid')

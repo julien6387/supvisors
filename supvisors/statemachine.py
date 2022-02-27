@@ -96,6 +96,18 @@ class AbstractState(object):
         self.supvisors.stopper.abort()
 
 
+class OffState(AbstractState):
+
+    def next(self) -> SupvisorsStates:
+        """ Wait for Supervisor to be RUNNING.
+
+        :return: the new Supvisors state
+        """
+        # The PyZmq sockets is an easy mark to know that Supervisor is running
+        if self.supvisors.zmq:
+            return SupvisorsStates.INITIALIZATION
+
+
 class InitializationState(AbstractState):
     """ In the INITIALIZATION state, Supvisors synchronizes to all known Supvisors instances. """
 
@@ -127,10 +139,15 @@ class InitializationState(AbstractState):
             if len(self.context.unknown_identifiers()) == 0:
                 self.logger.info('InitializationState.next: all Supvisors instances are in a known state')
                 return SupvisorsStates.DEPLOYMENT
-            # for an end of sync based on a subset of Supvisors instances, cannot get out of this state before
+            # even when based on a subset of Supvisors instances, the synchronization phase cannot be ended before
             # SYNCHRO_TIMEOUT_MIN seconds have passed
+            # a margin (1s per instance) is added to consider the number of active Supvisors instances,
+            # without exceeding the value given in the synchro_timeout option
             # in case of a Supervisor restart, this gives a chance to all Supvisors instances to send their tick
-            if uptime > self.supvisors.options.SYNCHRO_TIMEOUT_MIN:
+            delay = min(self.supvisors.options.synchro_timeout,
+                        max(self.supvisors.options.SYNCHRO_TIMEOUT_MIN, len(self.supvisors.context.active_instances())))
+            self.logger.trace(f'InitializationState.next: delay={delay}')
+            if uptime > delay:
                 # check synchro on core instances
                 if self.context.running_core_identifiers():
                     # if ok, master must be running if already known
@@ -396,12 +413,10 @@ class FiniteStateMachine:
         self.supvisors = supvisors
         self.context: Context = supvisors.context
         self.logger: Logger = supvisors.logger
-        self.state: Optional[SupvisorsStates] = None
+        self.state: SupvisorsStates = SupvisorsStates.OFF
         self.master_state: Optional[SupvisorsStates] = None
-        self.instance: AbstractState = AbstractState(supvisors)
+        self.instance: AbstractState = OffState(supvisors)
         self.redeploy_mark: bool = False
-        # Trigger first state / INITIALIZATION
-        self.set_state(SupvisorsStates.INITIALIZATION)
 
     def next(self) -> None:
         """ Send the event to the state and transitions if possible.
@@ -435,10 +450,7 @@ class FiniteStateMachine:
             self.state = next_state
             self.logger.info(f'FiniteStateMachine.set_state: Supvisors in {self.state.name}')
             # publish the new state
-            if self.supvisors.zmq:
-                # the zmq does not exist yet for the first occurrence here
-                self.supvisors.zmq.pusher.send_state_event(self.serial())
-                self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
+            self.supvisors.context.publish_state_modes({'fsm_state': self.state})
             # create the new state and enters it
             if self.context.is_master:
                 self.instance = self._MasterStateInstances[self.state](self.supvisors)
@@ -534,6 +546,16 @@ class FiniteStateMachine:
         """
         self.context.on_process_removed_event(identifier, event)
 
+    def on_process_disability_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to fill the internal structures when a process has been enabled or disabled
+        on a Supvisors instance.
+
+        :param identifier: the identifier of the Supvisors instance that sent the event
+        :param event: the process identification
+        :return: None
+        """
+        self.context.on_process_disability_event(identifier, event)
+
     def on_state_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to get the FSM state of the master Supvisors instance.
 
@@ -541,18 +563,23 @@ class FiniteStateMachine:
         :param event: the state event
         :return: None
         """
+        # update the Supvisors instance states and modes
+        self.context.on_instance_state_event(identifier, event)
+        # consider the Master event
         if not self.context.is_master and identifier == self.context.master_identifier:
-            master_state = SupvisorsStates(event['statecode'])
-            self.logger.info(f'FiniteStateMachine.on_state_event: Master Supvisors={identifier} transitioned'
-                             f' to state={master_state}')
-            self.master_state = master_state
-            # WARN: cannot wait for next tick. There is a chance that the Master transitions goes fast and important
-            # actions can be missed in the Slave StateMachine
-            # More particularly, if the SHUTTING_DOWN state is missed, the corresponding exit action is not executed
-            # and the Supervisor instance will not shut down
-            # WARN: do not apply directly the master state as the current Supvisors instance may need to stay in
-            # INITIALIZATION state
-            self.set_state(self.instance.next())
+            master_state = SupvisorsStates(event['fsm_statecode'])
+            # state event may be triggered for mode change
+            if master_state != self.master_state:
+                self.logger.info(f'FiniteStateMachine.on_state_event: Master Supvisors={identifier} just transitioned'
+                                 f' to state={master_state}')
+                self.master_state = master_state
+                # WARN: cannot wait for next tick. There is a chance that the Master transitions goes fast and important
+                # actions can be missed in the Slave StateMachine
+                # More particularly, if the SHUTTING_DOWN state is missed, the corresponding exit action is not executed
+                # and the Supervisor instance will not shut down
+                # WARN: do not apply directly the master state as the current Supvisors instance may need to stay in
+                # INITIALIZATION state
+                self.set_state(self.instance.next())
 
     def on_process_info(self, identifier: str, info: PayloadList) -> None:
         """ This event is used to fill the internal structures with processes available on the Supvisors instance.
@@ -563,19 +590,17 @@ class FiniteStateMachine:
         """
         self.context.load_processes(identifier, info)
 
-    def on_authorization(self, identifier: str, authorized: Optional[bool], master_identifier: str,
-                         supvisors_state: SupvisorsStates) -> None:
+    def on_authorization(self, identifier: str, authorized: Optional[bool], master_identifier: str) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
         When a new Supvisors instance comes in the group, back to DEPLOYMENT for a possible deployment.
 
         :param identifier: the identifier of the Supvisors instance that sent the event
         :param authorized: the authorization status as seen by the remote Supvisors instance
         :param master_identifier: the identifier of the Master instance perceived by the remote Supvisors instance
-        :param supvisors_state: the Supvisors state perceived by the remote Supvisors instance
         :return: None
         """
         self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}'
-                          f' master_identifier={master_identifier} supvisors_state={supvisors_state}')
+                          f' master_identifier={master_identifier}')
         if self.context.on_authorization(identifier, authorized):
             # a new Supvisors instance comes in group
             # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing instance
@@ -605,12 +630,6 @@ class FiniteStateMachine:
                                      f' - Supvisors={identifier} declares Master={master_identifier}')
                     # no need to restrict to [DEPLOYMENT, OPERATION, CONCILIATION] as other transitions are forbidden
                     self.set_state(SupvisorsStates.INITIALIZATION)
-                elif master_identifier == identifier:
-                    # accept the remote Master state provided by the Master
-                    self.logger.info(f'FiniteStateMachine.on_authorization: Master={identifier} is in'
-                                     f' state={supvisors_state.name}')
-                    self.master_state = supvisors_state
-                    self.set_state(self.instance.next())
 
     def on_restart_sequence(self) -> None:
         """ This event is used to transition the state machine to the DEPLOYMENT state.
@@ -645,16 +664,9 @@ class FiniteStateMachine:
             # re-route the command to Master
             self.supvisors.zmq.pusher.send_shutdown_all(self.context.master_identifier)
 
-    # serialization
-    def serial(self) -> Payload:
-        """ Return a serializable form of the SupvisorsState.
-
-        :return: the Supvisors state as a dictionary
-        """
-        return {'statecode': self.state.value, 'statename': self.state.name}
-
     # Map between state enumerations and classes
-    _MasterStateInstances = {SupvisorsStates.INITIALIZATION: InitializationState,
+    _MasterStateInstances = {SupvisorsStates.OFF: OffState,
+                             SupvisorsStates.INITIALIZATION: InitializationState,
                              SupvisorsStates.DEPLOYMENT: MasterDeploymentState,
                              SupvisorsStates.OPERATION: MasterOperationState,
                              SupvisorsStates.CONCILIATION: MasterConciliationState,
@@ -663,7 +675,8 @@ class FiniteStateMachine:
                              SupvisorsStates.SHUTTING_DOWN: MasterShuttingDownState,
                              SupvisorsStates.SHUTDOWN: ShutdownState}
 
-    _SlaveStateInstances = {SupvisorsStates.INITIALIZATION: InitializationState,
+    _SlaveStateInstances = {SupvisorsStates.OFF: OffState,
+                            SupvisorsStates.INITIALIZATION: InitializationState,
                             SupvisorsStates.DEPLOYMENT: SlaveMainState,
                             SupvisorsStates.OPERATION: SlaveMainState,
                             SupvisorsStates.CONCILIATION: SlaveMainState,
@@ -672,7 +685,8 @@ class FiniteStateMachine:
                             SupvisorsStates.SHUTTING_DOWN: SlaveShuttingDownState,
                             SupvisorsStates.SHUTDOWN: ShutdownState}
 
-    _Transitions = {None: [SupvisorsStates.INITIALIZATION],
+    # Transitions allowed between states
+    _Transitions = {SupvisorsStates.OFF: [SupvisorsStates.INITIALIZATION],
                     SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
                     SupvisorsStates.DEPLOYMENT: [SupvisorsStates.INITIALIZATION,
                                                  SupvisorsStates.OPERATION,
@@ -691,4 +705,3 @@ class FiniteStateMachine:
                     SupvisorsStates.RESTART: [],
                     SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.SHUTDOWN],
                     SupvisorsStates.SHUTDOWN: []}
-    # Transitions allowed between states
