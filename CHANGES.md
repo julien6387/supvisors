@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.13 (2022-xx-xx)
+## 0.13 (2022-02-27)
 
 * Implement [Supervisor Issue #591](https://github.com/Supervisor/supervisor/issues/591).
   It is possible to disable/enable programs using the new `disable` and `enable` XML-RPCs. 
@@ -36,6 +36,8 @@
 * Provide a Flask server that can be added as a Supervisor program to interact with **Supvisors** using a REST API.
 
 * Update the CSS style of the inactive buttons in the Web UI.
+
+* Fix CSS resources table cell height with recent versions of Firefox.
 
 * Update the Web UI to allow multiple processes per line in the **Supvisors** instance boxes.
 
