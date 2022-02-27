@@ -100,7 +100,7 @@ You will find detailed installation and configuration documentation.
 
 ## Reporting Bugs and Viewing the Source Repository
 
-Please report bugs in the [Github issue tracker](https://github.com/julien6387/supvisors/issues).
+Please report bugs in the [GitHub issue tracker](https://github.com/julien6387/supvisors/issues).
 
 You can view the [source repository](https://github.com/julien6387/supvisors) for Supvisors.
 
