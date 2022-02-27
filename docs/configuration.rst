@@ -213,7 +213,8 @@ behavior may happen. The present section details where it is applicable.
 ``starting_strategy``
 
     The strategy used to start applications on |Supvisors| instances.
-    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` , ``LESS_LOADED_NODE``,
+    ``MOST_LOADED_NODE``}.
     The use of this option is detailed in :ref:`starting_strategy`.
     It is highly recommended that this parameter is identical to all |Supvisors| instances or the startup sequence would
     be different depending on which |Supvisors| instance is the *Master*.
