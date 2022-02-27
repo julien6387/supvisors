@@ -2,6 +2,8 @@
 
 ## 0.14 (2022-xx-xx)
 
+* Change the style of the *matplotlib* graphs.
+
 
 ## 0.13 (2022-02-27)
 
