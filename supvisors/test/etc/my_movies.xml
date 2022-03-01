@@ -2,23 +2,23 @@
 <root>
 
     <!-- aliases -->
-    <alias name="distribute_sublist">#,cliche82,cliche83:60000,cliche84</alias>
-    <alias name="consoles">cliche82,cliche81</alias>
+    <alias name="distribute_sublist">#,rocky521,rocky522,rocky53</alias>
+    <alias name="consoles">rocky521,rocky511</alias>
 
     <!-- models -->
     <model name="disk_01">
-        <identifiers>cliche81</identifiers>
+        <identifiers>rocky511</identifiers>
         <expected_loading>5</expected_loading>
     </model>
 
     <model name="disk_02">
         <reference>disk_01</reference>
-        <identifiers>cliche82</identifiers>
+        <identifiers>rocky521</identifiers>
     </model>
 
     <model name="disk_03">
         <reference>disk_01</reference>
-        <identifiers>cliche83:60000</identifiers>
+        <identifiers>rocky522</identifiers>
     </model>
 
     <model name="converter">
@@ -38,7 +38,7 @@
                 <expected_loading>0</expected_loading>
             </program>
             <program name="copy_error">
-                <identifiers>cliche81</identifiers>
+                <identifiers>rocky511</identifiers>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <wait_exit>true</wait_exit>
@@ -58,7 +58,7 @@
                 <running_failure_strategy>CONTINUE</running_failure_strategy>
             </program>
             <program pattern="^register">
-                <identifiers>#,cliche81,cliche83:60000</identifiers>
+                <identifiers>#,rocky511,rocky522</identifiers>
                 <start_sequence>2</start_sequence>
                 <wait_exit>true</wait_exit>
                 <expected_loading>25</expected_loading>
@@ -81,7 +81,7 @@
                 <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
             </program>
             <program name="web_server">
-                <identifiers>cliche84</identifiers>
+                <identifiers>rocky53</identifiers>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <expected_loading>3</expected_loading>
@@ -108,11 +108,11 @@
             </program>
             <program name="converter_04">
                 <reference>converter</reference>
-                <identifiers>cliche83:60000,cliche81,cliche82</identifiers>
+                <identifiers>rocky522,rocky511,rocky521</identifiers>
             </program>
             <program name="converter_07">
                 <reference>converter</reference>
-                <identifiers>cliche81,cliche83:60000,cliche82</identifiers>
+                <identifiers>rocky511,rocky522,rocky521</identifiers>
             </program>
             <program pattern="^converter_\d+$">
                 <reference>converter</reference>
@@ -127,7 +127,7 @@
     <!-- player application -->
     <application name="player">
         <distribution>SINGLE_INSTANCE</distribution>
-        <identifiers>cliche81,cliche83:60000</identifiers>
+        <identifiers>rocky511,rocky522</identifiers>
         <start_sequence>5</start_sequence>
         <starting_strategy>MOST_LOADED</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>

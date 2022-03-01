@@ -50,7 +50,7 @@ extension.
 Platform Requirements
 ---------------------
 
-|Supvisors| has been tested and is known to run on Linux (CentOS 8.3).
+|Supvisors| has been tested and is known to run on Linux (Rocky 8.5, RedHat 8.2 and Ubuntu 20.04 LTS).
 
 |Supvisors| will not run at all under any version of Windows.
 
