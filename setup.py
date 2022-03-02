@@ -28,7 +28,6 @@ if py_version < (3, 4):
 
 requires = ['supervisor >= 4.2.4', 'pyzmq >= 20.0.0']
 
-ip_require = ['psutil >= 5.7.3']
 statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib >= 3.3.3']
 xml_valid_require = ['lxml >= 4.6.2']
 flask_require = ['flask-restx >= 0.5.1']
@@ -78,11 +77,10 @@ setup(name='supvisors',
       ],
       packages=find_packages(),
       install_requires=requires,
-      extras_require={'ip_address': ip_require,
-                      'statistics': statistics_require,
+      extras_require={'statistics': statistics_require,
                       'xml_valid': xml_valid_require,
                       'flask': flask_require,
-                      'all': ip_require + statistics_require + xml_valid_require,
+                      'all': statistics_require + xml_valid_require + flask_require,
                       'testing': testing_extras},
       include_package_data=True,
       zip_safe=False,
