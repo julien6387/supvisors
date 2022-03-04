@@ -20,11 +20,25 @@
 import re
 
 from collections import OrderedDict
-from socket import gethostname, AF_INET
+from socket import gethostname, gethostbyaddr
 from supervisor.loggers import Logger
 from typing import Any, Dict
 
 from .ttypes import NameList
+
+
+def get_node_names(ip_address: str) -> NameList:
+    """ Get hostname, aliases and all IP addresses for the ip_address.
+
+    The first element of the returned list will be used as a unique node identifier in the event where multiple
+    Supervisor instances are used on the same node, and identified differently.
+    Preference is made to the IP address because it is not excluded that different nodes have the same host name.
+
+    :param ip_address: the host_name used in the Supvisors option
+    :return: the list of possible node names
+    """
+    hostname, aliases, ip_addresses = gethostbyaddr(ip_address)
+    return ip_addresses + [hostname] + aliases
 
 
 class SupvisorsInstanceId(object):
@@ -35,6 +49,7 @@ class SupvisorsInstanceId(object):
     Attributes are:
         - identifier: the Supervisor identifier or 'host_name[:http_port]' if not provided ;
         - host_name: the host where the Supervisor is running ;
+        - ip_address: the known ip_address of the host ;
         - http_port: the Supervisor port number ;
         - internal_port: the port number used to publish local events to remote Supvisors instances ;
         - event_port: the port number used to publish all Supvisors events.
@@ -48,16 +63,24 @@ class SupvisorsInstanceId(object):
 
         :param item: the Supervisor parameters to be parsed
         """
+        self.supvisors = supvisors
+        self.logger: Logger = supvisors.logger
+        # attributes
         self.identifier = None
         self.host_name = None
+        self.ip_address = None
         self.http_port = None
         self.internal_port = None
         self.event_port = None
         # parse item to get the values
         self.parse_from_string(item)
-        self.check_values(supvisors)
+        self.check_values()
+        # choose the IP address among the possible node identifiers
+        node_names = get_node_names(self.host_name)
+        if node_names:
+            self.ip_address = node_names[0]
 
-    def check_values(self, supvisors: Any) -> None:
+    def check_values(self) -> None:
         """ Complete information where not provided.
 
         :return: None
@@ -70,18 +93,18 @@ class SupvisorsInstanceId(object):
                 self.identifier += f':{self.http_port}'
         # if http_port is not provided, use the local http_port value
         if not self.http_port:
-            self.http_port = supvisors.supervisor_data.serverport
+            self.http_port = self.supvisors.supervisor_data.serverport
         # if internal_port is not provided, use the option value if set or http_port+1
         if not self.internal_port:
             # assign to internal_port option value if set
-            if supvisors.options.internal_port:
-                self.internal_port = supvisors.options.internal_port
+            if self.supvisors.options.internal_port:
+                self.internal_port = self.supvisors.options.internal_port
             else:
                 # by default, assign to http_port + 1
                 self.internal_port = self.http_port + 1
         # define event_port using option value if set
-        if supvisors.options.event_port:
-            self.event_port = supvisors.options.event_port
+        if self.supvisors.options.event_port:
+            self.event_port = self.supvisors.options.event_port
         else:
             # by default, assign to event_port + 1, unless this value is already taken by http_port
             if self.http_port != self.internal_port + 1:
@@ -89,6 +112,9 @@ class SupvisorsInstanceId(object):
             else:
                 # in this case, assign to http_port + 1
                 self.event_port = self.http_port + 1
+        self.logger.debug(f'SupvisorsInstanceId.check_values: identifier={self.identifier}'
+                          f' host_name={self.host_name} http_port={self.http_port}'
+                          f' internal_port={self.internal_port}')
 
     def parse_from_string(self, item: str):
         """ Parse string according to PATTERN to get the Supvisors instance identification attributes.
@@ -106,6 +132,9 @@ class SupvisorsInstanceId(object):
             # check internal port
             port = pattern_match.group('internal_port')
             self.internal_port = int(port) if port else 0
+            self.logger.debug(f'SupvisorsInstanceId.parse_from_string: identifier={self.identifier}'
+                              f' host_name={self.host_name} http_port={self.http_port}'
+                              f' internal_port={self.internal_port}')
 
     def __repr__(self) -> str:
         """ Initialization of the attributes.
@@ -146,7 +175,7 @@ class SupvisorsMapper(object):
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
-        self.local_node_references = [gethostname(), *self.ipv4()]
+        self.local_node_references = get_node_names(gethostname())
         self.logger.debug(f'SupvisorsMapper: local_node_references={self.local_node_references}')
         self.local_identifier = None
 
@@ -167,7 +196,7 @@ class SupvisorsMapper(object):
         return self._instances
 
     @property
-    def nodes(self) -> NameList:
+    def nodes(self) -> Dict[str, NameList]:
         """ Property getter for the _nodes attribute.
 
         :return: the Supvisors identifiers per node
@@ -193,10 +222,10 @@ class SupvisorsMapper(object):
         # get Supervisor identification from each element
         for item in supvisors_list:
             supvisors_id = SupvisorsInstanceId(item, self.supvisors)
-            if supvisors_id.identifier:
+            if supvisors_id.ip_address:
                 self.logger.debug(f'SupvisorsMapper.configure: new SupvisorsInstanceId={supvisors_id}')
                 self._instances[supvisors_id.identifier] = supvisors_id
-                self._nodes.setdefault(supvisors_id.host_name, []).append(supvisors_id.identifier)
+                self._nodes.setdefault(supvisors_id.ip_address, []).append(supvisors_id.identifier)
             else:
                 message = f'could not parse Supvisors identification from {item}'
                 self.logger.error(f'SupvisorsMapper.instances: {message}')
@@ -260,20 +289,3 @@ class SupvisorsMapper(object):
                 self.logger.warn(f'SupvisorsMapper.valid: identifier={identifier} invalid')
         # remove duplicates keeping the same ordering
         return list(OrderedDict.fromkeys(identifiers))
-
-    @staticmethod
-    def ipv4() -> NameList:
-        """ Get all IPv4 addresses of the local node for all interfaces.
-        Loopback address is excluded as useless from Supvisors perspective.
-
-        :return: the IPv4 addresses of the local node
-        """
-        try:
-            from psutil import net_if_addrs
-            # loopback 'broadcast' address is not defined
-            return [link.address
-                    for config in net_if_addrs().values()
-                    for link in config
-                    if link.family == AF_INET and link.broadcast]
-        except ImportError:
-            return []
