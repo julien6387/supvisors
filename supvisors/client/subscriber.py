@@ -96,8 +96,8 @@ class SupvisorsEventInterface(threading.Thread):
                 self.logger.debug('got message on subscriber')
                 try:
                     message = self.subscriber.receive()
-                except Exception as e:
-                    self.logger.error(f'failed to get data from subscriber: {e.message}')
+                except zmq.ZMQError as exc:
+                    self.logger.error(f'failed to get data from subscriber: {exc}')
                 else:
                     if message[0] == EventHeaders.SUPVISORS:
                         self.on_supvisors_status(message[1])
@@ -118,7 +118,7 @@ class SupvisorsEventInterface(threading.Thread):
 
     def on_instance_status(self, data):
         """ Just logs the contents of the Supvisors Instance Status message. """
-        self.logger.info(f'got SupvisorsInstanceStatus message: {data}')
+        self.logger.info(f'got Instance Status message: {data}')
 
     def on_application_status(self, data):
         """ Just logs the contents of the Application Status message. """
@@ -138,10 +138,9 @@ if __name__ == '__main__':
     import time
     # get arguments
     parser = argparse.ArgumentParser(description='Start a subscriber to Supvisors events.')
-    parser.add_argument('-p', '--port', type=int, default=60002,
-                        help="the event port of Supvisors")
+    parser.add_argument('-p', '--port', type=int, default=60002, help='the event port of Supvisors')
     parser.add_argument('-s', '--sleep', type=int, metavar='SEC', default=10,
-                        help="the duration of the subscription")
+                        help='the duration of the subscription')
     args = parser.parse_args()
     # create test subscriber
     loop = SupvisorsEventInterface(zmq.Context.instance(), args.port, create_logger())
