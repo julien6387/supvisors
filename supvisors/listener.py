@@ -20,6 +20,7 @@
 import json
 import time
 
+from traceback import format_exc
 from typing import Any, Optional, Union
 
 from supervisor import events
@@ -116,9 +117,9 @@ class SupervisorListener(object):
             self.logger.debug('SupervisorListener.on_running: main loop started')
             # Trigger the FSM
             self.supvisors.fsm.next()
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_running: {exc}')
+            self.logger.critical(f'SupervisorListener.on_running: {format_exc()}')
 
     def on_stopping(self, _):
         """ Called when Supervisor is STOPPING.
@@ -142,7 +143,7 @@ class SupervisorListener(object):
                 self.logger.close()
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_stopping: {exc}')
+            self.logger.critical(f'SupervisorListener.on_stopping: {format_exc()}')
 
     def on_process_state(self, event: events.ProcessStateEvent) -> None:
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
@@ -166,7 +167,7 @@ class SupervisorListener(object):
             self.pusher.send_process_state_event(payload)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_process_state: {exc}')
+            self.logger.critical(f'SupervisorListener.on_process_state: {format_exc()}')
 
     def _get_local_process_info(self, namespec: str) -> Payload:
         """ Use the Supvisors RPCInterface to get local information on this process.
@@ -198,7 +199,7 @@ class SupervisorListener(object):
                 self.pusher.send_process_added_event(process_info)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_process_added: {exc}')
+            self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
 
     def on_process_removed(self, event: ProcessRemovedEvent) -> None:
         """ Called when a process has been removed due to a numprocs change.
@@ -214,7 +215,7 @@ class SupervisorListener(object):
             self.pusher.send_process_removed_event(payload)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_process_removed: {exc}')
+            self.logger.critical(f'SupervisorListener.on_process_removed: {format_exc()}')
 
     def on_process_disability(self, event: Union[ProcessEnabledEvent, ProcessDisabledEvent]) -> None:
         """ Called when a process has been enabled or disabled.
@@ -233,7 +234,7 @@ class SupervisorListener(object):
                 self.pusher.send_process_disability_event(process_info)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_process_disability: {exc}')
+            self.logger.critical(f'SupervisorListener.on_process_disability: {format_exc()}')
 
     def on_group_added(self, event: events.ProcessGroupAddedEvent) -> None:
         """ Called when a group has been added due to a Supervisor configuration update.
@@ -247,7 +248,7 @@ class SupervisorListener(object):
             self.supvisors.supervisor_data.update_internal_data(event.group)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_group_added: {exc}')
+            self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
 
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.
@@ -269,7 +270,7 @@ class SupervisorListener(object):
                 self.pusher.send_statistics(stats)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_tick: {exc}')
+            self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
 
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
         """ Called when a RemoteCommunicationEvent is notified.
@@ -286,7 +287,7 @@ class SupervisorListener(object):
                 self.unstack_info(event.data)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_remote_event: {exc}')
+            self.logger.critical(f'SupervisorListener.on_remote_event: {format_exc()}')
 
     def unstack_event(self, message: str):
         """ Unstack and process one event from the event queue. """

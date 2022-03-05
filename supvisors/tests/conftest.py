@@ -49,7 +49,8 @@ def supervisor():
 
 
 @pytest.fixture
-def supvisors():
+def supvisors(mocker):
+    mocker.patch('supvisors.supvisorsmapper.get_node_names', side_effect=lambda x: [x])
     return MockedSupvisors()
 
 

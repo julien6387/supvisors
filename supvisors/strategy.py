@@ -69,8 +69,8 @@ class AbstractStartingStrategy(AbstractStrategy):
         self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
                           f' state={status.state.name}')
         # calculate the theoretical load on the node
-        node_name = status.supvisors_id.host_name
-        node_loading = node_load_map.get(node_name, 0) + node_load_request_map.get(node_name, 0)
+        ip_address = status.supvisors_id.ip_address
+        node_loading = node_load_map.get(ip_address, 0) + node_load_request_map.get(ip_address, 0)
         # check if the node and the Supvisors instance can support the
         instance_loading = status.get_load() + load_request_map.get(identifier, 0)
         self.logger.debug(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
@@ -267,8 +267,8 @@ def get_node_load_request_map(supvisors_mapper: SupvisorsMapper, load_request_ma
     """
     node_load_request_map = {node_name: 0 for node_name in supvisors_mapper.nodes}
     for identifier, load in load_request_map.items():
-        node_name = supvisors_mapper.instances[identifier].host_name
-        node_load_request_map[node_name] += load
+        ip_address = supvisors_mapper.instances[identifier].ip_address
+        node_load_request_map[ip_address] += load
     return node_load_request_map
 
 
@@ -312,9 +312,12 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
     instance = create_strategy(supvisors, strategy)
     # consider all pending requests into global load
     load_request_map = supvisors.starter.get_load_requests()
+    supvisors.logger.debug(f'get_supvisors_instance: load_request_map={load_request_map}')
     node_load_request_map = get_node_load_request_map(supvisors.supvisors_mapper, load_request_map)
+    supvisors.logger.debug(f'get_supvisors_instance: node_load_request_map={node_load_request_map}')
     # get nodes load
     node_load_map = supvisors.context.get_nodes_load()
+    supvisors.logger.warn(f'get_supvisors_instance: node_load_map={node_load_map}')
     # apply strategy
     return instance.get_supvisors_instance(candidate_identifiers, expected_load,
                                            (load_request_map, node_load_request_map, node_load_map))

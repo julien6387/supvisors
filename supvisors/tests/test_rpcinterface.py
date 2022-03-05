@@ -1727,13 +1727,13 @@ def test_get_local_info(mocker, rpc):
                                          'startsecs': 2, 'stopwaitsecs': 10}
 
 
-def test_startProcess(mocker):
+def test_startProcess(mocker, supvisors):
     """ Test the startProcess RPC.
     This RPC is designed to be added to Supervisor by monkeypatch. """
     SupervisorNamespaceRPCInterface._startProcess = SupervisorNamespaceRPCInterface.startProcess
     SupervisorNamespaceRPCInterface.startProcess = startProcess
     # patch the legacy startProcess
-    rpc = DummyRpcInterface()
+    rpc = DummyRpcInterface(supvisors)
     mocked_startProcess = mocker.patch.object(rpc.supervisor, '_startProcess')
     mocked_update = mocker.patch.object(rpc.supervisor, '_update')
     mocked_get = mocker.patch.object(rpc.supervisor, '_getGroupAndProcess', return_value=('dummy_group', None))

@@ -230,7 +230,7 @@ class CheckSequenceTest(unittest.TestCase):
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the instances
-        TEST_IDENTIFIERS = ['rocky511', 'rocky521', 'rocky52:30000', 'rocky53', 'rocky512']
+        TEST_IDENTIFIERS = ['supv-01', 'rocky52:60000', 'supv-03', 'rocky54']
         for idx, identifier in enumerate(TEST_IDENTIFIERS):
             setattr(self, f'HOST_{idx+1:02d}', identifier)
         # create a context

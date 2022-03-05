@@ -17,8 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
+import os
 import signal
 import sys
+
+from supervisor.childutils import getRPCInterface
 
 from .sequence_checker import *
 

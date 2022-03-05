@@ -2,28 +2,28 @@
 <root>
 
     <!-- aliases -->
-    <alias name="distribute_sublist">#,rocky521,rocky522,rocky53</alias>
-    <alias name="consoles">rocky521,rocky511</alias>
+    <alias name="distribute_sublist">#,rocky52:60000,supv-03,rocky54</alias>
+    <alias name="consoles">rocky52:60000,supv-01</alias>
 
     <!-- models -->
     <model name="disk_01">
-        <identifiers>rocky511</identifiers>
+        <identifiers>supv-01</identifiers>
         <expected_loading>5</expected_loading>
     </model>
 
     <model name="disk_02">
         <reference>disk_01</reference>
-        <identifiers>rocky521</identifiers>
+        <identifiers>rocky52:60000</identifiers>
     </model>
 
     <model name="disk_03">
         <reference>disk_01</reference>
-        <identifiers>rocky522</identifiers>
+        <identifiers>supv-03</identifiers>
     </model>
 
     <model name="converter">
         <identifiers>*</identifiers>
-        <expected_loading>25</expected_loading>
+        <expected_loading>20</expected_loading>
     </model>
 
     <!-- import application -->
@@ -38,7 +38,7 @@
                 <expected_loading>0</expected_loading>
             </program>
             <program name="copy_error">
-                <identifiers>rocky511</identifiers>
+                <identifiers>supv-01</identifiers>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <wait_exit>true</wait_exit>
@@ -58,7 +58,7 @@
                 <running_failure_strategy>CONTINUE</running_failure_strategy>
             </program>
             <program pattern="^register">
-                <identifiers>#,rocky511,rocky522</identifiers>
+                <identifiers>#,supv-01,supv-03</identifiers>
                 <start_sequence>2</start_sequence>
                 <wait_exit>true</wait_exit>
                 <expected_loading>25</expected_loading>
@@ -81,7 +81,7 @@
                 <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
             </program>
             <program name="web_server">
-                <identifiers>rocky53</identifiers>
+                <identifiers>rocky54</identifiers>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <expected_loading>3</expected_loading>
@@ -108,11 +108,11 @@
             </program>
             <program name="converter_04">
                 <reference>converter</reference>
-                <identifiers>rocky522,rocky511,rocky521</identifiers>
+                <identifiers>supv-03,supv-01</identifiers>
             </program>
             <program name="converter_07">
                 <reference>converter</reference>
-                <identifiers>rocky511,rocky522,rocky521</identifiers>
+                <identifiers>rocky52:60000</identifiers>
             </program>
             <program pattern="^converter_\d+$">
                 <reference>converter</reference>
@@ -127,7 +127,7 @@
     <!-- player application -->
     <application name="player">
         <distribution>SINGLE_INSTANCE</distribution>
-        <identifiers>rocky511,rocky522</identifiers>
+        <identifiers>supv-01,supv-03</identifiers>
         <start_sequence>5</start_sequence>
         <starting_strategy>MOST_LOADED</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>

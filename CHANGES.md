@@ -2,6 +2,11 @@
 
 ## 0.14 (2022-xx-xx)
 
+* Fix issue where starting strategies would not work as expected when multiple **Supvisors** instances run on the same
+  node but their `host_name` is identified differently in the option `supvisors_list`.
+
+* Use `socket.gethostaddr` to validate the host names provided in the option `supvisors_list`.
+
 * Change the style of the *matplotlib* graphs.
 
 
@@ -27,9 +32,9 @@
   points out the **Supvisors** instances where the modes are activated, and the applications involved in its own
   `Starter` or `Stopper`.
 
-* When using ``#`` in the ``identifiers`` of the Application or Program rules and with a number of candidate
-  applications or processes greater than the candidate ``identifiers``, the assignment is performed by rolling over
-  the ``identifiers`` list. 
+* When using `#` in the `identifiers` of the Application or Program rules and with a number of candidate
+  applications or processes greater than the candidate `identifiers`, the assignment is performed by rolling over
+  the `identifiers` list. 
 
 * Add pid and uptime information to the `supervisord` entry of the process table in the Web UI.
 

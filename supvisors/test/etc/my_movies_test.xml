@@ -6,12 +6,11 @@
         <stop_sequence>0</stop_sequence>
         <programs>
             <program name="check_start_sequence">
-                <identifiers>rocky511</identifiers>
+                <identifiers>supv-01</identifiers>
                 <start_sequence>1</start_sequence>
-                <expected_loading>1</expected_loading>
             </program>
             <program pattern="">
-                <identifiers>rocky511</identifiers>
+                <identifiers>supv-01</identifiers>
             </program>
         </programs>
     </application>

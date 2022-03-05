@@ -241,7 +241,7 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     mocked_rpc.reset_mock()
     hostname = gethostname()
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info')
     mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
@@ -271,7 +271,7 @@ def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
     mocked_rpc.reset_mock()
     hostname = gethostname()
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info', side_effect=ValueError)
     mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
@@ -305,7 +305,7 @@ def test_check_instance_normal(mocker, mocked_rpc, main_loop):
     hostname = gethostname()
     # test with a mocked rpc interface
     dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'now': 10, 'pid': 1234, 'spawnerr': ''}]
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_local = mocker.patch.object(rpc_intf.supvisors, 'get_all_local_process_info', return_value=dummy_info)
     mocked_instance = mocker.patch.object(rpc_intf.supvisors, 'get_instance_info')
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
@@ -340,7 +340,7 @@ def test_start_process(mocker, mocked_rpc, main_loop):
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = rpc_intf
     mocked_supvisors = mocker.patch.object(rpc_intf.supvisors, 'start_args')
@@ -360,7 +360,7 @@ def test_stop_process(mocker, mocked_rpc, main_loop):
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = rpc_intf
     mocked_supervisor = mocker.patch.object(rpc_intf.supervisor, 'stopProcess')
@@ -380,7 +380,7 @@ def test_restart(mocker, mocked_rpc, main_loop):
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = rpc_intf
     mocked_supervisor = mocker.patch.object(rpc_intf.supervisor, 'restart')
@@ -400,7 +400,7 @@ def test_shutdown(mocker, mocked_rpc, main_loop):
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = rpc_intf
     mocked_shutdown = mocker.patch.object(rpc_intf.supervisor, 'shutdown')
@@ -420,7 +420,7 @@ def test_restart_sequence(mocker, mocked_rpc, main_loop):
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = rpc_intf
     mocked_supervisor = mocker.patch.object(rpc_intf.supvisors, 'restart_sequence')
@@ -440,7 +440,7 @@ def test_restart_all(mocker, mocked_rpc, main_loop):
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = rpc_intf
     mocked_supervisor = mocker.patch.object(rpc_intf.supvisors, 'restart')
@@ -460,7 +460,7 @@ def test_shutdown_all(mocker, mocked_rpc, main_loop):
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
-    rpc_intf = DummyRpcInterface()
+    rpc_intf = DummyRpcInterface(main_loop.supvisors)
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = rpc_intf
     mocked_shutdown = mocker.patch.object(rpc_intf.supvisors, 'shutdown')
