@@ -18,6 +18,7 @@
 # ======================================================================
 
 import os
+import re
 
 from argparse import ArgumentParser
 from urllib.parse import urlparse
@@ -33,6 +34,24 @@ def get_docstring_description(func) -> str:
             break
         description.append(stripped_line)
     return ' '.join(description)
+
+
+SUPERVISOR_PARAM_FORMAT = r'@param\s+(?P<type>[a-z]+)\s+(?P<name>\w+)'
+SUPVISORS_PARAM_FORMAT = r':param\s+(?P<sname>\w+):'
+DOCSTRING_PARAM_PATTERN = re.compile(rf'^(({SUPERVISOR_PARAM_FORMAT})|({SUPVISORS_PARAM_FORMAT}))\s+(?P<desc>.*)$')
+
+
+def get_docstring_parameters(func) -> str:
+    """ Extract the parameters from the docstring.
+    Supervisor and Supvisors have different formats. """
+    parameters = {}
+    for line in func.__doc__.split('\n'):
+        stripped_line = line.strip()
+        result = DOCSTRING_PARAM_PATTERN.match(stripped_line)
+        if result:
+            param_name = result.group('name') or result.group('sname')
+            parameters[param_name] = result.group('desc')
+    return parameters
 
 
 # Argument parsing

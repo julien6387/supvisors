@@ -21,7 +21,7 @@ from flask import g, jsonify
 from flask_restx import Namespace, Resource
 from supervisor.xmlrpc import SystemNamespaceRPCInterface
 
-from .utils import get_docstring_description
+from .utils import get_docstring_description, get_docstring_parameters
 
 # Supervisor System part
 api = Namespace('system', description='System operations')
@@ -37,7 +37,7 @@ class SystemListMethods(Resource):
 @api.route('/methodHelp/<string:name>', methods=('GET',))
 @api.doc(description=get_docstring_description(SystemNamespaceRPCInterface.methodHelp))
 class SystemMethodHelp(Resource):
-    @api.doc(params={'name': 'the name of the method'})
+    @api.doc(params=get_docstring_parameters(SystemNamespaceRPCInterface.methodHelp))
     def get(self, name):
         return g.proxy.system.methodHelp(name)
 
@@ -45,6 +45,6 @@ class SystemMethodHelp(Resource):
 @api.route('/methodSignature/<string:name>', methods=('GET',))
 @api.doc(description=get_docstring_description(SystemNamespaceRPCInterface.methodSignature))
 class SystemMethodSignature(Resource):
-    @api.doc(params={'name': 'the name of the method'})
+    @api.doc(params=get_docstring_parameters(SystemNamespaceRPCInterface.methodSignature))
     def get(self, name):
         return jsonify(g.proxy.system.methodSignature(name))
