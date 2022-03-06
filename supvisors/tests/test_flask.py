@@ -845,14 +845,14 @@ def test_error_handlers():
 # test utilities
 def test_supervisor_docstring_description():
     """ Check the extraction of the description from a Supervisor doctring. """
-    expected = 'Read length bytes from the main log starting at offset '
+    expected = 'Read length bytes from the main log starting at offset'
     assert get_docstring_description(SupervisorNamespaceRPCInterface.readLog) == expected
 
 
 def test_supvisors_docstring_description():
     """ Check the extraction of the description from a Supvisors doctring. """
-    expected = ('Stop the *Managed* application named ``application_name``.'
-                " To stop *Unmanaged* applications, use ``supervisor.stop('group:*')``. ")
+    expected = ('Stop the *Managed* application named ``application_name``.\n'
+                "To stop *Unmanaged* applications, use ``supervisor.stop('group:*')``.")
     assert get_docstring_description(RPCInterface.stop_application) == expected
 
 

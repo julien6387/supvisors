@@ -280,9 +280,9 @@ class SupervisorSendProcessStdin(Resource):
         return g.proxy.supervisor.sendProcessStdin(name, chars)
 
 
-@api.route('/sendRemoteCommEvent/<string:event_type>/<string:data>', methods=('POST',))
+@api.route('/sendRemoteCommEvent/<string:type>/<string:data>', methods=('POST',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.sendRemoteCommEvent))
 class SupervisorSendProcessStdin(Resource):
     @api.doc(params=get_docstring_parameters(SupervisorNamespaceRPCInterface.sendRemoteCommEvent))
-    def post(self, event_type, data):
-        return g.proxy.supervisor.sendRemoteCommEvent(event_type, data)
+    def post(self, type, data):
+        return g.proxy.supervisor.sendRemoteCommEvent(type, data)

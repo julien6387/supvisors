@@ -5,6 +5,9 @@
 * Fix issue where starting strategies would not work as expected when multiple **Supvisors** instances run on the same
   node but their `host_name` is identified differently in the option `supvisors_list`.
 
+* Replace on-the-fly the Supervisor `gettags` function so that the XML-RPC `system.methodSignature` works with both
+  Supervisor and **Supvisors**.
+
 * Use `socket.gethostaddr` to validate the host names provided in the option `supvisors_list`.
 
 * Change the style of the *matplotlib* graphs.

@@ -18,11 +18,13 @@
 # ======================================================================
 
 import math
-import pytest
-import re
-
 from time import timezone, altzone
 
+import pytest
+from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
+from supervisor.xmlrpc import gettags
+
+from supvisors.rpcinterface import RPCInterface
 from supvisors.ttypes import enum_names, enum_values
 from supvisors.utils import *
 
@@ -126,13 +128,13 @@ def test_statistics_functions():
 def test_bit_manipulation():
     """ Test the bit manipulation functions. """
     ba = bytearray(3)
-    for bit in range(3*8):
+    for bit in range(3 * 8):
         assert get_bit(ba, bit) == 0
-    for bit in range(3*4):
-        set_bit(ba, 2*bit, 1)
+    for bit in range(3 * 4):
+        set_bit(ba, 2 * bit, 1)
     assert ba.hex() == '555555'
-    for bit in range(3*4):
-        set_bit(ba, 2*bit, 0)
+    for bit in range(3 * 4):
+        set_bit(ba, 2 * bit, 0)
     assert ba.hex() == '000000'
 
 
@@ -176,3 +178,55 @@ def test_statistics():
     assert pytest.approx(a) == 1
     assert pytest.approx(b) == 2
     assert pytest.approx(dev) == math.sqrt(2)
+
+
+def test_parse_docstring_supervisor():
+    """ Test the parse_docstring function with a Supervisor docstring.
+    Just test that the result is strictly identical to Supervisor gettags. """
+    # test with all as expected
+    result = parse_docstring(SupervisorNamespaceRPCInterface.tailProcessStderrLog.__doc__)
+    assert result == gettags(SupervisorNamespaceRPCInterface.tailProcessStderrLog.__doc__)
+    # test with return no desc
+    result = parse_docstring(SupervisorNamespaceRPCInterface.getPID.__doc__)
+    assert result == gettags(SupervisorNamespaceRPCInterface.getPID.__doc__)
+    # test with return no name + no desc
+    result = parse_docstring(SupervisorNamespaceRPCInterface.signalProcess.__doc__)
+    assert result == gettags(SupervisorNamespaceRPCInterface.signalProcess.__doc__)
+    # test with double quotes in description
+    result = parse_docstring(SupervisorNamespaceRPCInterface.sendRemoteCommEvent.__doc__)
+    assert result == gettags(SupervisorNamespaceRPCInterface.sendRemoteCommEvent.__doc__)
+
+
+def test_parse_docstring_supvisors():
+    """ Test the parse_docstring function with a Supvisors docstring. """
+    # test standard description
+    expected = [(0, None, None, None,
+                 'Start the *Managed* application named ``application_name`` iaw the strategy and the rules file.\n'
+                 "To start *Unmanaged* applications, use ``supervisor.start('group:*')``."),
+                (3, 'param', 'StartingStrategies', 'strategy', 'the strategy used to choose a **Supvisors** instance,\n'
+                                                               'as a string or as a value.'),
+                (5, 'param', 'str', 'application_name', 'the name of the application.'),
+                (6, 'param', 'bool', 'wait',
+                 'if ``True``, wait for the application to be fully started before returning.'),
+                (7, 'return', 'bool', None, 'always ``True`` unless error or nothing to start.')]
+    result = parse_docstring(RPCInterface.start_application.__doc__)
+    assert result == expected
+    # test with types including brackets
+    expected = [(0, None, None, None,
+                 'Change the logger level for the local **Supvisors**.\n'
+                 'If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.'),
+                (3, 'param', 'Union[str, int]', 'level_param', 'the new logger level, as a string or as a value.'),
+                (4, 'return', 'bool', None, 'always ``True`` unless error.')]
+    result = parse_docstring(RPCInterface.change_log_level.__doc__)
+    assert result == expected
+    # test with rtype before return
+    comment = """ Return the version of the RPC API used by **Supvisors**.
+
+        :rtype: str
+        :return: the **Supvisors** version.
+        """
+    expected = [(0, None, None, None,
+                 'Return the version of the RPC API used by **Supvisors**.'),
+                (2, 'return', 'str', None, 'the **Supvisors** version.')]
+    result = parse_docstring(comment)
+    assert result == expected
