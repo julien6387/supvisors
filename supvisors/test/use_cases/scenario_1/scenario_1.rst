@@ -81,15 +81,15 @@ The resulting file tree would be as follows.
     [bash] > tree
     .
     ├── etc
-    │         ├── cliche81
-    │         │         ├── group_cliche81.ini
-    │         │         └── programs_cliche81.ini
-    │         ├── cliche82
-    │         │         ├── group_cliche82.ini
-    │         │         └── programs_cliche82.ini
-    │         ├── cliche83
-    │         │         ├── group_cliche83.ini
-    │         │         └── programs_cliche83.ini
+    │         ├── rocky51
+    │         │         ├── group_rocky51.ini
+    │         │         └── programs_rocky51.ini
+    │         ├── rocky52
+    │         │         ├── group_rocky52.ini
+    │         │         └── programs_rocky52.ini
+    │         ├── rocky53
+    │         │         ├── group_rocky53.ini
+    │         │         └── programs_rocky53.ini
     │         └── supervisord.conf
 
 
@@ -102,15 +102,15 @@ for the non-distributed application, the variation being just in the include sec
     [bash] > tree
     .
     ├── etc
-    │         ├── cliche81
-    │         │         ├── group_cliche81.ini
-    │         │         └── programs_cliche81.ini
-    │         ├── cliche82
-    │         │         ├── group_cliche82.ini
-    │         │         └── programs_cliche82.ini
-    │         ├── cliche83
-    │         │         ├── group_cliche83.ini
-    │         │         └── programs_cliche83.ini
+    │         ├── rocky51
+    │         │         ├── group_rocky51.ini
+    │         │         └── programs_rocky51.ini
+    │         ├── rocky52
+    │         │         ├── group_rocky52.ini
+    │         │         └── programs_rocky52.ini
+    │         ├── rocky53
+    │         │         ├── group_rocky53.ini
+    │         │         └── programs_rocky53.ini
     │         ├── localhost
     │         │         ├── group_localhost.ini
     │         │         └── programs_localhost.ini
@@ -150,7 +150,7 @@ or XML-RPCs on each |Supervisor| instance.
 
 .. code-block:: bash
 
-    [bash] > for i in cliche81 cliche82 cliche83
+    [bash] > for i in rocky51 rocky52 rocky53
     ... do
     ...    supervisorctl -s http://$i:<port> restart scenario_1:*
     ... done
@@ -218,66 +218,66 @@ to be started on the same node.
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <!-- models -->
-        <model name="model_cliche81">
-            <identifiers>cliche81</identifiers>
+        <model name="model_rocky51">
+            <identifiers>rocky51</identifiers>
             <start_sequence>2</start_sequence>
             <required>true</required>
         </model>
-        <model name="model_cliche82">
-            <reference>model_cliche81</reference>
-            <identifiers>cliche82</identifiers>
+        <model name="model_rocky52">
+            <reference>model_rocky51</reference>
+            <identifiers>rocky52</identifiers>
         </model>
-        <model name="model_cliche83">
-            <reference>model_cliche81</reference>
-            <identifiers>cliche83</identifiers>
+        <model name="model_rocky53">
+            <reference>model_rocky51</reference>
+            <identifiers>rocky53</identifiers>
         </model>
         <!-- Scenario 1 Application -->
         <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <programs>
-                <!-- Programs on cliche81 -->
+                <!-- Programs on rocky51 -->
                 <program name="scen1_hci">
-                    <reference>model_cliche81</reference>
+                    <reference>model_rocky51</reference>
                 </program>
                 <program name="scen1_config_manager">
-                    <reference>model_cliche81</reference>
+                    <reference>model_rocky51</reference>
                 </program>
                 <program name="scen1_data_processing">
-                    <reference>model_cliche81</reference>
+                    <reference>model_rocky51</reference>
                 </program>
                 <program name="scen1_external_interface">
-                    <reference>model_cliche81</reference>
+                    <reference>model_rocky51</reference>
                 </program>
                 <program name="scen1_data_recorder">
-                    <reference>model_cliche81</reference>
+                    <reference>model_rocky51</reference>
                 </program>
                 <program name="scen1_wait_nfs_mount_1">
-                    <reference>model_cliche81</reference>
+                    <reference>model_rocky51</reference>
                     <start_sequence>1</start_sequence>
                     <wait_exit>true</wait_exit>
                 </program>
-                <!-- Programs on cliche82 -->
+                <!-- Programs on rocky52 -->
                 <program name="scen1_sensor_acquisition_1">
-                    <reference>model_cliche82</reference>
+                    <reference>model_rocky52</reference>
                 </program>
                 <program name="scen1_sensor_processing_1">
-                    <reference>model_cliche82</reference>
+                    <reference>model_rocky52</reference>
                 </program>
                 <program name="scen1_wait_nfs_mount_2">
-                    <reference>model_cliche82</reference>
+                    <reference>model_rocky52</reference>
                     <start_sequence>1</start_sequence>
                     <wait_exit>true</wait_exit>
                 </program>
-                <!-- Programs on cliche83 -->
+                <!-- Programs on rocky53 -->
                 <program name="scen1_sensor_acquisition_2">
-                    <reference>model_cliche83</reference>
+                    <reference>model_rocky53</reference>
                 </program>
                 <program name="scen1_sensor_processing_2">
-                    <reference>model_cliche83</reference>
+                    <reference>model_rocky53</reference>
                 </program>
                 <program name="scen1_wait_nfs_mount_3">
-                    <reference>model_cliche83</reference>
+                    <reference>model_rocky53</reference>
                     <start_sequence>1</start_sequence>
                     <wait_exit>true</wait_exit>
                 </program>
@@ -313,48 +313,48 @@ a bit.
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <!-- models -->
-        <model name="model_cliche81">
-            <identifiers>cliche81</identifiers>
+        <model name="model_rocky51">
+            <identifiers>rocky51</identifiers>
             <start_sequence>2</start_sequence>
             <required>true</required>
         </model>
-        <model name="model_cliche82">
-            <reference>model_cliche81</reference>
-            <identifiers>cliche82</identifiers>
+        <model name="model_rocky52">
+            <reference>model_rocky51</reference>
+            <identifiers>rocky52</identifiers>
         </model>
-        <model name="model_cliche83">
-            <reference>model_cliche81</reference>
-            <identifiers>cliche83</identifiers>
+        <model name="model_rocky53">
+            <reference>model_rocky51</reference>
+            <identifiers>rocky53</identifiers>
         </model>
         <!-- Scenario 1 Application -->
         <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <programs>
-                <!-- Programs on cliche81 -->
-                <program pattern="cliche81_">
-                    <reference>model_cliche81</reference>
+                <!-- Programs on rocky51 -->
+                <program pattern="rocky51_">
+                    <reference>model_rocky51</reference>
                 </program>
                 <program name="scen1_wait_nfs_mount_1">
-                    <reference>model_cliche81</reference>
+                    <reference>model_rocky51</reference>
                     <start_sequence>1</start_sequence>
                     <wait_exit>true</wait_exit>
                 </program>
-                <!-- Programs on cliche82 -->
-                <program pattern="cliche82_">
-                    <reference>model_cliche82</reference>
+                <!-- Programs on rocky52 -->
+                <program pattern="rocky52_">
+                    <reference>model_rocky52</reference>
                 </program>
                 <program name="scen1_wait_nfs_mount_2">
-                    <reference>model_cliche82</reference>
+                    <reference>model_rocky52</reference>
                     <start_sequence>1</start_sequence>
                     <wait_exit>true</wait_exit>
                 </program>
-                <!-- Programs on cliche83 -->
-                <program pattern="cliche83_">
-                    <reference>model_cliche83</reference>
+                <!-- Programs on rocky53 -->
+                <program pattern="rocky53_">
+                    <reference>model_rocky53</reference>
                 </program>
                 <program name="scen1_wait_nfs_mount_3">
-                    <reference>model_cliche83</reference>
+                    <reference>model_rocky53</reference>
                     <start_sequence>1</start_sequence>
                     <wait_exit>true</wait_exit>
                 </program>
@@ -364,7 +364,7 @@ a bit.
 
 A bit shorter, still functional but the program names are now quite ugly. And the non-distributed version has not been
 considered yet. With this approach, a different rules file is required to replace the node names with the developer's
-host name - assumed called ``cliche81`` here for the example.
+host name - assumed called ``rocky51`` here for the example.
 
 .. code-block:: xml
 
@@ -377,7 +377,7 @@ host name - assumed called ``cliche81`` here for the example.
             <programs>
                 <!-- Programs on localhost -->
                 <program pattern="">
-                    <identifiers>cliche81</identifiers>
+                    <identifiers>rocky51</identifiers>
                     <start_sequence>1</start_sequence>
                     <required>true</required>
                 </program>
@@ -449,7 +449,7 @@ of the |Supvisors| plugin.
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
-    supvisors_list = cliche81,cliche82,cliche83
+    supvisors_list = rocky51,rocky52,rocky53
     rules_files = etc/supvisors_rules.xml
 
     [ctlplugin:supvisors]
@@ -477,17 +477,17 @@ The final file tree is as follows.
     [bash] > tree
     .
     ├── etc
-    │         ├── cliche81
-    │         │         ├── group_cliche81.ini
-    │         │         ├── programs_cliche81.ini
+    │         ├── rocky51
+    │         │         ├── group_rocky51.ini
+    │         │         ├── programs_rocky51.ini
     │         │         └── wait_nfs_mount.ini
-    │         ├── cliche82
-    │         │         ├── group_cliche82.ini
-    │         │         ├── programs_cliche82.ini
+    │         ├── rocky52
+    │         │         ├── group_rocky52.ini
+    │         │         ├── programs_rocky52.ini
     │         │         └── wait_nfs_mount.ini
-    │         ├── cliche83
-    │         │         ├── group_cliche83.ini
-    │         │         ├── programs_cliche83.ini
+    │         ├── rocky53
+    │         │         ├── group_rocky53.ini
+    │         │         ├── programs_rocky53.ini
     │         │         └── wait_nfs_mount.ini
     │         ├── localhost
     │         │         └── group_localhost.ini

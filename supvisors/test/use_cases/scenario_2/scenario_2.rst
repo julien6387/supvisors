@@ -457,7 +457,7 @@ For better readability, Instance aliases are introduced.
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <alias name="servers">server_1,server_2,server_3</alias>
-        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
+        <alias name="consoles">console_1,console_2,console_3</alias>
 
         <application pattern="scen2_srv_">
             <distribution>SINGLE_INSTANCE</distribution>
@@ -498,7 +498,7 @@ operational as a standalone application, even if it's not connected to other pos
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <alias name="servers">server_1,server_2,server_3</alias>
-        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
+        <alias name="consoles">console_1,console_2,console_3</alias>
 
         <model name="model_services">
             <start_sequence>3</start_sequence>
@@ -599,7 +599,7 @@ responsibility to merge the status of :program:`scen2_srv_N` and :program:`scen2
     <root>
         <!-- aliases -->
         <alias name="servers">server_1,server_2,server_3</alias>
-        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
+        <alias name="consoles">console_1,console_2,console_3</alias>
 
         <!-- models -->
         <model name="model_services">
@@ -698,14 +698,15 @@ The operational status of :program:`Scenario 2` required by the |Req 3 abbr| is 
 
 For the example, the following context applies:
 
-    * due to limited resources - 3 nodes are available (``cliche81``, ``cliche82`` and ``cliche83``) -, each node hosts
-      2 |Supvisors| instances, one server and one console, leaving 2 silent consoles ;
+    * due to limited resources - 3 nodes are available (``rocky51``, ``rocky52`` and ``rocky53``) -, each node hosts
+      2 |Supvisors| instances, one server and one console ;
     * :program:`common_data_bus` is *Unmanaged* so |Supvisors| always considers this 'application' as ``STOPPED``
       (the process status is yet ``RUNNING``) ;
     * :program:`scen2_srv_01`, :program:`scen2_srv_02` and :program:`scen2_srv_03` are running on ``server_1``,
-      ``server_2``, ``server_3``, respectively hosted by the nodes ``cliche81``, ``cliche82``, ``cliche83`` ;
+      ``server_2``, ``server_3``, respectively hosted by the nodes ``rocky51``, ``rocky52``, ``rocky53`` ;
     * :program:`scen2_hci_02` has been started on ``console_3`` ;
-    * an attempt to start :program:`scen2_hci_03` on the server ``cliche81`` has been rejected (only allowed on a console).
+    * an attempt to start :program:`scen2_hci_03` on the server ``rocky51`` has been rejected (only allowed
+      on a console).
 
 >>> from supervisor.childutils import getRPCInterface
 >>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://localhost:61000'})
@@ -747,7 +748,7 @@ methods are available:
 
 
 >>> from supervisor.childutils import getRPCInterface
->>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://cliche83:61000'})
+>>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://rocky53:61000'})
 >>> proxy.supvisors.start_application('LOCAL', 'scen2_hci_02')
 True
 
@@ -755,13 +756,13 @@ True
 .. code-block:: bash
 
     [bash] > hostname
-    cliche83
+    rocky53
     [bash] > supervisorctl -c etc/supervisord_console.conf start_application LOCAL scen2_hci_02
     scen2_hci_02 started
 
     [bash] > hostname
-    cliche81
-    [bash] > supvisorsctl -s http://cliche83:61000 start_application LOCAL scen2_hci_02
+    rocky51
+    [bash] > supvisorsctl -s http://rocky53:61000 start_application LOCAL scen2_hci_02
     scen2_hci_02 started
 
 .. hint::
@@ -801,7 +802,7 @@ True
 .. code-block:: bash
 
     [bash] > hostname
-    cliche81
+    rocky51
     [bash] > supervisorctl -c etc/supervisord_server.conf stop_application scen2_hci_02
     scen2_hci_02 stopped
 

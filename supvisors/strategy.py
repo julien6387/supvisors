@@ -317,7 +317,7 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
     supvisors.logger.debug(f'get_supvisors_instance: node_load_request_map={node_load_request_map}')
     # get nodes load
     node_load_map = supvisors.context.get_nodes_load()
-    supvisors.logger.warn(f'get_supvisors_instance: node_load_map={node_load_map}')
+    supvisors.logger.debug(f'get_supvisors_instance: node_load_map={node_load_map}')
     # apply strategy
     return instance.get_supvisors_instance(candidate_identifiers, expected_load,
                                            (load_request_map, node_load_request_map, node_load_map))

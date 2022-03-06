@@ -73,7 +73,7 @@ setup(name='supvisors',
       url="https://github.com/julien6387/supvisors",
       download_url='https://github.com/julien6387/supvisors/archive/%s.tar.gz' % supvisors_version,
       platforms=[
-          "CentOS 8.3"
+          "Rocky 8.5"
       ],
       packages=find_packages(),
       install_requires=requires,
