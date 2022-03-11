@@ -10,6 +10,8 @@
 
 * Use `socket.gethostaddr` to validate the host names provided in the option `supvisors_list`.
 
+* Maintain the auto-refresh set on the **Supvisors** `restart` / `shutdown` actions of the Web UI.
+
 * Change the style of the *matplotlib* graphs.
 
 

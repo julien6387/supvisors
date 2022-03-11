@@ -17,9 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Dict
+
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
-from typing import Dict
 
 from .instancestatus import SupvisorsInstanceStatus
 from .strategy import conciliate_conflicts
@@ -75,6 +76,19 @@ class SupvisorsView(ViewHandler):
                 update_attrib(elt, 'class', 'blink')
             else:
                 elt.replace('')
+        # write actions related to Supvisors
+        self.write_supvisors_actions(root)
+
+    def write_supvisors_actions(self, root) -> None:
+        """ Write actions related to Supvisors. """
+        # configure restart button
+        elt = root.findmeld('restart_a_mid')
+        url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'})
+        elt.attributes(href=url)
+        # configure shutdown button
+        elt = root.findmeld('shutdown_a_mid')
+        url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})
+        elt.attributes(href=url)
 
     def write_contents(self, root) -> None:
         """ Rendering of the contents of the Supvisors main page.

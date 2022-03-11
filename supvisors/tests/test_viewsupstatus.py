@@ -17,15 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
-from supervisor.web import MeldView
 from unittest.mock import call, Mock
+
+import pytest
+from supervisor.web import MeldView
 
 from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.viewsupstatus import *
 from supvisors.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
-
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -131,54 +130,58 @@ def test_write_instance_actions(view):
     # set instance context
     mocked_status = Mock(**{'supvisors_id.host_name': '10.0.0.1'})
     # build root structure
-    mocked_process_view_mid = Mock(attrib={'class': ''})
-    mocked_host_view_mid = Mock(attrib={'class': ''})
-    mocked_view_mid = Mock(attrib={'class': ''})
-    mocked_stop_mid = Mock(attrib={'class': ''})
-    mid_map = {'process_view_a_mid': mocked_process_view_mid, 'host_view_a_mid': mocked_host_view_mid,
-               'view_div_mid': mocked_view_mid, 'stopall_a_mid': mocked_stop_mid}
-    mocked_root = Mock(**{'findmeld.side_effect': lambda x: mid_map[x]})
+    mocked_process_view_mid = create_element()
+    mocked_host_view_mid = create_element()
+    mocked_view_mid = create_element()
+    mocked_stop_mid = create_element()
+    mocked_restart_mid = create_element()
+    mocked_shutdown_mid = create_element()
+    mocked_root = create_element({'process_view_a_mid': mocked_process_view_mid,
+                                  'host_view_a_mid': mocked_host_view_mid, 'view_div_mid': mocked_view_mid,
+                                  'stopall_a_mid': mocked_stop_mid, 'restartsup_a_mid': mocked_restart_mid,
+                                  'shutdownsup_a_mid': mocked_shutdown_mid})
     # statistics are first enabled
     view.supvisors.options.stats_enabled = True
     # test call when SupvisorsInstanceView is a host page
     view.page_name = HOST_INSTANCE_PAGE
     view.write_instance_actions(mocked_root, mocked_status)
     assert mocked_root.findmeld.call_args_list == [call('process_view_a_mid'), call('host_view_a_mid'),
-                                                   call('stopall_a_mid')]
+                                                   call('stopall_a_mid'), call('restartsup_a_mid'),
+                                                   call('shutdownsup_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE),
-                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'stopall'})]
+                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'stopall'}),
+                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
+                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
     assert mocked_process_view_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
     assert not mocked_view_mid.replace.called
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
-    # reset mocks
-    mocked_root.findmeld.reset_mock()
+    mocked_root.reset_all()
     view.view_ctx.format_url.reset_mock()
-    mocked_process_view_mid.attributes.reset_mock()
-    mocked_host_view_mid.content.reset_mock()
-    mocked_stop_mid.attributes.reset_mock()
     # test call when SupvisorsInstanceView is a process page
     view.page_name = PROC_INSTANCE_PAGE
     view.write_instance_actions(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('host_view_a_mid'), call('stopall_a_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('host_view_a_mid'), call('stopall_a_mid'),
+                                                   call('restartsup_a_mid'), call('shutdownsup_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE),
-                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'})]
+                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'}),
+                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
+                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
     assert not mocked_process_view_mid.attributes.called
     assert mocked_host_view_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
     assert not mocked_view_mid.replace.called
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
-    # reset mocks
-    mocked_root.findmeld.reset_mock()
+    mocked_root.reset_all()
     view.view_ctx.format_url.reset_mock()
-    mocked_host_view_mid.attributes.reset_mock()
-    mocked_host_view_mid.content.reset_mock()
-    mocked_stop_mid.attributes.reset_mock()
     # test call with statistics disabled
     view.supvisors.options.stats_enabled = False
     view.write_instance_actions(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('view_div_mid'), call('stopall_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'})]
+    assert mocked_root.findmeld.call_args_list == [call('view_div_mid'), call('stopall_a_mid'),
+                                                   call('restartsup_a_mid'), call('shutdownsup_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'}),
+                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
+                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
     assert not mocked_process_view_mid.attributes.called
     assert not mocked_host_view_mid.attributes.called
     assert not mocked_host_view_mid.content.called
