@@ -18,6 +18,7 @@
 # ======================================================================
 
 import time
+from typing import Type
 
 from supervisor.compat import as_bytes, as_string
 from supervisor.http import NOT_DONE_YET
@@ -488,8 +489,11 @@ class ViewHandler(MeldView):
             # remove stats part if empty
             stats_elt.replace('')
 
-    def handle_action(self):
-        """ Handling of the actions requested from the Supvisors web pages. """
+    def handle_action(self) -> Optional[Type[NOT_DONE_YET]]:
+        """ Handling of the actions requested from the Supvisors web pages.
+
+        :return: NOT_DONE_YET if action is deferred, None otherwise
+        """
         # check if any action is requested
         action = self.view_ctx.get_action()
         if action:
@@ -505,13 +509,18 @@ class ViewHandler(MeldView):
             if message is not None:
                 self.view_ctx.store_message = format_gravity_message(message)
 
-    def make_callback(self, namespec: str, action: str):
+    def make_callback(self, namespec: str, action: str) -> Callable:
         """ Triggers processing iaw action requested.
-        Subclasses will define what's to be done. """
+        Subclasses will define what's to be done.
+
+        :param namespec: the optional process namespec to which the action applies
+        :param action: the action to perform
+        :return: a callable for deferred result
+        """
         raise NotImplementedError
 
     @staticmethod
-    def set_slope_class(elt, value):
+    def set_slope_class(elt, value: float) -> None:
         """ Set attribute class iaw positive or negative slope. """
         if abs(value) < .005:
             update_attrib(elt, 'class', 'stable')
