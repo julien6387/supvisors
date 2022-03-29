@@ -463,8 +463,8 @@ Like the `Supervisor page`_, the Application page enables the user to perform so
 
 The difference is that the process is not started necessarily in the |Supvisors| instance that displays this page.
 Indeed, |Supvisors| uses the rules of the program (as defined in the rules file) and the starting strategy selected
-in the header part to choose a relevant |Supvisors| instance. If no rule is defined for the program, the starting
-will fail.
+in the header part to choose a relevant |Supvisors| instance. If no rule is defined for the program, the Start button
+will be disabled.
 
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 

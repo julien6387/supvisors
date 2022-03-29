@@ -17,10 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import call, Mock
 
+import pytest
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
@@ -30,7 +29,6 @@ from supvisors.viewapplication import ApplicationView
 from supvisors.viewcontext import APPLI, AUTO, PROCESS, STRATEGY
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import APPLICATION_PAGE
-
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -265,22 +263,26 @@ def test_get_process_data(mocker, view):
     # patch the selected application
     process_1 = Mock(application_name='appli_1', process_name='process_1', namespec='namespec_1',
                      running_identifiers=set(), state='stopped', rules=Mock(expected_load=20),
-                     **{'state_string.return_value': 'stopped', 'has_crashed.return_value': False})
+                     **{'state_string.return_value': 'stopped', 'has_crashed.return_value': False,
+                        'disabled.return_value': True, 'possible_identifiers.return_value': []})
     process_2 = Mock(application_name='appli_2', process_name='process_2', namespec='namespec_2',
                      running_identifiers=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
                      state='running', rules=Mock(expected_load=1),
-                     **{'state_string.return_value': 'running', 'has_crashed.return_value': True})
+                     **{'state_string.return_value': 'running', 'has_crashed.return_value': True,
+                        'disabled.return_value': False, 'possible_identifiers.return_value': ['10.0.0.1']})
     view.application = Mock(processes={process_1.process_name: process_1, process_2.process_name: process_2})
     # patch context
     mocked_stats = Mock()
     view.view_ctx = Mock(**{'get_process_stats.return_value': (4, mocked_stats)})
     mocker.patch.object(view, 'get_process_last_desc', return_value=('10.0.0.1', 'something'))
     # test call
-    data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1', 'disabled': False,
+    data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1',
+             'disabled': True, 'startable': False,
              'identifier': '10.0.0.1', 'statename': 'stopped', 'statecode': 'stopped', 'gravity': 'stopped',
              'has_crashed': False, 'running_identifiers': [], 'description': 'something',
              'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats}
-    data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2', 'disabled': False,
+    data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
+             'disabled': False, 'startable': True,
              'identifier': '10.0.0.1', 'statename': 'running', 'statecode': 'running', 'gravity': 'running',
              'has_crashed': True, 'running_identifiers': ['10.0.0.1', '10.0.0.3'], 'description': 'something',
              'expected_load': 1, 'nb_cores': 4, 'proc_stats': mocked_stats}

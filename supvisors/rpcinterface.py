@@ -835,7 +835,7 @@ class RPCInterface(object):
             def onwait() -> RPCInterface.OnWaitReturnType:
                 for namespec in subprocesses:
                     proc = self._get_application_process(namespec)[1]
-                    if not proc.enabled_on(local_identifier):
+                    if proc.disabled_on(local_identifier):
                         return NOT_DONE_YET
                 return True
 
@@ -897,7 +897,7 @@ class RPCInterface(object):
                 if not onwait.waitstop:
                     for namespec in subprocesses:
                         proc = self._get_application_process(namespec)[1]
-                        if proc.enabled_on(local_identifier):
+                        if not proc.disabled_on(local_identifier):
                             return NOT_DONE_YET
                 return True
 

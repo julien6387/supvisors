@@ -17,18 +17,17 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from random import shuffle
-from supervisor.web import MeldView, StatusView
 from unittest.mock import call, Mock
+
+import pytest
+from supervisor.web import MeldView, StatusView
 
 from supvisors.ttypes import ApplicationStates
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewprocinstance import *
 from supvisors.viewsupstatus import SupvisorsInstanceView
 from supvisors.webutils import PROC_INSTANCE_PAGE
-
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
 from .conftest import create_application, create_process, create_element
 
@@ -140,17 +139,17 @@ def test_get_process_data(mocker, view):
     sorted_data, excluded_data = view.get_process_data()
     # test intermediate list
     data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
-             'single': False, 'identifier': '10.0.0.1', 'disabled': False,
+             'single': False, 'identifier': '10.0.0.1', 'disabled': False, 'startable': True,
              'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': True,
              'description': 'pid 80879, uptime 0:01:19',
              'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     data2 = {'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
-             'single': False, 'identifier': '10.0.0.1', 'disabled': False,
+             'single': False, 'identifier': '10.0.0.1', 'disabled': False, 'startable': True,
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF', 'has_crashed': False,
              'description': 'Exited too quickly (process log may have details)',
              'expected_load': 17, 'nb_cores': 1, 'proc_stats': None}
     data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
-             'single': True, 'identifier': '10.0.0.1', 'disabled': True,
+             'single': True, 'identifier': '10.0.0.1', 'disabled': True, 'startable': False,
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED', 'has_crashed': False,
              'description': 'Sep 14 05:18 PM',
              'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
@@ -166,7 +165,7 @@ def test_get_supervisord_data(view):
     pid = os.getpid()
     # test call on empty time values
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1', 'disabled': False,
+                        'single': True, 'identifier': '10.0.0.1', 'disabled': False, 'startable': False,
                         'description': f'pid {pid}, uptime 0:00:00',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
@@ -175,7 +174,7 @@ def test_get_supervisord_data(view):
     instance_status.start_time = 1000
     instance_status.local_time = 185618
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1', 'disabled': False,
+                        'single': True, 'identifier': '10.0.0.1', 'disabled': False, 'startable': False,
                         'description': f'pid {pid}, uptime 2 days, 3:16:58',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
@@ -241,7 +240,8 @@ def test_get_application_summary(view):
     proc_3 = {'statecode': ProcessStates.BACKOFF, 'expected_load': 7, 'nb_cores': 8, 'proc_stats': [[8], [22]]}
     proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'nb_cores': 8, 'proc_stats': None}
     # test with empty list of processes
-    expected = {'application_name': 'dummy_appli', 'process_name': None, 'namespec': None, 'disabled': False,
+    expected = {'application_name': 'dummy_appli', 'process_name': None, 'namespec': None,
+                'disabled': False, 'startable': False,
                 'identifier': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2, 'gravity': 'RUNNING',
                 'has_crashed': False, 'description': 'good', 'nb_processes': 0,
                 'expected_load': 0, 'nb_cores': 0, 'proc_stats': None}

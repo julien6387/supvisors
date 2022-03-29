@@ -17,11 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
 import time
-
 from unittest.mock import call, Mock
 
+import pytest
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
@@ -31,7 +30,6 @@ from supvisors.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewimage import process_cpu_img, process_mem_img
 from supvisors.webutils import SUPVISORS_PAGE, MASTER_SYMBOL
-
 from .base import DummyHttpContext
 from .conftest import create_element, create_application
 
@@ -621,13 +619,13 @@ def test_write_process_start_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection when program is disabled
-    info = {'namespec': 'dummy_proc', 'statecode': 'stopped', 'disabled': True}
+    info = {'namespec': 'dummy_proc', 'statecode': 'stopped', 'startable': False}
     handler.write_process_start_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc',
                                                  'stopped', [])]
     mocked_button.reset_mock()
     # test call redirection when program is enabled
-    info['disabled'] = False
+    info['startable'] = True
     handler.write_process_start_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc',
                                                  'stopped', STOPPED_STATES)]
@@ -649,13 +647,13 @@ def test_write_process_restart_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection when program is disabled
-    info = {'namespec': 'dummy_proc', 'statecode': 'running', 'disabled': True}
+    info = {'namespec': 'dummy_proc', 'statecode': 'running', 'startable': False}
     handler.write_process_restart_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc',
                                                  'running', [])]
     mocked_button.reset_mock()
     # test call redirection when program is enabled
-    info['disabled'] = False
+    info['startable'] = True
     handler.write_process_restart_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc',
                                                  'running', RUNNING_STATES)]

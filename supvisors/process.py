@@ -17,14 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import AbstractSet, Any, Dict, Optional, Set, Tuple
+from typing import AbstractSet, Any, Dict, Optional, Set
 
 from supervisor.loggers import Logger, LevelsByName
 from supervisor.options import make_namespec, split_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from .ttypes import NameList, Payload, RunningFailureStrategies, StartingFailureStrategies
+from .ttypes import NameList, RunningFailureStrategies, StartingFailureStrategies
 from .utils import *
 
 
@@ -313,13 +313,21 @@ class ProcessStatus(object):
                 'extra_args': self.extra_args}
 
     # access
-    def enabled_on(self, identifier: str) -> bool:
+    def disabled(self) -> bool:
+        """ Check if the process is disabled on all possible Supvisors instances.
+
+        :return: the disabled status of the process on the possible Supvisors instances
+        """
+        return all(self.info_map[identifier]['disabled'] for identifier in self.possible_identifiers())
+
+    def disabled_on(self, identifier: str) -> bool:
         """ Check if the process is disabled on the Supvisors instance identified.
+        If there is no information about the Supvisors instance, it is not considered as disabled.
 
         :param identifier: the Supvisors instance identifier
         :return: the disabled status of the process on the considered Supvisors instance
         """
-        return identifier in self.info_map and not self.info_map[identifier]['disabled']
+        return identifier in self.info_map and self.info_map[identifier]['disabled']
 
     def possible_identifiers(self) -> NameList:
         """ Return the list of identifier where the program could be started.
@@ -333,7 +341,8 @@ class ProcessStatus(object):
         identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
             identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        return [identifier for identifier in identifiers if self.enabled_on(identifier)]
+        return [identifier for identifier in identifiers
+                if identifier in self.info_map and not self.disabled_on(identifier)]
 
     def has_crashed(self) -> bool:
         """ Return True if the any of the processes has ever crashed or has ever exited unexpectedly.

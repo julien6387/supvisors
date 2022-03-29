@@ -39,8 +39,11 @@ class ApplicationView(ViewHandler):
         self.application_name: str = ''
         self.application: Optional[ApplicationStatus] = None
 
-    def handle_parameters(self):
-        """ Retrieve the parameters selected on the web page. """
+    def handle_parameters(self) -> None:
+        """ Retrieve the parameters selected on the web page.
+
+        :return: None
+        """
         ViewHandler.handle_parameters(self)
         # check if application name is available
         self.application_name = self.view_ctx.parameters[APPLI]
@@ -49,11 +52,10 @@ class ApplicationView(ViewHandler):
             self.application = self.sup_ctx.applications[self.application_name]
         except KeyError:
             # may happen when the user clicks from a page of the previous launch while the current Supvisors is still
-            # in INITIALIZATION stats or if wrong appliname set in URL
-            self.logger.error('ApplicationView.handle_parameters: unknown application_name={}'
-                              .format(self.application_name))
+            # in INITIALIZATION stats or if wrong application_name set in URL
+            self.logger.error(f'ApplicationView.handle_parameters: unknown application_name={self.application_name}')
             # redirect page to main page to avoid infinite error loop
-            self.view_ctx.store_message = error_message('Unknown application: {}'.format(self.application_name))
+            self.view_ctx.store_message = error_message(f'Unknown application: {self.application_name}')
             self.view_ctx.redirect = True
 
     def write_navigation(self, root):
@@ -115,8 +117,12 @@ class ApplicationView(ViewHandler):
         elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
-    def write_contents(self, root):
-        """ Rendering of the contents part of the page. """
+    def write_contents(self, root) -> None:
+        """ Rendering of the contents part of the page.
+
+        :param root: the root element of the page
+        :return: None
+        """
         if self.application:
             data = self.get_process_data()
             self.write_process_table(root, data)
@@ -125,8 +131,7 @@ class ApplicationView(ViewHandler):
             if namespec:
                 status = self.view_ctx.get_process_status(namespec)
                 if not status or status.stopped() or status.application_name != self.application_name:
-                    self.logger.warn('ApplicationView.write_contents: unselect Process Statistics for {}'
-                                     .format(namespec))
+                    self.logger.warn(f'ApplicationView.write_contents: unselect Process Statistics for {namespec}')
                     # form parameter is not consistent. remove it
                     self.view_ctx.parameters[PROCESS] = ''
             # write selected Process Statistics
@@ -141,7 +146,10 @@ class ApplicationView(ViewHandler):
         return status.get_last_description()
 
     def get_process_data(self) -> PayloadList:
-        """ Collect sorted data on processes. """
+        """ Collect sorted data on processes.
+
+        :return: information about the application processes
+        """
         data = []
         for process in self.application.processes.values():
             namespec = process.namespec
@@ -149,7 +157,8 @@ class ApplicationView(ViewHandler):
             unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
             data.append({'application_name': process.application_name, 'process_name': process.process_name,
-                         'namespec': namespec, 'identifier': node_name, 'disabled': False,
+                         'namespec': namespec, 'identifier': node_name,
+                         'disabled': process.disabled(), 'startable': len(process.possible_identifiers()) > 0,
                          'statename': process.state_string(), 'statecode': process.state,
                          'gravity': 'FATAL' if unexpected_exit else process.state_string(),
                          'has_crashed': process.has_crashed(),

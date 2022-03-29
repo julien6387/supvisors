@@ -10,6 +10,9 @@
 
 * Use `socket.gethostaddr` to validate the host names provided in the option `supvisors_list`.
 
+* In the Application page of the Web UI, apply a *disabled* status to programs that are disabled on all their possible
+  **Supvisors** instances (according to rules and configuration).
+
 * Maintain the auto-refresh set on the **Supvisors** `restart` / `shutdown` actions of the Web UI.
 
 * Change the style of the *matplotlib* graphs.

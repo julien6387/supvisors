@@ -287,7 +287,7 @@ class ViewHandler(MeldView):
         """ Write the configuration of the start button of a process.
         The action will be handled by the local supvisors. """
         self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name, 'start', info['namespec'],
-                                   info['statecode'], [] if info['disabled'] else STOPPED_STATES)
+                                   info['statecode'], STOPPED_STATES if info['startable'] else [])
 
     def write_process_stop_button(self, tr_elt, info):
         """ Write the configuration of the stop button of a process.
@@ -299,7 +299,7 @@ class ViewHandler(MeldView):
         """ Write the configuration of the restart button of a process.
         The action will be handled by the local supvisors. """
         self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restart', info['namespec'],
-                                   info['statecode'], [] if info['disabled'] else RUNNING_STATES)
+                                   info['statecode'], RUNNING_STATES if info['startable'] else [])
 
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
