@@ -1,6 +1,11 @@
 # Change Log
 
-## 0.14 (2022-xx-xx)
+## 0.14 (2022-04-xx)
+
+* Implement [Supervisor Issue #1054](https://github.com/Supervisor/supervisor/issues/1054).
+  Start / Stop / Restart buttons have been added to groups in the Supervisor page of the Web UI so that it is possible
+  to start / stop / restart all the processes of the group at once.
+  The application state and description have been removed from this table as the information was confusing.
 
 * Fix issue where starting strategies would not work as expected when multiple **Supvisors** instances run on the same
   node but their `host_name` is identified differently in the option `supvisors_list`.

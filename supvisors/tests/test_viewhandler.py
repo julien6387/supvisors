@@ -22,7 +22,7 @@ from unittest.mock import call, Mock
 
 import pytest
 from supervisor.http import NOT_DONE_YET
-from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
+from supervisor.states import SupervisorStates, ProcessStates
 
 from supvisors.rpcinterface import API_VERSION
 from supvisors.ttypes import ApplicationStates, StartingStrategies, SupvisorsStates, SupvisorsInstanceStates
@@ -619,16 +619,14 @@ def test_write_process_start_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection when program is disabled
-    info = {'namespec': 'dummy_proc', 'statecode': 'stopped', 'startable': False}
+    info = {'namespec': 'dummy_proc', 'statecode': ProcessStates.STOPPED, 'startable': False}
     handler.write_process_start_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc',
-                                                 'stopped', [])]
+    assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc', False)]
     mocked_button.reset_mock()
     # test call redirection when program is enabled
     info['startable'] = True
     handler.write_process_start_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc',
-                                                 'stopped', STOPPED_STATES)]
+    assert mocked_button.call_args_list == [call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc', True)]
 
 
 def test_write_process_stop_button(mocker, handler):
@@ -636,10 +634,9 @@ def test_write_process_stop_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection
-    info = {'namespec': 'dummy_proc', 'statecode': 'starting'}
+    info = {'namespec': 'dummy_proc', 'statecode': ProcessStates.STARTING}
     handler.write_process_stop_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'stop_a_mid', '', 'My Page', 'stop', 'dummy_proc',
-                                                 'starting', RUNNING_STATES)]
+    assert mocked_button.call_args_list == [call('elt', 'stop_a_mid', '', 'My Page', 'stop', 'dummy_proc', True)]
 
 
 def test_write_process_restart_button(mocker, handler):
@@ -647,16 +644,14 @@ def test_write_process_restart_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection when program is disabled
-    info = {'namespec': 'dummy_proc', 'statecode': 'running', 'startable': False}
+    info = {'namespec': 'dummy_proc', 'statecode': ProcessStates.RUNNING, 'startable': False}
     handler.write_process_restart_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc',
-                                                 'running', [])]
+    assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc', False)]
     mocked_button.reset_mock()
     # test call redirection when program is enabled
     info['startable'] = True
     handler.write_process_restart_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc',
-                                                 'running', RUNNING_STATES)]
+    assert mocked_button.call_args_list == [call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc', True)]
 
 
 def test_write_process_clear_button(mocker, handler):
@@ -666,8 +661,7 @@ def test_write_process_clear_button(mocker, handler):
     # test call indirection
     info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
     handler.write_process_clear_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page',
-                                                 'clearlog', 'dummy_proc', '', '')]
+    assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog', 'dummy_proc')]
 
 
 def test_write_process_stdout_button(mocker, handler):
@@ -678,7 +672,7 @@ def test_write_process_stdout_button(mocker, handler):
     info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
     handler.write_process_stdout_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc',
-                                                 '', 'dummy_proc', '', '')]
+                                                 '', 'dummy_proc')]
 
 
 def test_write_process_stderr_button(mocker, handler):
@@ -689,7 +683,7 @@ def test_write_process_stderr_button(mocker, handler):
     info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
     handler.write_process_stderr_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr',
-                                                 '', 'dummy_proc', '', '')]
+                                                 '', 'dummy_proc')]
 
 
 def test_write_process_button(handler):
@@ -700,8 +694,7 @@ def test_write_process_button(handler):
     cell_elt = Mock(attrib={'class': ''})
     tr_elt = Mock(**{'findmeld.return_value': cell_elt})
     # test with process state not in expected list
-    handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc',
-                                  'running', ['stopped', 'stopping'])
+    handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc', False)
     assert tr_elt.findmeld.call_args_list == [call('meld_id')]
     assert cell_elt.attrib['class'] == 'button off'
     assert not cell_elt.attributes.called
@@ -709,8 +702,7 @@ def test_write_process_button(handler):
     tr_elt.findmeld.reset_mock()
     del cell_elt.attrib['class']
     # test with filled stats on selected process
-    handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc',
-                                  'running', ['running', 'starting'])
+    handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc', True)
     assert tr_elt.findmeld.call_args_list == [call('meld_id')]
     assert cell_elt.attrib['class'] == 'button on'
     assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'index.html', action='action',
@@ -721,14 +713,6 @@ def test_write_process_button(handler):
     handler.view_ctx.format_url.reset_mock()
     cell_elt.attributes.reset_mock()
     del cell_elt.attrib['class']
-    # test with unset namespec
-    handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', '',
-                                  'running', ['running', 'starting'])
-    assert tr_elt.findmeld.call_args_list == [call('meld_id')]
-    assert 'class' not in cell_elt.attrib
-    assert not handler.view_ctx.format_url.called
-    assert not cell_elt.attributes.called
-    assert cell_elt.content.call_args_list == [call('')]
 
 
 def test_write_common_process_table(handler):
@@ -759,39 +743,42 @@ def test_write_common_process_table(handler):
     assert cpu_foot_elt.deparent.call_args_list == [call()]
 
 
-def test_write_common_status(mocker, handler):
+def test_write_common_state(handler):
+    """ Test the write_common_state method. """
+    # patch the meld elements
+    state_elt = create_element()
+    desc_elt = create_element()
+    tr_elt = create_element({'state_td_mid': state_elt, 'desc_td_mid': desc_elt})
+    # test call on process that never crashed
+    param = {'expected_load': 35, 'statename': 'exited', 'gravity': 'exited', 'disabled': True,
+             'has_crashed': False, 'description': 'something'}
+    handler.write_common_state(tr_elt, param)
+    assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid')]
+    assert state_elt.attrib['class'] == 'exited disabled'
+    assert state_elt.content.call_args_list == [call('exited')]
+    assert desc_elt.content.call_args_list == [call('something')]
+    tr_elt.reset_all()
+    # test call on process that ever crashed
+    param.update({'gravity': 'fatal', 'has_crashed': True, 'disabled': False})
+    handler.write_common_state(tr_elt, param)
+    assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid')]
+    assert state_elt.attrib['class'] == 'fatal crashed'
+    assert state_elt.content.call_args_list == [call('exited')]
+    assert desc_elt.content.call_args_list == [call('something')]
+
+
+def test_write_common_statistics(mocker, handler):
     """ Test the write_common_process_status method. """
     mocked_mem = mocker.patch.object(handler, 'write_common_process_mem')
     mocked_cpu = mocker.patch.object(handler, 'write_common_process_cpu')
     # patch the meld elements
-    state_elt = Mock(attrib={'class': ''})
-    desc_elt = Mock(attrib={'class': ''})
     load_elt = Mock(attrib={'class': ''})
-    mid_map = {'state_td_mid': state_elt, 'desc_td_mid': desc_elt, 'load_td_mid': load_elt}
-    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
+    tr_elt = create_element({'load_td_mid': load_elt})
     # test call on process that never crashed
     param = {'expected_load': 35, 'statename': 'exited', 'gravity': 'exited', 'disabled': True,
              'has_crashed': False, 'description': 'something'}
-    handler.write_common_status(tr_elt, param)
-    assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
-    assert state_elt.attrib['class'] == 'exited disabled'
-    assert state_elt.content.call_args_list == [call('exited')]
-    assert desc_elt.content.call_args_list == [call('something')]
-    assert load_elt.content.call_args_list == [call('35%')]
-    assert mocked_cpu.call_args_list == [call(tr_elt, param)]
-    assert mocked_mem.call_args_list == [call(tr_elt, param)]
-    state_elt.attrib['class'] = ''
-    mocker.resetall()
-    tr_elt.findmeld.reset_mock()
-    for mid in mid_map.values():
-        mid.reset_mock()
-    # test call on process that ever crashed
-    param.update({'gravity': 'fatal', 'has_crashed': True, 'disabled': False})
-    handler.write_common_status(tr_elt, param)
-    assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
-    assert state_elt.attrib['class'] == 'fatal crashed'
-    assert state_elt.content.call_args_list == [call('exited')]
-    assert desc_elt.content.call_args_list == [call('something')]
+    handler.write_common_statistics(tr_elt, param)
+    assert tr_elt.findmeld.call_args_list == [call('load_td_mid')]
     assert load_elt.content.call_args_list == [call('35%')]
     assert mocked_cpu.call_args_list == [call(tr_elt, param)]
     assert mocked_mem.call_args_list == [call(tr_elt, param)]
@@ -805,17 +792,18 @@ def test_write_common_process_status(mocker, handler):
     mocked_restart = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_restart_button')
     mocked_stop = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_stop_button')
     mocked_start = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_start_button')
-    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_status')
+    mocked_state = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_state')
+    mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_statistics')
     # patch the view context
-    handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'},
-                            **{'format_url.return_value': 'an url'})
+    handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'}, **{'format_url.return_value': 'an url'})
     # patch the meld elements
     name_elt = Mock(attrib={'class': ''})
     tr_elt = Mock(attrib={}, **{'findmeld.return_value': name_elt})
     # test call on selected process
     param = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'process_name': 'proc'}
     handler.write_common_process_status(tr_elt, param)
-    assert mocked_common.call_args_list == [call(tr_elt, param)]
+    assert mocked_state.call_args_list == [call(tr_elt, param)]
+    assert mocked_stats.call_args_list == [call(tr_elt, param)]
     assert tr_elt.findmeld.call_args_list == [call('name_a_mid')]
     assert name_elt.content.call_args_list == [call('\u21B3 proc')]
     assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html', processname='dummy_proc')]
@@ -993,6 +981,32 @@ def test_make_callback(handler):
     """ Test the make_callback method. """
     with pytest.raises(NotImplementedError):
         handler.make_callback('dummy_namespec', 'dummy_action')
+
+
+def test_multicall_rpc_action(mocker, handler):
+    """ Test the multicall_rpc_action method. """
+    mocked_rpc = mocker.patch('supvisors.viewhandler.generic_rpc', return_value='a deferred result')
+    multicall = [{'methodName': 'supervisor.stopProcessGroup', 'params': ['dummy_proc']},
+                 {'methodName': 'supervisor.startProcessGroup', 'params': ['dummy_proc', False]}]
+    assert handler.multicall_rpc_action(multicall, 'successful') == 'a deferred result'
+    assert mocked_rpc.call_args_list == [call(handler.supvisors.supervisor_data.system_rpc_interface,
+                                              'multicall', (multicall,), 'successful')]
+
+
+def test_supervisor_rpc_action(mocker, handler):
+    """ Test the supervisor_rpc_action method. """
+    mocked_rpc = mocker.patch('supvisors.viewhandler.generic_rpc', return_value='a deferred result')
+    assert handler.supervisor_rpc_action('startProcess', ('dummy_proc', True), 'successful') == 'a deferred result'
+    assert mocked_rpc.call_args_list == [call(handler.supvisors.supervisor_data.supervisor_rpc_interface,
+                                              'startProcess', ('dummy_proc', True), 'successful')]
+
+
+def test_supvisors_rpc_action(mocker, handler):
+    """ Test the supvisors_rpc_action method. """
+    mocked_rpc = mocker.patch('supvisors.viewhandler.generic_rpc', return_value='a deferred result')
+    assert handler.supvisors_rpc_action('start_process', (1, 'dummy_proc', True), 'successful') == 'a deferred result'
+    assert mocked_rpc.call_args_list == [call(handler.supvisors.supervisor_data.supvisors_rpc_interface,
+                                              'start_process', (1, 'dummy_proc', True), 'successful')]
 
 
 def test_set_slope_class():

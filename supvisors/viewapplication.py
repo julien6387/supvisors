@@ -17,9 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisor.http import NOT_DONE_YET
 from supervisor.states import ProcessStates
-from supervisor.xmlrpc import RPCError
 
 from .application import ApplicationStatus
 from .ttypes import PayloadList
@@ -227,121 +225,79 @@ class ApplicationView(ViewHandler):
                 if action == 'clearlog':
                     return self.clearlog_process_action(namespec)
 
-    # Common processing for starting and stopping actions
-    def start_action(self, strategy: StartingStrategies, rpc_name: str, arg_name: str, arg_type: str) -> Callable:
-        """ Start/Restart an application or a process iaw the strategy. """
-        rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
-        wait = not self.view_ctx.parameters[AUTO]
-        try:
-            cb = getattr(rpc_intf, rpc_name)(strategy.value, arg_name, wait=wait)
-        except RPCError as e:
-            return delayed_error(f'{rpc_name}: {e.text}')
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError as exc:
-                    return error_message(f'{rpc_name}: {exc.text}')
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                if result:
-                    action = '(re)started' if wait else 'requested to (re)start'
-                    return info_message(f'{arg_type} {arg_name} {action}')
-                return warn_message(f'{arg_type} {arg_name} NOT (re)started')
-
-            onwait.delay = 0.1
-            return onwait
-        if cb:
-            action = '(re)started' if wait else 'requested to (re)start'
-            return delayed_info(f'{arg_type} {arg_name} {action}')
-        return delayed_warn(f'{arg_type} {arg_name} NOT (re)started')
-
-    def stop_action(self, rpc_name: str, arg_name: str, arg_type) -> Callable:
-        """ Stop an application or a process. """
-        rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
-        wait = not self.view_ctx.parameters[AUTO]
-        try:
-            cb = getattr(rpc_intf, rpc_name)(arg_name, wait=wait)
-        except RPCError as e:
-            return delayed_error(f'{rpc_name}: {e.text}')
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError as exc:
-                    return error_message(f'{rpc_name}: {exc.text}')
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                return info_message(f'{arg_type} {arg_name} stopped')
-
-            onwait.delay = 0.1
-            return onwait
-        if cb:
-            action = 'stopped' if wait else 'requested to stop'
-            return delayed_info(f'{arg_type} {arg_name} {action}')
-        return delayed_warn(f'{arg_type} {arg_name} NOT stopped')
-
     # Application actions
     def start_application_action(self, strategy: StartingStrategies) -> Callable:
         """ Start the application iaw the strategy.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
         :param strategy: the strategy to apply for starting the application
-        :return: None
+        :return: a callable for deferred result
         """
-        return self.start_action(strategy, 'start_application', self.application_name, 'Application')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supvisors_rpc_action('start_application', (strategy.value, self.application_name, wait),
+                                         f'Application {self.application_name} started')
 
     def restart_application_action(self, strategy: StartingStrategies) -> Callable:
         """ Restart the application iaw the strategy.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
         :param strategy: the strategy to apply for restarting the application
-        :return: None
+        :return: a callable for deferred result
         """
-        return self.start_action(strategy, 'restart_application', self.application_name, 'Application')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supvisors_rpc_action('restart_application', (strategy.value, self.application_name, wait),
+                                         f'Application {self.application_name} restarted')
 
     def stop_application_action(self) -> Callable:
         """ Stop the application.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :return: None
+        :return: a callable for deferred result
         """
-        return self.stop_action('stop_application', self.application_name, 'Application')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supvisors_rpc_action('stop_application', (self.application_name, wait),
+                                         f'Application {self.application_name} stopped')
 
     # Process actions
     def start_process_action(self, strategy: StartingStrategies, namespec: str) -> Callable:
         """ Start the process named namespec iaw the strategy.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
         :param strategy: the strategy to apply for starting the process
         :param namespec: the process namespec
-        :return: None
+        :return: a callable for deferred result
         """
-        return self.start_action(strategy, 'start_process', namespec, 'Process')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supvisors_rpc_action('start_process', (strategy.value, namespec, '', wait),
+                                         f'Process {namespec} started')
 
     def restart_process_action(self, strategy: StartingStrategies, namespec: str) -> Callable:
         """ Restart the process named namespec iaw the strategy.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
         :param strategy: the strategy to apply for restarting the process
         :param namespec: the process namespec
-        :return: None
+        :return: a callable for deferred result
         """
-        return self.start_action(strategy, 'restart_process', namespec, 'Process')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supvisors_rpc_action('restart_process', (strategy.value, namespec, '', wait),
+                                         f'Process {namespec} restarted')
 
     def stop_process_action(self, namespec: str) -> Callable:
         """ Stop the process named namespec.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
         :param namespec: the process namespec
-        :return: None
+        :return: a callable for deferred result
         """
-        return self.stop_action('stop_process', namespec, 'Process')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supvisors_rpc_action('stop_process', (namespec, wait), f'Process {namespec} stopped')
 
     def clearlog_process_action(self, namespec: str) -> Callable:
         """ Can't call supervisor StatusView source code from application view.
         Just do the same job.
 
         :param namespec: the process namespec
-        :return: None
+        :return: a callable for deferred result
         """
-        try:
-            rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
-            rpc_intf.clearProcessLogs(namespec)
-        except RPCError as e:
-            return delayed_error(f'unexpected rpc fault [{e.code}] {e.text}')
-        return delayed_info(f'Log for {namespec} cleared')
+        return self.supervisor_rpc_action('clearProcessLogs', (namespec,), f'Log for {namespec} cleared')

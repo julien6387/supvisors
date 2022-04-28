@@ -18,9 +18,11 @@
 # ======================================================================
 
 from types import FunctionType
+from unittest.mock import call
+
+import pytest
 
 from supvisors.webutils import *
-
 from .conftest import create_element
 
 
@@ -132,7 +134,56 @@ def test_delayed_error():
     check_delayed_message(delayed_error, 'erro')
 
 
-def test_apply_shade(mocker):
+@pytest.fixture
+def messages(mocker):
+    """ Install patches on all message functions. """
+    patches = [mocker.patch('supvisors.webutils.delayed_error', return_value='Delayed err'),
+               mocker.patch('supvisors.webutils.delayed_info', return_value='Delayed info'),
+               mocker.patch('supvisors.webutils.error_message', return_value='Msg err'),
+               mocker.patch('supvisors.webutils.info_message', return_value='Msg info')]
+    [p.start() for p in patches]
+    yield
+    [p.stop() for p in patches]
+
+
+def test_generic_rpc(mocker, supvisors, messages):
+    """ Test the generic_rpc. """
+    rpc_intf = supvisors.supervisor_data.supvisors_rpc_interface
+    mocked_rpc = mocker.patch.object(rpc_intf, 'start_args')
+    params = (0, 'dummy_proc', False)
+    # test call with error on main RPC call
+    mocked_rpc.side_effect = RPCError('failed RPC')
+    assert generic_rpc(rpc_intf, 'start_args', params, 'started') == 'Delayed err'
+    assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
+    mocked_rpc.reset_mock()
+    # test call with direct result
+    mocked_rpc.side_effect = None
+    mocked_rpc.return_value = True
+    assert generic_rpc(rpc_intf, 'start_args', params, 'started') == 'Delayed info'
+    assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
+    mocked_rpc.reset_mock()
+    # test call with indirect result leading to internal RPC error
+    mocked_rpc.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
+    result = generic_rpc(rpc_intf, 'start_args', params, 'started')
+    assert callable(result)
+    assert result() == 'Msg err'
+    assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
+    mocked_rpc.reset_mock()
+    # test call with indirect result leading to unfinished job
+    mocked_rpc.return_value = lambda: NOT_DONE_YET
+    result = generic_rpc(rpc_intf, 'start_args', params, 'started')
+    assert callable(result)
+    assert result() is NOT_DONE_YET
+    assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
+    mocked_rpc.reset_mock()
+    # test call with indirect result leading to failure
+    mocked_rpc.return_value = lambda: True
+    result = generic_rpc(rpc_intf, 'start_args', params, 'started')
+    assert callable(result)
+    assert result() == 'Msg info'
+
+
+def test_apply_shade():
     """ Test the formatting of shaded / non-shaded elements. """
     elt = create_element()
     # test shaded

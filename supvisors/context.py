@@ -17,12 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-import re
-
 from typing import List
 
-from .instancestatus import *
 from .application import ApplicationRules, ApplicationStatus
+from .instancestatus import *
 from .process import *
 from .ttypes import SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
 
@@ -209,13 +207,18 @@ class Context(object):
         return {application_name: application for application_name, application in self.applications.items()
                 if application.rules.managed}
 
-    def get_all_namespecs(self) -> NameList:
-        """ Get the namespecs of every known process.
+    def is_namespec(self, namespec: str) -> bool:
+        """ Check if the namespec is valid with the context.
 
-        :return: the list of namespecs
+        :return: True if the namespec is valid
         """
-        return [process.namespec for application in self.applications.values()
-                for process in application.processes.values()]
+        application_name, process_name = split_namespec(namespec)
+        if application_name not in self.applications:
+            return False
+        if process_name:
+            application_status = self.applications[application_name]
+            return process_name in application_status.processes
+        return True
 
     def get_process(self, namespec: str) -> Optional[ProcessStatus]:
         """ Return the ProcessStatus corresponding to the namespec.

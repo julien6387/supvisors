@@ -21,12 +21,11 @@ import time
 from typing import Type
 
 from supervisor.compat import as_bytes, as_string
-from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
 from .rpcinterface import API_VERSION
-from .ttypes import SupvisorsInstanceStates, SupvisorsStates, Payload, ProcessHistoryStats
+from .ttypes import SupvisorsInstanceStates, SupvisorsStates, Payload, PayloadList, ProcessHistoryStats
 from .utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
@@ -285,27 +284,27 @@ class ViewHandler(MeldView):
 
     def write_process_start_button(self, tr_elt, info):
         """ Write the configuration of the start button of a process.
-        The action will be handled by the local supvisors. """
+        The action will be handled by the local Supvisors instance. """
         self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name, 'start', info['namespec'],
-                                   info['statecode'], STOPPED_STATES if info['startable'] else [])
+                                   info['startable'] and info['statecode'] in STOPPED_STATES)
 
     def write_process_stop_button(self, tr_elt, info):
         """ Write the configuration of the stop button of a process.
         The action will be handled by the local supvisors. """
         self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name, 'stop', info['namespec'],
-                                   info['statecode'], RUNNING_STATES)
+                                   info['statecode'] in RUNNING_STATES)
 
     def write_process_restart_button(self, tr_elt, info):
         """ Write the configuration of the restart button of a process.
         The action will be handled by the local supvisors. """
         self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restart', info['namespec'],
-                                   info['statecode'], RUNNING_STATES if info['startable'] else [])
+                                   info['startable'] and info['statecode'] in RUNNING_STATES)
 
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant node. """
         self._write_process_button(tr_elt, 'clear_a_mid', info['identifier'], self.page_name,
-                                   'clearlog', info['namespec'], '', '')
+                                   'clearlog', info['namespec'])
 
     def write_process_stdout_button(self, tr_elt, info):
         """ Write the configuration of the tail stdout button of a process.
@@ -313,7 +312,7 @@ class ViewHandler(MeldView):
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
                                    STDOUT_PAGE % quote(info['namespec'] or ''),
-                                   '', info['namespec'], '', '')
+                                   '', info['namespec'])
 
     def write_process_stderr_button(self, tr_elt, info):
         """ Write the configuration of the tail stderr button of a process.
@@ -321,21 +320,18 @@ class ViewHandler(MeldView):
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
                                    STDERR_PAGE % quote(info['namespec'] or ''),
-                                   '', info['namespec'], '', '')
+                                   '', info['namespec'])
 
-    def _write_process_button(self, tr_elt, elt_name, identifier, page, action, namespec, state, state_list):
+    def _write_process_button(self, tr_elt, elt_name: str, identifier: str, page: str, action: str, namespec: str,
+                              active: bool = True):
         """ Write the configuration of a process button. """
         elt = tr_elt.findmeld(elt_name)
-        if namespec:
-            if state in state_list:
-                update_attrib(elt, 'class', 'button on')
-                url = self.view_ctx.format_url(identifier, page, **{ACTION: action, NAMESPEC: namespec})
-                elt.attributes(href=url)
-            else:
-                update_attrib(elt, 'class', 'button off')
+        if active:
+            update_attrib(elt, 'class', 'button on')
+            url = self.view_ctx.format_url(identifier, page, **{ACTION: action, NAMESPEC: namespec})
+            elt.attributes(href=url)
         else:
-            # this corresponds to an application row: no action available
-            elt.content('')
+            update_attrib(elt, 'class', 'button off')
 
     def write_common_process_table(self, table_elt):
         """ Hide MEM+CPU head+foot cells if statistics disabled"""
@@ -345,8 +341,9 @@ class ViewHandler(MeldView):
                 if elt is not None:
                     elt.deparent()
 
-    def write_common_status(self, tr_elt, info: Payload) -> None:
-        """ Write the common part of a process or application status into a table. """
+    @staticmethod
+    def write_common_state(tr_elt, info: Payload) -> None:
+        """ Write the common part of a process state into a table. """
         # print state
         elt = tr_elt.findmeld('state_td_mid')
         update_attrib(elt, 'class', info['gravity'])
@@ -358,6 +355,9 @@ class ViewHandler(MeldView):
         # print description
         elt = tr_elt.findmeld('desc_td_mid')
         elt.content(info['description'])
+
+    def write_common_statistics(self, tr_elt, info: Payload) -> None:
+        """ Write the common part of a process or application statistics into a table. """
         # print expected load
         elt = tr_elt.findmeld('load_td_mid')
         elt.content(f"{info['expected_load']}%")
@@ -368,7 +368,8 @@ class ViewHandler(MeldView):
     def write_common_process_status(self, tr_elt, info: Payload) -> None:
         """ Write the common part of a process status into a table. """
         # print common status
-        self.write_common_status(tr_elt, info)
+        self.write_common_state(tr_elt, info)
+        self.write_common_statistics(tr_elt, info)
         # print process name
         # add break character only to processes belonging to an application
         process_name = info['process_name']
@@ -518,6 +519,38 @@ class ViewHandler(MeldView):
         :return: a callable for deferred result
         """
         raise NotImplementedError
+
+    def multicall_rpc_action(self, args: PayloadList, success_msg: str) -> Callable:
+        """ Generic wrapper for a System Supervisor RPC.
+
+        :param args: the multiple RPC parameters
+        :param success_msg: the message in case of success
+        :return: a callable for deferred result
+        """
+        rpc_intf = self.supvisors.supervisor_data.system_rpc_interface
+        return generic_rpc(rpc_intf, 'multicall', (args,), success_msg)
+
+    def supervisor_rpc_action(self, rpc_name: str, args: tuple, success_msg: str) -> Callable:
+        """ Generic wrapper for a Supervisor RPC.
+
+        :param rpc_name: the RPC name in the Supervisor XML-RPC API
+        :param args: the arguments of the RPC
+        :param success_msg: the message in case of success
+        :return: a callable for deferred result
+        """
+        rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
+        return generic_rpc(rpc_intf, rpc_name, args, success_msg)
+
+    def supvisors_rpc_action(self, rpc_name: str, args: tuple, success_msg: str) -> Callable:
+        """ Generic wrapper for a Supvisors RPC.
+
+        :param rpc_name: the RPC name in the Supvisors XML-RPC API
+        :param args: the arguments of the RPC
+        :param success_msg: the message in case of success
+        :return: a callable for deferred result
+        """
+        rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
+        return generic_rpc(rpc_intf, rpc_name, args, success_msg)
 
     @staticmethod
     def set_slope_class(elt, value: float) -> None:

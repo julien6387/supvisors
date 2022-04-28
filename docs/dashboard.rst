@@ -341,15 +341,25 @@ Here is the color code used for process states:
 
 All processes are grouped by their application name and |Supvisors| provides expand / shrink actions per application
 to enable the user to show / hide blocks of processes. Global expand / shrink actions are provided too in the top left
-cell of the table. The application line displays:
+cell of the table.
 
-    * the overall state of the application, considering all |Supvisors| instances where it may be distributed,
-    * a basic description of the operational status of the application,
-    * considering the application processes that are running in this |Supvisors| instance:
+Considering the application processes that are running in this |Supvisors| instance, the application line displays:
 
-        * the sum of their expected loading ;
-        * the sum of their CPU usage ;
-        * the sum of their instant memory occupation.
+    * the sum of their expected loading ;
+    * the sum of their CPU usage ;
+    * the sum of their instant memory occupation.
+
+The following actions are also provided and apply to all application processes:
+
+    * Start (equivalent to :command:`supervisorctl start group:*`) ;
+    * Stop (equivalent to :command:`supervisorctl stop group:*`);
+    * Restart (a multicall chaining :command:`stop group:*` and :command:`start group:*`).
+
+.. hint::
+
+    These actions are an implementation of the following |Supervisor| unresolved issue:
+
+        * `#1504 - Web interface: Add stop group Action <https://github.com/Supervisor/supervisor/issues/1504>`_
 
 A click on the CPU or RAM measures shows detailed statistics about the process. This is not active on the application
 values. More particularly, |Supvisors| displays on the right side of the page a table showing for both CPU and Memory:
