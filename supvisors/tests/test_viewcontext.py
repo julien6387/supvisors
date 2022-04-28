@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import re
 from unittest.mock import call, patch, Mock
 
 import pytest
