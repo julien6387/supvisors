@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.14 (2022-04-xx)
+## 0.14 (2022-05-01)
 
 * Implement [Supervisor Issue #1054](https://github.com/Supervisor/supervisor/issues/1054).
   Start / Stop / Restart buttons have been added to groups in the Supervisor page of the Web UI so that it is possible
