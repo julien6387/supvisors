@@ -17,13 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 import unittest
 import zmq
 
 from queue import Empty
 
-from supervisor.childutils import getRPCInterface
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
@@ -162,7 +160,7 @@ class Context:
         """ Initialization of the attributes. """
         self.applications: Application = {}
 
-    def add_application(self, application: Application) ->None:
+    def add_application(self, application: Application) -> None:
         """ Add an application to the context. """
         self.applications[application.application_name] = application
 
@@ -232,7 +230,7 @@ class CheckSequenceTest(unittest.TestCase):
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the instances
-        TEST_IDENTIFIERS = ['cliche81', 'cliche82', 'cliche83:60000', 'cliche84', 'cliche85']
+        TEST_IDENTIFIERS = ['supv-01', 'rocky52:60000', 'supv-03', 'rocky54']
         for idx, identifier in enumerate(TEST_IDENTIFIERS):
             setattr(self, f'HOST_{idx+1:02d}', identifier)
         # create a context

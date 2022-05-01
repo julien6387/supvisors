@@ -19,6 +19,7 @@
 
 import os
 
+from supervisor import xmlrpc
 from supervisor.options import ServerOptions
 from supervisor.process import Subprocess
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
@@ -28,6 +29,7 @@ from supervisor.web import VIEWS, StatusView
 from .initializer import Supvisors
 from .rpcinterface import RPCInterface, startProcess
 from .supervisordata import spawn
+from .utils import parse_docstring
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
 from .viewhostinstance import HostInstanceView
@@ -100,6 +102,8 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     update_views()
     # patch the Supervisor ServerOptions.cleanup_fds
     ServerOptions.cleanup_fds = cleanup_fds
+    # patch the Supervisor gettags to handle Supervisor and Supvisors docstring
+    xmlrpc.gettags = parse_docstring
     # patch inheritance of supervisor.web.StatusView
     # 2 reasons:
     #    * waiting for Supervisor#1273 to be fixed

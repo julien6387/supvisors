@@ -19,7 +19,6 @@
 
 import json
 import os
-
 from typing import Any, Dict, List, Tuple
 
 from supervisor.events import notify
@@ -60,11 +59,28 @@ class SupervisorData(object):
         if server_section != 'inet_http_server':
             raise ValueError(f'Supervisor MUST be configured using inet_http_server: {supervisord.configfile}')
         # shortcuts (not available yet)
+        self._system_rpc_interface = None
         self._supervisor_rpc_interface = None
         self._supvisors_rpc_interface = None
         # disabilities for local processes (Supervisor issue #591)
         self.disabilities = {}
         self.read_disabilities()
+
+    @property
+    def system_rpc_interface(self):
+        """ Get the internal System Supervisor RPC handler.
+        XML-RPC call in another XML-RPC call on the same server is blocking.
+
+        :return: the System Supervisor RPC handler
+        """
+        # not very proud of the following lines but did not find any other way to access
+        if not self._system_rpc_interface:
+            handler = self.httpserver.handlers[0]
+            # if authentication used, handler is wrapped
+            if self.username:
+                handler = handler.handler
+            self._system_rpc_interface = handler.rpcinterface.system
+        return self._system_rpc_interface
 
     @property
     def supervisor_rpc_interface(self):

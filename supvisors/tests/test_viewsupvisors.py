@@ -17,15 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
-from supervisor.web import MeldView
-
 from unittest.mock import call, patch, Mock
+
+import pytest
+from supervisor.web import MeldView
 
 from supvisors.viewsupvisors import *
 from supvisors.webutils import PROC_INSTANCE_PAGE, SUPVISORS_PAGE
-
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -77,6 +75,7 @@ def test_write_header(mocker, view):
     mocker.patch.object(view.sup_ctx, 'get_state_modes',
                         return_value={'fsm_statename': SupvisorsStates.DEPLOYMENT.name,
                                       'starting_jobs': True, 'stopping_jobs': False})
+    mocked_actions = mocker.patch.object(view, 'write_supvisors_actions')
     # build root structure
     state_mid = create_element()
     starting_mid = create_element()
@@ -90,10 +89,28 @@ def test_write_header(mocker, view):
     assert not starting_mid.replace.called
     assert stopping_mid.attrib['class'] == ''
     assert stopping_mid.replace.call_args_list == [call('')]
+    assert mocked_actions.call_args_list == [call(mocked_root)]
+
+
+def test_write_supvisors_actions(view):
+    """ Test the SupvisorsView.write_supvisors_actions method. """
+    # set context (meant to be set through render)
+    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+    # build root structure
+    restart_mid = create_element()
+    shutdown_mid = create_element()
+    mocked_root = create_element({'restart_a_mid': restart_mid, 'shutdown_a_mid': shutdown_mid})
+    # test call
+    view.write_supvisors_actions(mocked_root)
+    assert mocked_root.findmeld.call_args_list == [call('restart_a_mid'), call('shutdown_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'}),
+                                                       call('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})]
+    assert restart_mid.attributes.call_args_list == [call(href='an url')]
+    assert shutdown_mid.attributes.call_args_list == [call(href='an url')]
 
 
 def test_write_contents(mocker, view):
-    """ Test the write_contents method. """
+    """ Test the SupvisorsView.write_contents method. """
     mocked_boxes = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_instance_boxes')
     mocked_conflicts = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_table')
     mocked_strategies = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_strategies')

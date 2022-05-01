@@ -22,6 +22,14 @@ import pytest
 from supvisors.supvisorsmapper import *
 
 
+def test_get_node_names():
+    """ Test the get_node_names method. """
+    # complex to test as it depends on the network configuration of the operating system
+    # check that there is at least one entry looking like an IPv4 address
+    ip_list = get_node_names(gethostname())
+    assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip_list[0])
+
+
 def test_supid_create_no_match(supvisors):
     """ Test the values set at SupvisorsInstanceId construction. """
     no_matches = ['', 'ident>', 'cliche81:12000', '10.0.0.1:145000:28']
@@ -30,6 +38,7 @@ def test_supid_create_no_match(supvisors):
         supid = SupvisorsInstanceId(item, supvisors)
         assert supid.identifier is None
         assert supid.host_name is None
+        assert supid.ip_address is None
         assert supid.http_port == 65000  # defaulted to supervisor server port
         assert supid.internal_port == 65100  # defaulted to options.internal_port
         assert supid.event_port == 65200  # defaulted to options.event_port
@@ -45,6 +54,7 @@ def test_supid_create_simple_no_default(supvisors):
     supid = SupvisorsInstanceId('', supvisors)
     assert supid.identifier is None
     assert supid.host_name is None
+    assert supid.ip_address is None
     assert supid.http_port == 65000  # defaulted to supervisor server port
     assert supid.internal_port == 65001  # defaulted to http_port + 1
     assert supid.event_port == 65002  # defaulted to http_port + 2
@@ -58,6 +68,7 @@ def test_supid_create_host(supvisors):
     supid = SupvisorsInstanceId('10.0.0.1', supvisors)
     assert supid.identifier == '10.0.0.1'
     assert supid.host_name == '10.0.0.1'
+    assert supid.ip_address == '10.0.0.1'
     assert supid.http_port == 65000  # defaulted to supervisor server port
     assert supid.internal_port == 65100  # defaulted to options.internal_port
     assert supid.event_port == 65200  # defaulted to options.event_port
@@ -70,6 +81,7 @@ def test_supid_create_host_port(supvisors):
     supid = SupvisorsInstanceId('10.0.0.1:7777:', supvisors)
     assert supid.identifier == '10.0.0.1:7777'
     assert supid.host_name == '10.0.0.1'
+    assert supid.ip_address == '10.0.0.1'
     assert supid.http_port == 7777
     assert supid.internal_port == 65100  # defaulted to options.internal_port
     assert supid.event_port == 65200  # defaulted to options.event_port
@@ -79,6 +91,7 @@ def test_supid_create_host_port(supvisors):
     supid = SupvisorsInstanceId('10.0.0.1:7777:8000', supvisors)
     assert supid.identifier == '10.0.0.1:7777'
     assert supid.host_name == '10.0.0.1'
+    assert supid.ip_address == '10.0.0.1'
     assert supid.http_port == 7777
     assert supid.internal_port == 8000
     assert supid.event_port == 8001  # defaulted to internal_port + 1
@@ -88,6 +101,7 @@ def test_supid_create_host_port(supvisors):
     supid = SupvisorsInstanceId('10.0.0.1:7777:7776', supvisors)
     assert supid.identifier == '10.0.0.1:7777'
     assert supid.host_name == '10.0.0.1'
+    assert supid.ip_address == '10.0.0.1'
     assert supid.http_port == 7777
     assert supid.internal_port == 7776
     assert supid.event_port == 7778  # defaulted to http_port + 1
@@ -100,6 +114,7 @@ def test_supid_create_identifier(supvisors):
     supid = SupvisorsInstanceId('<supvisors>cliche81', supvisors)
     assert supid.identifier == 'supvisors'
     assert supid.host_name == 'cliche81'
+    assert supid.ip_address == 'cliche81'
     assert supid.http_port == 65000
     assert supid.internal_port == 65100  # defaulted to options.internal_port
     assert supid.event_port == 65200  # defaulted to options.event_port
@@ -107,6 +122,7 @@ def test_supid_create_identifier(supvisors):
     supid = SupvisorsInstanceId('<supvisors>cliche81:8888:5555', supvisors)
     assert supid.identifier == 'supvisors'
     assert supid.host_name == 'cliche81'
+    assert supid.ip_address == 'cliche81'
     assert supid.http_port == 8888
     assert supid.internal_port == 5555  # defaulted to options.internal_port
     assert supid.event_port == 65200  # defaulted to options.event_port
@@ -217,22 +233,3 @@ def test_filter(mapper):
     # test with a bunch of identifiers
     identifier_list = ['127.0.0.1', 'host', f'{hostname}:60000', hostname, 'host', 'supervisor', '10.0.0.1']
     assert mapper.filter(identifier_list) == ['127.0.0.1', 'host', f'{hostname}:60000']
-
-
-def test_ipv4():
-    """ Test the ipv4 method. """
-    # complex to test as it depends on the network configuration of the operating system
-    # check that there is at least one entry looking like an IP address
-    # test that psutil is installed
-    pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
-    # test function
-    ip_list = SupvisorsMapper.ipv4()
-    assert ip_list
-    for ip in ip_list:
-        assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip)
-
-
-def test_ipv4_importerror(mocker):
-    """ Test the ipv4 method with a mocking of import (psutil not installed). """
-    mocker.patch.dict('sys.modules', {'psutil': None})
-    assert SupvisorsMapper.ipv4() == []

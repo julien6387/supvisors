@@ -17,11 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
+import re
+from unittest.mock import call, patch, Mock
+
 import pytest
 
 from supvisors.viewcontext import *
-from unittest.mock import call, patch, Mock
-
 from .base import DummyHttpContext, DummyOptions
 
 url_attr_template = r'(.+=.+)'
@@ -38,7 +39,6 @@ def http_context(supvisors):
 @pytest.fixture
 def ctx(mocker, http_context):
     """ Fixture for the instance to test. """
-    mocker.patch.object(http_context.supervisord.supvisors.context, 'get_all_namespecs', return_value={})
     return ViewContext(http_context)
 
 
@@ -46,7 +46,6 @@ def ctx(mocker, http_context):
 def ctx_no_stats(mocker, http_context):
     """ Fixture for the instance to test. """
     supvisors = http_context.supervisord.supvisors
-    mocker.patch.object(supvisors.context, 'get_all_namespecs', return_value={})
     supvisors.options.stats_enabled = False
     return ViewContext(http_context)
 
@@ -348,20 +347,21 @@ def test_update_process_name(mocker, ctx):
     assert ctx.parameters[PROCESS] is None
 
 
-def test_update_namespec(ctx):
+def test_update_namespec(mocker, ctx):
     """ Test the ViewContext.update_namespec method. """
     # reset parameter because called in constructor
     del ctx.parameters[NAMESPEC]
-    # test call with valid parameter
-    ctx.http_context.supervisord.supvisors.context.get_all_namespecs.return_value = ['abc', 'dummy_proc']
+    # test call with no value
     ctx.update_namespec()
-    assert ctx.parameters[NAMESPEC] == 'dummy_proc'
-    # reset parameter
-    del ctx.parameters[NAMESPEC]
+    assert ctx.parameters[NAMESPEC] is None
     # test call with invalid value
     ctx.http_context.form[NAMESPEC] = 'any_proc'
     ctx.update_namespec()
     assert ctx.parameters[NAMESPEC] is None
+    # test call with valid parameter
+    mocker.patch.object(ctx.http_context.supervisord.supvisors.context, 'is_namespec', return_value=True)
+    ctx.update_namespec()
+    assert ctx.parameters[NAMESPEC] == 'any_proc'
 
 
 def test_update_cpu_id(mocker, ctx):

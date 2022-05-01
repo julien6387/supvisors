@@ -20,7 +20,6 @@
 import os
 
 from supervisor.states import ProcessStates, RUNNING_STATES
-from supervisor.xmlrpc import RPCError
 
 from .application import ApplicationStatus
 from .instancestatus import SupvisorsInstanceStatus
@@ -80,7 +79,8 @@ class ProcInstanceView(SupvisorsInstanceView):
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'single': single, 'identifier': self.view_ctx.local_identifier,
-                       'statename': info['statename'], 'statecode': info['state'], 'disabled': info['disabled'],
+                       'disabled': info['disabled'], 'startable': not info['disabled'],
+                       'statename': info['statename'], 'statecode': info['state'],
                        'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': info['has_crashed'],
                        'description': info['description'], 'expected_load': expected_load,
                        'nb_cores': nb_cores, 'proc_stats': proc_stats}
@@ -99,7 +99,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         """
         nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
         payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                   'single': True, 'identifier': self.view_ctx.local_identifier, 'disabled': False,
+                   'single': True, 'identifier': self.view_ctx.local_identifier, 'disabled': False, 'startable': False,
                    'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
                    'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
@@ -149,7 +149,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         # create application payload
         application = self.sup_ctx.applications[application_name]
         payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
-                   'identifier': self.view_ctx.local_identifier, 'disabled': False,
+                   'identifier': self.view_ctx.local_identifier, 'disabled': False, 'startable': False,
                    'statename': application.state.name, 'statecode': application.state.value,
                    'gravity': application.state.name, 'has_crashed': False,
                    'description': application.get_operational_status(),
@@ -261,8 +261,6 @@ class ProcInstanceView(SupvisorsInstanceView):
     def write_application_status(self, tr_elt, info, shaded_tr):
         """ Write the application section into a table. """
         application_name = info['application_name']
-        # print common status
-        self.write_common_status(tr_elt, info)
         # print application shex
         elt = tr_elt.findmeld('shex_td_mid')
         application_shex, inverted_shex = self.view_ctx.get_application_shex(application_name)
@@ -275,17 +273,26 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt.content(f'{SHEX_SHRINK if application_shex else SHEX_EXPAND}')
         url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: inverted_shex})
         elt.attributes(href=url)
-        # print application name
-        elt = tr_elt.findmeld('name_a_mid')
+        # print application name (covers state and description)
+        elt = tr_elt.findmeld('name_td_mid')
+        elt.attrib['colspan'] = '3'
+        elt = elt.findmeld('name_a_mid')
         elt.content(application_name)
         url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: application_name})
         elt.attributes(href=url)
-        # remove all actions
-        for mid in ['start_td_mid', 'clear_td_mid']:
-            elt = tr_elt.findmeld(mid)
-            elt.attrib['colspan'] = '3'
-            elt.content('')
-        for mid in ['stop_td_mid', 'restart_td_mid', 'tailout_td_mid', 'tailerr_td_mid']:
+        for mid in ['state_td_mid', 'desc_td_mid']:
+            tr_elt.findmeld(mid).replace('')
+        # print application statistics
+        self.write_common_statistics(tr_elt, info)
+        # start / stop / restart group actions
+        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name, 'startgroup', f'{application_name}:')
+        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name, 'stopgroup', f'{application_name}:')
+        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restartgroup', f'{application_name}:')
+        # remove log actions
+        elt = tr_elt.findmeld('clear_td_mid')
+        elt.attrib['colspan'] = '3'
+        elt.content('')
+        for mid in ['tailout_td_mid', 'tailerr_td_mid']:
             tr_elt.findmeld(mid).replace('')
 
     def write_supervisord_status(self, tr_elt, info: Payload) -> None:
@@ -294,24 +301,25 @@ class ProcInstanceView(SupvisorsInstanceView):
         if self.sup_ctx.is_master:
             elt = tr_elt.findmeld('shex_td_mid')
             elt.content(MASTER_SYMBOL)
-        # print common status
-        self.write_common_status(tr_elt, info)
         # print process name
         elt = tr_elt.findmeld('name_a_mid')
         elt.content(info['process_name'])
         url = self.view_ctx.format_url('', MAIN_TAIL_PAGE, **{PROCESS: info['namespec']})
         elt.attributes(href=url, target="_blank")
+        # print common status
+        self.write_common_state(tr_elt, info)
+        self.write_common_statistics(tr_elt, info)
         # manage actions
-        self.write_supervisord_button(tr_elt, 'stop_a_mid', self.page_name, **{ACTION: 'shutdownsup'})
-        self.write_supervisord_button(tr_elt, 'restart_a_mid', self.page_name, **{ACTION: 'restartsup'})
+        self._write_supervisord_button(tr_elt, 'stop_a_mid', self.page_name, **{ACTION: 'shutdownsup'})
+        self._write_supervisord_button(tr_elt, 'restart_a_mid', self.page_name, **{ACTION: 'restartsup'})
         # manage log actions
-        self.write_supervisord_button(tr_elt, 'clear_a_mid', self.page_name, **{ACTION: 'mainclearlog'})
-        self.write_supervisord_button(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)
+        self._write_supervisord_button(tr_elt, 'clear_a_mid', self.page_name, **{ACTION: 'mainclearlog'})
+        self._write_supervisord_button(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)
         # start and tail stderr are not applicable
-        self.write_supervisord_off_button(tr_elt, 'start_a_mid')
-        self.write_supervisord_off_button(tr_elt, 'tailerr_a_mid')
+        self._write_supervisord_off_button(tr_elt, 'start_a_mid')
+        self._write_supervisord_off_button(tr_elt, 'tailerr_a_mid')
 
-    def write_supervisord_button(self, tr_elt, mid: str, page: str, **action) -> None:
+    def _write_supervisord_button(self, tr_elt, mid: str, page: str, **action) -> None:
         """ Write the configuration of the button of supervisord. """
         elt = tr_elt.findmeld(mid)
         update_attrib(elt, 'class', 'button on')
@@ -319,7 +327,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt.attributes(href=url)
 
     @staticmethod
-    def write_supervisord_off_button(tr_elt, mid: str) -> None:
+    def _write_supervisord_off_button(tr_elt, mid: str) -> None:
         """ Write the configuration of the button of supervisord. """
         elt = tr_elt.findmeld(mid)
         update_attrib(elt, 'class', 'button off')
@@ -354,6 +362,12 @@ class ProcInstanceView(SupvisorsInstanceView):
     # ACTION part
     def make_callback(self, namespec, action):
         """ Triggers processing iaw action requested """
+        if action == 'startgroup':
+            return self.start_group_action(namespec)
+        if action == 'stopgroup':
+            return self.stop_group_action(namespec)
+        if action == 'restartgroup':
+            return self.restart_group_action(namespec)
         if action == 'mainclearlog':
             return self.clear_log_action()
         result = super().make_callback(namespec, action)
@@ -367,11 +381,44 @@ class ProcInstanceView(SupvisorsInstanceView):
                 return delayed_error(f'Process {namespec}: disabled')
         return result
 
-    def clear_log_action(self):
-        """ Clear the log of Supervisor. """
-        rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
-        try:
-            rpc_intf.clearLog()
-        except RPCError as e:
-            return delayed_error(f'clearLog: {e.text}')
-        return delayed_info('Log for Supervisor cleared')
+    def start_group_action(self, namespec: str) -> Callable:
+        """ Start all processes in the group.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
+
+        :param namespec: the group processes that have to be started (expecting a form like 'group:*')
+        :return: a callable for deferred result
+        """
+        self.logger.debug(f'ProcInstanceView.start_group_action: group_name={namespec}')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supervisor_rpc_action('startProcess', (f'{namespec}', wait), f'Group {namespec} started')
+
+    def stop_group_action(self, namespec: str) -> Callable:
+        """ Stop all processes in the group.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page.
+
+        :param namespec: the group processes that have to be stopped (expecting a form like 'group:*')
+        :return: a callable for deferred result
+        """
+        self.logger.debug(f'ProcInstanceView.stop_group_action: group_name={namespec}')
+        wait = not self.view_ctx.parameters[AUTO]
+        return self.supervisor_rpc_action('stopProcess', (f'{namespec}', wait), f'Group {namespec} stopped')
+
+    def restart_group_action(self, namespec: str) -> Callable:
+        """ Start all processes in the group.
+        The RPC wait parameter is linked to the auto-refresh parameter of the page and set only on the last call.
+
+        :param namespec: the group processes that have to be restarted (expecting a form like 'group:*')
+        :return: a callable for deferred result
+        """
+        self.logger.debug(f'ProcInstanceView.restart_group_action: group_name={namespec}')
+        wait = not self.view_ctx.parameters[AUTO]
+        multicall = [{'methodName': 'supervisor.stopProcess', 'params': [f'{namespec}']},
+                     {'methodName': 'supervisor.startProcess', 'params': [f'{namespec}', wait]}]
+        return self.multicall_rpc_action(multicall, f'Group {namespec} restarted')
+
+    def clear_log_action(self) -> Callable:
+        """ Clear the log of Supervisor.
+
+        :return: a callable for deferred result
+        """
+        return self.supervisor_rpc_action('clearLog', (), 'Log for Supervisor cleared')

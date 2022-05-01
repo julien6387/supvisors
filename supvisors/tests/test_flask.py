@@ -17,18 +17,17 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
+from unittest.mock import call, patch
 
-from supervisor.compat import xmlrpclib
+import pytest
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.xmlrpc import RPCError, Faults
-from supvisors.rpcinterface import RPCInterface
-from supvisors.tools.supvisorsflask import *
-from supvisors.tools.apis import *
-from supvisors.tools.apis.utils import *
-from unittest.mock import call, patch
 from werkzeug.exceptions import MethodNotAllowed
 
+from supvisors.rpcinterface import RPCInterface
+from supvisors.tools.apis import *
+from supvisors.tools.apis.utils import *
+from supvisors.tools.supvisorsflask import *
 from .conftest import mock_xml_rpc
 
 
@@ -234,7 +233,11 @@ def test_supervisor_startProcess(xml_rpc, client):
     # test error with missing parameter
     check_post_error(client, f'{base_url}', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/my_movies:converter_05', mocked_func, [call('my_movies:converter_05')])
+    check_post_success(client, f'{base_url}/my_movies:converter_05', mocked_func,
+                       [call('my_movies:converter_05', True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/my_movies:converter_05?wait=false', mocked_func,
+                       [call('my_movies:converter_05', False)])
 
 
 def test_supervisor_startProcessGroup(xml_rpc, client):
@@ -244,14 +247,18 @@ def test_supervisor_startProcessGroup(xml_rpc, client):
     # test error with missing parameter
     check_post_error(client, f'{base_url}', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/my_movies', mocked_func, [call('my_movies')])
+    check_post_success(client, f'{base_url}/my_movies', mocked_func, [call('my_movies', True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/my_movies?wait=false', mocked_func, [call('my_movies', False)])
 
 
 def test_supervisor_startAllProcesses(xml_rpc, client):
     """ Check the startAllProcesses REST API. """
     base_url = '/supervisor/startAllProcesses'
     mocked_func = xml_rpc.supervisor.startAllProcesses
-    check_post_success(client, f'{base_url}', mocked_func, [call()])
+    check_post_success(client, f'{base_url}', mocked_func, [call(True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}?wait=false', mocked_func, [call(False)])
 
 
 def test_supervisor_stopProcess(xml_rpc, client):
@@ -261,7 +268,11 @@ def test_supervisor_stopProcess(xml_rpc, client):
     # test error with missing parameter
     check_post_error(client, f'{base_url}', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/my_movies:converter_05', mocked_func, [call('my_movies:converter_05')])
+    check_post_success(client, f'{base_url}/my_movies:converter_05', mocked_func,
+                       [call('my_movies:converter_05', True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/my_movies:converter_05?wait=false', mocked_func,
+                       [call('my_movies:converter_05', False)])
 
 
 def test_supervisor_stopProcessGroup(xml_rpc, client):
@@ -271,14 +282,18 @@ def test_supervisor_stopProcessGroup(xml_rpc, client):
     # test error with missing parameter
     check_post_error(client, f'{base_url}', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/my_movies', mocked_func, [call('my_movies')])
+    check_post_success(client, f'{base_url}/my_movies', mocked_func, [call('my_movies', True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/my_movies?wait=false', mocked_func, [call('my_movies', False)])
 
 
 def test_supervisor_stopAllProcesses(xml_rpc, client):
     """ Check the stopAllProcesses REST API. """
     base_url = '/supervisor/stopAllProcesses'
     mocked_func = xml_rpc.supervisor.stopAllProcesses
-    check_post_success(client, f'{base_url}', mocked_func, [call()])
+    check_post_success(client, f'{base_url}', mocked_func, [call(True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}?wait=false', mocked_func, [call(False)])
 
 
 def test_supervisor_signalProcess(xml_rpc, client):
@@ -830,14 +845,14 @@ def test_error_handlers():
 # test utilities
 def test_supervisor_docstring_description():
     """ Check the extraction of the description from a Supervisor doctring. """
-    expected = 'Read length bytes from the main log starting at offset '
+    expected = 'Read length bytes from the main log starting at offset'
     assert get_docstring_description(SupervisorNamespaceRPCInterface.readLog) == expected
 
 
 def test_supvisors_docstring_description():
     """ Check the extraction of the description from a Supvisors doctring. """
-    expected = ('Stop the *Managed* application named ``application_name``.'
-                " To stop *Unmanaged* applications, use ``supervisor.stop('group:*')``. ")
+    expected = ('Stop the *Managed* application named ``application_name``.\n'
+                "To stop *Unmanaged* applications, use ``supervisor.stop('group:*')``.")
     assert get_docstring_description(RPCInterface.stop_application) == expected
 
 

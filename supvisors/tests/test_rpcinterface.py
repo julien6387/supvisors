@@ -17,10 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import call, Mock
 
+import pytest
 from supervisor.loggers import LOG_LEVELS_BY_NUM
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 
@@ -28,7 +27,6 @@ from supvisors.instancestatus import StateModes
 from supvisors.rpcinterface import *
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, DistributionRules, SupvisorsStates,
                               SupvisorsFaults)
-
 from .base import DummyRpcInterface
 from .conftest import create_application
 
@@ -1300,9 +1298,9 @@ def test_enable_wait(mocker, rpc):
     mocked_getsub = mocker.patch.object(rpc.supvisors.supervisor_data, 'get_subprocesses',)
     # patch the context
     mocked_getsub.return_value = ['process_1', 'process_2', 'process_3']
-    process_1 = Mock(namespec='process_1', **{'enabled_on.return_value': False})
-    process_2 = Mock(namespec='process_2', **{'enabled_on.return_value': False})
-    process_3 = Mock(namespec='process_3', **{'enabled_on.return_value': False})
+    process_1 = Mock(namespec='process_1', **{'disabled_on.return_value': True})
+    process_2 = Mock(namespec='process_2', **{'disabled_on.return_value': True})
+    process_3 = Mock(namespec='process_3', **{'disabled_on.return_value': True})
     get_map = {'process_1': process_1, 'process_2': process_2, 'process_3': process_3}
     mocked_get.side_effect = lambda x: (None, get_map[x])
     # test RPC call with unknown program
@@ -1314,10 +1312,10 @@ def test_enable_wait(mocker, rpc):
     # test deferred function: still in progress
     assert deferred() is NOT_DONE_YET
     # test deferred function: wait for processes to be disabled
-    process_1.enabled_on.return_value = True
-    process_2.enabled_on.return_value = True
-    process_3.enabled_on.return_value = True
-    assert deferred()
+    process_1.disabled_on.return_value = False
+    process_2.disabled_on.return_value = False
+    process_3.disabled_on.return_value = False
+    assert deferred() is True
 
 
 def test_disable_unknown_program(mocker, rpc):
@@ -1412,9 +1410,9 @@ def test_disable_stop_wait(mocker, rpc):
     mocked_progress = rpc.supvisors.stopper.in_progress
     # patch the context
     mocked_getsub.return_value = ['process_1', 'process_2', 'process_3']
-    process_1 = Mock(namespec='process_1', **{'enabled_on.return_value': True, 'running_on.return_value': True})
-    process_2 = Mock(namespec='process_2', **{'enabled_on.return_value': True, 'running_on.return_value': True})
-    process_3 = Mock(namespec='process_3', **{'enabled_on.return_value': True, 'running_on.return_value': False})
+    process_1 = Mock(namespec='process_1', **{'disabled_on.return_value': False, 'running_on.return_value': True})
+    process_2 = Mock(namespec='process_2', **{'disabled_on.return_value': False, 'running_on.return_value': True})
+    process_3 = Mock(namespec='process_3', **{'disabled_on.return_value': False, 'running_on.return_value': False})
     get_map = {'process_1': process_1, 'process_2': process_2, 'process_3': process_3}
     mocked_get.side_effect = lambda x: (None, get_map[x])
     mocked_progress.return_value = True
@@ -1444,10 +1442,10 @@ def test_disable_stop_wait(mocker, rpc):
     process_2.running.return_value = False
     assert deferred() is NOT_DONE_YET
     # test deferred function: wait for processes to be disabled
-    process_1.enabled_on.return_value = False
-    process_2.enabled_on.return_value = False
-    process_3.enabled_on.return_value = False
-    assert deferred()
+    process_1.disabled_on.return_value = True
+    process_2.disabled_on.return_value = True
+    process_3.disabled_on.return_value = True
+    assert deferred() is True
 
 
 def test_conciliate(mocker, rpc):
@@ -1727,13 +1725,13 @@ def test_get_local_info(mocker, rpc):
                                          'startsecs': 2, 'stopwaitsecs': 10}
 
 
-def test_startProcess(mocker):
+def test_startProcess(mocker, supvisors):
     """ Test the startProcess RPC.
     This RPC is designed to be added to Supervisor by monkeypatch. """
     SupervisorNamespaceRPCInterface._startProcess = SupervisorNamespaceRPCInterface.startProcess
     SupervisorNamespaceRPCInterface.startProcess = startProcess
     # patch the legacy startProcess
-    rpc = DummyRpcInterface()
+    rpc = DummyRpcInterface(supvisors)
     mocked_startProcess = mocker.patch.object(rpc.supervisor, '_startProcess')
     mocked_update = mocker.patch.object(rpc.supervisor, '_update')
     mocked_get = mocker.patch.object(rpc.supervisor, '_getGroupAndProcess', return_value=('dummy_group', None))

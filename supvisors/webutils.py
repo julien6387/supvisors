@@ -20,6 +20,9 @@
 from time import ctime
 from typing import Any, Callable, Tuple
 
+from supervisor.http import NOT_DONE_YET
+from supervisor.xmlrpc import RPCError
+
 # HTML page names
 SUPVISORS_PAGE = 'index.html'
 HOST_INSTANCE_PAGE = 'host_instance.html'
@@ -117,6 +120,36 @@ def delayed_warn(msg, identifier=None) -> Callable:
 def delayed_error(msg, identifier=None) -> Callable:
     """ Define a delayed error message. """
     return delayed_message(error_message, msg, identifier)
+
+
+def generic_rpc(rpc_intf, rpc_name: str, args: tuple, success_msg: str) -> Callable:
+    """ Generic wrapper for an XML-RPC in Supervisor.
+
+    :param rpc_intf: the RPC interface
+    :param rpc_name: the RPC name
+    :param args: the arguments of the RPC
+    :param success_msg: the message in case of success
+    :return: a callable for deferred result
+    """
+    try:
+        cb = getattr(rpc_intf, rpc_name)(*args)
+    except RPCError as e:
+        return delayed_error(f'{rpc_name}: {e.text}')
+    # process the result if callable
+    if callable(cb):
+        def onwait():
+            try:
+                result = cb()
+            except RPCError as exc:
+                return error_message(f'{rpc_name}: {exc.text}')
+            if result is NOT_DONE_YET:
+                return NOT_DONE_YET
+            return info_message(success_msg)
+
+        onwait.delay = 0.1
+        return onwait
+    # process the result if directly available
+    return delayed_info(success_msg)
 
 
 def update_attrib(elt, attribute: str, value: str) -> None:

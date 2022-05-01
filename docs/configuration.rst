@@ -61,6 +61,16 @@ behavior may happen. The present section details where it is applicable.
 
     .. note::
 
+        ``host_name`` can be the host name, as returned by the shell command :command:`hostname`, one of its declared
+        aliases or an IP address.
+
+    .. attention::
+
+        The chosen host name, alias or IP address must be known to every nodes in the list on the network interface
+        considered. If it's not the case, check the network configuration.
+
+    .. hint::
+
         Actually, only the ``host_name`` is strictly required.
 
         if ``http_port`` or ``internal_port`` are not provided, the local |Supvisors| instance takes the assumption
@@ -97,18 +107,6 @@ behavior may happen. The present section details where it is applicable.
         The names can also be found at the beginning of the |Supvisors| log traces.
 
         The recommendation is to uniformly use the |Supervisor| identifier.
-
-    .. attention::
-
-        The host names are expected to be known to every nodes in the list.
-        If it's not the case, check the network configuration.
-
-    .. hint::
-
-        If the |psutil| module is installed, IP addresses can be used in place of host names.
-
-        Like the host names, the IP addresses are expected to be known to every nodes in the list.
-        If it's not the case, check the network configuration.
 
 ``rules_files``
 
@@ -213,7 +211,8 @@ behavior may happen. The present section details where it is applicable.
 ``starting_strategy``
 
     The strategy used to start applications on |Supvisors| instances.
-    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` , ``LESS_LOADED_NODE``,
+    ``MOST_LOADED_NODE``}.
     The use of this option is detailed in :ref:`starting_strategy`.
     It is highly recommended that this parameter is identical to all |Supvisors| instances or the startup sequence would
     be different depending on which |Supvisors| instance is the *Master*.

@@ -43,7 +43,7 @@ class EventPublisher(object):
     def __init__(self, instance: SupvisorsInstanceId, logger: Logger):
         """ Initialization of the attributes.
 
-        :param port: the port number of the TCP socket
+        :param instance: the local Supvisors instance identification
         :param logger: the Supvisors logger
         """
         self.logger = logger

@@ -17,14 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
 import random
-
 from socket import gethostname
-from supvisors.context import *
-from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, SupvisorsStates
 from unittest.mock import call, Mock
 
+import pytest
+
+from supvisors.context import *
+from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, SupvisorsStates
 from .base import database_copy, any_process_info
 from .conftest import create_application, create_process
 
@@ -296,12 +296,16 @@ def test_get_managed_applications(filled_context):
     assert sorted(filled_context.get_managed_applications().keys()) == ['crash', 'sample_test_2']
 
 
-def test_get_all_namespecs(filled_context):
-    """ Test getting all known namespecs across all supvisors instances. """
-    assert sorted(filled_context.get_all_namespecs()) == ['crash:late_segv', 'crash:segv', 'firefox',
-                                                          'sample_test_1:xclock', 'sample_test_1:xfontsel',
-                                                          'sample_test_1:xlogo', 'sample_test_2:sleep',
-                                                          'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
+def test_is_namespec(filled_context):
+    """ Test checking if namespec is known across all supvisors instances. """
+    assert filled_context.is_namespec('crash:late_segv')
+    assert filled_context.is_namespec('firefox')
+    assert filled_context.is_namespec('firefox:firefox')
+    assert filled_context.is_namespec('sample_test_1:*')
+    assert filled_context.is_namespec('sample_test_2:')
+    assert not filled_context.is_namespec('sample_test_2:yeux')
+    assert not filled_context.is_namespec('sample_test_2:yeux_03')
+    assert not filled_context.is_namespec('sleep')
 
 
 def test_get_process(filled_context):

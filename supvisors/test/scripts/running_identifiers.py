@@ -23,7 +23,6 @@ import unittest
 import zmq
 
 from queue import Empty
-from socket import gethostname
 from supervisor.childutils import getRPCInterface
 
 from supvisors.ttypes import SupvisorsInstanceStates
@@ -35,14 +34,14 @@ from .event_queues import SupvisorsEventQueues
 
 class RunningIdentifiersTest(unittest.TestCase):
     """ Intermediate layer for the check of initial conditions:
-        - 4 running instances.
+        - 3 running instances.
 
     Proxies to XML-RPC servers are opened.
     The thread of Event queues is started.
     """
 
     def setUp(self):
-        """ Check that 4 running instances are available. """
+        """ Check that 3 running instances are available. """
         # get a reference to the local RPC proxy
         self.local_proxy = getRPCInterface(os.environ)
         self.local_supervisor = self.local_proxy.supervisor
@@ -52,9 +51,7 @@ class RunningIdentifiersTest(unittest.TestCase):
         self.running_identifiers = {info['identifier']: (info['node_name'], info['port'])
                                     for info in instances_info
                                     if info['statecode'] == SupvisorsInstanceStates.RUNNING.value}
-        self.assertEqual(4, len(self.running_identifiers))
-        # assumption is made that this test is run on Master Supvisors instance
-        self.assertEqual(gethostname(), self.local_supvisors.get_master_identifier())
+        self.assertEqual(3, len(self.running_identifiers))
         # keep a reference to all RPC proxies
         supervisor_url = SupervisorServerUrl(os.environ.copy())
         self.proxies = {}

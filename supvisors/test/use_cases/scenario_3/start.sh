@@ -4,7 +4,7 @@
 test_dir=$(dirname "$(readlink -f "$0")")
 
 # set default hosts if not provided in command line
-HOSTS=${@:-cliche81 cliche82 cliche83}
+HOSTS=${@:-rocky51 rocky52 rocky53}
 
 # clear logs / configure / start server + console on each host
 for host in $HOSTS

@@ -18,21 +18,23 @@
 # ======================================================================
 
 import os
-
 from argparse import ArgumentParser
 from urllib.parse import urlparse
 
+from supvisors.utils import parse_docstring
 
-# docstring parsing
+
 def get_docstring_description(func) -> str:
     """ Extract the first part of the docstring. """
-    description = []
-    for line in func.__doc__.split('\n'):
-        stripped_line = line.strip()
-        if stripped_line.startswith('@') or stripped_line.startswith(':'):
-            break
-        description.append(stripped_line)
-    return ' '.join(description)
+    docstring = parse_docstring(func.__doc__)
+    return docstring[0][4]
+
+
+def get_docstring_parameters(func) -> str:
+    """ Extract the parameters from the docstring.
+    Supervisor and Supvisors have different formats. """
+    docstring = parse_docstring(func.__doc__)
+    return {entry[3]: entry[4] for entry in docstring if entry[1] == 'param'}
 
 
 # Argument parsing

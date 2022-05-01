@@ -155,8 +155,8 @@ consoles and servers (|Req 12 abbr| and |Req 20 abbr|), this program follows the
 let's remove it from :program:`scen3_srv` and :program:`scen3_hci` and to insert it into the common services.
 
 Like the :program:`scen2_hci` of the :program:`Scenario 2`, :program:`scen3_hci` needs to be duplicated so this an
-instance could be started on each console. In this example, there are 5 consoles. :program:`supvisors_breed` will thus
-be used again to duplicate 5 times the :program:`scen3_hci` groups and programs found in the ``template_etc`` folder.
+instance could be started on each console. In this example, there are 3 consoles. :program:`supvisors_breed` will thus
+be used again to duplicate 3 times the :program:`scen3_hci` groups and programs found in the ``template_etc`` folder.
 
 However, unlike :program:`Scenario 2` where any :program:`scen2_hci` could be started from any console, only one
 :program:`scen3_hci` has to be started here per console and including more than one instance of it in the local
@@ -166,8 +166,8 @@ files from the |Supervisor| configuration file.
 
 .. code-block:: bash
 
-    [bash] > supvisors_breed -d etc -t template_etc -b scen3_hci=5 -x -v
-    ArgumentParser: Namespace(breed={'scen3_hci': 5}, destination='etc', extra=True, pattern='**/*.ini', template='template_etc', verbose=True)
+    [bash] > supvisors_breed -d etc -t template_etc -b scen3_hci=3 -x -v
+    ArgumentParser: Namespace(breed={'scen3_hci': 3}, destination='etc', extra=True, pattern='**/*.ini', template='template_etc', verbose=True)
     Configuration files found:
         console/group_console.ini
         console/programs_console.ini
@@ -179,17 +179,11 @@ files from the |Supervisor| configuration file.
     New [group:scen3_hci_02]
     New File: console/group_scen3_hci_03.ini
     New [group:scen3_hci_03]
-    New File: console/group_scen3_hci_04.ini
-    New [group:scen3_hci_04]
-    New File: console/group_scen3_hci_05.ini
-    New [group:scen3_hci_05]
     Empty sections for file: console/group_console.ini
     Writing file: etc/console/programs_console.ini
     Writing file: etc/console/group_scen3_hci_01.ini
     Writing file: etc/console/group_scen3_hci_02.ini
     Writing file: etc/console/group_scen3_hci_03.ini
-    Writing file: etc/console/group_scen3_hci_04.ini
-    Writing file: etc/console/group_scen3_hci_05.ini
 
 .. note:: *About the choice to prefix all program names with 'scen3_'*
 
@@ -226,10 +220,6 @@ The resulting file tree is as follows.
     │         │         │         └── group_scen3_hci_02.ini
     │         │         ├── console_3
     │         │         │         └── group_scen3_hci_03.ini
-    │         │         ├── console_4
-    │         │         │         └── group_scen3_hci_04.ini
-    │         │         ├── console_5
-    │         │         │         └── group_scen3_hci_05.ini
     │         │         └── programs_console.ini
     │         ├── server
     │         │         └── group_server.ini
@@ -338,7 +328,7 @@ Here follows the resulting rules file.
     <root>
         <!-- aliases -->
         <alias name="servers">server_1,server_2,server_3</alias>
-        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
+        <alias name="consoles">console_1,console_2,console_3</alias>
 
         <!-- models -->
         <model name="model_services">
@@ -412,8 +402,8 @@ The operational status of :program:`Scenario 3` required by the |Req 2 abbr| is 
 
 For the examples, the following context applies:
 
-    * due to limited resources - 3 nodes are available (``cliche81``, ``cliche82`` and ``cliche83``) -, each node hosts
-      2 |Supvisors| instances, one server and one console, leaving 2 silent consoles ;
+    * due to limited resources - 3 nodes are available (``rocky51``, ``rocky52`` and ``rocky53``) -, each node hosts
+      2 |Supvisors| instances, one server and one console ;
     * :program:`common_data_bus` and :program:`scen3_internal_data_bus` are *Unmanaged* so |Supvisors| always considers
       these 'applications' as ``STOPPED`` ;
     * :program:`scen3_srv` is distributed over the 3 servers ;
@@ -450,13 +440,6 @@ to the |Supervisor| identifier so far, an environmental variable is used.
     scen3_hci_01             RUNNING   False  False
     scen3_hci_02             RUNNING   False  False
     scen3_hci_03             RUNNING   False  False
-
-.. note::
-
-    It could be felt strange to see only 3 of the 5 :program:`scen3_hci` applications. It has to be remembered that
-    the overall configuration has been built so that each console would include the configurations files related to the
-    only :program:`scen3_hci` meant to run on it. In the example, 2 consoles are ``SILENT`` so their programs are
-    unknown so far.
 
 .. image:: images/supvisors_scenario_3.png
     :alt: Supvisors Use Cases - Scenario 3

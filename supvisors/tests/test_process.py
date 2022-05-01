@@ -18,14 +18,13 @@
 # ======================================================================
 
 import pickle
-import pytest
-
-from supervisor.states import _process_states_by_code
 from unittest.mock import call
+
+import pytest
+from supervisor.states import _process_states_by_code
 
 from supvisors.process import *
 from supvisors.ttypes import RunningFailureStrategies
-
 from .base import any_process_info, any_stopped_process_info, process_info_by_name, any_process_info_by_state
 from .conftest import create_process
 
@@ -236,18 +235,34 @@ def test_process_create(supvisors):
     assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
 
 
-def test_process_enabled_on(supvisors):
-    """ Test the ProcessStatus.enabled_on method. """
+def test_process_disabled(supvisors):
+    """ Test the ProcessStatus.disabled method. """
+    info = any_process_info()
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    process.add_info('10.0.0.2', info.copy())
+    # test enabled
+    assert not process.disabled()
+    # test with one disabled among two
+    process.info_map['10.0.0.1']['disabled'] = True
+    assert not process.disabled()
+    # test with all disabled
+    process.info_map['10.0.0.2']['disabled'] = True
+    assert process.disabled()
+
+
+def test_process_disabled_on(supvisors):
+    """ Test the ProcessStatus.disabled_on method. """
     info = any_process_info()
     process = create_process(info, supvisors)
     process.add_info('10.0.0.2', info)
     # test with identifier not found in process info_map
-    assert not process.enabled_on('10.0.0.1')
+    assert not process.disabled_on('10.0.0.1')
     # test with identifier found in process info_map and enabled
-    assert process.enabled_on('10.0.0.2')
+    assert not process.disabled_on('10.0.0.2')
     # test with identifier found in process info_map and disabled
     info['disabled'] = True
-    assert not process.enabled_on('10.0.0.2')
+    assert process.disabled_on('10.0.0.2')
 
 
 def test_process_possible_identifiers(supvisors):

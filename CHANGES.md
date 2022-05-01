@@ -1,5 +1,28 @@
 # Change Log
 
+## 0.14 (2022-05-01)
+
+* Implement [Supervisor Issue #1054](https://github.com/Supervisor/supervisor/issues/1054).
+  Start / Stop / Restart buttons have been added to groups in the Supervisor page of the Web UI so that it is possible
+  to start / stop / restart all the processes of the group at once.
+  The application state and description have been removed from this table as the information was confusing.
+
+* Fix issue where starting strategies would not work as expected when multiple **Supvisors** instances run on the same
+  node but their `host_name` is identified differently in the option `supvisors_list`.
+
+* Replace on-the-fly the Supervisor `gettags` function so that the XML-RPC `system.methodSignature` works with both
+  Supervisor and **Supvisors**.
+
+* Use `socket.gethostaddr` to validate the host names provided in the option `supvisors_list`.
+
+* In the Application page of the Web UI, apply a *disabled* status to programs that are disabled on all their possible
+  **Supvisors** instances (according to rules and configuration).
+
+* Maintain the auto-refresh set on the **Supvisors** `restart` / `shutdown` actions of the Web UI.
+
+* Change the style of the *matplotlib* graphs.
+
+
 ## 0.13 (2022-02-27)
 
 * Implement [Supervisor Issue #591](https://github.com/Supervisor/supervisor/issues/591).
@@ -22,9 +45,9 @@
   points out the **Supvisors** instances where the modes are activated, and the applications involved in its own
   `Starter` or `Stopper`.
 
-* When using ``#`` in the ``identifiers`` of the Application or Program rules and with a number of candidate
-  applications or processes greater than the candidate ``identifiers``, the assignment is performed by rolling over
-  the ``identifiers`` list. 
+* When using `#` in the `identifiers` of the Application or Program rules and with a number of candidate
+  applications or processes greater than the candidate `identifiers`, the assignment is performed by rolling over
+  the `identifiers` list. 
 
 * Add pid and uptime information to the `supervisord` entry of the process table in the Web UI.
 

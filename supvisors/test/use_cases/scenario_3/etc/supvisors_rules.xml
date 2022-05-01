@@ -2,7 +2,7 @@
 <root>
     <!-- aliases -->
     <alias name="servers">server_1,server_2,server_3</alias>
-    <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
+    <alias name="consoles">console_1,console_2,console_3</alias>
 
     <!-- models -->
     <model name="model_services">

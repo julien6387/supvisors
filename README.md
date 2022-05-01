@@ -46,11 +46,12 @@ Also provided in the scope of this project:
 * [#1023 - Pass arguments to program when starting a job?](https://github.com/Supervisor/supervisor/issues/1023)
 * [#1150 - Why do event listeners not report the process exit status when stopped/crashed?](https://github.com/Supervisor/supervisor/issues/1150)
 * [#1455 - using supervisorctl with -s does not provide access to the extended API](https://github.com/Supervisor/supervisor/issues/1455)
+* [#1504 - Web interface: Add stop group Action](https://github.com/Supervisor/supervisor/issues/1504)
 
 
 ## Supported Platforms
 
-**Supvisors** has been tested and is known to run on Linux (CentOS 8.3 and RedHat 8.2).
+**Supvisors** has been tested and is known to run on Linux (Rocky 8.5, RedHat 8.2 and Ubuntu 20.04 LTS).
 It will likely work fine on most UNIX systems.
 
 **Supvisors** will not run at all under any version of Windows.

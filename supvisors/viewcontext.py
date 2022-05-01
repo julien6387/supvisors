@@ -18,8 +18,6 @@
 # ======================================================================
 
 import math
-import re
-
 from distutils.util import strtobool
 from typing import Optional, Tuple
 from urllib.parse import quote
@@ -28,7 +26,6 @@ from .process import ProcessStatus
 from .ttypes import StartingStrategies, NameList, enum_names
 from .utils import get_bit, set_bit
 from .webutils import SUPVISORS_PAGE, error_message
-
 
 # form parameters
 SERVER_URL = 'SERVER_URL'
@@ -105,30 +102,30 @@ class ViewContext:
         """ Extract message from context form. """
         return self.http_context.form.get(GRAVITY)
 
-    def update_period(self):
+    def update_period(self) -> None:
         """ Extract period from context. """
         default_value = next(iter(self.supvisors.options.stats_periods))
         self._update_integer(PERIOD, self.supvisors.options.stats_periods, default_value)
 
-    def update_strategy(self):
+    def update_strategy(self) -> None:
         """ Extract starting strategy from context. """
         self._update_string(STRATEGY, enum_names(StartingStrategies), self.supvisors.options.starting_strategy.name)
 
-    def update_auto_refresh(self):
+    def update_auto_refresh(self) -> None:
         """ Extract auto refresh from context. """
         # assign value found or default
         self._update_boolean(AUTO, False)
 
-    def update_identifier(self):
+    def update_identifier(self) -> None:
         """ Extract identifier from context. """
         # assign value found or default
         self._update_string(IDENTIFIER, self.supvisors.supvisors_mapper.instances, self.local_identifier)
 
-    def update_application_name(self):
+    def update_application_name(self) -> None:
         """ Extract application name from context. """
         self._update_string(APPLI, list(self.supvisors.context.applications.keys()))
 
-    def update_process_name(self):
+    def update_process_name(self) -> None:
         """ Extract process name from context.
         ApplicationView may select a process unknown to this Supvisors instance. """
         status = self.supvisors.context.instances[self.parameters[IDENTIFIER]]
@@ -137,15 +134,25 @@ class ViewContext:
         running_processes.append('supervisord')
         self._update_string(PROCESS, running_processes)
 
-    def update_namespec(self):
+    def update_namespec(self) -> None:
         """ Extract namespec from context. """
-        self._update_string(NAMESPEC, self.supvisors.context.get_all_namespecs())
+        value = None
+        str_value = self.http_context.form.get(NAMESPEC)
+        if str_value:
+            # check that value is known to Supvisors
+            if self.supvisors.context.is_namespec(str_value):
+                value = str_value
+            else:
+                self.store_message = error_message(f'Incorrect {NAMESPEC}: {str_value}')
+        # assign value found or default
+        self.logger.trace(f'ViewContext.update_namespec: {NAMESPEC} set to {value}')
+        self.parameters[NAMESPEC] = value
 
-    def update_cpu_id(self):
+    def update_cpu_id(self) -> None:
         """ Extract CPU id from context. """
         self._update_integer(CPU, list(range(self.get_nbcores() + 1)))
 
-    def update_interface_name(self):
+    def update_interface_name(self) -> None:
         """ Extract interface name from context.
         Only the HostInstanceView displays interface data, so it's local. """
         stats_instance = self.get_instance_stats()
@@ -192,7 +199,7 @@ class ViewContext:
         return '&'.join([f'{key}={quote(str(value))}'
                          for key, value in sorted(parameters.items()) if value])
 
-    def format_url(self, identifier, page, **kwargs):
+    def format_url(self, identifier: str, page: str, **kwargs):
         """ Format URL from parameters. """
         netloc = ''
         # build network location if identifier is provided
@@ -214,7 +221,7 @@ class ViewContext:
             location = f'{form[SERVER_URL]}{path_translated}?{self.url_parameters(False, **args)}'
             self.http_context.response[HEADERS][LOCATION] = location
 
-    def get_nbcores(self, identifier=None):
+    def get_nbcores(self, identifier: str = None) -> int:
         """ Get the number of processors of the host where the Supvisors instance is running. """
         stats_identifier = identifier or self.local_identifier
         return self.supvisors.statistician.nbcores.get(stats_identifier, 0)

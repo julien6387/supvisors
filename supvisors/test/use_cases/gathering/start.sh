@@ -8,7 +8,7 @@ export CUR_DATE=`date +'%y%m%d'`
 export CUR_TIME=`date +'%H%M%S'`
 
 # set default hosts if not provided in command line
-HOSTS=${@:-cliche81 cliche82 cliche83}
+HOSTS=${@:-rocky51 rocky52 rocky53}
 
 # clear logs / start server + console on each host
 for host in $HOSTS

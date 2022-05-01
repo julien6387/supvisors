@@ -50,7 +50,7 @@ extension.
 Platform Requirements
 ---------------------
 
-|Supvisors| has been tested and is known to run on Linux (CentOS 8.3).
+|Supvisors| has been tested and is known to run on Linux (Rocky 8.5, RedHat 8.2 and Ubuntu 20.04 LTS).
 
 |Supvisors| will not run at all under any version of Windows.
 
@@ -103,9 +103,6 @@ Supvisors can be installed with ``pip install``:
 
    # install for XML validation only (includes lxml)
    [bash] > pip install supvisors[xml_valid]
-
-   # install for use of IP aliases only (includes psutil)
-   [bash] > pip install supvisors[ip_address]
 
    # install for the REST API (includes flask-restx)
    [bash] > pip install supvisors[flask]

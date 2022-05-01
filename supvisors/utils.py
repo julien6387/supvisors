@@ -17,11 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
+import re
 from enum import Enum
 from math import sqrt
 from time import gmtime, localtime, strftime, time
+from typing import Tuple
 from urllib.parse import urlparse
 
+from .ttypes import Payload
 
 # Constants
 # TICK period in seconds for internal Supvisors heartbeat
@@ -79,7 +82,7 @@ def simple_gmtime(now=None):
 __Payload_Keys = ('name', 'group', 'state', 'statename', 'start', 'stop', 'now', 'pid', 'description', 'spawnerr')
 
 
-def extract_process_info(info):
+def extract_process_info(info: Payload) -> Payload:
     """ Returns a subset of Supervisor process information. """
     payload = {key: info[key] for key in __Payload_Keys if key in info}
     # expand information with 'expected' (deduced from spawnerr)
@@ -111,15 +114,15 @@ class SupervisorServerUrl:
 
 
 # simple functions
-def mean(x):
+def mean(x) -> float:
     return sum(x) / float(len(x))
 
 
-def srate(x, y):
+def srate(x, y) -> float:
     return 100.0 * x / y - 100.0 if y else float('inf')
 
 
-def stddev(lst, avg):
+def stddev(lst, avg) -> float:
     return sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
 
@@ -184,3 +187,84 @@ def get_stats(lst):
         # calculate standard deviation
         dev = stddev(lst, avg)
     return avg, rate, (a, b), dev
+
+
+# docstring parsing
+SUPERVISOR_PARAM_FORMAT = re.compile(r'^@param\s+(?P<type>[a-z]+)\s+(?P<name>\w+)\s+(?P<desc>.*)$')
+SUPERVISOR_RETURN_FORMAT = re.compile(r'^@return\s+(?P<type>[a-z]+)(\s+(?P<name>\w+)(\s+(?P<desc>.*))?)?$')
+
+TYPE_FORMAT = r'(?P<type>[\w\[\], ]+)'
+SUPVISORS_PARAM_FORMAT = re.compile(rf'^:param\s+{TYPE_FORMAT}\s+(?P<name>\w+):\s+(?P<desc>.*)$')
+SUPVISORS_RETURN_FORMAT = re.compile(r'^:return:\s+(?P<desc>.*)$')
+SUPVISORS_RTYPE_FORMAT = re.compile(rf'^:rtype:\s+{TYPE_FORMAT}$')
+SUPVISORS_RAISE_FORMAT = re.compile(r'^:raises\s+(?P<exc>\w+):\s+(?P<desc>.*)$')
+
+
+def parse_docstring(comment: str) -> Tuple:
+    """ Extract information from the docstring.
+    Return the same structure as supervisor.xmlrpc.gettags. """
+    description = [0, None, None, None, []]
+    parameters = {}
+    returns = None
+    raises = {}
+    # deal with description first
+    current_struct = description
+    current_desc = description[4]
+    # reading fields
+    for idx, line in enumerate(comment.split('\n')):
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+        match = False
+        # deal with parameters
+        for fmt in [SUPERVISOR_PARAM_FORMAT, SUPVISORS_PARAM_FORMAT]:
+            result = fmt.match(stripped_line)
+            if result:
+                match = True
+                param_name = result.group('name')
+                current_struct = parameters[param_name] = [idx, 'param', result.group('type'), param_name,
+                                                           [result.group('desc')]]
+        # deal with Supervisor return
+        result = SUPERVISOR_RETURN_FORMAT.match(stripped_line)
+        if result:
+            match = True
+            # Supervisor does not always provides a return name (e.g. signalProcess)
+            name = result.group('name') or ''
+            # Supervisor does not always provides a return description (e.g. getPID)
+            desc = result.group('desc')
+            returns = [idx, 'return', result.group('type'), name, [desc] if desc else []]
+            current_struct = returns
+        # deal with Supvisors return
+        result = SUPVISORS_RETURN_FORMAT.match(stripped_line)
+        if result:
+            match = True
+            if returns:
+                returns[4] = [result.group('desc')]
+            else:
+                returns = [idx, 'return', None, None, [result.group('desc')]]
+            current_struct = returns
+        result = SUPVISORS_RTYPE_FORMAT.match(stripped_line)
+        if result:
+            match = True
+            if returns:
+                returns[2] = result.group('type')
+            else:
+                returns = [idx, 'return', result.group('type'), None, []]
+            current_struct = returns
+        # deal with Supvisors raises
+        result = SUPVISORS_RAISE_FORMAT.match(stripped_line)
+        if result:
+            match = True
+            exc = result.group('exc')
+            current_struct = raises[exc] = [idx, 'raises', exc, None, [result.group('desc')]]
+        # deal with description
+        if match:
+            current_desc = current_struct[4]
+        else:
+            current_desc.append(stripped_line)
+    # return as gettags (exceptions not used)
+    description[4] = '\n'.join(description[4])
+    returns[4] = '\n'.join(returns[4])
+    for param in parameters.values():
+        param[4] = '\n'.join(param[4])
+    return [tuple(description)] + [tuple(param) for param in parameters.values()] + [tuple(returns)]

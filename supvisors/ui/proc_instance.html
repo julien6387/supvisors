@@ -52,7 +52,9 @@
                     <h2><span meld:id="instance_mid">Supervisor</span> - <span meld:id="percent_mid">50%</span></h2>
                     <div id="state_modes">
                         <div>
-                            <h3><code meld:id="state_mid">SupvisorsStates</code></h3>
+                            <h3>
+                                <code meld:id="state_mid">SupvisorsStates</code>
+                            </h3>
                         </div>
                         <div>
                             <ul class="vertical">
@@ -75,7 +77,7 @@
 
                 <div meld:id="period_div_mid">
                     <table class="optionBox">
-                        <tr><th>Statistics Period</th></tr>
+                        <tr><th>Statistics Periods</th></tr>
                         <tr><td><ul class="linear">
                             <li meld:id="period_li_mid">
                                 <a href="#" meld:id="period_a_mid" class="button">Period</a>
@@ -92,12 +94,12 @@
                             </a>
                         </li>
                         <li>
-                            <a href="proc_instance.html?action=restartsup">
+                            <a href="#" meld:id="restartsup_a_mid" class="on">
                                 <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/>
                             </a>
                         </li>
                         <li>
-                            <a href="proc_instance.html?action=shutdownsup">
+                            <a href="#" meld:id="shutdownsup_a_mid" class="on">
                                 <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/>
                             </a>
                         </li>
@@ -154,7 +156,7 @@
                         <tbody>
                             <tr meld:id="tr_mid">
                                 <td meld:id="shex_td_mid" class="shex centered"><a href="#" meld:id="shex_a_mid"></a></td>
-                                <td><a href="#" meld:id="name_a_mid">Name</a></td>
+                                <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid">Name</a></td>
                                 <td meld:id="state_td_mid" class="centered">State</td>
                                 <td meld:id="desc_td_mid">Description</td>
                                 <td meld:id="load_td_mid" class="centered expected">--</td>

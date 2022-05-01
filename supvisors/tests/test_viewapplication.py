@@ -17,20 +17,16 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import call, Mock
 
-from supervisor.http import NOT_DONE_YET
+import pytest
 from supervisor.web import MeldView
-from supervisor.xmlrpc import RPCError
 
 from supvisors.ttypes import ApplicationStates, StartingStrategies
 from supvisors.viewapplication import ApplicationView
 from supvisors.viewcontext import APPLI, AUTO, PROCESS, STRATEGY
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import APPLICATION_PAGE
-
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -178,8 +174,8 @@ def test_write_application_actions(view):
     # test call
     view.write_application_actions(mocked_root)
     assert view.view_ctx.format_url.call_args_list == [call('', APPLICATION_PAGE, action='startapp'),
-                      call('', APPLICATION_PAGE, action='stopapp'),
-                      call('', APPLICATION_PAGE, action='restartapp')]
+                                                       call('', APPLICATION_PAGE, action='stopapp'),
+                                                       call('', APPLICATION_PAGE, action='restartapp')]
     assert actions_mid[0].attributes.call_args_list == [call(href='a start url')]
     assert actions_mid[1].attributes.call_args_list == [call(href='a stop url')]
     assert actions_mid[2].attributes.call_args_list == [call(href='a restart url')]
@@ -251,7 +247,7 @@ def test_write_contents(mocker, view):
     assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy_proc'})]
 
 
-def test_get_process_last_desc(mocker, view):
+def test_get_process_last_desc(view):
     """ Test the ViewApplication.get_process_last_desc method. """
     # build common Mock
     mocked_process = Mock(**{'get_last_description.return_value': ('10.0.0.1', 'the latest comment')})
@@ -265,22 +261,26 @@ def test_get_process_data(mocker, view):
     # patch the selected application
     process_1 = Mock(application_name='appli_1', process_name='process_1', namespec='namespec_1',
                      running_identifiers=set(), state='stopped', rules=Mock(expected_load=20),
-                     **{'state_string.return_value': 'stopped', 'has_crashed.return_value': False})
+                     **{'state_string.return_value': 'stopped', 'has_crashed.return_value': False,
+                        'disabled.return_value': True, 'possible_identifiers.return_value': []})
     process_2 = Mock(application_name='appli_2', process_name='process_2', namespec='namespec_2',
                      running_identifiers=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
                      state='running', rules=Mock(expected_load=1),
-                     **{'state_string.return_value': 'running', 'has_crashed.return_value': True})
+                     **{'state_string.return_value': 'running', 'has_crashed.return_value': True,
+                        'disabled.return_value': False, 'possible_identifiers.return_value': ['10.0.0.1']})
     view.application = Mock(processes={process_1.process_name: process_1, process_2.process_name: process_2})
     # patch context
     mocked_stats = Mock()
     view.view_ctx = Mock(**{'get_process_stats.return_value': (4, mocked_stats)})
     mocker.patch.object(view, 'get_process_last_desc', return_value=('10.0.0.1', 'something'))
     # test call
-    data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1', 'disabled': False,
+    data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1',
+             'disabled': True, 'startable': False,
              'identifier': '10.0.0.1', 'statename': 'stopped', 'statecode': 'stopped', 'gravity': 'stopped',
              'has_crashed': False, 'running_identifiers': [], 'description': 'something',
              'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats}
-    data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2', 'disabled': False,
+    data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
+             'disabled': False, 'startable': True,
              'identifier': '10.0.0.1', 'statename': 'running', 'statecode': 'running', 'gravity': 'running',
              'has_crashed': True, 'running_identifiers': ['10.0.0.1', '10.0.0.3'], 'description': 'something',
              'expected_load': 1, 'nb_cores': 4, 'proc_stats': mocked_stats}
@@ -389,130 +389,116 @@ def test_make_callback(mocker, view):
     assert mocked_clear_proc.call_args_list == [call('dummy')]
 
 
-@pytest.fixture
-def messages(mocker):
-    """ Install patches on all message functions"""
-    patches = [mocker.patch('supvisors.viewapplication.delayed_error', return_value='Delay err'),
-               mocker.patch('supvisors.viewapplication.delayed_warn', return_value='Delay warn'),
-               mocker.patch('supvisors.viewapplication.delayed_info', return_value='Delay info'),
-               mocker.patch('supvisors.viewapplication.error_message', return_value='Msg err'),
-               mocker.patch('supvisors.viewapplication.warn_message', return_value='Msg warn'),
-               mocker.patch('supvisors.viewapplication.info_message', return_value='Msg info')]
-    [p.start() for p in patches]
-    yield
-    [p.stop() for p in patches]
-
-
-def check_start_action(view, rpc_name, action_name, *args):
-    """ Test the method named action_name. """
-    for auto in [True, False]:
-        view.view_ctx = Mock(parameters={AUTO: auto})
-        # get methods involved
-        rpc_call = getattr(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name)
-        action = getattr(view, action_name)
-        # test call with error on main RPC call
-        rpc_call.side_effect = RPCError('failed RPC')
-        assert action(StartingStrategies.CONFIG, *args) == 'Delay err'
-        # test call with direct result (application started)
-        rpc_call.side_effect = None
-        rpc_call.return_value = True
-        assert action(StartingStrategies.CONFIG, *args) == 'Delay info'
-        # test call with direct result (application NOT started)
-        rpc_call.return_value = False
-        assert action(StartingStrategies.CONFIG, *args) == 'Delay warn'
-        # test call with indirect result leading to internal RPC error
-        rpc_call.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
-        result = action(StartingStrategies.CONFIG, *args)
-        assert callable(result)
-        assert result() == 'Msg err'
-        # test call with indirect result leading to unfinished job
-        rpc_call.return_value = lambda: NOT_DONE_YET
-        result = action(StartingStrategies.CONFIG, *args)
-        assert callable(result)
-        assert result() is NOT_DONE_YET
-        # test call with indirect result leading to failure
-        rpc_call.return_value = lambda: False
-        result = action(StartingStrategies.CONFIG, *args)
-        assert callable(result)
-        assert result() == 'Msg warn'
-        # test call with indirect result leading to success
-        rpc_call.return_value = lambda: True
-        result = action(StartingStrategies.CONFIG, *args)
-        assert callable(result)
-        assert result() == 'Msg info'
-
-
-def test_start_application_action(view, messages):
+def test_start_application_action(mocker, view):
     """ Test the start_application_action method. """
-    check_start_action(view, 'start_application', 'start_application_action')
+    mocked_action = mocker.patch.object(view, 'supvisors_rpc_action')
+    view.application_name = 'dummy_appli'
+    # test without auto-refresh
+    view.view_ctx = Mock(parameters={AUTO: False})
+    view.start_application_action(StartingStrategies.CONFIG)
+    assert mocked_action.call_args_list == [call('start_application',
+                                                 (StartingStrategies.CONFIG.value, 'dummy_appli', True),
+                                                 'Application dummy_appli started')]
+    mocker.resetall()
+    # test with auto-refresh
+    view.view_ctx.parameters[AUTO] = True
+    view.start_application_action(StartingStrategies.LOCAL)
+    assert mocked_action.call_args_list == [call('start_application',
+                                                 (StartingStrategies.LOCAL.value, 'dummy_appli', False),
+                                                 'Application dummy_appli started')]
 
 
-def test_restart_application_action(view, messages):
-    """ Test the restart_application_action method. """
-    check_start_action(view, 'restart_application', 'restart_application_action')
-
-
-def test_start_process_action(view, messages):
-    """ Test the start_process_action method. """
-    check_start_action(view, 'start_process', 'start_process_action', 'dummy_proc')
-
-
-def test_restart_process_action(view, messages):
-    """ Test the restart_process_action method. """
-    check_start_action(view, 'restart_process', 'restart_process_action', 'dummy_proc')
-
-
-def check_stop_action(view, rpc_name, action_name, *args):
-    """ Test the stop-like method named action_name. """
-    for auto in [True, False]:
-        view.view_ctx = Mock(parameters={AUTO: auto})
-        # get methods involved
-        rpc_call = getattr(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name)
-        action = getattr(view, action_name)
-        # test call with error on main RPC call
-        rpc_call.side_effect = RPCError('failed RPC')
-        assert action(*args) == 'Delay err'
-        # test call with direct result (application started)
-        rpc_call.side_effect = None
-        rpc_call.return_value = True
-        assert action(*args) == 'Delay info'
-        # test call with direct result (application NOT started)
-        rpc_call.return_value = False
-        assert action(*args) == 'Delay warn'
-        # test call with indirect result leading to internal RPC error
-        rpc_call.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
-        result = action(*args)
-        assert callable(result)
-        assert result() == 'Msg err'
-        # test call with indirect result leading to unfinished job
-        rpc_call.return_value = lambda: NOT_DONE_YET
-        result = action(*args)
-        assert callable(result)
-        assert result() is NOT_DONE_YET
-        # test call with indirect result leading to success
-        rpc_call.return_value = lambda: True
-        result = action(*args)
-        assert callable(result)
-        assert result() == 'Msg info'
-
-
-def test_stop_application_action(view, messages):
+def test_stop_application_action(mocker, view):
     """ Test the stop_application_action method. """
-    check_stop_action(view, 'stop_application', 'stop_application_action')
+    mocked_action = mocker.patch.object(view, 'supvisors_rpc_action')
+    view.application_name = 'dummy_appli'
+    # test without auto-refresh
+    view.view_ctx = Mock(parameters={AUTO: False})
+    view.stop_application_action()
+    assert mocked_action.call_args_list == [call('stop_application', ('dummy_appli', True),
+                                                 'Application dummy_appli stopped')]
+    mocker.resetall()
+    # test with auto-refresh
+    view.view_ctx.parameters[AUTO] = True
+    view.stop_application_action()
+    assert mocked_action.call_args_list == [call('stop_application', ('dummy_appli', False),
+                                                 'Application dummy_appli stopped')]
 
 
-def test_stop_process_action(view, messages):
+def test_restart_application_action(mocker, view):
+    """ Test the restart_application_action method. """
+    mocked_action = mocker.patch.object(view, 'supvisors_rpc_action')
+    view.application_name = 'dummy_appli'
+    # test without auto-refresh
+    view.view_ctx = Mock(parameters={AUTO: False})
+    view.restart_application_action(StartingStrategies.LESS_LOADED)
+    assert mocked_action.call_args_list == [call('restart_application',
+                                                 (StartingStrategies.LESS_LOADED.value, 'dummy_appli', True),
+                                                 'Application dummy_appli restarted')]
+    mocker.resetall()
+    # test with auto-refresh
+    view.view_ctx.parameters[AUTO] = True
+    view.restart_application_action(StartingStrategies.LESS_LOADED_NODE)
+    assert mocked_action.call_args_list == [call('restart_application',
+                                                 (StartingStrategies.LESS_LOADED_NODE.value, 'dummy_appli', False),
+                                                 'Application dummy_appli restarted')]
+
+
+def test_start_process_action(mocker, view):
+    """ Test the start_process_action method. """
+    mocked_action = mocker.patch.object(view, 'supvisors_rpc_action')
+    # test without auto-refresh
+    view.view_ctx = Mock(parameters={AUTO: False})
+    view.start_process_action(StartingStrategies.MOST_LOADED_NODE, 'dummy_proc')
+    assert mocked_action.call_args_list == [call('start_process',
+                                                 (StartingStrategies.MOST_LOADED_NODE.value, 'dummy_proc', '', True),
+                                                 'Process dummy_proc started')]
+    mocker.resetall()
+    # test with auto-refresh
+    view.view_ctx.parameters[AUTO] = True
+    view.start_process_action(StartingStrategies.MOST_LOADED, 'dummy_proc')
+    assert mocked_action.call_args_list == [call('start_process',
+                                                 (StartingStrategies.MOST_LOADED.value, 'dummy_proc', '', False),
+                                                 'Process dummy_proc started')]
+
+
+def test_stop_process_action(mocker, view):
     """ Test the stop_process_action method. """
-    check_stop_action(view, 'stop_process', 'stop_process_action', 'dummy_proc')
+    mocked_action = mocker.patch.object(view, 'supvisors_rpc_action')
+    # test without auto-refresh
+    view.view_ctx = Mock(parameters={AUTO: False})
+    view.stop_process_action('dummy_proc')
+    assert mocked_action.call_args_list == [call('stop_process', ('dummy_proc', True),
+                                                 'Process dummy_proc stopped')]
+    mocker.resetall()
+    # test with auto-refresh
+    view.view_ctx.parameters[AUTO] = True
+    view.stop_process_action('dummy_proc')
+    assert mocked_action.call_args_list == [call('stop_process', ('dummy_proc', False),
+                                                 'Process dummy_proc stopped')]
 
 
-def test_clearlog_process_action(view, messages):
+def test_restart_process_action(mocker, view):
+    """ Test the restart_process_action method. """
+    mocked_action = mocker.patch.object(view, 'supvisors_rpc_action')
+    # test without auto-refresh
+    view.view_ctx = Mock(parameters={AUTO: False})
+    view.restart_process_action(StartingStrategies.LOCAL, 'dummy_proc')
+    assert mocked_action.call_args_list == [call('restart_process',
+                                                 (StartingStrategies.LOCAL.value, 'dummy_proc', '', True),
+                                                 'Process dummy_proc restarted')]
+    mocker.resetall()
+    # test with auto-refresh
+    view.view_ctx.parameters[AUTO] = True
+    view.restart_process_action(StartingStrategies.CONFIG, 'dummy_proc')
+    assert mocked_action.call_args_list == [call('restart_process',
+                                                 (StartingStrategies.CONFIG.value, 'dummy_proc', '', False),
+                                                 'Process dummy_proc restarted')]
+
+
+def test_clearlog_process_action(mocker, view):
     """ Test the clearlog_process_action method. """
-    # get rpc involved (mock)
-    rpc_call = view.supvisors.supervisor_data.supervisor_rpc_interface.clearProcessLogs
-    # test call with error on main RPC call
-    rpc_call.side_effect = RPCError(777, 'failed RPC')
-    assert view.clearlog_process_action('namespec') == 'Delay err'
-    # test call with direct result (application started)
-    rpc_call.side_effect = None
-    assert view.clearlog_process_action('namespec') == 'Delay info'
+    mocked_action = mocker.patch.object(view, 'supervisor_rpc_action')
+    view.clearlog_process_action('dummy_proc')
+    assert mocked_action.call_args_list == [call('clearProcessLogs', ('dummy_proc', ),
+                                                 'Log for dummy_proc cleared')]

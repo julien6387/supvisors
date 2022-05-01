@@ -98,6 +98,14 @@ class SupvisorsInstanceView(StatusView):
         elt = root.findmeld('stopall_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})
         elt.attributes(href=url)
+        # configure restart button
+        elt = root.findmeld('restartsup_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartsup'})
+        elt.attributes(href=url)
+        # configure shutdown button
+        elt = root.findmeld('shutdownsup_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'shutdownsup'})
+        elt.attributes(href=url)
 
     # ACTION part
     def make_callback(self, namespec, action):

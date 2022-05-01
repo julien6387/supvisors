@@ -4,7 +4,7 @@
 test_dir=$(dirname "$(readlink -f "$0")")
 
 # set default hosts if not provided in command line
-HOSTS=${@:-cliche81 cliche82 cliche83}
+HOSTS=${@:-rocky51 rocky52 rocky53}
 
 # configure 3 applications
 SRV_CONFIG_CMD="supvisors_breed -d etc -t template_etc -p server/*.ini -b scen2_srv=3 -x -v"
