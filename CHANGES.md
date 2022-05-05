@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.15 (2022-xx-xx)
+
+* Fix process CPU times in statistics so that children processes are all taken into account.
+
+
 ## 0.14 (2022-05-01)
 
 * Implement [Supervisor Issue #1054](https://github.com/Supervisor/supervisor/issues/1054).
