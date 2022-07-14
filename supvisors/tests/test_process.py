@@ -239,6 +239,8 @@ def test_process_disabled(supvisors):
     """ Test the ProcessStatus.disabled method. """
     info = any_process_info()
     process = create_process(info, supvisors)
+    # test enabled when no possible identifiers
+    assert not process.disabled()
     process.add_info('10.0.0.1', info)
     process.add_info('10.0.0.2', info.copy())
     # test enabled

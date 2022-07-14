@@ -314,11 +314,11 @@ class ProcessStatus(object):
 
     # access
     def disabled(self) -> bool:
-        """ Check if the process is disabled on all possible Supvisors instances.
+        """ Check if the process is disabled on all Supvisors instances knowing the process.
 
-        :return: the disabled status of the process on the possible Supvisors instances
+        :return: the disabled status of the process
         """
-        return all(self.info_map[identifier]['disabled'] for identifier in self.possible_identifiers())
+        return self.info_map and all(info['disabled'] for info in self.info_map.values())
 
     def disabled_on(self, identifier: str) -> bool:
         """ Check if the process is disabled on the Supvisors instance identified.

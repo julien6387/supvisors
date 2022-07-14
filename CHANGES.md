@@ -4,6 +4,8 @@
 
 * Fix process CPU times in statistics so that children processes are all taken into account.
 
+* A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.
+
 
 ## 0.14 (2022-05-01)
 
