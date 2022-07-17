@@ -42,14 +42,6 @@ def ctx(mocker, http_context):
     return ViewContext(http_context)
 
 
-@pytest.fixture
-def ctx_no_stats(mocker, http_context):
-    """ Fixture for the instance to test. """
-    supvisors = http_context.supervisord.supvisors
-    supvisors.options.stats_enabled = False
-    return ViewContext(http_context)
-
-
 def test_init(http_context, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
@@ -63,20 +55,6 @@ def test_init(http_context, ctx):
     assert len(ctx.store_message) == 2
     assert ctx.store_message[0] == 'erro'
     assert not ctx.redirect
-
-
-def test_init_no_stats(http_context, ctx_no_stats):
-    """ Test the values set at ViewContext construction. """
-    assert ctx_no_stats.http_context is http_context
-    assert ctx_no_stats.supvisors is http_context.supervisord.supvisors
-    assert ctx_no_stats.local_identifier == ctx_no_stats.supvisors.supvisors_mapper.local_identifier
-    assert ctx_no_stats.parameters == {'ident': '10.0.0.4', 'namespec': None, 'appliname': None,
-                                       'processname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
-    # errors must be set due to dummy values
-    assert isinstance(ctx_no_stats.store_message, tuple)
-    assert len(ctx_no_stats.store_message) == 2
-    assert ctx_no_stats.store_message[0] == 'erro'
-    assert not ctx_no_stats.redirect
 
 
 def test_get_action(ctx):

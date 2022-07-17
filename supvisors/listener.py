@@ -312,10 +312,8 @@ class SupervisorListener(object):
             self.supvisors.fsm.on_process_disability_event(event_identifier, event_data)
         elif event_type == InternalEventHeaders.STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
-            # unless the function is explicitly disabled
             self.logger.trace(f'SupervisorListener.unstack_event: got STATISTICS from {event_identifier}: {event_data}')
-            if self.supvisors.options.stats_enabled:
-                self.supvisors.statistician.push_statistics(event_identifier, event_data)
+            self.supvisors.statistician.push_statistics(event_identifier, event_data)
         elif event_type == InternalEventHeaders.STATE.value:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}')
             self.supvisors.fsm.on_state_event(event_identifier, event_data)

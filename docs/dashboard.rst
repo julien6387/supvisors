@@ -276,6 +276,12 @@ The periods can be updated in the :ref:`supvisors_section` of the |Supervisor| c
 Next to it, the 'Statistics Period' box enables the user to choose the period used for the statistics of this page.
 The periods can be updated in the :ref:`supvisors_section` of the |Supervisor| configuration file.
 
+.. note::
+
+    These two boxes are not displayed if the optional module |psutil| is not installed or if the statistics
+    are disabled through the ``stats_enabled`` option of the :ref:`supvisors_section` of the |Supervisor|
+    configuration file.
+
 On the right side, 5 buttons are available:
 
     * |stop| stops all the processes handled by |Supervisor| in this |Supvisors| instance ;
@@ -315,7 +321,7 @@ process cannot be started if the the corresponding program has been disabled.
 
 .. note::
 
-    CPU usage and memory are available only if the optional module |psutil| has been installed and if the statistics
+    CPU usage and memory are available only if the optional module |psutil| is installed and if the statistics
     are not disabled through the ``stats_enabled`` option of the :ref:`supvisors_section` of the |Supervisor|
     configuration file.
 
@@ -476,7 +482,10 @@ Indeed, |Supvisors| uses the rules of the program (as defined in the rules file)
 in the header part to choose a relevant |Supvisors| instance. If no rule is defined for the program, the Start button
 will be disabled.
 
-As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
+As previously, a click on the CPU or Memory measures shows detailed statistics about the process. And unlike
+the `Supervisor page`_, statistics informations are not hidden in this page because they may have been collected
+on the other nodes (due to a different configuration) and thus can be made available here.
+
 
 .. include:: common.rst
 

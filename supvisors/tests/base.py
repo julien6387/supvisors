@@ -96,7 +96,7 @@ class MockedSupvisors:
         self.failure_handler = Mock(spec=RunningFailureHandler)
         self.fsm = Mock(spec=FiniteStateMachine)
         self.statistician = Mock(data={}, nbcores={})
-        self.listener = Mock(spec=SupervisorListener)
+        self.listener = Mock(spec=SupervisorListener, collector=Mock())
         self.parser = Mock(spec=Parser)
         # should be set in listener
         self.zmq = Mock(spec=SupervisorZmq)

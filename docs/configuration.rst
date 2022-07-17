@@ -241,7 +241,7 @@ behavior may happen. The present section details where it is applicable.
 
     By default, |Supvisors| can provide basic statistics on the node and the processes spawned by |Supervisor|
     on the |Supvisors| :ref:`dashboard`, provided that the |psutil| module is installed.
-    This option can be used to disable the collection and the display of the statistics.
+    This option can be used to disable the collection of the statistics.
 
     *Default*:  ``true``.
 

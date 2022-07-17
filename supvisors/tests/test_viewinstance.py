@@ -23,7 +23,7 @@ import pytest
 from supervisor.web import MeldView
 
 from supvisors.ttypes import SupvisorsInstanceStates
-from supvisors.viewsupstatus import *
+from supvisors.viewinstance import *
 from supvisors.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
 from .base import DummyHttpContext
 from .conftest import create_element
@@ -47,6 +47,16 @@ def view(http_context):
     return SupvisorsInstanceView(http_context, HOST_INSTANCE_PAGE)
 
 
+@pytest.fixture
+def view_no_stats(http_context):
+    """ Return the instance to test, in which statistics have been disabled. """
+    # apply the forced inheritance done in supvisors.plugin
+    StatusView.__bases__ = (ViewHandler,)
+    # create the instance to be tested
+    http_context.supervisord.supvisors.options.stats_enabled = False
+    return SupvisorsInstanceView(http_context, HOST_INSTANCE_PAGE)
+
+
 def test_init(view):
     """ Test the values set at construction. """
     # test instance inheritance
@@ -54,6 +64,17 @@ def test_init(view):
         assert isinstance(view, klass)
     # test parameter page name
     assert view.page_name == HOST_INSTANCE_PAGE
+    assert view.has_statistics
+
+
+def test_init_no_stats(view_no_stats):
+    """ Test the values set at construction. """
+    # test instance inheritance
+    for klass in [StatusView, ViewHandler, MeldView]:
+        assert isinstance(view_no_stats, klass)
+    # test parameter page name
+    assert view_no_stats.page_name == HOST_INSTANCE_PAGE
+    assert not view_no_stats.has_statistics
 
 
 def test_render(mocker, view):
@@ -123,9 +144,36 @@ def test_write_header(mocker, view):
     assert mocked_actions.call_args_list == [call(mocked_root, mocked_status)]
 
 
-def test_write_instance_actions(view):
-    """ Test the write_instance_actions method. """
+def test_write_instance_actions(mocker, view):
+    """ Test the SupvisorsInstanceView.write_instance_actions method. """
+    mocked_switch = mocker.patch.object(view, 'write_view_switch')
     # set context (meant to be set through render)
+    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+    # set instance context
+    mocked_status = Mock(**{'supvisors_id.host_name': '10.0.0.1'})
+    # build root structure
+    mocked_stop_mid = create_element()
+    mocked_restart_mid = create_element()
+    mocked_shutdown_mid = create_element()
+    mocked_root = create_element({'stopall_a_mid': mocked_stop_mid, 'restartsup_a_mid': mocked_restart_mid,
+                                  'shutdownsup_a_mid': mocked_shutdown_mid})
+    # test call when SupvisorsInstanceView is a host page
+    view.page_name = HOST_INSTANCE_PAGE
+    view.write_instance_actions(mocked_root, mocked_status)
+    assert mocked_root.findmeld.call_args_list == [call('stopall_a_mid'), call('restartsup_a_mid'),
+                                                   call('shutdownsup_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE, **{ACTION: 'stopall'}),
+                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
+                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
+    assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
+    assert mocked_restart_mid.attributes.call_args_list == [call(href='an url')]
+    assert mocked_shutdown_mid.attributes.call_args_list == [call(href='an url')]
+
+
+def test_write_view_switch(view):
+    """ Test the SupvisorsInstanceView.write_view_switch method. """
+    # set context (meant to be set through constructor and render)
+    view.has_statistics = True
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # set instance context
     mocked_status = Mock(**{'supvisors_id.host_name': '10.0.0.1'})
@@ -133,60 +181,43 @@ def test_write_instance_actions(view):
     mocked_process_view_mid = create_element()
     mocked_host_view_mid = create_element()
     mocked_view_mid = create_element()
-    mocked_stop_mid = create_element()
-    mocked_restart_mid = create_element()
-    mocked_shutdown_mid = create_element()
     mocked_root = create_element({'process_view_a_mid': mocked_process_view_mid,
-                                  'host_view_a_mid': mocked_host_view_mid, 'view_div_mid': mocked_view_mid,
-                                  'stopall_a_mid': mocked_stop_mid, 'restartsup_a_mid': mocked_restart_mid,
-                                  'shutdownsup_a_mid': mocked_shutdown_mid})
-    # statistics are first enabled
-    view.supvisors.options.stats_enabled = True
+                                  'host_view_a_mid': mocked_host_view_mid,
+                                  'view_div_mid': mocked_view_mid})
     # test call when SupvisorsInstanceView is a host page
     view.page_name = HOST_INSTANCE_PAGE
-    view.write_instance_actions(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('process_view_a_mid'), call('host_view_a_mid'),
-                                                   call('stopall_a_mid'), call('restartsup_a_mid'),
-                                                   call('shutdownsup_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE),
-                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'stopall'}),
-                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
-                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
+    view.write_view_switch(mocked_root, mocked_status)
+    assert mocked_root.findmeld.call_args_list == [call('process_view_a_mid'), call('host_view_a_mid'), ]
+    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE)]
     assert mocked_process_view_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
     assert not mocked_view_mid.replace.called
-    assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
     mocked_root.reset_all()
     view.view_ctx.format_url.reset_mock()
-    # test call when SupvisorsInstanceView is a process page
+    # test call when SupvisorsInstanceView is a process page and statistics are enabled
     view.page_name = PROC_INSTANCE_PAGE
-    view.write_instance_actions(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('host_view_a_mid'), call('stopall_a_mid'),
-                                                   call('restartsup_a_mid'), call('shutdownsup_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE),
-                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'}),
-                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
-                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
+    view.write_view_switch(mocked_root, mocked_status)
+    assert mocked_root.findmeld.call_args_list == [call('host_view_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE)]
     assert not mocked_process_view_mid.attributes.called
     assert mocked_host_view_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
     assert not mocked_view_mid.replace.called
-    assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
     mocked_root.reset_all()
     view.view_ctx.format_url.reset_mock()
-    # test call with statistics disabled
-    view.supvisors.options.stats_enabled = False
-    view.write_instance_actions(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('view_div_mid'), call('stopall_a_mid'),
-                                                   call('restartsup_a_mid'), call('shutdownsup_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'}),
-                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
-                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
-    assert not mocked_process_view_mid.attributes.called
-    assert not mocked_host_view_mid.attributes.called
-    assert not mocked_host_view_mid.content.called
-    assert mocked_view_mid.replace.call_args_list == [call('')]
-    assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
+    # test call when statistics are disabled or collector is missing
+    view.has_statistics = False
+    for page in [PROC_INSTANCE_PAGE, HOST_INSTANCE_PAGE]:
+        view.page_name = page
+        view.write_view_switch(mocked_root, mocked_status)
+        assert mocked_root.findmeld.call_args_list == [call('view_div_mid')]
+        assert not mocked_host_view_mid.content.called
+        assert mocked_host_view_mid.attrib == {'class': ''}
+        assert not view.view_ctx.format_url.called
+        assert not mocked_process_view_mid.attributes.called
+        assert not mocked_host_view_mid.attributes.called
+        assert mocked_view_mid.replace.call_args_list == [call('')]
+        mocked_root.reset_all()
 
 
 def test_make_callback(mocker, view):
@@ -207,7 +238,7 @@ def test_make_callback(mocker, view):
 
 def test_restart_sup_action(mocker, view):
     """ Test the restart_sup_action method. """
-    mocker.patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
+    mocker.patch('supvisors.viewinstance.delayed_warn', return_value='delayed warn')
     mocked_pusher = mocker.patch.object(view.supvisors.zmq.pusher, 'send_restart')
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.restart_sup_action() == 'delayed warn'
@@ -216,7 +247,7 @@ def test_restart_sup_action(mocker, view):
 
 def test_shutdown_sup_action(mocker, view):
     """ Test the shutdown_sup_action method. """
-    mocker.patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
+    mocker.patch('supvisors.viewinstance.delayed_warn', return_value='delayed warn')
     mocked_pusher = mocker.patch.object(view.supvisors.zmq.pusher, 'send_shutdown')
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.shutdown_sup_action() == 'delayed warn'

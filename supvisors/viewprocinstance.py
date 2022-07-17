@@ -25,7 +25,7 @@ from .application import ApplicationStatus
 from .instancestatus import SupvisorsInstanceStatus
 from .ttypes import SupvisorsFaults, Payload, PayloadList, ProcessHistoryStats
 from .viewcontext import *
-from .viewsupstatus import SupvisorsInstanceView
+from .viewinstance import SupvisorsInstanceView
 from .webutils import *
 
 

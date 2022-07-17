@@ -63,6 +63,7 @@ def test_init(http_context, handler):
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
     assert handler.local_identifier == handler.supvisors.supvisors_mapper.local_identifier
+    assert handler.has_statistics
     assert handler.view_ctx is None
 
 
@@ -400,7 +401,7 @@ def test_write_periods(handler):
     mocked_mid = Mock()
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call when statistics are disabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_periods(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('period_div_mid')]
     assert mocked_mid.replace.call_args_list == [call('')]
@@ -410,7 +411,7 @@ def test_write_periods(handler):
     mocked_mid = Mock(**{'repeat.return_value': [(period_elt, 5)]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with period selection identical to parameter
-    handler.supvisors.options.stats_enabled = True
+    handler.has_statistics = True
     handler.view_ctx = Mock(parameters={PERIOD: 5}, **{'format_url.return_value': 'an url'})
     handler.write_periods(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
@@ -519,7 +520,7 @@ def test_write_common_process_cpu(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with statistics disabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_td_mid')]
     assert cell_elt.deparent.call_args_list == [call()]
@@ -604,7 +605,7 @@ def test_write_common_process_mem(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with statistics disabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_td_mid')]
     assert cell_elt.deparent.call_args_list == [call()]
@@ -725,7 +726,7 @@ def test_write_common_process_table(handler):
                'mem_foot_th_mid': mem_foot_elt, 'cpu_foot_th_mid': cpu_foot_elt, 'total_mid': None}
     root = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
     # test with statistics enabled
-    handler.supvisors.options.stats_enabled = True
+    handler.has_statistics = True
     handler.write_common_process_table(root)
     assert not root.findmeld.called
     assert not mem_head_elt.deparent.called
@@ -733,7 +734,7 @@ def test_write_common_process_table(handler):
     assert not cpu_head_elt.deparent.called
     assert not cpu_foot_elt.deparent.called
     # test with statistics enabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_common_process_table(root)
     assert root.findmeld.call_args_list == [call('mem_head_th_mid'), call('cpu_head_th_mid'),
                                             call('mem_foot_th_mid'), call('cpu_foot_th_mid'), call('total_mid')]

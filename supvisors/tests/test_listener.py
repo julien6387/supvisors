@@ -355,8 +355,8 @@ def test_unstack_event_process_disability(listener):
     assert not listener.supvisors.statistician.push_statistics.called
 
 
-def test_unstack_event_statistics_enabled(listener):
-    """ Test the processing of a Supvisors statistics event when enabled. """
+def test_unstack_event_statistics(listener):
+    """ Test the processing of a Supvisors statistics event. """
     listener.unstack_event('[5, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
@@ -366,19 +366,6 @@ def test_unstack_event_statistics_enabled(listener):
     assert not listener.supvisors.fsm.on_state_event.called
     expected = [call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}, {}])]
     assert listener.supvisors.statistician.push_statistics.call_args_list == expected
-
-
-def test_unstack_event_statistics_disabled(listener):
-    """ Test the processing of a Supvisors statistics event when disabled. """
-    listener.supvisors.options.stats_enabled = False
-    listener.unstack_event('[5, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
-    assert not listener.supvisors.fsm.on_tick_event.called
-    assert not listener.supvisors.fsm.on_process_state_event.called
-    assert not listener.supvisors.fsm.on_process_added_event.called
-    assert not listener.supvisors.fsm.on_process_removed_event.called
-    assert not listener.supvisors.fsm.on_process_disability_event.called
-    assert not listener.supvisors.fsm.on_state_event.called
-    assert not listener.supvisors.statistician.push_statistics.called
 
 
 def test_unstack_event_state(listener):

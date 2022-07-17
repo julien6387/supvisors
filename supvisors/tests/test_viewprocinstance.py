@@ -26,7 +26,7 @@ from supervisor.web import MeldView, StatusView
 from supvisors.ttypes import ApplicationStates
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewprocinstance import *
-from supvisors.viewsupstatus import SupvisorsInstanceView
+from supvisors.viewinstance import SupvisorsInstanceView
 from supvisors.webutils import PROC_INSTANCE_PAGE
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
 from .conftest import create_application, create_process, create_element
@@ -593,7 +593,7 @@ def test_make_callback(mocker, view):
     mocked_stop = mocker.patch.object(view, 'stop_group_action', return_value='stopped')
     mocked_restart = mocker.patch.object(view, 'restart_group_action', return_value='restarted')
     mocked_clear = mocker.patch.object(view, 'clear_log_action', return_value='cleared')
-    mocked_parent = mocker.patch('supvisors.viewsupstatus.SupvisorsInstanceView.make_callback', return_value='default')
+    mocked_parent = mocker.patch('supvisors.viewinstance.SupvisorsInstanceView.make_callback', return_value='default')
     # test startgroup
     assert view.make_callback('namespec', 'startgroup') == 'started'
     assert mocked_start.call_args_list == [call('namespec')]

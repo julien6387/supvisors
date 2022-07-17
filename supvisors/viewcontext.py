@@ -80,11 +80,9 @@ class ViewContext:
         self.update_process_name()
         self.update_namespec()
         self.update_shrink_expand()
-        # if the statistics function is not enabled, skip the following parameters
-        if self.supvisors.options.stats_enabled:
-            self.update_period()
-            self.update_cpu_id()
-            self.update_interface_name()
+        self.update_period()
+        self.update_cpu_id()
+        self.update_interface_name()
 
     def get_action(self):
         """ Extract action requested in context form. """

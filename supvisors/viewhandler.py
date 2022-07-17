@@ -47,6 +47,8 @@ class ViewHandler(MeldView):
         self.sup_ctx = self.supvisors.context
         # keep reference to the local node name
         self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        # define statistics visibility
+        self.has_statistics = True
         # init view_ctx (only for tests)
         self.view_ctx = None
 
@@ -203,7 +205,7 @@ class ViewHandler(MeldView):
 
     def write_periods(self, root):
         """ Write configured periods for statistics. """
-        if self.supvisors.options.stats_enabled:
+        if self.has_statistics:
             # write the available periods
             mid_elt = root.findmeld('period_li_mid')
             for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
@@ -227,7 +229,7 @@ class ViewHandler(MeldView):
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
         Statistics data comes from node. """
-        if self.supvisors.options.stats_enabled:
+        if self.has_statistics:
             proc_stats = info['proc_stats']
             elt = tr_elt.findmeld('pcpu_a_mid')
             if proc_stats and len(proc_stats[0]) > 0:
@@ -257,7 +259,7 @@ class ViewHandler(MeldView):
     def write_common_process_mem(self, tr_elt, info: Payload) -> None:
         """ Write the MEM part of the common process status.
         Statistics data comes from node. """
-        if self.supvisors.options.stats_enabled:
+        if self.has_statistics:
             proc_stats = info['proc_stats']
             elt = tr_elt.findmeld('pmem_a_mid')
             if proc_stats and len(proc_stats[1]) > 0:
@@ -335,7 +337,7 @@ class ViewHandler(MeldView):
 
     def write_common_process_table(self, table_elt):
         """ Hide MEM+CPU head+foot cells if statistics disabled"""
-        if not self.supvisors.options.stats_enabled:
+        if not self.has_statistics:
             for mid in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid', 'total_mid']:
                 elt = table_elt.findmeld(mid)
                 if elt is not None:

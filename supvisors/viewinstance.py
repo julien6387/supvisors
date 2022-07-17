@@ -37,6 +37,7 @@ class SupvisorsInstanceView(StatusView):
         """ Call of the superclass constructors. """
         StatusView.__init__(self, context)
         self.page_name = page_name
+        self.has_statistics = self.supvisors.listener.collector and self.supvisors.options.stats_enabled
 
     def render(self):
         """ Catch render to force the use of ViewHandler's method instead of StatusView's method. """
@@ -79,21 +80,7 @@ class SupvisorsInstanceView(StatusView):
     def write_instance_actions(self, root, status: SupvisorsInstanceStatus):
         """ Write actions related to the Supvisors instance. """
         # configure switch page
-        if self.supvisors.options.stats_enabled:
-            # update process button
-            if self.page_name == HOST_INSTANCE_PAGE:
-                elt = root.findmeld('process_view_a_mid')
-                url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
-                elt.attributes(href=url)
-            # update host button
-            elt = root.findmeld('host_view_a_mid')
-            elt.content(f'{status.supvisors_id.host_name}')
-            if self.page_name == PROC_INSTANCE_PAGE:
-                url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
-                elt.attributes(href=url)
-        else:
-            # remove whole box if statistics disabled. Host node page is useless in this case
-            root.findmeld('view_div_mid').replace('')
+        self.write_view_switch(root, status)
         # configure stop all button
         elt = root.findmeld('stopall_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})
@@ -106,6 +93,24 @@ class SupvisorsInstanceView(StatusView):
         elt = root.findmeld('shutdownsup_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'shutdownsup'})
         elt.attributes(href=url)
+
+    def write_view_switch(self, root, status: SupvisorsInstanceStatus):
+        """ Write actions related to the Supvisors instance. """
+        if self.has_statistics:
+            # update process button
+            if self.page_name == HOST_INSTANCE_PAGE:
+                elt = root.findmeld('process_view_a_mid')
+                url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
+                elt.attributes(href=url)
+            # update host button
+            elt = root.findmeld('host_view_a_mid')
+            elt.content(f'{status.supvisors_id.host_name}')
+            if self.page_name == PROC_INSTANCE_PAGE:
+                url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
+                elt.attributes(href=url)
+        else:
+            # remove whole box if statistics are disabled. Host page is useless in this case
+            root.findmeld('view_div_mid').replace('')
 
     # ACTION part
     def make_callback(self, namespec, action):

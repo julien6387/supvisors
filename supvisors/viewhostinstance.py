@@ -20,7 +20,7 @@
 from .utils import get_stats
 from .viewcontext import *
 from .viewimage import host_cpu_img, host_mem_img, host_io_img
-from .viewsupstatus import SupvisorsInstanceView
+from .viewinstance import SupvisorsInstanceView
 from .webutils import *
 
 
