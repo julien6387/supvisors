@@ -17,11 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
+from unittest.mock import call, Mock
 
+import pytest
 from supervisor.supervisorctl import DefaultControllerPlugin
 from supervisor.xmlrpc import Faults
-from unittest.mock import call, Mock
 
 from supvisors.supvisorsctl import *
 from supvisors.ttypes import SupvisorsFaults
@@ -347,11 +347,11 @@ def test_application_rules(controller, plugin, mocked_check):
     mocked_appli.return_value = [{'application_name': 'appli_1'}, {'application_name': 'appli_2'},
                                  {'application_name': 'appli_3'}]
     mocked_rpc = plugin.supvisors().get_application_rules
-    returned_rules = [{'application_name': 'appli_1', 'managed': True, 'distributed': True,
+    returned_rules = [{'application_name': 'appli_1', 'managed': True, 'distribution': 'SINGLE_NODE',
                        'start_sequence': 2, 'stop_sequence': 3, 'starting_strategy': 'CONFIG',
                        'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'},
                       {'application_name': 'appli_2', 'managed': True,
-                       'distributed': False, 'addresses': ['10.0.0.1', '10.0.0.2', '10.0.0.3'],
+                       'distribution': 'ALL_INSTANCES', 'addresses': ['10.0.0.1', '10.0.0.2', '10.0.0.3'],
                        'start_sequence': 1, 'stop_sequence': 0, 'starting_strategy': 'LESS_LOADED',
                        'starting_failure_strategy': 'CONTINUE', 'running_failure_strategy': 'RESTART_APPLICATION'},
                       {'application_name': 'appli_3', 'managed': False}]

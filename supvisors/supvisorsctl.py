@@ -20,7 +20,6 @@
 import errno
 import socket
 import sys
-
 from types import MethodType
 
 from supervisor import supervisorctl
@@ -32,7 +31,7 @@ from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
 from .rpcinterface import API_VERSION, RPCInterface, expand_faults
-from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, Payload, enum_names
+from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, enum_names
 from .utils import simple_localtime
 
 
@@ -256,10 +255,10 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = ControllerPlugin.max_template(rules_list, 'application_name', 'Application')
                 max_identifiers = ControllerPlugin.max_template(rules_list, 'identifiers', 'Supervisor')
                 # print title
-                template = (f'%(appli)-{max_appli}s%(managed)-9s%(distributed)-13s%(identifiers)-{max_identifiers}s'
-                            '%(start_seq)-7s%(stop_seq)-7s%(starting_strategy)-13s%(starting_failure_strategy)-18s'
+                template = (f'%(appli)-{max_appli}s%(managed)-9s%(distribution)-17s%(identifiers)-{max_identifiers}s'
+                            '%(start_seq)-7s%(stop_seq)-7s%(starting_strategy)-18s%(starting_failure_strategy)-18s'
                             '%(running_failure_strategy)s')
-                title = {'appli': 'Application', 'managed': 'Managed', 'distributed': 'Distributed',
+                title = {'appli': 'Application', 'managed': 'Managed', 'distribution': 'Distribution',
                          'identifiers': 'Supervisor', 'start_seq': 'Start', 'stop_seq': 'Stop',
                          'starting_strategy': 'Starting', 'starting_failure_strategy': 'Starting_Failure',
                          'running_failure_strategy': 'Running_Failure'}
@@ -268,14 +267,15 @@ class ControllerPlugin(ControllerPluginBase):
                 for rules in rules_list:
                     if rules['managed']:
                         payload = {'appli': rules['application_name'], 'managed': True,
-                                   'distributed': rules['distributed'], 'identifiers': rules.get('identifiers', 'n/a'),
+                                   'distribution': rules['distribution'],
+                                   'identifiers': rules.get('identifiers', 'n/a'),
                                    'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'],
                                    'starting_strategy': rules['starting_strategy'],
                                    'starting_failure_strategy': rules['starting_failure_strategy'],
                                    'running_failure_strategy': rules['running_failure_strategy']}
                     else:
                         payload = {'appli': rules['application_name'], 'managed': False,
-                                   'distributed': 'n/a', 'identifiers': 'n/a',
+                                   'distribution': 'n/a', 'identifiers': 'n/a',
                                    'start_seq': 'n/a', 'stop_seq': 'n/a',
                                    'starting_strategy': 'n/a',
                                    'starting_failure_strategy': 'n/a',

@@ -4,6 +4,9 @@
 
 * Fix process CPU times in statistics so that children processes are all taken into account.
 
+* Fix regression in `supervisorctl application_rules` where the former `distributed` entry was still used
+  instead of `distribution`. 
+
 * A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.
 
 * When `psutil` is not installed on a host, the statistics-related options of the Process and Host pages
