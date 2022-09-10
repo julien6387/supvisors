@@ -17,61 +17,54 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import Mock
+
+import pytest
 
 from supvisors.ttypes import *
 
 
-def test_SupvisorsInstanceStates():
+def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
     expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
-    assert enum_names(SupvisorsInstanceStates) == expected
-    assert enum_values(SupvisorsInstanceStates) == list(range(6))
+    assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
-def test_ApplicationStates():
+def test_application_states():
     """ Test the ApplicationStates enumeration. """
     expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING']
-    assert enum_names(ApplicationStates) == expected
-    assert enum_values(ApplicationStates) == list(range(4))
+    assert [x.name for x in ApplicationStates] == expected
 
 
-def test_StartingStrategies():
+def test_starting_strategies():
     """ Test the StartingStrategies enumeration. """
     expected = ['CONFIG', 'LESS_LOADED', 'MOST_LOADED', 'LOCAL', 'LESS_LOADED_NODE', 'MOST_LOADED_NODE']
-    assert enum_names(StartingStrategies) == expected
-    assert enum_values(StartingStrategies) == list(range(6))
+    assert [x.name for x in StartingStrategies] == expected
 
 
-def test_ConciliationStrategies():
+def test_conciliation_strategies():
     """ Test the ConciliationStrategies enumeration. """
     expected = ['SENICIDE', 'INFANTICIDE', 'USER', 'STOP', 'RESTART', 'RUNNING_FAILURE']
-    assert enum_names(ConciliationStrategies) == expected
-    assert enum_values(ConciliationStrategies) == list(range(6))
+    assert [x.name for x in ConciliationStrategies] == expected
 
 
-def test_StartingFailureStrategies():
+def test_starting_failure_strategies():
     """ Test the StartingFailureStrategies enumeration. """
     expected = ['ABORT', 'STOP', 'CONTINUE']
-    assert enum_names(StartingFailureStrategies) == expected
-    assert enum_values(StartingFailureStrategies) == list(range(3))
+    assert [x.name for x in StartingFailureStrategies] == expected
 
 
-def test_RunningFailureStrategies():
+def test_running_failure_strategies():
     """ Test the RunningFailureStrategies enumeration. """
     expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION', 'SHUTDOWN', 'RESTART']
-    assert enum_names(RunningFailureStrategies) == expected
-    assert enum_values(RunningFailureStrategies) == list(range(6))
+    assert [x.name for x in RunningFailureStrategies] == expected
 
 
-def test_SupvisorsStates():
+def test_supvisors_states():
     """ Test the SupvisorsStates enumeration. """
     expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
                 'SHUTTING_DOWN', 'SHUTDOWN']
-    assert enum_names(SupvisorsStates) == expected
-    assert enum_values(SupvisorsStates) == list(range(9))
+    assert [x.name for x in SupvisorsStates] == expected
 
 
 def test_exception():
@@ -82,11 +75,11 @@ def test_exception():
     assert 'invalid transition' == str(exc.value)
 
 
-def test_SupvisorsFaults():
+def test_supvisors_faults():
     """ Test the SupvisorsFaults enumeration. """
     expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED', 'DISABLED']
-    assert enum_names(SupvisorsFaults) == expected
-    assert enum_values(SupvisorsFaults) == list(range(100, 104))
+    assert [x.name for x in SupvisorsFaults] == expected
+    assert [x.value for x in SupvisorsFaults] == list(range(100, 104))
 
 
 def test_process_event():

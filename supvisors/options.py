@@ -20,7 +20,6 @@
 import glob
 import os
 import platform
-
 from collections import OrderedDict
 from socket import gethostname
 from typing import Dict, List, TypeVar
@@ -30,7 +29,7 @@ from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byt
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
-from .ttypes import ConciliationStrategies, StartingStrategies, enum_names
+from .ttypes import ConciliationStrategies, StartingStrategies
 
 
 # Options of main section
@@ -187,7 +186,7 @@ class SupvisorsOptions(object):
             strategy = ConciliationStrategies[value]
         except KeyError:
             raise ValueError(f'invalid value for conciliation_strategy: {value}.'
-                             f' expected in {enum_names(ConciliationStrategies)}')
+                             f' expected in {[x.name for x in ConciliationStrategies]}')
         return strategy
 
     @staticmethod
@@ -197,7 +196,7 @@ class SupvisorsOptions(object):
             strategy = StartingStrategies[value]
         except KeyError:
             raise ValueError(f'invalid value for starting_strategy: {value}.'
-                             f' expected in {enum_names(StartingStrategies)}')
+                             f' expected in {[x.name for x in StartingStrategies]}')
         return strategy
 
     @staticmethod

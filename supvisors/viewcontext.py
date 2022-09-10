@@ -23,7 +23,7 @@ from typing import Optional, Tuple
 from urllib.parse import quote
 
 from .process import ProcessStatus
-from .ttypes import StartingStrategies, NameList, enum_names
+from .ttypes import StartingStrategies, NameList
 from .utils import get_bit, set_bit
 from .webutils import SUPVISORS_PAGE, error_message
 
@@ -107,7 +107,8 @@ class ViewContext:
 
     def update_strategy(self) -> None:
         """ Extract starting strategy from context. """
-        self._update_string(STRATEGY, enum_names(StartingStrategies), self.supvisors.options.starting_strategy.name)
+        self._update_string(STRATEGY, [x.name for x in StartingStrategies],
+                            self.supvisors.options.starting_strategy.name)
 
     def update_auto_refresh(self) -> None:
         """ Extract auto refresh from context. """

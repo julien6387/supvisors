@@ -18,7 +18,6 @@
 # ======================================================================
 
 import re
-
 from distutils.util import strtobool
 from os import path
 from sys import stderr
@@ -30,7 +29,7 @@ from supervisor.options import split_namespec
 from .application import ApplicationRules
 from .process import ProcessRules
 from .ttypes import (DistributionRules, StartingStrategies, StartingFailureStrategies,
-                     RunningFailureStrategies, EnumClassType, enum_names)
+                     RunningFailureStrategies, EnumClassType)
 
 # XSD for XML validation
 supvisors_folder = path.dirname(__file__)
@@ -395,7 +394,7 @@ class Parser(object):
                 setattr(rules, attr_string, klass[value])
             except KeyError:
                 self.logger.warn(f'Pattern.load_enum: invalid value for {Parser.get_element_name(elt)}'
-                                 f' {attr_string}: {value} (expected in {enum_names(klass)})')
+                                 f' {attr_string}: {value} (expected in {[x.name for x in klass]})')
 
     def parse(self, filename: str) -> Optional[Any]:
         """ Parse the file depending on the modules installed.

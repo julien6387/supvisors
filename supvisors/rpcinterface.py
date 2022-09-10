@@ -1014,7 +1014,7 @@ class RPCInterface(object):
             except KeyError:
                 self.logger.error(f'RPCInterface._get_strategy: invalid string for {enum_klass} ({strategy})')
                 raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'invalid {enum_klass}: {strategy} (string expected in {enum_names(enum_klass)})')
+                               f'invalid {enum_klass}: {strategy} (string expected in {[x.name for x in enum_klass]})')
         # check by value
         if type(strategy) is int:
             try:
@@ -1022,7 +1022,7 @@ class RPCInterface(object):
             except ValueError:
                 self.logger.error(f'RPCInterface._get_strategy: invalid integer for {enum_klass} ({strategy})')
                 raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'incorrect strategy: {strategy} (integer expected in {enum_values(enum_klass)}')
+                               f'incorrect strategy: {strategy} (integer expected in {[x.value for x in enum_klass]}')
         # other types are wrong
         self.logger.error(f'RPCInterface._get_strategy: invalid {enum_klass} ({strategy})')
         raise RPCError(Faults.INCORRECT_PARAMETERS, f'invalid {enum_klass}: {strategy} (string or integer expected)')

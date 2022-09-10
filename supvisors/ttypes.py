@@ -70,16 +70,6 @@ class DistributionRules(Enum):
     ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
 
 
-def enum_values(enum_klass) -> List[int]:
-    """ Return the possible integer values corresponding to the enumeration type.
-    Equivalent to the protected Enum._value2member_map_.keys()
-
-    :param enum_klass: the enumeration class
-    :return: the possible enumeration values
-    """
-    return list(map(lambda x: x.value, enum_klass))
-
-
 def enum_names(enum_klass) -> List[str]:
     """ Return the possible string values corresponding to the enumeration type.
     Equivalent to the protected Enum._member_names_
@@ -87,7 +77,7 @@ def enum_names(enum_klass) -> List[str]:
     :param enum_klass: the enumeration class
     :return: the possible enumeration literals
     """
-    return list(map(lambda x: x.name, enum_klass))
+    return [x.name for x in enum_klass]
 
 
 # State lists commonly used

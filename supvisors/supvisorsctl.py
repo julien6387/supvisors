@@ -31,7 +31,7 @@ from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
 from .rpcinterface import API_VERSION, RPCInterface, expand_faults
-from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, enum_names
+from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList
 from .utils import simple_localtime
 
 
@@ -502,7 +502,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_application.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_application()
                 return
@@ -550,7 +550,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_application.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_application()
                 return
@@ -649,7 +649,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process()
                 return
@@ -690,7 +690,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_any_process.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_any_process()
                 return
@@ -727,7 +727,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process_args.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process_args()
                 return
@@ -759,7 +759,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_any_process_args.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_any_process_args()
                 return
@@ -817,7 +817,7 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
-                self.ctl.output(f'ERROR: unknown strategy={args[0]}. use one of {enum_names(StartingStrategies)}')
+                self.ctl.output(f'ERROR: unknown strategy={args[0]}. use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_process()
                 return
@@ -938,7 +938,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = ConciliationStrategies[args[0]]
             except KeyError:
                 self.ctl.output(f'ERROR: unknown strategy for conciliate.'
-                                f' use one of {enum_names(ConciliationStrategies)}')
+                                f' use one of {[x.name for x in ConciliationStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_conciliate()
                 return

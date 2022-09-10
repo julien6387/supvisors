@@ -89,14 +89,14 @@ class ApplicationView(ViewHandler):
     def write_starting_strategy(self, root):
         """ Write applicable starting strategies. """
         # get the current strategy
-        strategy = self.view_ctx.parameters[STRATEGY]
+        selected_strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
-        for str_strategy in enum_names(StartingStrategies):
-            elt = root.findmeld('%s_a_mid' % str_strategy.lower())
-            if strategy == str_strategy:
+        for strategy in StartingStrategies:
+            elt = root.findmeld('%s_a_mid' % strategy.lower())
+            if selected_strategy == strategy:
                 elt.attrib['class'] = 'button off active'
             else:
-                url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: str_strategy})
+                url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy})
                 elt.attributes(href=url)
 
     def write_application_actions(self, root):
