@@ -17,13 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
 import random
-
 from unittest.mock import call
 
-from supvisors.application import *
+import pytest
 
+from supvisors.application import *
 from .base import database_copy, any_process_info, any_stopped_process_info, any_process_info_by_state
 from .conftest import create_application, create_process
 
@@ -332,6 +331,29 @@ def test_application_possible_identifiers(supvisors):
     # restrict again instances in rules
     application.rules.identifiers = ['10.0.0.5']
     assert application.possible_identifiers() == ['10.0.0.5']
+
+
+def test_application_get_instance_processes(supvisors):
+    """ Test the ApplicationStatus.get_instance_processes method. """
+    application = create_application('ApplicationTest', supvisors)
+    # add a process to the application
+    info = any_process_info_by_state(ProcessStates.STARTING)
+    process1 = create_process(info, supvisors)
+    for node_name in ['10.0.0.2', '10.0.0.3', '10.0.0.4']:
+        process1.add_info(node_name, info.copy())
+    application.add_process(process1)
+    # add another process to the application
+    info = any_stopped_process_info()
+    process2 = create_process(info, supvisors)
+    for node_name in ['10.0.0.1', '10.0.0.4']:
+        process2.add_info(node_name, info.copy())
+    application.add_process(process2)
+    # test call
+    assert application.get_instance_processes('10.0.0.0') == []
+    assert application.get_instance_processes('10.0.0.1') == [process2]
+    assert application.get_instance_processes('10.0.0.2') == [process1]
+    assert application.get_instance_processes('10.0.0.3') == [process1]
+    assert application.get_instance_processes('10.0.0.4') == [process1, process2]
 
 
 @pytest.fixture

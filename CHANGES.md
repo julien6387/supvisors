@@ -2,6 +2,8 @@
 
 ## 0.15 (2022-xx-xx)
 
+* Make **Supvisors** robust to `addProcessGroup` / `removeProcessGroup` / `reloadConfig` Supervisor XML-RPCs.
+
 * Fix process CPU times in statistics so that children processes are all taken into account.
 
 * Fix regression in `supervisorctl application_rules` where the former `distributed` entry was still used

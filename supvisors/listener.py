@@ -19,7 +19,6 @@
 
 import json
 import time
-
 from traceback import format_exc
 from typing import Any, Optional, Union
 
@@ -96,6 +95,7 @@ class SupervisorListener(object):
         events.subscribe(ProcessEnabledEvent, self.on_process_disability)
         events.subscribe(ProcessDisabledEvent, self.on_process_disability)
         events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
+        events.subscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
 
@@ -196,7 +196,7 @@ class SupervisorListener(object):
             process_info = self._get_local_process_info(namespec)
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
-                self.pusher.send_process_added_event(process_info)
+                self.pusher.send_process_added_event([process_info])
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
@@ -237,18 +237,48 @@ class SupervisorListener(object):
             self.logger.critical(f'SupervisorListener.on_process_disability: {format_exc()}')
 
     def on_group_added(self, event: events.ProcessGroupAddedEvent) -> None:
-        """ Called when a group has been added due to a Supervisor configuration update.
+        """ Called when a group has been added following a Supervisor configuration update.
+        This method performs an update of the internal data structure and sends a process payload
+        to all other Supvisors instances.
 
         :param event: the ProcessGroupAddedEvent object
         :return: None
         """
         try:
-            # update Supervisor internal data for extra_args
             self.logger.debug(f'SupervisorListener.on_group_added: group={event.group}')
+            # update Supervisor internal data for extra_args
             self.supvisors.supervisor_data.update_internal_data(event.group)
+            # inform all Supvisors instances that new processes have been added
+            group_process_info = []
+            for process_name in self.supvisors.supervisor_data.get_group_processes(event.group):
+                namespec = make_namespec(event.group, process_name)
+                # use RPCInterface to get local information on this process
+                process_info = self._get_local_process_info(namespec)
+                if process_info:
+                    self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
+                    group_process_info.append(process_info)
+            self.pusher.send_process_added_event(group_process_info)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
+
+    def on_group_removed(self, event: events.ProcessGroupRemovedEvent) -> None:
+        """ Called when a group has been removed following a Supervisor configuration update.
+        Unlike the ProcessGroupAddedEvent case, Supervisor does not send anything else so other Supvisors instances
+        must be informed.
+
+        :param event: the ProcessGroupRemovedEvent object
+        :return: None
+        """
+        try:
+            # reuse existing event for process removed event
+            self.logger.debug(f'SupervisorListener.on_group_removed: group={event.group}')
+            payload = {'name': '*', 'group': event.group}
+            self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
+            self.pusher.send_process_removed_event(payload)
+        except Exception as exc:
+            # Supvisors shall never endanger the Supervisor thread
+            self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
 
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.

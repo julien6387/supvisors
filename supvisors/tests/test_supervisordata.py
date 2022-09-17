@@ -17,12 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from socket import gethostname
-from supervisor.process import Subprocess
-from supervisor.states import SupervisorStates
 from unittest.mock import call, patch, Mock
+
+import pytest
+from supervisor.states import SupervisorStates
 
 from supvisors.supervisordata import *
 
@@ -91,7 +90,17 @@ def test_close_server(source):
     assert source.supervisord.options.httpservers == ()
 
 
-def test_process(source):
+def test_get_group_processes(source):
+    """ Test the access of a supervisord process. """
+    # test unknown application
+    with pytest.raises(KeyError):
+        source.get_group_processes('unknown_application:unknown_process')
+    # test normal behaviour
+    app_config = source.supervisord.process_groups['dummy_application']
+    assert source.get_group_processes('dummy_application') is app_config.processes
+
+
+def test_get_process(source):
     """ Test the access of a supervisord process. """
     # test unknown application and process
     with pytest.raises(KeyError):

@@ -17,10 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import call, Mock, DEFAULT
 
+import pytest
 from supervisor.events import *
 from supervisor.xmlrpc import Faults
 
@@ -185,7 +184,7 @@ def test_on_process_added(mocker, listener):
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessAddedEvent(process)
     listener.on_process_added(event)
-    assert listener.pusher.send_process_added_event.call_args_list == [call(process_info)]
+    assert listener.pusher.send_process_added_event.call_args_list == [call([process_info])]
     listener.pusher.send_process_added_event.reset_mock()
     # test exception
     mocked_get.return_value = None
@@ -244,16 +243,43 @@ def test_on_process_disability(mocker, listener):
 def test_on_group_added_exception(listener):
     """ Test the protection of the Supervisor thread in case of exception while processing
     a ProcessGroupAddedEvent. """
+    listener.pusher = Mock(**{'send_process_added_event.return_value': None})
     listener.on_group_added(None)
+    assert not listener.pusher.send_process_added_event.called
 
 
 def test_on_group_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
     mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_internal_data')
+    mocked_processes = mocker.patch.object(listener.supvisors.supervisor_data, 'get_group_processes',
+                                           return_value={'dummy_proc': Mock()})
+    mocked_local = mocker.patch.object(listener, '_get_local_process_info', return_value={'namespec': 'dummy_proc'})
+    listener.pusher = Mock(**{'send_process_added_event.return_value': None})
     # test process event
     event = ProcessGroupAddedEvent('dummy_application')
     listener.on_group_added(event)
     assert mocked_prepare.call_args_list == [call('dummy_application')]
+    assert mocked_processes.call_args_list == [call('dummy_application')]
+    assert mocked_local.call_args_list == [call('dummy_application:dummy_proc')]
+    assert listener.pusher.send_process_added_event.call_args_list == [call([{'namespec': 'dummy_proc'}])]
+
+
+def test_on_group_removed_exception(listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing
+    a ProcessGroupRemovedEvent. """
+    listener.pusher = Mock(**{'send_process_removed_event.return_value': None})
+    listener.on_group_removed(None)
+    assert not listener.pusher.send_process_removed_event.called
+
+
+def test_on_group_removed(listener):
+    """ Test the reception of a Supervisor PROCESS_GROUP_REMOVED event. """
+    listener.pusher = Mock(**{'send_process_removed_event.return_value': None})
+    # test process event
+    event = ProcessGroupRemovedEvent('dummy_application')
+    listener.on_group_removed(event)
+    expected = {'name': '*', 'group': 'dummy_application'}
+    assert listener.pusher.send_process_removed_event.call_args_list == [call(expected)]
 
 
 def test_on_tick_exception(listener):

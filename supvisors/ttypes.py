@@ -36,7 +36,7 @@ class SupvisorsStates(Enum):
 
 class ApplicationStates(Enum):
     """ Class holding the possible enumeration values for an application state. """
-    STOPPED, STARTING, RUNNING, STOPPING = range(4)
+    STOPPED, STARTING, RUNNING, STOPPING, DELETED = range(5)
 
 
 class StartingStrategies(Enum):
@@ -68,16 +68,6 @@ class ProcessRequestResult(Enum):
 class DistributionRules(Enum):
     """ Rule applicable to the distribution of an application. """
     ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
-
-
-def enum_names(enum_klass) -> List[str]:
-    """ Return the possible string values corresponding to the enumeration type.
-    Equivalent to the protected Enum._member_names_
-
-    :param enum_klass: the enumeration class
-    :return: the possible enumeration literals
-    """
-    return [x.name for x in enum_klass]
 
 
 # State lists commonly used

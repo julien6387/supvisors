@@ -26,6 +26,7 @@ from supervisor.http import supervisor_auth_handler
 from supervisor.loggers import Logger
 from supervisor.medusa import default_handler, filesys
 from supervisor.options import make_namespec, split_namespec, ProcessConfig
+from supervisor.process import Subprocess
 from supervisor.states import ProcessStates
 
 from .options import SupvisorsServerOptions
@@ -216,11 +217,20 @@ class SupervisorData(object):
         self.supervisord.options.httpservers = ()
 
     # Access to Group / Process structures and configurations
+    def get_group_processes(self, application_name: str) -> List[Subprocess]:
+        """ This method returns the processes related to a group.
+
+        :param application_name: the group name
+        :return: a list of Supervisor processes
+        """
+        # WARN: the method may throw a KeyError exception
+        return self.supervisord.process_groups[application_name].processes
+
     def _get_process(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
         # WARN: the method may throw a KeyError exception
         application_name, process_name = split_namespec(namespec)
-        return self.supervisord.process_groups[application_name].processes[process_name]
+        return self.get_group_processes(application_name)[process_name]
 
     def _get_process_config(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
@@ -335,7 +345,7 @@ class SupervisorData(object):
             self.logger.info(f'SupervisorData._add_supervisor_processes: add process={process_config.name}')
             new_process_namespecs.append(make_namespec(group_name, process_config.name))
             # WARN: replace process_config Supvisors server_options by Supervisor options
-            # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
+            #  this is causing "reaped unknown pid" at exit due to inadequate pidhistory
             process_config.options = self.supervisord.options
             # additional Supvisors attributes
             process_config.disabled = self.disabilities[program_name]
@@ -352,7 +362,7 @@ class SupervisorData(object):
     def _get_obsolete_processes(self, program_name: str, numprocs: int,
                                 program_configs: SupvisorsServerOptions.ProcessConfigInfo) -> NameList:
         """ Return the obsolete processes in accordance with the new numprocs.
-        Thee program may be used in many groups.
+        The program may be used in many groups.
 
         :param program_name: the program which definition has to be updated
         :param numprocs: the new numprocs value

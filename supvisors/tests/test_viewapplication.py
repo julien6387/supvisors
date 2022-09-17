@@ -147,12 +147,13 @@ def test_write_starting_strategy(view):
     strategy_mids = [Mock(attrib={'class': ''}) for _ in StartingStrategies]
     mocked_root = Mock(**{'findmeld.side_effect': strategy_mids * len(strategy_mids)})
     # test all strategies in loop
-    for index, strategy in enumerate(StartingStrategies._member_names_):
-        view.view_ctx.parameters[STRATEGY] = strategy
+    for strategy in StartingStrategies:
+        view.view_ctx.parameters[STRATEGY] = strategy.name
         view.write_starting_strategy(mocked_root)
         # other strategy_mids are not selected
-        for idx in range(len(strategy_mids)):
-            if idx == index:
+        for strategy2 in StartingStrategies:
+            idx = strategy2.value
+            if strategy2.value == strategy.value:
                 # strategy_mid at same index is selected
                 assert strategy_mids[idx].attrib['class'] == 'button off active'
                 assert strategy_mids[idx].attributes.call_args_list == []

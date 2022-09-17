@@ -19,9 +19,6 @@
 
 from typing import Dict
 
-from supervisor.http import NOT_DONE_YET
-from supervisor.xmlrpc import RPCError
-
 from .instancestatus import SupvisorsInstanceStatus
 from .strategy import conciliate_conflicts
 from .ttypes import SupvisorsInstanceStates, ConciliationStrategies, SupvisorsStates
@@ -50,7 +47,7 @@ class SupvisorsView(ViewHandler):
         ViewHandler.__init__(self, context)
         self.page_name: str = SUPVISORS_PAGE
         # get applicable conciliation strategies
-        self.strategies = {str.lower(x) for x in enum_names(ConciliationStrategies)}
+        self.strategies = {x.name.lower() for x in ConciliationStrategies}
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
         self.global_methods: SupvisorsView.ProcessCallableMap = {'sup_restart': self.sup_restart_action,

@@ -528,14 +528,14 @@ class FiniteStateMachine:
                     if (stop_strategy or restart_strategy) and process.forced_state is None:
                         self.supvisors.failure_handler.add_default_job(process)
 
-    def on_process_added_event(self, identifier: str, event: Payload) -> None:
-        """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.
+    def on_process_added_event(self, identifier: str, event: PayloadList) -> None:
+        """ This event is used to fill the internal structures when processes have been added on a Supvisors instance.
 
         :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the process information
+        :param event: the list of process information
         :return: None
         """
-        self.context.load_processes(identifier, [event])
+        self.context.load_processes(identifier, event)
 
     def on_process_removed_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.

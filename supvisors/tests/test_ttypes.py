@@ -32,7 +32,7 @@ def test_supvisors_instance_states():
 
 def test_application_states():
     """ Test the ApplicationStates enumeration. """
-    expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING']
+    expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING', 'DELETED']
     assert [x.name for x in ApplicationStates] == expected
 
 

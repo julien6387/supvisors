@@ -22,7 +22,7 @@ from typing import List
 from .application import ApplicationRules, ApplicationStatus
 from .instancestatus import *
 from .process import *
-from .ttypes import SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
+from .ttypes import ApplicationStates, SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
 
 
 class Context(object):
@@ -485,13 +485,17 @@ class Context(object):
         :param check_source: if True, the process should contain information related to the Supvisors instance
         :return: None
         """
+        application_name, process_name = event['group'], event['name']
         try:
-            application = self.applications[event['group']]
-            process = application.processes[event['name']]
-            assert not check_source or instance_status.identifier in process.info_map
+            application = self.applications[application_name]
+            if process_name == '*':
+                process = None
+            else:
+                process = application.processes[process_name]
+                assert not check_source or instance_status.identifier in process.info_map
             return application, process
         except (AssertionError, KeyError):
-            namespec = make_namespec(event['group'], event['name'])
+            namespec = make_namespec(application_name, process_name)
             # if the event is received during a Supvisors closing state, it can be ignored
             # otherwise, it means that there's a discrepancy in the internal context, which requires CHECKING
             if self.supvisors.fsm.state in CLOSING_STATES:
@@ -507,6 +511,7 @@ class Context(object):
         """ Method called upon reception of a process removed event from the remote Supvisors instance.
         Following an XML-RPC update_numprocs, the size of homogeneous process groups may decrease and lead to removal
         of processes.
+        A call to the XML-RPC removeProcessGroup triggers this event too.
 
         :param identifier: the identifier of the Supvisors instance from which the event has been received
         :param event: the event payload
@@ -520,26 +525,38 @@ class Context(object):
                 # get internal data
                 app_proc = self.check_process(instance_status, event)
                 if app_proc:
-                    application, process = app_proc
                     publisher = self.supvisors.zmq.publisher
-                    # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
-                    event['state'] = -1
-                    publisher.send_process_event(identifier, event)
-                    # delete the process info entry related to the node
-                    # the process may be removed from the application if there's no more Supvisors instance supporting
-                    # its definition
-                    if process.remove_identifier(identifier):
-                        # publish a last process status before it is deleted
-                        payload = process.serial()
-                        payload.update({'statecode': -1, 'statename': 'DELETED'})
-                        publisher.send_process_status(payload)
-                        # remove the process from the application and publish
-                        application.remove_process(process.process_name)
+                    application_impacted = False
+                    # get process targets
+                    application, event_process = app_proc
+                    processes = [event_process] if event_process else application.get_instance_processes(identifier)
+                    for process in processes:
+                        # WARN: process_failures are not triggered here as the processes have been properly stopped
+                        #  as a consequence of the user action
+                        # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
+                        process_event = event.copy()
+                        process_event.update({'name': process.process_name, 'state': -1})
+                        publisher.send_process_event(identifier, process_event)
+                        # remove process from instance_status
+                        instance_status.remove_process(process)
+                        # delete the process info entry related to the node
+                        if process.remove_identifier(identifier):
+                            # publish a last process status before it is deleted
+                            payload = process.serial()
+                            payload.update({'statecode': -1, 'statename': 'DELETED'})
+                            publisher.send_process_status(payload)
+                            # there's no more Supvisors instance supporting the process definition
+                            # so remove the process from the application
+                            application.remove_process(process.process_name)
+                            application_impacted = True
+                    # an update of numprocs cannot leave the application empty (update_numprocs 0 not allowed)
+                    # however, a remove_group can induce this situation
+                    if not application.processes:
+                        application.state = ApplicationStates.DELETED
+                        del self.applications[application.application_name]
+                    # send an application status when impacted
+                    if application_impacted:
                         publisher.send_application_status(application.serial())
-                        # an update of numprocs cannot leave the application empty (update_numprocs 0 not allowed)
-                        # no need to dig further
-                    # WARN: process_failures are not triggered as the processes have been properly stopped
-                    # as a consequence of the user action
 
     def on_process_disability_event(self, identifier: str, event: Payload) -> None:
         """ Method called upon reception of a process enabled event from the remote Supvisors instance.
@@ -579,7 +596,7 @@ class Context(object):
             # accept events only in RUNNING state
             if instance_status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_process_event: got event {event} from Supvisors={identifier}')
-                # WARN: the Master may send a process event corresponding a process that is not configured in it
+                # WARN: the Master may send a process event corresponding to a process that is not configured in it
                 forced_event = 'forced' in event
                 app_proc = self.check_process(instance_status, event, not forced_event)
                 if not app_proc:

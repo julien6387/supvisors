@@ -92,11 +92,11 @@ class ApplicationView(ViewHandler):
         selected_strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
         for strategy in StartingStrategies:
-            elt = root.findmeld('%s_a_mid' % strategy.lower())
-            if selected_strategy == strategy:
+            elt = root.findmeld('%s_a_mid' % strategy.name.lower())
+            if selected_strategy == strategy.name:
                 elt.attrib['class'] = 'button off active'
             else:
-                url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy})
+                url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy.name})
                 elt.attributes(href=url)
 
     def write_application_actions(self, root):
