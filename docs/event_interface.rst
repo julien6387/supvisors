@@ -149,13 +149,13 @@ This section explains how to use receive the |Supvisors| Events from a Python or
 Python Client
 ~~~~~~~~~~~~~
 
-The *SupvisorsEventInterface* is designed to receive the |Supvisors| events from the local |Supvisors| instance.
-No additional third party is required.
+The *SupvisorsZmqEventInterface* is designed to receive the |Supvisors| events from the local |Supvisors| instance.
+It requires PyZmq_ to be installed.
 
 
 .. automodule:: supvisors.client.zmqsubscriber
 
-  .. autoclass:: SupvisorsEventInterface
+  .. autoclass:: SupvisorsZmqEventInterface
 
        .. automethod:: on_supvisors_status(data)
        .. automethod:: on_instance_status(data)
