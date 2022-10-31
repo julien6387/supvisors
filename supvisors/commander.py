@@ -18,7 +18,7 @@
 # ======================================================================
 
 import math
-
+import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from supervisor.events import Tick5Event
@@ -741,7 +741,7 @@ class ApplicationStartJobs(ApplicationJobs):
         process = command.process
         self.logger.debug(f'ApplicationStartJobs.process_job: process={process.namespec} stopped={process.stopped()}')
         if process.stopped():
-            # TODO: now that load request is in place, selection could be all done in before
+            # TODO: now that load request is in place, selection could be all done before
             # identifier has already been decided for a non-distributed application
             if self.distribution == DistributionRules.ALL_INSTANCES:
                 # find Supvisors instance iaw strategy
@@ -753,16 +753,18 @@ class ApplicationStartJobs(ApplicationJobs):
                     command.update_identifier(identifier)
             if command.identifier:
                 # use asynchronous xml rpc to start program
-                self.supvisors.sockets.pusher.send_start_process(command.identifier, process.namespec, command.extra_args)
+                self.supvisors.sockets.pusher.send_start_process(command.identifier, process.namespec,
+                                                                 command.extra_args)
                 command.update_sequence_counter()
                 self.logger.info(f'ApplicationStartJobs.process_job: {process.namespec} requested to start'
                                  f' on {command.identifier}')
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.supvisors.listener.force_process_state(process, ProcessStates.STARTING,
+                self.supvisors.listener.force_process_state(command.process,
                                                             self.supvisors.supvisors_mapper.local_identifier,
-                                                            ProcessStates.FATAL, 'no resource available')
+                                                            int(time.time()),
+                                                            self.failure_state, 'no resource available')
                 self.process_failure(process)
         # return True when the job is queued
         return queued

@@ -17,14 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
-from supervisor.states import RUNNING_STATES
 from unittest.mock import call, Mock
+
+import pytest
+from supervisor.states import RUNNING_STATES
 
 from supvisors.commander import *
 from supvisors.ttypes import ApplicationStates, StartingStrategies, StartingFailureStrategies
-
 from .base import any_process_info_by_state, process_info_by_name
 from .conftest import create_any_process, create_application, create_process
 
@@ -833,6 +832,7 @@ def test_application_start_job_before(mocker, supvisors, application_start_job_1
 def test_application_start_job_process_job(mocker, supvisors, application_start_job_1, start_sample_test_1):
     """ Test the ApplicationStartJobs.process_job method. """
     # get patches
+    mocker.patch('time.time', return_value=1234.56)
     mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors.listener.force_process_state
     mocked_pusher = supvisors.sockets.pusher.send_start_process
@@ -856,7 +856,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
     local_identifier = supvisors.supvisors_mapper.local_identifier
-    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, local_identifier,
+    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
     mocked_force.reset_mock()
@@ -889,7 +889,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     command.identifier = None
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 20)]
     assert not mocked_pusher.called
-    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, local_identifier,
+    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
 

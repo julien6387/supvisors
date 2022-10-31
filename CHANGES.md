@@ -14,6 +14,8 @@
 
 * Fix uncaught exception when an unknown host name or IP address is used in the `supvisors_list` option.
 
+* Fix `ProcessEvent` publication when no resource is available to start a process. 
+
 * Fix `SupvisorsStatus` event in JAVA ZMQ client. 
 
 * A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.

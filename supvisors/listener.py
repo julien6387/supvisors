@@ -19,7 +19,6 @@
 
 import json
 import time
-
 from traceback import format_exc
 from typing import Any, Optional, Union
 
@@ -395,8 +394,9 @@ class SupervisorListener(object):
         :return: None
         """
         # create payload from event
-        payload = {'group': process.application_name, 'name': process.process_name, 'state': forced_state,
-                   'forced': True, 'identifier': identifier,
+        payload = {'group': process.application_name, 'name': process.process_name,
+                   'state': forced_state, 'forced': True,
+                   'identifier': identifier,
                    'now': event_date, 'pid': 0, 'expected': False, 'spawnerr': reason,
                    'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
