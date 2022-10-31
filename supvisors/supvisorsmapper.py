@@ -41,7 +41,7 @@ def get_node_names(ip_address: str) -> NameList:
     return ip_addresses + [hostname] + aliases
 
 
-class SupvisorsInstanceId(object):
+class SupvisorsInstanceId:
     """ Identification attributes for a Supvisors instance.
     The Supvisors instance uses the Supervisor identifier if provided, or builds an identifier from the host name and
     the HTTP port used by this Supervisor.

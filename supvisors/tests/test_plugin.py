@@ -103,5 +103,5 @@ def test_make_rpc(mocker):
     assert mocked_rpc.call_args_list == [call(supervisord.supvisors)]
     assert mocked_591.call_args_list == [call()]
     assert mocked_views.call_args_list == [call()]
-    # test inclusion of Supvisors into Supervisor
+    # test monkeypatch of Supervisor cleanup_fds
     assert ServerOptions.cleanup_fds is not cleanup

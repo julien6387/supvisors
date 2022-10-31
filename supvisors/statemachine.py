@@ -103,8 +103,8 @@ class OffState(AbstractState):
 
         :return: the new Supvisors state
         """
-        # The PyZmq sockets is an easy mark to know that Supervisor is running
-        if self.supvisors.zmq:
+        # The Supvisors sockets is an easy mark to know that Supervisor is running
+        if self.supvisors.sockets:
             return SupvisorsStates.INITIALIZATION
 
 
@@ -319,7 +319,7 @@ class RestartState(AbstractState):
 
     def enter(self):
         """ When entering the RESTART state, request the full restart. """
-        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
+        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
         # other instances will shut down on reception of RESTART state
 
 
@@ -328,7 +328,7 @@ class ShutdownState(AbstractState):
 
     def enter(self):
         """ When entering the SHUTDOWN state, request the Supervisor shutdown. """
-        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
         # other instances will shut down on reception of SHUTDOWN state
 
 
@@ -480,7 +480,7 @@ class FiniteStateMachine:
         # check if new isolating remotes and isolate them at main loop level
         identifiers = self.context.handle_isolation()
         if identifiers:
-            self.supvisors.zmq.pusher.send_isolate_instances(identifiers)
+            self.supvisors.sockets.pusher.send_isolate_instances(identifiers)
 
     def on_tick_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to refresh the data related to the Supvisors instance.
@@ -640,7 +640,7 @@ class FiniteStateMachine:
             self.redeploy_mark = Forced
         else:
             # re-route the command to Master
-            self.supvisors.zmq.pusher.send_restart_sequence(self.context.master_identifier)
+            self.supvisors.sockets.pusher.send_restart_sequence(self.context.master_identifier)
 
     def on_restart(self) -> None:
         """ This event is used to transition the state machine to the RESTARTING state.
@@ -651,7 +651,7 @@ class FiniteStateMachine:
             self.set_state(SupvisorsStates.RESTARTING)
         else:
             # re-route the command to Master
-            self.supvisors.zmq.pusher.send_restart_all(self.context.master_identifier)
+            self.supvisors.sockets.pusher.send_restart_all(self.context.master_identifier)
 
     def on_shutdown(self) -> None:
         """ This event is used to transition the state machine to the SHUTTING_DOWN state.
@@ -662,7 +662,7 @@ class FiniteStateMachine:
             self.set_state(SupvisorsStates.SHUTTING_DOWN)
         else:
             # re-route the command to Master
-            self.supvisors.zmq.pusher.send_shutdown_all(self.context.master_identifier)
+            self.supvisors.sockets.pusher.send_shutdown_all(self.context.master_identifier)
 
     # Map between state enumerations and classes
     _MasterStateInstances = {SupvisorsStates.OFF: OffState,

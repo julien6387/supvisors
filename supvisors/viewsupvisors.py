@@ -335,7 +335,7 @@ class SupvisorsView(ViewHandler):
         """ Stop the conflicting process. """
         # get running instances of process
         running_identifiers = self.sup_ctx.get_process(namespec).running_identifiers
-        self.supvisors.zmq.pusher.send_stop_process(identifier, namespec)
+        self.supvisors.sockets.pusher.send_stop_process(identifier, namespec)
 
         def on_wait():
             if identifier in running_identifiers:
@@ -353,7 +353,7 @@ class SupvisorsView(ViewHandler):
         identifiers = running_identifiers.copy()
         identifiers.remove(kept_identifier)
         for identifier in identifiers:
-            self.supvisors.zmq.pusher.send_stop_process(identifier, namespec)
+            self.supvisors.sockets.pusher.send_stop_process(identifier, namespec)
 
         def on_wait():
             if len(running_identifiers) > 1:

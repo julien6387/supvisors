@@ -20,10 +20,10 @@
 from time import time
 from queue import Empty, Queue
 
-from supvisors.client.subscriber import SupvisorsEventInterface
+from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
 
 
-class SupvisorsEventQueues(SupvisorsEventInterface):
+class SupvisorsEventQueues(SupvisorsZmqEventInterface):
     """ The SupvisorsEventQueues is a client subscriber thread that connects
     to Supvisors and stores the application and process events received
     into queues. """
@@ -33,7 +33,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
     def __init__(self, zcontext, logger):
         """ Initialization of the attributes. """
         # create logger using a BoundIO
-        SupvisorsEventInterface.__init__(self, zcontext, self.PORT, logger)
+        SupvisorsZmqEventInterface.__init__(self, zcontext, self.PORT, logger)
         self.subscriber.subscribe_all()
         # create queues to store messages
         self.supvisors_queue = Queue()

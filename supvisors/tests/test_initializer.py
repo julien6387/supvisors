@@ -37,6 +37,8 @@ def test_creation(mocker):
     assert mocked_options.called
     assert mocked_parser.called
     # test instances
+    assert supv.sockets is None
+    assert supv.external_publisher is None
     assert isinstance(supv.options, SupvisorsOptions)
     assert mocked_srv_options.realize.called
     assert isinstance(supv.logger, Logger)

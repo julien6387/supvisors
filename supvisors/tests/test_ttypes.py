@@ -30,10 +30,23 @@ def test_supvisors_instance_states():
     assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
+def test_supvisors_states():
+    """ Test the SupvisorsStates enumeration. """
+    expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
+                'SHUTTING_DOWN', 'SHUTDOWN']
+    assert [x.name for x in SupvisorsStates] == expected
+
+
 def test_application_states():
     """ Test the ApplicationStates enumeration. """
     expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING', 'DELETED']
     assert [x.name for x in ApplicationStates] == expected
+
+
+def test_event_links():
+    """ Test the EventLinks enumeration. """
+    expected = ['NONE', 'ZMQ']
+    assert [x.name for x in EventLinks] == expected
 
 
 def test_starting_strategies():
@@ -60,11 +73,30 @@ def test_running_failure_strategies():
     assert [x.name for x in RunningFailureStrategies] == expected
 
 
-def test_supvisors_states():
-    """ Test the SupvisorsStates enumeration. """
-    expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
-                'SHUTTING_DOWN', 'SHUTDOWN']
-    assert [x.name for x in SupvisorsStates] == expected
+def test_internal_event_headers():
+    """ Test the InternalEventHeaders enumeration. """
+    expected = ['HEARTBEAT', 'TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED', 'PROCESS_DISABILITY',
+                'STATISTICS', 'STATE']
+    assert [x.name for x in InternalEventHeaders] == expected
+
+
+def test_deferred_request_headers():
+    """ Test the DeferredRequestHeaders enumeration. """
+    expected = ['CHECK_INSTANCE', 'ISOLATE_INSTANCES', 'START_PROCESS', 'STOP_PROCESS', 'RESTART', 'SHUTDOWN',
+                'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
+    assert [x.name for x in DeferredRequestHeaders] == expected
+
+
+def test_remote_comm_events():
+    """ Test the RemoteCommEvents enumeration. """
+    expected = ['SUPVISORS_AUTH', 'SUPVISORS_EVENT', 'SUPVISORS_INFO']
+    assert [x.name for x in RemoteCommEvents] == expected
+
+
+def test_event_headers():
+    """ Test the RemoteCommEvents enumeration. """
+    expected = ['SUPVISORS', 'INSTANCE', 'APPLICATION', 'PROCESS_EVENT', 'PROCESS_STATUS']
+    assert [x.name for x in EventHeaders] == expected
 
 
 def test_exception():

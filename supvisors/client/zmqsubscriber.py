@@ -24,7 +24,7 @@ from supervisor import loggers
 from supervisor.loggers import LevelsByName
 
 from supvisors.supvisorszmq import EventSubscriber
-from supvisors.utils import EventHeaders
+from supvisors.ttypes import EventHeaders
 
 
 def create_logger(logfile=r'subscriber.log', loglevel=LevelsByName.INFO,
@@ -38,7 +38,7 @@ def create_logger(logfile=r'subscriber.log', loglevel=LevelsByName.INFO,
     return logger
 
 
-class SupvisorsEventInterface(threading.Thread):
+class SupvisorsZmqEventInterface(threading.Thread):
     """ The *SupvisorsEventInterface* is a python thread that connects to |Supvisors| and receives the events published.
     The subscriber attribute shall be used to define the event types of interest.
 
@@ -79,7 +79,7 @@ class SupvisorsEventInterface(threading.Thread):
 
     def stop(self):
         """ This method stops the main loop of the thread. """
-        self.logger.info('request to stop main loop')
+        self.logger.info('SupvisorsEventInterface.stop: request to stop main loop')
         self.stop_event.set()
 
     def run(self):
@@ -88,49 +88,54 @@ class SupvisorsEventInterface(threading.Thread):
         poller = zmq.Poller()
         poller.register(self.subscriber.socket, zmq.POLLIN)
         # poll events every seconds
-        self.logger.info('entering main loop')
+        self.logger.info('SupvisorsEventInterface.run: entering main loop')
         while not self.stop_event.is_set():
             socks = dict(poller.poll(self._Poll_timeout))
             # check if something happened on the socket
             if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
-                self.logger.debug('got message on subscriber')
+                self.logger.debug('SupvisorsEventInterface.run: got message on subscriber')
                 try:
                     message = self.subscriber.receive()
                 except zmq.ZMQError as exc:
-                    self.logger.error(f'failed to get data from subscriber: {exc}')
+                    self.logger.error(f'SupvisorsEventInterface.run: failed to get data from subscriber: {exc}')
                 else:
-                    if message[0] == EventHeaders.SUPVISORS:
-                        self.on_supvisors_status(message[1])
-                    elif message[0] == EventHeaders.INSTANCE:
-                        self.on_instance_status(message[1])
-                    elif message[0] == EventHeaders.APPLICATION:
-                        self.on_application_status(message[1])
-                    elif message[0] == EventHeaders.PROCESS_EVENT:
-                        self.on_process_event(message[1])
-                    elif message[0] == EventHeaders.PROCESS_STATUS:
-                        self.on_process_status(message[1])
-        self.logger.warn('exiting main loop')
+                    try:
+                        event = EventHeaders(message[0])
+                    except ValueError:
+                        self.logger.error(f'SupvisorsEventInterface.run: unexpected event type {message[0]}')
+                    else:
+                        if event == EventHeaders.SUPVISORS:
+                            self.on_supvisors_status(message[1])
+                        elif event == EventHeaders.INSTANCE:
+                            self.on_instance_status(message[1])
+                        elif event == EventHeaders.APPLICATION:
+                            self.on_application_status(message[1])
+                        elif event == EventHeaders.PROCESS_EVENT:
+                            self.on_process_event(message[1])
+                        elif event == EventHeaders.PROCESS_STATUS:
+                            self.on_process_status(message[1])
+        self.logger.warn('SupvisorsEventInterface.run: exiting main loop')
         self.subscriber.close()
 
     def on_supvisors_status(self, data):
         """ Just logs the contents of the |Supvisors| Status message. """
-        self.logger.info(f'got Supvisors Status message: {data}')
+        self.logger.info(f'SupvisorsEventInterface.on_supvisors_status: got Supvisors Status message: {data}')
 
     def on_instance_status(self, data):
         """ Just logs the contents of the Supvisors Instance Status message. """
-        self.logger.info(f'got Instance Status message: {data}')
+        self.logger.info(f'SupvisorsEventInterface.on_instance_status: got Instance Status message: {data}')
 
     def on_application_status(self, data):
         """ Just logs the contents of the Application Status message. """
-        self.logger.info(f'got Application Status message: {data}')
+        self.logger.info(f'SupvisorsEventInterface.on_application_status: got Application Status message: {data}')
 
     def on_process_event(self, data):
         """ Just logs the contents of the Process Event message. """
-        self.logger.info(f'got Process Event message: {data}')
+        self.logger.info(f'SupvisorsEventInterface.on_process_event: got Process Event message: {data}')
 
     def on_process_status(self, data):
         """ Just logs the contents of the Process Status message. """
-        self.logger.info(f'got Process Status message: {data}')
+        self.logger.info(f'SupvisorsEventInterface.on_process_status: got Process Status message: {data}')
 
 
 if __name__ == '__main__':
@@ -143,7 +148,7 @@ if __name__ == '__main__':
                         help='the duration of the subscription')
     args = parser.parse_args()
     # create test subscriber
-    loop = SupvisorsEventInterface(zmq.Context.instance(), args.port, create_logger())
+    loop = SupvisorsZmqEventInterface(zmq.Context.instance(), args.port, create_logger())
     loop.subscriber.subscribe_all()
     # start thread and sleep for a while
     loop.start()

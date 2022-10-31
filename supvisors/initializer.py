@@ -20,7 +20,7 @@
 import sys
 
 from supervisor import supervisord
-from supervisor.loggers import getLogger, handle_file, handle_stdout
+from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 from supervisor.xmlrpc import Faults, RPCError
 
@@ -29,7 +29,7 @@ from .commander import Starter, Stopper
 from .context import Context
 from .supervisordata import SupervisorData
 from .listener import SupervisorListener
-from .options import *
+from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic
 from .sparser import Parser
 from .statemachine import FiniteStateMachine
 from .statscompiler import StatisticsCompiler
@@ -39,7 +39,7 @@ from .strategy import RunningFailureHandler
 class Supvisors(object):
     """ The Supvisors class used as a global structure passed to most Supvisors objects. """
 
-    # logger output (use ';' as separator as easier to cut)
+    # use ';' in logger output as separator as easier to cut
     LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
 
     def __init__(self, supervisor: Supervisor, **config) -> None:
@@ -47,9 +47,10 @@ class Supvisors(object):
 
         :param supervisor: the Supervisor global structure
         """
-        # WARN: the PyZmq sockets cannot be created at this level
-        # Before running, Supervisor forks when daemonized and the PyZmq sockets are then lost
-        self.zmq = None
+        # WARN: the Supvisors sockets cannot be created at this level
+        # Before running, Supervisor forks when daemonized and the sockets would be lost
+        self.sockets = None
+        self.external_publisher = None
         # get options from config
         self.options = SupvisorsOptions(supervisor, **config)
         # create logger

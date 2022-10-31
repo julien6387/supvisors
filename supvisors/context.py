@@ -22,6 +22,7 @@ from typing import List
 from .application import ApplicationRules, ApplicationStatus
 from .instancestatus import *
 from .process import *
+from .publisherinterface import EventPublisherInterface
 from .ttypes import ApplicationStates, SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
 
 
@@ -47,6 +48,7 @@ class Context(object):
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
+        self.external_publisher: Optional[EventPublisherInterface] = None
         # the Supvisors instances
         self.instances: Context.InstancesMap = {
             identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
@@ -75,6 +77,8 @@ class Context(object):
         self.start_date = time()
         for status in self.instances.values():
             status.reset()
+        # store the reference to the external publisher
+        self.external_publisher = self.supvisors.external_publisher
 
     @property
     def master_identifier(self) -> str:
@@ -103,7 +107,7 @@ class Context(object):
         changed, state_modes = self.local_instance.apply_state_modes(event)
         if changed:
             # on change, publish the local Supvisors state and modes to the other Supvisors instances
-            self.supvisors.zmq.pusher.send_state_event(state_modes.serial())
+            self.supvisors.sockets.publisher.send_state_event(state_modes.serial())
 
     def get_state_modes(self) -> Payload:
         """ Get the Supvisors state and modes, based on all connected Supvisors instances.
@@ -120,7 +124,7 @@ class Context(object):
                                           if status.state_modes.stopping_jobs]})
         return payload
 
-    def publish_state_mode(self) -> None:
+    def _publish_state_mode(self) -> None:
         """ Publish the new state and modes if it differs from the latest publication.
 
         :return: None
@@ -128,7 +132,7 @@ class Context(object):
         current_state_modes = self.get_state_modes()
         if self.last_state_modes != current_state_modes:
             self.last_state_modes = current_state_modes
-            self.supvisors.zmq.publisher.send_supvisors_status(current_state_modes)
+            self.external_publisher.send_supvisors_status(current_state_modes)
 
     def get_nodes_load(self) -> LoadMap:
         """ Get the Supvisors instances load grouped by node.
@@ -195,8 +199,9 @@ class Context(object):
         else:
             status.state = SupvisorsInstanceStates.SILENT
         # publish SupvisorsInstanceStatus and SupvisorsStatus
-        self.supvisors.zmq.publisher.send_instance_status(status.serial())
-        self.publish_state_mode()
+        if self.external_publisher:
+            self.external_publisher.send_instance_status(status.serial())
+            self._publish_state_mode()
 
     # methods on applications / processes
     def get_managed_applications(self) -> Dict[str, ApplicationStatus]:
@@ -345,7 +350,7 @@ class Context(object):
             self.logger.warn(f'Context.on_authorization: auth received from unexpected Supvisors={identifier}')
             return
         # ISOLATING / ISOLATED instances are not updated anymore
-        # should not happen as the PyZmq subscriber should have been disconnected but there may be a tick in the pipe
+        # should not happen as the subscriber should have been disconnected but there may be a tick in the pipe
         status = self.instances[identifier]
         if not status.in_isolation():
             # Supvisors state notification: update the Supvisors instance status
@@ -353,7 +358,8 @@ class Context(object):
             if identifier != self.local_identifier:
                 status.update_state_modes(event)
             # publish the new Supvisors status
-            self.publish_state_mode()
+            if self.external_publisher:
+                self._publish_state_mode()
 
     def on_authorization(self, identifier: str, authorized: Optional[bool]) -> bool:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
@@ -410,7 +416,7 @@ class Context(object):
         # process node event
         status = self.instances[identifier]
         # ISOLATING / ISOLATED instances are not updated anymore
-        # should not happen as the PyZmq subscriber should have been disconnected but there may be a tick in the pipe
+        # should not happen as the subscriber should have been disconnected but there may be a tick in the pipe
         if not status.in_isolation():
             self.logger.debug(f'Context.on_tick_event: got tick {event} from Supvisors={identifier}')
             # check sequence counter to identify rapid supervisor restart
@@ -428,8 +434,9 @@ class Context(object):
                 if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
                     self.check_instance(status)
                 # publish SupvisorsInstanceStatus and SupvisorsStatus events
-                self.supvisors.zmq.publisher.send_instance_status(status.serial())
-                self.publish_state_mode()
+                if self.external_publisher:
+                    self.external_publisher.send_instance_status(status.serial())
+                    self._publish_state_mode()
 
     def on_timer_event(self, event: Payload) -> Tuple[NameList, Set[ProcessStatus]]:
         """ Check that all Supvisors instances are still publishing.
@@ -444,8 +451,6 @@ class Context(object):
         self.local_sequence_counter = event['sequence_counter']
         # do not check for invalidation before synchro_timeout
         if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
-            # get publisher
-            publisher = self.supvisors.zmq.publisher
             # check all Supvisors instances
             for status in self.instances.values():
                 if status.state == SupvisorsInstanceStates.UNKNOWN:
@@ -464,15 +469,17 @@ class Context(object):
                     process_failures.update({process for process in status.running_processes()
                                              if process.invalidate_identifier(status.identifier)})
             # publish process status in failure
-            for process in process_failures:
-                publisher.send_process_status(process.serial())
+            if self.external_publisher:
+                for process in process_failures:
+                    self.external_publisher.send_process_status(process.serial())
             # update all application sequences and status
             for application_name in {process.application_name for process in process_failures}:
                 application = self.applications[application_name]
                 # update sequence useless as long as the application.process map is not impacted (see decision above)
                 # application.update_sequences()
                 application.update_status()
-                publisher.send_application_status(application.serial())
+                if self.external_publisher:
+                    self.external_publisher.send_application_status(application.serial())
         #  return the identifiers of all invalidated Supvisors instances and the processes declared in failure
         return invalidated_identifiers, process_failures
 
@@ -525,7 +532,6 @@ class Context(object):
                 # get internal data
                 app_proc = self.check_process(instance_status, event)
                 if app_proc:
-                    publisher = self.supvisors.zmq.publisher
                     application_impacted = False
                     # get process targets
                     application, event_process = app_proc
@@ -536,15 +542,17 @@ class Context(object):
                         # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
                         process_event = event.copy()
                         process_event.update({'name': process.process_name, 'state': -1})
-                        publisher.send_process_event(identifier, process_event)
+                        if self.external_publisher:
+                            self.external_publisher.send_process_event(identifier, process_event)
                         # remove process from instance_status
                         instance_status.remove_process(process)
                         # delete the process info entry related to the node
                         if process.remove_identifier(identifier):
-                            # publish a last process status before it is deleted
-                            payload = process.serial()
-                            payload.update({'statecode': -1, 'statename': 'DELETED'})
-                            publisher.send_process_status(payload)
+                            if self.external_publisher:
+                                # publish a last process status before it is deleted
+                                payload = process.serial()
+                                payload.update({'statecode': -1, 'statename': 'DELETED'})
+                                self.external_publisher.send_process_status(payload)
                             # there's no more Supvisors instance supporting the process definition
                             # so remove the process from the application
                             application.remove_process(process.process_name)
@@ -555,8 +563,8 @@ class Context(object):
                         application.state = ApplicationStates.DELETED
                         del self.applications[application.application_name]
                     # send an application status when impacted
-                    if application_impacted:
-                        publisher.send_application_status(application.serial())
+                    if application_impacted and self.external_publisher:
+                        self.external_publisher.send_application_status(application.serial())
 
     def on_process_disability_event(self, identifier: str, event: Payload) -> None:
         """ Method called upon reception of a process enabled event from the remote Supvisors instance.
@@ -579,7 +587,8 @@ class Context(object):
                     process.update_disability(identifier, event['disabled'])
                     # at the moment, process disability has no impact on the application and process status
                     # so only the process event publication makes sense
-                    self.supvisors.zmq.publisher.send_process_event(identifier, event)
+                    if self.external_publisher:
+                        self.external_publisher.send_process_event(identifier, event)
 
     def on_process_state_event(self, identifier: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -630,10 +639,10 @@ class Context(object):
                         # refresh application status
                         application.update_status()
                         # publish process event, status and application status
-                        publisher = self.supvisors.zmq.publisher
-                        publisher.send_process_event(identifier, event)
-                        publisher.send_process_status(process.serial())
-                        publisher.send_application_status(application.serial())
+                        if self.external_publisher:
+                            self.external_publisher.send_process_event(identifier, event)
+                            self.external_publisher.send_process_status(process.serial())
+                            self.external_publisher.send_application_status(application.serial())
                         return process
         else:
             self.logger.error(f'Context.on_process_event: got process event from unknown Supvisors={identifier}')
@@ -646,7 +655,7 @@ class Context(object):
         :return: None
         """
         status.state = SupvisorsInstanceStates.CHECKING
-        self.supvisors.zmq.pusher.send_check_instance(status.identifier)
+        self.supvisors.sockets.pusher.send_check_instance(status.identifier)
 
     def handle_isolation(self) -> NameList:
         """ Move ISOLATING Supvisors instances to ISOLATED and publish related events. """
@@ -655,6 +664,7 @@ class Context(object):
             status = self.instances[identifier]
             status.state = SupvisorsInstanceStates.ISOLATED
             # publish SupvisorsInstanceStatus and SupvisorsStatus events
-            self.supvisors.zmq.publisher.send_instance_status(status.serial())
-            self.publish_state_mode()
+            if self.external_publisher:
+                self.external_publisher.send_instance_status(status.serial())
+                self._publish_state_mode()
         return identifiers

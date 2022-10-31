@@ -2,6 +2,9 @@
 
 ## 0.15 (2022-xx-xx)
 
+* Publish / Subscribe pattern implemented for **Supvisors** internal communication.
+  `PyZmq` is now only used for the optional external publication interface.
+
 * Make **Supvisors** robust to `addProcessGroup` / `removeProcessGroup` / `reloadConfig` Supervisor XML-RPCs.
 
 * Fix process CPU times in statistics so that children processes are all taken into account.

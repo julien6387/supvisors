@@ -39,6 +39,11 @@ class ApplicationStates(Enum):
     STOPPED, STARTING, RUNNING, STOPPING, DELETED = range(5)
 
 
+class EventLinks(Enum):
+    """ Available link types used to publish all Supvisors events. """
+    NONE, ZMQ = range(2)
+
+
 class StartingStrategies(Enum):
     """ Applicable strategies that can be applied to start processes. """
     CONFIG, LESS_LOADED, MOST_LOADED, LOCAL, LESS_LOADED_NODE, MOST_LOADED_NODE = range(6)
@@ -68,6 +73,35 @@ class ProcessRequestResult(Enum):
 class DistributionRules(Enum):
     """ Rule applicable to the distribution of an application. """
     ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
+
+
+# for internal publish / subscribe
+class InternalEventHeaders(Enum):
+    """ Enumeration class for the headers in messages between Listener and MainLoop. """
+    HEARTBEAT, TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY, STATISTICS, STATE = range(8)
+
+
+# for deferred XML-RPC requests
+class DeferredRequestHeaders(Enum):
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
+    (CHECK_INSTANCE, ISOLATE_INSTANCES, START_PROCESS, STOP_PROCESS,
+     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(9)
+
+
+class RemoteCommEvents(Enum):
+    """ Strings used for remote communication between the Supvisors main loop and the listener. """
+    SUPVISORS_AUTH = u'auth'
+    SUPVISORS_EVENT = u'event'
+    SUPVISORS_INFO = u'info'
+
+
+class EventHeaders(Enum):
+    """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
+    SUPVISORS = 'supvisors'
+    INSTANCE = 'instance'
+    APPLICATION = 'application'
+    PROCESS_EVENT = 'event'
+    PROCESS_STATUS = 'process'
 
 
 # State lists commonly used

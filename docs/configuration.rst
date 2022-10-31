@@ -136,7 +136,7 @@ behavior may happen. The present section details where it is applicable.
 ``internal_port``
 
     The internal port number used to publish the local events to the other |Supvisors| instances.
-    Events are published through a PyZMQ TCP socket.
+    Events are published using a Publish / Subscribe pattern based on a TCP socket.
     The value must match the ``internal_port`` value of the corresponding |Supvisors| instance in ``supvisors_list``.
 
     *Default*:  local |Supervisor| HTTP port + 1.
@@ -145,11 +145,24 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
+``event_link``
+
+    The communication protocol type used to publish all |Supvisors| events (Instance, Application and Process events).
+    Value in [``NONE`` ; ``ZMQ``]. Other protocols may be considered in the future.
+    If set to ``NONE``, the interface is not available.
+    If set to ``ZMQ``, events are published through a PyZMQ TCP socket.
+    The protocol of this interface is detailed in :ref:`event_interface`.
+
+    *Default*:  NONE.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``event_port``
 
     The port number used to publish all |Supvisors| events (Instance, Application and Process events).
-    Events are published through a PyZMQ TCP socket. The protocol of this interface is detailed
-    in :ref:`event_interface`.
+    The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  local |Supervisor| HTTP port + 2.
 

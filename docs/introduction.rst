@@ -73,7 +73,7 @@ Installation
 +================+============+=================================================================+
 | |Supervisor|   | 4.2.4      | Base software, extended by |Supvisors|                          |
 +----------------+------------+-----------------------------------------------------------------+
-| PyZMQ_         | 22.0.3     | :command:`Python` binding of ZeroMQ                             |
+| PyZMQ_         | 22.0.3     | *:command:`Python` binding of ZeroMQ (optional)*                |
 +----------------+------------+-----------------------------------------------------------------+
 | psutil_        | 5.7.3      | *Information about system usage (optional)*                     |
 +----------------+------------+-----------------------------------------------------------------+
@@ -91,7 +91,7 @@ Supvisors can be installed with ``pip install``:
 
 .. code-block:: bash
 
-   # minimal install (including Supervisor and PyZMQ)
+   # minimal install (including Supervisor)
    [bash] > pip install supvisors
 
    # install including all optional dependencies
@@ -106,6 +106,9 @@ Supvisors can be installed with ``pip install``:
 
    # install for the REST API (includes flask-restx)
    [bash] > pip install supvisors[flask]
+
+   # install for the ZMQ event interface (includes PyZMQ)
+   [bash] > pip install supvisors[zmq]
 
 Without an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

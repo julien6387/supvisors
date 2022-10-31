@@ -34,8 +34,8 @@ from supvisors.initializer import Supvisors
 from supvisors.rpcinterface import RPCInterface
 from supvisors.supervisordata import SupervisorData
 from supvisors.supvisorsmapper import SupvisorsMapper
-from supvisors.supvisorszmq import SupervisorZmq
-from supvisors.ttypes import StartingStrategies
+from supvisors.supvisorssocket import SupvisorsSockets
+from supvisors.ttypes import EventLinks, StartingStrategies
 from supvisors.utils import extract_process_info
 
 
@@ -48,6 +48,7 @@ class DummyOptions:
         """ Configuration options. """
         self.supvisors_list = [gethostname()]
         self.internal_port = 65100
+        self.event_link = EventLinks.NONE
         self.event_port = 65200
         self.synchro_timeout = 10
         self.inactivity_ticks = 2
@@ -80,7 +81,7 @@ class MockedSupvisors:
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:']
+                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:55100']
         self.supvisors_mapper.configure(identifiers, [])
         self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from node mapper
@@ -99,8 +100,9 @@ class MockedSupvisors:
         self.listener = Mock(spec=SupervisorListener, collector=Mock())
         self.parser = Mock(spec=Parser)
         # should be set in listener
-        self.zmq = Mock(spec=SupervisorZmq)
-        self.zmq.__init__()
+        self.sockets = Mock(spec=SupvisorsSockets)
+        self.sockets.__init__()
+        self.external_publisher = None
 
 
 class DummyRpcHandler:

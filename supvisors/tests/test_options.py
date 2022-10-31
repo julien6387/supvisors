@@ -39,19 +39,20 @@ def opt(supervisor):
 @pytest.fixture
 def filled_opt(mocker, supervisor):
     """ Test the values of options with defined Supvisors configuration. """
-    DefinedOptionConfiguration = {'supvisors_list': 'cliche01,cliche03,cliche02',
-                                  'rules_files': 'my_movies.xml', 'auto_fence': 'true',
-                                  'internal_port': '60001', 'event_port': '60002',
-                                  'synchro_timeout': '20', 'inactivity_ticks': '9',
-                                  'core_identifiers': 'cliche01,cliche03',
-                                  'disabilities_file': '/tmp/disabilities.json',
-                                  'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
-                                  'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
-                                  'stats_irix_mode': 'true',
-                                  'logfile': '/tmp/supvisors.log', 'logfile_maxbytes': '50KB',
-                                  'logfile_backups': '5', 'loglevel': 'error'}
+    defined_option_configuration = {'supvisors_list': 'cliche01,cliche03,cliche02',
+                                    'rules_files': 'my_movies.xml', 'auto_fence': 'true',
+                                    'internal_port': '60001',
+                                    'event_link': 'zmq', 'event_port': '60002',
+                                    'synchro_timeout': '20', 'inactivity_ticks': '9',
+                                    'core_identifiers': 'cliche01,cliche03',
+                                    'disabilities_file': '/tmp/disabilities.json',
+                                    'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
+                                    'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
+                                    'stats_irix_mode': 'true',
+                                    'logfile': '/tmp/supvisors.log', 'logfile_maxbytes': '50KB',
+                                    'logfile_backups': '5', 'loglevel': 'error'}
     mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
-    return SupvisorsOptions(supervisor, **DefinedOptionConfiguration)
+    return SupvisorsOptions(supervisor, **defined_option_configuration)
 
 
 @pytest.fixture
@@ -66,6 +67,7 @@ def test_options_creation(opt):
     assert opt.supvisors_list == [gethostname()]
     assert opt.rules_files is None
     assert opt.internal_port == 0
+    assert opt.event_link == EventLinks.NONE
     assert opt.event_port == 0
     assert not opt.auto_fence
     assert opt.synchro_timeout == 15
@@ -89,6 +91,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
+    assert filled_opt.event_link == EventLinks.ZMQ
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
     assert filled_opt.synchro_timeout == 20
@@ -109,7 +112,8 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0 event_port=0'
+    assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0'
+                        ' event_link=NONE event_port=0'
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
                         ' stats_enabled=True stats_periods=[10] stats_histo=200'
@@ -161,7 +165,7 @@ def test_timeout():
     assert SupvisorsOptions.to_timeout('1200') == 1200
 
 
-def test_ticks():
+def test_to_ticks():
     """ Test the conversion of a string to a number of ticks. """
     error_message = common_error_message.format('inactivity_ticks')
     # test invalid values
@@ -176,6 +180,19 @@ def test_ticks():
     # test valid values
     assert SupvisorsOptions.to_ticks('2') == 2
     assert SupvisorsOptions.to_ticks('720') == 720
+
+
+def test_to_event_link():
+    """ Test the conversion of a string to a number of ticks. """
+    error_message = common_error_message.format('event_link')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_event_link('http')
+    # test valid values
+    assert SupvisorsOptions.to_event_link('none') == EventLinks.NONE
+    assert SupvisorsOptions.to_event_link('None') == EventLinks.NONE
+    assert SupvisorsOptions.to_event_link('zmq') == EventLinks.ZMQ
+    assert SupvisorsOptions.to_event_link('ZMQ') == EventLinks.ZMQ
 
 
 def test_conciliation_strategy():

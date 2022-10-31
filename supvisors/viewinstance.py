@@ -123,10 +123,10 @@ class SupvisorsInstanceView(StatusView):
 
     def restart_sup_action(self):
         """ Restart the local supervisor. """
-        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
+        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
-        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
         return delayed_warn('Supervisor shutdown requested')

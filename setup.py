@@ -23,14 +23,15 @@ import sys
 from setuptools import setup, find_packages
 
 py_version = sys.version_info[:2]
-if py_version < (3, 4):
-    raise RuntimeError('Supvisors requires Python 3.4 or later')
+if py_version < (3, 6):
+    raise RuntimeError('Supvisors requires Python 3.6 or later')
 
-requires = ['supervisor >= 4.2.4', 'pyzmq >= 20.0.0']
+requires = ['supervisor >= 4.2.4']
 
 statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib >= 3.3.3']
 xml_valid_require = ['lxml >= 4.6.2']
 flask_require = ['flask-restx == 0.5.1', 'Werkzeug == 2.0.3']
+zmq_require = ['pyzmq >= 20.0.0']
 
 testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
 
@@ -80,7 +81,8 @@ setup(name='supvisors',
       extras_require={'statistics': statistics_require,
                       'xml_valid': xml_valid_require,
                       'flask': flask_require,
-                      'all': statistics_require + xml_valid_require + flask_require,
+                      'zwq': zmq_require,
+                      'all': statistics_require + xml_valid_require + flask_require + zmq_require,
                       'testing': testing_extras},
       include_package_data=True,
       zip_safe=False,

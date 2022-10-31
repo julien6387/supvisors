@@ -28,19 +28,6 @@ from supvisors.rpcinterface import RPCInterface
 from supvisors.utils import *
 
 
-def test_internal_event_headers():
-    """ Test the InternalEventHeaders enumeration. """
-    expected = ['TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED', 'PROCESS_DISABILITY', 'STATISTICS', 'STATE']
-    assert [x.name for x in InternalEventHeaders] == expected
-
-
-def test_deferred_request_headers():
-    """ Test the DeferredRequestHeaders enumeration. """
-    expected = ['CHECK_INSTANCE', 'ISOLATE_INSTANCES', 'START_PROCESS', 'STOP_PROCESS', 'RESTART', 'SHUTDOWN',
-                'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
-    assert [x.name for x in DeferredRequestHeaders] == expected
-
-
 def test_localtime():
     """ Test the display of local time. """
     # test with argument

@@ -8,8 +8,8 @@ Protocol
 
 The |Supvisors| Event Interface relies on a PyZMQ_ socket.
 To receive the |Supvisors| events, the client application must configure a socket with a ``SUBSCRIBE`` pattern
-and connect it on localhost using the ``event_port`` defined in the :ref:`supvisors_section` of the |Supervisor|
-configuration file.
+and connect it on localhost using the ``event_port`` option defined in the :ref:`supvisors_section` of the |Supervisor|
+configuration file. The ``event_link`` option must also be set to ``ZMQ``.
 
 |Supvisors| publishes the events in multi-parts messages.
 

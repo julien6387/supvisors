@@ -85,7 +85,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
 
     def test_continue(self):
         """ Test the CONTINUE running failure strategy. """
-        print('### Testing CONTINUE running failure strategy')
+        print('\n### Testing CONTINUE running failure strategy')
         # force the movie_server_01 to exit with a fake segmentation fault
         self.local_supervisor.signalProcess('database:movie_server_01', 'SEGV')
         # an EXIT event is expected for this process
@@ -104,7 +104,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
 
     def test_restart_process(self):
         """ Test the RESTART_PROCESS running failure strategy. """
-        print('### Testing RESTART_PROCESS running failure strategy')
+        print('\n### Testing RESTART_PROCESS running failure strategy')
         # call for restart on the node where web_browser is running
         proxy = self.proxies[self.web_browser_node_name]
         proxy.supervisor.restart()
@@ -114,7 +114,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
         # focus only on web_browser
         expected_events = [{'group': 'web_movies', 'name': 'web_browser', 'state': 10},
                            {'group': 'web_movies', 'name': 'web_browser', 'state': 20}]
-        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 20)
+        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 25)
         self.assertEqual(2, len(received_events))
         self.assertEqual([], expected_events)
         # STARTING / RUNNING events are expected for web_movies application
@@ -131,7 +131,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
 
     def test_stop_application(self):
         """ Test the STOP_APPLICATION running failure strategy. """
-        print('### Testing STOP_APPLICATION running failure strategy')
+        print('\n### Testing STOP_APPLICATION running failure strategy')
         # get the hmi running location
         infos = self.local_supvisors.get_process_info('my_movies:hmi')
         hmi_info = infos[0]
@@ -173,7 +173,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
 
     def test_restart_application(self):
         """ Test the RESTART_APPLICATION running failure strategy. """
-        print('### Testing RESTART_APPLICATION running failure strategy')
+        print('\n### Testing RESTART_APPLICATION running failure strategy')
         # get the manager running location
         infos = self.local_supvisors.get_process_info('my_movies:manager')
         manager_info = infos[0]

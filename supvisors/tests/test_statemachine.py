@@ -341,9 +341,9 @@ def test_restart_state(supvisors_ctx):
     state = RestartState(supvisors_ctx)
     assert isinstance(state, AbstractState)
     # test exit method: call to pusher send_restart for all instances
-    assert not state.supvisors.zmq.pusher.send_restart.called
+    assert not state.supvisors.sockets.pusher.send_restart.called
     state.enter()
-    assert state.supvisors.zmq.pusher.send_restart.call_args_list == [call(state.local_identifier)]
+    assert state.supvisors.sockets.pusher.send_restart.call_args_list == [call(state.local_identifier)]
     # no next / exit implementation. just call it without test
     state.next()
     state.exit()
@@ -354,9 +354,9 @@ def test_shutdown_state(supvisors_ctx):
     state = ShutdownState(supvisors_ctx)
     assert isinstance(state, AbstractState)
     # test exit method: call to pusher send_restart for all instances
-    assert not state.supvisors.zmq.pusher.send_shutdown.called
+    assert not state.supvisors.sockets.pusher.send_shutdown.called
     state.enter()
-    assert state.supvisors.zmq.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
+    assert state.supvisors.sockets.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
     # no next / exit implementation. just call it without test
     state.next()
     state.exit()
@@ -607,7 +607,7 @@ def test_timer_event(mocker, fsm):
     mocked_trigger = fsm.supvisors.failure_handler.trigger_jobs
     mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation',
                                            return_value=['10.0.0.2', '10.0.0.3'])
-    mocked_isolate = fsm.supvisors.zmq.pusher.send_isolate_instances
+    mocked_isolate = fsm.supvisors.sockets.pusher.send_isolate_instances
     # test when not master and instances to isolate
     assert not fsm.context.is_master
     event = {'counter': 1234}
@@ -1035,7 +1035,7 @@ def test_on_authorization(mocker, fsm):
 def test_restart_sequence_event(fsm):
     """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
     # inject restart event and test setting of redeploy_mark
-    mocked_zmq = fsm.supvisors.zmq.pusher.send_restart_sequence
+    mocked_zmq = fsm.supvisors.sockets.pusher.send_restart_sequence
     fsm.supvisors.context.master_identifier = '10.0.0.1'
     assert not fsm.redeploy_mark
     # test when not master
@@ -1054,7 +1054,7 @@ def test_restart_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a restart event. """
     # inject restart event and test call to fsm set_state RESTARTING
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_zmq = fsm.supvisors.zmq.pusher.send_restart_all
+    mocked_zmq = fsm.supvisors.sockets.pusher.send_restart_all
     fsm.supvisors.context.master_identifier = '10.0.0.1'
     # test when not master
     fsm.on_restart()
@@ -1072,7 +1072,7 @@ def test_shutdown_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a shutdown event. """
     # inject shutdown event and test call to fsm set_state SHUTTING_DOWN
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_zmq = fsm.supvisors.zmq.pusher.send_shutdown_all
+    mocked_zmq = fsm.supvisors.sockets.pusher.send_shutdown_all
     fsm.supvisors.context.master_identifier = '10.0.0.1'
     # test when not master
     fsm.on_shutdown()
