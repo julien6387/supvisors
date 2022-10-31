@@ -12,6 +12,8 @@
 * Fix regression in `supervisorctl application_rules` where the former `distributed` entry was still used
   instead of `distribution`. 
 
+* Fix uncaught exception when an unknown host name or IP address is used in the `supvisors_list` option.
+
 * A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.
 
 * When `psutil` is not installed on a host, the statistics-related options of the Process and Host pages

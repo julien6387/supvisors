@@ -22,12 +22,15 @@ import pytest
 from supvisors.supvisorsmapper import *
 
 
-def test_get_node_names():
-    """ Test the get_node_names method. """
+def test_get_node_names(supvisors):
+    """ Test the SupvisorsMapper.get_node_names method. """
     # complex to test as it depends on the network configuration of the operating system
     # check that there is at least one entry looking like an IPv4 address
-    ip_list = get_node_names(gethostname())
+    ip_list = get_node_names(gethostname(), supvisors.logger)
     assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip_list[0])
+    # test exception on unknown IP address and unknown host name
+    assert get_node_names('10.4', supvisors.logger) == []
+    assert get_node_names('unknown node', supvisors.logger) == []
 
 
 def test_supid_create_no_match(supvisors):

@@ -17,13 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
-from supervisor.xmlrpc import Faults, RPCError
-from supvisors.application import ApplicationRules, ApplicationStatus
-from supvisors.process import ProcessRules, ProcessStatus
 from unittest.mock import Mock
 
+import pytest
+from supervisor.xmlrpc import Faults, RPCError
+
+from supvisors.application import ApplicationRules, ApplicationStatus
+from supvisors.process import ProcessRules, ProcessStatus
 from .base import DummySupervisor, MockedSupvisors, any_process_info
 
 
@@ -50,7 +50,7 @@ def supervisor():
 
 @pytest.fixture
 def supvisors(mocker):
-    mocker.patch('supvisors.supvisorsmapper.get_node_names', side_effect=lambda x: [x])
+    mocker.patch('supvisors.supvisorsmapper.get_node_names', side_effect=lambda x, y: [x])
     return MockedSupvisors()
 
 
