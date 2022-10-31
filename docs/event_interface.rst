@@ -151,7 +151,7 @@ The *SupvisorsEventInterface* is designed to receive the |Supvisors| events from
 No additional third party is required.
 
 
-.. automodule:: supvisors.client.subscriber
+.. automodule:: supvisors.client.zmqsubscriber
 
   .. autoclass:: SupvisorsEventInterface
 
