@@ -52,9 +52,11 @@ Of course, the contents depends on the message type.
 ================== ==================
 Key	               Value
 ================== ==================
-'statecode'        The state of |Supvisors|, in [0;6].
-'statename'        The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``, ``'OPERATION'``,
+'fsm_statecode'    The state of |Supvisors|, in [0;6].
+'fsm_statename'    The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``, ``'OPERATION'``,
                    ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'`` }.
+'starting_jobs'    The list of |Supvisors| instances having starting jobs in progress.
+'stopping_jobs'    The list of |Supvisors| instances having stopping jobs in progress.
 ================== ==================
 
 

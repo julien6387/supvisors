@@ -14,6 +14,8 @@
 
 * Fix uncaught exception when an unknown host name or IP address is used in the `supvisors_list` option.
 
+* Fix `SupvisorsStatus` event in JAVA ZMQ client. 
+
 * A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.
 
 * When `psutil` is not installed on a host, the statistics-related options of the Process and Host pages
