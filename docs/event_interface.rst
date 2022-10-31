@@ -165,10 +165,10 @@ It requires PyZmq_ to be installed.
 
 .. code-block:: python
 
-    from supvisors.client.subscriber import *
+    from supvisors.client.zmqsubscriber import *
 
     # create the subscriber thread
-    subscriber = SupvisorsEventInterface(zmq.Context.instance(), port, create_logger())
+    subscriber = SupvisorsZmqEventInterface(zmq.Context.instance(), port, create_logger())
     # subscribe to all messages
     subscriber.subscribe_all()
     # start the thread
