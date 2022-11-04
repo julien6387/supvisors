@@ -319,14 +319,14 @@ class ProcessStopCommand(ProcessCommand):
         # check the process state on the targeted Supvisors instance
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
-        process_state_date = instance_info['now']
+        process_state_time = instance_info['event_time']
         if process_state == ProcessStates.STOPPING:
             # the STOPPED state is expected after stopwaitsecs seconds
             expected_state = ProcessStates.STOPPED
             if self.request_sequence_counter + self.wait_ticks < self.instance_status.sequence_counter:
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPED'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
-                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_date
+                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_time
         else:
             # from RUNNING_STATES, STOPPING event is expected quite immediately
             expected_state = ProcessStates.STOPPING
@@ -335,9 +335,9 @@ class ProcessStopCommand(ProcessCommand):
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPING'
                                   f' on {self.identifier} after {self.minimum_ticks} ticks so abort')
-                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_date
+                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_time
         # time out not reached
-        return expected_state, ProcessRequestResult.IN_PROGRESS, process_state_date
+        return expected_state, ProcessRequestResult.IN_PROGRESS, process_state_time
 
 
 class ApplicationJobs(object):
@@ -763,7 +763,7 @@ class ApplicationStartJobs(ApplicationJobs):
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
                 self.supvisors.listener.force_process_state(command.process,
                                                             self.supvisors.supvisors_mapper.local_identifier,
-                                                            int(time.time()),
+                                                            time.time(),
                                                             self.failure_state, 'no resource available')
                 self.process_failure(process)
         # return True when the job is queued

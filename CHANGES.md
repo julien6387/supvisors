@@ -16,7 +16,9 @@
 
 * Fix `ProcessEvent` publication when no resource is available to start a process. 
 
-* Fix `SupvisorsStatus` event in JAVA ZMQ client. 
+* Fix `SupvisorsStatus` event in JAVA ZMQ client.
+
+* Add resolution to `ProcessStatus` time information and store event time, so that forced state is correctly considered.
 
 * A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.
 

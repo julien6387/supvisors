@@ -17,10 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import call, Mock, DEFAULT
 
+import pytest
 from supervisor.events import *
 from supervisor.xmlrpc import Faults
 
@@ -304,6 +303,7 @@ def test_on_tick_exception(listener):
 
 def test_on_tick(mocker, listener):
     """ Test the reception of a Supervisor TICK event. """
+    mocker.patch('time.time', return_value=1234.56)
     mocker.patch.object(listener, 'collector', return_value=(8.5, [(25, 400)], 76.1, {'lo': (500, 500)}, {}))
     # create patches
     listener.publisher = Mock(**{'send_tick_event.return_value': None,
@@ -312,14 +312,14 @@ def test_on_tick(mocker, listener):
     # test process event
     event = Tick60Event(120, None)
     listener.on_tick(event)
-    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 120, 'sequence_counter': 0})]
+    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 1234.56, 'sequence_counter': 0})]
     assert listener.publisher.send_statistics.call_args_list == [call((8.5, [(25, 400)], 76.1, {'lo': (500, 500)}, {}))]
     listener.publisher.reset_mock()
     # test process event when statistics disabled
     event = Tick60Event(150, None)
     listener.supvisors.options.stats_enabled = False
     listener.on_tick(event)
-    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 150, 'sequence_counter': 1})]
+    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 1234.56, 'sequence_counter': 1})]
     assert not listener.publisher.send_statistics.called
     listener.publisher.reset_mock()
     # test process event when statistics collector is not available
@@ -327,7 +327,7 @@ def test_on_tick(mocker, listener):
     listener.supvisors.options.stats_enabled = True
     listener.collector = None
     listener.on_tick(event)
-    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 150, 'sequence_counter': 2})]
+    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 1234.56, 'sequence_counter': 2})]
     assert not listener.publisher.send_statistics.called
 
 

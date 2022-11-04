@@ -558,9 +558,12 @@ def test_get_last_description(supvisors):
     """ Test the ViewContext.get_process_last_desc method. """
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
-    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0, 'now': 50},
-                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started', 'now': 55},
-                        '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3', 'now': 53}}
+    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0,
+                                     'now': 50, 'event_time': 50},
+                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started',
+                                     'now': 55, 'event_time': 50},
+                        '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3',
+                                     'now': 53, 'event_time': 50}}
     # state is not forced by default
     # test method return on non-running process
     assert process.get_last_description() == ('10.0.0.1', 'desc1 on 10.0.0.1')
@@ -589,9 +592,10 @@ def test_add_info(supvisors):
     process.extra_args = 'something else'
     process.add_info('10.0.0.1', info)
     # check last event info
-    assert process.last_event_time > 0
+    assert process.last_event_time > 0.0
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check contents
     assert len(process.info_map) == 1
     assert process.info_map['10.0.0.1'] is info
@@ -620,6 +624,7 @@ def test_add_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check contents
     assert len(process.info_map) == 1
     assert process.info_map['10.0.0.1'] is info
@@ -638,7 +643,9 @@ def test_add_info(supvisors):
     process.add_info('10.0.0.2', info)
     # check last event info
     assert process.last_event_time >= last_event_time
+    last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check contents
     assert len(process.info_map) == 2
     assert process.info_map['10.0.0.2'] is info
@@ -659,6 +666,7 @@ def test_update_info(supvisors):
     assert process.last_event_time > 0
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check changes on status
     assert process.info_map['10.0.0.1']['state'] == ProcessStates.STOPPED
     assert process.state == ProcessStates.STOPPED
@@ -672,6 +680,7 @@ def test_update_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check changes on status
     info = process.info_map['10.0.0.1']
     assert info['state'] == ProcessStates.STARTING
@@ -690,6 +699,7 @@ def test_update_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check changes
     assert info['state'] == ProcessStates.RUNNING
     assert process.state == ProcessStates.RUNNING
@@ -710,11 +720,13 @@ def test_update_info(supvisors):
     assert process.forced_reason == 'failure'
     assert process.state == ProcessStates.FATAL
     # 5.a add a new STOPPED process info
-    process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
+    info = any_process_info_by_state(ProcessStates.STOPPED)
+    process.add_info('10.0.0.2', info)
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     assert process.state == ProcessStates.FATAL
     # extra_args has been reset
     assert process.extra_args == ''
@@ -727,6 +739,7 @@ def test_update_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check state and addresses
     assert process.state == ProcessStates.RUNNING
     assert process.extra_args == ''
@@ -734,11 +747,13 @@ def test_update_info(supvisors):
     assert not process.has_crashed()
     assert process.running_identifiers == {'10.0.0.1', '10.0.0.2'}
     # 6. update with an EXITED event
+    info = process.info_map['10.0.0.1']
     process.update_info('10.0.0.1', {'state': ProcessStates.EXITED, 'now': 30, 'expected': False, 'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check changes
     assert info['state'] == ProcessStates.EXITED
     assert process.state == ProcessStates.RUNNING
@@ -758,6 +773,7 @@ def test_update_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check changes
     assert info['state'] == ProcessStates.STOPPING
     assert process.state == ProcessStates.STOPPING
@@ -776,6 +792,7 @@ def test_update_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert info['event_time'] == info['now']
     # check changes
     assert info['state'] == ProcessStates.STOPPED
     assert process.state == ProcessStates.STOPPED

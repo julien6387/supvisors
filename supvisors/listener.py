@@ -168,7 +168,7 @@ class SupervisorListener(object):
             payload = {'name': process_config.name,
                        'group': event.process.group.config.name,
                        'state': _process_states_by_name[event_name.split('_')[-1]],
-                       'now': int(time.time()),
+                       'now': time.time(),
                        'pid': event.process.pid,
                        'expected': event.expected,
                        'spawnerr': event.process.spawnerr,
@@ -208,7 +208,7 @@ class SupervisorListener(object):
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
                 self.publisher.send_process_added_event([process_info])
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
 
@@ -224,7 +224,7 @@ class SupervisorListener(object):
             payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
             self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
             self.publisher.send_process_removed_event(payload)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_removed: {format_exc()}')
 
@@ -243,7 +243,7 @@ class SupervisorListener(object):
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_disability: process_info={process_info}')
                 self.publisher.send_process_disability_event(process_info)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_disability: {format_exc()}')
 
@@ -269,7 +269,7 @@ class SupervisorListener(object):
                     self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
                     group_process_info.append(process_info)
             self.publisher.send_process_added_event(group_process_info)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
 
@@ -287,7 +287,7 @@ class SupervisorListener(object):
             payload = {'name': '*', 'group': event.group}
             self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
             self.publisher.send_process_removed_event(payload)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
 
@@ -301,7 +301,7 @@ class SupervisorListener(object):
         """
         try:
             self.logger.debug('SupervisorListener.on_tick: got TickEvent from Supervisor')
-            payload = {'when': event.when, 'sequence_counter': self.counter}
+            payload = {'when': time.time(), 'sequence_counter': self.counter}
             self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
             self.publisher.send_tick_event(payload)
@@ -310,7 +310,7 @@ class SupervisorListener(object):
                 status = self.supvisors.context.instances[self.local_identifier]
                 stats = self.collector(status.pid_processes())
                 self.publisher.send_statistics(stats)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
 
@@ -327,7 +327,7 @@ class SupervisorListener(object):
                 self.unstack_event(event.data)
             elif event.type == RemoteCommEvents.SUPVISORS_INFO.value:
                 self.unstack_info(event.data)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_remote_event: {format_exc()}')
 
@@ -382,7 +382,7 @@ class SupervisorListener(object):
         self.logger.trace(f'SupervisorListener.authorization: got authorization event from {identifier}')
         self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier)
 
-    def force_process_state(self, process: ProcessStatus, identifier: str, event_date: int,
+    def force_process_state(self, process: ProcessStatus, identifier: str, event_date: float,
                             forced_state: ProcessStates, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
 

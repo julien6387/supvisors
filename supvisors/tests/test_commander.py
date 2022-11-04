@@ -294,7 +294,7 @@ def test_stop_command_timed_out(stop_command):
     process_info = stop_command.get_instance_info()
     # check call with process state STOPPING on the node
     process_info['state'] = ProcessStates.STOPPING
-    process_info['now'] = 1234
+    process_info['event_time'] = 1234
     stop_command.instance_status.sequence_counter = 14
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.IN_PROGRESS, 1234)
     stop_command.instance_status.sequence_counter = 15
@@ -856,7 +856,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
     local_identifier = supvisors.supvisors_mapper.local_identifier
-    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234,
+    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234.56,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
     mocked_force.reset_mock()
@@ -889,7 +889,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     command.identifier = None
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 20)]
     assert not mocked_pusher.called
-    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234,
+    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234.56,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
 
