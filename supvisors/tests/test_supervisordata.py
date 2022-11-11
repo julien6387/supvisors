@@ -130,7 +130,7 @@ def test_process_config(source):
 
 
 def test_autorestart(source):
-    """ Test the autostart value of a process configuration. """
+    """ Test the autorestart value of a process configuration. """
     # test unknown application and process
     with pytest.raises(KeyError):
         source.autorestart('unknown_application:unknown_process')
@@ -142,7 +142,7 @@ def test_autorestart(source):
 
 
 def test_disable_autorestart(source):
-    """ Test the disable of the autostart of a process configuration. """
+    """ Test the disabling of the autorestart of a process configuration. """
     # test unknown application and process
     with pytest.raises(KeyError):
         source.disable_autorestart('unknown_application:unknown_process')
@@ -197,6 +197,14 @@ def test_extra_args(source):
     assert config.command == 'ls'
     assert config.command_ref == 'ls'
     assert config.extra_args == ''
+
+
+def test_has_logfile(source):
+    """ Test the logfile existence verification. """
+    assert source.has_logfile('dummy_application:dummy_process_1', 'stdout')
+    assert not source.has_logfile('dummy_application:dummy_process_1', 'stderr')
+    assert not source.has_logfile('dummy_application:dummy_process_2', 'stdout')
+    assert source.has_logfile('dummy_application:dummy_process_2', 'stderr')
 
 
 def test_update_numprocs(mocker, source):

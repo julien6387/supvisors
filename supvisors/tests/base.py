@@ -19,8 +19,6 @@
 
 import os
 import random
-import supvisors
-
 from socket import gethostname
 from unittest.mock import Mock
 
@@ -29,6 +27,7 @@ from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES, SupervisorStates
 
+import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
 from supvisors.rpcinterface import RPCInterface
@@ -165,20 +164,22 @@ class DummyServerOptions:
 class DummyProcessConfig:
     """ Simple supervisor process config with simple attributes. """
 
-    def __init__(self, name, command, autorestart):
+    def __init__(self, name: str, command: str, autorestart: bool, stdout_logfile: bool, stderr_logfile: bool):
         self.name = name
         self.command = command
         self.autorestart = autorestart
+        self.stdout_logfile = stdout_logfile
+        self.stderr_logfile = stderr_logfile
 
 
 class DummyProcess:
     """ Simple supervisor process with simple attributes. """
 
-    def __init__(self, name, command, autorestart):
+    def __init__(self, name: str, command: str, autorestart: bool, stdout_logfile: bool, stderr_logfile: bool):
         self.state = 'STOPPED'
         self.spawnerr = ''
         self.laststart = 1234
-        self.config = DummyProcessConfig(name, command, autorestart)
+        self.config = DummyProcessConfig(name, command, autorestart, stdout_logfile, stderr_logfile)
 
     def give_up(self):
         self.state = 'FATAL'
@@ -193,8 +194,8 @@ class DummySupervisor:
     def __init__(self):
         self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
-        dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True)
-        dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False)
+        dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True, True, False)
+        dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False, False, True)
         self.process_groups = {'dummy_application': Mock(config='dummy_application_config',
                                                          processes={'dummy_process_1': dummy_process_1,
                                                                     'dummy_process_2': dummy_process_2})}

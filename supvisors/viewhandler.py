@@ -305,24 +305,29 @@ class ViewHandler(MeldView):
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant node. """
+        namespec = info['namespec']
+        has_stdout = self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
+        has_stderr = self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         self._write_process_button(tr_elt, 'clear_a_mid', info['identifier'], self.page_name,
-                                   'clearlog', info['namespec'])
+                                   'clearlog', namespec, has_stdout or has_stderr)
 
     def write_process_stdout_button(self, tr_elt, info):
         """ Write the configuration of the tail stdout button of a process.
         This action must be sent to the relevant node. """
+        namespec = info['namespec']
+        has_stdout = self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
-                                   STDOUT_PAGE % quote(info['namespec'] or ''),
-                                   '', info['namespec'])
+                                   STDOUT_PAGE % quote(namespec or ''), '', namespec, has_stdout)
 
     def write_process_stderr_button(self, tr_elt, info):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant node. """
+        namespec = info['namespec']
+        has_stderr = self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
-                                   STDERR_PAGE % quote(info['namespec'] or ''),
-                                   '', info['namespec'])
+                                   STDERR_PAGE % quote(namespec or ''), '', namespec, has_stderr)
 
     def _write_process_button(self, tr_elt, elt_name: str, identifier: str, page: str, action: str, namespec: str,
                               active: bool = True):

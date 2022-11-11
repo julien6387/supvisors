@@ -254,6 +254,16 @@ class SupervisorData(object):
         process_config = self._get_process_config(namespec)
         return {option_name: getattr(process_config, option_name) for option_name in option_names}
 
+    def has_logfile(self, namespec: str, channel: str) -> bool:
+        """ Return True if the process has a logfile configuration on the channel.
+
+        :param namespec: the program namespec
+        :param channel: the logfile channel (stdout or stderr)
+        :return: True if the process has a logfile configured on the channel
+        """
+        process_config = self._get_process_config(namespec)
+        return getattr(process_config, '%s_logfile' % channel)
+
     # Supervisor issue #1023
     def update_extra_args(self, namespec: str, extra_args: str) -> None:
         """ This method is used to add extra arguments to the command line.

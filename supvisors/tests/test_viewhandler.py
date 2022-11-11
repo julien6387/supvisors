@@ -660,9 +660,10 @@ def test_write_process_clear_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
+    info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
     handler.write_process_clear_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog', 'dummy_proc')]
+    assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog',
+                                                 'dummy_application:dummy_process_1', True)]
 
 
 def test_write_process_stdout_button(mocker, handler):
@@ -670,10 +671,11 @@ def test_write_process_stdout_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
+    info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
     handler.write_process_stdout_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc',
-                                                 '', 'dummy_proc')]
+    assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1',
+                                                 'logtail/dummy_application%3Adummy_process_1',
+                                                 '', 'dummy_application:dummy_process_1', True)]
 
 
 def test_write_process_stderr_button(mocker, handler):
@@ -681,10 +683,11 @@ def test_write_process_stderr_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
+    info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
     handler.write_process_stderr_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr',
-                                                 '', 'dummy_proc')]
+    assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1',
+                                                 'logtail/dummy_application%3Adummy_process_1/stderr',
+                                                 '', 'dummy_application:dummy_process_1', False)]
 
 
 def test_write_process_button(handler):

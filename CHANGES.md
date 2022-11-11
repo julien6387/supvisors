@@ -18,6 +18,8 @@
 
 * Fix `SupvisorsStatus` event in JAVA ZMQ client.
 
+* Inactive Log Clear / Stdout / Stderr buttons in the Web UI if no stdout / stderr is configured. 
+
 * Add resolution to `ProcessStatus` time information and store event time, so that forced state is correctly considered.
 
 * A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.
