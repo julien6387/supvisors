@@ -382,10 +382,17 @@ class ViewHandler(MeldView):
         process_name = info['process_name']
         if 'single' not in info or not info['single']:
             process_name = '\u21B3 ' + process_name
-        elt = tr_elt.findmeld('name_a_mid')
-        elt.content(process_name)
-        url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE, **{PROCESS: info['namespec']})
-        elt.attributes(href=url, target="_blank")
+        name_elt = tr_elt.findmeld('name_td_mid')
+        # tail hyperlink depends on logfile availability
+        namespec = info['namespec']
+        if self.supvisors.supervisor_data.has_logfile(namespec, 'stdout'):
+            elt = name_elt.findmeld('name_a_mid')
+            elt.content(process_name)
+            url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE, **{PROCESS: namespec})
+            elt.attributes(href=url, target="_blank")
+        else:
+            # overwrite a href entry
+            name_elt.content(process_name)
         # manage actions iaw state
         self.write_process_start_button(tr_elt, info)
         self.write_process_stop_button(tr_elt, info)

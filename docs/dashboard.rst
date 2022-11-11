@@ -312,6 +312,9 @@ description and enables the user to perform some actions on them:
 The activation of the Start, Stop and Restart buttons is depending on the process state. In addition to that, a stopped
 process cannot be started if the the corresponding program has been disabled.
 
+The activation of the Clear, Stdout and Stderr buttons is depending on the configuration of the ``stdout_logfile``
+and ``stderr_logfile`` options of the |Supervisor| program configuration.
+
 |Supvisors| shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file ;
@@ -483,7 +486,7 @@ in the header part to choose a relevant |Supvisors| instance. If no rule is defi
 will be disabled.
 
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process. And unlike
-the `Supervisor page`_, statistics informations are not hidden in this page because they may have been collected
+the `Supervisor page`_, statistics information are not hidden in this page because they may have been collected
 on the other nodes (due to a different configuration) and thus can be made available here.
 
 
