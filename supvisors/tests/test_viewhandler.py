@@ -799,19 +799,41 @@ def test_write_common_process_status(mocker, handler):
     mocked_state = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_state')
     mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_statistics')
     # patch the view context
-    handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'}, **{'format_url.return_value': 'an url'})
+    handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # patch the meld elements
-    name_elt = Mock(attrib={'class': ''})
-    tr_elt = Mock(attrib={}, **{'findmeld.return_value': name_elt})
-    # test call on selected process
-    param = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'process_name': 'proc'}
+    name_a_elt = create_element()
+    name_td_elt = create_element({'name_a_mid': name_a_elt})
+    tr_elt = create_element({'name_td_mid': name_td_elt})
+    # test call on selected process having a stdout_logfile
+    param = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1',
+             'process_name': 'dummy_process_1'}
     handler.write_common_process_status(tr_elt, param)
     assert mocked_state.call_args_list == [call(tr_elt, param)]
     assert mocked_stats.call_args_list == [call(tr_elt, param)]
-    assert tr_elt.findmeld.call_args_list == [call('name_a_mid')]
-    assert name_elt.content.call_args_list == [call('\u21B3 proc')]
-    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html', processname='dummy_proc')]
-    assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
+    assert not name_td_elt.content.called
+    assert name_a_elt.content.call_args_list == [call('\u21B3 dummy_process_1')]
+    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html',
+                                                               processname='dummy_application:dummy_process_1')]
+    assert name_a_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
+    assert mocked_start.call_args_list == [call(tr_elt, param)]
+    assert mocked_stop.call_args_list == [call(tr_elt, param)]
+    assert mocked_restart.call_args_list == [call(tr_elt, param)]
+    assert mocked_clear.call_args_list == [call(tr_elt, param)]
+    assert mocked_stdout.call_args_list == [call(tr_elt, param)]
+    assert mocked_stderr.call_args_list == [call(tr_elt, param)]
+    mocker.resetall()
+    tr_elt.reset_all()
+    handler.view_ctx.format_url.reset_mock()
+    # test call on selected process NOT having a stdout_logfile
+    param = {'namespec': 'dummy_application:dummy_process_2', 'identifier': '10.0.0.1',
+             'process_name': 'dummy_process_1'}
+    handler.write_common_process_status(tr_elt, param)
+    assert mocked_state.call_args_list == [call(tr_elt, param)]
+    assert mocked_stats.call_args_list == [call(tr_elt, param)]
+    assert name_td_elt.content.call_args_list == [call('\u21B3 dummy_process_1')]
+    assert not name_a_elt.content.called
+    assert not handler.view_ctx.format_url.called
+    assert not name_a_elt.attributes.called
     assert mocked_start.call_args_list == [call(tr_elt, param)]
     assert mocked_stop.call_args_list == [call(tr_elt, param)]
     assert mocked_restart.call_args_list == [call(tr_elt, param)]
