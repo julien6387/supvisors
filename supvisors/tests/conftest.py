@@ -44,14 +44,37 @@ def create_application(application_name, supvisors):
 
 # fixture for common global structures
 @pytest.fixture
+def options():
+    return {'internal_port': '65100',
+            'event_link': 'none',
+            'event_port': '65200',
+            'synchro_timeout': '15',
+            'inactivity_ticks': '2',
+            'core_identifiers': '',
+            'disabilities_file': 'disabilities.json',
+            'auto_fence': 'on',
+            'rules_files': 'my_movies.xml',
+            'starting_strategy': 'CONFIG',
+            'conciliation_strategy': 'USER',
+            'stats_enabled': 'true',
+            'stats_periods': '5,15,60',
+            'stats_histo': '10',
+            'stats_irix_mode': 'False',
+            'logfile': 'AUTO',
+            'logfile_maxbytes': '10000',
+            'logfile_backups': '12',
+            'loglevel': 'blather'}
+
+
+@pytest.fixture
 def supervisor():
     return DummySupervisor()
 
 
 @pytest.fixture
-def supvisors(mocker):
+def supvisors(mocker, supervisor, options):
     mocker.patch('supvisors.supvisorsmapper.get_node_names', side_effect=lambda x, y: [x])
-    return MockedSupvisors()
+    return MockedSupvisors(supervisor, options)
 
 
 # Easy XHTML element creation

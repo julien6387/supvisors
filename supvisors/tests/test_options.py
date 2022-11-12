@@ -18,15 +18,13 @@
 # ======================================================================
 
 import os.path
-
-import pytest
 import sys
 
+import pytest
 from supervisor.loggers import LevelsByName
 
 from supvisors.options import *
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies
-
 from .configurations import *
 
 
@@ -49,6 +47,7 @@ def filled_opt(mocker, supervisor):
                                     'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
                                     'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
                                     'stats_irix_mode': 'true',
+                                    'tail_limit': '1MB', 'tailf_limit': '512',
                                     'logfile': '/tmp/supvisors.log', 'logfile_maxbytes': '50KB',
                                     'logfile_backups': '5', 'loglevel': 'error'}
     mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
@@ -80,6 +79,8 @@ def test_options_creation(opt):
     assert opt.stats_periods == [10]
     assert opt.stats_histo == 200
     assert not opt.stats_irix_mode
+    assert opt.tail_limit == 1024
+    assert opt.tailf_limit == 1024
     assert opt.logfile is Automatic
     assert opt.logfile_maxbytes == 50 * 1024 * 1024
     assert opt.logfile_backups == 10
@@ -104,6 +105,8 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.stats_periods == [5, 60, 600]
     assert filled_opt.stats_histo == 100
     assert filled_opt.stats_irix_mode
+    assert filled_opt.tail_limit == 1024 * 1024
+    assert filled_opt.tailf_limit == 512
     assert filled_opt.logfile == '/tmp/supvisors.log'
     assert filled_opt.logfile_maxbytes == 50 * 1024
     assert filled_opt.logfile_backups == 5
@@ -117,7 +120,8 @@ def test_str(opt):
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
                         ' stats_enabled=True stats_periods=[10] stats_histo=200'
-                        f' stats_irix_mode=False logfile={Automatic} logfile_maxbytes={50 * 1024 * 1024}'
+                        ' stats_irix_mode=False tail_limit=1024 tailf_limit=1024'
+                        f' logfile={Automatic} logfile_maxbytes={50 * 1024 * 1024}'
                         ' logfile_backups=10 loglevel=20')
 
 

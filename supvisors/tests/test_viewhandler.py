@@ -813,7 +813,8 @@ def test_write_common_process_status(mocker, handler):
     assert not name_td_elt.content.called
     assert name_a_elt.content.call_args_list == [call('\u21B3 dummy_process_1')]
     assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html',
-                                                               processname='dummy_application:dummy_process_1')]
+                                                               processname='dummy_application:dummy_process_1',
+                                                               limit=1024)]
     assert name_a_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
     assert mocked_start.call_args_list == [call(tr_elt, param)]
     assert mocked_stop.call_args_list == [call(tr_elt, param)]

@@ -33,7 +33,7 @@ from .ttypes import ConciliationStrategies, EventLinks, StartingStrategies
 
 
 # Options of main section
-class SupvisorsOptions(object):
+class SupvisorsOptions:
     """ Holder of the Supvisors options.
 
     Attributes are:
@@ -54,6 +54,8 @@ class SupvisorsOptions(object):
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors Web UI ;
         - stats_histo: depth of statistics history ;
         - stats_irix_mode: choice of CPU value display between IRIX and Solaris ;
+        - tail_limit: the number of bytes used to display the log tail of the file in the Web UI (refresh mode) ;
+        - tailf_limit: the number of bytes used to display the log tail of the file in the Web UI (tail -f mode) ;
         - logfile: absolute or relative path of the Supvisors log file ;
         - logfile_maxbytes: maximum size of the Supvisors log file ;
         - logfile_backups: number of Supvisors backup log files ;
@@ -102,6 +104,9 @@ class SupvisorsOptions(object):
         self.stats_periods = self.to_periods(list_of_strings(config.get('stats_periods', '10')))
         self.stats_histo = self.to_histo(config.get('stats_histo', 200))
         self.stats_irix_mode = boolean(config.get('stats_irix_mode', 'false'))
+        # configure log tail limits
+        self.tail_limit = byte_size(config.get('tail_limit', '1KB'))
+        self.tailf_limit = byte_size(config.get('tailf_limit', '1KB'))
         # configure logger
         self.logfile = logfile_name(config.get('logfile', Automatic))
         self.logfile_maxbytes = byte_size(config.get('logfile_maxbytes', '50MB'))
@@ -120,6 +125,7 @@ class SupvisorsOptions(object):
                 f' starting_strategy={self.starting_strategy.name}'
                 f' stats_enabled={self.stats_enabled} stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
                 f' stats_irix_mode={self.stats_irix_mode}'
+                f' tail_limit={self.tail_limit} tailf_limit={self.tailf_limit}'
                 f' logfile={self.logfile} logfile_maxbytes={self.logfile_maxbytes}'
                 f' logfile_backups={self.logfile_backups} loglevel={self.loglevel}')
 

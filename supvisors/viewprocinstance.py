@@ -304,7 +304,8 @@ class ProcInstanceView(SupvisorsInstanceView):
         # print process name
         elt = tr_elt.findmeld('name_a_mid')
         elt.content(info['process_name'])
-        url = self.view_ctx.format_url('', MAIN_TAIL_PAGE, **{PROCESS: info['namespec']})
+        url = self.view_ctx.format_url('', MAIN_TAIL_PAGE, **{PROCESS: info['namespec'],
+                                                              LIMIT: self.supvisors.options.tail_limit})
         elt.attributes(href=url, target="_blank")
         # print common status
         self.write_common_state(tr_elt, info)

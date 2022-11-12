@@ -23,7 +23,7 @@ from unittest.mock import call, patch, Mock
 import pytest
 
 from supvisors.viewcontext import *
-from .base import DummyHttpContext, DummyOptions
+from .base import DummyHttpContext
 
 url_attr_template = r'(.+=.+)'
 
@@ -238,8 +238,8 @@ def test_update_period(mocker, ctx):
     mocked_update = mocker.patch('supvisors.viewcontext.ViewContext._update_integer')
     # test method with statistics enabled
     ctx.update_period()
-    assert mocked_update.call_args_list == [call(PERIOD, DummyOptions().stats_periods,
-                                                 DummyOptions().stats_periods[0])]
+    assert mocked_update.call_args_list == [call(PERIOD, ctx.supvisors.options.stats_periods,
+                                                 ctx.supvisors.options.stats_periods[0])]
     mocker.resetall()
     # test method with statistics disabled
     ctx.supvisors.options.stats_periods = []

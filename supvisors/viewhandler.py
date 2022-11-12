@@ -388,7 +388,8 @@ class ViewHandler(MeldView):
         if self.supvisors.supervisor_data.has_logfile(namespec, 'stdout'):
             elt = name_elt.findmeld('name_a_mid')
             elt.content(process_name)
-            url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE, **{PROCESS: namespec})
+            url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE,
+                                           **{PROCESS: namespec, LIMIT: self.supvisors.options.tail_limit})
             elt.attributes(href=url, target="_blank")
         else:
             # overwrite a href entry

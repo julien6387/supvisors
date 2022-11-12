@@ -24,7 +24,7 @@ from supervisor.states import ProcessStates
 
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.statemachine import *
-from supvisors.ttypes import SupvisorsInstanceStates, SupvisorsStates
+from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates
 
 
 @pytest.fixture
@@ -240,7 +240,7 @@ def test_master_conciliation_state(mocker, supvisors_ctx):
     # test enter method
     mocker.patch.object(supvisors_ctx.context, 'conflicts', return_value=[1, 2, 3])
     state.enter()
-    assert mocked_conciliate.call_args_list == [call(supvisors_ctx, 0, [1, 2, 3])]
+    assert mocked_conciliate.call_args_list == [call(supvisors_ctx, ConciliationStrategies.USER, [1, 2, 3])]
     # test next method if check_instances return something
     mocker.patch.object(state, 'check_instances', return_value=SupvisorsStates.INITIALIZATION)
     assert state.next() == SupvisorsStates.INITIALIZATION

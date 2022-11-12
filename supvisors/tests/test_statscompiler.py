@@ -18,9 +18,9 @@
 # ======================================================================
 
 import multiprocessing
-import pytest
-
 from unittest.mock import call
+
+import pytest
 
 from supvisors.statscompiler import *
 
@@ -320,7 +320,7 @@ def test_compiler_create(supvisors, compiler):
     # check compiler contents at initialisation
     assert list(compiler.data.keys()) == list(supvisors.supvisors_mapper.instances.keys())
     for period_instance in compiler.data.values():
-        assert tuple(period_instance.keys()) == supvisors.options.stats_periods
+        assert list(period_instance.keys()) == supvisors.options.stats_periods
         for period, instance in period_instance.items():
             assert type(instance) is StatisticsInstance
             assert instance.period == period / 5

@@ -18,6 +18,9 @@
 
 * Fix `SupvisorsStatus` event in JAVA ZMQ client.
 
+* Add `tail_limit` and `tailf_limit` options to override the default 1024 bytes used by Supervisor to display
+  the Tail pages of the Web UI.
+
 * Inactive Log Clear / Stdout / Stderr buttons in the Web UI if no stdout / stderr is configured. 
 
 * Add resolution to `ProcessStatus` time information and store event time, so that forced state is correctly considered.

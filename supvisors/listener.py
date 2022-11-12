@@ -300,7 +300,8 @@ class SupervisorListener(object):
         :return: None
         """
         try:
-            self.logger.debug('SupervisorListener.on_tick: got TickEvent from Supervisor')
+            self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
+            # reset the time information to get more resolution
             payload = {'when': time.time(), 'sequence_counter': self.counter}
             self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')

@@ -68,7 +68,7 @@ class Parser(object):
         :return: None
         """
         for rules_file in rules_files:
-            self.logger.info('Parser: parsing rules from {}'.format(rules_file))
+            self.logger.info(f'Parser: parsing rules from {rules_file}')
             root = self.parse(rules_file).getroot()
             self.roots.append(root)
             # get aliases - keep string as it is easier to process

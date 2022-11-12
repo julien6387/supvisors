@@ -17,16 +17,15 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
 import random
-
 from socket import gethostname
 from unittest.mock import call, Mock
+
+import pytest
 
 from supvisors.context import *
 from supvisors.publisherinterface import EventPublisherInterface
 from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, SupvisorsStates
-
 from .base import database_copy, any_process_info
 from .conftest import create_application, create_process
 
@@ -1234,7 +1233,7 @@ def test_on_timer_event(mocker, context):
                   **{'invalidate_identifier.return_value': True})
     mocker.patch.object(context.instances['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
     # test when start_date is recent
-    context.start_date = 3590
+    context.start_date = 3585
     assert context.on_timer_event({'sequence_counter': 31, 'when': 3600}) == ([], set())
     assert context.local_sequence_counter == 31
     assert not mocked_send.called
@@ -1242,7 +1241,7 @@ def test_on_timer_event(mocker, context):
     assert not proc_2.invalidate_node.called
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.UNKNOWN
     # test when synchro_timeout has passed
-    context.start_date = 3589
+    context.start_date = 3584
     assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == (['10.0.0.2'], {proc_2})
     assert context.local_sequence_counter == 32
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING

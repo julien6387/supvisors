@@ -299,6 +299,39 @@ The logging options are strictly identical to |Supervisor|'s. By the way, it is 
 These options are more detailed in
 `supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.
 
+``tail_limit``
+
+    In its Web UI, |Supervisor| provides a page that enables to display the 1024 latest bytes of the process logs.
+    The page is made available by clicking on the process name in the process table. A button is added to refresh it.
+    The size of the logs can be updated through the URL by updating the ``limit`` attribute.
+    The same function is provided in the |Supvisors| Web UI. This option has been added to enable a default size
+    different than 1024 bytes. It applies to processes logs and |Supervisor| logs.
+
+    *Default*:  ``1KB``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+``tailf_limit``
+
+    In its Web UI, |Supervisor| provides a page that enables to display the 1024 latest bytes of the process logs
+    and that auto-refreshes the page in a ``tail -f`` manner. The page is made available by clicking on the ``Tail -f``
+    button in the process table. The initial size of the logs cannot be updated.
+    The same function is provided in the |Supvisors| Web UI. This option has been added to enable a default size
+    different than 1024 bytes. It applies to processes logs and |Supervisor| logs.
+
+    *Default*:  ``1KB``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+    .. attention::
+
+        Setting the ``tail_limit`` and ``tailf_limit`` options with very big values may block the web browser.
+        Moderation should be considered.
+
 ``logfile``
 
     The path to the |Supvisors| activity log of the ``supervisord`` process. This option can include the value

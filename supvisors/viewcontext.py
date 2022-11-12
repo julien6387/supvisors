@@ -44,6 +44,7 @@ STRATEGY = 'strategy'
 CPU = 'cpuid'
 INTF = 'intfname'
 AUTO = 'auto'  # auto-refresh
+LIMIT = 'limit'
 
 MESSAGE = 'message'
 GRAVITY = 'gravity'
