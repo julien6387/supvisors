@@ -20,6 +20,7 @@
 from unittest.mock import call, Mock
 
 import pytest
+from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.supervisorctl import DefaultControllerPlugin
 from supervisor.xmlrpc import Faults
 
@@ -28,10 +29,26 @@ from supvisors.ttypes import SupvisorsFaults
 
 
 @pytest.fixture
-def controller():
+def remote_proxy(mocker):
+    """ Patch the remote proxy getter. """
+
+    def mock_server_proxy(uri, transport):
+        return Mock(uri=uri, transport=transport,
+                    supervisor=Mock(spec=SupervisorNamespaceRPCInterface),
+                    supvisors=Mock(spec=RPCInterface))
+
+    return mocker.patch('supvisors.supvisorsctl.xmlrpclib.ServerProxy', side_effect=mock_server_proxy)
+
+
+@pytest.fixture
+def controller(remote_proxy):
+    """ Patch the controller instance. """
     controller = Mock(spec=Controller, exitstatus=LSBInitExitStatuses.SUCCESS)
     controller.get_server_proxy.return_value = Mock(spec=RPCInterface)
-    controller.options = Mock(serverurl='dummy_url', plugins=[DefaultControllerPlugin(controller)])
+    controller.options = Mock(username='cliche',
+                              password='p@$$w0rd',
+                              serverurl='dummy_url',
+                              plugins=[DefaultControllerPlugin(controller)])
     return controller
 
 
@@ -233,11 +250,43 @@ def test_creation(controller, plugin):
     assert supervisor_plugin._startresult(result) == 'dummy_group:dummy_process: started'
 
 
+def test_get_server_proxy(remote_proxy, plugin):
+    """ Test the access to any remote proxy. """
+    # test the proxy
+    assert SupervisorNamespaceRPCInterface == plugin.get_server_proxy('http://localhost:9000', 'supervisor')._spec_class
+    assert RPCInterface == plugin.get_server_proxy('http://localhost:9000', 'supvisors')._spec_class
+    assert remote_proxy.call_count == 2
+    for called in remote_proxy.call_args_list:
+        args, kwargs = called
+        assert args[0] == 'http://127.0.0.1'
+        assert isinstance(args[1], xmlrpc.SupervisorTransport)
+        assert args[1].username == 'cliche'
+        assert args[1].password == 'p@$$w0rd'
+        assert args[1].serverurl == 'http://localhost:9000'
+
+
 def test_supvisors(controller, plugin):
     """ Test the access to Supvisors proxy. """
     # test the proxy
     assert RPCInterface == plugin.supvisors()._spec_class
     assert controller.get_server_proxy.call_args_list == [call('supvisors')]
+
+
+def test_get_running_instances(controller, plugin, mocked_check):
+    """ Test the get_running_instances request. """
+    mocked_rpc = plugin.supvisors().get_all_instances_info
+    mocked_rpc.return_value = [{'identifier': 'first', 'node_name': '10.0.0.1', 'port': 30000, 'statecode': 2},
+                               {'identifier': 'second', 'node_name': '10.0.0.2', 'port': 60000, 'statecode': 0}]
+    # test request
+    assert plugin.get_running_instances() == {'first': 'http://10.0.0.1:30000'}
+    # test output (with no error)
+    assert not controller.output.called
+    # test request error
+    mocked_rpc.side_effect = xmlrpclib.Fault(0, 'error')
+    assert plugin.get_running_instances() == {}
+    mocked_rpc.side_effect = None
+    # test output (with error)
+    _check_output_error(controller, True)
 
 
 def test_sversion(controller, plugin, mocked_check):
@@ -461,14 +510,78 @@ def test_stop_application(controller, plugin, mocked_check):
 
 def test_start_args(controller, plugin, mocked_check):
     """ Test the start_args request. """
+    # test request to start process without extra arguments
     plugin.do_start_args('')
     _check_output_error(controller, True)
     assert mocked_check.call_args_list == [call()]
     mocked_check.reset_mock()
-    # test request to start process without extra arguments
+    # test request to start process with extra arguments
     mocked_rpc = plugin.supvisors().start_args
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_start_args, plugin.do_start_args,
-                'proc MOST_LOADED all', [call('proc', 'MOST_LOADED all')])
+                'proc -x 5', [call('proc', '-x 5')])
+
+
+def test_all_start(mocker, controller, plugin, mocked_check):
+    """ Test the all_start request. """
+    mocked_get_instances = mocker.patch.object(plugin, 'get_running_instances')
+    mocked_rpc = Mock(**{'startProcess.return_value': True})
+    mocked_get_proxy = mocker.patch.object(plugin, 'get_server_proxy', return_value=mocked_rpc)
+    # test request to start process without arguments
+    plugin.do_all_start('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test without running instances (doesn't really make sense)
+    mocked_get_instances.return_value = {}
+    plugin.do_all_start('appli_1:proc_1')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    assert not mocked_get_proxy.called
+    assert not mocked_rpc.startProcess.called
+    # test with running instances
+    mocked_get_instances.return_value = {'node_1': 'http://10.0.0.1:30000', 'node_2': 'http://10.0.0.2:31000'}
+    _check_call(controller, mocked_check, mocked_rpc.startProcess, plugin.help_all_start, plugin.do_all_start,
+                'appli_1:proc_1', [call('appli_1:proc_1', False), call('appli_1:proc_1', False)])
+    # get_server_proxy is called 2x2 times, without error and with error (which is set on startProcess)
+    assert mocked_get_proxy.call_args_list == [call('http://10.0.0.1:30000', 'supervisor'),
+                                               call('http://10.0.0.2:31000', 'supervisor'),
+                                               call('http://10.0.0.1:30000', 'supervisor'),
+                                               call('http://10.0.0.2:31000', 'supervisor')]
+
+
+def test_all_start_args(mocker, controller, plugin, mocked_check):
+    """ TODO: Test the all_start_args request. """
+    mocked_get_instances = mocker.patch.object(plugin, 'get_running_instances')
+    mocked_rpc = Mock(**{'start_args.return_value': True})
+    mocked_get_proxy = mocker.patch.object(plugin, 'get_server_proxy', return_value=mocked_rpc)
+    # test request to start process without arguments
+    plugin.do_all_start_args('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test request to start process without extra arguments
+    plugin.do_all_start_args('appli_1:proc_1')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test without running instances (doesn't really make sense)
+    mocked_get_instances.return_value = {}
+    plugin.do_all_start_args('appli_1:proc_1 -x 5')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    assert not mocked_get_proxy.called
+    assert not mocked_rpc.start_args.called
+    # test with running instances
+    mocked_get_instances.return_value = {'node_1': 'http://10.0.0.1:30000', 'node_2': 'http://10.0.0.2:31000'}
+    _check_call(controller, mocked_check, mocked_rpc.start_args, plugin.help_all_start_args, plugin.do_all_start_args,
+                'appli_1:proc_1 -x 5 ', [call('appli_1:proc_1', '-x 5', False), call('appli_1:proc_1', '-x 5', False)])
+    # get_server_proxy is called 2x2 times, without error and with error (which is set on startProcess)
+    assert mocked_get_proxy.call_args_list == [call('http://10.0.0.1:30000', 'supvisors'),
+                                               call('http://10.0.0.2:31000', 'supvisors'),
+                                               call('http://10.0.0.1:30000', 'supvisors'),
+                                               call('http://10.0.0.2:31000', 'supvisors')]
 
 
 def test_start_process(controller, plugin, mocked_check):

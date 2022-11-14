@@ -31,7 +31,7 @@ from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
 from .rpcinterface import API_VERSION, RPCInterface, expand_faults
-from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList
+from .ttypes import ConciliationStrategies, StartingStrategies, SupvisorsInstanceStates, PayloadList
 from .utils import simple_localtime
 
 
@@ -61,9 +61,30 @@ class ControllerPlugin(ControllerPluginBase):
             supervisor_plugin._startresult_ref = supervisor_plugin._startresult
             supervisor_plugin._startresult = MethodType(_startresult, supervisor_plugin)
 
+    def get_server_proxy(self, server_url: str, namespace: str):
+        """ Return a proxy on a remote supervisor instance. """
+        proxy = xmlrpclib.ServerProxy('http://127.0.0.1',
+                                      xmlrpc.SupervisorTransport(self.ctl.options.username,
+                                                                 self.ctl.options.password,
+                                                                 server_url))
+        return getattr(proxy, namespace)
+
     def supvisors(self) -> RPCInterface:
         """ Get a proxy to the Supvisors RPC interface. """
         return self.ctl.get_server_proxy('supvisors')
+
+    def get_running_instances(self):
+        """ Return the URL of the Supvisors running instances. """
+        try:
+            # get everything at once instead of doing multiple requests
+            info_list = self.supvisors().get_all_instances_info()
+        except xmlrpclib.Fault as e:
+            self.ctl.output(f'ERROR ({e.faultString})')
+            self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            info_list = []
+        return {info['identifier']: 'http://%s:%d' % (info['node_name'], info['port'])
+                for info in info_list
+                if info['statecode'] == SupvisorsInstanceStates.RUNNING.value}
 
     def do_sversion(self, _):
         """ Command to get the Supvisors API version. """
@@ -613,6 +634,38 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('stop_application <appli> <appli>\t\tStop multiple managed named applications.')
         self.ctl.output('stop_application\t\t\t\tStop all managed applications.')
 
+    def do_all_start(self, arg):
+        """ Invoke the same Supervisor start command over all running nodes. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: all_start requires a process name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_all_start()
+                return
+            namespec = args[0]
+            # get running instances
+            urls = self.get_running_instances()
+            # send the start command to all instances
+            if urls:
+                for identifier, url in urls.items():
+                    try:
+                        # no wait
+                        proxy = self.get_server_proxy(url, 'supervisor')
+                        result = proxy.startProcess(namespec, False)
+                    except xmlrpclib.Fault as e:
+                        self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
+                        self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                    else:
+                        self.ctl.output(f'{namespec} started on {identifier}: {result}')
+            else:
+                self.ctl.output(f'ERROR: no running Supvisors instance')
+
+    def help_all_start(self):
+        """ Print the help of the all_start command."""
+        self.ctl.output('all_start <proc>\t\t\t'
+                        'Start the process named proc on all RUNNING Supvisors instances.')
+
     def do_start_args(self, arg):
         """ Command to start a local process with additional arguments. """
         if self._upcheck():
@@ -626,15 +679,47 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 result = self.supvisors().start_args(namespec, ' '.join(args[1:]))
             except xmlrpclib.Fault as e:
-                self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+                self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('{} started: {}'.format(namespec, result))
+                self.ctl.output(f'{namespec} started: {result}')
 
     def help_start_args(self):
         """ Print the help of the start_args command."""
-        self.ctl.output("start_process <proc> <arg_list>\t\t\t"
-                        "Start the local process named proc with additional arguments arg_list.")
+        self.ctl.output('start_args <proc> <arg_list>\t\t\t'
+                        'Start the local process named proc with additional arguments arg_list.')
+
+    def do_all_start_args(self, arg):
+        """ Invoke the same Supvisors start_args command over all running nodes. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: all_start_args requires a process name and extra arguments')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_all_start_args()
+                return
+            namespec = args[0]
+            # get running instances
+            urls = self.get_running_instances()
+            if urls:
+                # send the start command to all instances
+                for identifier, url in urls.items():
+                    try:
+                        # no wait
+                        result = self.get_server_proxy(url, 'supvisors').start_args(namespec, ' '.join(args[1:]), False)
+                    except xmlrpclib.Fault as e:
+                        self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
+                        self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                    else:
+                        self.ctl.output(f'{namespec} started on {identifier}: {result}')
+            else:
+                self.ctl.output(f'ERROR: no running Supvisors instance')
+
+    def help_all_start_args(self):
+        """ Print the help of the all_start_args command."""
+        self.ctl.output('all_start_args <proc> <arg_list>\t\t\t'
+                        'Start the process named proc on all RUNNING Supvisors instances'
+                        ' with additional arguments arg_list.')
 
     def do_start_process(self, arg):
         """ Command to start processes with a strategy and rules. """

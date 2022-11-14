@@ -33,6 +33,8 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
+    all_start          local_status         sstate                  stop_process
+    all_start_args     loglevel             sstatus                 strategies
     application_info   master               start_any_process       sversion
     application_rules  process_rules        start_any_process_args  update_numprocs
     conciliate         restart_application  start_application
@@ -40,8 +42,6 @@ The additional commands provided by |Supvisors| are available by typing :command
     disable            restart_sequence     start_process
     enable             sreload              start_process_args
     instance_status    sshutdown            stop_application
-    local_status       sstate               stop_process
-    loglevel           sstatus              strategies
 
 .. _extended_status:
 
@@ -263,6 +263,15 @@ Process Control
 
     Start a process whose namespec matches the regular expression, using a starting strategy and additional arguments
     arg_list passed to the command line.
+
+``all_start proc``
+
+    Start the process named proc on all RUNNING |Supvisors| instances.
+
+``all_start_args proc arg_list``
+
+    Start the process named proc on all RUNNING |Supvisors| instances and with the additional arguments arg_list passed
+    to the command line.
 
 ``stop_process``
 

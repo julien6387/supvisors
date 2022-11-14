@@ -18,6 +18,9 @@
 
 * Fix `SupvisorsStatus` event in JAVA ZMQ client.
 
+* Add `all_start` and `all_start_args` to the list of `supervisorctl` commands. These commands respectively invoke
+  `supervisor.startProcess` and `supvisors.start_args` on all running **Supvisors** instances.
+
 * Add `tail_limit` and `tailf_limit` options to override the default 1024 bytes used by Supervisor to display
   the Tail pages of the Web UI.
 
