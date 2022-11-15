@@ -42,10 +42,10 @@ class MockedSupvisors:
 
     def __init__(self, supervisord, config):
         """ Use mocks when not possible to use real structures. """
-        from supvisors.options import SupvisorsOptions
-        self.options = SupvisorsOptions(supervisord, **config)
-        self.options.rules_files = [config['rules_files']]
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
+        from supvisors.options import SupvisorsOptions
+        self.options = SupvisorsOptions(supervisord, self.logger, **config)
+        self.options.rules_files = [config['rules_files']]
         # mock the supervisord source
         self.supervisor_data = SupervisorData(self, supervisord)
         self.supvisors_mapper = SupvisorsMapper(self)

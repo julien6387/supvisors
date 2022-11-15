@@ -24,16 +24,47 @@ from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 from supervisor.xmlrpc import Faults, RPCError
 
-from .supvisorsmapper import SupvisorsMapper
 from .commander import Starter, Stopper
 from .context import Context
-from .supervisordata import SupervisorData
 from .listener import SupervisorListener
-from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic
+from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic, get_logger_configuration
 from .sparser import Parser
 from .statemachine import FiniteStateMachine
 from .statscompiler import StatisticsCompiler
 from .strategy import RunningFailureHandler
+from .supervisordata import SupervisorData
+from .supvisorsmapper import SupvisorsMapper
+from .ttypes import Payload
+
+
+def create_logger(supervisor: Supervisor, logger_config: Payload) -> Logger:
+    """ Create the logger that will be used in Supvisors.
+    If logfile is not set or set to AUTO, Supvisors will use Supervisor logger.
+    Else Supvisors will log in the file defined in option.
+    """
+    logfile = logger_config['logfile']
+    if logfile is Automatic:
+        # use Supervisord logger but patch format anyway
+        logger = supervisor.options.logger
+        for handler in logger.handlers:
+            handler.setFormat(Supvisors.LOGGER_FORMAT)
+        return logger
+    # else create own Logger using Supervisor functions
+    nodaemon = supervisor.options.nodaemon
+    silent = supervisor.options.silent
+    logger = getLogger(logger_config['loglevel'])
+    # tag the logger so that it is properly closed when exiting
+    # when not tagged, Supervisor closes it
+    logger.SUPVISORS = True
+    if nodaemon and not silent:
+        handle_stdout(logger, Supvisors.LOGGER_FORMAT)
+    handle_file(logger,
+                logfile,
+                Supvisors.LOGGER_FORMAT,
+                rotating=not not logger_config['logfile_maxbytes'],
+                maxbytes=logger_config['logfile_maxbytes'],
+                backups=logger_config['logfile_backups'])
+    return logger
 
 
 class Supvisors(object):
@@ -51,14 +82,15 @@ class Supvisors(object):
         # Before running, Supervisor forks when daemonized and the sockets would be lost
         self.sockets = None
         self.external_publisher = None
+        # create logger using option from config
+        logger_config = get_logger_configuration(**config)
+        self.logger = create_logger(supervisor, logger_config)
         # get options from config
-        self.options = SupvisorsOptions(supervisor, **config)
-        # create logger
-        self.logger = self.create_logger(supervisor)
-        # re-realize configuration to get process configuration not stored in Supervisor
+        self.options = SupvisorsOptions(supervisor, self.logger, **config)
+        # re-realize configuration to get process configuration not stored within Supervisor options
         self.server_options = SupvisorsServerOptions(self.logger)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
-        # configure supervisor info source
+        # configure supervisor data wrapper
         self.supervisor_data = SupervisorData(self, supervisor)
         # get declared Supvisors instances and check local identifier
         self.supvisors_mapper = SupvisorsMapper(self)
@@ -87,30 +119,3 @@ class Supvisors(object):
         self.listener = SupervisorListener(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)
-
-    def create_logger(self, supervisor: Supervisor) -> Logger:
-        """ Create the logger that will be used in Supvisors.
-        If logfile is not set or set to AUTO, Supvisors will use Supervisor logger.
-        Else Supvisors will log in the file defined in option.
-        """
-        if self.options.logfile is Automatic:
-            # use Supervisord logger but patch format anyway
-            logger = supervisor.options.logger
-            for handler in logger.handlers:
-                handler.setFormat(Supvisors.LOGGER_FORMAT)
-            return logger
-        # else create own Logger using Supervisor functions
-        nodaemon = supervisor.options.nodaemon
-        silent = supervisor.options.silent
-        logger = getLogger(self.options.loglevel)
-        # tag the logger so that it is properly closed when exiting
-        logger.SUPVISORS = True
-        if nodaemon and not silent:
-            handle_stdout(logger, Supvisors.LOGGER_FORMAT)
-        handle_file(logger,
-                    self.options.logfile,
-                    Supvisors.LOGGER_FORMAT,
-                    rotating=not not self.options.logfile_maxbytes,
-                    maxbytes=self.options.logfile_maxbytes,
-                    backups=self.options.logfile_backups)
-        return logger

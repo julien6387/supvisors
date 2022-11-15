@@ -29,10 +29,28 @@ from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byt
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
-from .ttypes import ConciliationStrategies, EventLinks, StartingStrategies
+from .ttypes import ConciliationStrategies, EventLinks, Payload, StartingStrategies
 
 
 # Options of main section
+def get_logger_configuration(**config) -> Payload:
+    """ Extract the logger parameters from the config structure.
+
+    Returns a dictionary with the following entries:
+        - logfile: absolute or relative path of the Supvisors log file ;
+        - logfile_maxbytes: maximum size of the Supvisors log file ;
+        - logfile_backups: number of Supvisors backup log files ;
+        - loglevel: logging level.
+
+    :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section
+    :return: a dictionary containing the logger parameters
+    """
+    return {'logfile': logfile_name(config.get('logfile', Automatic)),
+            'logfile_maxbytes': byte_size(config.get('logfile_maxbytes', '50MB')),
+            'logfile_backups': integer(config.get('logfile_backups', 10)),
+            'loglevel': logging_level(config.get('loglevel', 'info'))}
+
+
 class SupvisorsOptions:
     """ Holder of the Supvisors options.
 
@@ -55,11 +73,7 @@ class SupvisorsOptions:
         - stats_histo: depth of statistics history ;
         - stats_irix_mode: choice of CPU value display between IRIX and Solaris ;
         - tail_limit: the number of bytes used to display the log tail of the file in the Web UI (refresh mode) ;
-        - tailf_limit: the number of bytes used to display the log tail of the file in the Web UI (tail -f mode) ;
-        - logfile: absolute or relative path of the Supvisors log file ;
-        - logfile_maxbytes: maximum size of the Supvisors log file ;
-        - logfile_backups: number of Supvisors backup log files ;
-        - loglevel: logging level.
+        - tailf_limit: the number of bytes used to display the log tail of the file in the Web UI (tail -f mode).
     """
 
     SYNCHRO_TIMEOUT_MIN = 15
@@ -68,50 +82,44 @@ class SupvisorsOptions:
     INACTIVITY_TICKS_MIN = 2
     INACTIVITY_TICKS_MAX = 720
 
-    def __init__(self, supervisord, **config):
+    def __init__(self, supervisord, logger: Logger, **config):
         """ Initialization of the attributes.
 
         :param supervisord: the global Supervisor structure
+        :param logger: the Supvisors logger
         :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section
         """
         self.supervisord_options = supervisord.options
+        self.logger = logger
         # get values from config
-        supvisors_list = config.get('supvisors_list', gethostname())
-        supvisors_list = filter(None, list_of_strings(supvisors_list))
-        self.supvisors_list = list(OrderedDict.fromkeys(supvisors_list))
-        self.rules_files = config.get('rules_files', None)
-        if self.rules_files:
-            self.rules_files = self.to_filepaths(self.rules_files)
+        self.supvisors_list = self._get_value(config, 'supvisors_list', [gethostname()],
+                                              lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
+        self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
         # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
-        self.internal_port = self.to_port_num(config.get('internal_port', '0'))
-        self.event_link = self.to_event_link(config.get('event_link', 'NONE'))
-        self.event_port = self.to_port_num(config.get('event_port', '0'))
-        self.auto_fence = boolean(config.get('auto_fence', 'false'))
-        self.synchro_timeout = self.to_timeout(config.get('synchro_timeout', str(self.SYNCHRO_TIMEOUT_MIN)))
-        self.inactivity_ticks = self.to_ticks(config.get('inactivity_ticks', str(self.INACTIVITY_TICKS_MIN)))
+        self.internal_port = self._get_value(config, 'internal_port', 0, self.to_port_num)
+        self.event_link = self._get_value(config, 'event_link', EventLinks.NONE, self.to_event_link)
+        self.event_port = self._get_value(config, 'event_port', 0, self.to_port_num)
+        self.auto_fence = self._get_value(config, 'auto_fence', False, boolean)
+        self.synchro_timeout = self._get_value(config, 'synchro_timeout', self.SYNCHRO_TIMEOUT_MIN, self.to_timeout)
+        self.inactivity_ticks = self._get_value(config, 'inactivity_ticks', self.INACTIVITY_TICKS_MIN, self.to_ticks)
         # get the minimum list of identifiers to end the synchronization phase
-        core_identifiers = config.get('core_identifiers', None)
-        self.core_identifiers = set(filter(None, list_of_strings(core_identifiers)))
+        self.core_identifiers = self._get_value(config, 'core_identifiers', set(),
+                                                lambda x: set(filter(None, list_of_strings(x))))
         # get disabilities file
-        self.disabilities_file = config.get('disabilities_file', None)
-        if self.disabilities_file:
-            self.disabilities_file = existing_dirpath(self.disabilities_file)
+        self.disabilities_file = self._get_value(config, 'disabilities_file', None, existing_dirpath)
         # get strategies
-        self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))
-        self.starting_strategy = self.to_starting_strategy(config.get('starting_strategy', 'CONFIG'))
+        self.conciliation_strategy = self._get_value(config, 'conciliation_strategy', ConciliationStrategies.USER,
+                                                     self.to_conciliation_strategy)
+        self.starting_strategy = self._get_value(config, 'starting_strategy', StartingStrategies.CONFIG,
+                                                 self.to_starting_strategy)
         # configure statistics
-        self.stats_enabled = boolean(config.get('stats_enabled', 'true'))
-        self.stats_periods = self.to_periods(list_of_strings(config.get('stats_periods', '10')))
-        self.stats_histo = self.to_histo(config.get('stats_histo', 200))
-        self.stats_irix_mode = boolean(config.get('stats_irix_mode', 'false'))
+        self.stats_enabled = self._get_value(config, 'stats_enabled', True, boolean)
+        self.stats_periods = self._get_value(config, 'stats_periods', [10], self.to_periods)
+        self.stats_histo = self._get_value(config, 'stats_histo', 200, self.to_histo)
+        self.stats_irix_mode = self._get_value(config, 'stats_irix_mode', False, boolean)
         # configure log tail limits
-        self.tail_limit = byte_size(config.get('tail_limit', '1KB'))
-        self.tailf_limit = byte_size(config.get('tailf_limit', '1KB'))
-        # configure logger
-        self.logfile = logfile_name(config.get('logfile', Automatic))
-        self.logfile_maxbytes = byte_size(config.get('logfile_maxbytes', '50MB'))
-        self.logfile_backups = integer(config.get('logfile_backups', 10))
-        self.loglevel = logging_level(config.get('loglevel', 'info'))
+        self.tail_limit = self._get_value(config, 'tail_limit', 1024, byte_size)
+        self.tailf_limit = self._get_value(config, 'tailf_limit', 1024, byte_size)
 
     def __str__(self):
         """ Contents as string. """
@@ -125,9 +133,27 @@ class SupvisorsOptions:
                 f' starting_strategy={self.starting_strategy.name}'
                 f' stats_enabled={self.stats_enabled} stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
                 f' stats_irix_mode={self.stats_irix_mode}'
-                f' tail_limit={self.tail_limit} tailf_limit={self.tailf_limit}'
-                f' logfile={self.logfile} logfile_maxbytes={self.logfile_maxbytes}'
-                f' logfile_backups={self.logfile_backups} loglevel={self.loglevel}')
+                f' tail_limit={self.tail_limit} tailf_limit={self.tailf_limit}')
+
+    def _get_value(self, config: Payload, attr: str, default_value, fct=None):
+        """ Read and convert the option.
+
+        :param config: the option dictionary
+        :param attr: the option considered
+        :param default_value: the default value to apply if not found in config or erroneous
+        :param fct: the optional conversion function to apply to the string value
+        :return:
+        """
+        if attr not in config:
+            return default_value
+        value = config[attr]
+        if fct:
+            try:
+                return fct(value)
+            except ValueError as exc:
+                self.logger.error(f'SupvisorsOptions.get_value: {str(exc)}')
+                return default_value
+        return value
 
     # conversion utils (completion of supervisor.datatypes)
     def to_filepaths(self, value: str) -> List[str]:
@@ -159,7 +185,7 @@ class SupvisorsOptions:
         value = integer(value)
         if 0 <= value <= 65535:
             return value
-        raise ValueError(f'invalid value for port: {value}. expected in [0;65535]')
+        raise ValueError(f'invalid value for port ({value}), expected in [0;65535]')
 
     @staticmethod
     def to_timeout(value: str) -> int:
@@ -222,12 +248,13 @@ class SupvisorsOptions:
     @staticmethod
     def to_periods(value: str) -> List[int]:
         """ Convert a string into a list of period values. """
-        if len(value) == 0:
-            raise ValueError(f'unexpected number of stats_periods: {len(value)}. minimum is 1')
-        if len(value) > 3:
-            raise ValueError(f'unexpected number of stats_periods: {len(value)}. maximum is 3')
+        str_periods = list_of_strings(value)
+        if len(str_periods) == 0:
+            raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}. minimum is 1')
+        if len(str_periods) > 3:
+            raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}. maximum is 3')
         periods = []
-        for val in value:
+        for val in str_periods:
             try:
                 period = integer(val)
             except ValueError:
