@@ -2,11 +2,11 @@
 
 function sendRequest() {
     echo "===================================================================="
-    echo "# Testing: supervisorctl" $@
+    echo "# Testing: supervisorctl" "$@"
     echo "===================================================================="
-    supervisorctl help $1
+    supervisorctl help "$1"
     echo
-    supervisorctl $@
+    supervisorctl "$@"
     echo
 }
 
@@ -21,7 +21,7 @@ sendRequest sstate
 sendRequest master
 sendRequest strategies
 sendRequest instance_status
-sendRequest instance_status $HOSTNAME
+sendRequest instance_status "$HOSTNAME"
 sendRequest application_info
 sendRequest application_info database
 sendRequest sstatus
@@ -30,7 +30,6 @@ sendRequest sstatus database:movie_server_01 database:movie_server_02 database:m
 sendRequest local_status
 sendRequest local_status database:*
 sendRequest local_status database:movie_server_01 database:movie_server_02 database:movie_server_03
-sendRequest conflicts
 sendRequest application_rules
 sendRequest application_rules database
 sendRequest application_rules database player
@@ -53,6 +52,18 @@ sleep 3
 sendRequest start_any_process_args CONFIG converter -x 3
 sleep 3
 
+sendRequest all_start_args my_movies:converter_05 -x 3
+sleep 3
+
+sendRequest all_start my_movies:converter_12
+sleep 3
+
+# check conciliation
+sendRequest conflicts
+sendRequest conciliate INFANTICIDE
+sleep 10
+
+# Supervisor enhancements
 sendRequest update_numprocs converter 10
 sendRequest update_numprocs converter 15
 sendRequest disable converter
@@ -64,7 +75,6 @@ sendRequest stop_application database
 sendRequest start_application LESS_LOADED database
 
 # command requests on Supervisor
-sendRequest conciliate INFANTICIDE
 sendRequest sreload
 sleep 40
 sendRequest sshutdown
