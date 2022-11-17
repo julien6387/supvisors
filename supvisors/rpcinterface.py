@@ -37,15 +37,6 @@ with open(version_txt, 'r') as ver:
     API_VERSION = ver.read().split('=')[1].strip()
 
 
-def expand_faults():
-    """ Expand supervisord Fault definition.
-
-    :return: None
-    """
-    for x in SupvisorsFaults:
-        setattr(Faults, x.name, x.value)
-
-
 def startProcess(self, name: str, wait: bool = True):
     """ Overridden startProcess to handle a disabled process.
 
@@ -82,8 +73,6 @@ class RPCInterface(object):
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         self.logger.info(f'RPCInterface: using Supvisors={API_VERSION} Supervisor={VERSION}')
-        # update Supervisor Fault definition
-        expand_faults()
 
     # RPC Status methods
     def get_api_version(self) -> str:

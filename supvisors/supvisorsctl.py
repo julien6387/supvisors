@@ -30,7 +30,8 @@ from supervisor.options import ClientOptions, make_namespec, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
-from .rpcinterface import API_VERSION, RPCInterface, expand_faults
+from .plugin import expand_faults
+from .rpcinterface import API_VERSION, RPCInterface
 from .ttypes import ConciliationStrategies, StartingStrategies, SupvisorsInstanceStates, PayloadList
 from .utils import simple_localtime
 
