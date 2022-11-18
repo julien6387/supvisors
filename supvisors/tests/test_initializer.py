@@ -70,8 +70,6 @@ def test_identifier_exception(mocker):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     mocker.patch('supvisors.initializer.SupvisorsMapper.configure', side_effect=ValueError)
-    # patches Faults codes
-    setattr(Faults, 'SUPVISORS_CONF_ERROR', 777)
     # create Supvisors instance
     supervisord_instance = DummySupervisor()
     # test that local node exception raises a failure to Supervisor
