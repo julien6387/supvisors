@@ -75,7 +75,7 @@ def test_identifier_exception(mocker):
     # create Supvisors instance
     supervisord_instance = DummySupervisor()
     # test that local node exception raises a failure to Supervisor
-    with pytest.raises(RPCError):
+    with pytest.raises(ValueError):
         Supvisors(supervisord_instance)
 
 

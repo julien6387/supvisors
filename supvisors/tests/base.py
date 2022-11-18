@@ -113,6 +113,7 @@ class DummyServerOptions:
                          'port': 65000,
                          'username': 'user',
                          'password': 'p@$$w0rd'}
+        self.configfile = 'supervisord.conf'
         self.httpserver = DummyHttpServer()
         self.server_configs = [server_config]
         self.here = '.'
@@ -167,7 +168,6 @@ class DummySupervisor:
     """ Simple supervisor with simple attributes. """
 
     def __init__(self):
-        self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
         dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True, True, False)
         dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False, False, True)

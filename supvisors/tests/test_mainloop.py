@@ -17,14 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
+from socket import gethostname
+from unittest.mock import call, patch, DEFAULT
+
 import pytest
 
-from socket import gethostname
 from supvisors.mainloop import *
 from supvisors.ttypes import DeferredRequestHeaders, SupvisorsStates, SupvisorsInstanceStates
-from threading import Thread
-from unittest.mock import call, patch, Mock, DEFAULT
-
 from .base import DummyRpcInterface
 
 
@@ -38,9 +37,7 @@ def mocked_rpc():
 
 
 @pytest.fixture
-def main_loop(mocker, supvisors):
-    # mocked_zmq = Mock(publisher=Mock(), subscriber=Mock(), puller=Mock(), poller=Mock(), spec=SupvisorsZmq)
-    # mocker.patch('supvisors.mainloop.SupvisorsZmq', return_value=mocked_zmq)
+def main_loop(supvisors):
     return SupvisorsMainLoop(supvisors)
 
 
@@ -152,7 +149,8 @@ def test_check_instance_no_com(mocker, mocked_rpc, main_loop):
     main_loop.check_instance('10.0.0.1')
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
     auth_message = '10.0.0.1', None, ''
-    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', {})
+    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', {'fsm_statecode': 0, 'starting_jobs': False,
+                                                                    'stopping_jobs': False})
     assert mocked_evt.call_args_list == [call(RemoteCommEvents.SUPVISORS_AUTH, auth_message),
                                          call(RemoteCommEvents.SUPVISORS_EVENT, state_message)]
 

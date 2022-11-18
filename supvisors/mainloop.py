@@ -18,20 +18,19 @@
 # ======================================================================
 
 import json
-
 from http.client import CannotSendRequest, IncompleteRead
-from threading import Event, Thread
-from typing import Any, Optional
 from socket import socket
 from sys import stderr
+from threading import Event, Thread
+from typing import Any, Optional
 
-from supervisor.compat import xmlrpclib
 from supervisor.childutils import getRPCInterface
+from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import RPCError
 
 from .supvisorssocket import InternalSubscriber
 from .ttypes import (DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents,
-                     SupvisorsInstanceStates, ISOLATION_STATES)
+                     SupvisorsInstanceStates, SupvisorsStates, ISOLATION_STATES)
 from .utils import SupervisorServerUrl
 
 
@@ -158,7 +157,8 @@ class SupvisorsMainLoop(Thread):
         """
         authorized = None
         master_identifier = ''
-        state_modes_payload = {}
+        state_modes_payload = {'fsm_statecode': SupvisorsStates.OFF.value,
+                               'starting_jobs': False, 'stopping_jobs': False}
         all_info = []
         # get authorization from remote Supvisors instance
         try:
@@ -172,6 +172,7 @@ class SupvisorsMainLoop(Thread):
             state_modes_keys = ['fsm_statecode', 'starting_jobs', 'stopping_jobs']
             state_modes_payload = {key: remote_status_payload[key] for key in state_modes_keys}
         except SupvisorsMainLoop.RpcExceptions:
+            # Remote Supvisors instance close din the gap or Supvisors is incorrectly configured
             print(f'[ERROR] failed to check Supvisors={identifier}', file=stderr)
         else:
             instance_state = SupvisorsInstanceStates(local_status_payload['statecode'])

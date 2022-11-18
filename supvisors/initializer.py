@@ -22,7 +22,6 @@ import sys
 from supervisor import supervisord
 from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
-from supervisor.xmlrpc import Faults, RPCError
 
 from .commander import Starter, Stopper
 from .context import Context
@@ -97,8 +96,8 @@ class Supvisors(object):
         try:
             self.supvisors_mapper.configure(self.options.supvisors_list, self.options.core_identifiers)
         except ValueError as exc:
-            self.logger.critical(f'Supvisors: {exc}')
-            raise RPCError(Faults.SUPVISORS_CONF_ERROR, str(exc))
+            self.logger.critical('Wrong Supvisors configuration (supvisors_list)')
+            raise
         # create context data
         self.context = Context(self)
         # create application starter and stopper

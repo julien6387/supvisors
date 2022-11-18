@@ -22,7 +22,6 @@ import select
 import struct
 import time
 import traceback
-
 from enum import Enum
 from queue import Queue, Empty
 from socket import error, socket, socketpair, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_LINGER, SO_REUSEADDR, SHUT_RDWR
@@ -290,7 +289,7 @@ class PublisherServer(Thread):
             sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             sock.bind(('', port))
         except OSError:
-            self.logger.critical(f'PublisherServer._bind: failed to bind the Supvisors publisher')
+            self.logger.critical(f'PublisherServer._bind: failed to bind the Supvisors publisher on port {port}')
             self.logger.debug(f'PublisherServer._bind: {traceback.format_exc()}')
         else:
             # assign the server socket when all went well

@@ -173,6 +173,9 @@ class SupvisorsOptions:
             filepaths = glob.glob(pattern)
             for filepath in filepaths:
                 rules_files.add(os.path.abspath(filepath))
+        # check that something came out
+        if value and not rules_files:
+            self.logger.warn('SupvisorsOptions.to_filepaths: no rules file found')
         return sorted(rules_files)
 
     @staticmethod

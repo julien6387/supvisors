@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.15 (2022-xx-xx)
+## 0.15 (2022-11-19)
 
 * Publish / Subscribe pattern implemented for **Supvisors** internal communication.
   `PyZmq` is now only used for the optional external publication interface.
@@ -32,6 +32,10 @@
 
 * When `psutil` is not installed on a host, the statistics-related options of the Process and Host pages
   of the Web UI are not displayed, just as if the option `stats_enabled` was set to `False`.
+
+* Clarify the exceptions that could be raised in **Supvisors** startup.
+
+* Add a FAQ to the documentation.
 
 
 ## 0.14 (2022-05-01)

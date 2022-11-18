@@ -91,7 +91,7 @@ class SupervisorData(object):
                 break
         else:
             # server MUST be http, not unix
-            raise ValueError(f'Supervisor MUST be configured using inet_http_server: {supervisord.configfile}')
+            raise ValueError(f'Supervisor MUST be configured using inet_http_server: {supervisord.options.configfile}')
         # shortcuts (not available yet)
         self._system_rpc_interface = None
         self._supervisor_rpc_interface = None

@@ -232,8 +232,7 @@ class SupvisorsMapper(object):
                 self._instances[supvisors_id.identifier] = supvisors_id
                 self._nodes.setdefault(supvisors_id.ip_address, []).append(supvisors_id.identifier)
             else:
-                message = f'could not parse Supvisors identification from {item}'
-                self.logger.error(f'SupvisorsMapper.instances: {message}')
+                message = f'could not define a Supvisors identification from "{item}"'
                 raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')
         self.logger.debug(f'SupvisorsMapper.configure: nodes={self.nodes}')
@@ -265,7 +264,7 @@ class SupvisorsMapper(object):
                 if len(matching_identifiers) > 1:
                     message = f'multiple candidates for the local Supvisors: {matching_identifiers}'
                 else:
-                    message = 'could not find local the local Supvisors in supvisors_list'
+                    message = 'could not find the local Supvisors in supvisors_list'
                 self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
                 raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.find_local_identifier: local_identifier={self.local_identifier}')
