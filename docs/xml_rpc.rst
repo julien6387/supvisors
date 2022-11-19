@@ -143,7 +143,7 @@ Status
             'name'             ``str``         The Process name.
             'state'            ``int``         The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
             'start'            ``int``         The Process start date.
-            'now'              ``int``         The Process current date.
+            'now'              ``float``       The Process current date.
             'pid'              ``int``         The UNIX process identifier.
             'startsecs'        ``int``         The configured duration between process STARTING and RUNNING.
             'stopwaitsecs'     ``int``         The configured duration between process STOPPING and STOPPED.
