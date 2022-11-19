@@ -18,7 +18,9 @@
 # ======================================================================
 
 import math
+
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -33,8 +35,10 @@ class StatisticsPlot(object):
     LEGEND_COLOR = '#203535'  #'#053035'
     TEXT_COLOR = '#a0d5dd'
 
-    def __init__(self):
+    def __init__(self, logger):
         """ Initialization of the plot. """
+        self.logger = logger
+        # create the plot
         fig = plt.figure(figsize=(6, 3), dpi=90)
         fig.patch.set_facecolor(StatisticsPlot.BACKGROUND_COLOR)
         self.ax = fig.add_subplot(111)
@@ -98,7 +102,10 @@ class StatisticsPlot(object):
             plt.gca().set_facecolor(StatisticsPlot.BACKGROUND_COLOR)
             # save image to internal memory buffer
             # supported formats: eps, pdf, pgf, png, ps, raw, rgba, svg, svgz
-            plt.savefig(image_contents.new_image(), bbox_inches='tight', format='png')
+            try:
+                plt.savefig(image_contents.new_image(), bbox_inches='tight', format='png')
+            except RuntimeError:
+                self.logger.error('StatisticsPlot.export_image: failed to save the matplotlib figure')
             # reset yData
             self.ydata = {}
         # close plot

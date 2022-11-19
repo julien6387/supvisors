@@ -144,18 +144,18 @@ class HostInstanceView(SupvisorsInstanceView):
             elt = root.findmeld(val_mid)
             if rate is not None:
                 self.set_slope_class(elt, rate)
-            elt.content('{:.2f}'.format(stats[-1]))
+            elt.content(f'{stats[-1]:.2f}')
             # set mean value
             elt = root.findmeld(avg_mid)
-            elt.content('{:.2f}'.format(avg))
+            elt.content(f'{avg:.2f}')
             if a is not None:
                 # set slope of linear regression
                 elt = root.findmeld(slope_mid)
-                elt.content('{:.2f}'.format(a))
+                elt.content(f'{a:.2f}')
             if dev is not None:
                 # set standard deviation
                 elt = root.findmeld(dev_mid)
-                elt.content('{:.2f}'.format(dev))
+                elt.content(f'{dev:.2f}')
 
     def _write_cpu_image(self, cpu_stats):
         """ Write CPU data into the dedicated buffer. """
@@ -165,16 +165,15 @@ class HostInstanceView(SupvisorsInstanceView):
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
         cpu_data = cpu_stats[cpu_id]
         # build image from data
-        plt = StatisticsPlot()
-        plt.add_plot('CPU #{}'.format(cpu_id_string), '%', cpu_data)
+        plt = StatisticsPlot(self.logger)
+        plt.add_plot(f'CPU #{cpu_id_string}', '%', cpu_data)
         plt.export_image(host_cpu_img)
 
-    @staticmethod
-    def _write_mem_image(mem_stats):
+    def _write_mem_image(self, mem_stats):
         """ Write MEM data into the dedicated buffer. """
         # build image from data
         from supvisors.plot import StatisticsPlot
-        plt = StatisticsPlot()
+        plt = StatisticsPlot(self.logger)
         plt.add_plot('MEM', '%', mem_stats)
         plt.export_image(host_mem_img)
 
@@ -187,7 +186,7 @@ class HostInstanceView(SupvisorsInstanceView):
             recv_data = io_stats[intf_name][0]
             sent_data = io_stats[intf_name][1]
             # build image from data
-            plt = StatisticsPlot()
+            plt = StatisticsPlot(self.logger)
             plt.add_plot(f'{intf_name} recv', 'kbits/s', recv_data)
             plt.add_plot(f'{intf_name} sent', 'kbits/s', sent_data)
             plt.export_image(host_io_img)

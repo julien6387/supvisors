@@ -448,18 +448,18 @@ class ViewHandler(MeldView):
             elt = stats_elt.findmeld('pmemval_td_mid')
             if rate is not None:
                 self.set_slope_class(elt, rate)
-            elt.content('{:.2f}%'.format(proc_stats[1][-1]))
+            elt.content(f'{proc_stats[1][-1]:.2f}%')
             # set mean value
             elt = stats_elt.findmeld('pmemavg_td_mid')
-            elt.content('{:.2f}%'.format(avg))
+            elt.content(f'{avg:.2f}%')
             if a is not None:
                 # set slope value between last 2 values
                 elt = stats_elt.findmeld('pmemslope_td_mid')
-                elt.content('{:.2f}'.format(a))
+                elt.content(f'{a:.2f}')
             if dev is not None:
                 # set standard deviation
                 elt = stats_elt.findmeld('pmemdev_td_mid')
-                elt.content('{:.2f}'.format(dev))
+                elt.content(f'{dev:.2f}')
             return True
 
     def write_process_plots(self, proc_stats: ProcessHistoryStats, nb_cores: int) -> None:
@@ -467,14 +467,14 @@ class ViewHandler(MeldView):
         try:
             from supvisors.plot import StatisticsPlot
             # build CPU image
-            cpu_img = StatisticsPlot()
+            cpu_img = StatisticsPlot(self.logger)
             cpu_values = proc_stats[0]
             if not self.supvisors.options.stats_irix_mode:
                 cpu_values = [x / nb_cores for x in cpu_values]
             cpu_img.add_plot('CPU', '%', cpu_values)
             cpu_img.export_image(process_cpu_img)
             # build Memory image
-            mem_img = StatisticsPlot()
+            mem_img = StatisticsPlot(self.logger)
             mem_img.add_plot('MEM', '%', proc_stats[1])
             mem_img.export_image(process_mem_img)
         except ImportError:

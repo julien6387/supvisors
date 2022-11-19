@@ -18,6 +18,8 @@
 
 * Fix `SupvisorsStatus` event in JAVA ZMQ client.
 
+* Manage the `RuntimeError` exception that could be raised by matplotlib when saving a graph.
+
 * Add `all_start` and `all_start_args` to the list of `supervisorctl` commands. These commands respectively invoke
   `supervisor.startProcess` and `supvisors.start_args` on all running **Supvisors** instances.
 
