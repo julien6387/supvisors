@@ -344,8 +344,8 @@ def test_write_process_table(mocker, view):
     # test call with data and line selected
     view.write_process_table(mocked_root, True)
     assert table_mid.replace.call_args_list == []
-    assert mocked_common.call_args_list == [call(tr_elt_1, 'info_1'), call(tr_elt_2, 'info_2'),
-                                            call(tr_elt_3, 'info_3')]
+    assert mocked_common.call_args_list == [call(tr_elt_1, 'info_1', False), call(tr_elt_2, 'info_2', False),
+                                            call(tr_elt_3, 'info_3', False)]
     assert mocked_process.call_args_list == [call(tr_elt_1, 'info_1'), call(tr_elt_2, 'info_2'),
                                              call(tr_elt_3, 'info_3')]
     assert tr_elt_1.attrib['class'] == 'brightened'

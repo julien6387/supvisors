@@ -485,6 +485,8 @@ Indeed, |Supvisors| uses the rules of the program (as defined in the rules file)
 in the header part to choose a relevant |Supvisors| instance. If no rule is defined for the program, the Start button
 will be disabled.
 
+The availability of the logs is not tested in this page.
+
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process. And unlike
 the `Supervisor page`_, statistics information are not hidden in this page because they may have been collected
 on the other nodes (due to a different configuration) and thus can be made available here.

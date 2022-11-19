@@ -175,7 +175,7 @@ class ApplicationView(ViewHandler):
             shaded_tr = False  # used to invert background style
             for tr_elt, info in iterator:
                 # write common status (shared between this application view and node view)
-                self.write_common_process_status(tr_elt, info)
+                self.write_common_process_status(tr_elt, info, False)
                 # print process name and running instances
                 self.write_process(tr_elt, info)
                 # set line background and invert

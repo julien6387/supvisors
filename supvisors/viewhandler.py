@@ -302,29 +302,29 @@ class ViewHandler(MeldView):
         self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restart', info['namespec'],
                                    info['startable'] and info['statecode'] in RUNNING_STATES)
 
-    def write_process_clear_button(self, tr_elt, info):
+    def write_process_clear_button(self, tr_elt, info, check_logfiles: bool):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant node. """
         namespec = info['namespec']
-        has_stdout = self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
-        has_stderr = self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
+        has_stdout = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
+        has_stderr = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         self._write_process_button(tr_elt, 'clear_a_mid', info['identifier'], self.page_name,
                                    'clearlog', namespec, has_stdout or has_stderr)
 
-    def write_process_stdout_button(self, tr_elt, info):
+    def write_process_stdout_button(self, tr_elt, info, check_logfiles: bool):
         """ Write the configuration of the tail stdout button of a process.
         This action must be sent to the relevant node. """
         namespec = info['namespec']
-        has_stdout = self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
+        has_stdout = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
                                    STDOUT_PAGE % quote(namespec or ''), '', namespec, has_stdout)
 
-    def write_process_stderr_button(self, tr_elt, info):
+    def write_process_stderr_button(self, tr_elt, info, check_logfiles: bool):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant node. """
         namespec = info['namespec']
-        has_stderr = self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
+        has_stderr = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
                                    STDERR_PAGE % quote(namespec or ''), '', namespec, has_stderr)
@@ -372,7 +372,7 @@ class ViewHandler(MeldView):
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
 
-    def write_common_process_status(self, tr_elt, info: Payload) -> None:
+    def write_common_process_status(self, tr_elt, info: Payload, check_logfiles: bool = True) -> None:
         """ Write the common part of a process status into a table. """
         # print common status
         self.write_common_state(tr_elt, info)
@@ -385,7 +385,8 @@ class ViewHandler(MeldView):
         name_elt = tr_elt.findmeld('name_td_mid')
         # tail hyperlink depends on logfile availability
         namespec = info['namespec']
-        if self.supvisors.supervisor_data.has_logfile(namespec, 'stdout'):
+        # for application page, cannot state if logfile is there
+        if not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout'):
             elt = name_elt.findmeld('name_a_mid')
             elt.content(process_name)
             url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE,
@@ -399,9 +400,9 @@ class ViewHandler(MeldView):
         self.write_process_stop_button(tr_elt, info)
         self.write_process_restart_button(tr_elt, info)
         # manage log actions
-        self.write_process_clear_button(tr_elt, info)
-        self.write_process_stdout_button(tr_elt, info)
-        self.write_process_stderr_button(tr_elt, info)
+        self.write_process_clear_button(tr_elt, info, check_logfiles)
+        self.write_process_stdout_button(tr_elt, info, check_logfiles)
+        self.write_process_stderr_button(tr_elt, info, check_logfiles)
 
     def write_detailed_process_cpu(self, stats_elt, proc_stats: ProcessHistoryStats, nb_cores: int) -> bool:
         """ Write the CPU part of the detailed process status.
