@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.15 (2022-11-19)
+## 0.15 (2022-11-20)
 
 * Publish / Subscribe pattern implemented for **Supvisors** internal communication.
   `PyZmq` is now only used for the optional external publication interface.
