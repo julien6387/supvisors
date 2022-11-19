@@ -18,10 +18,10 @@
 # ======================================================================
 
 import os
-
-from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
 from time import time
 from typing import List
+
+from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
 
 from .ttypes import JiffiesList, InterfaceInstantStats, InstantStatistics, NamedPidList, ProcessStats
 from .utils import mean
@@ -73,13 +73,13 @@ def instant_process_statistics(pid, children=True) -> ProcessStats:
         # get main process
         proc = Process(pid)
         # Note: using Process.oneshot has no value (2 accesses and memory_percent not included in cache for Linux)
-        # include children CPU times but exclude iowait
-        work = sum(proc.cpu_times()[:4])
+        # WARN: children CPU times are not considered fully recursively, so exclude children CPU times and iowait
+        work = sum(proc.cpu_times()[:2])
         memory = proc.memory_percent()
-        # consider children
+        # consider all children recursively
         if children:
             for p in proc.children(recursive=True):
-                # children CPU times are already considered in parent
+                memory += sum(p.cpu_times()[:2])
                 memory += p.memory_percent()
     except (NoSuchProcess, ValueError):
         # process may have disappeared in the interval

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -17,12 +16,13 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
+import stat
 from socket import gethostname
-from supervisor.process import Subprocess
-from supervisor.states import SupervisorStates
 from unittest.mock import call, patch, Mock
+
+import pytest
+from supervisor.medusa.http_server import http_request
+from supervisor.states import SupervisorStates
 
 from supvisors.supervisordata import *
 
@@ -34,9 +34,24 @@ def source(supervisor, supvisors):
     return SupervisorData(supvisors, supervisor)
 
 
+@pytest.fixture
+def medusa_request():
+    str_request = 'GET /logtail/dummy_application%3A3Adummy_process_1 HTTP/1.1'
+    uri = '/logtail/dummy_application:dummy_process_1'
+    header = ['Host: rocky51:60000',
+              'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0',
+              'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language: en-US,en;q=0.5',
+              'Accept-Encoding: gzip, deflate',
+              'Connection: keep-alive',
+              'Referer: http://rocky51:60000/proc_instance.html',
+              'Upgrade-Insecure-Requests: 1']
+    return http_request(Mock(), str_request, 'GET', uri, '1.1', header)
+
+
 def test_unix_server(mocker, supervisor, supvisors):
     """ Test that using UNIX HTTP server is not compliant with the use of Supvisors. """
-    mocker.patch.dict(supervisor.options.server_configs[0], {'section': 'unix_http_server'})
+    mocker.patch.dict(supervisor.options.server_configs[0], {'family': socket.AF_UNIX})
     with pytest.raises(ValueError):
         SupervisorData(supvisors, supervisor)
 
@@ -71,10 +86,12 @@ def test_env(source):
 
 def test_update_supervisor(mocker, source):
     """ Test the update_supervisor method. """
-    mocked_replace = mocker.patch.object(source, 'replace_default_handler')
+    mocked_replace_tail = mocker.patch.object(source, 'replace_tail_handlers')
+    mocked_replace_default = mocker.patch.object(source, 'replace_default_handler')
     mocked_update = mocker.patch.object(source, 'update_internal_data')
     source.update_supervisor()
-    assert mocked_replace.called
+    assert mocked_replace_tail.called
+    assert mocked_replace_default.called
     assert mocked_update.called
 
 
@@ -91,7 +108,17 @@ def test_close_server(source):
     assert source.supervisord.options.httpservers == ()
 
 
-def test_process(source):
+def test_get_group_processes(source):
+    """ Test the access of a supervisord process. """
+    # test unknown application
+    with pytest.raises(KeyError):
+        source.get_group_processes('unknown_application:unknown_process')
+    # test normal behaviour
+    app_config = source.supervisord.process_groups['dummy_application']
+    assert source.get_group_processes('dummy_application') is app_config.processes
+
+
+def test_get_process(source):
     """ Test the access of a supervisord process. """
     # test unknown application and process
     with pytest.raises(KeyError):
@@ -121,7 +148,7 @@ def test_process_config(source):
 
 
 def test_autorestart(source):
-    """ Test the autostart value of a process configuration. """
+    """ Test the autorestart value of a process configuration. """
     # test unknown application and process
     with pytest.raises(KeyError):
         source.autorestart('unknown_application:unknown_process')
@@ -133,7 +160,7 @@ def test_autorestart(source):
 
 
 def test_disable_autorestart(source):
-    """ Test the disable of the autostart of a process configuration. """
+    """ Test the disabling of the autorestart of a process configuration. """
     # test unknown application and process
     with pytest.raises(KeyError):
         source.disable_autorestart('unknown_application:unknown_process')
@@ -188,6 +215,14 @@ def test_extra_args(source):
     assert config.command == 'ls'
     assert config.command_ref == 'ls'
     assert config.extra_args == ''
+
+
+def test_has_logfile(source):
+    """ Test the logfile existence verification. """
+    assert source.has_logfile('dummy_application:dummy_process_1', 'stdout')
+    assert not source.has_logfile('dummy_application:dummy_process_1', 'stderr')
+    assert not source.has_logfile('dummy_application:dummy_process_2', 'stdout')
+    assert source.has_logfile('dummy_application:dummy_process_2', 'stderr')
 
 
 def test_update_numprocs(mocker, source):
@@ -313,19 +348,79 @@ def test_force_fatal(source):
     process_1.spawnerr = ''
 
 
-def test_replace_handler(source):
-    """ Test the autostart value of a process configuration. """
-    # keep reference to handler
-    assert isinstance(source.supervisord.options.httpserver.handlers[1], Mock)
+def test_logtail_handler(mocker, source, medusa_request):
+    """ Test the LogtailHandler class used to override the 1024 bytes in process log tail.
+    Here, fsize lower than new tail size. """
+    mocker.patch('os.path.exists', return_value=True)
+    mocker.patch('os.stat', return_value=[0, ] * stat.ST_CTIME)
+    mocked_producer = Mock(sz=1000)
+    mocker.patch('supervisor.http.tail_f_producer', return_value=mocked_producer)
+    source.supervisord.supvisors.options.tailf_limit = 2048
+    # first test with fsize lower than new tail size
+    handler = LogtailHandler(source.supervisord)
+    handler.handle_request(medusa_request)
+    assert medusa_request.outgoing[-1].sz == 0
+    # second test with fsize greater than new tail size
+    mocked_producer.sz = 2000
+    # sz at 2000 means that 3024 bytes are available, given that Supervisor goes back 1024 bytes
+    handler.handle_request(medusa_request)
+    assert medusa_request.outgoing[-1].sz == 976
+
+
+def test_mainlogtail_handler(mocker, source, medusa_request):
+    """ Test the MainLogtailHandler class used to override the 1024 bytes in supervisor log tail. """
+    mocker.patch('os.path.exists', return_value=True)
+    mocker.patch('os.stat', return_value=[0, ] * stat.ST_CTIME)
+    mocked_producer = Mock(sz=1000)
+    mocker.patch('supervisor.http.tail_f_producer', return_value=mocked_producer)
+    source.supervisord.supvisors.options.tailf_limit = 2048
+    # first test with fsize lower than new tail size
+    handler = MainLogtailHandler(source.supervisord)
+    handler.handle_request(medusa_request)
+    assert medusa_request.outgoing[-1].sz == 0
+    # first test with fsize greater than tail size
+    # sz at 2000 means that 3024 bytes are available, given that Supervisor goes back 1024 bytes
+    mocked_producer.sz = 2000
+    handler.handle_request(medusa_request)
+    assert medusa_request.outgoing[-1].sz == 976
+
+
+def test_replace_tail_handlers(source):
+    """ Test the replacement of the default handler so that the Supvisors pages replace the Supervisor pages. """
+    # check handlers type
+    assert source.supervisord.options.httpserver.handlers[1].handler_name == 'tail_handler'
+    assert source.supervisord.options.httpserver.handlers[2].handler_name == 'main_tail_handler'
+    # check method behaviour with authentication server
+    source.replace_tail_handlers()
+    # check handlers type
+    assert isinstance(source.supervisord.options.httpserver.handlers[1], supervisor_auth_handler)
+    assert isinstance(source.supervisord.options.httpserver.handlers[1].handler, LogtailHandler)
+    assert isinstance(source.supervisord.options.httpserver.handlers[2], supervisor_auth_handler)
+    assert isinstance(source.supervisord.options.httpserver.handlers[2].handler, MainLogtailHandler)
+    # check method behaviour without authentication server
+    with patch.dict(source.server_config, {'username': None}):
+        source.replace_tail_handlers()
+    # check handlers type
+    assert isinstance(source.supervisord.options.httpserver.handlers[1], LogtailHandler)
+    assert isinstance(source.supervisord.options.httpserver.handlers[2], MainLogtailHandler)
+
+
+def test_replace_default_handler(source):
+    """ Test the replacement of the default handler so that the Supvisors pages replace the Supervisor pages. """
+    # check handler type
+    assert isinstance(source.supervisord.options.httpserver.handlers[-1], Mock)
+    assert source.supervisord.options.httpserver.handlers[-1].handler_name == 'default_handler'
     # check method behaviour with authentication server
     source.replace_default_handler()
-    # keep reference to handler
-    assert isinstance(source.supervisord.options.httpserver.handlers[1], supervisor_auth_handler)
-    # check method behaviour with authentication server
+    # check handler type
+    assert not isinstance(source.supervisord.options.httpserver.handlers[-1], Mock)
+    assert isinstance(source.supervisord.options.httpserver.handlers[-1], supervisor_auth_handler)
+    assert isinstance(source.supervisord.options.httpserver.handlers[-1].handler, default_handler.default_handler)
+    # check method behaviour without authentication server
     with patch.dict(source.server_config, {'username': None}):
         source.replace_default_handler()
-    # keep reference to handler
-    assert isinstance(source.supervisord.options.httpserver.handlers[1], default_handler.default_handler)
+    # check handler type
+    assert isinstance(source.supervisord.options.httpserver.handlers[-1], default_handler.default_handler)
 
 
 def test_get_subprocesses(source):

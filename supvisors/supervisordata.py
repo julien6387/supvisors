@@ -19,17 +19,21 @@
 
 import json
 import os
+import socket
 from typing import Any, Dict, List, Tuple
 
 from supervisor.events import notify
-from supervisor.http import supervisor_auth_handler
+from supervisor.http import supervisor_auth_handler, logtail_handler, mainlogtail_handler
 from supervisor.loggers import Logger
 from supervisor.medusa import default_handler, filesys
 from supervisor.options import make_namespec, split_namespec, ProcessConfig
+from supervisor.process import Subprocess
 from supervisor.states import ProcessStates
 
 from .options import SupvisorsServerOptions
 from .ttypes import ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent, NameList
+
+SUPERVISOR_TAIL_DEFAULT = 1024
 
 
 def spawn(self):
@@ -39,6 +43,32 @@ def spawn(self):
     """
     if not self.config.disabled:
         return self._spawn()
+
+
+class LogtailHandler(logtail_handler):
+    """ Specialization of Supervisor logtail_handler to enable tail size configuration. """
+
+    def handle_request(self, request):
+        # call parent
+        super().handle_request(request)
+        # get configured tail size
+        new_head = self.supervisord.supvisors.options.tailf_limit
+        # re-calculate sz
+        sz = request.outgoing[-1].sz
+        request.outgoing[-1].sz = min(sz, max(sz + SUPERVISOR_TAIL_DEFAULT - new_head, 0))
+
+
+class MainLogtailHandler(mainlogtail_handler):
+    """ Specialization of Supervisor mainlogtail_handler to enable tail size configuration. """
+
+    def handle_request(self, request):
+        # call parent
+        super().handle_request(request)
+        # get configured tail size
+        new_head = self.supervisord.supvisors.options.tailf_limit
+        # re-calculate sz
+        sz = request.outgoing[-1].sz
+        request.outgoing[-1].sz = min(sz, max(sz + SUPERVISOR_TAIL_DEFAULT - new_head, 0))
 
 
 class SupervisorData(object):
@@ -53,11 +83,15 @@ class SupervisorData(object):
         self.supvisors = supvisors
         self.supervisord = supervisord
         self.logger: Logger = supvisors.logger
-        self.server_config = supervisord.options.server_configs[0]
-        # server MUST be http, not unix
-        server_section = self.server_config['section']
-        if server_section != 'inet_http_server':
-            raise ValueError(f'Supervisor MUST be configured using inet_http_server: {supervisord.configfile}')
+        # check HTTP configuration
+        self.server_config = None
+        for config in supervisord.options.server_configs:
+            if config['family'] == socket.AF_INET:
+                self.server_config = config
+                break
+        else:
+            # server MUST be http, not unix
+            raise ValueError(f'Supervisor MUST be configured using inet_http_server: {supervisord.options.configfile}')
         # shortcuts (not available yet)
         self._system_rpc_interface = None
         self._supervisor_rpc_interface = None
@@ -73,8 +107,8 @@ class SupervisorData(object):
 
         :return: the System Supervisor RPC handler
         """
-        # not very proud of the following lines but did not find any other way to access
         if not self._system_rpc_interface:
+            # the first handler is the XML-RPC interface for rapid access
             handler = self.httpserver.handlers[0]
             # if authentication used, handler is wrapped
             if self.username:
@@ -89,8 +123,8 @@ class SupervisorData(object):
 
         :return: the Supervisor RPC handler
         """
-        # not very proud of the following lines but did not find any other way to access
         if not self._supervisor_rpc_interface:
+            # the first handler is the XML-RPC interface for rapid access
             handler = self.httpserver.handlers[0]
             # if authentication used, handler is wrapped
             if self.username:
@@ -106,6 +140,7 @@ class SupervisorData(object):
         :return: the Supvisors RPC handler
         """
         if not self._supvisors_rpc_interface:
+            # the first handler is the XML-RPC interface for rapid access
             handler = self.httpserver.handlers[0]
             # if authentication is used, handler is wrapped
             if self.username:
@@ -127,8 +162,9 @@ class SupervisorData(object):
 
         :return: the HTTP server structure
         """
-        # ugly but works...
-        return self.supervisord.options.httpservers[0][1]
+        for config, hs in self.supervisord.options.httpservers:
+            if config['family'] == socket.AF_INET:
+                return hs
 
     @property
     def serverurl(self) -> str:
@@ -161,6 +197,8 @@ class SupervisorData(object):
 
         :return: None
         """
+        # replace the tail handlers for web ui
+        self.replace_tail_handlers()
         # replace the default handler for web ui
         self.replace_default_handler()
         # update Supervisor internal data for extra_args and disabilities
@@ -189,24 +227,40 @@ class SupervisorData(object):
                 process.config.command_ref = process.config.command
                 process.config.extra_args = ''
 
-    def replace_default_handler(self) -> None:
-        """ This method replaces Supervisor web UI with Supvisors web UI. """
-        # create default handler pointing on Supvisors ui directory
-        here = os.path.abspath(os.path.dirname(__file__))
-        templatedir = os.path.join(here, 'ui')
-        filesystem = filesys.os_filesystem(templatedir)
-        defaulthandler = default_handler.default_handler(filesystem)
+    def replace_tail_handlers(self) -> None:
+        """ This method replaces Supervisor web UI tail handlers. """
+        tail_handler = LogtailHandler(self.supervisord)
+        main_tail_handler = MainLogtailHandler(self.supervisord)
         # deal with authentication
         if self.username:
             # wrap the default handler in an authentication handler
             users = {self.username: self.password}
-            defaulthandler = supervisor_auth_handler(users, defaulthandler)
+            tail_handler = supervisor_auth_handler(users, tail_handler)
+            main_tail_handler = supervisor_auth_handler(users, main_tail_handler)
+        else:
+            self.logger.debug('SupervisorData.replace_tail_handlers: Server running without any HTTP'
+                              ' authentication checking')
+        # replace Supervisor handlers considering the order in supervisor.http.make_http_servers
+        self.httpserver.handlers[1] = tail_handler
+        self.httpserver.handlers[2] = main_tail_handler
+
+    def replace_default_handler(self) -> None:
+        """ This method replaces Supervisor web UI with Supvisors web UI. """
+        # create default handler pointing on Supvisors ui directory
+        here = os.path.abspath(os.path.dirname(__file__))
+        template_dir = os.path.join(here, 'ui')
+        filesystem = filesys.os_filesystem(template_dir)
+        def_handler = default_handler.default_handler(filesystem)
+        # deal with authentication
+        if self.username:
+            # wrap the default handler in an authentication handler
+            users = {self.username: self.password}
+            def_handler = supervisor_auth_handler(users, def_handler)
         else:
             self.logger.debug('SupervisorData.replace_default_handler: Server running without any HTTP'
                               ' authentication checking')
         # replace Supervisor default handler at the end of the list
-        self.httpserver.handlers.pop()
-        self.httpserver.install_handler(defaulthandler, True)
+        self.httpserver.handlers[-1] = def_handler
 
     def close_httpservers(self) -> None:
         """ Call the close_httpservers of Supervisor.
@@ -216,11 +270,20 @@ class SupervisorData(object):
         self.supervisord.options.httpservers = ()
 
     # Access to Group / Process structures and configurations
+    def get_group_processes(self, application_name: str) -> List[Subprocess]:
+        """ This method returns the processes related to a group.
+
+        :param application_name: the group name
+        :return: a list of Supervisor processes
+        """
+        # WARN: the method may throw a KeyError exception
+        return self.supervisord.process_groups[application_name].processes
+
     def _get_process(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
         # WARN: the method may throw a KeyError exception
         application_name, process_name = split_namespec(namespec)
-        return self.supervisord.process_groups[application_name].processes[process_name]
+        return self.get_group_processes(application_name)[process_name]
 
     def _get_process_config(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
@@ -243,6 +306,16 @@ class SupervisorData(object):
         """
         process_config = self._get_process_config(namespec)
         return {option_name: getattr(process_config, option_name) for option_name in option_names}
+
+    def has_logfile(self, namespec: str, channel: str) -> bool:
+        """ Return True if the process has a logfile configuration on the channel.
+
+        :param namespec: the program namespec
+        :param channel: the logfile channel (stdout or stderr)
+        :return: True if the process has a logfile configured on the channel
+        """
+        process_config = self._get_process_config(namespec)
+        return getattr(process_config, '%s_logfile' % channel)
 
     # Supervisor issue #1023
     def update_extra_args(self, namespec: str, extra_args: str) -> None:
@@ -335,7 +408,7 @@ class SupervisorData(object):
             self.logger.info(f'SupervisorData._add_supervisor_processes: add process={process_config.name}')
             new_process_namespecs.append(make_namespec(group_name, process_config.name))
             # WARN: replace process_config Supvisors server_options by Supervisor options
-            # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
+            #  this is causing "reaped unknown pid" at exit due to inadequate pidhistory
             process_config.options = self.supervisord.options
             # additional Supvisors attributes
             process_config.disabled = self.disabilities[program_name]
@@ -352,7 +425,7 @@ class SupervisorData(object):
     def _get_obsolete_processes(self, program_name: str, numprocs: int,
                                 program_configs: SupvisorsServerOptions.ProcessConfigInfo) -> NameList:
         """ Return the obsolete processes in accordance with the new numprocs.
-        Thee program may be used in many groups.
+        The program may be used in many groups.
 
         :param program_name: the program which definition has to be updated
         :param numprocs: the new numprocs value

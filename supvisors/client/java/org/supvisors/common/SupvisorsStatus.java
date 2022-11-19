@@ -56,17 +56,17 @@ public class SupvisorsStatus {
     }
 
     /** The Supvisors state. */
-    private State statename;
+    private State fsm_statename;
 
     /**
      * The identifiers of where starting jobs are in progress.
      */
-    private List startingJobs;
+    private List starting_jobs;
 
     /**
      * The identifiers of where stopping jobs are in progress.
      */
-    private List stoppingJobs;
+    private List stopping_jobs;
 
     /**
      * The constructor gets the state information from an HashMap.
@@ -74,11 +74,11 @@ public class SupvisorsStatus {
      * @param HashMap stateInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsStatus(HashMap stateInfo)  {
-        this.statename = State.valueOf((String) stateInfo.get("fsm_statename"));
+        this.fsm_statename = State.valueOf((String) stateInfo.get("fsm_statename"));
         Object[] startingJobs = (Object[]) stateInfo.get("starting_jobs");
-        this.startingJobs = Arrays.asList(startingJobs);
+        this.starting_jobs = Arrays.asList(startingJobs);
         Object[] stoppingJobs = (Object[]) stateInfo.get("stopping_jobs");
-        this.stoppingJobs = Arrays.asList(stoppingJobs);
+        this.stopping_jobs = Arrays.asList(stoppingJobs);
     }
 
     /**
@@ -87,7 +87,7 @@ public class SupvisorsStatus {
      * @return State: The state of the supervisor.
      */
     public State getState() {
-        return this.statename;
+        return this.fsm_statename;
     }
 
     /**
@@ -96,7 +96,7 @@ public class SupvisorsStatus {
      * @return List: The list of identifiers where Supvisors has starting jobs.
      */
     public List getStartingJobs() {
-        return this.startingJobs;
+        return this.starting_jobs;
     }
 
     /**
@@ -105,7 +105,7 @@ public class SupvisorsStatus {
      * @return List: The list of identifiers where Supvisors has stopping jobs.
      */
     public List getStoppingJobs() {
-        return this.stoppingJobs;
+        return this.stopping_jobs;
     }
 
     /**
@@ -114,9 +114,9 @@ public class SupvisorsStatus {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsState(state=" + this.statename
-            + " startingJobs=" + this.startingJobs
-            + " stoppingJobs=" + this.stoppingJobs + ")";
+        return "SupvisorsStatus(state=" + this.fsm_statename
+            + " startingJobs=" + this.starting_jobs
+            + " stoppingJobs=" + this.stopping_jobs + ")";
     }
 
 }

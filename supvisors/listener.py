@@ -19,7 +19,6 @@
 
 import json
 import time
-
 from traceback import format_exc
 from typing import Any, Optional, Union
 
@@ -31,10 +30,10 @@ from supervisor.xmlrpc import RPCError
 
 from .mainloop import SupvisorsMainLoop
 from .process import ProcessStatus
-from .supvisorszmq import SupervisorZmq, RequestPusher
+from .publisherinterface import create_external_publisher
+from .supvisorssocket import SupvisorsSockets, InternalPublisher
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
-                     Payload)
-from .utils import InternalEventHeaders, RemoteCommEvents
+                     InternalEventHeaders, RemoteCommEvents, Payload)
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
@@ -63,7 +62,7 @@ class SupervisorListener(object):
         - logger: the Supvisors logger ;
         - collector: the statistics compiler ;
         - local_identifier: the identifier of the local Supvisors instance ;
-        - pusher: the ZeroMQ socket used to publish Supvisors internal events to all Supvisors instances ;
+        - publisher: the socket used to publish Supvisors internal events to all Supvisors instances ;
         - main_loop: the Supvisors' event thread.
     """
 
@@ -81,10 +80,11 @@ class SupervisorListener(object):
             self.logger.warn('SupervisorListener: this Supvisors instance cannot not collect statistics')
         # other attributes
         self.local_identifier: str = supvisors.supvisors_mapper.local_identifier
-        self.pusher: Optional[RequestPusher] = None
+        self.counter = 0
         # WARN: the SupvisorsMainLoop cannot be created at this level
-        # Before running, Supervisor forks when daemonized and the PyZmq sockets are then lost
+        # Before running, Supervisor forks when daemonized and the sockets are then lost
         self.main_loop: Optional[SupvisorsMainLoop] = None
+        self.publisher: Optional[InternalPublisher] = None
         # add new events to Supervisor EventTypes
         add_process_events()
         # subscribe to internal events
@@ -96,6 +96,7 @@ class SupervisorListener(object):
         events.subscribe(ProcessEnabledEvent, self.on_process_disability)
         events.subscribe(ProcessDisabledEvent, self.on_process_disability)
         events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
+        events.subscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
 
@@ -104,12 +105,15 @@ class SupervisorListener(object):
         This method start the Supvisors main loop. """
         self.logger.info('SupervisorListener.on_running: local supervisord is RUNNING')
         try:
+            # reset the tick counter
+            self.counter = 0
             # update Supervisor internal data for Supvisors support
             self.supvisors.supervisor_data.update_supervisor()
-            # create zmq sockets
-            self.supvisors.zmq = SupervisorZmq(self.supvisors)
-            # keep a reference to the internal pusher used to defer the events publication
-            self.pusher = self.supvisors.zmq.pusher
+            # create the Supvisors communication structures
+            self.supvisors.sockets = SupvisorsSockets(self.supvisors)
+            self.supvisors.external_publisher = create_external_publisher(self.supvisors)
+            # keep a reference to the internal publisher used to share the events publication
+            self.publisher = self.supvisors.sockets.publisher
             # At this point, Supervisor has forked if necessary so the main loop can be started
             self.main_loop = SupvisorsMainLoop(self.supvisors)
             self.logger.debug('SupervisorListener.on_running: request to start main loop')
@@ -129,12 +133,19 @@ class SupervisorListener(object):
             # force Supervisor to close HTTP servers
             # this will prevent any pending XML-RPC request to block the main loop
             self.supvisors.supervisor_data.close_httpservers()
+            # close external publication
+            if self.supvisors.external_publisher:
+                self.logger.debug('SupervisorListener.on_stopping: stopping external publication thread')
+                self.supvisors.external_publisher.close()
+                self.logger.debug('SupervisorListener.on_stopping: external publication thread stopped')
             # stop the main loop
-            self.logger.debug('SupervisorListener.on_stopping: request to stop main loop')
+            self.logger.debug('SupervisorListener.on_stopping: stopping main loop')
             self.main_loop.stop()
-            self.logger.debug('SupervisorListener.on_stopping: end of main loop')
-            # close zmq sockets
-            self.supvisors.zmq.close()
+            self.logger.debug('SupervisorListener.on_stopping: main loop stopped')
+            # close pusher and publication sockets
+            self.logger.debug('SupervisorListener.on_stopping: stopping internal publication thread')
+            self.supvisors.sockets.stop()
+            self.logger.debug('SupervisorListener.on_stopping: internal publication thread stopped')
             # unsubscribe from events
             events.clear()
             # finally, close logger
@@ -157,14 +168,14 @@ class SupervisorListener(object):
             payload = {'name': process_config.name,
                        'group': event.process.group.config.name,
                        'state': _process_states_by_name[event_name.split('_')[-1]],
-                       'now': int(time.time()),
+                       'now': time.time(),
                        'pid': event.process.pid,
                        'expected': event.expected,
                        'spawnerr': event.process.spawnerr,
                        'extra_args': process_config.extra_args,
                        'disabled': process_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
-            self.pusher.send_process_state_event(payload)
+            self.publisher.send_process_state_event(payload)
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {format_exc()}')
@@ -196,8 +207,8 @@ class SupervisorListener(object):
             process_info = self._get_local_process_info(namespec)
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
-                self.pusher.send_process_added_event(process_info)
-        except Exception as exc:
+                self.publisher.send_process_added_event([process_info])
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
 
@@ -212,8 +223,8 @@ class SupervisorListener(object):
             self.logger.debug(f'SupervisorListener.on_process_removed: got ProcessRemovedEvent for {namespec}')
             payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
             self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
-            self.pusher.send_process_removed_event(payload)
-        except Exception as exc:
+            self.publisher.send_process_removed_event(payload)
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_removed: {format_exc()}')
 
@@ -231,24 +242,54 @@ class SupervisorListener(object):
             process_info = self._get_local_process_info(namespec)
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_disability: process_info={process_info}')
-                self.pusher.send_process_disability_event(process_info)
-        except Exception as exc:
+                self.publisher.send_process_disability_event(process_info)
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_disability: {format_exc()}')
 
     def on_group_added(self, event: events.ProcessGroupAddedEvent) -> None:
-        """ Called when a group has been added due to a Supervisor configuration update.
+        """ Called when a group has been added following a Supervisor configuration update.
+        This method performs an update of the internal data structure and sends a process payload
+        to all other Supvisors instances.
 
         :param event: the ProcessGroupAddedEvent object
         :return: None
         """
         try:
-            # update Supervisor internal data for extra_args
             self.logger.debug(f'SupervisorListener.on_group_added: group={event.group}')
+            # update Supervisor internal data for extra_args
             self.supvisors.supervisor_data.update_internal_data(event.group)
-        except Exception as exc:
+            # inform all Supvisors instances that new processes have been added
+            group_process_info = []
+            for process_name in self.supvisors.supervisor_data.get_group_processes(event.group):
+                namespec = make_namespec(event.group, process_name)
+                # use RPCInterface to get local information on this process
+                process_info = self._get_local_process_info(namespec)
+                if process_info:
+                    self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
+                    group_process_info.append(process_info)
+            self.publisher.send_process_added_event(group_process_info)
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
+
+    def on_group_removed(self, event: events.ProcessGroupRemovedEvent) -> None:
+        """ Called when a group has been removed following a Supervisor configuration update.
+        Unlike the ProcessGroupAddedEvent case, Supervisor does not send anything else so other Supvisors instances
+        must be informed.
+
+        :param event: the ProcessGroupRemovedEvent object
+        :return: None
+        """
+        try:
+            # reuse existing event for process removed event
+            self.logger.debug(f'SupervisorListener.on_group_removed: group={event.group}')
+            payload = {'name': '*', 'group': event.group}
+            self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
+            self.publisher.send_process_removed_event(payload)
+        except Exception:
+            # Supvisors shall never endanger the Supervisor thread
+            self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
 
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.
@@ -259,16 +300,18 @@ class SupervisorListener(object):
         :return: None
         """
         try:
-            self.logger.debug('SupervisorListener.on_tick: got TickEvent from Supervisor')
-            payload = {'when': event.when}
+            self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
+            # reset the time information to get more resolution
+            payload = {'when': time.time(), 'sequence_counter': self.counter}
+            self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
-            self.pusher.send_tick_event(payload)
+            self.publisher.send_tick_event(payload)
             # get and publish statistics at tick time (optional)
             if self.collector and self.supvisors.options.stats_enabled:
                 status = self.supvisors.context.instances[self.local_identifier]
                 stats = self.collector(status.pid_processes())
-                self.pusher.send_statistics(stats)
-        except Exception as exc:
+                self.publisher.send_statistics(stats)
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
 
@@ -279,20 +322,25 @@ class SupervisorListener(object):
         try:
             self.logger.trace(f'SupervisorListener.on_remote_event: got RemoteCommunicationEvent {event.type}'
                               f' / {event.data}')
-            if event.type == RemoteCommEvents.SUPVISORS_AUTH:
+            if event.type == RemoteCommEvents.SUPVISORS_AUTH.value:
                 self.authorization(event.data)
-            elif event.type == RemoteCommEvents.SUPVISORS_EVENT:
+            elif event.type == RemoteCommEvents.SUPVISORS_EVENT.value:
                 self.unstack_event(event.data)
-            elif event.type == RemoteCommEvents.SUPVISORS_INFO:
+            elif event.type == RemoteCommEvents.SUPVISORS_INFO.value:
                 self.unstack_info(event.data)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_remote_event: {format_exc()}')
 
     def unstack_event(self, message: str):
         """ Unstack and process one event from the event queue. """
         event_type, (event_identifier, event_data) = json.loads(message)
-        if event_type == InternalEventHeaders.TICK.value:
+        if event_type == InternalEventHeaders.HEARTBEAT.value:
+            self.logger.trace(f'SupervisorListener.unstack_event: got HEARTBEAT from {event_identifier}')
+            # NOTE: at the moment, Supvisors still relies on the TICK to identify a node disconnection
+            #  if more reactivity is needed at some point, the HEARTBEAT could be used
+            # self.supvisors.fsm.on_tick_event(event_identifier, event_data)
+        elif event_type == InternalEventHeaders.TICK.value:
             self.logger.trace(f'SupervisorListener.unstack_event: got TICK from {event_identifier}: {event_data}')
             self.supvisors.fsm.on_tick_event(event_identifier, event_data)
         elif event_type == InternalEventHeaders.PROCESS.value:
@@ -312,10 +360,8 @@ class SupervisorListener(object):
             self.supvisors.fsm.on_process_disability_event(event_identifier, event_data)
         elif event_type == InternalEventHeaders.STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
-            # unless the function is explicitly disabled
             self.logger.trace(f'SupervisorListener.unstack_event: got STATISTICS from {event_identifier}: {event_data}')
-            if self.supvisors.options.stats_enabled:
-                self.supvisors.statistician.push_statistics(event_identifier, event_data)
+            self.supvisors.statistician.push_statistics(event_identifier, event_data)
         elif event_type == InternalEventHeaders.STATE.value:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}')
             self.supvisors.fsm.on_state_event(event_identifier, event_data)
@@ -337,7 +383,7 @@ class SupervisorListener(object):
         self.logger.trace(f'SupervisorListener.authorization: got authorization event from {identifier}')
         self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier)
 
-    def force_process_state(self, process: ProcessStatus, identifier: str, event_date: int,
+    def force_process_state(self, process: ProcessStatus, identifier: str, event_date: float,
                             forced_state: ProcessStates, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
 
@@ -349,9 +395,10 @@ class SupervisorListener(object):
         :return: None
         """
         # create payload from event
-        payload = {'group': process.application_name, 'name': process.process_name, 'state': forced_state,
-                   'forced': True, 'identifier': identifier,
+        payload = {'group': process.application_name, 'name': process.process_name,
+                   'state': forced_state, 'forced': True,
+                   'identifier': identifier,
                    'now': event_date, 'pid': 0, 'expected': False, 'spawnerr': reason,
                    'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
-        self.pusher.send_process_state_event(payload)
+        self.publisher.send_process_state_event(payload)

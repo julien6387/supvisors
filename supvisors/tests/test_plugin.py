@@ -18,12 +18,21 @@
 # ======================================================================
 
 import re
-
-from supervisor.web import OKView, TailView
-from supvisors.plugin import *
 from unittest.mock import call
 
+from supervisor.web import OKView, TailView
+
+from supvisors.plugin import *
 from .base import DummySupervisor
+
+
+def test_expand_faults():
+    """ Test the expand_faults function. """
+    expand_faults()
+    assert SupvisorsFaults.SUPVISORS_CONF_ERROR.value == Faults.SUPVISORS_CONF_ERROR
+    assert SupvisorsFaults.BAD_SUPVISORS_STATE.value == Faults.BAD_SUPVISORS_STATE
+    assert SupvisorsFaults.NOT_MANAGED.value == Faults.NOT_MANAGED
+    assert SupvisorsFaults.DISABLED.value == Faults.DISABLED
 
 
 def test_patch_591():
@@ -89,6 +98,7 @@ def test_update_views():
 
 def test_make_rpc(mocker):
     """ Test the make_supvisors_rpcinterface function. """
+    mocked_expand = mocker.patch('supvisors.plugin.expand_faults')
     mocked_591 = mocker.patch('supvisors.plugin.patch_591')
     mocked_views = mocker.patch('supvisors.plugin.update_views')
     mocker.patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
@@ -100,8 +110,9 @@ def test_make_rpc(mocker):
     make_supvisors_rpcinterface(supervisord)
     # test the calls to previous functions
     assert supervisord.supvisors == 'a Supvisors instance'
+    assert mocked_expand.call_args_list == [call()]
     assert mocked_rpc.call_args_list == [call(supervisord.supvisors)]
     assert mocked_591.call_args_list == [call()]
     assert mocked_views.call_args_list == [call()]
-    # test inclusion of Supvisors into Supervisor
+    # test monkeypatch of Supervisor cleanup_fds
     assert ServerOptions.cleanup_fds is not cleanup

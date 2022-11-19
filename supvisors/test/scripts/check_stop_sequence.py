@@ -99,7 +99,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # configure service application stop sequence
         program = self.context.get_program('service:disk_handler')
         if program.state in RUNNING_STATES:
-            # 2 instances max on cliche81 and cliche82
+            # 2 instances max on rocky51 and rocky52
             # 2 possible sequences, depending on when the first event of the second node arrives before or
             # after the second event of the first node:
             #    * RUNNING RUNNING STOPPING STOPPED

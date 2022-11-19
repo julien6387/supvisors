@@ -63,6 +63,7 @@ def test_init(http_context, handler):
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
     assert handler.local_identifier == handler.supvisors.supvisors_mapper.local_identifier
+    assert handler.has_statistics
     assert handler.view_ctx is None
 
 
@@ -400,7 +401,7 @@ def test_write_periods(handler):
     mocked_mid = Mock()
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call when statistics are disabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_periods(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('period_div_mid')]
     assert mocked_mid.replace.call_args_list == [call('')]
@@ -410,7 +411,7 @@ def test_write_periods(handler):
     mocked_mid = Mock(**{'repeat.return_value': [(period_elt, 5)]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with period selection identical to parameter
-    handler.supvisors.options.stats_enabled = True
+    handler.has_statistics = True
     handler.view_ctx = Mock(parameters={PERIOD: 5}, **{'format_url.return_value': 'an url'})
     handler.write_periods(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
@@ -519,7 +520,7 @@ def test_write_common_process_cpu(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with statistics disabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_td_mid')]
     assert cell_elt.deparent.call_args_list == [call()]
@@ -604,7 +605,7 @@ def test_write_common_process_mem(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with statistics disabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_td_mid')]
     assert cell_elt.deparent.call_args_list == [call()]
@@ -658,21 +659,34 @@ def test_write_process_clear_button(mocker, handler):
     """ Test the write_process_clear_button method. """
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
-    # test call indirection
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
-    handler.write_process_clear_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog', 'dummy_proc')]
+    # test call indirection with log check
+    info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
+    handler.write_process_clear_button('elt', info, True)
+    assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog',
+                                                 'dummy_application:dummy_process_1', True)]
+    mocked_button.reset_mock()
+    # test call indirection without log check
+    handler.write_process_clear_button('elt', info, False)
+    assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog',
+                                                 'dummy_application:dummy_process_1', True)]
 
 
 def test_write_process_stdout_button(mocker, handler):
     """ Test the write_process_stdout_button method. """
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
-    # test call indirection
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
-    handler.write_process_stdout_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc',
-                                                 '', 'dummy_proc')]
+    # test call indirection with log check
+    info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
+    handler.write_process_stdout_button('elt', info, True)
+    assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1',
+                                                 'logtail/dummy_application%3Adummy_process_1',
+                                                 '', 'dummy_application:dummy_process_1', True)]
+    mocked_button.reset_mock()
+    # test call indirection without log check
+    handler.write_process_stdout_button('elt', info, False)
+    assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1',
+                                                 'logtail/dummy_application%3Adummy_process_1',
+                                                 '', 'dummy_application:dummy_process_1', True)]
 
 
 def test_write_process_stderr_button(mocker, handler):
@@ -680,11 +694,17 @@ def test_write_process_stderr_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
-    handler.write_process_stderr_button('elt', info)
-    assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr',
-                                                 '', 'dummy_proc')]
-
+    info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
+    handler.write_process_stderr_button('elt', info, True)
+    assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1',
+                                                 'logtail/dummy_application%3Adummy_process_1/stderr',
+                                                 '', 'dummy_application:dummy_process_1', False)]
+    mocked_button.reset_mock()
+    # test call indirection
+    handler.write_process_stderr_button('elt', info, False)
+    assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1',
+                                                 'logtail/dummy_application%3Adummy_process_1/stderr',
+                                                 '', 'dummy_application:dummy_process_1', True)]
 
 def test_write_process_button(handler):
     """ Test the _write_process_button method. """
@@ -725,7 +745,7 @@ def test_write_common_process_table(handler):
                'mem_foot_th_mid': mem_foot_elt, 'cpu_foot_th_mid': cpu_foot_elt, 'total_mid': None}
     root = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
     # test with statistics enabled
-    handler.supvisors.options.stats_enabled = True
+    handler.has_statistics = True
     handler.write_common_process_table(root)
     assert not root.findmeld.called
     assert not mem_head_elt.deparent.called
@@ -733,7 +753,7 @@ def test_write_common_process_table(handler):
     assert not cpu_head_elt.deparent.called
     assert not cpu_foot_elt.deparent.called
     # test with statistics enabled
-    handler.supvisors.options.stats_enabled = False
+    handler.has_statistics = False
     handler.write_common_process_table(root)
     assert root.findmeld.call_args_list == [call('mem_head_th_mid'), call('cpu_head_th_mid'),
                                             call('mem_foot_th_mid'), call('cpu_foot_th_mid'), call('total_mid')]
@@ -795,25 +815,69 @@ def test_write_common_process_status(mocker, handler):
     mocked_state = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_state')
     mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_statistics')
     # patch the view context
-    handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'}, **{'format_url.return_value': 'an url'})
+    handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # patch the meld elements
-    name_elt = Mock(attrib={'class': ''})
-    tr_elt = Mock(attrib={}, **{'findmeld.return_value': name_elt})
-    # test call on selected process
-    param = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'process_name': 'proc'}
+    name_a_elt = create_element()
+    name_td_elt = create_element({'name_a_mid': name_a_elt})
+    tr_elt = create_element({'name_td_mid': name_td_elt})
+    # test call on selected process having a stdout_logfile
+    param = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1',
+             'process_name': 'dummy_process_1'}
     handler.write_common_process_status(tr_elt, param)
     assert mocked_state.call_args_list == [call(tr_elt, param)]
     assert mocked_stats.call_args_list == [call(tr_elt, param)]
-    assert tr_elt.findmeld.call_args_list == [call('name_a_mid')]
-    assert name_elt.content.call_args_list == [call('\u21B3 proc')]
-    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html', processname='dummy_proc')]
-    assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
+    assert not name_td_elt.content.called
+    assert name_a_elt.content.call_args_list == [call('\u21B3 dummy_process_1')]
+    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html',
+                                                               processname='dummy_application:dummy_process_1',
+                                                               limit=1024)]
+    assert name_a_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
     assert mocked_start.call_args_list == [call(tr_elt, param)]
     assert mocked_stop.call_args_list == [call(tr_elt, param)]
     assert mocked_restart.call_args_list == [call(tr_elt, param)]
-    assert mocked_clear.call_args_list == [call(tr_elt, param)]
-    assert mocked_stdout.call_args_list == [call(tr_elt, param)]
-    assert mocked_stderr.call_args_list == [call(tr_elt, param)]
+    assert mocked_clear.call_args_list == [call(tr_elt, param, True)]
+    assert mocked_stdout.call_args_list == [call(tr_elt, param, True)]
+    assert mocked_stderr.call_args_list == [call(tr_elt, param, True)]
+    mocker.resetall()
+    tr_elt.reset_all()
+    handler.view_ctx.format_url.reset_mock()
+    # test call on selected process NOT having a stdout_logfile
+    param = {'namespec': 'dummy_application:dummy_process_2', 'identifier': '10.0.0.1',
+             'process_name': 'dummy_process_1'}
+    handler.write_common_process_status(tr_elt, param, True)
+    assert mocked_state.call_args_list == [call(tr_elt, param)]
+    assert mocked_stats.call_args_list == [call(tr_elt, param)]
+    assert name_td_elt.content.call_args_list == [call('\u21B3 dummy_process_1')]
+    assert not name_a_elt.content.called
+    assert not handler.view_ctx.format_url.called
+    assert not name_a_elt.attributes.called
+    assert mocked_start.call_args_list == [call(tr_elt, param)]
+    assert mocked_stop.call_args_list == [call(tr_elt, param)]
+    assert mocked_restart.call_args_list == [call(tr_elt, param)]
+    assert mocked_clear.call_args_list == [call(tr_elt, param, True)]
+    assert mocked_stdout.call_args_list == [call(tr_elt, param, True)]
+    assert mocked_stderr.call_args_list == [call(tr_elt, param, True)]
+    mocker.resetall()
+    tr_elt.reset_all()
+    handler.view_ctx.format_url.reset_mock()
+    # test call on selected process NOT having a stdout_logfile but without check required
+    param = {'namespec': 'dummy_application:dummy_process_2', 'identifier': '10.0.0.1',
+             'process_name': 'dummy_process_1'}
+    handler.write_common_process_status(tr_elt, param, False)
+    assert mocked_state.call_args_list == [call(tr_elt, param)]
+    assert mocked_stats.call_args_list == [call(tr_elt, param)]
+    assert not name_td_elt.content.called
+    assert name_a_elt.content.call_args_list == [call('\u21B3 dummy_process_1')]
+    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html',
+                                                               processname='dummy_application:dummy_process_2',
+                                                               limit=1024)]
+    assert name_a_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
+    assert mocked_start.call_args_list == [call(tr_elt, param)]
+    assert mocked_stop.call_args_list == [call(tr_elt, param)]
+    assert mocked_restart.call_args_list == [call(tr_elt, param)]
+    assert mocked_clear.call_args_list == [call(tr_elt, param, False)]
+    assert mocked_stdout.call_args_list == [call(tr_elt, param, False)]
+    assert mocked_stderr.call_args_list == [call(tr_elt, param, False)]
 
 
 def test_write_detailed_process_cpu(handler):

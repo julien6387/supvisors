@@ -18,22 +18,20 @@
 # ======================================================================
 
 import json
-
 from http.client import CannotSendRequest, IncompleteRead
-from threading import Event, Thread
-from time import time
-from typing import Any
+from socket import socket
 from sys import stderr
-from zmq.error import ZMQError
+from threading import Event, Thread
+from typing import Any, Optional
 
-from supervisor.compat import xmlrpclib
 from supervisor.childutils import getRPCInterface
+from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import RPCError
 
-from .supvisorszmq import SupvisorsZmq
-from .ttypes import SupvisorsInstanceStates, ISOLATION_STATES
-from .utils import (TICK_PERIOD, SUPERVISOR_ALERT_TIMEOUT,
-                    DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl)
+from .supvisorssocket import InternalSubscriber
+from .ttypes import (DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents,
+                     SupvisorsInstanceStates, SupvisorsStates, ISOLATION_STATES)
+from .utils import SupervisorServerUrl
 
 
 class SupvisorsMainLoop(Thread):
@@ -62,19 +60,10 @@ class SupvisorsMainLoop(Thread):
         self.stop_event = Event()
         # keep a reference to the Supvisors instance
         self.supvisors = supvisors
+        self.subscriber: InternalSubscriber = supvisors.sockets.subscriber
         # create an XML-RPC client to the local Supervisor instance
         self.srv_url = SupervisorServerUrl(supvisors.supervisor_data.get_env())
         self.proxy = getRPCInterface(self.srv_url.env)
-        # heartbeat variables
-        self.supervisor_time = 0
-        self.reference_time = 0.0
-        self.reference_counter = 0
-        # Create PyZmq sockets
-        try:
-            self.sockets = SupvisorsZmq(self.supvisors)
-        except ZMQError as e:
-            self.supvisors.logger.critical(f'SupvisorsMainLoop: failed to create PyZmq sockets ({e})')
-            self.sockets = None
 
     def stopping(self) -> bool:
         """ Access to the loop attribute (used to drive tests on run method).
@@ -96,76 +85,42 @@ class SupvisorsMainLoop(Thread):
 
     def run(self) -> None:
         """ Contents of the infinite loop. """
-        if self.sockets:
-            # init heartbeat
-            self.reference_time = self.supervisor_time = time()
-            self.reference_counter = 0
-            # poll events forever
-            while not self.stopping():
-                poll_result = self.sockets.poll()
-                # test stop condition again: if Supervisor is stopping,
-                # any XML-RPC call would block this thread and the other because of the join
-                if not self.stopping():
-                    # manage heartbeat
-                    self.manage_heartbeat()
-                    # process events
-                    self.check_requests(poll_result)
-                    self.check_events(poll_result)
-            # close resources gracefully
-            self.sockets.close()
+        # poll events forever
+        while not self.stopping():
+            # Test the sockets for any incoming message
+            requests_socket, external_events_sockets = self.subscriber.poll()
+            # test stop condition again: if Supervisor is stopping,
+            # any XML-RPC call would block this thread and the other because of the join
+            if not self.stopping():
+                # process events
+                self.check_requests(requests_socket)
+                self.check_external_events(external_events_sockets)
+            # heartbeat management with publishers
+            self.subscriber.manage_heartbeat()
+        # close resources gracefully
+        self.subscriber.close()
 
-    def manage_heartbeat(self) -> None:
-        """ Send a periodic TICK to other Supvisors instances.
-        Supervisor TICK is not reliable for a heartbeat as it may be blocked or delayed by HTTP requests.
-        In addition to that, a minimum TICK of 5 seconds may be questioned at some point if more responsiveness is
-        expected, in which case the period of the Supvisors heartbeat could be decreased if necessary. """
-        current_time = time()
-        current_counter = int((current_time - self.reference_time) / TICK_PERIOD)
-        if current_counter > self.reference_counter:
-            # send the Supvisors TICK to other Supvisors instances
-            self.reference_counter = current_counter
-            # Note 1: at some point, it has been considered to add the FSM state to the payload
-            # this is not needed in the early phase as CHECKING actions will follow soon
-            # in normal operation, all Supvisors instances publish their state to the other instances on change
-            # Note 2: at some point, it has been considered not to send the TICK in some FSM states
-            # the TICK is definitely required in RESTARTING, SHUTTING_DOWN so that the stopping of all applications
-            # work correctly
-            # finally, if this thread is somehow still alive in SHUTDOWN, there's an underlying cause
-            payload = {'sequence_counter': current_counter, 'when': current_time}
-            self.sockets.publisher.send_tick_event(payload)
-            # check that Supervisor thread is alive
-            supervisor_silence = current_time - self.supervisor_time
-            if supervisor_silence > SUPERVISOR_ALERT_TIMEOUT:
-                print(f'[ERROR] no TICK received from Supervisor for {supervisor_silence} seconds', file=stderr)
+    def check_external_events(self, identifier_socks: InternalSubscriber.SubscriberPollinResult) -> None:
+        """ Forward external Supvisors events to the Supervisor main thread.
 
-    def check_events(self, poll_result) -> None:
-        """ Forward external Supvisors events to main thread. """
-        message = self.sockets.check_subscriber(poll_result)
-        if message:
-            # The events received are not processed directly in this thread because it would conflict
-            # with the processing in the Supervisor thread, as they use the same data.
-            # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
+        :param identifier_socks: the list of sockets to read from
+        :return: None
+        """
+        for message in self.subscriber.read_subscribers(identifier_socks):
+            # a RemoteCommunicationEvent is used to push the event back into the Supervisor thread.
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, message)
 
-    def check_requests(self, poll_result) -> None:
+    def check_requests(self, sock: Optional[socket]) -> None:
         """ Defer internal requests. """
-        message = self.sockets.check_puller(poll_result)
-        if message:
-            header, body = message
-            # check publication event or deferred request
-            try:
+        if sock:
+            message = self.subscriber.read_socket(sock)
+            if message:
+                header, body = message
                 deferred_request = DeferredRequestHeaders(header)
-            except ValueError:
-                if header == InternalEventHeaders.TICK.value:
-                    # store Supervisor TICK
-                    self.supervisor_time = body[1]['when']
-                else:
-                    # forward the publication
-                    self.sockets.publisher.forward_event(message)
-            else:
+                # check publication event or deferred request
                 if deferred_request == DeferredRequestHeaders.ISOLATE_INSTANCES:
                     # isolation request: disconnect the node from subscriber
-                    self.sockets.disconnect_subscriber(body)
+                    self.subscriber.disconnect_subscriber(body)
                 else:
                     # XML-RPC request
                     self.send_request(deferred_request, body)
@@ -202,7 +157,8 @@ class SupvisorsMainLoop(Thread):
         """
         authorized = None
         master_identifier = ''
-        state_modes_payload = {}
+        state_modes_payload = {'fsm_statecode': SupvisorsStates.OFF.value,
+                               'starting_jobs': False, 'stopping_jobs': False}
         all_info = []
         # get authorization from remote Supvisors instance
         try:
@@ -216,6 +172,7 @@ class SupvisorsMainLoop(Thread):
             state_modes_keys = ['fsm_statecode', 'starting_jobs', 'stopping_jobs']
             state_modes_payload = {key: remote_status_payload[key] for key in state_modes_keys}
         except SupvisorsMainLoop.RpcExceptions:
+            # Remote Supvisors instance close din the gap or Supvisors is incorrectly configured
             print(f'[ERROR] failed to check Supvisors={identifier}', file=stderr)
         else:
             instance_state = SupvisorsInstanceStates(local_status_payload['statecode'])
@@ -299,10 +256,10 @@ class SupvisorsMainLoop(Thread):
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to send Supvisors shutdown to Master {identifier}', file=stderr)
 
-    def send_remote_comm_event(self, event_type: str, event_data) -> None:
+    def send_remote_comm_event(self, event_type: RemoteCommEvents, event_data) -> None:
         """ Shortcut for the use of sendRemoteCommEvent. """
         try:
-            self.proxy.supervisor.sendRemoteCommEvent(event_type, json.dumps(event_data))
+            self.proxy.supervisor.sendRemoteCommEvent(event_type.value, json.dumps(event_data))
         except SupvisorsMainLoop.RpcExceptions:
             # expected on restart / shutdown
             print(f'[ERROR] failed to send event to Supervisor: {event_type} - {event_data}', file=stderr)

@@ -19,68 +19,39 @@
 
 import os
 import random
-import supvisors
-
+import socket
 from socket import gethostname
 from unittest.mock import Mock
 
-from supervisor.datatypes import Automatic
-from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
+from supervisor.loggers import getLogger, handle_stdout, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES, SupervisorStates
 
+import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
 from supvisors.rpcinterface import RPCInterface
 from supvisors.supervisordata import SupervisorData
 from supvisors.supvisorsmapper import SupvisorsMapper
-from supvisors.supvisorszmq import SupervisorZmq
-from supvisors.ttypes import StartingStrategies
+from supvisors.supvisorssocket import SupvisorsSockets
 from supvisors.utils import extract_process_info
-
-
-class DummyOptions:
-    """ Simple options with dummy attributes. """
-
-    SYNCHRO_TIMEOUT_MIN = 15
-
-    def __init__(self):
-        """ Configuration options. """
-        self.supvisors_list = [gethostname()]
-        self.internal_port = 65100
-        self.event_port = 65200
-        self.synchro_timeout = 10
-        self.inactivity_ticks = 2
-        self.core_identifiers = []
-        self.disabilities_file = 'disabilities.json'
-        self.auto_fence = True
-        self.rules_files = 'my_movies.xml'
-        self.starting_strategy = StartingStrategies.CONFIG
-        self.conciliation_strategy = 0
-        self.stats_enabled = True
-        self.stats_periods = 5, 15, 60
-        self.stats_histo = 10
-        self.stats_irix_mode = False
-        # logger options
-        self.logfile = Automatic
-        self.logfile_maxbytes = 10000
-        self.logfile_backups = 12
-        self.loglevel = LevelsByName.BLAT
 
 
 class MockedSupvisors:
     """ Simple supvisors with all dummies. """
 
-    def __init__(self):
+    def __init__(self, supervisord, config):
         """ Use mocks when not possible to use real structures. """
-        self.options = DummyOptions()
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
+        from supvisors.options import SupvisorsOptions
+        self.options = SupvisorsOptions(supervisord, self.logger, **config)
+        self.options.rules_files = [config['rules_files']]
         # mock the supervisord source
-        self.supervisor_data = SupervisorData(self, DummySupervisor())
+        self.supervisor_data = SupervisorData(self, supervisord)
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:']
+                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:55100']
         self.supvisors_mapper.configure(identifiers, [])
         self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from node mapper
@@ -96,11 +67,12 @@ class MockedSupvisors:
         self.failure_handler = Mock(spec=RunningFailureHandler)
         self.fsm = Mock(spec=FiniteStateMachine)
         self.statistician = Mock(data={}, nbcores={})
-        self.listener = Mock(spec=SupervisorListener)
+        self.listener = Mock(spec=SupervisorListener, collector=Mock())
         self.parser = Mock(spec=Parser)
         # should be set in listener
-        self.zmq = Mock(spec=SupervisorZmq)
-        self.zmq.__init__()
+        self.sockets = Mock(spec=SupvisorsSockets)
+        self.sockets.__init__()
+        self.external_publisher = None
 
 
 class DummyRpcHandler:
@@ -124,10 +96,11 @@ class DummyHttpServer:
     """ Simple supervisord RPC handler with dummy attributes. """
 
     def __init__(self):
-        self.handlers = [DummyRpcHandler(), Mock()]
-
-    def install_handler(self, handler, _):
-        self.handlers.append(handler)
+        self.handlers = [DummyRpcHandler(),
+                         Mock(handler_name='tail_handler'),
+                         Mock(handler_name='main_tail_handler'),
+                         Mock(handler_name='ui_handler'),
+                         Mock(handler_name='default_handler')]
 
 
 class DummyServerOptions:
@@ -135,10 +108,14 @@ class DummyServerOptions:
 
     def __init__(self):
         # build a fake server config
-        self.server_configs = [{'section': 'inet_http_server',
-                                'port': 65000,
-                                'username': 'user',
-                                'password': 'p@$$w0rd'}]
+        server_config = {'section': 'inet_http_server',
+                         'family': socket.AF_INET,
+                         'port': 65000,
+                         'username': 'user',
+                         'password': 'p@$$w0rd'}
+        self.configfile = 'supervisord.conf'
+        self.httpserver = DummyHttpServer()
+        self.server_configs = [server_config]
         self.here = '.'
         self.environ_expansions = {}
         self.identifier = gethostname()
@@ -147,12 +124,12 @@ class DummyServerOptions:
         self.nodaemon = True
         self.silent = False
         # add silent logger to test create_logger
+        self.logfile = 'supervisor.log'
         self.logger = getLogger()
         handle_stdout(self.logger, Supvisors.LOGGER_FORMAT)
         self.logger.log = Mock()
         # build a fake http config
-        self.httpservers = [[None, DummyHttpServer()]]
-        self.httpserver = self.httpservers[0][1]
+        self.httpservers = [(server_config, self.httpserver)]
         # prepare storage for close_httpservers test
         self.storage = None
 
@@ -163,20 +140,22 @@ class DummyServerOptions:
 class DummyProcessConfig:
     """ Simple supervisor process config with simple attributes. """
 
-    def __init__(self, name, command, autorestart):
+    def __init__(self, name: str, command: str, autorestart: bool, stdout_logfile: bool, stderr_logfile: bool):
         self.name = name
         self.command = command
         self.autorestart = autorestart
+        self.stdout_logfile = stdout_logfile
+        self.stderr_logfile = stderr_logfile
 
 
 class DummyProcess:
     """ Simple supervisor process with simple attributes. """
 
-    def __init__(self, name, command, autorestart):
+    def __init__(self, name: str, command: str, autorestart: bool, stdout_logfile: bool, stderr_logfile: bool):
         self.state = 'STOPPED'
         self.spawnerr = ''
         self.laststart = 1234
-        self.config = DummyProcessConfig(name, command, autorestart)
+        self.config = DummyProcessConfig(name, command, autorestart, stdout_logfile, stderr_logfile)
 
     def give_up(self):
         self.state = 'FATAL'
@@ -189,10 +168,9 @@ class DummySupervisor:
     """ Simple supervisor with simple attributes. """
 
     def __init__(self):
-        self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
-        dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True)
-        dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False)
+        dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True, True, False)
+        dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False, False, True)
         self.process_groups = {'dummy_application': Mock(config='dummy_application_config',
                                                          processes={'dummy_process_1': dummy_process_1,
                                                                     'dummy_process_2': dummy_process_2})}

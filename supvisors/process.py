@@ -211,7 +211,7 @@ class ProcessStatus(object):
         self.forced_state: Optional[ProcessStates] = None
         self.forced_reason: str = ''
         self.expected_exit: bool = True
-        self.last_event_time: int = 0
+        self.last_event_time: float = 0.0
         self._extra_args: str = ''
         # rules part
         self.rules: ProcessRules = rules
@@ -254,10 +254,10 @@ class ProcessStatus(object):
         identifier = event['identifier']
         if identifier in self.info_map:
             instance_info = self.info_map[identifier]
-            force_state = instance_info['now'] <= event['now']
+            force_state = instance_info['event_time'] <= event['now']
         # apply forced state only if no event has been received since the forced state has been evaluated
         if force_state:
-            self.last_event_time = int(time())
+            self.last_event_time = time()
             self.forced_state = event['state']
             self.forced_reason = event['spawnerr']
             self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.state_string()}'
@@ -314,11 +314,11 @@ class ProcessStatus(object):
 
     # access
     def disabled(self) -> bool:
-        """ Check if the process is disabled on all possible Supvisors instances.
+        """ Check if the process is disabled on all Supvisors instances knowing the process.
 
-        :return: the disabled status of the process on the possible Supvisors instances
+        :return: the disabled status of the process
         """
-        return all(self.info_map[identifier]['disabled'] for identifier in self.possible_identifiers())
+        return self.info_map and all(info['disabled'] for info in self.info_map.values())
 
     def disabled_on(self, identifier: str) -> bool:
         """ Check if the process is disabled on the Supvisors instance identified.
@@ -345,7 +345,7 @@ class ProcessStatus(object):
                 if identifier in self.info_map and not self.disabled_on(identifier)]
 
     def has_crashed(self) -> bool:
-        """ Return True if the any of the processes has ever crashed or has ever exited unexpectedly.
+        """ Return True if any of the processes has ever crashed or has ever exited unexpectedly.
 
         :return: the crash status of the process
         """
@@ -466,8 +466,9 @@ class ProcessStatus(object):
         info = self.info_map[identifier] = payload
         # keep date of last information received
         # use local time here as there is no guarantee that Supvisors instances will be time-synchronized
-        self.last_event_time = int(time())
+        self.last_event_time = time()
         info['local_time'] = self.last_event_time
+        info['event_time'] = info['now']
         self.update_uptime(info)
         # WARN: when a new Supvisors instance comes in group, extra_args is kept only if information ties in
         if self.extra_args != info['extra_args']:
@@ -501,8 +502,9 @@ class ProcessStatus(object):
         info.update(payload)
         # keep date of last information received
         # use local time here as there is no guarantee that Supervisors will be time synchronized
-        self.last_event_time = int(time())
+        self.last_event_time = time()
         info['local_time'] = self.last_event_time
+        info['event_time'] = info['now']
         # last received extra_args are always applicable
         self.extra_args = payload['extra_args']
         # complete missing information

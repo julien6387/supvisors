@@ -18,7 +18,6 @@
 # ======================================================================
 
 import re
-
 from typing import Any, Dict, List, Sequence
 
 from supervisor.loggers import Logger
@@ -200,7 +199,7 @@ class ApplicationStatus(object):
         self.start_sequence: ApplicationStatus.ApplicationSequence = {}
         self.stop_sequence: ApplicationStatus.ApplicationSequence = {}
 
-    # access
+    # status methods
     def running(self) -> bool:
         """ Return True if the application is running.
 
@@ -282,7 +281,7 @@ class ApplicationStatus(object):
         return (f'application_name={self.application_name} managed={self.rules.managed} state={self.state.name}'
                 f' major_failure={self.major_failure} minor_failure={self.minor_failure}')
 
-    # methods
+    # process methods
     def add_process(self, process: ProcessStatus) -> None:
         """ Add a new process to the process list.
 
@@ -292,7 +291,7 @@ class ApplicationStatus(object):
         self.processes[process.process_name] = process
 
     def remove_process(self, process_name: str) -> None:
-        """ Add a new process to the process list.
+        """ Remove a process from the process list.
 
         :param process_name: the process to be removed from the application
         :return: None
@@ -323,6 +322,16 @@ class ApplicationStatus(object):
         # intersect with rules
         return [identifier for identifier in identifiers if identifier in actual_identifiers]
 
+    def get_instance_processes(self, identifier: str) -> ProcessList:
+        """ Return the list of application processes configured in the Supervisor instance.
+
+        :param identifier: the Supervisor instance where the processes qre configured
+        :return: the list of application processes in the Supervisor instance
+        """
+        return [process for process in self.processes.values()
+                if identifier in process.info_map]
+
+    # sequencing methods
     @staticmethod
     def printable_sequence(application_sequence: ApplicationSequence) -> PrintableApplicationSequence:
         """ Get printable application sequence for log traces.
@@ -376,6 +385,7 @@ class ApplicationStatus(object):
         """
         return sum(process.rules.expected_load for process in self.get_start_sequenced_processes())
 
+    # global status methods
     def update_status(self) -> None:
         """ Update the state of the application iaw the state of its sequenced processes.
         An unmanaged application - or generally without starting sequence - is always STOPPED.
@@ -407,7 +417,7 @@ class ApplicationStatus(object):
                 stopping = True
             elif (process.state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
                     or process.state == ProcessStates.EXITED and not process.expected_exit):
-                # a major/minor failure is raised in this states depending on the required option
+                # a major/minor failure is raised in these states depending on the required option
                 if process.rules.required:
                     self.major_failure = True
                 else:

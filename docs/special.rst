@@ -19,10 +19,10 @@ used for synchronizing multiple instances of |Supervisor|:
     * ``auto_fence``.
 
 Once started, all |Supvisors| instances publish the events received, especially the ``TICK`` events that are
-triggered every 5 seconds, on their ``PUBLISH`` PyZMQ_ socket bound on the ``internal_port``.
+triggered every 5 seconds, on their *Publish* socket bound to the ``internal_port``.
 
 On the other side, all |Supvisors| instances start a thread that subscribes to the internal events
-through an internal ``SUBSCRIBE`` PyZMQ_ socket connected to the ``internal_port`` of all |Supvisors| instances
+through an internal *Subscribe* socket connected to the ``internal_port`` of all |Supvisors| instances
 of the ``supvisors_list``.
 
 At the beginning, all |Supvisors| instances are declared in an ``UNKNOWN`` state.
@@ -42,7 +42,7 @@ At this stage, 2 possibilities:
     * the local |Supvisors| instance is seen as ``ISOLATED`` by the remote instance:
 
         + the remote |Supvisors| instance is then reciprocally set to ``ISOLATED`` ;
-        + the *URL* of the remote |Supvisors| instance is disconnected from the ``SUBSCRIBE`` PyZMQ_ socket ;
+        + the *URL* of the remote |Supvisors| instance is disconnected from the *Subscribe* socket ;
 
     * the local |Supvisors| instance is NOT seen as ``ISOLATED`` by the remote instance:
 
@@ -98,7 +98,7 @@ The |Supvisors| instance is marked as ``ISOLATED`` and, in accordance with the p
 
 If the incriminated |Supvisors| instance is restarted, the isolation doesn't prevent the new |Supvisors| instance
 to receive events from the other instances that have isolated it.
-Indeed, it is not possible to filter the subscribers from the ``PUBLISH`` side of a PyZMQ_ socket.
+Indeed, it has not been considered so far to filter the subscribers from the *Publish* side.
 
 That's why the hand-shake is performed in :ref:`synchronizing`.
 Each newly arrived |Supvisors| instance asks to the others if it has been previously isolated before taking

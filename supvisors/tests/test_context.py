@@ -24,6 +24,7 @@ from unittest.mock import call, Mock
 import pytest
 
 from supvisors.context import *
+from supvisors.publisherinterface import EventPublisherInterface
 from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, SupvisorsStates
 from .base import database_copy, any_process_info
 from .conftest import create_application, create_process
@@ -121,7 +122,7 @@ def test_master_identifier(context):
 
 def test_publish_state_modes(context):
     """ Test the Context.publish_state_modes method. """
-    mocked_send_state = context.supvisors.zmq.pusher.send_state_event
+    mocked_send_state = context.supvisors.sockets.publisher.send_state_event
     # test unchanged
     context.publish_state_modes({'starter': False})
     assert not mocked_send_state.called
@@ -146,28 +147,29 @@ def test_get_state_modes(context):
 
 
 def test_publish_state_mode(context):
-    """ Test the Context.publish_state_mode method. """
-    mocked_send = context.supvisors.zmq.publisher.send_supvisors_status
+    """ Test the Context._publish_state_mode method. """
+    context.external_publisher = Mock(**{'send_supvisors_status.return_value': None})
+    mocked_send = context.external_publisher.send_supvisors_status
     # first call publishes the default
-    context.publish_state_mode()
+    context._publish_state_mode()
     assert mocked_send.call_args_list == [call({'fsm_statecode': 0, 'fsm_statename': 'OFF',
                                                 'starting_jobs': [], 'stopping_jobs': []})]
     mocked_send.reset_mock()
     # second call: no change so no publication
-    context.publish_state_mode()
+    context._publish_state_mode()
     assert not mocked_send.called
     # for third call, assign state and set some jobs
     context.local_instance.state_modes.state = SupvisorsStates.OPERATION
     for idx, status in enumerate(context.instances.values()):
         status.state_modes.starting_jobs = (idx % 3) == 0
         status.state_modes.stopping_jobs = (idx % 4) == 0
-    context.publish_state_mode()
+    context._publish_state_mode()
     assert mocked_send.call_args_list == [call({'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
                                                 'starting_jobs': ['10.0.0.1', '10.0.0.4', 'test'],
                                                 'stopping_jobs': ['10.0.0.1', '10.0.0.5']})]
     mocked_send.reset_mock()
     # fourth call: no change so no publication
-    context.publish_state_mode()
+    context._publish_state_mode()
     assert not mocked_send.called
 
 
@@ -517,7 +519,8 @@ def test_load_processes(mocker, context):
 
 def test_on_instance_state_event_unknown(context):
     """ Test the Context.on_instance_state_event method with unknown identifier. """
-    mocked_send = context.supvisors.zmq.publisher.send_supvisors_status
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_send = context.external_publisher.send_supvisors_status
     event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'starting_jobs': True, 'stopping_jobs': False}
     context.on_instance_state_event('10.0.0.0', event)
     assert not mocked_send.called
@@ -525,7 +528,8 @@ def test_on_instance_state_event_unknown(context):
 
 def test_on_instance_state_event_isolated(context):
     """ Test the Context.on_instance_state_event method with isolated identifier. """
-    mocked_send = context.supvisors.zmq.publisher.send_supvisors_status
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_send = context.external_publisher.send_supvisors_status
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
     event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'starting_jobs': True, 'stopping_jobs': False}
     context.on_instance_state_event('10.0.0.2', event)
@@ -535,7 +539,8 @@ def test_on_instance_state_event_isolated(context):
 
 def test_on_instance_state_event_normal_self(context):
     """ Test the Context.on_instance_state_event method with self identifier. """
-    mocked_send = context.supvisors.zmq.publisher.send_supvisors_status
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_send = context.external_publisher.send_supvisors_status
     hostname = gethostname()
     context.instances[hostname]._state = SupvisorsInstanceStates.RUNNING
     event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'starting_jobs': True, 'stopping_jobs': False}
@@ -547,7 +552,8 @@ def test_on_instance_state_event_normal_self(context):
 
 def test_on_instance_state_event_normal_other(context):
     """ Test the Context.on_instance_state_event method with other identifier than self. """
-    mocked_send = context.supvisors.zmq.publisher.send_supvisors_status
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_send = context.external_publisher.send_supvisors_status
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'starting_jobs': True, 'stopping_jobs': False}
     context.on_instance_state_event('10.0.0.1', event)
@@ -612,8 +618,9 @@ def test_authorization_checking_normal(context):
 def test_on_tick_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
-    mocked_check = context.supvisors.zmq.pusher.send_check_instance
-    mocked_send = context.supvisors.zmq.publisher.send_instance_status
+    mocked_check = context.supvisors.sockets.pusher.send_check_instance
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_send = context.external_publisher.send_instance_status
     # check no exception with unknown node
     context.on_tick_event('10.0.0.0', {})
     assert not mocked_check.called
@@ -726,22 +733,27 @@ def test_check_process_exception_operational(mocker, context):
 def test_check_process_normal(mocker, context):
     """ Test the Context.check_process method with expected context. """
     mocked_invalid = mocker.patch.object(context, 'invalid')
-    normal_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION,
-                     SupvisorsStates.CONCILIATION]
-    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # test with process information related to identifier
+    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     application = context.applications['dummy_appli'] = create_application('dummy_appli', context.supvisors)
     process = application.processes['dummy_process'] = create_process(event, context.supvisors)
     process.info_map['10.0.0.1'] = {}
-    for fsm_state in normal_states:
+    group_event = {'group': 'dummy_appli', 'name': '*'}
+    process_event = {'group': 'dummy_appli', 'name': 'dummy_process'}
+    for fsm_state in SupvisorsStates:
+        # test with group and process information
         context.supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1'], event) == (application, process)
+        assert context.check_process(context.instances['10.0.0.1'], process_event) == (application, process)
+        assert not mocked_invalid.called
+        # test with group information only
+        assert context.check_process(context.instances['10.0.0.1'], group_event) == (application, None)
         assert not mocked_invalid.called
 
 
 def test_process_removed_event_unknown_identifier(context):
     """ Test the Context.on_process_removed_event with an unknown Supvisors instance. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     context.on_process_removed_event('10.0.0.0', {})
     assert not mocked_publisher.send_process_event.called
     assert not mocked_publisher.send_process_status.called
@@ -750,7 +762,8 @@ def test_process_removed_event_unknown_identifier(context):
 
 def test_process_removed_event_not_running(context):
     """ Test the Context.on_process_removed_event with a non-RUNNING Supvisors instance. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1']
     # check no change with known instance not RUNNING
@@ -758,7 +771,6 @@ def test_process_removed_event_not_running(context):
         if state != SupvisorsInstanceStates.RUNNING:
             instance_status._state = state
             context.on_process_removed_event('10.0.0.1', {})
-            assert not mocked_publisher.send_process_state_event.called
             assert not mocked_publisher.send_process_event.called
             assert not mocked_publisher.send_process_status.called
             assert not mocked_publisher.send_application_status.called
@@ -767,7 +779,8 @@ def test_process_removed_event_not_running(context):
 def test_process_removed_event_running_process_unknown(mocker, context):
     """ Test the Context.on_process_removed_event with a RUNNING Supvisors instance and an unknown process. """
     mocker.patch.object(context, 'check_process', return_value=None)
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     assert context.supvisors.options.auto_fence
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # get instance status used for tests
@@ -775,69 +788,174 @@ def test_process_removed_event_running_process_unknown(mocker, context):
     instance_status._state = SupvisorsInstanceStates.RUNNING
     # check no change with unknown process
     context.on_process_removed_event('10.0.0.1', event)
-    assert not mocked_publisher.send_process_state_event.called
     assert not mocked_publisher.send_process_event.called
     assert not mocked_publisher.send_process_status.called
     assert not mocked_publisher.send_application_status.called
 
 
-def test_on_process_removed_event_running(mocker, context):
+def test_on_process_removed_event_running_process(mocker, context):
     """ Test the handling of a known process removed event coming from a RUNNING Supvisors instance. """
     mocker.patch('supvisors.process.time', return_value=1234)
-    mocked_publisher = context.supvisors.zmq.publisher
-    # add context
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
+    # add context. processes removed are expected to be STOPPED
     application = context.applications['dummy_application'] = create_application('dummy_application', context.supvisors)
-    dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'state': 0,
-                  'now': 1234, 'stop': 0, 'extra_args': '-h'}
-    process = application.processes['dummy_process'] = create_process(dummy_info, context.supvisors)
-    process.add_info('10.0.0.1', dummy_info)
-    process.add_info('10.0.0.2', dummy_info)
-    mocker.patch.object(context, 'check_process', return_value=(application, process))
+    dummy_info_1 = {'group': 'dummy_application', 'name': 'dummy_process_1', 'expected': True, 'state': 0,
+                    'now': 1234, 'stop': 1230, 'extra_args': '-h'}
+    dummy_info_2 = {'group': 'dummy_application', 'name': 'dummy_process_2', 'expected': True, 'state': 0,
+                    'now': 4321, 'stop': 4300, 'extra_args': ''}
+    process_1 = application.processes['dummy_process_1'] = create_process(dummy_info_1, context.supvisors)
+    process_2 = application.processes['dummy_process_2'] = create_process(dummy_info_2, context.supvisors)
+    process_1.add_info('10.0.0.1', dummy_info_1)
+    process_1.add_info('10.0.0.2', dummy_info_1)
+    process_2.add_info('10.0.0.2', dummy_info_2)
+    context.instances['10.0.0.1'].processes[process_1.namespec] = process_1
+    context.instances['10.0.0.2'].processes[process_1.namespec] = process_1
+    context.instances['10.0.0.2'].processes[process_2.namespec] = process_2
     # get instances status used for tests
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
     # update sequences for the test
     application.rules.managed = True
     application.update_sequences()
-    # payload for parameter
-    dummy_event = {'group': 'dummy_application', 'name': 'dummy_process'}
-    # check normal behaviour in RUNNING state
-    # as process will still include a definition on '10.0.0.2', no impact expected on process and application
-    context.on_process_removed_event('10.0.0.1', dummy_event)
-    assert process.state == ProcessStates.STOPPED
-    assert sorted(process.info_map.keys()) == ['10.0.0.2']
+    application.update_status()
     assert application.state == ApplicationStates.STOPPED
-    assert mocked_publisher.send_process_event.call_args_list == \
-           [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process', 'state': -1})]
+    # payload for parameter
+    dummy_event = {'group': 'dummy_application', 'name': 'dummy_process_1'}
+    mocker.patch.object(context, 'check_process', return_value=(application, process_1))
+    # check normal behaviour in RUNNING state when process_1 is removed from 10.0.0.1
+    # as process will still include a definition on 10.0.0.2, no impact expected on process and application
+    context.on_process_removed_event('10.0.0.1', dummy_event)
+    assert sorted(process_1.info_map.keys()) == ['10.0.0.2']
+    assert sorted(process_2.info_map.keys()) == ['10.0.0.2']
+    assert application.state == ApplicationStates.STOPPED
+    assert sorted(context.instances['10.0.0.1'].processes.keys()) == []
+    assert sorted(context.instances['10.0.0.2'].processes.keys()) == ['dummy_application:dummy_process_1',
+                                                                      'dummy_application:dummy_process_2']
+    expected = '10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process_1', 'state': -1}
+    assert mocked_publisher.send_process_event.call_args_list == [call(*expected)]
     assert not mocked_publisher.send_process_status.called
     assert not mocked_publisher.send_application_status.called
     mocked_publisher.send_process_event.reset_mock()
-    # check normal behaviour in RUNNING state
+    # check normal behaviour in RUNNING state when process_1 is removed from 10.0.0.2
+    # process_1 is removed from application and instance status but application is still STARTING due to process_2
     context.on_process_removed_event('10.0.0.2', dummy_event)
-    assert process.state == ProcessStates.STOPPED
-    assert list(process.info_map.keys()) == []
+    assert list(process_1.info_map.keys()) == []
+    assert sorted(process_2.info_map.keys()) == ['10.0.0.2']
     assert application.state == ApplicationStates.STOPPED
-    assert mocked_publisher.send_process_event.call_args_list == \
-           [call('10.0.0.2', {'group': 'dummy_application', 'name': 'dummy_process', 'state': -1})]
-    assert mocked_publisher.send_process_status.call_args_list == \
-           [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
+    assert sorted(context.instances['10.0.0.1'].processes.keys()) == []
+    assert sorted(context.instances['10.0.0.2'].processes.keys()) == ['dummy_application:dummy_process_2']
+    expected = '10.0.0.2', {'group': 'dummy_application', 'name': 'dummy_process_1', 'state': -1}
+    assert mocked_publisher.send_process_event.call_args_list == [call(*expected)]
+    expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process_1',
+                'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
+                'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+    assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
+    expected = {'application_name': 'dummy_application', 'managed': True,
+                'statecode': 0, 'statename': 'STOPPED',
+                'major_failure': False, 'minor_failure': False}
+    assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
+    mocked_publisher.send_process_event.reset_mock()
+    mocked_publisher.send_process_status.reset_mock()
+    mocked_publisher.send_application_status.reset_mock()
+    # check normal behaviour in RUNNING state when process_2 is removed from 10.0.0.2
+    # no more process in application and instance status so application is removed
+    dummy_event = {'group': 'dummy_application', 'name': 'dummy_process_2'}
+    mocker.patch.object(context, 'check_process', return_value=(application, process_2))
+    context.on_process_removed_event('10.0.0.2', dummy_event)
+    assert list(process_1.info_map.keys()) == []
+    assert list(process_2.info_map.keys()) == []
+    assert application.state == ApplicationStates.DELETED
+    expected = '10.0.0.2', {'group': 'dummy_application', 'name': 'dummy_process_2', 'state': -1}
+    assert mocked_publisher.send_process_event.call_args_list == [call(*expected)]
+    expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process_2',
+                'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
+                'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+    assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
+    expected = {'application_name': 'dummy_application', 'managed': True,
+                'statecode': 4, 'statename': 'DELETED',
+                'major_failure': False, 'minor_failure': False}
+    assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
+
+
+def test_on_process_removed_event_running_group(mocker, context):
+    """ Test the handling of a known group removed event coming from a RUNNING Supvisors instance. """
+    mocker.patch('supvisors.process.time', return_value=1234)
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
+    # add context. processes removed are expected to be STOPPED
+    application = context.applications['dummy_application'] = create_application('dummy_application', context.supvisors)
+    dummy_info_1 = {'group': 'dummy_application', 'name': 'dummy_process_1', 'expected': True, 'state': 0,
+                    'now': 1234, 'stop': 1230, 'extra_args': '-h'}
+    dummy_info_2 = {'group': 'dummy_application', 'name': 'dummy_process_2', 'expected': True, 'state': 0,
+                    'now': 4321, 'stop': 4300, 'extra_args': ''}
+    process_1 = application.processes['dummy_process_1'] = create_process(dummy_info_1, context.supvisors)
+    process_2 = application.processes['dummy_process_2'] = create_process(dummy_info_2, context.supvisors)
+    process_1.add_info('10.0.0.1', dummy_info_1)
+    process_1.add_info('10.0.0.2', dummy_info_1)
+    process_2.add_info('10.0.0.2', dummy_info_2)
+    context.instances['10.0.0.1'].processes[process_1.namespec] = process_1
+    context.instances['10.0.0.2'].processes[process_1.namespec] = process_1
+    context.instances['10.0.0.2'].processes[process_2.namespec] = process_2
+    # get instances status used for tests
+    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
+    # update sequences for the test
+    application.rules.managed = True
+    application.update_sequences()
+    application.update_status()
+    assert application.state == ApplicationStates.STOPPED
+    # payload for parameter
+    dummy_event = {'group': 'dummy_application', 'name': '*'}
+    mocker.patch.object(context, 'check_process', return_value=(application, None))
+    # check normal behaviour in RUNNING state when dummy_application is removed from 10.0.0.1
+    # as processes still includes a definition on 10.0.0.2, no impact expected on process and application
+    context.on_process_removed_event('10.0.0.1', dummy_event)
+    assert sorted(process_1.info_map.keys()) == ['10.0.0.2']
+    assert sorted(process_2.info_map.keys()) == ['10.0.0.2']
+    assert application.state == ApplicationStates.STOPPED
+    assert sorted(context.instances['10.0.0.1'].processes.keys()) == []
+    assert sorted(context.instances['10.0.0.2'].processes.keys()) == ['dummy_application:dummy_process_1',
+                                                                      'dummy_application:dummy_process_2']
+    expected = '10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process_1', 'state': -1}
+    assert mocked_publisher.send_process_event.call_args_list == [call(*expected)]
+    assert not mocked_publisher.send_process_status.called
+    assert not mocked_publisher.send_application_status.called
+    mocked_publisher.send_process_event.reset_mock()
+    # check normal behaviour in RUNNING state when dummy_application is removed from 10.0.0.2
+    # no more process in application and instance status so application is removed
+    context.on_process_removed_event('10.0.0.2', dummy_event)
+    assert list(process_1.info_map.keys()) == []
+    assert list(process_2.info_map.keys()) == []
+    assert application.state == ApplicationStates.DELETED
+    expected_1 = '10.0.0.2', {'group': 'dummy_application', 'name': 'dummy_process_1', 'state': -1}
+    expected_2 = '10.0.0.2', {'group': 'dummy_application', 'name': 'dummy_process_2', 'state': -1}
+    assert mocked_publisher.send_process_event.call_args_list == [call(*expected_1), call(*expected_2)]
+    expected_1 = {'application_name': 'dummy_application', 'process_name': 'dummy_process_1',
                   'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
-                  'last_event_time': 1234, 'identifiers': [], 'extra_args': ''})]
-    assert mocked_publisher.send_application_status.call_args_list == \
-           [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 0, 'statename': 'STOPPED',
-                  'major_failure': False, 'minor_failure': False})]
+                  'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+    expected_2 = {'application_name': 'dummy_application', 'process_name': 'dummy_process_2',
+                  'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
+                  'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+    assert mocked_publisher.send_process_status.call_args_list == [call(expected_1), call(expected_2)]
+    expected = {'application_name': 'dummy_application', 'managed': True,
+                'statecode': 4, 'statename': 'DELETED',
+                'major_failure': False, 'minor_failure': False}
+    assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
 
 
 def test_on_process_disability_event_unknown_identifier(context):
     """ Test the handling of a process disability event coming from an unknown Supvisors instance. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     context.on_process_disability_event('10.0.0.0', {})
     assert not mocked_publisher.send_process_event.called
 
 
 def test_on_process_disability_event_not_running_instance(context):
     """ Test the handling of a process disability event coming from a non-running Supvisors instance. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1']
     # check no change with known node not RUNNING
@@ -845,13 +963,14 @@ def test_on_process_disability_event_not_running_instance(context):
         if state != SupvisorsInstanceStates.RUNNING:
             instance_status._state = state
             context.on_process_disability_event('10.0.0.1', {})
-            assert not mocked_publisher.send_process_state_event.called
+            assert not mocked_publisher.send_process_event.called
 
 
 def test_on_process_disability_event_running_process_unknown(mocker, context):
     """ Test the Context.on_process_disability_event with a RUNNING Supvisors instance and an unknown process. """
     mocker.patch.object(context, 'check_process', return_value=None)
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     assert context.supvisors.options.auto_fence
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # get instance status used for tests
@@ -864,7 +983,8 @@ def test_on_process_disability_event_running_process_unknown(mocker, context):
 
 def test_on_process_disability_event(mocker, context):
     """ Test the Context.on_process_disability_event with a RUNNING Supvisors instance and a known process. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     event = {'group': 'dummy_appli', 'name': 'dummy_process', 'disabled': True}
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1']
@@ -892,7 +1012,8 @@ def test_on_process_disability_event(mocker, context):
 
 def test_on_process_state_event_unknown_identifier(mocker, context):
     """ Test the handling of a process state event coming from an unknown Supvisors instance. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     mocked_update_args = mocker.patch.object(context.supvisors.supervisor_data, 'update_extra_args')
     assert context.on_process_state_event('10.0.0.0', {}) is None
     assert not mocked_update_args.called
@@ -903,7 +1024,8 @@ def test_on_process_state_event_unknown_identifier(mocker, context):
 
 def test_on_process_state_event_not_running_instance(mocker, context):
     """ Test the handling of a process state event coming from a non-running Supvisors instance. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     mocked_update_args = mocker.patch.object(context.supvisors.supervisor_data, 'update_extra_args')
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1']
@@ -913,7 +1035,7 @@ def test_on_process_state_event_not_running_instance(mocker, context):
             instance_status._state = state
             assert context.on_process_state_event('10.0.0.1', {}) is None
             assert not mocked_update_args.called
-            assert not mocked_publisher.send_process_state_event.called
+            assert not mocked_publisher.send_process_event.called
             assert not mocked_publisher.send_process_status.called
             assert not mocked_publisher.send_application_status.called
 
@@ -921,7 +1043,8 @@ def test_on_process_state_event_not_running_instance(mocker, context):
 def test_on_process_state_event_running_process_unknown(mocker, context):
     """ Test the Context.on_process_state_event with a RUNNING Supvisors instance and an unknown process. """
     mocker.patch.object(context, 'check_process', return_value=None)
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     assert context.supvisors.options.auto_fence
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # get instance status used for tests
@@ -939,7 +1062,8 @@ def test_on_process_state_event_locally_unknown_forced(mocker, context):
     Supvisors instance but not configured on the instance that raised the event.
     This is a forced event that will be accepted in the ProcessStatus. """
     mocker.patch('supvisors.process.time', return_value=2345)
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1']
     instance_status._state = SupvisorsInstanceStates.RUNNING
@@ -982,7 +1106,8 @@ def test_on_process_state_event_locally_known_forced_dismissed(context):
     """ Test the Context.on_process_state_event with a RUNNING Supvisors instance and a process known by the local
     Supvisors instance and configured on the instance that raised the event.
     This is a forced event that will be dismissed in the ProcessStatus. """
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     assert context.supvisors.options.auto_fence
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1']
@@ -1017,7 +1142,8 @@ def test_on_process_state_event_locally_known_forced_dismissed(context):
 def test_on_process_state_event(mocker, context):
     """ Test the handling of a process event. """
     mocker.patch('supvisors.process.time', return_value=1234)
-    mocked_publisher = context.supvisors.zmq.publisher
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = context.external_publisher
     mocked_update_args = mocker.patch.object(context.supvisors.supervisor_data, 'update_extra_args')
     # get node status used for tests
     node = context.instances['10.0.0.1']
@@ -1080,7 +1206,8 @@ def test_on_process_state_event(mocker, context):
 
 def test_on_timer_event(mocker, context):
     """ Test the handling of a timer event. """
-    mocked_send = context.supvisors.zmq.publisher.send_instance_status
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_send = context.external_publisher.send_instance_status
     # update context instances
     local_identifier = context.supvisors.supvisors_mapper.local_identifier
     context.instances[local_identifier].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,
@@ -1106,7 +1233,7 @@ def test_on_timer_event(mocker, context):
                   **{'invalidate_identifier.return_value': True})
     mocker.patch.object(context.instances['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
     # test when start_date is recent
-    context.start_date = 3590
+    context.start_date = 3585
     assert context.on_timer_event({'sequence_counter': 31, 'when': 3600}) == ([], set())
     assert context.local_sequence_counter == 31
     assert not mocked_send.called
@@ -1114,7 +1241,7 @@ def test_on_timer_event(mocker, context):
     assert not proc_2.invalidate_node.called
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.UNKNOWN
     # test when synchro_timeout has passed
-    context.start_date = 3589
+    context.start_date = 3584
     assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == (['10.0.0.2'], {proc_2})
     assert context.local_sequence_counter == 32
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING
@@ -1139,8 +1266,9 @@ def test_on_timer_event(mocker, context):
 
 def test_handle_isolation(context):
     """ Test the isolation of instances. """
-    mocked_send_instance = context.supvisors.zmq.publisher.send_instance_status
-    mocked_send_supvisors = context.supvisors.zmq.publisher.send_supvisors_status
+    context.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_send_instance = context.external_publisher.send_instance_status
+    mocked_send_supvisors = context.external_publisher.send_supvisors_status
     # update node states
     local_identifier = context.supvisors.supvisors_mapper.local_identifier
     context.instances[local_identifier]._state = SupvisorsInstanceStates.CHECKING

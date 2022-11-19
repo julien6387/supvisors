@@ -36,7 +36,12 @@ class SupvisorsStates(Enum):
 
 class ApplicationStates(Enum):
     """ Class holding the possible enumeration values for an application state. """
-    STOPPED, STARTING, RUNNING, STOPPING = range(4)
+    STOPPED, STARTING, RUNNING, STOPPING, DELETED = range(5)
+
+
+class EventLinks(Enum):
+    """ Available link types used to publish all Supvisors events. """
+    NONE, ZMQ = range(2)
 
 
 class StartingStrategies(Enum):
@@ -70,24 +75,33 @@ class DistributionRules(Enum):
     ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
 
 
-def enum_values(enum_klass) -> List[int]:
-    """ Return the possible integer values corresponding to the enumeration type.
-    Equivalent to the protected Enum._value2member_map_.keys()
-
-    :param enum_klass: the enumeration class
-    :return: the possible enumeration values
-    """
-    return list(map(lambda x: x.value, enum_klass))
+# for internal publish / subscribe
+class InternalEventHeaders(Enum):
+    """ Enumeration class for the headers in messages between Listener and MainLoop. """
+    HEARTBEAT, TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY, STATISTICS, STATE = range(8)
 
 
-def enum_names(enum_klass) -> List[str]:
-    """ Return the possible string values corresponding to the enumeration type.
-    Equivalent to the protected Enum._member_names_
+# for deferred XML-RPC requests
+class DeferredRequestHeaders(Enum):
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
+    (CHECK_INSTANCE, ISOLATE_INSTANCES, START_PROCESS, STOP_PROCESS,
+     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(9)
 
-    :param enum_klass: the enumeration class
-    :return: the possible enumeration literals
-    """
-    return list(map(lambda x: x.name, enum_klass))
+
+class RemoteCommEvents(Enum):
+    """ Strings used for remote communication between the Supvisors main loop and the listener. """
+    SUPVISORS_AUTH = u'auth'
+    SUPVISORS_EVENT = u'event'
+    SUPVISORS_INFO = u'info'
+
+
+class EventHeaders(Enum):
+    """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
+    SUPVISORS = 'supvisors'
+    INSTANCE = 'instance'
+    APPLICATION = 'application'
+    PROCESS_EVENT = 'event'
+    PROCESS_STATUS = 'process'
 
 
 # State lists commonly used

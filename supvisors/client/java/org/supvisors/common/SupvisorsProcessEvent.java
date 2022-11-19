@@ -16,6 +16,8 @@
 
 package org.supvisors.common;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 
 /**
@@ -38,7 +40,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     private Boolean expected;
 
     /** The date of the last event received for this process. */
-    private Integer now;
+    private Double now;
 
     /** The UNIX process id of the process. */
     private Integer pid;
@@ -62,7 +64,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
         this.group = (String) processInfo.get("group");
         this.state = ProcessState.valueOf((Integer) processInfo.get("state"));
         this.expected = (Boolean) processInfo.get("expected");
-        this.now = (Integer) processInfo.get("now");
+        this.now = (Double) processInfo.get("now");
         this.pid = (Integer) processInfo.get("pid");
         // identifier is not set in this message
         this.identifier = null;
@@ -119,9 +121,9 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /**
      * The getNow method returns the date of the event.
      *
-     * @return Integer: The date of the event.
+     * @return Double: The date of the event.
      */
-    public Integer getNow() {
+    public Double getNow() {
         return this.now;
     }
 
@@ -160,12 +162,13 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsProcessEvent(namespec=" + this.getName()
             + " group=" + this.group
             + " name=" + this.name
             + " state=" + this.state
             + " expected=" + this.expected
-            + " now=" + this.now
+            + " now=\"" + sdf.format(new Date((long) ((double) this.now * 1000L))) + "\""
             + " pid=" + this.pid
             + " identifier=" + this.identifier
             + " extraArgs=\"" + this.extra_args + "\""

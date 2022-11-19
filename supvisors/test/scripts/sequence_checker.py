@@ -21,11 +21,12 @@ import unittest
 import zmq
 
 from queue import Empty
+from typing import Dict
 
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from supvisors.client.subscriber import create_logger
+from supvisors.client.zmqsubscriber import create_logger
 from supvisors.ttypes import ApplicationStates
 
 from .event_queues import SupvisorsEventQueues
@@ -158,7 +159,7 @@ class Context:
 
     def __init__(self):
         """ Initialization of the attributes. """
-        self.applications: Application = {}
+        self.applications: Dict[str, Application] = {}
 
     def add_application(self, application: Application) -> None:
         """ Add an application to the context. """
@@ -227,11 +228,12 @@ class SequenceChecker(SupvisorsEventQueues):
 class CheckSequenceTest(unittest.TestCase):
     """ Common class used to check starting and stopping sequences. """
 
+    TEST_IDENTIFIERS = ['supv-01', 'rocky52:60000', 'supv-03', 'rocky54']
+
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the instances
-        TEST_IDENTIFIERS = ['supv-01', 'rocky52:60000', 'supv-03', 'rocky54']
-        for idx, identifier in enumerate(TEST_IDENTIFIERS):
+        for idx, identifier in enumerate(CheckSequenceTest.TEST_IDENTIFIERS):
             setattr(self, f'HOST_{idx+1:02d}', identifier)
         # create a context
         self.context = Context()
@@ -307,7 +309,7 @@ class CheckSequenceTest(unittest.TestCase):
 
     def check_application_event(self, event):
         """ Check if the received application event corresponds to expectation. """
-        self.evloop.logger.info('Checking application event: {}'.format(event))
+        self.evloop.logger.info(f'Checking application event: {event}')
         # check that event corresponds to an expected application
         application_name = event['application_name']
         application = self.context.get_application(application_name)

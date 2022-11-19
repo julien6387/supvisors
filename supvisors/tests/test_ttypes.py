@@ -17,61 +17,86 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import Mock
+
+import pytest
 
 from supvisors.ttypes import *
 
 
-def test_SupvisorsInstanceStates():
+def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
     expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
-    assert enum_names(SupvisorsInstanceStates) == expected
-    assert enum_values(SupvisorsInstanceStates) == list(range(6))
+    assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
-def test_ApplicationStates():
-    """ Test the ApplicationStates enumeration. """
-    expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING']
-    assert enum_names(ApplicationStates) == expected
-    assert enum_values(ApplicationStates) == list(range(4))
-
-
-def test_StartingStrategies():
-    """ Test the StartingStrategies enumeration. """
-    expected = ['CONFIG', 'LESS_LOADED', 'MOST_LOADED', 'LOCAL', 'LESS_LOADED_NODE', 'MOST_LOADED_NODE']
-    assert enum_names(StartingStrategies) == expected
-    assert enum_values(StartingStrategies) == list(range(6))
-
-
-def test_ConciliationStrategies():
-    """ Test the ConciliationStrategies enumeration. """
-    expected = ['SENICIDE', 'INFANTICIDE', 'USER', 'STOP', 'RESTART', 'RUNNING_FAILURE']
-    assert enum_names(ConciliationStrategies) == expected
-    assert enum_values(ConciliationStrategies) == list(range(6))
-
-
-def test_StartingFailureStrategies():
-    """ Test the StartingFailureStrategies enumeration. """
-    expected = ['ABORT', 'STOP', 'CONTINUE']
-    assert enum_names(StartingFailureStrategies) == expected
-    assert enum_values(StartingFailureStrategies) == list(range(3))
-
-
-def test_RunningFailureStrategies():
-    """ Test the RunningFailureStrategies enumeration. """
-    expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION', 'SHUTDOWN', 'RESTART']
-    assert enum_names(RunningFailureStrategies) == expected
-    assert enum_values(RunningFailureStrategies) == list(range(6))
-
-
-def test_SupvisorsStates():
+def test_supvisors_states():
     """ Test the SupvisorsStates enumeration. """
     expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
                 'SHUTTING_DOWN', 'SHUTDOWN']
-    assert enum_names(SupvisorsStates) == expected
-    assert enum_values(SupvisorsStates) == list(range(9))
+    assert [x.name for x in SupvisorsStates] == expected
+
+
+def test_application_states():
+    """ Test the ApplicationStates enumeration. """
+    expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING', 'DELETED']
+    assert [x.name for x in ApplicationStates] == expected
+
+
+def test_event_links():
+    """ Test the EventLinks enumeration. """
+    expected = ['NONE', 'ZMQ']
+    assert [x.name for x in EventLinks] == expected
+
+
+def test_starting_strategies():
+    """ Test the StartingStrategies enumeration. """
+    expected = ['CONFIG', 'LESS_LOADED', 'MOST_LOADED', 'LOCAL', 'LESS_LOADED_NODE', 'MOST_LOADED_NODE']
+    assert [x.name for x in StartingStrategies] == expected
+
+
+def test_conciliation_strategies():
+    """ Test the ConciliationStrategies enumeration. """
+    expected = ['SENICIDE', 'INFANTICIDE', 'USER', 'STOP', 'RESTART', 'RUNNING_FAILURE']
+    assert [x.name for x in ConciliationStrategies] == expected
+
+
+def test_starting_failure_strategies():
+    """ Test the StartingFailureStrategies enumeration. """
+    expected = ['ABORT', 'STOP', 'CONTINUE']
+    assert [x.name for x in StartingFailureStrategies] == expected
+
+
+def test_running_failure_strategies():
+    """ Test the RunningFailureStrategies enumeration. """
+    expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION', 'SHUTDOWN', 'RESTART']
+    assert [x.name for x in RunningFailureStrategies] == expected
+
+
+def test_internal_event_headers():
+    """ Test the InternalEventHeaders enumeration. """
+    expected = ['HEARTBEAT', 'TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED', 'PROCESS_DISABILITY',
+                'STATISTICS', 'STATE']
+    assert [x.name for x in InternalEventHeaders] == expected
+
+
+def test_deferred_request_headers():
+    """ Test the DeferredRequestHeaders enumeration. """
+    expected = ['CHECK_INSTANCE', 'ISOLATE_INSTANCES', 'START_PROCESS', 'STOP_PROCESS', 'RESTART', 'SHUTDOWN',
+                'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
+    assert [x.name for x in DeferredRequestHeaders] == expected
+
+
+def test_remote_comm_events():
+    """ Test the RemoteCommEvents enumeration. """
+    expected = ['SUPVISORS_AUTH', 'SUPVISORS_EVENT', 'SUPVISORS_INFO']
+    assert [x.name for x in RemoteCommEvents] == expected
+
+
+def test_event_headers():
+    """ Test the RemoteCommEvents enumeration. """
+    expected = ['SUPVISORS', 'INSTANCE', 'APPLICATION', 'PROCESS_EVENT', 'PROCESS_STATUS']
+    assert [x.name for x in EventHeaders] == expected
 
 
 def test_exception():
@@ -82,11 +107,11 @@ def test_exception():
     assert 'invalid transition' == str(exc.value)
 
 
-def test_SupvisorsFaults():
+def test_supvisors_faults():
     """ Test the SupvisorsFaults enumeration. """
     expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED', 'DISABLED']
-    assert enum_names(SupvisorsFaults) == expected
-    assert enum_values(SupvisorsFaults) == list(range(100, 104))
+    assert [x.name for x in SupvisorsFaults] == expected
+    assert [x.value for x in SupvisorsFaults] == list(range(100, 104))
 
 
 def test_process_event():

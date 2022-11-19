@@ -20,7 +20,6 @@
 import errno
 import socket
 import sys
-
 from types import MethodType
 
 from supervisor import supervisorctl
@@ -31,8 +30,9 @@ from supervisor.options import ClientOptions, make_namespec, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
-from .rpcinterface import API_VERSION, RPCInterface, expand_faults
-from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, Payload, enum_names
+from .plugin import expand_faults
+from .rpcinterface import API_VERSION, RPCInterface
+from .ttypes import ConciliationStrategies, StartingStrategies, SupvisorsInstanceStates, PayloadList
 from .utils import simple_localtime
 
 
@@ -62,9 +62,30 @@ class ControllerPlugin(ControllerPluginBase):
             supervisor_plugin._startresult_ref = supervisor_plugin._startresult
             supervisor_plugin._startresult = MethodType(_startresult, supervisor_plugin)
 
+    def get_server_proxy(self, server_url: str, namespace: str):
+        """ Return a proxy on a remote supervisor instance. """
+        proxy = xmlrpclib.ServerProxy('http://127.0.0.1',
+                                      xmlrpc.SupervisorTransport(self.ctl.options.username,
+                                                                 self.ctl.options.password,
+                                                                 server_url))
+        return getattr(proxy, namespace)
+
     def supvisors(self) -> RPCInterface:
         """ Get a proxy to the Supvisors RPC interface. """
         return self.ctl.get_server_proxy('supvisors')
+
+    def get_running_instances(self):
+        """ Return the URL of the Supvisors running instances. """
+        try:
+            # get everything at once instead of doing multiple requests
+            info_list = self.supvisors().get_all_instances_info()
+        except xmlrpclib.Fault as e:
+            self.ctl.output(f'ERROR ({e.faultString})')
+            self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            info_list = []
+        return {info['identifier']: 'http://%s:%d' % (info['node_name'], info['port'])
+                for info in info_list
+                if info['statecode'] == SupvisorsInstanceStates.RUNNING.value}
 
     def do_sversion(self, _):
         """ Command to get the Supvisors API version. """
@@ -256,10 +277,10 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = ControllerPlugin.max_template(rules_list, 'application_name', 'Application')
                 max_identifiers = ControllerPlugin.max_template(rules_list, 'identifiers', 'Supervisor')
                 # print title
-                template = (f'%(appli)-{max_appli}s%(managed)-9s%(distributed)-13s%(identifiers)-{max_identifiers}s'
-                            '%(start_seq)-7s%(stop_seq)-7s%(starting_strategy)-13s%(starting_failure_strategy)-18s'
+                template = (f'%(appli)-{max_appli}s%(managed)-9s%(distribution)-17s%(identifiers)-{max_identifiers}s'
+                            '%(start_seq)-7s%(stop_seq)-7s%(starting_strategy)-18s%(starting_failure_strategy)-18s'
                             '%(running_failure_strategy)s')
-                title = {'appli': 'Application', 'managed': 'Managed', 'distributed': 'Distributed',
+                title = {'appli': 'Application', 'managed': 'Managed', 'distribution': 'Distribution',
                          'identifiers': 'Supervisor', 'start_seq': 'Start', 'stop_seq': 'Stop',
                          'starting_strategy': 'Starting', 'starting_failure_strategy': 'Starting_Failure',
                          'running_failure_strategy': 'Running_Failure'}
@@ -268,14 +289,15 @@ class ControllerPlugin(ControllerPluginBase):
                 for rules in rules_list:
                     if rules['managed']:
                         payload = {'appli': rules['application_name'], 'managed': True,
-                                   'distributed': rules['distributed'], 'identifiers': rules.get('identifiers', 'n/a'),
+                                   'distribution': rules['distribution'],
+                                   'identifiers': rules.get('identifiers', 'n/a'),
                                    'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'],
                                    'starting_strategy': rules['starting_strategy'],
                                    'starting_failure_strategy': rules['starting_failure_strategy'],
                                    'running_failure_strategy': rules['running_failure_strategy']}
                     else:
                         payload = {'appli': rules['application_name'], 'managed': False,
-                                   'distributed': 'n/a', 'identifiers': 'n/a',
+                                   'distribution': 'n/a', 'identifiers': 'n/a',
                                    'start_seq': 'n/a', 'stop_seq': 'n/a',
                                    'starting_strategy': 'n/a',
                                    'starting_failure_strategy': 'n/a',
@@ -502,7 +524,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_application.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_application()
                 return
@@ -550,7 +572,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_application.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_application()
                 return
@@ -613,6 +635,38 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('stop_application <appli> <appli>\t\tStop multiple managed named applications.')
         self.ctl.output('stop_application\t\t\t\tStop all managed applications.')
 
+    def do_all_start(self, arg):
+        """ Invoke the same Supervisor start command over all running nodes. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: all_start requires a process name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_all_start()
+                return
+            namespec = args[0]
+            # get running instances
+            urls = self.get_running_instances()
+            # send the start command to all instances
+            if urls:
+                for identifier, url in urls.items():
+                    try:
+                        # no wait
+                        proxy = self.get_server_proxy(url, 'supervisor')
+                        result = proxy.startProcess(namespec, False)
+                    except xmlrpclib.Fault as e:
+                        self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
+                        self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                    else:
+                        self.ctl.output(f'{namespec} started on {identifier}: {result}')
+            else:
+                self.ctl.output(f'ERROR: no running Supvisors instance')
+
+    def help_all_start(self):
+        """ Print the help of the all_start command."""
+        self.ctl.output('all_start <proc>\t\t\t'
+                        'Start the process named proc on all RUNNING Supvisors instances.')
+
     def do_start_args(self, arg):
         """ Command to start a local process with additional arguments. """
         if self._upcheck():
@@ -626,15 +680,47 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 result = self.supvisors().start_args(namespec, ' '.join(args[1:]))
             except xmlrpclib.Fault as e:
-                self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+                self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('{} started: {}'.format(namespec, result))
+                self.ctl.output(f'{namespec} started: {result}')
 
     def help_start_args(self):
         """ Print the help of the start_args command."""
-        self.ctl.output("start_process <proc> <arg_list>\t\t\t"
-                        "Start the local process named proc with additional arguments arg_list.")
+        self.ctl.output('start_args <proc> <arg_list>\t\t\t'
+                        'Start the local process named proc with additional arguments arg_list.')
+
+    def do_all_start_args(self, arg):
+        """ Invoke the same Supvisors start_args command over all running nodes. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: all_start_args requires a process name and extra arguments')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_all_start_args()
+                return
+            namespec = args[0]
+            # get running instances
+            urls = self.get_running_instances()
+            if urls:
+                # send the start command to all instances
+                for identifier, url in urls.items():
+                    try:
+                        # no wait
+                        result = self.get_server_proxy(url, 'supvisors').start_args(namespec, ' '.join(args[1:]), False)
+                    except xmlrpclib.Fault as e:
+                        self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
+                        self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                    else:
+                        self.ctl.output(f'{namespec} started on {identifier}: {result}')
+            else:
+                self.ctl.output(f'ERROR: no running Supvisors instance')
+
+    def help_all_start_args(self):
+        """ Print the help of the all_start_args command."""
+        self.ctl.output('all_start_args <proc> <arg_list>\t\t\t'
+                        'Start the process named proc on all RUNNING Supvisors instances'
+                        ' with additional arguments arg_list.')
 
     def do_start_process(self, arg):
         """ Command to start processes with a strategy and rules. """
@@ -649,7 +735,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process()
                 return
@@ -690,7 +776,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_any_process.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_any_process()
                 return
@@ -727,7 +813,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process_args.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process_args()
                 return
@@ -759,7 +845,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_any_process_args.'
-                                f' use one of {enum_names(StartingStrategies)}')
+                                f' use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_any_process_args()
                 return
@@ -817,7 +903,7 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
-                self.ctl.output(f'ERROR: unknown strategy={args[0]}. use one of {enum_names(StartingStrategies)}')
+                self.ctl.output(f'ERROR: unknown strategy={args[0]}. use one of {[x.name for x in StartingStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_process()
                 return
@@ -938,7 +1024,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = ConciliationStrategies[args[0]]
             except KeyError:
                 self.ctl.output(f'ERROR: unknown strategy for conciliate.'
-                                f' use one of {enum_names(ConciliationStrategies)}')
+                                f' use one of {[x.name for x in ConciliationStrategies]}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_conciliate()
                 return

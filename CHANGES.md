@@ -1,5 +1,45 @@
 # Change Log
 
+## 0.15 (2022-11-19)
+
+* Publish / Subscribe pattern implemented for **Supvisors** internal communication.
+  `PyZmq` is now only used for the optional external publication interface.
+
+* Make **Supvisors** robust to `addProcessGroup` / `removeProcessGroup` / `reloadConfig` Supervisor XML-RPCs.
+
+* Fix process CPU times in statistics so that children processes are all taken into account.
+
+* Fix regression in `supervisorctl application_rules` where the former `distributed` entry was still used
+  instead of `distribution`. 
+
+* Fix uncaught exception when an unknown host name or IP address is used in the `supvisors_list` option.
+
+* Fix `ProcessEvent` publication when no resource is available to start a process. 
+
+* Fix `SupvisorsStatus` event in JAVA ZMQ client.
+
+* Manage the `RuntimeError` exception that could be raised by matplotlib when saving a graph.
+
+* Add `all_start` and `all_start_args` to the list of `supervisorctl` commands. These commands respectively invoke
+  `supervisor.startProcess` and `supvisors.start_args` on all running **Supvisors** instances.
+
+* Add `tail_limit` and `tailf_limit` options to override the default 1024 bytes used by Supervisor to display
+  the Tail pages of the Web UI.
+
+* Inactive Log Clear / Stdout / Stderr buttons in the Web UI if no stdout / stderr is configured. 
+
+* Add resolution to `ProcessStatus` time information and store event time, so that forced state is correctly considered.
+
+* A process is not considered disabled anymore when process rules don't allow any candidate **Supvisors** instance.
+
+* When `psutil` is not installed on a host, the statistics-related options of the Process and Host pages
+  of the Web UI are not displayed, just as if the option `stats_enabled` was set to `False`.
+
+* Clarify the exceptions that could be raised in **Supvisors** startup.
+
+* Add a FAQ to the documentation.
+
+
 ## 0.14 (2022-05-01)
 
 * Implement [Supervisor Issue #1054](https://github.com/Supervisor/supervisor/issues/1054).

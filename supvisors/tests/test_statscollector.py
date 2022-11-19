@@ -17,13 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
-
 import multiprocessing
 import time
 
+import pytest
+
 from supvisors.statscollector import *
+
+pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
 
 
 def test_instant_cpu_statistics():

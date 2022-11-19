@@ -18,7 +18,6 @@
 # ======================================================================
 
 import re
-
 from distutils.util import strtobool
 from os import path
 from sys import stderr
@@ -30,7 +29,7 @@ from supervisor.options import split_namespec
 from .application import ApplicationRules
 from .process import ProcessRules
 from .ttypes import (DistributionRules, StartingStrategies, StartingFailureStrategies,
-                     RunningFailureStrategies, EnumClassType, enum_names)
+                     RunningFailureStrategies, EnumClassType)
 
 # XSD for XML validation
 supvisors_folder = path.dirname(__file__)
@@ -69,7 +68,7 @@ class Parser(object):
         :return: None
         """
         for rules_file in rules_files:
-            self.logger.info('Parser: parsing rules from {}'.format(rules_file))
+            self.logger.info(f'Parser: parsing rules from {rules_file}')
             root = self.parse(rules_file).getroot()
             self.roots.append(root)
             # get aliases - keep string as it is easier to process
@@ -395,7 +394,7 @@ class Parser(object):
                 setattr(rules, attr_string, klass[value])
             except KeyError:
                 self.logger.warn(f'Pattern.load_enum: invalid value for {Parser.get_element_name(elt)}'
-                                 f' {attr_string}: {value} (expected in {enum_names(klass)})')
+                                 f' {attr_string}: {value} (expected in {[x.name for x in klass]})')
 
     def parse(self, filename: str) -> Optional[Any]:
         """ Parse the file depending on the modules installed.

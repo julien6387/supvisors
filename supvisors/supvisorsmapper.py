@@ -18,16 +18,16 @@
 # ======================================================================
 
 import re
-
 from collections import OrderedDict
-from socket import gethostname, gethostbyaddr
-from supervisor.loggers import Logger
+from socket import gethostname, gethostbyaddr, herror, gaierror
 from typing import Any, Dict
+
+from supervisor.loggers import Logger
 
 from .ttypes import NameList
 
 
-def get_node_names(ip_address: str) -> NameList:
+def get_node_names(ip_address: str, logger: Logger) -> NameList:
     """ Get hostname, aliases and all IP addresses for the ip_address.
 
     The first element of the returned list will be used as a unique node identifier in the event where multiple
@@ -35,13 +35,18 @@ def get_node_names(ip_address: str) -> NameList:
     Preference is made to the IP address because it is not excluded that different nodes have the same host name.
 
     :param ip_address: the host_name used in the Supvisors option
+    :param logger: the Supvisors logger
     :return: the list of possible node names
     """
-    hostname, aliases, ip_addresses = gethostbyaddr(ip_address)
-    return ip_addresses + [hostname] + aliases
+    try:
+        hostname, aliases, ip_addresses = gethostbyaddr(ip_address)
+        return ip_addresses + [hostname] + aliases
+    except (herror, gaierror):
+        logger.error(f'get_node_names: unknown host {ip_address}')
+        return []
 
 
-class SupvisorsInstanceId(object):
+class SupvisorsInstanceId:
     """ Identification attributes for a Supvisors instance.
     The Supvisors instance uses the Supervisor identifier if provided, or builds an identifier from the host name and
     the HTTP port used by this Supervisor.
@@ -76,7 +81,7 @@ class SupvisorsInstanceId(object):
         self.parse_from_string(item)
         self.check_values()
         # choose the IP address among the possible node identifiers
-        node_names = get_node_names(self.host_name)
+        node_names = get_node_names(self.host_name, self.logger)
         if node_names:
             self.ip_address = node_names[0]
 
@@ -175,7 +180,7 @@ class SupvisorsMapper(object):
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
-        self.local_node_references = get_node_names(gethostname())
+        self.local_node_references = get_node_names(gethostname(), self.logger)
         self.logger.debug(f'SupvisorsMapper: local_node_references={self.local_node_references}')
         self.local_identifier = None
 
@@ -227,8 +232,7 @@ class SupvisorsMapper(object):
                 self._instances[supvisors_id.identifier] = supvisors_id
                 self._nodes.setdefault(supvisors_id.ip_address, []).append(supvisors_id.identifier)
             else:
-                message = f'could not parse Supvisors identification from {item}'
-                self.logger.error(f'SupvisorsMapper.instances: {message}')
+                message = f'could not define a Supvisors identification from "{item}"'
                 raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')
         self.logger.debug(f'SupvisorsMapper.configure: nodes={self.nodes}')
@@ -260,7 +264,7 @@ class SupvisorsMapper(object):
                 if len(matching_identifiers) > 1:
                     message = f'multiple candidates for the local Supvisors: {matching_identifiers}'
                 else:
-                    message = 'could not find local the local Supvisors in supvisors_list'
+                    message = 'could not find the local Supvisors in supvisors_list'
                 self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
                 raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.find_local_identifier: local_identifier={self.local_identifier}')

@@ -41,10 +41,6 @@ def test_creation(supvisors, rpc):
     """ Test the values set at construction. """
     assert rpc.supvisors is supvisors
     assert rpc.logger is supvisors.logger
-    assert SupvisorsFaults.SUPVISORS_CONF_ERROR.value == Faults.SUPVISORS_CONF_ERROR
-    assert SupvisorsFaults.BAD_SUPVISORS_STATE.value == Faults.BAD_SUPVISORS_STATE
-    assert SupvisorsFaults.NOT_MANAGED.value == Faults.NOT_MANAGED
-    assert SupvisorsFaults.DISABLED.value == Faults.DISABLED
 
 
 def test_api_version(rpc):
@@ -1720,7 +1716,7 @@ def test_get_local_info(mocker, rpc):
     assert rpc._get_local_info(info) == {'group': 'dummy_group', 'name': 'dummy_name',
                                          'extra_args': '-x dummy_args',
                                          'state': 0, 'statename': 'STOPPED',
-                                         'start': 1234, 'stop': 7777, 'now': 4321, 'pid': 4567,
+                                         'start': 1234, 'stop': 7777, 'now': 4321.0, 'pid': 4567,
                                          'description': 'process dead', 'expected': True, 'spawnerr': '',
                                          'startsecs': 2, 'stopwaitsecs': 10}
 

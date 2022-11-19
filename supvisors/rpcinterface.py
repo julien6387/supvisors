@@ -37,15 +37,6 @@ with open(version_txt, 'r') as ver:
     API_VERSION = ver.read().split('=')[1].strip()
 
 
-def expand_faults():
-    """ Expand supervisord Fault definition.
-
-    :return: None
-    """
-    for x in SupvisorsFaults:
-        setattr(Faults, x.name, x.value)
-
-
 def startProcess(self, name: str, wait: bool = True):
     """ Overridden startProcess to handle a disabled process.
 
@@ -82,8 +73,6 @@ class RPCInterface(object):
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         self.logger.info(f'RPCInterface: using Supvisors={API_VERSION} Supervisor={VERSION}')
-        # update Supervisor Fault definition
-        expand_faults()
 
     # RPC Status methods
     def get_api_version(self) -> str:
@@ -1014,7 +1003,7 @@ class RPCInterface(object):
             except KeyError:
                 self.logger.error(f'RPCInterface._get_strategy: invalid string for {enum_klass} ({strategy})')
                 raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'invalid {enum_klass}: {strategy} (string expected in {enum_names(enum_klass)})')
+                               f'invalid {enum_klass}: {strategy} (string expected in {[x.name for x in enum_klass]})')
         # check by value
         if type(strategy) is int:
             try:
@@ -1022,7 +1011,7 @@ class RPCInterface(object):
             except ValueError:
                 self.logger.error(f'RPCInterface._get_strategy: invalid integer for {enum_klass} ({strategy})')
                 raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'incorrect strategy: {strategy} (integer expected in {enum_values(enum_klass)}')
+                               f'incorrect strategy: {strategy} (integer expected in {[x.value for x in enum_klass]}')
         # other types are wrong
         self.logger.error(f'RPCInterface._get_strategy: invalid {enum_klass} ({strategy})')
         raise RPCError(Faults.INCORRECT_PARAMETERS, f'invalid {enum_klass}: {strategy} (string or integer expected)')
@@ -1127,8 +1116,10 @@ class RPCInterface(object):
     def _get_local_info(self, info):
         """ Create a payload from Supervisor process info. """
         sub_info = extract_process_info(info)
-        namespec = make_namespec(info['group'], info['name'])
+        # transform now from int to float
+        sub_info['now'] *= 1.0
         # add startsecs, stopwaitsecs and extra_args values
+        namespec = make_namespec(info['group'], info['name'])
         option_names = 'startsecs', 'stopwaitsecs', 'extra_args', 'disabled'
         options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
         sub_info.update(options)

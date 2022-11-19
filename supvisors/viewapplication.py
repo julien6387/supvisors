@@ -89,14 +89,14 @@ class ApplicationView(ViewHandler):
     def write_starting_strategy(self, root):
         """ Write applicable starting strategies. """
         # get the current strategy
-        strategy = self.view_ctx.parameters[STRATEGY]
+        selected_strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
-        for str_strategy in enum_names(StartingStrategies):
-            elt = root.findmeld('%s_a_mid' % str_strategy.lower())
-            if strategy == str_strategy:
+        for strategy in StartingStrategies:
+            elt = root.findmeld('%s_a_mid' % strategy.name.lower())
+            if selected_strategy == strategy.name:
                 elt.attrib['class'] = 'button off active'
             else:
-                url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: str_strategy})
+                url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy.name})
                 elt.attributes(href=url)
 
     def write_application_actions(self, root):
@@ -175,7 +175,7 @@ class ApplicationView(ViewHandler):
             shaded_tr = False  # used to invert background style
             for tr_elt, info in iterator:
                 # write common status (shared between this application view and node view)
-                self.write_common_process_status(tr_elt, info)
+                self.write_common_process_status(tr_elt, info, False)
                 # print process name and running instances
                 self.write_process(tr_elt, info)
                 # set line background and invert

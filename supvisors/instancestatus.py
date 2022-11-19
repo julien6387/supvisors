@@ -23,8 +23,8 @@ from typing import Any, Dict, Tuple
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
-from .supvisorsmapper import SupvisorsInstanceId
 from .process import ProcessStatus
+from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition, NamedPidList, Payload
 from .utils import TICK_PERIOD
 
@@ -239,8 +239,20 @@ class SupvisorsInstanceStatus(object):
 
     # methods on processes
     def add_process(self, process):
-        """ Add a new process to the process list. """
+        """ Add a new process to the process list.
+
+        :param process: the process status to be added to the Supvisors instance
+        :return: None
+        """
         self.processes[process.namespec] = process
+
+    def remove_process(self, process: ProcessStatus) -> None:
+        """ Remove a process from the process list.
+
+        :param process: the process to be removed from the Supvisors instance
+        :return: None
+        """
+        del self.processes[process.namespec]
 
     def running_processes(self):
         """ Return the process running on the Supvisors instance.

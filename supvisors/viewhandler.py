@@ -47,6 +47,8 @@ class ViewHandler(MeldView):
         self.sup_ctx = self.supvisors.context
         # keep reference to the local node name
         self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        # define statistics visibility
+        self.has_statistics = True
         # init view_ctx (only for tests)
         self.view_ctx = None
 
@@ -203,7 +205,7 @@ class ViewHandler(MeldView):
 
     def write_periods(self, root):
         """ Write configured periods for statistics. """
-        if self.supvisors.options.stats_enabled:
+        if self.has_statistics:
             # write the available periods
             mid_elt = root.findmeld('period_li_mid')
             for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
@@ -227,7 +229,7 @@ class ViewHandler(MeldView):
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
         Statistics data comes from node. """
-        if self.supvisors.options.stats_enabled:
+        if self.has_statistics:
             proc_stats = info['proc_stats']
             elt = tr_elt.findmeld('pcpu_a_mid')
             if proc_stats and len(proc_stats[0]) > 0:
@@ -257,7 +259,7 @@ class ViewHandler(MeldView):
     def write_common_process_mem(self, tr_elt, info: Payload) -> None:
         """ Write the MEM part of the common process status.
         Statistics data comes from node. """
-        if self.supvisors.options.stats_enabled:
+        if self.has_statistics:
             proc_stats = info['proc_stats']
             elt = tr_elt.findmeld('pmem_a_mid')
             if proc_stats and len(proc_stats[1]) > 0:
@@ -300,27 +302,32 @@ class ViewHandler(MeldView):
         self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restart', info['namespec'],
                                    info['startable'] and info['statecode'] in RUNNING_STATES)
 
-    def write_process_clear_button(self, tr_elt, info):
+    def write_process_clear_button(self, tr_elt, info, check_logfiles: bool):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant node. """
+        namespec = info['namespec']
+        has_stdout = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
+        has_stderr = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         self._write_process_button(tr_elt, 'clear_a_mid', info['identifier'], self.page_name,
-                                   'clearlog', info['namespec'])
+                                   'clearlog', namespec, has_stdout or has_stderr)
 
-    def write_process_stdout_button(self, tr_elt, info):
+    def write_process_stdout_button(self, tr_elt, info, check_logfiles: bool):
         """ Write the configuration of the tail stdout button of a process.
         This action must be sent to the relevant node. """
+        namespec = info['namespec']
+        has_stdout = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
-                                   STDOUT_PAGE % quote(info['namespec'] or ''),
-                                   '', info['namespec'])
+                                   STDOUT_PAGE % quote(namespec or ''), '', namespec, has_stdout)
 
-    def write_process_stderr_button(self, tr_elt, info):
+    def write_process_stderr_button(self, tr_elt, info, check_logfiles: bool):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant node. """
+        namespec = info['namespec']
+        has_stderr = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
-                                   STDERR_PAGE % quote(info['namespec'] or ''),
-                                   '', info['namespec'])
+                                   STDERR_PAGE % quote(namespec or ''), '', namespec, has_stderr)
 
     def _write_process_button(self, tr_elt, elt_name: str, identifier: str, page: str, action: str, namespec: str,
                               active: bool = True):
@@ -335,7 +342,7 @@ class ViewHandler(MeldView):
 
     def write_common_process_table(self, table_elt):
         """ Hide MEM+CPU head+foot cells if statistics disabled"""
-        if not self.supvisors.options.stats_enabled:
+        if not self.has_statistics:
             for mid in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid', 'total_mid']:
                 elt = table_elt.findmeld(mid)
                 if elt is not None:
@@ -365,7 +372,7 @@ class ViewHandler(MeldView):
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
 
-    def write_common_process_status(self, tr_elt, info: Payload) -> None:
+    def write_common_process_status(self, tr_elt, info: Payload, check_logfiles: bool = True) -> None:
         """ Write the common part of a process status into a table. """
         # print common status
         self.write_common_state(tr_elt, info)
@@ -375,18 +382,27 @@ class ViewHandler(MeldView):
         process_name = info['process_name']
         if 'single' not in info or not info['single']:
             process_name = '\u21B3 ' + process_name
-        elt = tr_elt.findmeld('name_a_mid')
-        elt.content(process_name)
-        url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE, **{PROCESS: info['namespec']})
-        elt.attributes(href=url, target="_blank")
+        name_elt = tr_elt.findmeld('name_td_mid')
+        # tail hyperlink depends on logfile availability
+        namespec = info['namespec']
+        # for application page, cannot state if logfile is there
+        if not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout'):
+            elt = name_elt.findmeld('name_a_mid')
+            elt.content(process_name)
+            url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE,
+                                           **{PROCESS: namespec, LIMIT: self.supvisors.options.tail_limit})
+            elt.attributes(href=url, target="_blank")
+        else:
+            # overwrite a href entry
+            name_elt.content(process_name)
         # manage actions iaw state
         self.write_process_start_button(tr_elt, info)
         self.write_process_stop_button(tr_elt, info)
         self.write_process_restart_button(tr_elt, info)
         # manage log actions
-        self.write_process_clear_button(tr_elt, info)
-        self.write_process_stdout_button(tr_elt, info)
-        self.write_process_stderr_button(tr_elt, info)
+        self.write_process_clear_button(tr_elt, info, check_logfiles)
+        self.write_process_stdout_button(tr_elt, info, check_logfiles)
+        self.write_process_stderr_button(tr_elt, info, check_logfiles)
 
     def write_detailed_process_cpu(self, stats_elt, proc_stats: ProcessHistoryStats, nb_cores: int) -> bool:
         """ Write the CPU part of the detailed process status.
@@ -433,18 +449,18 @@ class ViewHandler(MeldView):
             elt = stats_elt.findmeld('pmemval_td_mid')
             if rate is not None:
                 self.set_slope_class(elt, rate)
-            elt.content('{:.2f}%'.format(proc_stats[1][-1]))
+            elt.content(f'{proc_stats[1][-1]:.2f}%')
             # set mean value
             elt = stats_elt.findmeld('pmemavg_td_mid')
-            elt.content('{:.2f}%'.format(avg))
+            elt.content(f'{avg:.2f}%')
             if a is not None:
                 # set slope value between last 2 values
                 elt = stats_elt.findmeld('pmemslope_td_mid')
-                elt.content('{:.2f}'.format(a))
+                elt.content(f'{a:.2f}')
             if dev is not None:
                 # set standard deviation
                 elt = stats_elt.findmeld('pmemdev_td_mid')
-                elt.content('{:.2f}'.format(dev))
+                elt.content(f'{dev:.2f}')
             return True
 
     def write_process_plots(self, proc_stats: ProcessHistoryStats, nb_cores: int) -> None:
@@ -452,14 +468,14 @@ class ViewHandler(MeldView):
         try:
             from supvisors.plot import StatisticsPlot
             # build CPU image
-            cpu_img = StatisticsPlot()
+            cpu_img = StatisticsPlot(self.logger)
             cpu_values = proc_stats[0]
             if not self.supvisors.options.stats_irix_mode:
                 cpu_values = [x / nb_cores for x in cpu_values]
             cpu_img.add_plot('CPU', '%', cpu_values)
             cpu_img.export_image(process_cpu_img)
             # build Memory image
-            mem_img = StatisticsPlot()
+            mem_img = StatisticsPlot(self.logger)
             mem_img.add_plot('MEM', '%', proc_stats[1])
             mem_img.export_image(process_mem_img)
         except ImportError:

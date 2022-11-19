@@ -18,7 +18,7 @@
 # ======================================================================
 
 import math
-
+import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from supervisor.events import Tick5Event
@@ -319,14 +319,14 @@ class ProcessStopCommand(ProcessCommand):
         # check the process state on the targeted Supvisors instance
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
-        process_state_date = instance_info['now']
+        process_state_time = instance_info['event_time']
         if process_state == ProcessStates.STOPPING:
             # the STOPPED state is expected after stopwaitsecs seconds
             expected_state = ProcessStates.STOPPED
             if self.request_sequence_counter + self.wait_ticks < self.instance_status.sequence_counter:
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPED'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
-                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_date
+                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_time
         else:
             # from RUNNING_STATES, STOPPING event is expected quite immediately
             expected_state = ProcessStates.STOPPING
@@ -335,9 +335,9 @@ class ProcessStopCommand(ProcessCommand):
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPING'
                                   f' on {self.identifier} after {self.minimum_ticks} ticks so abort')
-                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_date
+                return expected_state, ProcessRequestResult.TIMED_OUT, process_state_time
         # time out not reached
-        return expected_state, ProcessRequestResult.IN_PROGRESS, process_state_date
+        return expected_state, ProcessRequestResult.IN_PROGRESS, process_state_time
 
 
 class ApplicationJobs(object):
@@ -741,7 +741,7 @@ class ApplicationStartJobs(ApplicationJobs):
         process = command.process
         self.logger.debug(f'ApplicationStartJobs.process_job: process={process.namespec} stopped={process.stopped()}')
         if process.stopped():
-            # TODO: now that load request is in place, selection could be all done in before
+            # TODO: now that load request is in place, selection could be all done before
             # identifier has already been decided for a non-distributed application
             if self.distribution == DistributionRules.ALL_INSTANCES:
                 # find Supvisors instance iaw strategy
@@ -753,16 +753,18 @@ class ApplicationStartJobs(ApplicationJobs):
                     command.update_identifier(identifier)
             if command.identifier:
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(command.identifier, process.namespec, command.extra_args)
+                self.supvisors.sockets.pusher.send_start_process(command.identifier, process.namespec,
+                                                                 command.extra_args)
                 command.update_sequence_counter()
                 self.logger.info(f'ApplicationStartJobs.process_job: {process.namespec} requested to start'
                                  f' on {command.identifier}')
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.supvisors.listener.force_process_state(process, ProcessStates.STARTING,
+                self.supvisors.listener.force_process_state(command.process,
                                                             self.supvisors.supvisors_mapper.local_identifier,
-                                                            ProcessStates.FATAL, 'no resource available')
+                                                            time.time(),
+                                                            self.failure_state, 'no resource available')
                 self.process_failure(process)
         # return True when the job is queued
         return queued
@@ -824,7 +826,7 @@ class ApplicationStopJobs(ApplicationJobs):
                           f' running_on({command.identifier})={running}')
         if running:
             # use asynchronous xml rpc to stop program
-            self.supvisors.zmq.pusher.send_stop_process(command.identifier, process.namespec)
+            self.supvisors.sockets.pusher.send_stop_process(command.identifier, process.namespec)
             command.update_sequence_counter()
             self.logger.info(f'ApplicationStopJobs.process_job: {process.namespec} requested to stop'
                              f' on {command.identifier}')

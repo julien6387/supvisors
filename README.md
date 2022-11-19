@@ -68,7 +68,7 @@ but is not maintained anymore.
 | Package                                           | Release | Optional |
 |---------------------------------------------------|---------|----------|
 | [Supervisor](http://supervisord.org)              | 4.2.4   |          |
-| [PyZMQ](http://pyzmq.readthedocs.io)              | 20.0.0  |          |
+| [PyZMQ](http://pyzmq.readthedocs.io)              | 20.0.0  | X        |
 | [psutil](https://pypi.python.org/pypi/psutil)     | 5.7.3   | X        |
 | [matplotlib](http://matplotlib.org)               | 3.3.3   | X        |
 | [lxml](http://lxml.de)                            | 4.6.2   | X        |

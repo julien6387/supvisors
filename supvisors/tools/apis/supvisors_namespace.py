@@ -21,12 +21,12 @@ from flask import g, jsonify
 from flask_restx import Namespace, Resource, inputs
 
 from supvisors.rpcinterface import RPCInterface
-from supvisors.ttypes import ConciliationStrategies, StartingStrategies, enum_names
+from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 from .utils import get_docstring_description, get_docstring_parameters
 
 # Utilities
-StartingStrategiesParam = ', '.join(enum_names(StartingStrategies))
-ConciliationStrategiesParam = ', '.join(enum_names(ConciliationStrategies))
+StartingStrategiesParam = ', '.join([x.name for x in StartingStrategies])
+ConciliationStrategiesParam = ', '.join([x.name for x in ConciliationStrategies])
 LoggerLevelsParam = ', '.join(RPCInterface.get_logger_levels().values())
 
 # Supvisors part

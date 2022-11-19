@@ -15,6 +15,7 @@
     supervisorctl.rst
     event_interface.rst
     special.rst
+    faq.rst
 
 .. toctree::
     :maxdepth: 2

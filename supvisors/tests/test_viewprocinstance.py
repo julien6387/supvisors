@@ -25,8 +25,8 @@ from supervisor.web import MeldView, StatusView
 
 from supvisors.ttypes import ApplicationStates
 from supvisors.viewhandler import ViewHandler
+from supvisors.viewinstance import SupvisorsInstanceView
 from supvisors.viewprocinstance import *
-from supvisors.viewsupstatus import SupvisorsInstanceView
 from supvisors.webutils import PROC_INSTANCE_PAGE
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
 from .conftest import create_application, create_process, create_element
@@ -458,7 +458,7 @@ def test_write_supervisord_status(mocker, view):
     assert tr_elt.findmeld.call_args_list == [call('name_a_mid')]
     assert not shex_elt.content.called
     assert name_elt.content.call_args_list == [call('supervisord')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord')]
+    assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord', limit=1024)]
     assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
     assert mocked_button.call_args_list == [call(tr_elt, 'stop_a_mid', 'proc_instance.html', action='shutdownsup'),
                                             call(tr_elt, 'restart_a_mid', 'proc_instance.html', action='restartsup'),
@@ -477,7 +477,7 @@ def test_write_supervisord_status(mocker, view):
     assert tr_elt.findmeld.call_args_list == [call('shex_td_mid'), call('name_a_mid')]
     assert shex_elt.content.call_args_list == [call(MASTER_SYMBOL)]
     assert name_elt.content.call_args_list == [call('supervisord')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord')]
+    assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord', limit=1024)]
     assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
     assert mocked_button.call_args_list == [call(tr_elt, 'stop_a_mid', 'proc_instance.html', action='shutdownsup'),
                                             call(tr_elt, 'restart_a_mid', 'proc_instance.html', action='restartsup'),
@@ -593,7 +593,7 @@ def test_make_callback(mocker, view):
     mocked_stop = mocker.patch.object(view, 'stop_group_action', return_value='stopped')
     mocked_restart = mocker.patch.object(view, 'restart_group_action', return_value='restarted')
     mocked_clear = mocker.patch.object(view, 'clear_log_action', return_value='cleared')
-    mocked_parent = mocker.patch('supvisors.viewsupstatus.SupvisorsInstanceView.make_callback', return_value='default')
+    mocked_parent = mocker.patch('supvisors.viewinstance.SupvisorsInstanceView.make_callback', return_value='default')
     # test startgroup
     assert view.make_callback('namespec', 'startgroup') == 'started'
     assert mocked_start.call_args_list == [call('namespec')]

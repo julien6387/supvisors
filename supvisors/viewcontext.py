@@ -23,7 +23,7 @@ from typing import Optional, Tuple
 from urllib.parse import quote
 
 from .process import ProcessStatus
-from .ttypes import StartingStrategies, NameList, enum_names
+from .ttypes import StartingStrategies, NameList
 from .utils import get_bit, set_bit
 from .webutils import SUPVISORS_PAGE, error_message
 
@@ -44,6 +44,7 @@ STRATEGY = 'strategy'
 CPU = 'cpuid'
 INTF = 'intfname'
 AUTO = 'auto'  # auto-refresh
+LIMIT = 'limit'
 
 MESSAGE = 'message'
 GRAVITY = 'gravity'
@@ -80,11 +81,9 @@ class ViewContext:
         self.update_process_name()
         self.update_namespec()
         self.update_shrink_expand()
-        # if the statistics function is not enabled, skip the following parameters
-        if self.supvisors.options.stats_enabled:
-            self.update_period()
-            self.update_cpu_id()
-            self.update_interface_name()
+        self.update_period()
+        self.update_cpu_id()
+        self.update_interface_name()
 
     def get_action(self):
         """ Extract action requested in context form. """
@@ -109,7 +108,8 @@ class ViewContext:
 
     def update_strategy(self) -> None:
         """ Extract starting strategy from context. """
-        self._update_string(STRATEGY, enum_names(StartingStrategies), self.supvisors.options.starting_strategy.name)
+        self._update_string(STRATEGY, [x.name for x in StartingStrategies],
+                            self.supvisors.options.starting_strategy.name)
 
     def update_auto_refresh(self) -> None:
         """ Extract auto refresh from context. """

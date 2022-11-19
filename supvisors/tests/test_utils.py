@@ -25,23 +25,7 @@ from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.xmlrpc import gettags
 
 from supvisors.rpcinterface import RPCInterface
-from supvisors.ttypes import enum_names, enum_values
 from supvisors.utils import *
-
-
-def test_InternalEventHeaders():
-    """ Test the InternalEventHeaders enumeration. """
-    expected = ['TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED', 'PROCESS_DISABILITY', 'STATISTICS', 'STATE']
-    assert enum_names(InternalEventHeaders) == expected
-    assert enum_values(InternalEventHeaders) == list(range(7))
-
-
-def test_DeferredRequestHeaders():
-    """ Test the DeferredRequestHeaders enumeration. """
-    expected = ['CHECK_INSTANCE', 'ISOLATE_INSTANCES', 'START_PROCESS', 'STOP_PROCESS', 'RESTART', 'SHUTDOWN',
-                'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
-    assert enum_names(DeferredRequestHeaders) == expected
-    assert enum_values(DeferredRequestHeaders) == list(range(10, 19))
 
 
 def test_localtime():

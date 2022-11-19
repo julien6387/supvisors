@@ -115,7 +115,7 @@ Status
                                                ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``,
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
-            'last_event_time'  ``int``         The timestamp of the last event received for this process.
+            'last_event_time'  ``float``       The timestamp of the last event received for this process.
             'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
                                                running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
@@ -143,7 +143,7 @@ Status
             'name'             ``str``         The Process name.
             'state'            ``int``         The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
             'start'            ``int``         The Process start date.
-            'now'              ``int``         The Process current date.
+            'now'              ``float``       The Process current date.
             'pid'              ``int``         The UNIX process identifier.
             'startsecs'        ``int``         The configured duration between process STARTING and RUNNING.
             'stopwaitsecs'     ``int``         The configured duration between process STOPPING and STOPPED.

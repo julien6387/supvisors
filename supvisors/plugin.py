@@ -25,10 +25,12 @@ from supervisor.process import Subprocess
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
+from supervisor.xmlrpc import Faults
 
 from .initializer import Supvisors
 from .rpcinterface import RPCInterface, startProcess
 from .supervisordata import spawn
+from .ttypes import SupvisorsFaults
 from .utils import parse_docstring
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
@@ -37,6 +39,28 @@ from .viewimage import *
 from .viewmaintail import MainTailView
 from .viewprocinstance import ProcInstanceView
 from .viewsupvisors import SupvisorsView
+
+
+def expand_faults():
+    """ Expand supervisord Fault definition.
+
+    :return: None
+    """
+    for x in SupvisorsFaults:
+        setattr(Faults, x.name, x.value)
+
+
+def cleanup_fds(self) -> None:
+    """ This is a patch of the Supervisor cleanup_fds in ServerOptions.
+    The default version is a bit raw and closes all file descriptors of the process, including the PyZmq ones,
+    which leads to a low-level crash in select/poll.
+    Also worth mentioning Issue #1110 Bad file descriptor during cleanup_fds which has already happened in a Supvisors
+    environment where this method was NOT patched.
+    So, given that the underlying issue has never been met with Supvisors and waiting for a better solution
+    in Supervisor (a "TODO" exists in source code), the cleanup is disabled in Supvisors.
+
+    :return: None
+    """
 
 
 def patch_591() -> None:
@@ -78,17 +102,6 @@ def update_views() -> None:
     VIEWS['host_io.png'] = {'template': None, 'view': HostNetworkImageView}
 
 
-def cleanup_fds(self) -> None:
-    """ This is a patch of the Supervisor cleanup_fds in ServerOptions.
-    The default version is a bit raw and closes all file descriptors of the process, including the PyZmq ones,
-    which leads to a low-level crash in select/poll.
-    So, given that the issue has never been met with Supvisors and waiting for a better solution in Supervisor
-    (a TODO exists in source code), the clean-up is disabled in Supvisors.
-
-    :return: None
-    """
-
-
 def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterface:
     """ Supervisor entry point for Supvisors plugin.
 
@@ -96,12 +109,14 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     :param config: the config attributes read from the Supvisors section
     :return: the Supvisors XML-RPC interface
     """
+    # update Supervisor Fault definition
+    expand_faults()
+    # patch the Supervisor ServerOptions.cleanup_fds
+    ServerOptions.cleanup_fds = cleanup_fds
     # apply patch for Supervisor issue #591
     patch_591()
     # replace Supervisor http web pages
     update_views()
-    # patch the Supervisor ServerOptions.cleanup_fds
-    ServerOptions.cleanup_fds = cleanup_fds
     # patch the Supervisor gettags to handle Supervisor and Supvisors docstring
     xmlrpc.gettags = parse_docstring
     # patch inheritance of supervisor.web.StatusView

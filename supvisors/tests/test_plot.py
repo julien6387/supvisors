@@ -18,6 +18,7 @@
 # ======================================================================
 
 import imghdr
+
 import pytest
 
 pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
@@ -26,10 +27,10 @@ from supvisors.plot import *
 from supvisors.viewimage import StatsImage
 
 
-def test_plot():
+def test_plot(supvisors):
     """ Test a simple plot.
     Complex to test anything. Just check that there is no exception. """
-    plot = StatisticsPlot()
+    plot = StatisticsPlot(supvisors.logger)
     assert plot.ydata == {}
     # add series of data
     plot.add_plot('dummy_title_1', 'unit_1', [1, 2, 3])
@@ -40,6 +41,23 @@ def test_plot():
     plot.export_image(contents)
     # test that result is a PNG file
     assert imghdr.what('', h=contents.contents.getvalue()) == 'png'
+
+
+def test_plot_error(mocker, supvisors):
+    """ Check the exception handling when saving the figure. """
+    plot = StatisticsPlot(supvisors.logger)
+    assert plot.ydata == {}
+    # add series of data
+    plot.add_plot('dummy_title_1', 'unit_1', [1, 2, 3])
+    plot.add_plot('dummy_title_2', 'unit_2', [10, 20, 30])
+    assert plot.ydata == {('dummy_title_1', 'unit_1'): [1, 2, 3], ('dummy_title_2', 'unit_2'): [10, 20, 30]}
+    # mock the savefig function
+    mocker.patch.object(plt, 'savefig', side_effect=RuntimeError)
+    # export image in buffer
+    contents = StatsImage()
+    plot.export_image(contents)
+    # test that result is a PNG file
+    assert imghdr.what('', h=contents.contents.getvalue()) is None
 
 
 def test_get_range():

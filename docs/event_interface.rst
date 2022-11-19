@@ -8,8 +8,8 @@ Protocol
 
 The |Supvisors| Event Interface relies on a PyZMQ_ socket.
 To receive the |Supvisors| events, the client application must configure a socket with a ``SUBSCRIBE`` pattern
-and connect it on localhost using the ``event_port`` defined in the :ref:`supvisors_section` of the |Supervisor|
-configuration file.
+and connect it on localhost using the ``event_port`` option defined in the :ref:`supvisors_section` of the |Supervisor|
+configuration file. The ``event_link`` option must also be set to ``ZMQ``.
 
 |Supvisors| publishes the events in multi-parts messages.
 
@@ -52,9 +52,11 @@ Of course, the contents depends on the message type.
 ================== ==================
 Key	               Value
 ================== ==================
-'statecode'        The state of |Supvisors|, in [0;6].
-'statename'        The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``, ``'OPERATION'``,
+'fsm_statecode'    The state of |Supvisors|, in [0;6].
+'fsm_statename'    The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``, ``'OPERATION'``,
                    ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'`` }.
+'starting_jobs'    The list of |Supvisors| instances having starting jobs in progress.
+'stopping_jobs'    The list of |Supvisors| instances having stopping jobs in progress.
 ================== ==================
 
 
@@ -147,13 +149,13 @@ This section explains how to use receive the |Supvisors| Events from a Python or
 Python Client
 ~~~~~~~~~~~~~
 
-The *SupvisorsEventInterface* is designed to receive the |Supvisors| events from the local |Supvisors| instance.
-No additional third party is required.
+The *SupvisorsZmqEventInterface* is designed to receive the |Supvisors| events from the local |Supvisors| instance.
+It requires PyZmq_ to be installed.
 
 
-.. automodule:: supvisors.client.subscriber
+.. automodule:: supvisors.client.zmqsubscriber
 
-  .. autoclass:: SupvisorsEventInterface
+  .. autoclass:: SupvisorsZmqEventInterface
 
        .. automethod:: on_supvisors_status(data)
        .. automethod:: on_instance_status(data)
@@ -163,10 +165,10 @@ No additional third party is required.
 
 .. code-block:: python
 
-    from supvisors.client.subscriber import *
+    from supvisors.client.zmqsubscriber import *
 
     # create the subscriber thread
-    subscriber = SupvisorsEventInterface(zmq.Context.instance(), port, create_logger())
+    subscriber = SupvisorsZmqEventInterface(zmq.Context.instance(), port, create_logger())
     # subscribe to all messages
     subscriber.subscribe_all()
     # start the thread

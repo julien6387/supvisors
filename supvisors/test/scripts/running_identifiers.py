@@ -27,7 +27,7 @@ from supervisor.childutils import getRPCInterface
 
 from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.utils import SupervisorServerUrl
-from supvisors.client.subscriber import create_logger
+from supvisors.client.zmqsubscriber import create_logger
 
 from .event_queues import SupvisorsEventQueues
 

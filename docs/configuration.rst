@@ -136,7 +136,7 @@ behavior may happen. The present section details where it is applicable.
 ``internal_port``
 
     The internal port number used to publish the local events to the other |Supvisors| instances.
-    Events are published through a PyZMQ TCP socket.
+    Events are published using a Publish / Subscribe pattern based on a TCP socket.
     The value must match the ``internal_port`` value of the corresponding |Supvisors| instance in ``supvisors_list``.
 
     *Default*:  local |Supervisor| HTTP port + 1.
@@ -145,11 +145,24 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
+``event_link``
+
+    The communication protocol type used to publish all |Supvisors| events (Instance, Application and Process events).
+    Value in [``NONE`` ; ``ZMQ``]. Other protocols may be considered in the future.
+    If set to ``NONE``, the interface is not available.
+    If set to ``ZMQ``, events are published through a PyZMQ TCP socket.
+    The protocol of this interface is detailed in :ref:`event_interface`.
+
+    *Default*:  NONE.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``event_port``
 
     The port number used to publish all |Supvisors| events (Instance, Application and Process events).
-    Events are published through a PyZMQ TCP socket. The protocol of this interface is detailed
-    in :ref:`event_interface`.
+    The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  local |Supervisor| HTTP port + 2.
 
@@ -241,7 +254,7 @@ behavior may happen. The present section details where it is applicable.
 
     By default, |Supvisors| can provide basic statistics on the node and the processes spawned by |Supervisor|
     on the |Supvisors| :ref:`dashboard`, provided that the |psutil| module is installed.
-    This option can be used to disable the collection and the display of the statistics.
+    This option can be used to disable the collection of the statistics.
 
     *Default*:  ``true``.
 
@@ -285,6 +298,39 @@ behavior may happen. The present section details where it is applicable.
 The logging options are strictly identical to |Supervisor|'s. By the way, it is the same logger that is used.
 These options are more detailed in
 `supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.
+
+``tail_limit``
+
+    In its Web UI, |Supervisor| provides a page that enables to display the 1024 latest bytes of the process logs.
+    The page is made available by clicking on the process name in the process table. A button is added to refresh it.
+    The size of the logs can be updated through the URL by updating the ``limit`` attribute.
+    The same function is provided in the |Supvisors| Web UI. This option has been added to enable a default size
+    different than 1024 bytes. It applies to processes logs and |Supervisor| logs.
+
+    *Default*:  ``1KB``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+``tailf_limit``
+
+    In its Web UI, |Supervisor| provides a page that enables to display the 1024 latest bytes of the process logs
+    and that auto-refreshes the page in a ``tail -f`` manner. The page is made available by clicking on the ``Tail -f``
+    button in the process table. The initial size of the logs cannot be updated.
+    The same function is provided in the |Supvisors| Web UI. This option has been added to enable a default size
+    different than 1024 bytes. It applies to processes logs and |Supervisor| logs.
+
+    *Default*:  ``1KB``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+    .. attention::
+
+        Setting the ``tail_limit`` and ``tailf_limit`` options with very big values may block the web browser.
+        Moderation should be considered.
 
 ``logfile``
 

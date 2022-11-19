@@ -34,36 +34,6 @@ TICK_PERIOD = 5
 SUPERVISOR_ALERT_TIMEOUT = 10
 
 
-# for internal publish / subscribe
-class InternalEventHeaders(Enum):
-    """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY, STATISTICS, STATE = range(7)
-
-
-# for deferred XML-RPC requests
-class DeferredRequestHeaders(Enum):
-    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop.
-    Range is shifted as InternalEventHeaders are used within the same context. """
-    (CHECK_INSTANCE, ISOLATE_INSTANCES, START_PROCESS, STOP_PROCESS,
-     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(10, 19)
-
-
-class RemoteCommEvents:
-    """ Strings used for remote communication between the Supvisors main loop and the listener. """
-    SUPVISORS_AUTH = u'auth'
-    SUPVISORS_EVENT = u'event'
-    SUPVISORS_INFO = u'info'
-
-
-class EventHeaders:
-    """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
-    SUPVISORS = u'supvisors'
-    INSTANCE = u'instance'
-    APPLICATION = u'application'
-    PROCESS_EVENT = u'event'
-    PROCESS_STATUS = u'process'
-
-
 def simple_localtime(now=None):
     """ Returns the local time as a string, without the date. """
     if now is None:
