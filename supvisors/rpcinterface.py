@@ -1116,8 +1116,10 @@ class RPCInterface(object):
     def _get_local_info(self, info):
         """ Create a payload from Supervisor process info. """
         sub_info = extract_process_info(info)
-        namespec = make_namespec(info['group'], info['name'])
+        # transform now from int to float
+        sub_info['now'] *= 1.0
         # add startsecs, stopwaitsecs and extra_args values
+        namespec = make_namespec(info['group'], info['name'])
         option_names = 'startsecs', 'stopwaitsecs', 'extra_args', 'disabled'
         options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
         sub_info.update(options)

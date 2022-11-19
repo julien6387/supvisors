@@ -16,6 +16,8 @@
 
 package org.supvisors.common;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +43,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     private Boolean expected_exit;
 
     /** The date of the last event received for this process. */
-    private Integer last_event_time;
+    private Double last_event_time;
 
     /** The identifiers of the Supvisors instances where the process is running. */
     private List<String> identifiers;
@@ -59,7 +61,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
         this.application_name = (String) processInfo.get("application_name");
         this.statecode = ProcessState.valueOf((String) processInfo.get("statename"));
         this.expected_exit = (Boolean) processInfo.get("expected_exit");
-        this.last_event_time = (Integer) processInfo.get("last_event_time");
+        this.last_event_time = (Double) processInfo.get("last_event_time");
         this.identifiers = DataConversion.arrayToStringList((Object[]) processInfo.get("identifiers"));
         this.extra_args = (String) processInfo.get("extra_args");
    }
@@ -113,9 +115,9 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     /**
      * The getLastEventTime method returns the date of the last event received for the process.
      *
-     * @return Integer: The date of the last event received.
+     * @return Double: The date of the last event received.
      */
-    public Integer getLastEventTime() {
+    public Double getLastEventTime() {
         return this.last_event_time;
     }
 
@@ -144,12 +146,13 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsProcessInfo(namespec=" + this.getName()
             + " applicationName=" + this.application_name
             + " processName=" + this.process_name
             + " state=" + this.statecode
             + " expectedExitStatus=" + this.expected_exit
-            + " lastEventTime=" + this.last_event_time
+            + " lastEventTime=\"" + sdf.format(new Date((long) ((double) this.last_event_time * 1000L))) + "\""
             + " identifiers=" + this.identifiers
             + " extraArgs=" + this.extra_args + ")";
     }

@@ -1716,7 +1716,7 @@ def test_get_local_info(mocker, rpc):
     assert rpc._get_local_info(info) == {'group': 'dummy_group', 'name': 'dummy_name',
                                          'extra_args': '-x dummy_args',
                                          'state': 0, 'statename': 'STOPPED',
-                                         'start': 1234, 'stop': 7777, 'now': 4321, 'pid': 4567,
+                                         'start': 1234, 'stop': 7777, 'now': 4321.0, 'pid': 4567,
                                          'description': 'process dead', 'expected': True, 'spawnerr': '',
                                          'startsecs': 2, 'stopwaitsecs': 10}
 

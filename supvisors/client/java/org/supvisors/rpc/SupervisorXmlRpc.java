@@ -612,6 +612,8 @@ public class SupervisorXmlRpc {
         System.out.println(supervisor.clearAllProcessLogs());
 
         // test group config
+        System.out.println("### Testing supervisor.removeProcessGroup(...) ###");
+        System.out.println(supervisor.removeProcessGroup("test"));
         System.out.println("### Testing supervisor.addProcessGroup(...) ###");
         System.out.println(supervisor.addProcessGroup("test"));
         System.out.println("### Testing supervisor.getAllConfigInfo(...) ###");
