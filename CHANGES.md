@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.16 (2023-xx-xx)
+
+* Use `Process.as_dict` to speed up the collection of process statistics with `psutil`. 
+
+
 ## 0.15 (2022-11-20)
 
 * Publish / Subscribe pattern implemented for **Supvisors** internal communication.

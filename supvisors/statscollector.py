@@ -72,15 +72,16 @@ def instant_process_statistics(pid, children=True) -> ProcessStats:
     try:
         # get main process
         proc = Process(pid)
-        # Note: using Process.oneshot has no value (2 accesses and memory_percent not included in cache for Linux)
+        proc_stats = proc.as_dict(attrs=['cpu_times', 'memory_percent'])
         # WARN: children CPU times are not considered fully recursively, so exclude children CPU times and iowait
-        work = sum(proc.cpu_times()[:2])
-        memory = proc.memory_percent()
+        work = sum(proc_stats['cpu_times'][:2])
+        memory = proc_stats['memory_percent']
         # consider all children recursively
         if children:
             for p in proc.children(recursive=True):
-                memory += sum(p.cpu_times()[:2])
-                memory += p.memory_percent()
+                p_stats = p.as_dict(attrs=['cpu_times', 'memory_percent'])
+                memory += sum(p_stats['cpu_times'][:2])
+                memory += p_stats['memory_percent']
     except (NoSuchProcess, ValueError):
         # process may have disappeared in the interval
         pass
