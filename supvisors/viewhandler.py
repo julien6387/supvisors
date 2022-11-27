@@ -425,6 +425,8 @@ class ViewHandler(MeldView):
             elt.content(f'{cpuvalue:.2f}%')
             # set mean value
             elt = stats_elt.findmeld('pcpuavg_td_mid')
+            if not self.supvisors.options.stats_irix_mode:
+                avg /= nb_cores
             elt.content(f'{avg:.2f}%')
             if slope is not None:
                 # set slope value between last 2 values

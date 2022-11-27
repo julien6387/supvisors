@@ -910,7 +910,7 @@ def test_write_detailed_process_cpu(handler):
     assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
     assert val_elt.attrib['class'] == 'increase'
     assert val_elt.content.call_args_list == [call('6.00%')]
-    assert avg_elt.content.call_args_list == [call('16.67%')]
+    assert avg_elt.content.call_args_list == [call('4.17%')]
     assert slope_elt.content.call_args_list == [call('7.00')]
     assert dev_elt.content.call_args_list == [call('5.73')]
 

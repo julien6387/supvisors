@@ -4,6 +4,8 @@
 
 * Use `Process.as_dict` to speed up the collection of process statistics with `psutil`. 
 
+* Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
+
 
 ## 0.15 (2022-11-20)
 
