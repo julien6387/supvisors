@@ -181,25 +181,27 @@ def test_find_local_identifier_identifier(mapper):
 
 
 def test_find_local_identifier_host_name(mapper):
-    """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the host name. """
+    """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the host name and the HTTP
+    server port. """
     mapper.logger.info = print
     mapper.logger.debug = print
     hostname = gethostname()
-    items = ['127.0.0.1', f'{hostname}:60000:7777']
+    items = ['127.0.0.1', f'{hostname}:65000:7777']
     for item in items:
         supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
         mapper._instances[supvisors_id.identifier] = supvisors_id
     # force host name to FQDN
-    mapper._instances[f'{hostname}:60000'].host_name = getfqdn()
+    mapper._instances[f'{hostname}:65000'].host_name = getfqdn()
     # find self
     mapper.find_local_identifier()
-    assert mapper.local_identifier == f'{hostname}:60000'
+    assert mapper.local_identifier == f'{hostname}:65000'
 
 
 def test_find_local_identifier_ip_address(mapper):
-    """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the IP address of the host. """
+    """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the IP address of the host
+    and the HTTP server port. """
     host_name, _, ip_addresses = gethostbyaddr(gethostname())
-    items = ['127.0.0.1', f'<host>{ip_addresses[0]}:60000:7777']
+    items = ['127.0.0.1', f'<host>{ip_addresses[0]}:65000:7777']
     for item in items:
         supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
         mapper._instances[supvisors_id.identifier] = supvisors_id
@@ -214,24 +216,28 @@ def test_find_local_identifier_multiple(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when more than one instance matches the host name
     or IP address of the host. """
     host_name = gethostname()
-    items = ['10.0.0.1', f'{host_name}:60000:7777']
+    fqdn = getfqdn()
+    items = ['10.0.0.1', f'{host_name}:65000:7777']
     for item in items:
         supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
         mapper._instances[supvisors_id.identifier] = supvisors_id
-    # update default processing of host
-    mapper._instances['10.0.0.1'].host_name = host_name
+        # update default processing of host
+        supvisors_id.host_name = fqdn
     # find self
     with pytest.raises(ValueError):
         mapper.find_local_identifier()
 
 
 def test_find_local_identifier_none(mapper):
-    """ Test the SupvisorsMapper.find_local_identifier method when more than no instance matches the host name
+    """ Test the SupvisorsMapper.find_local_identifier method when no instance matches the host name
     or IP address of the host. """
-    mapper.local_node_references = ['10.0.0.1']
-    items = ['10.0.0.2', '<dummy>cliche:60000:7777']
+    host_name = gethostname()
+    items = ['10.0.0.2', '<dummy>cliche:60000:7777', f'{host_name}:60000:7777']
+    for item in items:
+        supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
+        mapper._instances[supvisors_id.identifier] = supvisors_id
     with pytest.raises(ValueError):
-        mapper.configure(items, [])
+        mapper.find_local_identifier()
 
 
 def test_valid(mapper):

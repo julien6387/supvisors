@@ -98,7 +98,7 @@ class SupvisorsInstanceId:
                 self.identifier += f':{self.http_port}'
         # if http_port is not provided, use the local http_port value
         if not self.http_port:
-            self.http_port = self.supvisors.supervisor_data.serverport
+            self.http_port = self.supvisors.supervisor_data.server_port
         # if internal_port is not provided, use the option value if set or http_port+1
         if not self.internal_port:
             # assign to internal_port option value if set
@@ -252,9 +252,11 @@ class SupvisorsMapper(object):
             # if not found, try to find a Supvisors instance corresponding to the local host name
             # WARN: in this case, there MUST be exactly one unique matching Supvisors instance
             local_host_name = getfqdn()
-            matching_identifiers = [supervisor_id.identifier
-                                    for supervisor_id in self._instances.values()
-                                    if supervisor_id.host_name == local_host_name]
+            local_http_port = self.supvisors.supervisor_data.server_port
+            matching_identifiers = [sup_id.identifier
+                                    for sup_id in self._instances.values()
+                                    if sup_id.host_name == local_host_name and sup_id.http_port == local_http_port]
+            print(matching_identifiers)
             if len(matching_identifiers) == 1:
                 self.local_identifier = matching_identifiers[0]
             else:

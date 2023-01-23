@@ -19,6 +19,9 @@
 * The local **Supvisors** instance is identified as the item having the same fully qualified domain name
   (as returned by `socket.gethostaddr` and `socket.getfqdn`) among the items of the `supvisors_list` option. 
 
+* Use the HTTP server port to help the identification of the local **Supvisors** instance when multiple items
+  of the `supvisors_list` option fit and identifier is not set.
+
 
 ## 0.15 (2022-11-20)
 
