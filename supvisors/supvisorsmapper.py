@@ -82,8 +82,8 @@ class SupvisorsInstanceId:
             if addresses:
                 self.host_name, _, ip_addresses = addresses
                 self.ip_address = ip_addresses[0]
-                self.logger.info(f'SupvisorsInstanceId: host_id={self.host_id} host_name={self.host_name}'
-                                 f' ip_address={self.ip_address}')
+                self.logger.debug(f'SupvisorsInstanceId: host_id={self.host_id} host_name={self.host_name}'
+                                  f' ip_address={self.ip_address}')
 
     def check_values(self) -> None:
         """ Complete information where not provided.
@@ -138,7 +138,7 @@ class SupvisorsInstanceId:
             port = pattern_match.group('internal_port')
             self.internal_port = int(port) if port else 0
             self.logger.debug(f'SupvisorsInstanceId.parse_from_string: identifier={self.identifier}'
-                              f' host_name={self.host_id} http_port={self.http_port}'
+                              f' host_id={self.host_id} http_port={self.http_port}'
                               f' internal_port={self.internal_port}')
 
     def __repr__(self) -> str:

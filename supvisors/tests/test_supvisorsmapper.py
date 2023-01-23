@@ -182,9 +182,17 @@ def test_find_local_identifier_identifier(mapper):
 
 def test_find_local_identifier_host_name(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the host name. """
+    mapper.logger.info = print
+    mapper.logger.debug = print
     hostname = gethostname()
     items = ['127.0.0.1', f'{hostname}:60000:7777']
-    mapper.configure(items, [])
+    for item in items:
+        supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
+        mapper._instances[supvisors_id.identifier] = supvisors_id
+    # force host name to FQDN
+    mapper._instances[f'{hostname}:60000'].host_name = getfqdn()
+    # find self
+    mapper.find_local_identifier()
     assert mapper.local_identifier == f'{hostname}:60000'
 
 
@@ -195,8 +203,8 @@ def test_find_local_identifier_ip_address(mapper):
     for item in items:
         supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
         mapper._instances[supvisors_id.identifier] = supvisors_id
-    # update default processing of host
-    mapper._instances['host'].host_name = host_name
+    # force host name to FQDN
+    mapper._instances['host'].host_name = getfqdn()
     # find self
     mapper.find_local_identifier()
     assert mapper.local_identifier == 'host'
@@ -231,7 +239,11 @@ def test_valid(mapper):
     # add context
     hostname = gethostname()
     items = ['127.0.0.1', '<host>10.0.0.1:2222:', f'{hostname}:60000:7777']
-    mapper.configure(items, [])
+    for item in items:
+        supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
+        mapper._instances[supvisors_id.identifier] = supvisors_id
+    # force host name to FQDN
+    mapper._instances[f'{hostname}:60000'].host_name = getfqdn()
     # test calls
     assert mapper.valid('127.0.0.1')
     assert mapper.valid('host')
@@ -246,7 +258,11 @@ def test_filter(mapper):
     # add context
     hostname = gethostname()
     items = ['127.0.0.1', '<host>10.0.0.1:2222:', f'{hostname}:60000:7777']
-    mapper.configure(items, [])
+    for item in items:
+        supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
+        mapper._instances[supvisors_id.identifier] = supvisors_id
+    # force host name to FQDN
+    mapper._instances[f'{hostname}:60000'].host_name = getfqdn()
     # test with a bunch of identifiers
     identifier_list = ['127.0.0.1', 'host', f'{hostname}:60000', hostname, 'host', 'supervisor', '10.0.0.1']
     assert mapper.filter(identifier_list) == ['127.0.0.1', 'host', f'{hostname}:60000']
