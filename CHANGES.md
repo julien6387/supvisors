@@ -14,6 +14,8 @@
 
 * Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
 
+* Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
+
 * The local **Supvisors** instance is identified as the item having the same host name (as returned by `gethostaddr`)
   among the items of the `supvisors_list` option. 
 
