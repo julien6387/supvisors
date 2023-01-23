@@ -20,30 +20,24 @@
 import re
 from collections import OrderedDict
 from socket import gethostname, gethostbyaddr, herror, gaierror
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
 
 from .ttypes import NameList
 
 
-def get_node_names(ip_address: str, logger: Logger) -> NameList:
-    """ Get hostname, aliases and all IP addresses for the ip_address.
+def get_addresses(host_id: str, logger: Logger) -> Optional[Tuple[str, NameList, NameList]]:
+    """ Get hostname, aliases and all IP addresses for the host_id.
 
-    The first element of the returned list will be used as a unique node identifier in the event where multiple
-    Supervisor instances are used on the same node, and identified differently.
-    Preference is made to the IP address because it is not excluded that different nodes have the same host name.
-
-    :param ip_address: the host_name used in the Supvisors option
+    :param host_id: the host_name used in the Supvisors option
     :param logger: the Supvisors logger
-    :return: the list of possible node names
+    :return: the list of possible node name or IP addresses
     """
     try:
-        hostname, aliases, ip_addresses = gethostbyaddr(ip_address)
-        return ip_addresses + [hostname] + aliases
+        return gethostbyaddr(host_id)  # hostname, aliases, ip_addresses
     except (herror, gaierror):
-        logger.error(f'get_node_names: unknown host {ip_address}')
-        return []
+        logger.error(f'get_addresses: unknown address {host_id}')
 
 
 class SupvisorsInstanceId:
@@ -53,11 +47,12 @@ class SupvisorsInstanceId:
 
     Attributes are:
         - identifier: the Supervisor identifier or 'host_name[:http_port]' if not provided ;
-        - host_name: the host where the Supervisor is running ;
-        - ip_address: the known ip_address of the host ;
+        - host_id: the host where the Supervisor is running ;
         - http_port: the Supervisor port number ;
         - internal_port: the port number used to publish local events to remote Supvisors instances ;
-        - event_port: the port number used to publish all Supvisors events.
+        - event_port: the port number used to publish all Supvisors events ;
+        - host_name: the host name corresponding to the host id, as known by the local network configuration ;
+        - ip_address: the main ip_address of the host, as known by the local network configuration.
     """
 
     PATTERN = re.compile(r'^(<(?P<identifier>[\w\-]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
@@ -70,20 +65,25 @@ class SupvisorsInstanceId:
         """
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
-        # attributes
+        # attributes deduced from input
         self.identifier = None
-        self.host_name = None
-        self.ip_address = None
+        self.host_id = None
         self.http_port = None
         self.internal_port = None
         self.event_port = None
         # parse item to get the values
         self.parse_from_string(item)
         self.check_values()
-        # choose the IP address among the possible node identifiers
-        node_names = get_node_names(self.host_name, self.logger)
-        if node_names:
-            self.ip_address = node_names[0]
+        # choose the node name among the possible node identifiers
+        self.host_name = None
+        self.ip_address = None
+        if self.host_id:
+            addresses = get_addresses(self.host_id, self.logger)
+            if addresses:
+                self.host_name, _, ip_addresses = addresses
+                self.ip_address = ip_addresses[0]
+                self.logger.info(f'SupvisorsInstanceId: host_id={self.host_id} host_name={self.host_name}'
+                                 f' ip_address={self.ip_address}')
 
     def check_values(self) -> None:
         """ Complete information where not provided.
@@ -91,8 +91,8 @@ class SupvisorsInstanceId:
         :return: None
         """
         # define identifier
-        if not self.identifier and self.host_name:
-            self.identifier = self.host_name
+        if not self.identifier and self.host_id:
+            self.identifier = self.host_id
             # use HTTP port in identifier only if it has explicitly been defined
             if self.http_port:
                 self.identifier += f':{self.http_port}'
@@ -118,7 +118,7 @@ class SupvisorsInstanceId:
                 # in this case, assign to http_port + 1
                 self.event_port = self.http_port + 1
         self.logger.debug(f'SupvisorsInstanceId.check_values: identifier={self.identifier}'
-                          f' host_name={self.host_name} http_port={self.http_port}'
+                          f' host_name={self.host_id} http_port={self.http_port}'
                           f' internal_port={self.internal_port}')
 
     def parse_from_string(self, item: str):
@@ -130,7 +130,7 @@ class SupvisorsInstanceId:
         pattern_match = SupvisorsInstanceId.PATTERN.match(item)
         if pattern_match:
             self.identifier = pattern_match.group('identifier')
-            self.host_name = pattern_match.group('host')
+            self.host_id = pattern_match.group('host')
             # check http port
             port = pattern_match.group('http_port')
             self.http_port = int(port) if port else 0
@@ -138,7 +138,7 @@ class SupvisorsInstanceId:
             port = pattern_match.group('internal_port')
             self.internal_port = int(port) if port else 0
             self.logger.debug(f'SupvisorsInstanceId.parse_from_string: identifier={self.identifier}'
-                              f' host_name={self.host_name} http_port={self.http_port}'
+                              f' host_name={self.host_id} http_port={self.http_port}'
                               f' internal_port={self.internal_port}')
 
     def __repr__(self) -> str:
@@ -160,8 +160,6 @@ class SupvisorsMapper(object):
         - _nodes: the list of Supvisors instances grouped by node names ;
         - _core_identifiers: the list of Supvisors core identifiers declared in the supvisors section of the Supervisor
           configuration file ;
-        - local_node_references: the list of known aliases of the current node, i.e. the host name
-          and the IPv4 addresses ;
         - local_identifier: the local Supvisors identifier.
     """
 
@@ -180,8 +178,6 @@ class SupvisorsMapper(object):
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
-        self.local_node_references = get_node_names(gethostname(), self.logger)
-        self.logger.debug(f'SupvisorsMapper: local_node_references={self.local_node_references}')
         self.local_identifier = None
 
     @property
@@ -253,11 +249,12 @@ class SupvisorsMapper(object):
         if self.supvisors.supervisor_data.identifier in self._instances:
             self.local_identifier = self.supvisors.supervisor_data.identifier
         else:
-            # if not found, try to find a Supvisors instance corresponding to local host name or known IP addresses
+            # if not found, try to find a Supvisors instance corresponding to the local host name
             # WARN: in this case, there MUST be exactly one unique matching Supvisors instance
+            local_host_name = gethostname()
             matching_identifiers = [supervisor_id.identifier
                                     for supervisor_id in self._instances.values()
-                                    if supervisor_id.host_name in self.local_node_references]
+                                    if supervisor_id.host_name == local_host_name]
             if len(matching_identifiers) == 1:
                 self.local_identifier = matching_identifiers[0]
             else:

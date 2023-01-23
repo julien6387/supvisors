@@ -17,9 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from unittest.mock import Mock, call
+
+import pytest
 
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.strategy import *
@@ -50,7 +50,7 @@ def filled_instances(mocker, supvisors):
 @pytest.fixture
 def load_details(supvisors):
     local_identifier = supvisors.supvisors_mapper.local_identifier
-    local_node_name = supvisors.supvisors_mapper.instances[local_identifier].host_name
+    local_node_name = supvisors.supvisors_mapper.instances[local_identifier].host_id
     return ({local_identifier: 0, '10.0.0.3': 10, '10.0.0.5': 20, 'test': 10},
             {local_node_name: 50, '10.0.0.3': 20, '10.0.0.5': 80},
             {local_node_name: 10, '10.0.0.3': 10, '10.0.0.5': 20})
@@ -257,7 +257,7 @@ def test_get_node(mocker, filled_instances):
     mocked_get_instance.return_value = 'test'
     strategy = StartingStrategies.CONFIG
     local_instance = filled_instances.supvisors_mapper.instances[local_identifier]
-    assert get_node(filled_instances, strategy, instances, 27) == local_instance.host_name
+    assert get_node(filled_instances, strategy, instances, 27) == local_instance.host_id
 
 
 def create_process_status(name, timed_identifiers):

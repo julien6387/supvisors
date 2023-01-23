@@ -205,7 +205,7 @@ class ViewContext:
         # build network location if identifier is provided
         if identifier:
             instance = self.supvisors.supvisors_mapper.instances[identifier]
-            netloc = f'http://{quote(instance.host_name)}:{instance.http_port}/'
+            netloc = f'http://{quote(instance.host_id)}:{instance.http_port}/'
         # shex must be reset if the Supvisors instance changes
         local_identifier = not identifier or identifier == self.local_identifier
         # build URL from netloc, page and attributes

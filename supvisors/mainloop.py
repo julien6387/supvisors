@@ -130,7 +130,7 @@ class SupvisorsMainLoop(Thread):
         # first element of body is always the identifier of the destination Supvisors instance
         identifier = body[0]
         instance = self.supvisors.supvisors_mapper.instances[identifier]
-        self.srv_url.update_url(instance.host_name, instance.http_port)
+        self.srv_url.update_url(instance.host_id, instance.http_port)
         # send message
         if header == DeferredRequestHeaders.CHECK_INSTANCE:
             self.check_instance(*body)

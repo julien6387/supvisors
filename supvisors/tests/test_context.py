@@ -178,8 +178,9 @@ def test_get_nodes_load(mocker, context):
     local_identifier = context.supvisors.supvisors_mapper.local_identifier
     local_instance = context.supvisors.supvisors_mapper.instances[local_identifier]
     # empty test
+    print(local_instance.host_id)
     assert context.get_nodes_load() == {'10.0.0.1': 0, '10.0.0.2': 0, '10.0.0.3': 0, '10.0.0.4': 0, '10.0.0.5': 0,
-                                        local_instance.host_name: 0}
+                                        local_instance.host_id: 0}
     # update context for some values
     mocker.patch.object(context.instances[local_identifier], 'get_load', return_value=10)
     mocker.patch.object(context.instances['10.0.0.2'], 'get_load', return_value=8)

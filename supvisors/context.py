@@ -139,7 +139,8 @@ class Context(object):
 
         :return: The nodes load
         """
-        return {ip_address: sum(self.instances[identifier].get_load() for identifier in identifiers)
+        return {ip_address: sum(self.instances[identifier].get_load()
+                                for identifier in identifiers)
                 for ip_address, identifiers in self.supvisors.supvisors_mapper.nodes.items()}
 
     # methods on instances

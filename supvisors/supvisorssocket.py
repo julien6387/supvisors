@@ -509,7 +509,7 @@ class ClientConnectionThread(Thread):
     def __init__(self, instance: SupvisorsInstanceId, internal_subscriber):
         super().__init__(daemon=True)
         self.identifier = instance.identifier
-        self.address = instance.host_name, instance.internal_port
+        self.address = instance.host_id, instance.internal_port
         self.internal_subscriber = internal_subscriber
 
     def run(self):

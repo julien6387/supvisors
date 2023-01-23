@@ -22,15 +22,16 @@ import pytest
 from supvisors.supvisorsmapper import *
 
 
-def test_get_node_names(supvisors):
-    """ Test the SupvisorsMapper.get_node_names method. """
+def test_get_addresses(supvisors):
+    """ Test the SupvisorsMapper.get_addresses method. """
     # complex to test as it depends on the network configuration of the operating system
     # check that there is at least one entry looking like an IPv4 address
-    ip_list = get_node_names(gethostname(), supvisors.logger)
+    host_name, aliases, ip_list = get_addresses(gethostname(), supvisors.logger)
     assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip_list[0])
+    assert host_name == gethostname()
     # test exception on unknown IP address and unknown host name
-    assert get_node_names('10.4', supvisors.logger) == []
-    assert get_node_names('unknown node', supvisors.logger) == []
+    assert get_addresses('10.4', supvisors.logger) is None
+    assert get_addresses('unknown node', supvisors.logger) is None
 
 
 def test_supid_create_no_match(supvisors):
@@ -38,44 +39,47 @@ def test_supid_create_no_match(supvisors):
     no_matches = ['', 'ident>', 'cliche81:12000', '10.0.0.1:145000:28']
     # test with no match but default options loaded
     for item in no_matches:
-        supid = SupvisorsInstanceId(item, supvisors)
-        assert supid.identifier is None
-        assert supid.host_name is None
-        assert supid.ip_address is None
-        assert supid.http_port == 65000  # defaulted to supervisor server port
-        assert supid.internal_port == 65100  # defaulted to options.internal_port
-        assert supid.event_port == 65200  # defaulted to options.event_port
+        sup_id = SupvisorsInstanceId(item, supvisors)
+        assert sup_id.identifier is None
+        assert sup_id.host_id is None
+        assert sup_id.http_port == 65000  # defaulted to supervisor server port
+        assert sup_id.internal_port == 65100  # defaulted to options.internal_port
+        assert sup_id.event_port == 65200  # defaulted to options.event_port
+        assert sup_id.host_name is None
+        assert sup_id.ip_address is None
         with pytest.raises(TypeError):
-            str(supid)
+            str(sup_id)
 
 
-def test_supid_create_simple_no_default(supvisors):
+def test_sup_id_create_simple_no_default(supvisors):
     """ Test the values set at SupvisorsInstanceId construction. """
     supvisors.options.internal_port = 0
     supvisors.options.event_port = 0
     # test with no match and no default option loaded
-    supid = SupvisorsInstanceId('', supvisors)
-    assert supid.identifier is None
-    assert supid.host_name is None
-    assert supid.ip_address is None
-    assert supid.http_port == 65000  # defaulted to supervisor server port
-    assert supid.internal_port == 65001  # defaulted to http_port + 1
-    assert supid.event_port == 65002  # defaulted to http_port + 2
+    sup_id = SupvisorsInstanceId('', supvisors)
+    assert sup_id.identifier is None
+    assert sup_id.host_id is None
+    assert sup_id.http_port == 65000  # defaulted to supervisor server port
+    assert sup_id.internal_port == 65001  # defaulted to http_port + 1
+    assert sup_id.event_port == 65002  # defaulted to http_port + 2
+    assert sup_id.host_name is None
+    assert sup_id.ip_address is None
     with pytest.raises(TypeError):
-        str(supid)
+        str(sup_id)
 
 
-def test_supid_create_host(supvisors):
+def test_sup_id_create_host(supvisors):
     """ Test the values set at SupvisorsInstanceId construction. """
     # test with simple host name match
-    supid = SupvisorsInstanceId('10.0.0.1', supvisors)
-    assert supid.identifier == '10.0.0.1'
-    assert supid.host_name == '10.0.0.1'
-    assert supid.ip_address == '10.0.0.1'
-    assert supid.http_port == 65000  # defaulted to supervisor server port
-    assert supid.internal_port == 65100  # defaulted to options.internal_port
-    assert supid.event_port == 65200  # defaulted to options.event_port
-    assert str(supid) == '10.0.0.1'
+    sup_id = SupvisorsInstanceId('10.0.0.1', supvisors)
+    assert sup_id.identifier == '10.0.0.1'
+    assert sup_id.host_id == '10.0.0.1'
+    assert sup_id.http_port == 65000  # defaulted to supervisor server port
+    assert sup_id.internal_port == 65100  # defaulted to options.internal_port
+    assert sup_id.event_port == 65200  # defaulted to options.event_port
+    assert sup_id.host_name == '10.0.0.1'
+    assert sup_id.ip_address == '10.0.0.1'
+    assert str(sup_id) == '10.0.0.1'
 
 
 def test_supid_create_host_port(supvisors):
@@ -83,7 +87,7 @@ def test_supid_create_host_port(supvisors):
     # test with host+ports match (internal port not defined but still in options)
     supid = SupvisorsInstanceId('10.0.0.1:7777:', supvisors)
     assert supid.identifier == '10.0.0.1:7777'
-    assert supid.host_name == '10.0.0.1'
+    assert supid.host_id == '10.0.0.1'
     assert supid.ip_address == '10.0.0.1'
     assert supid.http_port == 7777
     assert supid.internal_port == 65100  # defaulted to options.internal_port
@@ -93,7 +97,7 @@ def test_supid_create_host_port(supvisors):
     supvisors.options.event_port = 0
     supid = SupvisorsInstanceId('10.0.0.1:7777:8000', supvisors)
     assert supid.identifier == '10.0.0.1:7777'
-    assert supid.host_name == '10.0.0.1'
+    assert supid.host_id == '10.0.0.1'
     assert supid.ip_address == '10.0.0.1'
     assert supid.http_port == 7777
     assert supid.internal_port == 8000
@@ -103,7 +107,7 @@ def test_supid_create_host_port(supvisors):
     supvisors.options.event_port = 0
     supid = SupvisorsInstanceId('10.0.0.1:7777:7776', supvisors)
     assert supid.identifier == '10.0.0.1:7777'
-    assert supid.host_name == '10.0.0.1'
+    assert supid.host_id == '10.0.0.1'
     assert supid.ip_address == '10.0.0.1'
     assert supid.http_port == 7777
     assert supid.internal_port == 7776
@@ -116,7 +120,7 @@ def test_supid_create_identifier(supvisors):
     # test with identifier set and only host name
     supid = SupvisorsInstanceId('<supvisors>cliche81', supvisors)
     assert supid.identifier == 'supvisors'
-    assert supid.host_name == 'cliche81'
+    assert supid.host_id == 'cliche81'
     assert supid.ip_address == 'cliche81'
     assert supid.http_port == 65000
     assert supid.internal_port == 65100  # defaulted to options.internal_port
@@ -124,7 +128,7 @@ def test_supid_create_identifier(supvisors):
     # test with identifier set
     supid = SupvisorsInstanceId('<supvisors>cliche81:8888:5555', supvisors)
     assert supid.identifier == 'supvisors'
-    assert supid.host_name == 'cliche81'
+    assert supid.host_id == 'cliche81'
     assert supid.ip_address == 'cliche81'
     assert supid.http_port == 8888
     assert supid.internal_port == 5555  # defaulted to options.internal_port
@@ -144,8 +148,6 @@ def test_mapper_create(supvisors, mapper):
     assert mapper.instances == {}
     assert mapper.nodes == {}
     assert mapper.local_identifier is None
-    # check that hostname is part of the local addresses
-    assert gethostname() in mapper.local_node_references
 
 
 def test_mapper_configure(mocker, mapper):
@@ -186,21 +188,31 @@ def test_find_local_identifier_host_name(mapper):
 
 def test_find_local_identifier_ip_address(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the IP address of the host. """
-    hostname = gethostname()
-    mapper.local_node_references = [hostname, '10.0.0.1']
-    items = ['127.0.0.1', '<host>10.0.0.1:60000:7777']
-    mapper.configure(items, [])
+    host_name, _, ip_addresses = gethostbyaddr(gethostname())
+    items = ['127.0.0.1', f'<host>{ip_addresses[0]}:60000:7777']
+    for item in items:
+        supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
+        mapper._instances[supvisors_id.identifier] = supvisors_id
+    # update default processing of host
+    mapper._instances['host'].host_name = host_name
+    # find self
+    mapper.find_local_identifier()
     assert mapper.local_identifier == 'host'
 
 
 def test_find_local_identifier_multiple(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when more than one instance matches the host name
     or IP address of the host. """
-    hostname = gethostname()
-    mapper.local_node_references = [hostname, '10.0.0.1']
-    items = ['10.0.0.1', f'{hostname}:60000:7777']
+    host_name = gethostname()
+    items = ['10.0.0.1', f'{host_name}:60000:7777']
+    for item in items:
+        supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
+        mapper._instances[supvisors_id.identifier] = supvisors_id
+    # update default processing of host
+    mapper._instances['10.0.0.1'].host_name = host_name
+    # find self
     with pytest.raises(ValueError):
-        mapper.configure(items, [])
+        mapper.find_local_identifier()
 
 
 def test_find_local_identifier_none(mapper):

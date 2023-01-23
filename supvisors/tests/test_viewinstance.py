@@ -179,7 +179,7 @@ def test_write_view_switch(view):
     view.has_host_statistics = True
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # set instance context
-    mocked_status = Mock(**{'supvisors_id.host_name': '10.0.0.1'})
+    mocked_status = Mock(**{'supvisors_id.host_id': '10.0.0.1'})
     # build root structure
     mocked_process_view_mid = create_element()
     mocked_host_view_mid = create_element()

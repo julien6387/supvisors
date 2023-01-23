@@ -106,7 +106,7 @@ class SupvisorsInstanceView(StatusView):
                 elt.attributes(href=url)
             # update host button
             elt = root.findmeld('host_view_a_mid')
-            elt.content(f'{status.supvisors_id.host_name}')
+            elt.content(f'{status.supvisors_id.host_id}')
             if self.page_name == PROC_INSTANCE_PAGE:
                 url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
                 elt.attributes(href=url)

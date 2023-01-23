@@ -14,6 +14,9 @@
 
 * Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
 
+* The local **Supvisors** instance is identified as the item having the same host name (as returned by `gethostaddr`)
+  among the items of the `supvisors_list` option. 
+
 
 ## 0.15 (2022-11-20)
 

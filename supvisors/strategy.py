@@ -338,7 +338,7 @@ def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList
     identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load)
     # get the corresponding host name
     if identifier:
-        return supvisors.supvisors_mapper.instances[identifier].host_name
+        return supvisors.supvisors_mapper.instances[identifier].host_id
 
 
 # Strategy management for Conciliation
