@@ -37,7 +37,9 @@ class SupvisorsInstanceView(StatusView):
         """ Call of the superclass constructors. """
         StatusView.__init__(self, context)
         self.page_name = page_name
-        self.has_statistics = self.supvisors.listener.collector and self.supvisors.options.stats_enabled
+        # this class deals with local statistics so a local collector must be available
+        self.has_host_statistics = self.supvisors.host_collector is not None
+        self.has_process_statistics = self.supvisors.process_collector is not None
 
     def render(self):
         """ Catch render to force the use of ViewHandler's method instead of StatusView's method. """
@@ -96,7 +98,7 @@ class SupvisorsInstanceView(StatusView):
 
     def write_view_switch(self, root, status: SupvisorsInstanceStatus):
         """ Write actions related to the Supvisors instance. """
-        if self.has_statistics:
+        if self.has_host_statistics:
             # update process button
             if self.page_name == HOST_INSTANCE_PAGE:
                 elt = root.findmeld('process_view_a_mid')

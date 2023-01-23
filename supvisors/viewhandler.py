@@ -25,7 +25,8 @@ from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
 from .rpcinterface import API_VERSION
-from .ttypes import SupvisorsInstanceStates, SupvisorsStates, Payload, PayloadList, ProcessHistoryStats
+from .statscompiler import ProcStatisticsInstance
+from .ttypes import (SupvisorsInstanceStates, SupvisorsStates, Payload, PayloadList)
 from .utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
@@ -47,8 +48,10 @@ class ViewHandler(MeldView):
         self.sup_ctx = self.supvisors.context
         # keep reference to the local node name
         self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
-        # define statistics visibility
-        self.has_statistics = True
+        # even if there is no local collector, statistics can be available from other Supvisors instances
+        # where a collector is available
+        self.has_host_statistics = True
+        self.has_process_statistics = True
         # init view_ctx (only for tests)
         self.view_ctx = None
 
@@ -151,7 +154,7 @@ class ViewHandler(MeldView):
                 if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
                     update_attrib(elt, 'class', 'blink')
                 if status.state == SupvisorsInstanceStates.RUNNING:
-                    # go to web page located on the Supvisors instance so as to reuse Supervisor StatusView
+                    # go to web page located on the Supvisors instance to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
                     elt.attributes(href=url)
                     update_attrib(elt, 'class', 'on')
@@ -204,8 +207,13 @@ class ViewHandler(MeldView):
         raise NotImplementedError
 
     def write_periods(self, root):
+        """ Write configured periods for statistics.
+        By default, the periods box is visible. """
+        self.write_periods_availability(root, True)
+
+    def write_periods_availability(self, root, available: bool) -> None:
         """ Write configured periods for statistics. """
-        if self.has_statistics:
+        if available:
             # write the available periods
             mid_elt = root.findmeld('period_li_mid')
             for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
@@ -216,7 +224,7 @@ class ViewHandler(MeldView):
                 else:
                     url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
                     elt.attributes(href=url)
-                elt.content('{}s'.format(item))
+                elt.content(f'{item}s')
         else:
             # hide the Statistics periods box
             root.findmeld('period_div_mid').replace('')
@@ -229,12 +237,12 @@ class ViewHandler(MeldView):
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
         Statistics data comes from node. """
-        if self.has_statistics:
-            proc_stats = info['proc_stats']
+        if self.has_process_statistics:
+            proc_stats: ProcStatisticsInstance = info['proc_stats']
             elt = tr_elt.findmeld('pcpu_a_mid')
-            if proc_stats and len(proc_stats[0]) > 0:
+            if proc_stats and len(proc_stats.cpu) > 0:
                 # print last CPU value of process
-                cpuvalue = proc_stats[0][-1]
+                cpuvalue = proc_stats.cpu[-1]
                 if not self.supvisors.options.stats_irix_mode:
                     cpuvalue /= info['nb_cores']
                 if info['namespec']:  # empty for an application info
@@ -259,12 +267,12 @@ class ViewHandler(MeldView):
     def write_common_process_mem(self, tr_elt, info: Payload) -> None:
         """ Write the MEM part of the common process status.
         Statistics data comes from node. """
-        if self.has_statistics:
-            proc_stats = info['proc_stats']
+        if self.has_process_statistics:
+            proc_stats: ProcStatisticsInstance = info['proc_stats']
             elt = tr_elt.findmeld('pmem_a_mid')
-            if proc_stats and len(proc_stats[1]) > 0:
+            if proc_stats and len(proc_stats.mem) > 0:
                 # print last MEM value of process
-                memvalue = proc_stats[1][-1]
+                memvalue = proc_stats.mem[-1]
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
                     parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
@@ -342,7 +350,7 @@ class ViewHandler(MeldView):
 
     def write_common_process_table(self, table_elt):
         """ Hide MEM+CPU head+foot cells if statistics disabled"""
-        if not self.has_statistics:
+        if not self.has_process_statistics:
             for mid in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid', 'total_mid']:
                 elt = table_elt.findmeld(mid)
                 if elt is not None:
@@ -404,7 +412,7 @@ class ViewHandler(MeldView):
         self.write_process_stdout_button(tr_elt, info, check_logfiles)
         self.write_process_stderr_button(tr_elt, info, check_logfiles)
 
-    def write_detailed_process_cpu(self, stats_elt, proc_stats: ProcessHistoryStats, nb_cores: int) -> bool:
+    def write_detailed_process_cpu(self, stats_elt, proc_stats: ProcStatisticsInstance, nb_cores: int) -> bool:
         """ Write the CPU part of the detailed process status.
 
         :param stats_elt: the element from which to search for
@@ -412,14 +420,14 @@ class ViewHandler(MeldView):
         :param nb_cores: the number of processor cores
         :return: True if process CPU statistics are valid
         """
-        if proc_stats and len(proc_stats[0]) > 0:
+        if proc_stats and len(proc_stats.cpu) > 0:
             # calculate stats
-            avg, rate, (slope, intercept), dev = get_stats(proc_stats[0])
+            avg, rate, (slope, intercept), dev = get_stats(proc_stats.times, proc_stats.cpu)
             # print last CPU value of process
             elt = stats_elt.findmeld('pcpuval_td_mid')
             if rate is not None:
                 self.set_slope_class(elt, rate)
-            cpuvalue = proc_stats[0][-1]
+            cpuvalue = proc_stats.cpu[-1]
             if not self.supvisors.options.stats_irix_mode:
                 cpuvalue /= nb_cores
             elt.content(f'{cpuvalue:.2f}%')
@@ -438,20 +446,20 @@ class ViewHandler(MeldView):
                 elt.content(f'{dev:.2f}')
             return True
 
-    def write_detailed_process_mem(self, stats_elt, proc_stats: ProcessHistoryStats) -> bool:
+    def write_detailed_process_mem(self, stats_elt, proc_stats: ProcStatisticsInstance) -> bool:
         """ Write the MEM part of the detailed process status.
 
         :param stats_elt: the element from which to search for
         :param proc_stats: the process statistics
         :return: True if process Memory statistics are valid
         """
-        if proc_stats and len(proc_stats[1]) > 0:
-            avg, rate, (a, b), dev = get_stats(proc_stats[1])
+        if proc_stats and len(proc_stats.mem) > 0:
+            avg, rate, (a, b), dev = get_stats(proc_stats.times, proc_stats.mem)
             # print last MEM value of process
             elt = stats_elt.findmeld('pmemval_td_mid')
             if rate is not None:
                 self.set_slope_class(elt, rate)
-            elt.content(f'{proc_stats[1][-1]:.2f}%')
+            elt.content(f'{proc_stats.mem[-1]:.2f}%')
             # set mean value
             elt = stats_elt.findmeld('pmemavg_td_mid')
             elt.content(f'{avg:.2f}%')
@@ -465,20 +473,23 @@ class ViewHandler(MeldView):
                 elt.content(f'{dev:.2f}')
             return True
 
-    def write_process_plots(self, proc_stats: ProcessHistoryStats, nb_cores: int) -> None:
+    def write_process_plots(self, proc_stats: ProcStatisticsInstance, nb_cores: int) -> None:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
             from supvisors.plot import StatisticsPlot
             # build CPU image
             cpu_img = StatisticsPlot(self.logger)
-            cpu_values = proc_stats[0]
-            if not self.supvisors.options.stats_irix_mode:
-                cpu_values = [x / nb_cores for x in cpu_values]
+            if self.supvisors.options.stats_irix_mode:
+                cpu_values = proc_stats.cpu
+            else:
+                cpu_values = [x / nb_cores for x in proc_stats.cpu]
+            cpu_img.add_timeline(proc_stats.times)
             cpu_img.add_plot('CPU', '%', cpu_values)
             cpu_img.export_image(process_cpu_img)
             # build Memory image
             mem_img = StatisticsPlot(self.logger)
-            mem_img.add_plot('MEM', '%', proc_stats[1])
+            mem_img.add_timeline(proc_stats.times)
+            mem_img.add_plot('MEM', '%', proc_stats.mem)
             mem_img.export_image(process_mem_img)
         except ImportError:
             # matplotlib not installed
@@ -492,7 +503,7 @@ class ViewHandler(MeldView):
         namespec = info.get('namespec', None)
         if namespec:
             # set CPU/MEM statistics
-            proc_stats = info['proc_stats']
+            proc_stats: ProcStatisticsInstance = info['proc_stats']
             done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats, info['nb_cores'])
             done_mem = self.write_detailed_process_mem(stats_elt, proc_stats)
             if done_cpu or done_mem:

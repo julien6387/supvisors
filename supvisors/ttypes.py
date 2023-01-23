@@ -75,16 +75,23 @@ class DistributionRules(Enum):
     ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
 
 
+class StatisticsTypes(Enum):
+    """ Items to be captured when statistics are enabled. """
+    OFF, HOST, PROCESS, ALL = range(4)
+
+
 # for internal publish / subscribe
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    HEARTBEAT, TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY, STATISTICS, STATE = range(8)
+    (HEARTBEAT, TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
+     HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(9)
 
 
 # for deferred XML-RPC requests
 class DeferredRequestHeaders(Enum):
     """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
-    (CHECK_INSTANCE, ISOLATE_INSTANCES, START_PROCESS, STOP_PROCESS,
+    (CHECK_INSTANCE, ISOLATE_INSTANCES,
+     START_PROCESS, STOP_PROCESS,
      RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(9)
 
 
@@ -168,11 +175,10 @@ NameSet = Set[str]
 LoadMap = Dict[str, int]
 
 # Annotation types for statistics
-NamedPid = Tuple[str, int]  # namespec, PID
-NamedPidList = List[NamedPid]
 Jiffies = Tuple[float, float]  # (work, idle)
 JiffiesList = List[Jiffies]  # one entry per processor + 1 for average (first element)
 CPUInstantStats = List[float]  # in percent. one entry per processor + 1 for average (first element)
+TimesHistoryStats = List[float]  # in seconds
 CPUHistoryStats = List[List[float]]  # in percent. one list per processor + 1 for average (first element)
 MemHistoryStats = List[float]  # in percent
 IOBytes = Tuple[int, int]  # recv_bytes, sent_bytes
@@ -180,8 +186,6 @@ BytesList = List[float]  # in kilobytes per second
 InterfaceInstantStats = Dict[str, IOBytes]  # {interface: (recv_bytes, sent_bytes)}
 InterfaceIntegratedStats = Dict[str, Tuple[float, float]]  # {interface: (recv_bytes, sent_bytes)}
 InterfaceHistoryStats = Dict[str, Tuple[BytesList, BytesList]]  # {interface: ([recv_bytes], [sent_bytes])}
-ProcessStats = Tuple[float, float]  # jiffies, memory
-ProcessStatsMap = Dict[str, Tuple[int, ProcessStats]]  # {namespec: (PID, ProcessStats)}
-ProcessHistoryStats = Tuple[CPUInstantStats, MemHistoryStats]
-ProcessHistoryStatsMap = Dict[NamedPid, ProcessHistoryStats]
-InstantStatistics = Tuple[float, JiffiesList, float, InterfaceInstantStats, ProcessStatsMap]
+ProcessStats = Tuple[float, float]  # work jiffies, memory
+ProcessCPUHistoryStats = List[float]  # in percent
+ProcessMemHistoryStats = MemHistoryStats  # in percent

@@ -132,10 +132,6 @@ def test_linear_regression_numpy():
     a, b = get_linear_regression(xdata, ydata)
     assert pytest.approx(a) == 0.5
     assert pytest.approx(b) == 2.0
-    # test simple linear regression
-    a, b = get_simple_linear_regression(ydata)
-    assert pytest.approx(a) == 1.0
-    assert pytest.approx(b) == 3.0
 
 
 def test_linear_regression(mocker):
@@ -147,20 +143,17 @@ def test_linear_regression(mocker):
     a, b = get_linear_regression(xdata, ydata)
     assert pytest.approx(a) == 0.5
     assert pytest.approx(b) == 2.0
-    # test simple linear regression
-    a, b = get_simple_linear_regression(ydata)
-    assert pytest.approx(a) == 1.0
-    assert pytest.approx(b) == 3.0
 
 
 def test_statistics():
     """ Test the statistics function. """
+    xdata = [2, 4, 6, 8, 10]
     ydata = [2, 3, 4, 5, 6]
-    avg, rate, (a, b), dev = get_stats(ydata)
+    avg, rate, (a, b), dev = get_stats(xdata, ydata)
     assert pytest.approx(avg) == 4
     assert pytest.approx(rate) == 20
-    assert pytest.approx(a) == 1
-    assert pytest.approx(b) == 2
+    assert pytest.approx(a) == 0.5
+    assert pytest.approx(b) == 1
     assert pytest.approx(dev) == math.sqrt(2)
 
 

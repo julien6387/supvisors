@@ -38,7 +38,8 @@ def config():
             'core_identifiers': 'cliche01,cliche03',
             'disabilities_file': '/tmp/disabilities.json',
             'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
-            'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
+            'stats_enabled': 'process', 'stats_collecting_period': '2',
+            'stats_periods': '5,50,77.7', 'stats_histo': '100',
             'stats_irix_mode': 'true',
             'tail_limit': '1MB', 'tailf_limit': '512',
             'logfile': '/tmp/supvisors.log', 'logfile_maxbytes': '50KB',
@@ -94,7 +95,9 @@ def test_options_creation(opt):
     assert opt.disabilities_file is None
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
-    assert opt.stats_enabled
+    assert opt.host_stats_enabled
+    assert opt.process_stats_enabled
+    assert opt.collecting_period == 5
     assert opt.stats_periods == [10]
     assert opt.stats_histo == 200
     assert not opt.stats_irix_mode
@@ -116,8 +119,10 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.disabilities_file == '/tmp/disabilities.json'
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
-    assert not filled_opt.stats_enabled
-    assert filled_opt.stats_periods == [5, 60, 600]
+    assert not filled_opt.host_stats_enabled
+    assert filled_opt.process_stats_enabled
+    assert filled_opt.collecting_period == 2.0
+    assert filled_opt.stats_periods == [5, 50, 77.7]
     assert filled_opt.stats_histo == 100
     assert filled_opt.stats_irix_mode
     assert filled_opt.tail_limit == 1024 * 1024
@@ -130,7 +135,8 @@ def test_str(opt):
                         ' event_link=NONE event_port=0'
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
-                        ' stats_enabled=True stats_periods=[10] stats_histo=200'
+                        ' host_stats_enabled=True process_stats_enabled=True'
+                        ' collecting_period=5 stats_periods=[10] stats_histo=200'
                         ' stats_irix_mode=False tail_limit=1024 tailf_limit=1024')
 
 
@@ -164,9 +170,10 @@ def test_port_num():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_port_num('-1')
     with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_port_num('0')
+    with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_port_num('65536')
     # test valid values
-    assert SupvisorsOptions.to_port_num('0') == 0
     assert SupvisorsOptions.to_port_num('1') == 1
     assert SupvisorsOptions.to_port_num('65535') == 65535
 
@@ -227,11 +234,12 @@ def test_conciliation_strategy():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_conciliation_strategy('dummy')
     with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_conciliation_strategy('user')
+        SupvisorsOptions.to_conciliation_strategy('users')
     # test valid values
     assert SupvisorsOptions.to_conciliation_strategy('SENICIDE') == ConciliationStrategies.SENICIDE
     assert SupvisorsOptions.to_conciliation_strategy('INFANTICIDE') == ConciliationStrategies.INFANTICIDE
     assert SupvisorsOptions.to_conciliation_strategy('USER') == ConciliationStrategies.USER
+    assert SupvisorsOptions.to_conciliation_strategy('user') == ConciliationStrategies.USER
     assert SupvisorsOptions.to_conciliation_strategy('STOP') == ConciliationStrategies.STOP
     assert SupvisorsOptions.to_conciliation_strategy('RESTART') == ConciliationStrategies.RESTART
 
@@ -245,11 +253,53 @@ def test_starting_strategy():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_starting_strategy('dummy')
     with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_starting_strategy('config')
+        SupvisorsOptions.to_starting_strategy('configs')
     # test valid values
+    assert SupvisorsOptions.to_starting_strategy('config') == StartingStrategies.CONFIG
     assert SupvisorsOptions.to_starting_strategy('CONFIG') == StartingStrategies.CONFIG
     assert SupvisorsOptions.to_starting_strategy('LESS_LOADED') == StartingStrategies.LESS_LOADED
     assert SupvisorsOptions.to_starting_strategy('MOST_LOADED') == StartingStrategies.MOST_LOADED
+
+
+def test_statistics_type():
+    """ Test the conversion of a string to a pair of booleans for host and process statistics. """
+    error_message = common_error_message.format('stats_enabled')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_statistics_type('')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_statistics_type('activated')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_statistics_type('1,both')
+    # test valid values
+    assert SupvisorsOptions.to_statistics_type('OFF') == (False, False)
+    assert SupvisorsOptions.to_statistics_type('HOST') == (True, False)
+    assert SupvisorsOptions.to_statistics_type('PROCESS') == (False, True)
+    assert SupvisorsOptions.to_statistics_type('ALL') == (True, True)
+    assert SupvisorsOptions.to_statistics_type('HOST, PROCESS') == (True, True)
+    assert SupvisorsOptions.to_statistics_type('true, PROCESS') == (True, True)
+    assert SupvisorsOptions.to_statistics_type('OFF, host') == (True, False)
+    assert SupvisorsOptions.to_statistics_type('False, process, 0') == (False, True)
+
+
+def test_period():
+    """ Test the conversion of a string to a collecting period. """
+    error_message = common_error_message.format('stats_collecting_period')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_period('')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_period('0.9,3600')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_period('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_period('0')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_period('3601')
+    # test valid values
+    assert SupvisorsOptions.to_period('5') == 5
+    assert SupvisorsOptions.to_period('3.3') == 3.3
+    assert SupvisorsOptions.to_period('99.99') == 99.99
 
 
 def test_periods():
@@ -261,17 +311,17 @@ def test_periods():
     with pytest.raises(ValueError, match='unexpected number of stats_periods: 4. maximum is 3'):
         SupvisorsOptions.to_periods('1, 2, 3, 4')
     with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_periods('4,3600')
+        SupvisorsOptions.to_periods('0.9,3600')
     with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_periods('5,3601')
-    with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_periods('6, 3599')
+        SupvisorsOptions.to_periods('1,3600.1')
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_periods('90, none')
     # test valid values
     assert SupvisorsOptions.to_periods('5') == [5]
+    assert SupvisorsOptions.to_periods('3.3') == [3.3]
     assert SupvisorsOptions.to_periods('60,3600') == [60, 3600]
-    assert SupvisorsOptions.to_periods('720, 120,1800') == [120, 720, 1800]
+    assert SupvisorsOptions.to_periods('1.0, 3599') == [1.0, 3599]
+    assert SupvisorsOptions.to_periods('720, 120,1234.56') == [120, 720, 1234.56]
 
 
 def test_histo():

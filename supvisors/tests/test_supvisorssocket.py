@@ -1,7 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 import socket
-import time
+
+import pytest
+
+from supvisors.supvisorssocket import *
+
 
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
@@ -18,10 +22,6 @@ import time
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
-
-import pytest
-
-from supvisors.supvisorssocket import *
 
 
 def test_payload_to_bytes_to_payload(supvisors):
@@ -184,10 +184,15 @@ def test_global_normal(supvisors, sockets):
     check_sockets(subscriber, None,
                   [InternalEventHeaders.PROCESS_DISABILITY.value, {'name': 'dummy_name', 'disabled': True}],
                   local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for STATISTICS
-    publisher.send_statistics({'cpu': 25.3, 'mem': 12.5})
+    # test publish / subscribe for HOST_STATISTICS
+    publisher.send_host_statistics({'cpu': 25.3, 'mem': 12.5})
     check_sockets(subscriber, None,
-                  [InternalEventHeaders.STATISTICS.value, {'cpu': 25.3, 'mem': 12.5}],
+                  [InternalEventHeaders.HOST_STATISTICS.value, {'cpu': 25.3, 'mem': 12.5}],
+                  local_identifier, [hb_sent, hb_recv])
+    # test publish / subscribe for PROCESS_STATISTICS
+    publisher.send_process_statistics({'dummy_process': {'cpu': 25.3, 'mem': 12.5}})
+    check_sockets(subscriber, None,
+                  [InternalEventHeaders.PROCESS_STATISTICS.value, {'dummy_process': {'cpu': 25.3, 'mem': 12.5}}],
                   local_identifier, [hb_sent, hb_recv])
     # test publish / subscribe for STATE
     publisher.send_state_event({'state': 'operational', 'mode': 'starting'})

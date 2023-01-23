@@ -25,7 +25,6 @@ from supervisor.web import MeldView, StatusView
 
 from supvisors.ttypes import ApplicationStates
 from supvisors.viewhandler import ViewHandler
-from supvisors.viewinstance import SupvisorsInstanceView
 from supvisors.viewprocinstance import *
 from supvisors.webutils import PROC_INSTANCE_PAGE
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
@@ -57,6 +56,20 @@ def test_init(view):
         assert isinstance(view, klass)
     # test default page name
     assert view.page_name == PROC_INSTANCE_PAGE
+
+
+def test_write_periods(mocker, view):
+    """ Test the ProcInstanceView.write_periods method. """
+    mocked_period = mocker.patch.object(view, 'write_periods_availability')
+    mocked_root = Mock()
+    # test with process statistics to be displayed
+    view.write_periods(mocked_root)
+    assert mocked_period.call_args_list == [call(mocked_root, True)]
+    mocked_period.reset_mock()
+    # test with process statistics NOT to be displayed
+    view.has_process_statistics = False
+    view.write_periods(mocked_root)
+    assert mocked_period.call_args_list == [call(mocked_root, False)]
 
 
 def test_write_contents(mocker, view):
@@ -228,30 +241,54 @@ def test_sort_data(mocker, view):
                                {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'single': False}]
 
 
-def test_get_application_summary(view):
+def test_get_application_summary(mocker, view):
     """ Test the ProcInstanceView.get_application_summary method. """
+    mocked_sum = mocker.patch.object(view, 'sum_process_info')
     # patch the context
     view.view_ctx = Mock(local_identifier='10.0.0.1')
     view.sup_ctx.applications['dummy_appli'] = Mock(state=ApplicationStates.RUNNING,
                                                     **{'get_operational_status.return_value': 'good'})
     # prepare parameters
-    proc_1 = {'statecode': ProcessStates.RUNNING, 'expected_load': 5, 'nb_cores': 8, 'proc_stats': [[10], [5]]}
-    proc_2 = {'statecode': ProcessStates.STARTING, 'expected_load': 15, 'nb_cores': 8, 'proc_stats': [[], []]}
-    proc_3 = {'statecode': ProcessStates.BACKOFF, 'expected_load': 7, 'nb_cores': 8, 'proc_stats': [[8], [22]]}
-    proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'nb_cores': 8, 'proc_stats': None}
+    proc_1, proc_2, proc_3, proc_4 = Mock(), Mock(), Mock(), Mock()
     # test with empty list of processes
     expected = {'application_name': 'dummy_appli', 'process_name': None, 'namespec': None,
                 'disabled': False, 'startable': False,
                 'identifier': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2, 'gravity': 'RUNNING',
                 'has_crashed': False, 'description': 'good', 'nb_processes': 0,
                 'expected_load': 0, 'nb_cores': 0, 'proc_stats': None}
+    mocked_sum.return_value = 0, 0, None
     assert view.get_application_summary('dummy_appli', []) == expected
     # test with non-running processes
     expected.update({'nb_processes': 1})
     assert view.get_application_summary('dummy_appli', [proc_4]) == expected
     # test with a mix of running and non-running processes
-    expected.update({'nb_processes': 4, 'expected_load': 27, 'nb_cores': 8, 'proc_stats': [[18], [27]]})
+    appli_stats = Mock()
+    mocked_sum.return_value = 27, 8, appli_stats
+    expected.update({'nb_processes': 4, 'expected_load': 27, 'nb_cores': 8, 'proc_stats': appli_stats})
     assert view.get_application_summary('dummy_appli', [proc_1, proc_2, proc_3, proc_4]) == expected
+
+
+def test_sum_process_info():
+    """ Test the ProcInstanceView.sum_process_info method. """
+    # prepare parameters
+    proc_1 = {'statecode': ProcessStates.RUNNING, 'expected_load': 5, 'nb_cores': 8,
+              'proc_stats': Mock(cpu=[10], mem=[5])}
+    proc_2 = {'statecode': ProcessStates.STARTING, 'expected_load': 15, 'nb_cores': 8,
+              'proc_stats': Mock(cpu=[], mem=[])}
+    proc_3 = {'statecode': ProcessStates.BACKOFF, 'expected_load': 7, 'nb_cores': 8,
+              'proc_stats': Mock(cpu=[8], mem=[22])}
+    proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'nb_cores': 8,
+              'proc_stats': None}
+    # test with empty list of processes
+    assert ProcInstanceView.sum_process_info([]) == (0, 0, None)
+    # test with non-running processes
+    assert ProcInstanceView.sum_process_info([proc_4]) == (0, 0, None)
+    # test with a mix of running and non-running processes
+    expected_load, nb_cores, appli_stats = ProcInstanceView.sum_process_info([proc_1, proc_2, proc_3, proc_4])
+    assert expected_load == 27
+    assert nb_cores == 8
+    assert appli_stats.cpu == [18]
+    assert appli_stats.mem == [27]
 
 
 def test_write_process_table(mocker, view):
@@ -558,7 +595,7 @@ def test_write_total_status(mocker, view):
     tr_elt.findmeld.reset_mock()
     load_elt.content.reset_mock()
     # test call with process stats and irix mode
-    mocked_sum.return_value = (50, 2, [[12], [25]])
+    mocked_sum.return_value = 50, 2, Mock(cpu=[12], mem=[25])
     view.supvisors.options.stats_irix_mode = True
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]

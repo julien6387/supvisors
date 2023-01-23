@@ -307,8 +307,6 @@ def test_status_stopped_process(supvisors):
     assert not process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
     event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.2', 'now': time(), 'spawnerr': ''}
     assert process.force_state(event)
@@ -318,8 +316,6 @@ def test_status_stopped_process(supvisors):
     assert process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # STOPPED does not reset the forced state
     process.reset_forced_state(ProcessStates.STOPPED)
     assert process._state == ProcessStates.STOPPED
@@ -344,8 +340,6 @@ def test_status_backoff_process(supvisors):
     assert not process.crashed()
     assert process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
     event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
     assert process.force_state(event)
@@ -355,8 +349,6 @@ def test_status_backoff_process(supvisors):
     assert not process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # BACKOFF resets the forced state
     process.reset_forced_state(ProcessStates.BACKOFF)
     assert process._state == ProcessStates.BACKOFF
@@ -375,8 +367,6 @@ def test_status_running_process(supvisors):
     assert not process.crashed()
     assert process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
     # here, the stored event is more recent so the forced state is ignored
     event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': 0, 'spawnerr': ''}
@@ -387,8 +377,6 @@ def test_status_running_process(supvisors):
     assert not process.crashed()
     assert process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
 
 
 def test_status_stopping_process(supvisors):
@@ -401,8 +389,6 @@ def test_status_stopping_process(supvisors):
     assert not process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
     event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
     assert process.force_state(event)
@@ -412,8 +398,6 @@ def test_status_stopping_process(supvisors):
     assert not process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # STOPPING resets the forced state
     process.reset_forced_state(ProcessStates.STOPPING)
     assert process._state == ProcessStates.STOPPING
@@ -432,8 +416,6 @@ def test_status_fatal_process(supvisors):
     assert process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
     event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
     assert process.force_state(event)
@@ -443,8 +425,6 @@ def test_status_fatal_process(supvisors):
     assert not process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # FATAL resets the forced state
     process.reset_forced_state(ProcessStates.FATAL)
     assert process._state == ProcessStates.FATAL
@@ -465,8 +445,6 @@ def test_status_exited_process(supvisors):
     assert not process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # test with unexpected_exit
     process.expected_exit = False
     assert process.stopped()
@@ -474,8 +452,6 @@ def test_status_exited_process(supvisors):
     assert process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
     event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
     assert process.force_state(event)
@@ -485,8 +461,6 @@ def test_status_exited_process(supvisors):
     assert process.crashed()
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
     # EXITED resets the forced state
     process.reset_forced_state(ProcessStates.EXITED)
     assert process._state == ProcessStates.EXITED

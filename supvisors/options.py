@@ -22,14 +22,14 @@ import os
 import platform
 from collections import OrderedDict
 from socket import gethostname
-from typing import Dict, List, TypeVar
+from typing import Dict, List, Tuple, TypeVar
 
 from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byte_size, existing_dirpath,
                                   logging_level, list_of_strings)
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
-from .ttypes import ConciliationStrategies, EventLinks, Payload, StartingStrategies
+from .ttypes import ConciliationStrategies, EventLinks, Payload, StartingStrategies, StatisticsTypes
 
 
 # Options of main section
@@ -68,7 +68,8 @@ class SupvisorsOptions:
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program ;
         - starting_strategy: strategy used to start processes on Supvisors instances ;
-        - stats_enable: when False, no statistics will be collected and displayed from this Supvisors instance ;
+        - host_stats_enabled: if False, no host statistics will be collected from this Supvisors instance ;
+        - proc_stats_enabled: if False, no process statistics will be collected from this Supvisors instance ;
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors Web UI ;
         - stats_histo: depth of statistics history ;
         - stats_irix_mode: choice of CPU value display between IRIX and Solaris ;
@@ -113,7 +114,11 @@ class SupvisorsOptions:
         self.starting_strategy = self._get_value(config, 'starting_strategy', StartingStrategies.CONFIG,
                                                  self.to_starting_strategy)
         # configure statistics
-        self.stats_enabled = self._get_value(config, 'stats_enabled', True, boolean)
+        # stats_enabled is deprecated
+        stats_enabled = self._get_value(config, 'stats_enabled', (True, True), self.to_statistics_type)
+        self.host_stats_enabled = stats_enabled[0]
+        self.process_stats_enabled = stats_enabled[1]
+        self.collecting_period = self._get_value(config, 'stats_collecting_period', 5, self.to_period)
         self.stats_periods = self._get_value(config, 'stats_periods', [10], self.to_periods)
         self.stats_histo = self._get_value(config, 'stats_histo', 200, self.to_histo)
         self.stats_irix_mode = self._get_value(config, 'stats_irix_mode', False, boolean)
@@ -131,7 +136,9 @@ class SupvisorsOptions:
                 f' core_identifiers={self.core_identifiers} disabilities_file={self.disabilities_file}'
                 f' conciliation_strategy={self.conciliation_strategy.name}'
                 f' starting_strategy={self.starting_strategy.name}'
-                f' stats_enabled={self.stats_enabled} stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
+                f' host_stats_enabled={self.host_stats_enabled} process_stats_enabled={self.process_stats_enabled}'
+                f' collecting_period={self.collecting_period}'
+                f' stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
                 f' stats_irix_mode={self.stats_irix_mode}'
                 f' tail_limit={self.tail_limit} tailf_limit={self.tailf_limit}')
 
@@ -185,10 +192,13 @@ class SupvisorsOptions:
         :param value: the port number as a string
         :return: the port number as an integer
         """
-        value = integer(value)
-        if 0 <= value <= 65535:
-            return value
-        raise ValueError(f'invalid value for port ({value}), expected in [0;65535]')
+        try:
+            port = integer(value)
+            if 1 > port or port > 65535:
+                raise ValueError
+            return port
+        except ValueError:
+            raise ValueError(f'invalid value for port: {value}. integer expected in [1;65535]')
 
     @staticmethod
     def to_timeout(value: str) -> int:
@@ -197,12 +207,15 @@ class SupvisorsOptions:
         :param value: the timeout as a string
         :return: the timeout as an integer
         """
-        value = integer(value)
-        if SupvisorsOptions.SYNCHRO_TIMEOUT_MIN <= value <= SupvisorsOptions.SYNCHRO_TIMEOUT_MAX:
-            return value
-        raise ValueError(f'invalid value for synchro_timeout: {value}.'
-                         f' expected in [{SupvisorsOptions.SYNCHRO_TIMEOUT_MIN};'
-                         f'{SupvisorsOptions.SYNCHRO_TIMEOUT_MAX}] (seconds)')
+        try:
+            timeout = integer(value)
+            if SupvisorsOptions.SYNCHRO_TIMEOUT_MIN > timeout or timeout > SupvisorsOptions.SYNCHRO_TIMEOUT_MAX:
+                raise ValueError
+            return timeout
+        except ValueError:
+            raise ValueError(f'invalid value for synchro_timeout: {value}.'
+                             f' integer expected in [{SupvisorsOptions.SYNCHRO_TIMEOUT_MIN};'
+                             f'{SupvisorsOptions.SYNCHRO_TIMEOUT_MAX}] (seconds)')
 
     @staticmethod
     def to_ticks(value: str) -> int:
@@ -211,12 +224,15 @@ class SupvisorsOptions:
         :param value: the number of ticks as a string
         :return: the number of ticks as an integer
         """
-        value = integer(value)
-        if SupvisorsOptions.INACTIVITY_TICKS_MIN <= value <= SupvisorsOptions.INACTIVITY_TICKS_MAX:
-            return value
-        raise ValueError(f'invalid value for inactivity_ticks: {value}.'
-                         f' expected in [{SupvisorsOptions.INACTIVITY_TICKS_MIN};'
-                         f'{SupvisorsOptions.INACTIVITY_TICKS_MAX}]')
+        try:
+            ticks = integer(value)
+            if SupvisorsOptions.INACTIVITY_TICKS_MIN > ticks or ticks > SupvisorsOptions.INACTIVITY_TICKS_MAX:
+                raise ValueError
+            return ticks
+        except ValueError:
+            raise ValueError(f'invalid value for inactivity_ticks: {value}.'
+                             f' integer expected in [{SupvisorsOptions.INACTIVITY_TICKS_MIN};'
+                             f'{SupvisorsOptions.INACTIVITY_TICKS_MAX}]')
 
     @staticmethod
     def to_event_link(value: str) -> EventLinks:
@@ -232,7 +248,7 @@ class SupvisorsOptions:
     def to_conciliation_strategy(value: str) -> ConciliationStrategies:
         """ Convert a string into a ConciliationStrategies enum. """
         try:
-            strategy = ConciliationStrategies[value]
+            strategy = ConciliationStrategies[value.upper()]
         except KeyError:
             raise ValueError(f'invalid value for conciliation_strategy: {value}.'
                              f' expected in {[x.name for x in ConciliationStrategies]}')
@@ -242,11 +258,44 @@ class SupvisorsOptions:
     def to_starting_strategy(value: str) -> StartingStrategies:
         """ Convert a string into a StartingStrategies enum. """
         try:
-            strategy = StartingStrategies[value]
+            strategy = StartingStrategies[value.upper()]
         except KeyError:
             raise ValueError(f'invalid value for starting_strategy: {value}.'
                              f' expected in {[x.name for x in StartingStrategies]}')
         return strategy
+
+    @staticmethod
+    def to_statistics_type(value: str) -> Tuple[bool, bool]:
+        """ Convert a string into a pair of boolean values to allow host and/or process statistics. """
+        str_stats_types = list_of_strings(value)
+        if len(str_stats_types) == 0:
+            raise ValueError('invalid value for stats_enabled: <empty>')
+        stats_types = []
+        for val in str_stats_types:
+            # first try to use the enumeration values
+            try:
+                stats_types.append(StatisticsTypes[val.upper()])
+            except KeyError:
+                # try the boolean version
+                try:
+                    stats_types.append(StatisticsTypes.ALL if boolean(val) else StatisticsTypes.OFF)
+                except ValueError:
+                    raise ValueError(f'invalid value for stats_enabled: {value}.'
+                                     f' expected in {[x.name for x in StatisticsTypes]}')
+        return (StatisticsTypes.ALL in stats_types or StatisticsTypes.HOST in stats_types,
+                StatisticsTypes.ALL in stats_types or StatisticsTypes.PROCESS in stats_types)
+
+    @staticmethod
+    def to_period(value: str) -> float:
+        """ Convert a string into a list of period values. """
+        try:
+            period = float(value)
+            if 1.0 > period or period > 3600.0:
+                raise ValueError
+            return period
+        except ValueError:
+            raise ValueError(f'invalid value for stats_collecting_period: {value}.'
+                             f' float expected in [1.0;3600.0] (seconds)')
 
     @staticmethod
     def to_periods(value: str) -> List[int]:
@@ -259,15 +308,13 @@ class SupvisorsOptions:
         periods = []
         for val in str_periods:
             try:
-                period = integer(val)
-            except ValueError:
-                raise ValueError(f'invalid value for stats_periods: {val}. expected integer')
-            else:
-                if 5 > period or period > 3600:
-                    raise ValueError(f'invalid value for stats_periods: {val}. expected in [5;3600] (seconds)')
-                if period % 5 != 0:
-                    raise ValueError(f'invalid value for stats_periods: {period}. expected multiple of 5')
+                period = float(val)
+                if 1.0 > period or period > 3600.0:
+                    raise ValueError
                 periods.append(period)
+            except ValueError:
+                raise ValueError(f'invalid value for stats_periods: {val}.'
+                                 f' float expected in [1.0;3600.0] (seconds)')
         return sorted(periods)
 
     @staticmethod
@@ -277,10 +324,13 @@ class SupvisorsOptions:
         :param value: the historic size as a string
         :return: the historic size as an integer
         """
-        histo = integer(value)
-        if 10 <= histo <= 1500:
+        try:
+            histo = integer(value)
+            if 10 > histo or histo > 1500:
+                raise ValueError
             return histo
-        raise ValueError(f'invalid value for stats_histo: {value}. expected in [10;1500] (seconds)')
+        except ValueError:
+            raise ValueError(f'invalid value for stats_histo: {value}. integer expected in [10;1500] (seconds)')
 
 
 class SupvisorsServerOptions(ServerOptions):

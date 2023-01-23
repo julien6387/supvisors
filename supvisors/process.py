@@ -313,6 +313,16 @@ class ProcessStatus(object):
                 'extra_args': self.extra_args}
 
     # access
+    def get_pid(self, identifier: str) -> int:
+        """ Return the PID of the process located on the Supvisors instance identified.
+
+        :param identifier: the Supvisors instance identifier
+        :return: the PID
+        """
+        if self.state == ProcessStates.RUNNING and identifier in self.running_identifiers:
+            return self.info_map[identifier]['pid']
+        return 0
+
     def disabled(self) -> bool:
         """ Check if the process is disabled on all Supvisors instances knowing the process.
 
@@ -387,16 +397,6 @@ class ProcessStatus(object):
         :return: the running status of the process on the considered Supvisors instance
         """
         return self.running() and identifier in self.running_identifiers
-
-    def pid_running_on(self, identifier: str) -> bool:
-        """ Check if process is RUNNING on the Supvisors instance identified.
-        Different from running_on as it considers only the RUNNING state and not STARTING or BACKOFF.
-        This is used by the statistics module that requires an existing PID.
-
-        :param identifier: the Supvisors instance identifier
-        :return: the true running status of the process on the considered Supervisor
-        """
-        return self.state == ProcessStates.RUNNING and identifier in self.running_identifiers
 
     def conflicting(self) -> bool:
         """ Check if the process is in a conflicting state (more than one instance running).

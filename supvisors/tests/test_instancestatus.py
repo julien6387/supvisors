@@ -18,17 +18,16 @@
 # ======================================================================
 
 import pickle
-import pytest
 import random
 import time
 
+import pytest
 from supervisor.states import ProcessStates
 
 from supvisors.instancestatus import *
 from supvisors.ttypes import SupvisorsInstanceStates, InvalidTransition
-
-from .base import database_copy
-from .conftest import create_any_process, create_process
+from .base import database_copy, any_process_info_by_state
+from .conftest import create_process
 
 
 def test_state_modes():
@@ -70,9 +69,21 @@ def supvisors_id(supvisors):
 
 
 @pytest.fixture
+def local_supvisors_id(supvisors):
+    """ Create a SupvisorsInstanceId. """
+    return SupvisorsInstanceId(f'<{supvisors.supvisors_mapper.local_identifier}>10.0.0.1:65000:65001', supvisors)
+
+
+@pytest.fixture
 def status(supvisors, supvisors_id):
     """ Create an empty SupvisorsInstanceStatus. """
     return SupvisorsInstanceStatus(supvisors_id, supvisors)
+
+
+@pytest.fixture
+def local_status(supvisors, local_supvisors_id):
+    """ Create an empty SupvisorsInstanceStatus. """
+    return SupvisorsInstanceStatus(local_supvisors_id, supvisors)
 
 
 @pytest.fixture
@@ -85,7 +96,7 @@ def filled_status(supvisors, status):
     return status
 
 
-def test_create(supvisors, supvisors_id, status):
+def test_create_no_collector(supvisors, supvisors_id, status):
     """ Test the values set at SupvisorsInstanceStatus construction. """
     assert status.supvisors is supvisors
     assert status.logger is supvisors.logger
@@ -99,6 +110,28 @@ def test_create(supvisors, supvisors_id, status):
     assert status.local_time == 0.0
     assert status.processes == {}
     assert status.state_modes == StateModes()
+    # process_collector is None because local_identifier is different in supvisors_mapper and in SupvisorsInstanceId
+    assert status.process_collector is None
+
+
+def test_create_collector(supvisors, local_supvisors_id, local_status):
+    """ Test the values set at SupvisorsInstanceStatus construction. """
+    assert local_status.supvisors is supvisors
+    assert local_status.logger is supvisors.logger
+    assert local_status.supvisors_id is local_supvisors_id
+    assert local_status.identifier == supvisors.supvisors_mapper.local_identifier
+    assert local_status.state == SupvisorsInstanceStates.UNKNOWN
+    assert local_status.sequence_counter == 0
+    assert local_status.local_sequence_counter == 0
+    assert local_status.start_time == 0.0
+    assert local_status.remote_time == 0.0
+    assert local_status.local_time == 0.0
+    assert local_status.processes == {}
+    assert local_status.state_modes == StateModes()
+    # process_collector is set as SupvisorsInstanceId and supvisors_mapper's local_identifier are identical
+    #  and the option process_stats_enabled is True
+    assert local_status.process_collector is not None
+    assert local_status.process_collector is supvisors.process_collector
 
 
 def test_reset(status):
@@ -214,13 +247,106 @@ def test_isolation(status):
                                                             SupvisorsInstanceStates.ISOLATED])
 
 
-def test_add_process(supvisors, status):
-    """ Test the SupvisorsInstanceStatus.add_process method. """
-    process = create_any_process(supvisors)
+def test_process_no_collector(supvisors, status):
+    """ Test the SupvisorsInstanceStatus.xxx_process methods when no process collector is available. """
+    info = any_process_info_by_state(ProcessStates.RUNNING)
+    process = create_process(info, supvisors)
     status.add_process(process)
+    status.update_process(process)
+    # check no process_collector
+    assert status.process_collector is None
     # check that process is stored
     assert process.namespec in status.processes.keys()
     assert process is status.processes[process.namespec]
+    # test remove process
+    status.remove_process(process)
+    # check that process is stored anymore
+    assert process.namespec not in status.processes.keys()
+
+
+def test_process_running_unknown_collector(supvisors, local_status):
+    """ Test the SupvisorsInstanceStatus.xxx_process methods when no pid running on the identifier. """
+    info = any_process_info_by_state(ProcessStates.RUNNING)
+    process = create_process(info, supvisors)
+    local_status.add_process(process)
+    # check process_collector
+    assert local_status.process_collector is not None
+    # check that process is stored
+    assert process.namespec in local_status.processes.keys()
+    assert process is local_status.processes[process.namespec]
+    # check data in process_collector queue
+    assert local_status.process_collector.pid_queue.empty()
+    # on process update, send the pid again or 0 if not found
+    local_status.update_process(process)
+    assert not local_status.process_collector.pid_queue.empty()
+    data = local_status.process_collector.pid_queue.get()
+    assert data == (process.namespec, 0)
+    # test remove process
+    local_status.remove_process(process)
+    # check that process is stored anymore
+    assert process.namespec not in local_status.processes.keys()
+    # on process removal, pid 0 is sent to the collector
+    assert not local_status.process_collector.pid_queue.empty()
+    data = local_status.process_collector.pid_queue.get()
+    assert data == (process.namespec, 0)
+
+
+def test_add_process_running_collector(supvisors, local_status):
+    """ Test the SupvisorsInstanceStatus.add_process method when the process is running on the identifier. """
+    info = any_process_info_by_state(ProcessStates.RUNNING)
+    process = create_process(info, supvisors)
+    process.add_info(local_status.identifier, info)
+    local_status.add_process(process)
+    # check process_collector
+    assert local_status.process_collector is not None
+    # check that process is stored
+    assert process.namespec in local_status.processes.keys()
+    assert process is local_status.processes[process.namespec]
+    # check data in process_collector queue
+    assert not local_status.process_collector.pid_queue.empty()
+    data = local_status.process_collector.pid_queue.get()
+    assert data == (process.namespec, info['pid'])
+    # on process update, send the pid again
+    local_status.update_process(process)
+    assert not local_status.process_collector.pid_queue.empty()
+    data = local_status.process_collector.pid_queue.get()
+    assert data == (process.namespec, info['pid'])
+    # test remove process
+    local_status.remove_process(process)
+    # check that process is stored anymore
+    assert process.namespec not in local_status.processes.keys()
+    # on process removal, pid 0 is sent to the collector
+    assert not local_status.process_collector.pid_queue.empty()
+    data = local_status.process_collector.pid_queue.get()
+    assert data == (process.namespec, 0)
+
+
+def test_add_process_stopped_collector(supvisors, local_status):
+    """ Test the SupvisorsInstanceStatus.add_process method when the process is stopped on the identifier. """
+    info = any_process_info_by_state(ProcessStates.STOPPED)
+    process = create_process(info, supvisors)
+    process.add_info(local_status.identifier, info)
+    local_status.add_process(process)
+    # check process_collector
+    assert local_status.process_collector is not None
+    # check that process is stored
+    assert process.namespec in local_status.processes.keys()
+    assert process is local_status.processes[process.namespec]
+    # check data in process_collector queue
+    assert local_status.process_collector.pid_queue.empty()
+    # on process update, send the pid again
+    local_status.update_process(process)
+    assert not local_status.process_collector.pid_queue.empty()
+    data = local_status.process_collector.pid_queue.get()
+    assert data == (process.namespec, 0)
+    # test remove process
+    local_status.remove_process(process)
+    # check that process is stored anymore
+    assert process.namespec not in local_status.processes.keys()
+    # on process removal, pid 0 is sent to the collector
+    assert not local_status.process_collector.pid_queue.empty()
+    data = local_status.process_collector.pid_queue.get()
+    assert data == (process.namespec, 0)
 
 
 def test_update_times(filled_status):
@@ -272,12 +398,6 @@ def test_running_process(filled_status):
     # check the name of the running processes
     expected = {'late_segv', 'segv', 'xfontsel', 'yeux_01'}
     assert {proc.process_name for proc in filled_status.running_processes()} == expected
-
-
-def test_pid_process(filled_status):
-    """ Test the SupvisorsInstanceStatus.pid_process method. """
-    # check the namespec and pid of the running processes
-    assert {('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)} == set(filled_status.pid_processes())
 
 
 def test_get_load(filled_status):

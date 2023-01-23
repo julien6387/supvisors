@@ -31,6 +31,8 @@ import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
 from supvisors.rpcinterface import RPCInterface
+from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
+from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
 from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.supvisorssocket import SupvisorsSockets
@@ -54,6 +56,11 @@ class MockedSupvisors:
                        f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:55100']
         self.supvisors_mapper.configure(identifiers, [])
         self.server_options = Mock(procnumbers={'xclock': 2})
+        # set real statistics collectors
+        self.host_collector = instant_host_statistics
+        self.process_collector = ProcessStatisticsCollector(self.logger)
+        self.host_compiler = HostStatisticsCompiler(self)
+        self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
         # build context from node mapper
         self.context = Context(self)
         # mock by spec
@@ -66,7 +73,6 @@ class MockedSupvisors:
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
         self.fsm = Mock(spec=FiniteStateMachine)
-        self.statistician = Mock(data={}, nbcores={})
         self.listener = Mock(spec=SupervisorListener, collector=Mock())
         self.parser = Mock(spec=Parser)
         # should be set in listener
@@ -195,6 +201,7 @@ class DummyHttpContext:
                      'processname': 'dummy_proc',
                      'appliname': 'dummy_appli',
                      'intfname': 'eth0',
+                     'period': 5.1,
                      'auto': 'false'}
         self.response = {'headers': {'Location': None}}
 

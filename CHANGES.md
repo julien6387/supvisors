@@ -2,7 +2,15 @@
 
 ## 0.16 (2023-xx-xx)
 
-* Use `Process.as_dict` to speed up the collection of process statistics with `psutil`. 
+* Re-design the statistics collection and compilation.
+
+* The option `stats_enabled` takes additional values to control host and process statistics independently.
+
+* The option `stats_collecting_period` has been added to set the minimum time between process statistics collection.
+
+* The option `stats_periods` accepts float values, not necessarily multiples of 5.
+
+* Fix children process CPU times in statistics.
 
 * Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
 

@@ -104,7 +104,7 @@ class ViewContext:
     def update_period(self) -> None:
         """ Extract period from context. """
         default_value = next(iter(self.supvisors.options.stats_periods))
-        self._update_integer(PERIOD, self.supvisors.options.stats_periods, default_value)
+        self._update_float(PERIOD, self.supvisors.options.stats_periods, default_value)
 
     def update_strategy(self) -> None:
         """ Extract starting strategy from context. """
@@ -150,7 +150,7 @@ class ViewContext:
 
     def update_cpu_id(self) -> None:
         """ Extract CPU id from context. """
-        self._update_integer(CPU, list(range(self.get_nbcores() + 1)))
+        self._update_integer(CPU, list(range(self.get_nb_cores() + 1)))
 
     def update_interface_name(self) -> None:
         """ Extract interface name from context.
@@ -221,17 +221,21 @@ class ViewContext:
             location = f'{form[SERVER_URL]}{path_translated}?{self.url_parameters(False, **args)}'
             self.http_context.response[HEADERS][LOCATION] = location
 
-    def get_nbcores(self, identifier: str = None) -> int:
+    def get_nb_cores(self, identifier: str = None) -> int:
         """ Get the number of processors of the host where the Supvisors instance is running. """
         stats_identifier = identifier or self.local_identifier
-        return self.supvisors.statistician.nbcores.get(stats_identifier, 0)
+        # 2 chances to get the value
+        nb_cores = self.supvisors.host_compiler.get_nb_cores(stats_identifier)
+        if not nb_cores:
+            nb_cores = self.supvisors.process_compiler.get_nb_cores(stats_identifier)
+        return nb_cores
 
     def get_instance_stats(self, identifier: str = None):
         """ Get the statistics structure related to the identifier and the period selected.
         If no identifier is specified, local identifier is used. """
         stats_identifier = identifier or self.local_identifier
-        stats_instance = self.supvisors.statistician.data.get(stats_identifier, {})
-        return stats_instance.get(self.parameters.get(PERIOD))
+        period = self.parameters.get(PERIOD)
+        return self.supvisors.host_compiler.get_stats(stats_identifier, period)
 
     def get_process_stats(self, namespec: str, identifier: str = None):
         """ Get the statistics structure related to the process and the period selected.
@@ -240,12 +244,12 @@ class ViewContext:
         # use local identifier if not provided
         if not identifier:
             identifier = self.local_identifier
+        # get the number of cores for Solaris mode
+        nb_cores = self.get_nb_cores(identifier)
         # return the process statistics for this process
-        instance_stats = self.get_instance_stats(identifier)
-        nb_cores = self.get_nbcores(identifier)
-        if instance_stats:
-            return nb_cores, instance_stats.find_process_stats(namespec)
-        return nb_cores, None
+        period = self.parameters.get(PERIOD)
+        stats_instance = self.supvisors.process_compiler.get_stats(namespec, identifier, period)
+        return nb_cores, stats_instance
 
     def get_process_status(self, namespec: str = None) -> Optional[ProcessStatus]:
         """ Get the ProcessStatus instance related to the process named namespec.
@@ -260,7 +264,7 @@ class ViewContext:
     def get_application_shex(self, application_name: str) -> Tuple[bool, str]:
         """ Get the expand / shrink value of the application and the shex string to invert it.
 
-        :param application_name: the name of the application
+        :param application_name: the application name
         :return: the application shex and the inverted shex
         """
         shex = self.parameters[SHRINK_EXPAND]
@@ -304,6 +308,25 @@ class ViewContext:
                     self.store_message = error_message(f'Incorrect {param}: {int_value}')
         # assign value found or default
         self.logger.trace(f'ViewContext._update_integer: {param} set to {value}')
+        self.parameters[param] = value
+
+    def _update_float(self, param, check_list, default_value=0.0):
+        """ Extract information from context and convert to float based on allowed values in check_list. """
+        value = default_value
+        str_value = self.http_context.form.get(param)
+        if str_value:
+            try:
+                float_value = float(str_value)
+            except ValueError:
+                self.store_message = error_message(f'{param} is not a float: {str_value}')
+            else:
+                # check that float_value is defined in check list
+                if float_value in check_list:
+                    value = float_value
+                else:
+                    self.store_message = error_message(f'Incorrect {param}: {float_value}')
+        # assign value found or default
+        self.logger.trace(f'ViewContext._update_float: {param} set to {value}')
         self.parameters[param] = value
 
     def _update_boolean(self, param, default_value=False):

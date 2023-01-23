@@ -636,7 +636,8 @@ class Context(object):
                                               ' unknown to local Supervisor')
                     # forced event may be dismissed
                     if updated:
-                        # refresh application status
+                        # refresh internal status
+                        instance_status.update_process(process)
                         application.update_status()
                         # publish process event, status and application status
                         if self.external_publisher:

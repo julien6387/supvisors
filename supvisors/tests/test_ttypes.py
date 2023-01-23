@@ -73,10 +73,28 @@ def test_running_failure_strategies():
     assert [x.name for x in RunningFailureStrategies] == expected
 
 
+def test_process_request_result():
+    """ Test the ProcessRequestResult enumeration. """
+    expected = ['IN_PROGRESS', 'SUCCESS', 'FAILED', 'TIMED_OUT']
+    assert [x.name for x in ProcessRequestResult] == expected
+
+
+def test_distribution_rules():
+    """ Test the DistributionRules enumeration. """
+    expected = ['ALL_INSTANCES', 'SINGLE_INSTANCE', 'SINGLE_NODE']
+    assert [x.name for x in DistributionRules] == expected
+
+
+def test_statistics_types():
+    """ Test the StatisticsTypes enumeration. """
+    expected = ['OFF', 'HOST', 'PROCESS', 'ALL']
+    assert [x.name for x in StatisticsTypes] == expected
+
+
 def test_internal_event_headers():
     """ Test the InternalEventHeaders enumeration. """
     expected = ['HEARTBEAT', 'TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED', 'PROCESS_DISABILITY',
-                'STATISTICS', 'STATE']
+                'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE']
     assert [x.name for x in InternalEventHeaders] == expected
 
 

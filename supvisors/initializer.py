@@ -29,7 +29,7 @@ from .listener import SupervisorListener
 from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic, get_logger_configuration
 from .sparser import Parser
 from .statemachine import FiniteStateMachine
-from .statscompiler import StatisticsCompiler
+from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .strategy import RunningFailureHandler
 from .supervisordata import SupervisorData
 from .supvisorsmapper import SupvisorsMapper
@@ -96,25 +96,39 @@ class Supvisors(object):
         try:
             self.supvisors_mapper.configure(self.options.supvisors_list, self.options.core_identifiers)
         except ValueError as exc:
-            self.logger.critical('Wrong Supvisors configuration (supvisors_list)')
+            self.logger.critical('Supvisors: Wrong Supvisors configuration (supvisors_list)')
             raise
+        # create statistics handlers
+        self.host_collector = None
+        self.process_collector = None
+        try:
+            # test if statistics collector can be created for local host
+            if self.options.host_stats_enabled:
+                from .statscollector import instant_host_statistics
+                self.host_collector = instant_host_statistics
+            if self.options.process_stats_enabled:
+                from .statscollector import ProcessStatisticsCollector
+                self.process_collector = ProcessStatisticsCollector(self.options.collecting_period)
+        except (ImportError, ModuleNotFoundError):
+            self.logger.info('Supvisors: psutil not installed')
+            self.logger.warn('Supvisors: this Supvisors instance cannot not collect statistics')
+        self.host_compiler = HostStatisticsCompiler(self)
+        self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
         # create context data
         self.context = Context(self)
         # create application starter and stopper
         self.starter = Starter(self)
         self.stopper = Stopper(self)
-        # create statistics handler
-        self.statistician = StatisticsCompiler(self)
         # create the failure handler of crashing processes
         # WARN: must be created before the state machine
         self.failure_handler = RunningFailureHandler(self)
-        # check parsing
+        # check rules files
         try:
             self.parser = Parser(self)
         except Exception as exc:
             self.logger.warn(f'Supvisors: cannot parse rules files: {self.options.rules_files} - {exc}')
             self.parser = None
-        # create event subscriber
+        # create Supervisor event subscriber
         self.listener = SupervisorListener(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)

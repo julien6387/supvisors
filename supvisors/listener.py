@@ -70,14 +70,6 @@ class SupervisorListener(object):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
-        # test if statistics collector can be created for local host
-        self.collector = None
-        try:
-            from .statscollector import instant_statistics
-            self.collector = instant_statistics
-        except ImportError:
-            self.logger.info('SupervisorListener: psutil not installed')
-            self.logger.warn('SupervisorListener: this Supvisors instance cannot not collect statistics')
         # other attributes
         self.local_identifier: str = supvisors.supvisors_mapper.local_identifier
         self.counter = 0
@@ -121,6 +113,9 @@ class SupervisorListener(object):
             self.logger.debug('SupervisorListener.on_running: main loop started')
             # Trigger the FSM
             self.supvisors.fsm.next()
+            # Start the process statistics collector
+            if self.supvisors.process_collector:
+                self.supvisors.process_collector.start()
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_running: {format_exc()}')
@@ -130,6 +125,9 @@ class SupervisorListener(object):
         This method stops the Supvisors main loop. """
         self.logger.warn('SupervisorListener.on_stopping: local supervisord is STOPPING')
         try:
+            # Stop the process statistics collector
+            if self.supvisors.process_collector:
+                self.supvisors.process_collector.pid_queue.put(None)
             # force Supervisor to close HTTP servers
             # this will prevent any pending XML-RPC request to block the main loop
             self.supvisors.supervisor_data.close_httpservers()
@@ -156,6 +154,36 @@ class SupervisorListener(object):
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_stopping: {format_exc()}')
 
+    def on_tick(self, event: events.TickEvent) -> None:
+        """ Called when a TickEvent is notified.
+        The event is published to all Supvisors instances.
+        Then statistics are published and periodic task is triggered.
+
+        :param event: the Supervisor TICK event
+        :return: None
+        """
+        try:
+            self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
+            # reset the time information to get more resolution
+            payload = {'when': time.time(), 'sequence_counter': self.counter}
+            self.counter += 1
+            self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
+            self.publisher.send_tick_event(payload)
+            # get and publish host statistics at tick time (optional)
+            if self.supvisors.host_collector:
+                stats = self.supvisors.host_collector()
+                self.publisher.send_host_statistics(stats)
+            # get and publish the process statistics collected from the last tick (optional)
+            if self.supvisors.process_collector:
+                stats = []
+                while not self.supvisors.process_collector.stats_queue.empty():
+                    stats.append(self.supvisors.process_collector.stats_queue.get())
+                if stats:
+                    self.publisher.send_process_statistics(stats)
+        except Exception:
+            # Supvisors shall never endanger the Supervisor thread
+            self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
+
     def on_process_state(self, event: events.ProcessStateEvent) -> None:
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
         The event is published to all Supvisors instances. """
@@ -176,7 +204,7 @@ class SupervisorListener(object):
                        'disabled': process_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
             self.publisher.send_process_state_event(payload)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {format_exc()}')
 
@@ -186,7 +214,6 @@ class SupervisorListener(object):
         :param namespec: the process namespec
         :return: the process local information
         """
-        #
         try:
             rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
             return rpc_intf.get_local_process_info(namespec)
@@ -291,30 +318,6 @@ class SupervisorListener(object):
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
 
-    def on_tick(self, event: events.TickEvent) -> None:
-        """ Called when a TickEvent is notified.
-        The event is published to all Supvisors instances.
-        Then statistics are published and periodic task is triggered.
-
-        :param event: the Supervisor TICK event
-        :return: None
-        """
-        try:
-            self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
-            # reset the time information to get more resolution
-            payload = {'when': time.time(), 'sequence_counter': self.counter}
-            self.counter += 1
-            self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
-            self.publisher.send_tick_event(payload)
-            # get and publish statistics at tick time (optional)
-            if self.collector and self.supvisors.options.stats_enabled:
-                status = self.supvisors.context.instances[self.local_identifier]
-                stats = self.collector(status.pid_processes())
-                self.publisher.send_statistics(stats)
-        except Exception:
-            # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
-
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
         """ Called when a RemoteCommunicationEvent is notified.
         This is used to sequence the events received from the Supvisors thread with the other events handled
@@ -358,10 +361,16 @@ class SupervisorListener(object):
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_DISABILITY from {event_identifier}:'
                               f' {event_data}')
             self.supvisors.fsm.on_process_disability_event(event_identifier, event_data)
-        elif event_type == InternalEventHeaders.STATISTICS.value:
+        elif event_type == InternalEventHeaders.HOST_STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
-            self.logger.trace(f'SupervisorListener.unstack_event: got STATISTICS from {event_identifier}: {event_data}')
-            self.supvisors.statistician.push_statistics(event_identifier, event_data)
+            self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
+                              f' {event_data}')
+            self.supvisors.host_compiler.push_statistics(event_identifier, event_data)
+        elif event_type == InternalEventHeaders.PROCESS_STATISTICS.value:
+            # this Supvisors could handle statistics even if psutil is not installed
+            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_STATISTICS from {event_identifier}:'
+                              f' {event_data}')
+            self.supvisors.process_compiler.push_statistics(event_identifier, event_data)
         elif event_type == InternalEventHeaders.STATE.value:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}')
             self.supvisors.fsm.on_state_event(event_identifier, event_data)

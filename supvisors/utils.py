@@ -18,7 +18,6 @@
 # ======================================================================
 
 import re
-from enum import Enum
 from math import sqrt
 from time import gmtime, localtime, strftime, time
 from typing import Tuple
@@ -131,16 +130,8 @@ def get_linear_regression(xdata, ydata):
         return a, b
 
 
-def get_simple_linear_regression(lst):
-    """ Calculate the coefficients of the linear equation corresponding
-    to the linear regression of a series of values. """
-    # in Supvisors, Y data is periodic
-    datasize = len(lst)
-    return get_linear_regression([i for i in range(datasize)], lst)
-
-
 # get statistics from data
-def get_stats(lst):
+def get_stats(xdata, ydata):
     """ Calculate the following statistics from a series of points:
     - the mean value,
     - the instant rate between the two last values,
@@ -148,14 +139,14 @@ def get_stats(lst):
     - the standard deviation. """
     rate, a, b, dev = (None,) * 4
     # calculate mean value
-    avg = mean(lst)
-    if len(lst) > 1:
+    avg = mean(ydata)
+    if len(ydata) > 1:
         # calculate instant rate value between last 2 values
-        rate = srate(lst[-1], lst[-2])
+        rate = srate(ydata[-1], ydata[-2])
         # calculate slope value from linear regression of values
-        a, b = get_simple_linear_regression(lst)
+        a, b = get_linear_regression(xdata, ydata)
         # calculate standard deviation
-        dev = stddev(lst, avg)
+        dev = stddev(ydata, avg)
     return avg, rate, (a, b), dev
 
 

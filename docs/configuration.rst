@@ -254,18 +254,51 @@ behavior may happen. The present section details where it is applicable.
 
     By default, |Supvisors| can provide basic statistics on the node and the processes spawned by |Supervisor|
     on the |Supvisors| :ref:`dashboard`, provided that the |psutil| module is installed.
-    This option can be used to disable the collection of the statistics.
+    This option can be used to adjust or disable the collection of the host and/or process statistics.
+    Possible values are in { ``OFF``, ``HOST``, ``PROCESS``, ``ALL`` }.
+    For backwards compatibility, boolean values ``true`` and ``false`` have been kept and are respectively equal to
+    ``ALL`` and ``OFF``.
 
-    *Default*:  ``true``.
+    *Default*:  ``ALL``.
 
     *Required*:  No.
 
     *Identical*:  No.
 
+``stats_collecting_period``
+
+    This is the *minimum* duration between 2 statistics measurements on one process. It is not a strict period.
+    Value in [``1`` ; ``3600``] seconds.
+
+    *Default*:  ``10``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+    .. note::
+
+        The process statistics collection is deferred to a dedicated process of |Supvisors|. The *Collector* is mainly
+        using the |psutil| module.
+        Regardless of the number of processes to manage, the *Collector* will not take up more than one processor core.
+        If there are more statistics requests than allowed by one processor core, the duration between 2 measurements
+        on the same process will increase automatically.
+
+        If there are *many* processes to deal with and if it is unsuitable to dedicate one processor core to process
+        statistics, the ``stats_collecting_period`` should be increased or the process statistics may be deactivated
+        using the the ``stats_enabled`` option.
+
+    .. attention::
+
+        If there are multiple |Supvisors| instances on the same host, there will be multiple *Collector* processes too.
+        The user should pay attention to set the ``stats_collecting_period`` option accordingly so that the CPU load
+        remains within acceptable limits.
+
+
 ``stats_periods``
 
     The list of periods for which the statistics will be provided in the |Supvisors| :ref:`dashboard`, separated by
-    commas. Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of 5.
+    commas. Up to 3 int or float values are allowed in [``1`` ; ``3600``] seconds.
 
     *Default*:  ``10``.
 
