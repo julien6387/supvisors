@@ -186,7 +186,7 @@ def test_get_nodes_load(mocker, context):
     mocker.patch.object(context.instances['10.0.0.2'], 'get_load', return_value=8)
     mocker.patch.object(context.instances['test'], 'get_load', return_value=5)
     assert context.get_nodes_load() == {'10.0.0.1': 0, '10.0.0.2': 8, '10.0.0.3': 0, '10.0.0.4': 0, '10.0.0.5': 0,
-                                        local_identifier: 15}
+                                        local_instance.ip_address: 15}
 
 
 def test_instances_by_states(context):

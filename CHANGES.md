@@ -22,6 +22,9 @@
 * Use the HTTP server port to help the identification of the local **Supvisors** instance when multiple items
   of the `supvisors_list` option fit and identifier is not set.
 
+* Raise an exception when the matching **Supvisors** instance in the `supvisors_list` option is inconsistent
+  with the local configuration.
+
 
 ## 0.15 (2022-11-20)
 

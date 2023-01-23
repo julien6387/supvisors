@@ -20,7 +20,7 @@
 import os
 import random
 import socket
-from socket import gethostname
+from socket import getfqdn, gethostname
 from unittest.mock import Mock
 
 from supervisor.loggers import getLogger, handle_stdout, Logger
@@ -52,8 +52,9 @@ class MockedSupvisors:
         self.supervisor_data = SupervisorData(self, supervisord)
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
+        fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:55100']
+                       f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
         self.supvisors_mapper.configure(identifiers, [])
         self.server_options = Mock(procnumbers={'xclock': 2})
         # set real statistics collectors

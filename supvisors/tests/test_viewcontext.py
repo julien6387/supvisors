@@ -418,7 +418,8 @@ def test_format_url(ctx):
     # test without node and arguments
     assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4&period=5.0&strategy=CONFIG'
     # test with local node and arguments
-    base_address = f'http://{ctx.local_identifier}:65000/index.html?'
+    local_instance = ctx.supvisors.supvisors_mapper.local_instance
+    base_address = f'http://{local_instance.host_id}:65000/index.html?'
     url = ctx.format_url(ctx.local_identifier, 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&shex=args&strategy=CONFIG'

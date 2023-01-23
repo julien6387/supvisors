@@ -245,23 +245,31 @@ class SupvisorsMapper(object):
 
         :return: the identifier of the local Supvisors
         """
+        # get the must-match parameters
+        local_host_name = getfqdn()
+        local_http_port = self.supvisors.supervisor_data.server_port
         # search for local Supervisor identifier first
         if self.supvisors.supervisor_data.identifier in self._instances:
             self.local_identifier = self.supvisors.supervisor_data.identifier
+            # check consistency
+            sup_id = self._instances[self.local_identifier]
+            if sup_id.host_name != local_host_name or sup_id.http_port != local_http_port:
+                self.logger.warn(f'SupvisorsMapper.find_local_identifier: {sup_id.host_name} != {local_host_name}'
+                                 f' or {sup_id.http_port} != {local_http_port}')
+                message = f'candidate {self.local_identifier} does not match the local Supvisors'
+                self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
+                raise ValueError(message)
         else:
             # if not found, try to find a Supvisors instance corresponding to the local host name
             # WARN: in this case, there MUST be exactly one unique matching Supvisors instance
-            local_host_name = getfqdn()
-            local_http_port = self.supvisors.supervisor_data.server_port
             matching_identifiers = [sup_id.identifier
                                     for sup_id in self._instances.values()
                                     if sup_id.host_name == local_host_name and sup_id.http_port == local_http_port]
-            print(matching_identifiers)
             if len(matching_identifiers) == 1:
                 self.local_identifier = matching_identifiers[0]
             else:
                 if len(matching_identifiers) > 1:
-                    message = f'multiple candidates for the local Supvisors: {matching_identifiers}'
+                    message = f'multiple candidates for the local Supvisors identifiers={matching_identifiers}'
                 else:
                     message = 'could not find the local Supvisors in supvisors_list'
                 self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
