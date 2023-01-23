@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+from socket import gethostname
+
 import pytest
 
 from supvisors.supvisorsmapper import *
@@ -28,13 +30,13 @@ def test_get_addresses(supvisors):
     # check that there is at least one entry looking like an IPv4 address
     host_name, aliases, ip_list = get_addresses(gethostname(), supvisors.logger)
     assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip_list[0])
-    assert host_name == gethostname()
+    assert host_name == getfqdn()
     # test exception on unknown IP address and unknown host name
     assert get_addresses('10.4', supvisors.logger) is None
     assert get_addresses('unknown node', supvisors.logger) is None
 
 
-def test_supid_create_no_match(supvisors):
+def test_sup_id_create_no_match(supvisors):
     """ Test the values set at SupvisorsInstanceId construction. """
     no_matches = ['', 'ident>', 'cliche81:12000', '10.0.0.1:145000:28']
     # test with no match but default options loaded
@@ -82,57 +84,57 @@ def test_sup_id_create_host(supvisors):
     assert str(sup_id) == '10.0.0.1'
 
 
-def test_supid_create_host_port(supvisors):
+def test_sup_id_create_host_port(supvisors):
     """ Test the values set at SupvisorsInstanceId construction. """
     # test with host+ports match (internal port not defined but still in options)
-    supid = SupvisorsInstanceId('10.0.0.1:7777:', supvisors)
-    assert supid.identifier == '10.0.0.1:7777'
-    assert supid.host_id == '10.0.0.1'
-    assert supid.ip_address == '10.0.0.1'
-    assert supid.http_port == 7777
-    assert supid.internal_port == 65100  # defaulted to options.internal_port
-    assert supid.event_port == 65200  # defaulted to options.event_port
-    assert str(supid) == '10.0.0.1:7777'
+    sup_id = SupvisorsInstanceId('10.0.0.1:7777:', supvisors)
+    assert sup_id.identifier == '10.0.0.1:7777'
+    assert sup_id.host_id == '10.0.0.1'
+    assert sup_id.ip_address == '10.0.0.1'
+    assert sup_id.http_port == 7777
+    assert sup_id.internal_port == 65100  # defaulted to options.internal_port
+    assert sup_id.event_port == 65200  # defaulted to options.event_port
+    assert str(sup_id) == '10.0.0.1:7777'
     # test with host+ports match (internal port defined)
     supvisors.options.event_port = 0
-    supid = SupvisorsInstanceId('10.0.0.1:7777:8000', supvisors)
-    assert supid.identifier == '10.0.0.1:7777'
-    assert supid.host_id == '10.0.0.1'
-    assert supid.ip_address == '10.0.0.1'
-    assert supid.http_port == 7777
-    assert supid.internal_port == 8000
-    assert supid.event_port == 8001  # defaulted to internal_port + 1
-    assert str(supid) == '10.0.0.1:7777'
+    sup_id = SupvisorsInstanceId('10.0.0.1:7777:8000', supvisors)
+    assert sup_id.identifier == '10.0.0.1:7777'
+    assert sup_id.host_id == '10.0.0.1'
+    assert sup_id.ip_address == '10.0.0.1'
+    assert sup_id.http_port == 7777
+    assert sup_id.internal_port == 8000
+    assert sup_id.event_port == 8001  # defaulted to internal_port + 1
+    assert str(sup_id) == '10.0.0.1:7777'
     # test with host+ports match (internal port defined before HTTP port)
     supvisors.options.event_port = 0
-    supid = SupvisorsInstanceId('10.0.0.1:7777:7776', supvisors)
-    assert supid.identifier == '10.0.0.1:7777'
-    assert supid.host_id == '10.0.0.1'
-    assert supid.ip_address == '10.0.0.1'
-    assert supid.http_port == 7777
-    assert supid.internal_port == 7776
-    assert supid.event_port == 7778  # defaulted to http_port + 1
-    assert str(supid) == '10.0.0.1:7777'
+    sup_id = SupvisorsInstanceId('10.0.0.1:7777:7776', supvisors)
+    assert sup_id.identifier == '10.0.0.1:7777'
+    assert sup_id.host_id == '10.0.0.1'
+    assert sup_id.ip_address == '10.0.0.1'
+    assert sup_id.http_port == 7777
+    assert sup_id.internal_port == 7776
+    assert sup_id.event_port == 7778  # defaulted to http_port + 1
+    assert str(sup_id) == '10.0.0.1:7777'
 
 
-def test_supid_create_identifier(supvisors):
+def test_sup_id_create_identifier(supvisors):
     """ Test the values set at SupvisorsInstanceId construction. """
     # test with identifier set and only host name
-    supid = SupvisorsInstanceId('<supvisors>cliche81', supvisors)
-    assert supid.identifier == 'supvisors'
-    assert supid.host_id == 'cliche81'
-    assert supid.ip_address == 'cliche81'
-    assert supid.http_port == 65000
-    assert supid.internal_port == 65100  # defaulted to options.internal_port
-    assert supid.event_port == 65200  # defaulted to options.event_port
+    sup_id = SupvisorsInstanceId('<supvisors>cliche81', supvisors)
+    assert sup_id.identifier == 'supvisors'
+    assert sup_id.host_id == 'cliche81'
+    assert sup_id.ip_address == 'cliche81'
+    assert sup_id.http_port == 65000
+    assert sup_id.internal_port == 65100  # defaulted to options.internal_port
+    assert sup_id.event_port == 65200  # defaulted to options.event_port
     # test with identifier set
-    supid = SupvisorsInstanceId('<supvisors>cliche81:8888:5555', supvisors)
-    assert supid.identifier == 'supvisors'
-    assert supid.host_id == 'cliche81'
-    assert supid.ip_address == 'cliche81'
-    assert supid.http_port == 8888
-    assert supid.internal_port == 5555  # defaulted to options.internal_port
-    assert supid.event_port == 65200  # defaulted to options.event_port
+    sup_id = SupvisorsInstanceId('<supvisors>cliche81:8888:5555', supvisors)
+    assert sup_id.identifier == 'supvisors'
+    assert sup_id.host_id == 'cliche81'
+    assert sup_id.ip_address == 'cliche81'
+    assert sup_id.http_port == 8888
+    assert sup_id.internal_port == 5555  # defaulted to options.internal_port
+    assert sup_id.event_port == 65200  # defaulted to options.event_port
 
 
 @pytest.fixture

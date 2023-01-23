@@ -16,8 +16,8 @@
 
 * Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
 
-* The local **Supvisors** instance is identified as the item having the same host name (as returned by `gethostaddr`)
-  among the items of the `supvisors_list` option. 
+* The local **Supvisors** instance is identified as the item having the same fully qualified domain name
+  (as returned by `socket.gethostaddr` and `socket.getfqdn`) among the items of the `supvisors_list` option. 
 
 
 ## 0.15 (2022-11-20)

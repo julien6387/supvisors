@@ -19,7 +19,7 @@
 
 import re
 from collections import OrderedDict
-from socket import gethostname, gethostbyaddr, herror, gaierror
+from socket import getfqdn, gethostbyaddr, herror, gaierror
 from typing import Any, Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
@@ -251,7 +251,7 @@ class SupvisorsMapper(object):
         else:
             # if not found, try to find a Supvisors instance corresponding to the local host name
             # WARN: in this case, there MUST be exactly one unique matching Supvisors instance
-            local_host_name = gethostname()
+            local_host_name = getfqdn()
             matching_identifiers = [supervisor_id.identifier
                                     for supervisor_id in self._instances.values()
                                     if supervisor_id.host_name == local_host_name]
