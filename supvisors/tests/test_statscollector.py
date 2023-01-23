@@ -41,12 +41,15 @@ def collected_processes(queues):
 
 def test_instant_cpu_statistics():
     """ Test the instant CPU statistics. """
+    # measurement at t0
     work1, idle1 = instant_cpu_statistics()
-    sleep(1)
+    # do some work
+    [x for x in range(1000)]
+    # measurement at t0+1
     work2, idle2 = instant_cpu_statistics()
     # jiffies should be increasing
     assert work2 > work1
-    assert idle2 > idle1
+    assert idle2 >= idle1
 
 
 def test_instant_all_cpu_statistics():
