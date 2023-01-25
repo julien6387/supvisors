@@ -14,6 +14,9 @@
 
 * Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
 
+* Only one **Supvisors** instance is running when both `unix_http_server` and `inet_http_server` sections are defined
+  in the supervisor configuration file.
+
 * Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
 
 * The local **Supvisors** instance is identified as the item having the same fully qualified domain name

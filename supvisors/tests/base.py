@@ -117,6 +117,7 @@ class DummyServerOptions:
         # build a fake server config
         server_config = {'section': 'inet_http_server',
                          'family': socket.AF_INET,
+                         'host': gethostname(),
                          'port': 65000,
                          'username': 'user',
                          'password': 'p@$$w0rd'}
@@ -126,7 +127,7 @@ class DummyServerOptions:
         self.here = '.'
         self.environ_expansions = {}
         self.identifier = gethostname()
-        self.serverurl = f'http://{gethostname()}:65000'
+        self.serverurl = 'unix://tmp/supervisor.sock'
         self.mood = SupervisorStates.RUNNING
         self.nodaemon = True
         self.silent = False

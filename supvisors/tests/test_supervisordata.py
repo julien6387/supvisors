@@ -71,8 +71,9 @@ def test_accessors(source):
     assert source.http_server is source.supervisord.options.httpserver
     assert source.supervisor_rpc_interface.rpc_name == 'supervisor_RPC'
     assert source.supvisors_rpc_interface.rpc_name == 'supvisors_RPC'
-    assert source.server_url == f'http://{gethostname()}:65000'
+    assert source.server_host == gethostname()
     assert source.server_port == 65000
+    assert source.server_url == f'http://{gethostname()}:65000'
     assert source.username == 'user'
     assert source.password == 'p@$$w0rd'
     assert source.supervisor_state == SupervisorStates.RUNNING

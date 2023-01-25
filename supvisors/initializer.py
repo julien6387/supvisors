@@ -66,7 +66,7 @@ def create_logger(supervisor: Supervisor, logger_config: Payload) -> Logger:
     return logger
 
 
-class Supvisors(object):
+class Supvisors:
     """ The Supvisors class used as a global structure passed to most Supvisors objects. """
 
     # use ';' in logger output as separator as easier to cut
@@ -95,7 +95,7 @@ class Supvisors(object):
         self.supvisors_mapper = SupvisorsMapper(self)
         try:
             self.supvisors_mapper.configure(self.options.supvisors_list, self.options.core_identifiers)
-        except ValueError as exc:
+        except ValueError:
             self.logger.critical('Supvisors: Wrong Supvisors configuration (supvisors_list)')
             raise
         # create statistics handlers

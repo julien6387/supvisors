@@ -84,13 +84,12 @@ class SupervisorData(object):
         self.supervisord = supervisord
         self.logger: Logger = supvisors.logger
         # check HTTP configuration
-        self.server_config = None
         for config in supervisord.options.server_configs:
             if config['family'] == socket.AF_INET:
                 self.server_config = config
                 break
         else:
-            # server MUST be http, not unix
+            # there MUST be an inet HTTP server
             raise ValueError(f'Supervisor MUST be configured using inet_http_server: {supervisord.options.configfile}')
         # shortcuts (not available yet)
         self._system_rpc_interface = None
@@ -99,6 +98,16 @@ class SupervisorData(object):
         # disabilities for local processes (Supervisor issue #591)
         self.disabilities = {}
         self.read_disabilities()
+
+    @property
+    def http_server(self):
+        """ Get the internal Supervisor HTTP server structure.
+
+        :return: the HTTP server structure
+        """
+        for config, hs in self.supervisord.options.httpservers:
+            if config['family'] == socket.AF_INET:
+                return hs
 
     @property
     def system_rpc_interface(self):
@@ -157,33 +166,34 @@ class SupervisorData(object):
         return self.supervisord.options.identifier
 
     @property
-    def http_server(self):
-        """ Get the internal Supervisor HTTP server structure.
-
-        :return: the HTTP server structure
-        """
-        for config, hs in self.supervisord.options.httpservers:
-            if config['family'] == socket.AF_INET:
-                return hs
-
-    @property
-    def server_url(self) -> str:
-        return self.supervisord.options.serverurl
+    def server_host(self):
+        """ Return the host defined in the inet http server section. """
+        return self.server_config['host'] or 'localhost'
 
     @property
     def server_port(self):
+        """ Return the port defined in the inet http server section. """
         return self.server_config['port']
 
     @property
     def username(self) -> str:
+        """ Return the user authentication defined in the inet http server section. """
         return self.server_config['username']
 
     @property
     def password(self) -> str:
+        """ Return the password authentication defined in the inet http server section. """
         return self.server_config['password']
 
     @property
+    def server_url(self) -> str:
+        """ Return the server URL defined in the inet http server section. """
+        # do NOT use Supervisor serverurl as priority is given to the unix server if defined
+        return f'http://{self.server_host}:{self.server_port}'
+
+    @property
     def supervisor_state(self):
+        """ Return the supervisord internal state. """
         return self.supervisord.options.mood
 
     def get_env(self) -> Dict[str, str]:

@@ -46,8 +46,7 @@ def test_creation(supvisors, mocked_rpc, main_loop):
     assert isinstance(main_loop, Thread)
     assert main_loop.supvisors is supvisors
     assert not main_loop.stop_event.is_set()
-    server_url = main_loop.supvisors.supervisor_data.supervisord.options.serverurl
-    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': server_url,
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': f'http://{gethostname()}:65000',
                                      'SUPERVISOR_USERNAME': 'user',
                                      'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
