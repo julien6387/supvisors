@@ -25,6 +25,10 @@
 * Use the HTTP server port to help the identification of the local **Supvisors** instance when multiple items
   of the `supvisors_list` option fit and identifier is not set.
 
+* The attribute `process_failure` is added to the `get_instance_info` XML-RPC to inform if there is a process failure
+  in the **Supvisors** instance. The attribute is also provided in the event interface and in the `instance_status`
+  option of the `supervisorctl` command. 
+
 * Raise an exception when the matching **Supvisors** instance in the `supvisors_list` option is inconsistent
   with the local configuration.
 

@@ -652,7 +652,8 @@ def test_on_tick_event(mocker, context):
         assert status.remote_time == 1234
         assert mocked_check.call_args_list == [call('10.0.0.1')]
         expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'sequence_counter': 31,
-                    'statecode': 1, 'statename': 'CHECKING', 'remote_time': 1234, 'local_time': 3600, 'loading': 0,
+                    'statecode': 1, 'statename': 'CHECKING', 'remote_time': 1234, 'local_time': 3600,
+                    'loading': 0, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
         mocked_check.reset_mock()
@@ -666,8 +667,8 @@ def test_on_tick_event(mocker, context):
         assert not mocked_check.called
         expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'sequence_counter': 57,
                     'statecode': state.value, 'statename': state.name, 'remote_time': 5678, 'local_time': 3600,
-                    'loading': 0, 'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False,
-                    'stopping_jobs': False}
+                    'loading': 0, 'process_failure': False,
+                    'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
         mocked_send.reset_mock()
     # check that the node local_sequence_counter is forced to 0 when its sequence_counter is lower than expected
@@ -1247,10 +1248,12 @@ def test_on_timer_event(mocker, context):
     assert context.local_sequence_counter == 32
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING
     expected_1 = {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 65000, 'statecode': 4,
-                  'statename': 'ISOLATING', 'remote_time': 0, 'local_time': 0, 'loading': 15, 'sequence_counter': 0,
+                  'statename': 'ISOLATING', 'remote_time': 0, 'local_time': 0, 'loading': 15,
+                  'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000, 'statecode': 4,
-                  'statename': 'ISOLATING', 'remote_time': 0, 'local_time': 0, 'loading': 0, 'sequence_counter': 0,
+                  'statename': 'ISOLATING', 'remote_time': 0, 'local_time': 0, 'loading': 0,
+                  'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     assert mocked_send.call_args_list == [call(expected_1), call(expected_2)]
     assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.2')]
@@ -1288,10 +1291,12 @@ def test_handle_isolation(context):
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
     # check calls to publisher.send_instance_status
     expected_1 = {'identifier': '10.0.0.4', 'node_name': '10.0.0.4', 'port': 65000, 'statecode': 5,
-                  'statename': 'ISOLATED', 'remote_time': 0, 'local_time': 0, 'loading': 0, 'sequence_counter': 0,
+                  'statename': 'ISOLATED', 'remote_time': 0, 'local_time': 0, 'loading': 0,
+                  'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000, 'statecode': 5,
-                  'statename': 'ISOLATED', 'remote_time': 0, 'local_time': 0, 'loading': 0, 'sequence_counter': 0,
+                  'statename': 'ISOLATED', 'remote_time': 0, 'local_time': 0, 'loading': 0,
+                  'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     assert mocked_send_instance.call_args_list == [call(expected_1), call(expected_2)]
     # no change in state and modes. only one publication expected

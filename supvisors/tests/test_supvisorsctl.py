@@ -321,9 +321,11 @@ def test_instance_status(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().get_all_instances_info
     mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 60000,
                                 'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12,
+                                'process_failure': False,
                                 'fsm_statename': 'OPERATION', 'starting_jobs': True, 'stopping_jobs': False},
                                {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 60000,
                                 'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15,
+                                'process_failure': True,
                                 'fsm_statename': 'CONCILATION', 'starting_jobs': False, 'stopping_jobs': True}]
     _check_call(controller, mocked_check, mocked_rpc,  plugin.help_instance_status, plugin.do_instance_status,
                 '', [call()])

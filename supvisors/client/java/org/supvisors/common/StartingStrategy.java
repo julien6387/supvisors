@@ -31,7 +31,7 @@ public enum StartingStrategy {
     /** The strategy code. */
     private int strategyCode;
 
-    /** The constructor links the state code to the state name. */
+    /** The constructor links the strategy code to the strategy name. */
     private StartingStrategy(final int strategyCode) {
         this.strategyCode = strategyCode;
     }

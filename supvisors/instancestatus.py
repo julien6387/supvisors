@@ -29,7 +29,7 @@ from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition,
 from .utils import TICK_PERIOD
 
 
-class StateModes(object):
+class StateModes:
 
     def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, starting_jobs: bool = False,
                  stopping_jobs: bool = False):
@@ -174,7 +174,8 @@ class SupvisorsInstanceStatus:
                    'sequence_counter': self.sequence_counter,
                    'remote_time': capped_int(self.remote_time),
                    'local_time': capped_int(self.local_time),
-                   'loading': self.get_load()}
+                   'loading': self.get_load(),
+                   'process_failure': self.has_error()}
         payload.update(self.state_modes.serial())
         return payload
 
@@ -292,6 +293,15 @@ class SupvisorsInstanceStatus:
         instance_load = sum(process.rules.expected_load for process in self.running_processes())
         self.logger.trace(f'SupvisorsInstanceStatus.get_load: Supvisors={self.identifier} load={instance_load}')
         return instance_load
+
+    def has_error(self) -> bool:
+        """ Return True if any process managed by the local Supervisor is in failure.
+
+        :return: the error status
+        """
+        return (self.state == SupvisorsInstanceStates.RUNNING
+                and any(process.crashed(self.identifier)
+                        for process in self.processes.values()))
 
     # dictionary for transitions
     _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,

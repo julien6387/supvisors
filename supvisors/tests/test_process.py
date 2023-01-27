@@ -305,6 +305,8 @@ def test_status_stopped_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
@@ -314,6 +316,8 @@ def test_status_stopped_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # STOPPED does not reset the forced state
@@ -322,12 +326,16 @@ def test_status_stopped_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     # use empty param to reset the forced state
     process.reset_forced_state()
     assert process._state == ProcessStates.STOPPED
     assert process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
 
 
 def test_status_backoff_process(supvisors):
@@ -338,6 +346,8 @@ def test_status_backoff_process(supvisors):
     assert not process.stopped()
     assert process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
@@ -347,6 +357,8 @@ def test_status_backoff_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # BACKOFF resets the forced state
@@ -355,6 +367,8 @@ def test_status_backoff_process(supvisors):
     assert not process.stopped()
     assert process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
 
 
 def test_status_running_process(supvisors):
@@ -365,6 +379,8 @@ def test_status_running_process(supvisors):
     assert not process.stopped()
     assert process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
@@ -375,6 +391,8 @@ def test_status_running_process(supvisors):
     assert not process.stopped()
     assert process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
 
@@ -387,6 +405,8 @@ def test_status_stopping_process(supvisors):
     assert not process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
@@ -396,6 +416,8 @@ def test_status_stopping_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # STOPPING resets the forced state
@@ -404,6 +426,8 @@ def test_status_stopping_process(supvisors):
     assert not process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
 
 
 def test_status_fatal_process(supvisors):
@@ -414,6 +438,8 @@ def test_status_fatal_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert process.crashed()
+    assert process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
@@ -423,6 +449,8 @@ def test_status_fatal_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # FATAL resets the forced state
@@ -431,6 +459,8 @@ def test_status_fatal_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert process.crashed()
+    assert process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
 
 
 def test_status_exited_process(supvisors):
@@ -443,6 +473,8 @@ def test_status_exited_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert not process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test with unexpected_exit
@@ -450,6 +482,8 @@ def test_status_exited_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
@@ -459,6 +493,8 @@ def test_status_exited_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # EXITED resets the forced state
@@ -467,6 +503,8 @@ def test_status_exited_process(supvisors):
     assert process.stopped()
     assert not process.running()
     assert process.crashed()
+    assert not process.crashed('10.0.0.1')
+    assert not process.crashed('10.0.0.2')
 
 
 def test_process_conflicting(supvisors):

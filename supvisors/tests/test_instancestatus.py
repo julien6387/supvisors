@@ -91,7 +91,7 @@ def filled_status(supvisors, status):
     """ Create a SupvisorsInstanceStatus and add all processes of the database. """
     for info in database_copy():
         process = create_process(info, supvisors)
-        process.add_info('supvisors', info)
+        process.add_info(status.supvisors_id.identifier, info)
         status.add_process(process)
     return status
 
@@ -162,8 +162,8 @@ def test_serialization(status):
     serialized = status.serial()
     assert serialized == {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
                           'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time': 60,
-                          'sequence_counter': 28, 'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                          'starting_jobs': False, 'stopping_jobs': False}
+                          'sequence_counter': 28, 'process_failure': False,
+                          'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -412,3 +412,36 @@ def test_get_load(filled_status):
     process = random.choice([proc for proc in filled_status.processes.values() if proc.running()])
     process.rules.expected_load = 50
     assert filled_status.get_load() == 50
+
+
+def test_has_no_error(status):
+    """ Test the SupvisorsInstanceStatus.has_error method. """
+    # test that has_error is not raised when there is no error
+    for state in SupvisorsInstanceStates:
+        status._state = state
+        assert not status.has_error()
+
+
+def test_has_error(filled_status):
+    """ Test the SupvisorsInstanceStatus.has_error method. """
+    # test that has_error is raised only in RUNNING state when there is an error
+    for state in SupvisorsInstanceStates:
+        filled_status._state = state
+        assert not filled_status.has_error() or state == SupvisorsInstanceStates.RUNNING
+    # replace any FATAL process by unexpected EXITED
+    filled_status._state = SupvisorsInstanceStates.RUNNING
+    for process in filled_status.processes.values():
+        info = process.info_map[filled_status.supvisors_id.identifier]
+        if info['state'] == ProcessStates.FATAL:
+            info['state'] = ProcessStates.EXITED
+            info['expected'] = False
+    # error still raised
+    assert filled_status.has_error()
+    # replace any EXITED process by STOPPED
+    filled_status._state = SupvisorsInstanceStates.RUNNING
+    for process in filled_status.processes.values():
+        info = process.info_map[filled_status.supvisors_id.identifier]
+        if info['state'] == ProcessStates.EXITED:
+            info['state'] = ProcessStates.STOPPED
+    # error still raised
+    assert not filled_status.has_error()

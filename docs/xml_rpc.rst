@@ -77,6 +77,7 @@ Status
                                          in the local reference time.
             'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
                                          instance, in [0;100]%.
+            'process_failure'  ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
             'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
             'fsm_statecode'    ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
             'fsm_statename'    ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,

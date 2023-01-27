@@ -154,7 +154,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
             + " expectedExitStatus=" + this.expected_exit
             + " lastEventTime=\"" + sdf.format(new Date((long) ((double) this.last_event_time * 1000L))) + "\""
             + " identifiers=" + this.identifiers
-            + " extraArgs=" + this.extra_args + ")";
+            + " extraArgs=\"" + this.extra_args + "\")";
     }
 
 }

@@ -80,7 +80,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             # a 'single' process has the same name as its application and the application contains only one process
             single = process.process_name == process.application_name and len(application.processes) == 1
             info = process.info_map[self.view_ctx.local_identifier]
-            crashed = ProcessStatus.is_crashed_event(info['state'], info['expected'])
+            crashed = ProcessStatus.is_crashed_event(info)
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'single': single, 'identifier': self.view_ctx.local_identifier,
