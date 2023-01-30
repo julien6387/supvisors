@@ -19,7 +19,6 @@ package org.supvisors.common;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -141,9 +140,9 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The toString method returns a printable form of the contents of the instance.
+     * The toString method returns a printable form of the contents of the SupvisorsProcessInfo instance.
      *
-     * @return String: The contents of the instance.
+     * @return String: The contents of the SupvisorsProcessInfo instance.
      */
     public String toString() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");

@@ -113,7 +113,8 @@ def test_remote_comm_events():
 
 def test_event_headers():
     """ Test the RemoteCommEvents enumeration. """
-    expected = ['SUPVISORS', 'INSTANCE', 'APPLICATION', 'PROCESS_EVENT', 'PROCESS_STATUS']
+    expected = ['SUPVISORS', 'INSTANCE', 'APPLICATION', 'PROCESS_EVENT', 'PROCESS_STATUS',
+                'HOST_STATISTICS', 'PROCESS_STATISTICS']
     assert [x.name for x in EventHeaders] == expected
 
 

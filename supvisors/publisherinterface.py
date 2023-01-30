@@ -74,6 +74,22 @@ class EventPublisherInterface:
         """
         raise NotImplementedError
 
+    def send_host_statistics(self, statistics: Payload) -> None:
+        """ Send host statistics.
+
+        :param statistics: the statistics to publish
+        :return: None
+        """
+        raise NotImplementedError
+
+    def send_process_statistics(self, statistics: Payload) -> None:
+        """ Send process statistics.
+
+        :param statistics: the statistics to publish
+        :return: None
+        """
+        raise NotImplementedError
+
 
 def create_external_publisher(supvisors: Any) -> EventPublisherInterface:
     """ Create the relevant event publisher in accordance with the option selected.

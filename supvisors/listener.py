@@ -30,7 +30,7 @@ from supervisor.xmlrpc import RPCError
 
 from .mainloop import SupvisorsMainLoop
 from .process import ProcessStatus
-from .publisherinterface import create_external_publisher
+from .publisherinterface import create_external_publisher, EventPublisherInterface
 from .supvisorssocket import SupvisorsSockets, InternalPublisher
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
                      InternalEventHeaders, RemoteCommEvents, Payload)
@@ -77,6 +77,7 @@ class SupervisorListener(object):
         # Before running, Supervisor forks when daemonized and the sockets are then lost
         self.main_loop: Optional[SupvisorsMainLoop] = None
         self.publisher: Optional[InternalPublisher] = None
+        self.external_publisher: Optional[EventPublisherInterface] = None
         # add new events to Supervisor EventTypes
         add_process_events()
         # subscribe to internal events
@@ -104,6 +105,7 @@ class SupervisorListener(object):
             # create the Supvisors communication structures
             self.supvisors.sockets = SupvisorsSockets(self.supvisors)
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
+            self.external_publisher = self.supvisors.external_publisher
             # keep a reference to the internal publisher used to share the events publication
             self.publisher = self.supvisors.sockets.publisher
             # At this point, Supervisor has forked if necessary so the main loop can be started
@@ -132,9 +134,9 @@ class SupervisorListener(object):
             # this will prevent any pending XML-RPC request to block the main loop
             self.supvisors.supervisor_data.close_httpservers()
             # close external publication
-            if self.supvisors.external_publisher:
+            if self.external_publisher:
                 self.logger.debug('SupervisorListener.on_stopping: stopping external publication thread')
-                self.supvisors.external_publisher.close()
+                self.external_publisher.close()
                 self.logger.debug('SupervisorListener.on_stopping: external publication thread stopped')
             # stop the main loop
             self.logger.debug('SupervisorListener.on_stopping: stopping main loop')
@@ -365,12 +367,18 @@ class SupervisorListener(object):
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.host_compiler.push_statistics(event_identifier, event_data)
+            integrated_stats_list = self.supvisors.host_compiler.push_statistics(event_identifier, event_data)
+            if integrated_stats_list and self.external_publisher:
+                for integrated_stats in integrated_stats_list:
+                    self.external_publisher.send_host_statistics(integrated_stats)
         elif event_type == InternalEventHeaders.PROCESS_STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_STATISTICS from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.process_compiler.push_statistics(event_identifier, event_data)
+            integrated_stats_list = self.supvisors.process_compiler.push_statistics(event_identifier, event_data)
+            if integrated_stats_list and self.external_publisher:
+                for integrated_stats in integrated_stats_list:
+                    self.external_publisher.send_process_statistics(integrated_stats)
         elif event_type == InternalEventHeaders.STATE.value:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}')
             self.supvisors.fsm.on_state_event(event_identifier, event_data)

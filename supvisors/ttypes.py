@@ -109,6 +109,8 @@ class EventHeaders(Enum):
     APPLICATION = 'application'
     PROCESS_EVENT = 'event'
     PROCESS_STATUS = 'process'
+    HOST_STATISTICS = 'hstats'
+    PROCESS_STATISTICS = 'pstats'
 
 
 # State lists commonly used

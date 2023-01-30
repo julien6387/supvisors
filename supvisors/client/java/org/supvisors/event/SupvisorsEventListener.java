@@ -18,8 +18,10 @@ package org.supvisors.event;
 
 import org.supvisors.common.SupvisorsApplicationInfo;
 import org.supvisors.common.SupvisorsInstanceInfo;
+import org.supvisors.common.SupvisorsHostStatistics;
 import org.supvisors.common.SupvisorsProcessInfo;
 import org.supvisors.common.SupvisorsProcessEvent;
+import org.supvisors.common.SupvisorsProcessStatistics;
 import org.supvisors.common.SupvisorsStatus;
 
 /**
@@ -30,7 +32,7 @@ import org.supvisors.common.SupvisorsStatus;
 public interface SupvisorsEventListener {
 
     /**
-     * The method is called when supvisors subscription is set
+     * The method is called when supvisors status subscription is set
      * and a SupvisorsStatus message is received.
      *
      * @param Supvisors Status: The last SupvisorsStatus received.
@@ -38,7 +40,7 @@ public interface SupvisorsEventListener {
     void onSupvisorsStatus(final SupvisorsStatus status);
 
     /**
-     * The method is called when node subscription is set
+     * The method is called when instance status subscription is set
      * and an Instance Status message is received.
      *
      * @param SupvisorsInstanceInfo: The last SupvisorsInstanceInfo received.
@@ -46,7 +48,7 @@ public interface SupvisorsEventListener {
     void onInstanceStatus(final SupvisorsInstanceInfo status);
 
     /**
-     * The method is called when application subscription is set
+     * The method is called when application status subscription is set
      * and an Application Status message is received.
      *
      * @param SupvisorsApplicationInfo: The last SupvisorsApplicationInfo received.
@@ -54,7 +56,7 @@ public interface SupvisorsEventListener {
     void onApplicationStatus(final SupvisorsApplicationInfo status);
 
     /**
-     * The method is called when application subscription is set
+     * The method is called when process status subscription is set
      * and a Process Status message is received.
      *
      * @param SupvisorsProcessInfo: The last SupvisorsProcessInfo received.
@@ -68,5 +70,20 @@ public interface SupvisorsEventListener {
      * @param SupvisorsProcessEvent: The last SupvisorsProcessEvent received.
      */
     void onProcessEvent(final SupvisorsProcessEvent status);
-}
 
+    /**
+     * The method is called when host statistics subscription is set
+     * and a Host Statistics message is received.
+     *
+     * @param SupvisorsHostStatistics: The last SupvisorsHostStatistics received.
+     */
+    void onHostStatistics(final SupvisorsHostStatistics statistics);
+
+    /**
+     * The method is called when host process subscription is set
+     * and a Process Statistics message is received.
+     *
+     * @param SupvisorsProcessStatistics: The last SupvisorsHostStatistics received.
+     */
+    void onProcessStatistics(final SupvisorsProcessStatistics statistics);
+}

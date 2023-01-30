@@ -35,6 +35,7 @@ import org.zeromq.ZContext;
  *
  * The TCP socket is configured with a ZeroMQ SUBSCRIBE pattern.
  * It is connected to the Supvisors instance running on the localhost and bound on the event port.
+ * The message headers are defined in the EventHeaders enumeration of the supvisors.ttypes module.
  */
 public class SupvisorsEventSubscriber implements Runnable {
 
@@ -52,6 +53,12 @@ public class SupvisorsEventSubscriber implements Runnable {
 
     /** The constant header in ProcessStatus messages. */
     private static final String PROCESS_EVENT_HEADER = "event";
+
+    /** The constant header in HostStatistics messages. */
+    private static final String HOST_STATISTICS_HEADER = "hstats";
+
+    /** The constant header in ProcessStatus messages. */
+    private static final String PROCESS_STATISTICS_HEADER = "pstats";
 
     /** The ZeroMQ context. */
     private ZContext context;
@@ -139,6 +146,20 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
+     * Subscription to Host statistics.
+     */
+    public void subscribeToHostStatistics() {
+        subscribeTo(HOST_STATISTICS_HEADER);
+    }
+
+    /**
+     * Subscription to Process statistics.
+     */
+    public void subscribeToProcessStatistics() {
+        subscribeTo(PROCESS_STATISTICS_HEADER);
+    }
+
+    /**
      * Subscription to event.
      *
      * @param String header: the header of the message to subscribe to.
@@ -148,45 +169,59 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
-     * Unubscription from all events.
+     * Unsubscription from all events.
      */
     public void unsubscribeFromAll() {
         this.subscriber.unsubscribe(ZMQ.SUBSCRIPTION_ALL);
     }
 
     /**
-     * Unubscription from Supvisors status events.
+     * Unsbscription from Supvisors status events.
      */
     public void unsubscribeFromSupvisorsStatus() {
         unsubscribeFrom(SUPVISORS_STATUS_HEADER);
     }
 
     /**
-     * Unubscription from Instance status events.
+     * Unsubscription from Instance status events.
      */
     public void unsubscribeFromInstanceStatus() {
         unsubscribeFrom(INSTANCE_STATUS_HEADER);
     }
 
     /**
-     * Unubscription from Application status events.
+     * Unsubscription from Application status events.
      */
     public void unsubscribeFromApplicationStatus() {
         unsubscribeFrom(APPLICATION_STATUS_HEADER);
     }
 
     /**
-     * Unubscription from Process status events.
+     * Unsubscription from Process status events.
      */
     public void unsubscribeFromProcessStatus() {
         unsubscribeFrom(PROCESS_STATUS_HEADER);
     }
 
     /**
-     * Unubscription from Process events.
+     * Unsubscription from Process events.
      */
     public void unsubscribeFromProcessEvent() {
         unsubscribeFrom(PROCESS_EVENT_HEADER);
+    }
+
+    /**
+     * Unsubscription from Host statistics.
+     */
+    public void unsubscribeFromHostStatistics() {
+        unsubscribeFrom(HOST_STATISTICS_HEADER);
+    }
+
+    /**
+     * Unsubscription from Process statistics.
+     */
+    public void unsubscribeFromProcessStatistics() {
+        unsubscribeFrom(PROCESS_STATISTICS_HEADER);
     }
 
     /**
@@ -242,6 +277,12 @@ public class SupvisorsEventSubscriber implements Runnable {
                     } else if (PROCESS_EVENT_HEADER.equals(header)) {
                         SupvisorsProcessEvent evt = gson.fromJson(body, SupvisorsProcessEvent.class);
                         listener.onProcessEvent(evt);
+                    } else if (HOST_STATISTICS_HEADER.equals(header)) {
+                        SupvisorsHostStatistics stats = gson.fromJson(body, SupvisorsHostStatistics.class);
+                        listener.onHostStatistics(stats);
+                    } else if (PROCESS_STATISTICS_HEADER.equals(header)) {
+                        SupvisorsProcessStatistics stats = gson.fromJson(body, SupvisorsProcessStatistics.class);
+                        listener.onProcessStatistics(stats);
                     }
                 }
             }
@@ -290,6 +331,16 @@ public class SupvisorsEventSubscriber implements Runnable {
                 public void onProcessEvent(final SupvisorsProcessEvent status) {
                     System.out.println(status);
                 }
+
+                @Override
+                public void onHostStatistics(final SupvisorsHostStatistics status) {
+                    System.out.println(status);
+                }
+
+                @Override
+                public void onProcessStatistics(final SupvisorsProcessStatistics status) {
+                    System.out.println(status);
+                }
             });
 
             // start subscriber in thread
@@ -311,4 +362,3 @@ public class SupvisorsEventSubscriber implements Runnable {
         }
     }
 }
-

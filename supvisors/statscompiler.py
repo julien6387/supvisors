@@ -28,7 +28,7 @@ from .ttypes import (CPUHistoryStats, CPUInstantStats, JiffiesList, Jiffies,
 # additional annotation types
 FloatList = List[float]
 IntegratedProcessStats = Tuple[float, float, float] # cpu, mem, seconds
-IntegratedHostStatistics = Tuple[CPUInstantStats, float, InterfaceIntegratedStats, float]
+IntegratedHostStatistics = Tuple[float, CPUInstantStats, float, InterfaceIntegratedStats]
 
 
 # CPU statistics
@@ -82,9 +82,7 @@ class HostStatisticsInstance:
     """ This class handles resources statistics for a given node and period. """
 
     def __init__(self, identifier: str, period: float, depth: float, logger):
-        """ Initialization of the attributes.
-        As period is a multiple of 5 and a call to pushStatistics is expected every 5 seconds,
-        period is used as a simple counter. """
+        """ Initialization of the attributes. """
         # keep reference to the logger
         self.logger = logger
         # parameters
@@ -148,16 +146,25 @@ class HostStatisticsInstance:
         cpu: CPUInstantStats = cpu_statistics(last['cpu'], self.ref_stats['cpu'])
         mem: float = last['mem']
         io: InterfaceIntegratedStats = io_statistics(last['io'], self.ref_stats['io'], duration)
-        return cpu, mem, io, last['now'] - self.ref_start_time
+        return last['now'] - self.ref_start_time, cpu, mem, io
 
-    def push_statistics(self, stats: Payload):
+    def push_statistics(self, stats: Payload) -> Payload:
         """ Calculate new statistics given a new series of measures. """
+        result = {}
         if self.ref_stats:
             if stats['now'] - self.ref_stats['now'] >= self.period:
                 # rearrange data so that there is less processing afterwards
-                cpu, mem, io, times = self.integrate(stats)
+                uptime, cpu, mem, io = self.integrate(stats)
+                # create the result structure (use a copy as the _push functions will pop)
+                result = {'identifier': self.identifier,
+                          'target_period': self.period,
+                          'period': (self.ref_stats['now'] - self.ref_start_time,
+                                     stats['now'] - self.ref_start_time),
+                          'cpu': cpu.copy(),
+                          'mem': mem,
+                          'io': io.copy()}
                 # add new values
-                self._push_times_stats(times)
+                self._push_times_stats(uptime)
                 self._push_cpu_stats(cpu)
                 self._push_mem_stats(mem)
                 self._push_io_stats(io)
@@ -170,6 +177,7 @@ class HostStatisticsInstance:
             # init some data structures
             self.cpu = [[] for _ in stats['cpu']]
             self.io = {intf: ([], []) for intf in stats['io']}
+        return result
 
 
 # Class used to compile statistics coming from all instances
@@ -182,14 +190,17 @@ class HostStatisticsCompiler:
         - nb_cores: a dictionary giving the number of processor cores per node.
         """
 
+    # additional annotation type for internal purpose
+    HostStatisticsMap = Dict[str, Dict[float, HostStatisticsInstance]]
+
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         # the list of Supvisors instances is fixed so prepare the structures
-        self.instance_map = {identifier: {period: HostStatisticsInstance(identifier, period,
-                                                                         supvisors.options.stats_histo,
-                                                                         supvisors.logger)
-                                          for period in supvisors.options.stats_periods}
-                             for identifier in supvisors.supvisors_mapper.instances}
+        self.instance_map: HostStatisticsCompiler.HostStatisticsMap = {
+            identifier: {period: HostStatisticsInstance(identifier, period, supvisors.options.stats_histo,
+                                                        supvisors.logger)
+                         for period in supvisors.options.stats_periods}
+            for identifier in supvisors.supvisors_mapper.instances}
         self.nb_cores: Dict[str, int] = {}
 
     def get_stats(self, identifier: str, period: int) -> HostStatisticsInstance:
@@ -202,15 +213,19 @@ class HostStatisticsCompiler:
         """ Return the number of CPU cores linked to a Supvisors instance. """
         return self.nb_cores.get(identifier, 0)
 
-    def push_statistics(self, identifier: str, stats: Payload) -> None:
+    def push_statistics(self, identifier: str, stats: Payload) -> PayloadList:
         """ Insert a new statistics measure for identifier. """
+        integrated_stats = []
         if identifier in self.instance_map:
-            for stats_instance in self.instance_map[identifier].values():
-                stats_instance.push_statistics(stats)
+            for period, stats_instance in self.instance_map[identifier].items():
+                result = stats_instance.push_statistics(stats)
+                if result:
+                    integrated_stats.append(result)
             # set the number of processor cores
             # in the case of multiple cores, the first series of values are average values
             nb = len(stats['cpu'])
             self.nb_cores[identifier] = nb if nb == 1 else nb - 1
+        return integrated_stats
 
 
 # Process statistics
@@ -223,9 +238,11 @@ def cpu_process_statistics(last: float, ref: float, total_work: float) -> float:
 class ProcStatisticsInstance:
     """ This class handles statistics for a process running on a Supervisor instance and for a given period. """
 
-    def __init__(self, period: int = 0, depth: int = 0):
+    def __init__(self, namespec: str = '', identifier: str = '', period: int = 0, depth: int = 0):
         """ Initialization of the attributes. """
         # parameters
+        self.namespec: str = namespec
+        self.identifier: str = identifier
         self.period: int = period
         self.depth: int = depth
         self.ref_stats: Payload = {}
@@ -244,12 +261,21 @@ class ProcStatisticsInstance:
         proc_cpu = cpu_process_statistics(last['proc_work'], self.ref_stats['proc_work'], work)
         return proc_cpu, last['proc_memory'], last['now'] - self.ref_start_time
 
-    def push_statistics(self, proc_stats: Payload):
+    def push_statistics(self, proc_stats: Payload) -> Payload:
         """ Calculate new statistics given a new series of measures. """
+        result = {}
         if self.ref_stats:
             if proc_stats['now'] - self.ref_stats['now'] >= self.period:
                 # rearrange data so that there is less processing afterwards
                 cpu_value, mem_value, time_value = self.integrate(proc_stats)
+                # create the result structure (use a copy as the _push functions will pop)
+                result = {'namespec': self.namespec,
+                          'identifier': self.identifier,
+                          'target_period': self.period,
+                          'period': (self.ref_stats['now'] - self.ref_start_time,
+                                     proc_stats['now'] - self.ref_start_time),
+                          'cpu': cpu_value,
+                          'mem': mem_value}
                 # add new Process CPU / Mem values to Process list
                 self.cpu.append(cpu_value)
                 self.mem.append(mem_value)
@@ -264,6 +290,7 @@ class ProcStatisticsInstance:
             # new stats are the reference stats on first occurrence
             self.ref_stats = proc_stats
             self.ref_start_time = proc_stats['now']
+        return result
 
 
 class ProcStatisticsHolder:
@@ -295,9 +322,10 @@ class ProcStatisticsHolder:
         if identifier_instance:
             return identifier_instance.get(period)
 
-    def push_statistics(self, identifier: str, process_stats: Payload):
+    def push_statistics(self, identifier: str, process_stats: Payload) -> PayloadList:
         """ Consider a new list of process statistics received from a Supvisors instance.
         Stopped processes (pid=0) are not considered if there is no existing holder. """
+        integrated_stats = []
         pid = process_stats['pid']
         if pid == 0:
             # process has been stopped on Supervisord instance
@@ -308,12 +336,16 @@ class ProcStatisticsHolder:
             if not identifier_instance or pid != ref_pid:
                 # process has been (re-)started on Supervisord instance
                 self.logger.info(f'ProcStatisticsHolder.push_statistics: {self.namespec} started on {identifier}')
-                identifier_instance = {period: ProcStatisticsInstance(period, self.options.stats_histo)
+                identifier_instance = {period: ProcStatisticsInstance(self.namespec, identifier,
+                                                                      period, self.options.stats_histo)
                                        for period in self.options.stats_periods}
                 self.instance_map[identifier] = pid, identifier_instance
             # update process statistics for all periods
             for period_instance in identifier_instance.values():
-                period_instance.push_statistics(process_stats)
+                result = period_instance.push_statistics(process_stats)
+                if result:
+                    integrated_stats.append(result)
+        return integrated_stats
 
 
 class ProcStatisticsCompiler:
@@ -344,9 +376,10 @@ class ProcStatisticsCompiler:
         """ Return the number of CPU cores linked to a Supvisors instance. """
         return self.nb_cores.get(identifier, 0)
 
-    def push_statistics(self, identifier: str, stats: PayloadList):
+    def push_statistics(self, identifier: str, stats: PayloadList) -> PayloadList:
         """ Consider a new list of process statistics received from a Supvisors instance.
         Stopped processes (pid=0) are not considered if there is no existing holder. """
+        integrated_stats = []
         for process_stats in stats:
             namespec = process_stats['namespec']
             pid = process_stats['pid']
@@ -357,7 +390,9 @@ class ProcStatisticsCompiler:
                 self.logger.debug(f'ProcStatisticsCompiler.push_statistics: holder created for {namespec}')
             if proc_holder:
                 # update the holder data
-                proc_holder.push_statistics(identifier, process_stats)
+                result = proc_holder.push_statistics(identifier, process_stats)
+                if result:
+                    integrated_stats.extend(result)
                 # if no more data, delete the holder
                 if not proc_holder.instance_map:
                     self.logger.debug(f'ProcStatisticsCompiler.push_statistics: holder deleted for {namespec}')
@@ -365,3 +400,4 @@ class ProcStatisticsCompiler:
             # set the number of processor cores on the identifier if provided (only in supervisord stats)
             if 'nb_cores' in process_stats:
                 self.nb_cores[identifier] = process_stats['nb_cores']
+        return integrated_stats

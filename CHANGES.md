@@ -10,6 +10,8 @@
 
 * The option `stats_periods` accepts float values, not necessarily multiples of 5.
 
+* Add host and process statistics to the **Supvisors** event interface.
+
 * Fix children process CPU times in statistics.
 
 * Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.

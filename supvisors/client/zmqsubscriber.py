@@ -18,8 +18,8 @@
 # ======================================================================
 
 import threading
-import zmq
 
+import zmq
 from supervisor import loggers
 from supervisor.loggers import LevelsByName
 
@@ -114,6 +114,10 @@ class SupvisorsZmqEventInterface(threading.Thread):
                             self.on_process_event(message[1])
                         elif event == EventHeaders.PROCESS_STATUS:
                             self.on_process_status(message[1])
+                        elif event == EventHeaders.HOST_STATISTICS:
+                            self.on_host_statistics(message[1])
+                        elif event == EventHeaders.PROCESS_STATISTICS:
+                            self.on_process_statistics(message[1])
         self.logger.warn('SupvisorsEventInterface.run: exiting main loop')
         self.subscriber.close()
 
@@ -136,6 +140,14 @@ class SupvisorsZmqEventInterface(threading.Thread):
     def on_process_status(self, data):
         """ Just logs the contents of the Process Status message. """
         self.logger.info(f'SupvisorsEventInterface.on_process_status: got Process Status message: {data}')
+
+    def on_host_statistics(self, data):
+        """ Just logs the contents of the Host Statistics message. """
+        self.logger.info(f'SupvisorsEventInterface.on_host_statistics: got Host Statistics message: {data}')
+
+    def on_process_statistics(self, data):
+        """ Just logs the contents of the Process Statistics message. """
+        self.logger.info(f'SupvisorsEventInterface.on_process_statistics: got Process Statistics message: {data}')
 
 
 if __name__ == '__main__':

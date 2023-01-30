@@ -42,6 +42,7 @@ def test_creation_no_collector(mocker, supvisors):
     assert listener.local_identifier == supvisors.supvisors_mapper.local_identifier
     assert listener.main_loop is None
     assert listener.publisher is None
+    assert listener.external_publisher is None
     # test that callbacks are set in Supervisor
     assert (SupervisorRunningEvent, listener.on_running) in callbacks
     assert (SupervisorStoppingEvent, listener.on_stopping) in callbacks
@@ -56,13 +57,14 @@ def test_creation_no_collector(mocker, supvisors):
     assert (RemoteCommunicationEvent, listener.on_remote_event) in callbacks
 
 
-def test_creation(mocker, supvisors, listener):
+def test_creation(supvisors, listener):
     """ Test the values set at construction. """
     # check attributes
     assert listener.supvisors is supvisors
     assert listener.local_identifier == supvisors.supvisors_mapper.local_identifier
     assert listener.main_loop is None
     assert listener.publisher is None
+    assert listener.external_publisher is None
     # test that callbacks are set in Supervisor
     assert (SupervisorRunningEvent, listener.on_running) in callbacks
     assert (SupervisorStoppingEvent, listener.on_stopping) in callbacks
@@ -89,15 +91,19 @@ def test_on_running(mocker, listener):
     ref_main_loop = listener.main_loop
     mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_supervisor')
     mocked_sockets = mocker.patch('supvisors.listener.SupvisorsSockets')
-    mocked_publisher = mocker.patch('supvisors.listener.create_external_publisher')
+    mocked_external_publisher = Mock()
+    mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
+                                             return_value=mocked_external_publisher)
     mocked_loop = mocker.patch('supvisors.listener.SupvisorsMainLoop')
     mocked_collect = mocker.patch.object(listener.supvisors.process_collector, 'start')
     listener.on_running('')
     # test attributes and calls
     assert mocked_prepare.called
     assert mocked_sockets.called
-    assert mocked_publisher.called
+    assert mocked_publisher_creation.called
     assert listener.publisher is not ref_publisher
+    assert listener.external_publisher is mocked_external_publisher
+    assert listener.supvisors.external_publisher is listener.external_publisher
     assert mocked_loop.called
     assert listener.main_loop is not ref_main_loop
     assert listener.main_loop.start.called
@@ -117,21 +123,21 @@ def test_on_stopping(mocker, listener):
     listener.main_loop = Mock(**{'stop.return_value': None})
     mocked_infosource = mocker.patch.object(listener.supvisors.supervisor_data, 'close_httpservers')
     # create an external publisher patch
-    listener.supvisors.external_publisher = Mock(spec=EventPublisherInterface)
+    listener.external_publisher = Mock(spec=EventPublisherInterface)
     # 1. test with unmarked logger, i.e. meant to be the supervisor logger
     listener.on_stopping('')
     assert callbacks == []
     assert mocked_infosource.called
     assert listener.main_loop.stop.called
     assert listener.supvisors.sockets.stop.called
-    assert listener.supvisors.external_publisher.close.called
+    assert listener.external_publisher.close.called
     assert not listener.supvisors.logger.close.called
     assert listener.supvisors.process_collector.pid_queue.get() is None
     # reset mocks
     mocked_infosource.reset_mock()
     listener.main_loop.stop.reset_mock()
     listener.supvisors.sockets.stop.reset_mock()
-    listener.supvisors.external_publisher.close.reset_mock()
+    listener.external_publisher.close.reset_mock()
     # 2. test with marked logger, i.e. meant to be the Supvisors logger
     listener.logger.SUPVISORS = None
     listener.on_stopping('')
@@ -139,7 +145,7 @@ def test_on_stopping(mocker, listener):
     assert mocked_infosource.called
     assert listener.main_loop.stop.called
     assert listener.supvisors.sockets.stop.called
-    assert listener.supvisors.external_publisher.close.called
+    assert listener.external_publisher.close.called
     assert listener.supvisors.logger.close.called
     assert listener.supvisors.process_collector.pid_queue.get() is None
 
@@ -444,7 +450,8 @@ def test_unstack_event_process_disability(mocker, listener):
 def test_unstack_event_host_statistics(mocker, listener):
     """ Test the processing of a Supvisors host statistics event. """
     mocked_host = mocker.patch.object(listener.supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(listener.supvisors.process_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(listener.supvisors.process_compiler, 'push_statistics', return_value=None)
+    # 1. external_publisher is None
     listener.unstack_event('[6, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}]]]')
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
@@ -454,11 +461,27 @@ def test_unstack_event_host_statistics(mocker, listener):
     assert not listener.supvisors.fsm.on_state_event.called
     assert mocked_host.call_args_list == [call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}])]
     assert not mocked_proc.called
+    mocked_host.reset_mock()
+    # 2. set external_publisher but still no returned value for push_statistics
+    listener.external_publisher = Mock(**{'send_host_statistics.return_value': None})
+    listener.unstack_event('[6, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}]]]')
+    assert mocked_host.call_args_list == [call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}])]
+    assert not listener.external_publisher.send_host_statistics.called
+    assert not mocked_proc.called
+    mocked_host.reset_mock()
+    # 3. external_publisher set and integrated value available for push_statistics
+    mocked_host.return_value = [{'uptime': 1234}]
+    listener.unstack_event('[6, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}]]]')
+    assert mocked_host.call_args_list == [call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}])]
+    assert listener.external_publisher.send_host_statistics.call_args_list == [call({'uptime': 1234})]
+    assert not mocked_proc.called
+
 
 def test_unstack_event_process_statistics(mocker, listener):
     """ Test the processing of a Supvisors process statistics event. """
-    mocked_host = mocker.patch.object(listener.supvisors.host_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(listener.supvisors.host_compiler, 'push_statistics', return_value=None)
     mocked_proc = mocker.patch.object(listener.supvisors.process_compiler, 'push_statistics')
+    # 1. external_publisher is None
     listener.unstack_event('[7, ["10.0.0.3", [{"cpu": [100, 200]}, {"cpu": [50, 20]}]]]')
     assert not listener.supvisors.fsm.on_tick_event.called
     assert not listener.supvisors.fsm.on_process_state_event.called
@@ -468,6 +491,20 @@ def test_unstack_event_process_statistics(mocker, listener):
     assert not listener.supvisors.fsm.on_state_event.called
     assert not mocked_host.called
     assert mocked_proc.call_args_list == [call('10.0.0.3', [{"cpu": [100, 200]}, {"cpu": [50, 20]}])]
+    mocked_proc.reset_mock()
+    # 2. set external_publisher but still no returned value for push_statistics
+    listener.external_publisher = Mock(**{'send_process_statistics.return_value': None})
+    listener.unstack_event('[7, ["10.0.0.3", [{"cpu": [100, 200]}, {"cpu": [50, 20]}]]]')
+    assert not mocked_host.called
+    assert mocked_proc.call_args_list == [call('10.0.0.3', [{'cpu': [100, 200]}, {'cpu': [50, 20]}])]
+    assert not listener.external_publisher.send_process_statistics.called
+    mocked_proc.reset_mock()
+    # 3. external_publisher set and integrated value available for push_statistics
+    mocked_proc.return_value = [{'uptime': 1234}]
+    listener.unstack_event('[7, ["10.0.0.3", [{"cpu": [100, 200]}, {"cpu": [50, 20]}]]]')
+    assert not mocked_host.called
+    assert mocked_proc.call_args_list == [call('10.0.0.3', [{'cpu': [100, 200]}, {'cpu': [50, 20]}])]
+    assert listener.external_publisher.send_process_statistics.call_args_list == [call({'uptime': 1234})]
 
 
 def test_unstack_event_state(mocker, listener):

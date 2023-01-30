@@ -48,6 +48,10 @@ def test_interface():
         intf.send_process_event('10.0.0.1', {})
     with pytest.raises(NotImplementedError):
         intf.send_process_status({})
+    with pytest.raises(NotImplementedError):
+        intf.send_host_statistics({})
+    with pytest.raises(NotImplementedError):
+        intf.send_process_statistics({})
 
 
 def test_create_external_publisher_none(supvisors):
@@ -69,3 +73,6 @@ def test_create_external_publisher_zmq(zmq_import, supvisors):
     # test inclusion of Supvisors into Supervisor
     instance = create_external_publisher(supvisors)
     assert isinstance(instance, EventPublisher)
+
+
+# TODO: websocket

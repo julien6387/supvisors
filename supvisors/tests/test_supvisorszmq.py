@@ -17,12 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
+from time import sleep
+
 import pytest
 
 from supvisors.supvisorszmq import *
-from supvisors.ttypes import DeferredRequestHeaders
-from time import sleep
-from unittest.mock import call, Mock
 
 
 def test_external_publish_subscribe(supvisors):
@@ -128,81 +127,126 @@ def check_process_status(subscriber, publisher, subscribed):
         check_reception(subscriber)
 
 
-def check_subscription(subscriber, publisher, supvisors_subscribed, address_subscribed,
-                       application_subscribed, event_subscribed, process_subscribed):
+def check_host_statistics(subscriber, publisher, subscribed):
+    """ The method tests the emission and reception of a Process status, depending on the subscription status. """
+    stats_payload = {'identifier': '10.0.0.1', 'period': 5.2, 'uptime': 1230, 'cpu': [28.3]}
+    publisher.send_host_statistics(stats_payload)
+    if subscribed:
+        check_reception(subscriber, EventHeaders.HOST_STATISTICS, stats_payload)
+    else:
+        check_reception(subscriber)
+
+
+def check_process_statistics(subscriber, publisher, subscribed):
+    """ The method tests the emission and reception of a Process status, depending on the subscription status. """
+    stats_payload = {'identifier': '10.0.0.1', 'namespec': 'dummy_proc', 'period': 5.2, 'uptime': 1230, 'cpu': [28.3]}
+    publisher.send_process_statistics(stats_payload)
+    if subscribed:
+        check_reception(subscriber, EventHeaders.PROCESS_STATISTICS, stats_payload)
+    else:
+        check_reception(subscriber)
+
+
+def check_subscription(subscriber, publisher, supvisors_subscribed=False, instance_subscribed=False,
+                       application_subscribed=False, event_subscribed=False, process_subscribed=False,
+                       hstats_subscribed=False, pstats_subscribed=False):
     """ The method tests the emission and reception of all status, depending on their subscription status. """
     sleep(1)
     check_supvisors_status(subscriber, publisher, supvisors_subscribed)
-    check_instance_status(subscriber, publisher, address_subscribed)
+    check_instance_status(subscriber, publisher, instance_subscribed)
     check_application_status(subscriber, publisher, application_subscribed)
     check_process_event(subscriber, publisher, event_subscribed)
     check_process_status(subscriber, publisher, process_subscribed)
+    check_host_statistics(subscriber, publisher, hstats_subscribed)
+    check_process_statistics(subscriber, publisher, pstats_subscribed)
 
 
 def test_no_subscription(publisher, subscriber):
     """ Test the non-reception of messages when subscription is not set. """
     # at this stage, no subscription has been set so nothing should be received
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher)
 
 
 def test_subscription_supvisors_status(publisher, subscriber):
     """ Test the reception of Supvisors status messages when related subscription is set. """
     # subscribe to Supvisors status only
     subscriber.subscribe_supvisors_status()
-    check_subscription(subscriber, publisher, True, False, False, False, False)
+    check_subscription(subscriber, publisher, supvisors_subscribed=True)
     # unsubscribe from Supvisors status
     subscriber.unsubscribe_supvisors_status()
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher)
 
 
-def test_subscription_node_status(publisher, subscriber):
+def test_subscription_instance_status(publisher, subscriber):
     """ Test the reception of Address status messages when related subscription is set. """
-    # subscribe to Address status only
+    # subscribe to Instance status only
     subscriber.subscribe_instance_status()
-    check_subscription(subscriber, publisher, False, True, False, False, False)
-    # unsubscribe from Address status
+    check_subscription(subscriber, publisher, instance_subscribed=True)
+    # unsubscribe from Instance status
     subscriber.unsubscribe_instance_status()
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher)
 
 
 def test_subscription_application_status(publisher, subscriber):
     """ Test the reception of Application status messages when related subscription is set. """
     # subscribe to Application status only
     subscriber.subscribe_application_status()
-    check_subscription(subscriber, publisher, False, False, True, False, False)
+    check_subscription(subscriber, publisher, application_subscribed=True)
     # unsubscribe from Application status
     subscriber.unsubscribe_application_status()
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher)
 
 
 def test_subscription_process_event(publisher, subscriber):
     """ Test the reception of Process event messages when related subscription is set. """
     # subscribe to Process event only
     subscriber.subscribe_process_event()
-    check_subscription(subscriber, publisher, False, False, False, True, False)
+    check_subscription(subscriber, publisher, event_subscribed=True)
     # unsubscribe from Process event
     subscriber.unsubscribe_process_event()
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher)
 
 
 def test_subscription_process_status(publisher, subscriber):
     """ Test the reception of Process status messages when related subscription is set. """
     # subscribe to Process status only
     subscriber.subscribe_process_status()
-    check_subscription(subscriber, publisher, False, False, False, False, True)
+    check_subscription(subscriber, publisher, process_subscribed=True)
     # unsubscribe from Process status
     subscriber.unsubscribe_process_status()
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher)
+
+
+def test_subscription_host_statistics(publisher, subscriber):
+    """ Test the reception of Host statistics messages when related subscription is set. """
+    # subscribe to Host statistics only
+    subscriber.subscribe_host_statistics()
+    check_subscription(subscriber, publisher, hstats_subscribed=True)
+    # unsubscribe from Host statistics
+    subscriber.unsubscribe_host_statistics()
+    check_subscription(subscriber, publisher)
+
+
+def test_subscription_process_statistics(publisher, subscriber):
+    """ Test the reception of Process statistics messages when related subscription is set. """
+    # subscribe to Process statistics only
+    subscriber.subscribe_process_statistics()
+    check_subscription(subscriber, publisher, pstats_subscribed=True)
+    # unsubscribe from Process statistics
+    subscriber.unsubscribe_process_statistics()
+    check_subscription(subscriber, publisher)
 
 
 def test_subscription_all_status(publisher, subscriber):
     """ Test the reception of all status messages when related subscription is set. """
     # subscribe to every status
     subscriber.subscribe_all()
-    check_subscription(subscriber, publisher, True, True, True, True, True)
+    check_subscription(subscriber, publisher, supvisors_subscribed=True, instance_subscribed=True,
+                       application_subscribed=True, event_subscribed=True, process_subscribed=True,
+                       hstats_subscribed=True, pstats_subscribed=True)
     # unsubscribe all
     subscriber.unsubscribe_all()
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher)
 
 
 def test_subscription_multiple_status(publisher, subscriber):
@@ -210,18 +254,24 @@ def test_subscription_multiple_status(publisher, subscriber):
     # subscribe to Application and Process Event
     subscriber.subscribe_application_status()
     subscriber.subscribe_process_event()
-    check_subscription(subscriber, publisher, False, False, True, True, False)
-    # set subscription to Node and Process Status
+    check_subscription(subscriber, publisher, application_subscribed=True, event_subscribed=True)
+    # set subscription to Instance and Process Status
     subscriber.unsubscribe_application_status()
     subscriber.unsubscribe_process_event()
     subscriber.subscribe_process_status()
     subscriber.subscribe_instance_status()
-    check_subscription(subscriber, publisher, False, True, False, False, True)
-    # add subscription to Supvisors Status
+    check_subscription(subscriber, publisher, instance_subscribed=True, process_subscribed=True)
+    # add subscription to Supvisors Status and remove process
     subscriber.subscribe_supvisors_status()
-    check_subscription(subscriber, publisher, True, True, False, False, True)
-    # unsubscribe all
-    subscriber.unsubscribe_supvisors_status()
-    subscriber.unsubscribe_instance_status()
     subscriber.unsubscribe_process_status()
-    check_subscription(subscriber, publisher, False, False, False, False, False)
+    check_subscription(subscriber, publisher, supvisors_subscribed=True, instance_subscribed=True)
+    # add subscription to Statistics and remove Supvisors Status
+    subscriber.unsubscribe_supvisors_status()
+    subscriber.subscribe_host_statistics()
+    subscriber.subscribe_process_statistics()
+    check_subscription(subscriber, publisher, instance_subscribed=True, hstats_subscribed=True, pstats_subscribed=True)
+    # unsubscribe all
+    subscriber.unsubscribe_instance_status()
+    subscriber.unsubscribe_host_statistics()
+    subscriber.unsubscribe_process_statistics()
+    check_subscription(subscriber, publisher)

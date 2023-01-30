@@ -17,11 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
+from unittest.mock import call, Mock
+
 import pytest
+from zmq import ZMQError
 
 from supvisors.client.zmqsubscriber import *
-from unittest.mock import call, Mock
-from zmq import ZMQError
 
 
 def test_create_logger(mocker):
@@ -231,6 +232,44 @@ def test_run_receive_event(mocker, context, logger, interface):
     assert logger.info.call_args_list == [call('SupvisorsEventInterface.run: entering main loop'),
                                           call('SupvisorsEventInterface.on_process_event:'
                                                ' got Process Event message: event payload')]
+    assert logger.debug.call_args_list == [call('SupvisorsEventInterface.run: got message on subscriber')]
+    assert not logger.error.called
+    assert logger.warn.call_args_list == [call('SupvisorsEventInterface.run: exiting main loop')]
+    assert interface.subscriber.socket.closed
+
+
+def test_run_host_statistics(mocker, context, logger, interface):
+    """ Test the behavior of the thread loop with Host statistics message. """
+    # patch the context
+    mocker.patch.object(interface.stop_event, 'is_set', side_effect=[False, True])
+    mocker.patch('zmq.Poller.poll', return_value={interface.subscriber.socket: zmq.POLLIN})
+    mocker.patch.object(interface.subscriber, 'receive',
+                        return_value=(EventHeaders.HOST_STATISTICS.value, 'host stats payload'))
+    logger.reset_mock()
+    # test run method with Process status message
+    interface.run()
+    assert logger.info.call_args_list == [call('SupvisorsEventInterface.run: entering main loop'),
+                                          call('SupvisorsEventInterface.on_host_statistics:'
+                                               ' got Host Statistics message: host stats payload')]
+    assert logger.debug.call_args_list == [call('SupvisorsEventInterface.run: got message on subscriber')]
+    assert not logger.error.called
+    assert logger.warn.call_args_list == [call('SupvisorsEventInterface.run: exiting main loop')]
+    assert interface.subscriber.socket.closed
+
+
+def test_run_process_statistics(mocker, context, logger, interface):
+    """ Test the behavior of the thread loop with Host statistics message. """
+    # patch the context
+    mocker.patch.object(interface.stop_event, 'is_set', side_effect=[False, True])
+    mocker.patch('zmq.Poller.poll', return_value={interface.subscriber.socket: zmq.POLLIN})
+    mocker.patch.object(interface.subscriber, 'receive',
+                        return_value=(EventHeaders.PROCESS_STATISTICS.value, 'proc stats payload'))
+    logger.reset_mock()
+    # test run method with Process status message
+    interface.run()
+    assert logger.info.call_args_list == [call('SupvisorsEventInterface.run: entering main loop'),
+                                          call('SupvisorsEventInterface.on_process_statistics:'
+                                               ' got Process Statistics message: proc stats payload')]
     assert logger.debug.call_args_list == [call('SupvisorsEventInterface.run: got message on subscriber')]
     assert not logger.error.called
     assert logger.warn.call_args_list == [call('SupvisorsEventInterface.run: exiting main loop')]

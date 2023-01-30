@@ -17,10 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-import zmq
-
-from supervisor.loggers import Logger
 from typing import Any, Tuple
+
+import zmq
+from supervisor.loggers import Logger
 
 from .publisherinterface import EventPublisherInterface
 from .supvisorsmapper import SupvisorsInstanceId
@@ -111,8 +111,28 @@ class EventPublisher(EventPublisherInterface):
         self.socket.send_string(EventHeaders.PROCESS_STATUS.value, zmq.SNDMORE)
         self.socket.send_json(status)
 
+    def send_host_statistics(self, statistics: Payload) -> None:
+        """ This method sends host statistics through the socket.
 
-class EventSubscriber(object):
+        :param statistics: the statistics to publish
+        :return: None
+        """
+        self.logger.trace(f'EventPublisher.send_host_statistics: {statistics}')
+        self.socket.send_string(EventHeaders.HOST_STATISTICS.value, zmq.SNDMORE)
+        self.socket.send_json(statistics)
+
+    def send_process_statistics(self, statistics: Payload) -> None:
+        """ This method sends process statistics through the socket.
+
+        :param statistics: the statistics to publish
+        :return: None
+        """
+        self.logger.trace(f'EventPublisher.send_process_statistics: {statistics}')
+        self.socket.send_string(EventHeaders.PROCESS_STATISTICS.value, zmq.SNDMORE)
+        self.socket.send_json(statistics)
+
+
+class EventSubscriber:
     """ The EventSubscriber wraps the PyZmq socket that connects to **Supvisors**.
 
     The TCP socket is configured with a PyZmq ``SUBSCRIBE`` pattern.
@@ -192,6 +212,20 @@ class EventSubscriber(object):
         """
         self.subscribe(EventHeaders.PROCESS_STATUS.value)
 
+    def subscribe_host_statistics(self) -> None:
+        """ Subscribe to Host Statistics messages.
+
+        :return: None
+        """
+        self.subscribe(EventHeaders.HOST_STATISTICS.value)
+
+    def subscribe_process_statistics(self) -> None:
+        """ Subscribe to Process Statistics messages.
+
+        :return: None
+        """
+        self.subscribe(EventHeaders.PROCESS_STATISTICS.value)
+
     def subscribe(self, code: str) -> None:
         """ Subscribe to the event named code.
 
@@ -242,6 +276,20 @@ class EventSubscriber(object):
         :return: None
         """
         self.unsubscribe(EventHeaders.PROCESS_STATUS.value)
+
+    def unsubscribe_host_statistics(self) -> None:
+        """ Unsubscribe from Host Statistics messages.
+
+        :return: None
+        """
+        self.unsubscribe(EventHeaders.HOST_STATISTICS.value)
+
+    def unsubscribe_process_statistics(self) -> None:
+        """ Unsubscribe from Process Statistics messages.
+
+        :return: None
+        """
+        self.unsubscribe(EventHeaders.PROCESS_STATISTICS.value)
 
     def unsubscribe(self, code: str) -> None:
         """ Remove subscription to the event named code.

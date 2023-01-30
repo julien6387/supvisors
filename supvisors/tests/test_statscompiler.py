@@ -178,9 +178,9 @@ def test_host_statistics_instance_integrate(host_statistics_instance):
     stats = host_statistics_instance.integrate(last_stats)
     # check result
     assert len(stats) == 4
-    cpu_stats, mem_stats, io_stats, duration = stats
+    uptime, cpu_stats, mem_stats, io_stats = stats
     # check date
-    assert duration == 502
+    assert uptime == 502
     # check cpu
     assert cpu_stats == [6.25, 20.0, 20.0]
     # check memory
@@ -198,8 +198,9 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     mocked_io = mocker.patch.object(host_statistics_instance, '_push_io_stats')
     # push first set of measures to become the first reference statistics
     stats1 = {'now': 1.0, 'cpu': [[], [], []], 'io': {'lo': [], 'eth0': []}}
-    mocked_stats.return_value = ('cpu_stats 1', 76.1, 'io_stats 1', 1.0)
-    host_statistics_instance.push_statistics(stats1)
+    mocked_stats.return_value = 1.0, ['cpu_stats 1'], 76.1, {'io_stats 1': ()}
+    result = host_statistics_instance.push_statistics(stats1)
+    assert result == {}
     # check evolution of instance
     assert host_statistics_instance.ref_start_time == 1.0
     assert host_statistics_instance.ref_stats is stats1
@@ -210,9 +211,10 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     assert not mocked_io.called
     # push second set of measures
     stats2 = {'now': 5.1, 'cpu': [[], [], []], 'io': {'lo': [], 'eth0': []}}
-    mocked_stats.return_value = ('cpu_stats 2', 76.2, 'io_stats 2', 5.1)
-    host_statistics_instance.push_statistics(stats2)
+    mocked_stats.return_value = 5.1, ['cpu_stats 2'], 76.2, {'io_stats 2': ()}
+    result = host_statistics_instance.push_statistics(stats2)
     # counter is based a theoretical period of 5 seconds so this update is not taken into account
+    assert result == {}
     # check evolution of instance
     assert host_statistics_instance.ref_start_time == 1.0
     assert host_statistics_instance.ref_stats is stats1
@@ -223,21 +225,28 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     assert not mocked_io.called
     # push third set of measures
     stats3 = {'now': 13.2, 'cpu': [[], [], []], 'io': {'lo': [], 'eth0': []}}
-    mocked_stats.return_value = ('cpu_stats 3', 76.1, 'io_stats 3', 12.2)
-    host_statistics_instance.push_statistics(stats3)
+    mocked_stats.return_value = 12.2, ['cpu_stats 3'], 76.1, {'io_stats 3': ()}
+    result = host_statistics_instance.push_statistics(stats3)
     # this update is taken into account
+    assert result == {'identifier': '10.0.0.1',
+                      'target_period': 12,
+                      'period': (0.0, 12.2),
+                      'cpu': ['cpu_stats 3'],
+                      'mem': 76.1,
+                      'io': {'io_stats 3': ()}}
     # check evolution of instance
     assert host_statistics_instance.ref_start_time == 1.0
     assert host_statistics_instance.ref_stats is stats3
     assert mocked_stats.call_args_list == [call(stats3)]
     assert mocked_times.call_args_list == [call(12.2)]
-    assert mocked_cpu.call_args_list == [call('cpu_stats 3')]
+    assert mocked_cpu.call_args_list == [call(['cpu_stats 3'])]
     assert mocked_mem.call_args_list == [call(76.1)]
-    assert mocked_io.call_args_list == [call('io_stats 3')]
+    assert mocked_io.call_args_list == [call({'io_stats 3': ()})]
     mocker.resetall()
     # push fourth set of measures (reuse stats2)
-    host_statistics_instance.push_statistics(stats2)
+    result = host_statistics_instance.push_statistics(stats2)
     # again, this update is not taken into account
+    assert result == {}
     assert host_statistics_instance.ref_start_time == 1.0
     assert host_statistics_instance.ref_stats is stats3
     assert not mocked_stats.called
@@ -247,17 +256,23 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     assert not mocked_io.called
     # push fifth set of measures
     stats5 = {'now': 27.4, 'cpu': [[], [], []], 'io': {'lo': [], 'eth0': []}}
-    mocked_stats.return_value = ('cpu_stats 5', 75.9, 'io_stats 5', 38.5)
-    host_statistics_instance.push_statistics(stats5)
+    mocked_stats.return_value = 38.5, ['cpu_stats 5'], 75.9, {'io_stats 5': ()}
+    result = host_statistics_instance.push_statistics(stats5)
     # this update is taken into account
+    assert result == {'identifier': '10.0.0.1',
+                      'target_period': 12,
+                      'period': (12.2, 26.4),
+                      'cpu': ['cpu_stats 5'],
+                      'mem': 75.9,
+                      'io': {'io_stats 5': ()}}
     # check evolution of instance
     assert host_statistics_instance.ref_start_time == 1.0
     assert host_statistics_instance.ref_stats is stats5
     assert mocked_stats.call_args_list == [call(stats5)]
     assert mocked_times.call_args_list == [call(38.5)]
-    assert mocked_cpu.call_args_list == [call('cpu_stats 5')]
+    assert mocked_cpu.call_args_list == [call(['cpu_stats 5'])]
     assert mocked_mem.call_args_list == [call(75.9)]
-    assert mocked_io.call_args_list == [call('io_stats 5')]
+    assert mocked_io.call_args_list == [call({'io_stats 5': ()})]
 
 
 @pytest.fixture
@@ -337,11 +352,13 @@ def test_cpu_process_statistics():
 @pytest.fixture
 def proc_statistics_instance():
     # testing with period 12 and history depth 2
-    return ProcStatisticsInstance(12, 2)
+    return ProcStatisticsInstance('dummy_proc', '10.0.0.1', 12, 2)
 
 
 def test_proc_statistics_instance_creation(proc_statistics_instance):
     """ Test the creation of ProcStatisticsInstance. """
+    assert proc_statistics_instance.namespec == 'dummy_proc'
+    assert proc_statistics_instance.identifier == '10.0.0.1'
     assert proc_statistics_instance.period == 12
     assert proc_statistics_instance.depth == 2
     assert proc_statistics_instance.ref_stats == {}
@@ -372,9 +389,10 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     mocked_integ = mocker.patch.object(proc_statistics_instance, 'integrate')
     # push first set of measures to become the first reference statistics
     stats1 = {'now': 1.0}
-    mocked_integ.return_value = ('cpu_stats 1', 26.1, 1.0)
+    mocked_integ.return_value = (5.2, 26.1, 1.0)
     # first push used as reference only
-    proc_statistics_instance.push_statistics(stats1)
+    result = proc_statistics_instance.push_statistics(stats1)
+    assert result == {}
     assert not mocked_integ.called
     assert proc_statistics_instance.cpu == []
     assert proc_statistics_instance.mem == []
@@ -384,7 +402,8 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     # from second push, integration is performed when period has passed
     # test when it didn't pass
     stats2 = {'now': 7.0}
-    proc_statistics_instance.push_statistics(stats2)
+    result = proc_statistics_instance.push_statistics(stats2)
+    assert result == {}
     assert not mocked_integ.called
     assert proc_statistics_instance.cpu == []
     assert proc_statistics_instance.mem == []
@@ -393,9 +412,15 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     assert proc_statistics_instance.ref_start_time == 1.0
     # test when it has passed
     stats3 = {'now': 15.0}
-    proc_statistics_instance.push_statistics(stats3)
+    result = proc_statistics_instance.push_statistics(stats3)
+    assert result == {'namespec': 'dummy_proc',
+                      'identifier': '10.0.0.1',
+                      'target_period': 12,
+                      'period': (0.0, 14.0),
+                      'cpu': 5.2,
+                      'mem': 26.1}
     assert mocked_integ.call_args_list == [call(stats3)]
-    assert proc_statistics_instance.cpu == ['cpu_stats 1']
+    assert proc_statistics_instance.cpu == [5.2]
     assert proc_statistics_instance.mem == [26.1]
     assert proc_statistics_instance.times == [1.0]
     assert proc_statistics_instance.ref_stats == stats3
@@ -403,10 +428,16 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     mocked_integ.reset_mock()
     # test second push
     stats4 = {'now': 30.0}
-    mocked_integ.return_value = ('cpu_stats 2', 13.7, 15.0)
-    proc_statistics_instance.push_statistics(stats4)
+    mocked_integ.return_value = (6.9, 13.7, 15.0)
+    result = proc_statistics_instance.push_statistics(stats4)
+    assert result == {'namespec': 'dummy_proc',
+                      'identifier': '10.0.0.1',
+                      'target_period': 12,
+                      'period': (14.0, 29.0),
+                      'cpu': 6.9,
+                      'mem': 13.7}
     assert mocked_integ.call_args_list == [call(stats4)]
-    assert proc_statistics_instance.cpu == ['cpu_stats 1', 'cpu_stats 2']
+    assert proc_statistics_instance.cpu == [5.2, 6.9]
     assert proc_statistics_instance.mem == [26.1, 13.7]
     assert proc_statistics_instance.times == [1.0, 15.0]
     assert proc_statistics_instance.ref_stats == stats4
@@ -414,14 +445,21 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     mocked_integ.reset_mock()
     # test third push for history rotation
     stats5 = {'now': 45.0}
-    mocked_integ.return_value = ('cpu_stats 3', 8.9, 15.0)
-    proc_statistics_instance.push_statistics(stats5)
+    mocked_integ.return_value = (4.4, 8.9, 15.0)
+    result = proc_statistics_instance.push_statistics(stats5)
+    assert result == {'namespec': 'dummy_proc',
+                      'identifier': '10.0.0.1',
+                      'target_period': 12,
+                      'period': (29.0, 44.0),
+                      'cpu': 4.4,
+                      'mem': 8.9}
     assert mocked_integ.call_args_list == [call(stats5)]
-    assert proc_statistics_instance.cpu == ['cpu_stats 2', 'cpu_stats 3']
+    assert proc_statistics_instance.cpu == [6.9, 4.4]
     assert proc_statistics_instance.mem == [13.7, 8.9]
     assert proc_statistics_instance.times == [15.0, 15.0]
     assert proc_statistics_instance.ref_stats == stats5
     assert proc_statistics_instance.ref_start_time == 1.0
+
 
 @pytest.fixture
 def proc_statistics_holder(supvisors):
@@ -450,30 +488,38 @@ def test_proc_statistics_holder_get_stats(proc_statistics_holder):
 
 def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     """ Test the storage of the process instant statistics. """
-    mocker.patch('supvisors.statscompiler.ProcStatisticsInstance',
-                 side_effect=lambda x, y: Mock(time_label=time.time(), period=x, depth=y, spec=ProcStatisticsInstance))
+    mocked_instance = mocker.patch('supvisors.statscompiler.ProcStatisticsInstance',
+                                   side_effect=lambda a, b, c, d: Mock(time_label=time.time(),
+                                                                       namespec=a, identifier=b, period=c, depth=d,
+                                                                       **{'push_statistics.return_value': None}))
     # 1. test with running process not referenced yet
     proc_stats = {'pid': 118612}
-    proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
+    result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
+    assert result == []
     assert list(proc_statistics_holder.instance_map.keys()) == ['10.0.0.1']
     # check host stats created
     pid, identifier_instances = proc_statistics_holder.instance_map['10.0.0.1']
     assert pid == 118612
     assert sorted(identifier_instances.keys()) == [5.0, 15.0, 60.0]
     for period, instance in identifier_instances.items():
+        assert instance.namespec == 'dummy_proc'
+        assert instance.identifier == '10.0.0.1'
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
         instance.push_statistics.reset_mock()
     # 2. test with running process not referenced yet on another host
     proc_stats = {'pid': 612}
-    proc_statistics_holder.push_statistics('10.0.0.2', proc_stats)
+    result = proc_statistics_holder.push_statistics('10.0.0.2', proc_stats)
+    assert result == []
     assert sorted(proc_statistics_holder.instance_map.keys()) == ['10.0.0.1', '10.0.0.2']
     # check no change on first host stats
     pid, identifier_instances = proc_statistics_holder.instance_map['10.0.0.1']
     assert pid == 118612
     assert sorted(identifier_instances.keys()) == [5.0, 15.0, 60.0]
     for period, instance in identifier_instances.items():
+        assert instance.namespec == 'dummy_proc'
+        assert instance.identifier == '10.0.0.1'
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
@@ -482,19 +528,27 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     assert pid == 612
     assert sorted(identifier_instances.keys()) == [5.0, 15.0, 60.0]
     for period, instance in identifier_instances.items():
+        assert instance.namespec == 'dummy_proc'
+        assert instance.identifier == '10.0.0.2'
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
         instance.push_statistics.reset_mock()
     # 3. test with running process with a different pid on existing host
+    mocked_instance.side_effect=lambda a, b, c, d: Mock(time_label=time.time(),
+                                                        namespec=a, identifier=b, period=c, depth=d,
+                                                        **{'push_statistics.return_value': f'{b}_{c}'})
     proc_stats = {'pid': 18612}
-    proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
+    result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
+    assert result == ['10.0.0.1_5.0', '10.0.0.1_15.0', '10.0.0.1_60.0']
     assert sorted(proc_statistics_holder.instance_map.keys()) == ['10.0.0.1', '10.0.0.2']
     # check host instances are replaced
     pid, identifier_instances = proc_statistics_holder.instance_map['10.0.0.1']
     assert pid == 18612
     assert sorted(identifier_instances.keys()) == [5.0, 15.0, 60.0]
     for period, instance in identifier_instances.items():
+        assert instance.namespec == 'dummy_proc'
+        assert instance.identifier == '10.0.0.1'
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
@@ -504,18 +558,23 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     assert pid == 612
     assert sorted(identifier_instances.keys()) == [5.0, 15.0, 60.0]
     for period, instance in identifier_instances.items():
+        assert instance.namespec == 'dummy_proc'
+        assert instance.identifier == '10.0.0.2'
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
     # 4. test with stopped process. instances are deleted
     proc_stats = {'pid': 0}
-    proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
+    result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
+    assert result == []
     assert list(proc_statistics_holder.instance_map.keys()) == ['10.0.0.2']
     # test no change on second host stats
     pid, identifier_instances = proc_statistics_holder.instance_map['10.0.0.2']
     assert pid == 612
     assert sorted(identifier_instances.keys()) == [5.0, 15.0, 60.0]
     for period, instance in identifier_instances.items():
+        assert instance.namespec == 'dummy_proc'
+        assert instance.identifier == '10.0.0.2'
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
@@ -561,18 +620,20 @@ def test_proc_statistics_compiler_get_nb_cores(proc_statistics_compiler):
 
 def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compiler):
     """ Test the ProcStatisticsCompiler.push_statistics method """
-    mocked_holder = Mock(spec=ProcStatisticsHolder, instance_map=True)
+    mocked_holder = Mock(instance_map=True, **{'push_statistics.return_value': ['dummy_proc stats']})
     mocked_holder_constr = mocker.patch('supvisors.statscompiler.ProcStatisticsHolder', return_value=mocked_holder)
     process_stats = {'namespec': 'dummy_proc', 'pid': 0}
     # 1. test with non-existing holder and 0 pid
-    proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    assert result == []
     assert proc_statistics_compiler.nb_cores == {}
     assert proc_statistics_compiler.holder_map == {}
     assert not mocked_holder_constr.called
     assert not mocked_holder.push_statistics.called
     # 2. test with non-existing holder and pid > 0
     process_stats['pid'] = 1234
-    proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {}
     assert list(proc_statistics_compiler.holder_map.keys()) == ['dummy_proc']
     assert mocked_holder_constr.call_args_list == [call('dummy_proc', proc_statistics_compiler.options,
@@ -582,7 +643,8 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     mocked_holder.push_statistics.reset_mock()
     # 3. test with existing holder and pid > 0
     process_stats['nb_cores'] = 4
-    proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {'10.0.0.1': 4}
     assert list(proc_statistics_compiler.holder_map.keys()) == ['dummy_proc']
     assert not mocked_holder_constr.called
@@ -591,7 +653,8 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     # 4. test with existing holder and 0 pid
     process_stats['pid'] = 0
     process_stats['nb_cores'] = 6
-    proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {'10.0.0.1': 6}
     assert list(proc_statistics_compiler.holder_map.keys()) == ['dummy_proc']
     assert not mocked_holder_constr.called
@@ -599,7 +662,8 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     mocked_holder.push_statistics.reset_mock()
     # test case when instance_map has been removed
     mocked_holder.instance_map = {}
-    proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {'10.0.0.1': 6}
     assert proc_statistics_compiler.holder_map == {}
     assert not mocked_holder_constr.called
