@@ -193,7 +193,7 @@ class WsEventSubscriber(EventSubscriber):
                         try:
                             # recv in wait_for so that stop_event can be checked periodically
                             message = await asyncio.wait_for(ws.recv(), timeout=WsEventSubscriber.RecvTimeout)
-                        except asyncio.exceptions.TimeoutError:
+                        except asyncio.TimeoutError:
                             self.logger.trace(f'WsEventSubscriber.mainloop: receive timeout on {uri}')
                             continue
                         # a message has been received
