@@ -23,8 +23,8 @@ import pytest
 from supervisor.events import *
 from supervisor.xmlrpc import Faults
 
+from supvisors.eventinterface import EventPublisherInterface
 from supvisors.listener import *
-from supvisors.publisherinterface import EventPublisherInterface
 
 
 @pytest.fixture

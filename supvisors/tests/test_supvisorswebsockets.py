@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # ======================================================================
-# Copyright 2017 Julien LE CLEACH
+# Copyright 2023 Julien LE CLEACH
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,68 +17,36 @@
 # limitations under the License.
 # ======================================================================
 
-import time
-from time import sleep
 from unittest.mock import call
 
 import pytest
 
-from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
-from supvisors.supvisorszmq import *
+from supvisors.client.wssubscriber import *
+from supvisors.supvisorswebsocket import *
 
 
 @pytest.fixture
 def publisher(supvisors):
-    test_publisher = ZmqEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+    test_publisher = WsEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
     yield test_publisher
     test_publisher.close()
-    sleep(0.5)
 
 
 @pytest.fixture
 def subscriber(mocker, supvisors):
-    test_subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', supvisors.options.event_port,
-                                                 supvisors.logger)
+    test_subscriber = SupvisorsWsEventInterface('localhost', supvisors.options.event_port, supvisors.logger)
     mocker.patch.object(test_subscriber, 'on_receive')
+    # do NOT start the thread to let subscriptions happen
     yield test_subscriber
     test_subscriber.stop()
-    sleep(0.5)
 
 
 @pytest.fixture
 def real_subscriber(supvisors):
-    test_subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(),
-                                                 'localhost', supvisors.options.event_port,
-                                                 supvisors.logger)
+    test_subscriber = SupvisorsWsEventInterface('localhost', supvisors.options.event_port, supvisors.logger)
     test_subscriber.subscribe_all()
     yield test_subscriber
     test_subscriber.stop()
-
-
-def test_external_publish_subscribe(supvisors):
-    """ Test the ZeroMQ publish-subscribe sockets used in the event interface of Supvisors. """
-    # create publisher and subscriber
-    publisher = ZmqEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
-    subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', supvisors.options.event_port,
-                                            supvisors.logger)
-    subscriber.start()
-    time.sleep(1)
-    # check that the ZMQ sockets are ready
-    assert not publisher.socket.closed
-    # check the Client side
-    assert subscriber.headers == set()
-    assert subscriber.thread.is_alive()
-    assert subscriber.thread.loop.is_running()
-    assert not subscriber.thread.stop_event.is_set()
-    # close the sockets and stop the reception thread
-    publisher.close()
-    subscriber.stop()
-    # check that the ZMQ socket are closed
-    assert publisher.socket.closed
-    # check the Client side
-    assert not subscriber.thread.is_alive()
-    assert not subscriber.thread.loop.is_running()
-    assert subscriber.thread.stop_event.is_set()
 
 
 supvisors_payload = {'state': 'running', 'version': '1.0'}
@@ -90,7 +58,7 @@ hstats_payload = {'identifier': '10.0.0.1', 'period': 5.2, 'uptime': 1230, 'cpu'
 pstats_payload = {'identifier': '10.0.0.1', 'namespec': 'dummy_proc', 'period': 5.2, 'uptime': 1230, 'cpu': [28.3]}
 
 
-def publish_all(publisher):
+def publish_all(publisher, close=False):
     """ Send all kind of expected messages. """
     publisher.send_supvisors_status(supvisors_payload)
     publisher.send_instance_status(instance_payload)
@@ -99,9 +67,12 @@ def publish_all(publisher):
     publisher.send_process_status(process_payload)
     publisher.send_host_statistics(hstats_payload)
     publisher.send_process_statistics(pstats_payload)
+    if close:
+        publisher.close()
 
 
-def check_subscription(subscriber, publisher, supvisors_subscribed=False, instance_subscribed=False,
+def check_subscription(subscriber, publisher,
+                       supvisors_subscribed=False, instance_subscribed=False,
                        application_subscribed=False, event_subscribed=False, process_subscribed=False,
                        hstats_subscribed=False, pstats_subscribed=False):
     """ The method tests the emission and reception of all status, depending on their subscription status. """
@@ -137,6 +108,39 @@ def check_subscription(subscriber, publisher, supvisors_subscribed=False, instan
     subscriber.reset()
 
 
+def test_external_publish_subscribe(supvisors):
+    """ Test the opening and closing of the Websocket server/client used in the event interface of Supvisors. """
+    # get event port
+    port = supvisors.options.event_port
+    # create publisher and subscriber
+    publisher = WsEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+    subscriber = SupvisorsWsEventInterface('localhost', port, supvisors.logger)
+    subscriber.start()
+    time.sleep(1)
+    # check the Server side
+    assert publisher.thread.is_alive()
+    assert publisher.thread.loop.is_running()
+    assert not publisher.thread.stop_event.is_set()
+    # sleep a bit to give time to hit the reception timeout
+    time.sleep(WsEventSubscriber.RecvTimeout)
+    # check the Client side
+    assert subscriber.headers == set()
+    assert subscriber.thread.is_alive()
+    assert subscriber.thread.loop.is_running()
+    assert not subscriber.thread.stop_event.is_set()
+    # close the sockets
+    publisher.close()
+    subscriber.stop()
+    # check the Server side
+    assert not publisher.thread.is_alive()
+    assert not publisher.thread.loop.is_running()
+    assert publisher.thread.stop_event.is_set()
+    # check the Client side
+    assert not subscriber.thread.is_alive()
+    assert not subscriber.thread.loop.is_running()
+    assert subscriber.thread.stop_event.is_set()
+
+
 def test_no_subscription(publisher, subscriber):
     """ Test the non-reception of messages when subscription is not set. """
     # at this stage, no subscription has been set so nothing should be received
@@ -154,7 +158,7 @@ def test_subscription_supvisors_status(publisher, subscriber):
 
 
 def test_subscription_instance_status(publisher, subscriber):
-    """ Test the reception of Address status messages when related subscription is set. """
+    """ Test the reception of Instance status messages when related subscription is set. """
     # subscribe to Instance status only
     subscriber.subscribe_instance_status()
     check_subscription(subscriber, publisher, instance_subscribed=True)
@@ -217,7 +221,8 @@ def test_subscription_all_status(publisher, subscriber):
     """ Test the reception of all status messages when related subscription is set. """
     # subscribe to every status
     subscriber.subscribe_all()
-    check_subscription(subscriber, publisher, supvisors_subscribed=True, instance_subscribed=True,
+    check_subscription(subscriber, publisher,
+                       supvisors_subscribed=True, instance_subscribed=True,
                        application_subscribed=True, event_subscribed=True, process_subscribed=True,
                        hstats_subscribed=True, pstats_subscribed=True)
     # unsubscribe all
@@ -232,21 +237,25 @@ def test_subscription_multiple_status(publisher, subscriber):
     subscriber.subscribe_process_event()
     check_subscription(subscriber, publisher, application_subscribed=True, event_subscribed=True)
     # set subscription to Instance and Process Status
+    subscriber.reset()
     subscriber.unsubscribe_application_status()
     subscriber.unsubscribe_process_event()
     subscriber.subscribe_process_status()
     subscriber.subscribe_instance_status()
     check_subscription(subscriber, publisher, instance_subscribed=True, process_subscribed=True)
     # add subscription to Supvisors Status and remove process
+    subscriber.reset()
     subscriber.subscribe_supvisors_status()
     subscriber.unsubscribe_process_status()
     check_subscription(subscriber, publisher, supvisors_subscribed=True, instance_subscribed=True)
     # add subscription to Statistics and remove Supvisors Status
+    subscriber.reset()
     subscriber.unsubscribe_supvisors_status()
     subscriber.subscribe_host_statistics()
     subscriber.subscribe_process_statistics()
     check_subscription(subscriber, publisher, instance_subscribed=True, hstats_subscribed=True, pstats_subscribed=True)
     # unsubscribe all
+    subscriber.reset()
     subscriber.unsubscribe_instance_status()
     subscriber.unsubscribe_host_statistics()
     subscriber.unsubscribe_process_statistics()
@@ -271,44 +280,19 @@ def test_unknown_message(mocker, publisher, real_subscriber):
         assert mock.call_count == 1
         mock.reset_mock()
     # now send an unexpected event
-    publisher.socket.send_string('dummy header', zmq.SNDMORE)
-    publisher.socket.send_json('dummy body')
+    websockets.broadcast(websocket_clients, json.dumps(('dummy header', 'dummy body')))
     # check that no on_xxx has been called
     time.sleep(2)
     assert all(not mock.called for mock in mocked_ons)
 
 
-def test_erroneous_message(mocker, publisher, real_subscriber):
-    """ Test the reception of a message with unknown header. """
+def test_close_server(real_subscriber, publisher):
+    """ Test the server closure while a client is connected. """
     # give time to the websocket client to connect the server
     real_subscriber.start()
     time.sleep(2)
-    # mock the on_xxx methods
-    mocked_ons = [mocker.patch.object(real_subscriber, method_name)
-                  for method_name in ['on_supvisors_status', 'on_instance_status', 'on_application_status',
-                                      'on_process_event', 'on_process_status',
-                                      'on_host_statistics', 'on_process_statistics']]
-    # send a message that is incompatible from a string or JSON point of view
-    publisher.socket.send(int(1234).to_bytes(8, 'big'))
-    # check that no on_xxx has been called
-    time.sleep(2)
-    assert all(not mock.called for mock in mocked_ons)
-
-
-def test_erroneous_socket(mocker, publisher, real_subscriber):
-    """ Test the reception of a message with unknown header. """
-    # patch the pyzmq recv_json
-    mocker.patch('zmq.sugar.socket.Socket.recv_json', side_effect=zmq.ZMQError)
-    # give time to the websocket client to connect the server
-    real_subscriber.start()
-    time.sleep(2)
-    # mock the on_xxx methods
-    mocked_ons = [mocker.patch.object(real_subscriber, method_name)
-                  for method_name in ['on_supvisors_status', 'on_instance_status', 'on_application_status',
-                                      'on_process_event', 'on_process_status',
-                                      'on_host_statistics', 'on_process_statistics']]
-    # send a message part. no need to send the body because recv_json has been mocked and won't read the socket
-    publisher.socket.send_string('dummy header')
-    # check that no on_xxx has been called
-    time.sleep(2)
-    assert all(not mock.called for mock in mocked_ons)
+    # the publisher will be stopped just after all the publications
+    # default websocket ping is 20 seconds
+    publish_all(publisher, True)
+    time.sleep(30)
+    # the ConnectionClosed handling should have been hit

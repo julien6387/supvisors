@@ -1,11 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import socket
-
-import pytest
-
-from supvisors.supvisorssocket import *
-
 
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
@@ -22,6 +16,12 @@ from supvisors.supvisorssocket import *
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+
+import socket
+
+import pytest
+
+from supvisors.supvisorssocket import *
 
 
 def test_payload_to_bytes_to_payload(supvisors):
@@ -347,7 +347,7 @@ def test_publisher_bind_exception(supvisors):
 
 
 def test_publisher_forward_empty_message(supvisors, sockets):
-    """ . """
+    """ Test the robustness when the publisher forwards an empty message. """
     subscriber = sockets.subscriber
     publisher = sockets.publisher
     # wait for publisher server to be alive

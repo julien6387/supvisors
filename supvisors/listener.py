@@ -28,9 +28,9 @@ from supervisor.options import make_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
+from .eventinterface import create_external_publisher, EventPublisherInterface
 from .mainloop import SupvisorsMainLoop
 from .process import ProcessStatus
-from .publisherinterface import create_external_publisher, EventPublisherInterface
 from .supvisorssocket import SupvisorsSockets, InternalPublisher
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
                      InternalEventHeaders, RemoteCommEvents, Payload)

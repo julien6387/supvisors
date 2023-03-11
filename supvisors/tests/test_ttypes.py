@@ -45,7 +45,7 @@ def test_application_states():
 
 def test_event_links():
     """ Test the EventLinks enumeration. """
-    expected = ['NONE', 'ZMQ']
+    expected = ['NONE', 'ZMQ', 'WS']
     assert [x.name for x in EventLinks] == expected
 
 

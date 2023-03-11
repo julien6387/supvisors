@@ -3,22 +3,18 @@
 Event interface
 ===============
 
-Protocol
---------
+Available Protocols
+-------------------
 
-The |Supvisors| Event Interface relies on a PyZMQ_ socket.
-To receive the |Supvisors| events, the client application must configure a socket with a ``SUBSCRIBE`` pattern
-and connect it on localhost using the ``event_port`` option defined in the :ref:`supvisors_section` of the |Supervisor|
-configuration file. The ``event_link`` option must also be set to ``ZMQ``.
+The |Supvisors| Event Interface can be created either using a |ZeroMQ| socket or using |websockets|.
 
-|Supvisors| publishes the events in multi-parts messages.
-
+All messages consist in a header and a body.
 
 Message header
 --------------
 
-The first part is a header that consists in an unicode string. This header identifies the type of the event,
-defined as follows in the ``supvisors.ttypes`` module:
+This header is a unicode string that identifies the type of the event and that is defined as follows
+in the ``supvisors.ttypes`` module:
 
 .. code-block:: python
 
@@ -32,17 +28,7 @@ defined as follows in the ``supvisors.ttypes`` module:
         HOST_STATISTICS = 'hstats'
         PROCESS_STATISTICS = 'pstats'
 
-
-PyZMQ_ makes it possible to filter the messages received on the client side by subscribing to a part of them.
-To receive all messages, just subscribe using an empty string.
-For example, the following lines in python configure the PyZMQ_ socket so as to receive only the ``Supvisors``
-and ``Process`` events:
-
-.. code-block:: python
-
-    socket.setsockopt(zmq.SUBSCRIBE, EventHeaders.SUPVISORS.value.encode('utf-8'))
-    socket.setsockopt(zmq.SUBSCRIBE, EventHeaders.PROCESS_STATUS.value.encode('utf-8'))
-
+The header value is used to set the event subscriptions.
 
 Message data
 ------------
@@ -183,17 +169,38 @@ Key                Type              Value
 ================== ================= ==================
 
 
-Event Clients
--------------
+|ZeroMQ| Implementation
+-----------------------
 
-This section explains how to use receive the |Supvisors| Events from a Python or JAVA client.
+The |ZeroMQ| implementation relies on a ``PUB-SUB`` pattern provided by |PyZMQ| (:command:`Python` binding of |ZeroMQ|).
+
+When the ``event_link`` option is set to ``ZMQ``, |Supvisors| binds a ``PUBLISH`` |PyZMQ| socket on all interfaces
+using the ``event_port`` option defined in the :ref:`supvisors_section` of the |Supervisor| configuration file.
+
+|Supvisors| publishes the events in multi-parts messages.
+The first part is the message header, as a unicode string. The body follows, encoded in JSON.
+
+To receive the |Supvisors| events, the client application must connect a ``SUBSCRIBE`` |PyZMQ| socket to the address
+defined by the node name and the port number where the |Supvisors| ``PUBLISH`` |PyZMQ| socket is bound.
+
+|PyZMQ| makes it possible to filter the messages received on the client side by subscribing to a part of them.
+To receive all messages, just subscribe using an empty string.
+
+For example, the following :command:`Python` instructions configure the |PyZMQ| socket so as to receive only
+the *Supvisors Status* and *Process Status* events:
+
+.. code-block:: python
+
+    socket.setsockopt(zmq.SUBSCRIBE, EventHeaders.SUPVISORS.value.encode('utf-8'))
+    socket.setsockopt(zmq.SUBSCRIBE, EventHeaders.PROCESS_STATUS.value.encode('utf-8'))
 
 
 Python Client
 ~~~~~~~~~~~~~
 
-The *SupvisorsZmqEventInterface* is designed to receive the |Supvisors| events from the local |Supvisors| instance.
-It requires PyZmq_ to be installed.
+|Supvisors| provides a :command:`Python` implementation of the |ZeroMQ| client subscriber.
+The *SupvisorsZmqEventInterface* is designed to receive the |Supvisors| events from a |Supvisors| instance.
+It requires |PyZMQ| to be installed.
 
 
 .. automodule:: supvisors.client.zmqsubscriber
@@ -205,13 +212,17 @@ It requires PyZmq_ to be installed.
        .. automethod:: on_application_status(data)
        .. automethod:: on_process_status(data)
        .. automethod:: on_process_event(data)
+       .. automethod:: on_host_statistics(data)
+       .. automethod:: on_process_statistics(data)
 
 .. code-block:: python
 
-    from supvisors.client.zmqsubscriber import *
+    import zmq.asyncio
+    from supvisors.client.clientutils import create_logger
+    from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
 
     # create the subscriber thread
-    subscriber = SupvisorsZmqEventInterface(zmq.Context.instance(), port, create_logger())
+    subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', 9003, create_logger())
     # subscribe to all messages
     subscriber.subscribe_all()
     # start the thread
@@ -221,8 +232,8 @@ It requires PyZmq_ to be installed.
 JAVA Client
 ~~~~~~~~~~~
 
-Each |Supvisors| release includes a JAR file that contains a JAVA client.
-It can be downloaded from the `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_.
+A :command:`JAVA` implementation of the |ZeroMQ| client subscriber is made available with each |Supvisors| release
+through a JAR file. This file can be downloaded from the `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_.
 
 The *SupvisorsEventSubscriber* of the ``org.supvisors.event package`` is designed to receive the |Supvisors| events
 from the local |Supvisors| instance.
@@ -248,7 +259,7 @@ The binary JAR of :program:`Google Gson 2.8.6` is available in the
     Context context = ZMQ.context(1);
 
     // create and configure the subscriber
-    SupvisorsEventSubscriber subscriber = new SupvisorsEventSubscriber(60002, context);
+    SupvisorsEventSubscriber subscriber = new SupvisorsEventSubscriber(9003, context);
     subscriber.subscribeToAll();
     subscriber.setListener(new SupvisorsEventListener() {
 
@@ -276,10 +287,80 @@ The binary JAR of :program:`Google Gson 2.8.6` is available in the
         public void onProcessEvent(final SupvisorsProcessEvent event) {
             System.out.println(event);
         }
+
+        @Override
+        public void onHostStatistics(final SupvisorsHostStatistics status) {
+            System.out.println(status);
+        }
+
+        @Override
+        public void onProcessStatistics(final SupvisorsProcessStatistics status) {
+            System.out.println(status);
+        }
     });
 
     // start subscriber in thread
     Thread t = new Thread(subscriber);
     t.start();
+
+
+|websockets| Implementation
+---------------------------
+
+When the ``event_link`` option is set to ``WS``, |Supvisors| creates a |websockets| server that binds on all interfaces
+using the ``event_port`` option defined in the :ref:`supvisors_section` of the |Supervisor| configuration file.
+
+|Supvisors| publishes the event messages as a tuple of header, as a unicode string, and body, encoded in JSON.
+
+To receive the |Supvisors| events, the client application must create a |websockets| client that connects
+to the address defined by the node name and the port number where the |Supvisors| |websockets| server has bound.
+
+Filtering the messages is performed by adding headers to the path of the URI.
+To receive all messages, just add ``all`` to the path of the URI.
+
+For example, the following command:`Python` instructions configure the |websockets| client so as to receive only
+the *Supvisors Status* and *Process Status* events:
+
+.. code-block:: python
+
+    import websockets
+
+    uri = 'ws://localhost:9003/supvisors/process'
+    async with websockets.connect(uri) as ws:
+        ...
+
+
+Python Client
+~~~~~~~~~~~~~
+
+|Supvisors| provides a :command:`Python` implementation of the |websockets| client.
+The *SupvisorsWsEventInterface* is designed to receive the |Supvisors| events from a |Supvisors| instance.
+It requires |websockets| to be installed.
+
+
+.. automodule:: supvisors.client.wssubscriber
+
+  .. autoclass:: SupvisorsWsEventInterface
+
+       .. automethod:: on_supvisors_status(data)
+       .. automethod:: on_instance_status(data)
+       .. automethod:: on_application_status(data)
+       .. automethod:: on_process_status(data)
+       .. automethod:: on_process_event(data)
+       .. automethod:: on_host_statistics(data)
+       .. automethod:: on_process_statistics(data)
+
+.. code-block:: python
+
+    from supvisors.client.clientutils import create_logger
+    from supvisors.client.wssubscriber import SupvisorsWsEventInterface
+
+    # create the subscriber thread
+    subscriber = SupvisorsWsEventInterface('localhost', 9003, create_logger())
+    # subscribe to all messages
+    subscriber.subscribe_all()
+    # start the thread
+    subscriber.start()
+
 
 .. include:: common.rst

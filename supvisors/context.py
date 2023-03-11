@@ -20,9 +20,9 @@
 from typing import List
 
 from .application import ApplicationRules, ApplicationStatus
+from .eventinterface import EventPublisherInterface
 from .instancestatus import *
 from .process import *
-from .publisherinterface import EventPublisherInterface
 from .ttypes import ApplicationStates, SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
 
 

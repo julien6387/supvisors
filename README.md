@@ -15,7 +15,7 @@ The main features are:
 * a new web-based dashboard that replaces the default dashboard of Supervisor and allows to control
   all the Supervisor instances declared,
 * an extended XML-RPC API to control applications and processes over the multiple Supervisor instances,
-* a notification interface to get the events from multiple Supervisor instances on a `PyZmq` socket. 
+* a notification interface to get the events from multiple Supervisor instances on a `websocket` or on a `PyZmq` socket.
 
 A set of application and program rules can be added to manage:
 * the starting sequence of the applications,
@@ -68,11 +68,12 @@ but is not maintained anymore.
 | Package                                           | Release | Optional |
 |---------------------------------------------------|---------|----------|
 | [Supervisor](http://supervisord.org)              | 4.2.4   |          |
-| [PyZMQ](http://pyzmq.readthedocs.io)              | 20.0.0  | X        |
 | [psutil](https://pypi.python.org/pypi/psutil)     | 5.7.3   | X        |
 | [matplotlib](http://matplotlib.org)               | 3.3.3   | X        |
 | [lxml](http://lxml.de)                            | 4.6.2   | X        |
 | [Flask-RESTX](https://flask-restx.readthedocs.io) | 0.5.1   | X        |
+| [websockets](https://websockets.readthedocs.io)   | 10.2    | X        |
+| [PyZMQ](http://pyzmq.readthedocs.io)              | 20.0.0  | X        |
 
 Please note that some of these dependencies may have their own dependencies.
 
@@ -86,7 +87,7 @@ is unknown. Other releases are likely working as well.
 Supvisors can be installed with `pip install`:
 
 ```bash
-   # minimal install (including only Supervisor and PyZMQ)
+   # minimal install (including only Supervisor)
    [bash] > pip install supvisors
 
    # extra install for all optional dependencies

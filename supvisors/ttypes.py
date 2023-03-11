@@ -41,7 +41,7 @@ class ApplicationStates(Enum):
 
 class EventLinks(Enum):
     """ Available link types used to publish all Supvisors events. """
-    NONE, ZMQ = range(2)
+    NONE, ZMQ, WS = range(3)
 
 
 class StartingStrategies(Enum):

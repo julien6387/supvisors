@@ -1,6 +1,11 @@
 # Change Log
 
-## 0.16 (2023-xx-xx)
+## 0.16 (2023-03-xx)
+
+* Add `websockets` as an option to the **Supvisors** event listener.
+
+* Re-design the `PyZMQ` event listener using the `zmq.asyncio` support for better commonalities
+  with the `wesockets` solution.
 
 * Re-design the statistics collection and compilation.
 
@@ -10,7 +15,8 @@
 
 * The option `stats_periods` accepts float values, not necessarily multiples of 5.
 
-* Add host and process statistics to the **Supvisors** event interface.
+* Fix [Issue #54](https://github.com/julien6387/supvisors/issues/54).
+  Add host and process statistics to the **Supvisors** event interface.
 
 * Fix children process CPU times in statistics.
 
@@ -33,6 +39,8 @@
 
 * Raise an exception when the matching **Supvisors** instance in the `supvisors_list` option is inconsistent
   with the local configuration.
+
+* Add a **Supvisors** logo.
 
 
 ## 0.15 (2022-11-20)

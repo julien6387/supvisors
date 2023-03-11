@@ -24,7 +24,7 @@ from unittest.mock import call, Mock
 import pytest
 
 from supvisors.context import *
-from supvisors.publisherinterface import EventPublisherInterface
+from supvisors.eventinterface import EventPublisherInterface
 from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, SupvisorsStates
 from .base import database_copy, any_process_info
 from .conftest import create_application, create_process

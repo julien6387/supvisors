@@ -148,9 +148,10 @@ behavior may happen. The present section details where it is applicable.
 ``event_link``
 
     The communication protocol type used to publish all |Supvisors| events (Instance, Application and Process events).
-    Value in [``NONE`` ; ``ZMQ``]. Other protocols may be considered in the future.
+    Value in [``NONE`` ; ``ZMQ`` ; ``WS``]. Other protocols may be considered in the future.
     If set to ``NONE``, the interface is not available.
-    If set to ``ZMQ``, events are published through a PyZMQ TCP socket.
+    If set to ``ZMQ``, events are published through a |ZeroMQ| TCP socket.
+    If set to ``WS``, events are published through |Websockets|.
     The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  NONE.

@@ -68,21 +68,23 @@ Installation
 
 |Supvisors| has the following dependencies:
 
-+----------------+------------+-----------------------------------------------------------------+
-| Package        | Release    | Usage                                                           |
-+================+============+=================================================================+
-| |Supervisor|   | 4.2.4      | Base software, extended by |Supvisors|                          |
-+----------------+------------+-----------------------------------------------------------------+
-| PyZMQ_         | 22.0.3     | *:command:`Python` binding of ZeroMQ (optional)*                |
-+----------------+------------+-----------------------------------------------------------------+
-| psutil_        | 5.7.3      | *Information about system usage (optional)*                     |
-+----------------+------------+-----------------------------------------------------------------+
-| matplotlib_    | 3.3.3      | *Graphs for Dashboard (optional)*                               |
-+----------------+------------+-----------------------------------------------------------------+
-| lxml_          | 4.6.2      | *XSD validation of the XML rules file (optional)*               |
-+----------------+------------+-----------------------------------------------------------------+
-| |Flask-RESTX|  | 0.5.1      | *Flask web server with REST API (optional)*                     |
-+----------------+------------+-----------------------------------------------------------------+
++----------------+------------+---------------------------------------------------------------------------------+
+| Package        | Release    | Usage                                                                           |
++================+============+=================================================================================+
+| |Supervisor|   | 4.2.4      | Base software, extended by |Supvisors|                                          |
++----------------+------------+---------------------------------------------------------------------------------+
+| |psutil|       | 5.7.3      | *Information about system usage (optional)*                                     |
++----------------+------------+---------------------------------------------------------------------------------+
+| matplotlib_    | 3.3.3      | *Graphs for Dashboard (optional)*                                               |
++----------------+------------+---------------------------------------------------------------------------------+
+| lxml_          | 4.6.2      | *XSD validation of the XML rules file (optional)*                               |
++----------------+------------+---------------------------------------------------------------------------------+
+| |Flask-RESTX|  | 0.5.1      | *Expose the Supervisor and Supvisors XML-RPC API through a REST API (optional)* |
++----------------+------------+---------------------------------------------------------------------------------+
+| |PyZMQ|        | 22.0.3     | *Alternative for the |Supvisors| Event interface (optional)*                    |
++----------------+------------+---------------------------------------------------------------------------------+
+| |Websockets|   | 10.4       | *Alternative for the |Supvisors| Event interface (optional)*                    |
++----------------+------------+---------------------------------------------------------------------------------+
 
 With an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,6 +112,9 @@ Supvisors can be installed with ``pip install``:
    # install for the ZMQ event interface (includes PyZMQ)
    [bash] > pip install supvisors[zmq]
 
+   # install for the Websockets event interface (includes websockets)
+   [bash] > pip install supvisors[ws]
+
 Without an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -136,6 +141,11 @@ installation has been configured with):
     * :command:`supvisorsflask` provides a |Flask-RESTX| application that exposes the |Supervisor| and |Supvisors|
       XML-RPC APIs through a REST API (refer to the :ref:`rest_api` page).
 
+.. attention::
+
+    :command:`supvisorsflask` uses the |Flask|'s built-in server, which should not be an issue as it is unlikely
+    that this interface ever needs to be scaled.
+
 
 Running |Supvisors|
 -------------------
@@ -158,10 +168,8 @@ However, the |Supervisor| configuration file **MUST**:
 
 .. important::
 
-    A script may be required to start |Supervisor| on several addresses if not configured to run automatically at
+    A script may be required to start |Supervisor| on several nodes if not configured to run automatically at
     startup (ssh loop for example).
 
-    It is preferred that all |Supvisors| instances are started within the same (configurable) time frame so that
-    |Supvisors| works as expected. Late starting |Supvisors| instances will yet be considered.
 
 .. include:: common.rst

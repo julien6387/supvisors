@@ -32,6 +32,7 @@ statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib 
 xml_valid_require = ['lxml >= 4.6.2']
 flask_require = ['flask-restx == 0.5.1', 'Werkzeug == 2.0.3']
 zmq_require = ['pyzmq >= 20.0.0']
+websockets_require = ['websockets >= 10.4']
 
 testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
 
@@ -82,7 +83,8 @@ setup(name='supvisors',
                       'xml_valid': xml_valid_require,
                       'flask': flask_require,
                       'zwq': zmq_require,
-                      'all': statistics_require + xml_valid_require + flask_require + zmq_require,
+                      'ws': websockets_require,
+                      'all': statistics_require + xml_valid_require + flask_require + zmq_require + websockets_require,
                       'testing': testing_extras},
       include_package_data=True,
       zip_safe=False,

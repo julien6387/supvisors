@@ -21,12 +21,7 @@ from unittest.mock import call, Mock
 
 import pytest
 
-from supvisors.client.zmqsubscriber import *
-
-
-@pytest.fixture
-def context():
-    return zmq.asyncio.Context.instance()
+from supvisors.client.wssubscriber import *
 
 
 @pytest.fixture
@@ -35,17 +30,16 @@ def logger():
 
 
 @pytest.fixture
-def interface(context, logger):
-    intf = SupvisorsZmqEventInterface(context, 'localhost', 7777, logger)
+def interface(logger):
+    intf = SupvisorsWsEventInterface('localhost', 7777, logger)
     yield intf
     intf.stop()
 
 
-def test_creation(context, logger, interface):
+def test_creation(logger, interface):
     """ Test the initialization of the SupvisorsZmqEventInterface. """
     assert isinstance(interface, EventSubscriberInterface)
-    assert isinstance(interface, ZmqEventSubscriber)
-    assert interface.zmq_context is context
+    assert isinstance(interface, WsEventSubscriber)
     assert interface.intf is interface
     assert interface.node_name == 'localhost'
     assert interface.event_port == 7777
@@ -56,37 +50,36 @@ def test_on_receive(interface, logger):
     """ Dummy tests about logging when receiving messages from Supvisors. """
     # test reception of Supvisors status message
     interface.on_supvisors_status('supvisors payload')
-    assert logger.info.call_args_list == [call('SupvisorsZmqEventInterface.on_supvisors_status:'
+    assert logger.info.call_args_list == [call('SupvisorsWsEventInterface.on_supvisors_status:'
                                                ' got Supvisors Status message: supvisors payload')]
     logger.info.reset_mock()
     # test reception of Supvisors Instance status message
     interface.on_instance_status('instance payload')
-    assert logger.info.call_args_list == [call('SupvisorsZmqEventInterface.on_instance_status:'
+    assert logger.info.call_args_list == [call('SupvisorsWsEventInterface.on_instance_status:'
                                                ' got Instance Status message: instance payload')]
     logger.info.reset_mock()
     # test reception of Supvisors Application status message
     interface.on_application_status('application payload')
-    assert logger.info.call_args_list == [call('SupvisorsZmqEventInterface.on_application_status:'
+    assert logger.info.call_args_list == [call('SupvisorsWsEventInterface.on_application_status:'
                                                ' got Application Status message: application payload')]
     logger.info.reset_mock()
     # test reception of Supvisors Process event message
     interface.on_process_event('process event payload')
-    assert logger.info.call_args_list == [call('SupvisorsZmqEventInterface.on_process_event:'
+    assert logger.info.call_args_list == [call('SupvisorsWsEventInterface.on_process_event:'
                                                ' got Process Event message: process event payload')]
     logger.info.reset_mock()
     # test reception of Supvisors Process status message
     interface.on_process_status('process payload')
-    assert logger.info.call_args_list == [call('SupvisorsZmqEventInterface.on_process_status:'
+    assert logger.info.call_args_list == [call('SupvisorsWsEventInterface.on_process_status:'
                                                ' got Process Status message: process payload')]
     logger.info.reset_mock()
     # test reception of Supvisors Application status message
     interface.on_host_statistics('host statistics payload')
-    assert logger.info.call_args_list == [call('SupvisorsZmqEventInterface.on_host_statistics:'
+    assert logger.info.call_args_list == [call('SupvisorsWsEventInterface.on_host_statistics:'
                                                ' got Host Statistics message: host statistics payload')]
     logger.info.reset_mock()
     # test reception of Supvisors Application status message
     interface.on_process_statistics('process statistics payload')
-    assert logger.info.call_args_list == [call('SupvisorsZmqEventInterface.on_process_statistics:'
+    assert logger.info.call_args_list == [call('SupvisorsWsEventInterface.on_process_statistics:'
                                                ' got Process Statistics message: process statistics payload')]
     logger.info.reset_mock()
-
