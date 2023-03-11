@@ -1,6 +1,7 @@
 .. |Supvisors| replace:: **Supvisors**
 .. |Supervisor| replace:: Supervisor_
 .. |psutil| replace:: psutil_
+.. |lxml| replace:: lxml_
 .. |Flask-RESTX| replace:: Flask-RESTX_
 .. |Flask| replace:: Flask_
 .. |PyZMQ| replace:: PyZMQ_
