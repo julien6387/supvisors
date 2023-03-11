@@ -17,9 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-from unittest.mock import call, Mock
-
 import pytest
+pytest.importorskip('websockets', reason='cannot test as optional websockets is not installed')
+
+from unittest.mock import call, Mock
 
 from supvisors.client.wssubscriber import *
 
