@@ -306,11 +306,11 @@ class CheckSequenceTest(unittest.TestCase):
 
     def check_application_event(self, event):
         """ Check if the received application event corresponds to expectation. """
-        self.evloop.logger.info(f'Checking application event: {event}')
         # check that event corresponds to an expected application
         application_name = event['application_name']
         application = self.context.get_application(application_name)
         self.assertIsNotNone(application)
+        self.evloop.logger.info(f'Checking application event={event} against {application.__dict__}')
         # check event contents in accordance with context
         if application.is_starting():
             self.assertDictContainsSubset({'statename': 'STARTING', 'statecode': ApplicationStates.STARTING.value},

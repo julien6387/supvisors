@@ -19,16 +19,14 @@
 
 import os
 import unittest
+from queue import Empty
 
 import zmq
-
-from queue import Empty
 from supervisor.childutils import getRPCInterface
 
+from supvisors.client.clientutils import create_logger
 from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.utils import SupervisorServerUrl
-from supvisors.client.zmqsubscriber import create_logger
-
 from .event_queues import SupvisorsEventQueues
 
 
@@ -53,13 +51,13 @@ class RunningIdentifiersTest(unittest.TestCase):
                                     if info['statecode'] == SupvisorsInstanceStates.RUNNING.value}
         self.assertEqual(3, len(self.running_identifiers))
         # keep a reference to all RPC proxies
-        supervisor_url = SupervisorServerUrl(os.environ.copy())
+        supervisor_url = SupervisorServerUrl(os.environ)
         self.proxies = {}
         for identifier, (node_name, port) in self.running_identifiers.items():
             supervisor_url.update_url(node_name, port)
             self.proxies[identifier] = getRPCInterface(supervisor_url.env)
         # create the thread of event subscriber
-        self.zcontext = zmq.Context.instance()
+        self.zcontext = zmq.asyncio.Context.instance()
         self.logger = create_logger(logfile=r'./log/running_identifiers.log')
         self.evloop = SupvisorsEventQueues(self.zcontext, self.logger)
         # start the thread
@@ -69,7 +67,6 @@ class RunningIdentifiersTest(unittest.TestCase):
     def tearDown(self):
         """ The tearDown stops the subscriber to the Supvisors events. """
         self.evloop.stop()
-        self.evloop.join()
         self.logger.info('Event loop ended')
         # close resources
         self.logger.close()

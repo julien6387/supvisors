@@ -65,21 +65,19 @@ class SupervisorServerUrl:
 
     def __init__(self, env):
         """ Parse the Supervisor server URL for later modification. """
-        self.env = env
-        self.parsed_url = urlparse(env['SUPERVISOR_SERVER_URL'])
-        # consider the authentication part (just in case)
+        self.env = env.copy()
+        # get the possible authentication part
+        parsed_url = urlparse(env['SUPERVISOR_SERVER_URL'])
         self.authentication = ''
-        if self.parsed_url.username:
-            self.authentication = f'{self.parsed_url.username}'
-            if self.parsed_url.password:
-                self.authentication += f':{self.parsed_url.password}'
+        if parsed_url.username:
+            self.authentication = parsed_url.username
+            if parsed_url.password:
+                self.authentication += f':{parsed_url.password}'
             self.authentication += '@'
 
-    def update_url(self, hostname: str, port: int = None):
-        """ Update the URL by changing the hostname and optionally the port. """
-        netloc = f'{self.authentication}{hostname}:{port if port else self.parsed_url.port}'
-        self.parsed_url = self.parsed_url._replace(netloc=netloc)
-        self.env['SUPERVISOR_SERVER_URL'] = self.parsed_url.geturl()
+    def update_url(self, hostname: str, port: int):
+        """ Update the URL by changing the hostname and the port. """
+        self.env['SUPERVISOR_SERVER_URL'] = f'http://{self.authentication}{hostname}:{port}'
 
 
 # simple functions
