@@ -31,9 +31,9 @@ Common Menu
     :alt: Common Menu
     :align: center
 
-Clicking on the 'Supvisors' title brings the `Main page`_ back or the `Conciliation page`_ if it blinks in red.
-The version of |Supvisors| is displayed underneath. There's also a reminder of the |Supvisors| instance that provides
-the information.
+Clicking on the 'Supvisors' title brings the `Main page`_ back or the `Conciliation page`_ if a red light is blinking
+next to it. The version of |Supvisors| is displayed underneath. There's also a reminder of the |Supvisors| instance
+that provides the information.
 
 Below is the **Supervisors** part that lists all the |Supvisors| instances defined in the :ref:`supvisors_section`
 of the |Supervisor| configuration file.
@@ -198,13 +198,13 @@ Each box contains:
 Conciliation Page
 -----------------
 
-If the page is refreshed when |Supvisors| is in ``CONCILIATION`` state, the 'Supvisors' label in the top left
-of the `Common Menu`_ becomes red and blinks.
+If the page is refreshed when |Supvisors| is in ``CONCILIATION`` state, a red light is blinking next to the 'Supvisors'
+title in the top left of the `Common Menu`_.
 This situation is unlikely to happen if the ``conciliation_strategy`` chosen in the :ref:`supvisors_section`
 of the |Supervisor| configuration file is different from ``USER``, as the other values will trigger an immediate and
 automatic conciliation of the conflicts.
 
-The Conciliation Page can be reached by clicking on this blinking red label.
+The Conciliation Page can be reached by clicking on the 'Supvisors' title when the red blinking light is displayed.
 
 .. image:: images/supvisors_conciliation_page.png
     :alt: Supvisors Conciliation Page
