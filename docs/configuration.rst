@@ -501,7 +501,7 @@ and the quality of service expected. It relies on the |Supervisor| group and pro
     There can be as many running instances of the same program as |Supervisor| allows over the available |Supvisors|
     instances.
 
-If the `lxml <http://lxml.de>`_ package is available on the system, |Supvisors| uses it to validate the XML rules files
+If the |lxml| package is available on the system, |Supvisors| uses it to validate the XML rules files
 before they are used.
 
 .. hint::
