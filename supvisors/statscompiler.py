@@ -86,9 +86,9 @@ class HostStatisticsInstance:
         # keep reference to the logger
         self.logger = logger
         # parameters
-        self.identifier: int = identifier
-        self.period: int = period
-        self.depth: int = depth
+        self.identifier: str = identifier
+        self.period: float = period
+        self.depth: float = depth
         self.ref_stats: Payload = {}
         self.ref_start_time: float = 0.0
         # data structures
@@ -329,13 +329,13 @@ class ProcStatisticsHolder:
         pid = process_stats['pid']
         if pid == 0:
             # process has been stopped on Supervisord instance
-            self.logger.info(f'ProcStatisticsHolder.push_statistics: {self.namespec} stopped on {identifier}')
+            self.logger.debug(f'ProcStatisticsHolder.push_statistics: {self.namespec} stopped on {identifier}')
             self.instance_map.pop(identifier, None)
         else:
             ref_pid, identifier_instance = self.instance_map.get(identifier, (0, None))
             if not identifier_instance or pid != ref_pid:
                 # process has been (re-)started on Supervisord instance
-                self.logger.info(f'ProcStatisticsHolder.push_statistics: {self.namespec} started on {identifier}')
+                self.logger.debug(f'ProcStatisticsHolder.push_statistics: {self.namespec} started on {identifier}')
                 identifier_instance = {period: ProcStatisticsInstance(self.namespec, identifier,
                                                                       period, self.options.stats_histo)
                                        for period in self.options.stats_periods}

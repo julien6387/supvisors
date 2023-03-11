@@ -17,8 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from time import time
 from queue import Empty, Queue
+from time import time
 
 from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
 
@@ -33,8 +33,10 @@ class SupvisorsEventQueues(SupvisorsZmqEventInterface):
     def __init__(self, zcontext, logger):
         """ Initialization of the attributes. """
         # create logger using a BoundIO
-        SupvisorsZmqEventInterface.__init__(self, zcontext, self.PORT, logger)
-        self.subscriber.subscribe_all()
+        SupvisorsZmqEventInterface.__init__(self, zcontext, 'localhost', self.PORT, logger)
+        self.subscribe_all()
+        self.unsubscribe_host_statistics()
+        self.unsubscribe_process_statistics()
         # create queues to store messages
         self.supvisors_queue = Queue()
         self.instance_queue = Queue()

@@ -18,17 +18,15 @@
 # ======================================================================
 
 import unittest
-import zmq
-
 from queue import Empty
 from typing import Dict
 
+import zmq.asyncio
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from supvisors.client.zmqsubscriber import create_logger
+from supvisors.client.clientutils import create_logger
 from supvisors.ttypes import ApplicationStates
-
 from .event_queues import SupvisorsEventQueues
 
 
@@ -205,7 +203,7 @@ class SequenceChecker(SupvisorsEventQueues):
 
     def configure(self):
         """ Subscribe to Supvisors instances status only. """
-        self.subscriber.subscribe_instance_status()
+        self.subscribe_instance_status()
 
     def on_instance_status(self, data):
         """ Pushes the Supvisors Instance Status message into a queue. """
@@ -217,10 +215,10 @@ class SequenceChecker(SupvisorsEventQueues):
         if self.nb_identifiers_notifications == 7:
             self.logger.info(f'instances: {self.identifiers}')
             # got all notification, unsubscribe from SupvisorsInstanceStatus
-            self.subscriber.unsubscribe_instance_status()
+            self.unsubscribe_instance_status()
             # subscribe to application and process status
-            self.subscriber.subscribe_application_status()
-            self.subscriber.subscribe_process_status()
+            self.subscribe_application_status()
+            self.subscribe_process_status()
             # notify CheckSequence with an event in start_queue
             self.instance_queue.put(self.identifiers)
 
@@ -238,7 +236,7 @@ class CheckSequenceTest(unittest.TestCase):
         # create a context
         self.context = Context()
         # create the thread of event subscriber
-        self.zcontext = zmq.Context.instance()
+        self.zcontext = zmq.asyncio.Context.instance()
         self.logger = create_logger(logfile=r'./log/check_sequence.log')
         self.evloop = SequenceChecker(self.zcontext, self.logger)
         self.evloop.start()
@@ -246,7 +244,6 @@ class CheckSequenceTest(unittest.TestCase):
     def tearDown(self):
         """ The tearDown stops the subscriber to the Supvisors events. """
         self.evloop.stop()
-        self.evloop.join()
         # close resources
         self.logger.close()
         self.zcontext.term()
