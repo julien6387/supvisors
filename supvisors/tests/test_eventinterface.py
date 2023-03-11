@@ -152,7 +152,7 @@ def test_event_subscriber_mainloop(subscriber):
     """ Test the EventSubscriber mainloop abstract method. """
     coro = subscriber.mainloop(asyncio.Event(), 'localhost', 7777)
     with pytest.raises(NotImplementedError):
-        asyncio.run(coro)
+        asyncio.get_event_loop().run_until_complete(coro)
 
 
 async def mocked_loop(*args):
