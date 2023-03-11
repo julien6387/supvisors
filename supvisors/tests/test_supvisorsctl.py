@@ -553,7 +553,7 @@ def test_all_start(mocker, controller, plugin, mocked_check):
 
 
 def test_all_start_args(mocker, controller, plugin, mocked_check):
-    """ TODO: Test the all_start_args request. """
+    """ Test the all_start_args request. """
     mocked_get_instances = mocker.patch.object(plugin, 'get_running_instances')
     mocked_rpc = Mock(**{'start_args.return_value': True})
     mocked_get_proxy = mocker.patch.object(plugin, 'get_server_proxy', return_value=mocked_rpc)

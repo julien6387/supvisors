@@ -81,9 +81,9 @@ Installation
 +----------------+----------+------------------------------------------------------------------------------------+
 | |Flask-RESTX|  | 0.5.1    | *Expose the Supervisor and Supvisors XML-RPC API through a REST API (optional)*    |
 +----------------+----------+------------------------------------------------------------------------------------+
-| |PyZMQ|        | 22.0.3   | *Alternative for the |Supvisors| Event interface (optional)*                       |
+| |PyZMQ|        | 22.0.3   | *Alternative for the Supvisors Event interface (optional)*                         |
 +----------------+----------+------------------------------------------------------------------------------------+
-| |Websockets|   | 10.4     | *Alternative for the |Supvisors| Event interface (optional, requires Python 3.7+)* |
+| |Websockets|   | 10.4     | *Alternative for the Supvisors Event interface (optional, requires Python 3.7+)*   |
 +----------------+----------+------------------------------------------------------------------------------------+
 
 With an Internet access
@@ -169,7 +169,7 @@ However, the |Supervisor| configuration file **MUST**:
 .. important::
 
     A script may be required to start |Supervisor| on several nodes if not configured to run automatically at
-    startup (ssh loop for example).
+    startup (:command:`ssh` loop for example).
 
 
 .. include:: common.rst

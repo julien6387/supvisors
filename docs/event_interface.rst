@@ -326,7 +326,7 @@ to the address defined by the node name and the port number where the |Supvisors
 Filtering the messages is performed by adding headers to the path of the URI.
 To receive all messages, just add ``all`` to the path of the URI.
 
-For example, the following command:`Python` instructions configure the |websockets| client so as to receive only
+For example, the following :command:`Python` instructions configure the |websockets| client so as to receive only
 the *Supvisors Status* and *Process Status* events:
 
 .. code-block:: python

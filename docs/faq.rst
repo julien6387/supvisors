@@ -49,8 +49,8 @@ of |Supvisors|:
 
 If an ``ImportError`` is raised, here follow some possible causes:
 
-Wrong pip
-~~~~~~~~~
+Wrong pip program
+~~~~~~~~~~~~~~~~~
 
 *Issue:* |Supvisors| may have been installed with a :command:`pip` command corresponding to another :program:`Python`
 version.
