@@ -151,7 +151,7 @@ behavior may happen. The present section details where it is applicable.
     Value in [``NONE`` ; ``ZMQ`` ; ``WS``]. Other protocols may be considered in the future.
     If set to ``NONE``, the interface is not available.
     If set to ``ZMQ``, events are published through a |ZeroMQ| TCP socket.
-    If set to ``WS``, events are published through |Websockets|.
+    If set to ``WS``, events are published through |Websockets| (requires a :command:`Python` version 3.7 or later).
     The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  NONE.
