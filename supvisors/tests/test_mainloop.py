@@ -411,7 +411,7 @@ def check_call(main_loop, mocked_loop, method_name, request, args):
     # send request
     main_loop.send_request(request, args)
     # test mocked main loop
-    assert main_loop.srv_url.parsed_url.geturl() == 'http://10.0.0.2:65000'
+    assert main_loop.srv_url.env['SUPERVISOR_SERVER_URL'] == 'http://10.0.0.2:65000'
     for key, mocked in mocked_loop.items():
         if key == method_name:
             assert mocked.call_count == 1
