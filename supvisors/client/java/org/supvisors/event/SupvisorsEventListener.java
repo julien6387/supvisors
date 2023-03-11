@@ -83,7 +83,7 @@ public interface SupvisorsEventListener {
      * The method is called when host process subscription is set
      * and a Process Statistics message is received.
      *
-     * @param SupvisorsProcessStatistics: The last SupvisorsHostStatistics received.
+     * @param SupvisorsProcessStatistics: The last SupvisorsProcessStatistics received.
      */
     void onProcessStatistics(final SupvisorsProcessStatistics statistics);
 }

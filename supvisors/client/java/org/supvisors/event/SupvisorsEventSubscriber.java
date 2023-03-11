@@ -57,7 +57,7 @@ public class SupvisorsEventSubscriber implements Runnable {
     /** The constant header in HostStatistics messages. */
     private static final String HOST_STATISTICS_HEADER = "hstats";
 
-    /** The constant header in ProcessStatus messages. */
+    /** The constant header in ProcessStatistics messages. */
     private static final String PROCESS_STATISTICS_HEADER = "pstats";
 
     /** The ZeroMQ context. */
@@ -176,7 +176,7 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
-     * Unsbscription from Supvisors status events.
+     * Unsubscription from Supvisors status events.
      */
     public void unsubscribeFromSupvisorsStatus() {
         unsubscribeFrom(SUPVISORS_STATUS_HEADER);
@@ -302,8 +302,7 @@ public class SupvisorsEventSubscriber implements Runnable {
         // create ZeroMQ context
         try (ZContext context = new ZContext()) {
             // create and configure the subscriber
-            final SupvisorsEventSubscriber subscriber =
-                new SupvisorsEventSubscriber(60002, context);
+            final SupvisorsEventSubscriber subscriber = new SupvisorsEventSubscriber(60002, context);
             subscriber.subscribeToAll();
             subscriber.setListener(new SupvisorsEventListener() {
 
