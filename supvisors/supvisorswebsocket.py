@@ -64,8 +64,8 @@ class WsEventPublisher(EventPublisherInterface):
     def __init__(self, instance: SupvisorsInstanceId, logger: Logger):
         """ Initialization of the attributes.
 
-        :param instance: the local Supvisors instance identification
-        :param logger: the Supvisors logger
+        :param instance: the local Supvisors instance identification.
+        :param logger: the Supvisors logger.
         """
         self.logger: Logger = logger
         logger.info(f'WsEventPublisher: initiating Websocket event publisher on {instance.event_port}')
@@ -84,8 +84,8 @@ class WsEventPublisher(EventPublisherInterface):
     def send_supvisors_status(self, status: Payload) -> None:
         """ Send a JSON-serialized supvisors status through the socket.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         self.logger.trace(f'WsEventPublisher.send_supvisors_status: {status}')
         clients = [ws for ws, subscriptions in websocket_clients.items()
@@ -95,8 +95,8 @@ class WsEventPublisher(EventPublisherInterface):
     def send_instance_status(self, status: Payload) -> None:
         """ Send a JSON-serialized Supvisors instance status through the socket.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         self.logger.trace(f'WsEventPublisher.send_instance_status: {status}')
         clients = [ws for ws, subscriptions in websocket_clients.items()
@@ -106,8 +106,8 @@ class WsEventPublisher(EventPublisherInterface):
     def send_application_status(self, status: Payload) -> None:
         """ Send a JSON-serialized application status through the socket.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         self.logger.trace(f'WsEventPublisher.send_application_status: {status}')
         clients = [ws for ws, subscriptions in websocket_clients.items()
@@ -117,9 +117,9 @@ class WsEventPublisher(EventPublisherInterface):
     def send_process_event(self, identifier: str, event: Payload) -> None:
         """ Send a JSON-serialized process event through the socket.
 
-        :param identifier: the identifier used to identify the origin of the event
-        :param event: the event to publish
-        :return: None
+        :param identifier: the identifier used to identify the origin of the event.
+        :param event: the event to publish.
+        :return: None.
         """
         # build the event before it is sent
         evt = event.copy()
@@ -132,8 +132,8 @@ class WsEventPublisher(EventPublisherInterface):
     def send_process_status(self, status: Payload) -> None:
         """ This method sends a serialized form of the process status through the socket.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         self.logger.trace(f'WsEventPublisher.send_process_status: {status}')
         clients = [ws for ws, subscriptions in websocket_clients.items()
@@ -143,8 +143,8 @@ class WsEventPublisher(EventPublisherInterface):
     def send_host_statistics(self, statistics: Payload) -> None:
         """ This method sends host statistics through the socket.
 
-        :param statistics: the statistics to publish
-        :return: None
+        :param statistics: the statistics to publish.
+        :return: None.
         """
         self.logger.trace(f'WsEventPublisher.send_host_statistics: {statistics}')
         clients = [ws for ws, subscriptions in websocket_clients.items()
@@ -154,8 +154,8 @@ class WsEventPublisher(EventPublisherInterface):
     def send_process_statistics(self, statistics: Payload) -> None:
         """ This method sends process statistics through the socket.
 
-        :param statistics: the statistics to publish
-        :return: None
+        :param statistics: the statistics to publish.
+        :return: None;
         """
         self.logger.trace(f'WsEventPublisher.send_process_statistics: {statistics}')
         clients = [ws for ws, subscriptions in websocket_clients.items()
@@ -179,7 +179,7 @@ class WsEventSubscriber(EventSubscriber):
     async def mainloop(self, stop_evt: asyncio.Event, node_name: str, event_port: int) -> None:
         """ Infinite loop as a websocket client.
 
-        :return: None
+        :return: None.
         """
         headers = 'all' if self.all_subscriptions() else '/'.join(self.headers)
         uri = f'ws://{node_name}:{event_port}/{headers}'

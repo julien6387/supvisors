@@ -68,23 +68,23 @@ Installation
 
 |Supvisors| has the following dependencies:
 
-+----------------+------------+---------------------------------------------------------------------------------+
-| Package        | Release    | Usage                                                                           |
-+================+============+=================================================================================+
-| |Supervisor|   | 4.2.4      | Base software, extended by |Supvisors|                                          |
-+----------------+------------+---------------------------------------------------------------------------------+
-| |psutil|       | 5.7.3      | *Information about system usage (optional)*                                     |
-+----------------+------------+---------------------------------------------------------------------------------+
-| matplotlib_    | 3.3.3      | *Graphs for Dashboard (optional)*                                               |
-+----------------+------------+---------------------------------------------------------------------------------+
-| |lxml|         | 4.6.2      | *XSD validation of the XML rules file (optional)*                               |
-+----------------+------------+---------------------------------------------------------------------------------+
-| |Flask-RESTX|  | 0.5.1      | *Expose the Supervisor and Supvisors XML-RPC API through a REST API (optional)* |
-+----------------+------------+---------------------------------------------------------------------------------+
-| |PyZMQ|        | 22.0.3     | *Alternative for the |Supvisors| Event interface (optional)*                    |
-+----------------+------------+---------------------------------------------------------------------------------+
-| |Websockets|   | 10.4       | *Alternative for the |Supvisors| Event interface (optional)*                    |
-+----------------+------------+---------------------------------------------------------------------------------+
++----------------+----------+------------------------------------------------------------------------------------+
+| Package        | Release  | Usage                                                                              |
++================+==========+====================================================================================+
+| |Supervisor|   | 4.2.4    | Base software, extended by |Supvisors|                                             |
++----------------+----------+------------------------------------------------------------------------------------+
+| |psutil|       | 5.7.3    | *Information about system usage (optional)*                                        |
++----------------+----------+------------------------------------------------------------------------------------+
+| matplotlib_    | 3.3.3    | *Graphs for Dashboard (optional)*                                                  |
++----------------+----------+------------------------------------------------------------------------------------+
+| |lxml|         | 4.6.2    | *XSD validation of the XML rules file (optional)*                                  |
++----------------+----------+------------------------------------------------------------------------------------+
+| |Flask-RESTX|  | 0.5.1    | *Expose the Supervisor and Supvisors XML-RPC API through a REST API (optional)*    |
++----------------+----------+------------------------------------------------------------------------------------+
+| |PyZMQ|        | 22.0.3   | *Alternative for the |Supvisors| Event interface (optional)*                       |
++----------------+----------+------------------------------------------------------------------------------------+
+| |Websockets|   | 10.4     | *Alternative for the |Supvisors| Event interface (optional, requires Python 3.7+)* |
++----------------+----------+------------------------------------------------------------------------------------+
 
 With an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,7 +112,7 @@ Supvisors can be installed with ``pip install``:
    # install for the ZMQ event interface (includes PyZMQ)
    [bash] > pip install supvisors[zmq]
 
-   # install for the Websockets event interface (includes websockets)
+   # install for the Websockets event interface (includes websockets, requires Python 3.7+)
    [bash] > pip install supvisors[ws]
 
 Without an Internet access

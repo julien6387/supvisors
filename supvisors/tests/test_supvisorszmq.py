@@ -26,6 +26,8 @@ import pytest
 from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
 from supvisors.supvisorszmq import *
 
+pytest.importorskip('pyzmq', reason='cannot test as optional pyzmq is not installed')
+
 
 @pytest.fixture
 def publisher(supvisors):

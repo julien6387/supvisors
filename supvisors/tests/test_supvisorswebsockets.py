@@ -17,12 +17,18 @@
 # limitations under the License.
 # ======================================================================
 
+import json
+import time
 from unittest.mock import call
 
 import pytest
+import websockets
 
-from supvisors.client.wssubscriber import *
-from supvisors.supvisorswebsocket import *
+from supvisors.client.wssubscriber import SupvisorsWsEventInterface
+from supvisors.supvisorswebsocket import WsEventPublisher, WsEventSubscriber, websocket_clients
+from supvisors.ttypes import EventHeaders
+
+pytest.importorskip('websockets', reason='cannot test as optional websockets is not installed')
 
 
 @pytest.fixture

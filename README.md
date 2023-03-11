@@ -72,8 +72,8 @@ but is not maintained anymore.
 | [matplotlib](http://matplotlib.org)               | 3.3.3   | X        |
 | [lxml](http://lxml.de)                            | 4.6.2   | X        |
 | [Flask-RESTX](https://flask-restx.readthedocs.io) | 0.5.1   | X        |
-| [websockets](https://websockets.readthedocs.io)   | 10.2    | X        |
 | [PyZMQ](http://pyzmq.readthedocs.io)              | 20.0.0  | X        |
+| [websockets](https://websockets.readthedocs.io)   | 10.4    | X        |
 
 Please note that some of these dependencies may have their own dependencies.
 
