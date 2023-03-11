@@ -27,7 +27,7 @@ statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib 
 xml_valid_require = ['lxml >= 4.6.2']
 flask_require = ['flask-restx == 0.5.1', 'Werkzeug == 2.0.3']
 zmq_require = ['pyzmq >= 20.0.0']
-websockets_require = ['websockets >= 10.4', 'python_version >= 3.7']
+websockets_require = ['websockets >= 10.2', 'python_version >= 3.7']
 
 testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
 
