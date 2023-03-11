@@ -266,14 +266,18 @@ header, nav, footer {
     padding: 5px;
 }
 
+header {
+    margin-bottom: 1em;
+}
+
 h1, h2, h3, h4 {
     font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 }
 
 h1 {
-    font-size: 1.6em;
+    text-align: left;
     margin-top: 0.2em;
-    margin-bottom: 0.4em;
+    margin-bottom: 0.2em;
 }
 
 h2, h3 {
@@ -325,11 +329,6 @@ a {
  * Blink Style
  *
  */
-#left_side header a.blink, .blink {
-    color: var(--blink-color);
-    animation: blinker 1.2s linear infinite;
-}
-
 @keyframes blinker {
     50% { opacity: 0.0; }
 }
@@ -636,6 +635,14 @@ nav li.failure::after {
     float: right;
     position: relative;
     top: -30px;
+}
+
+h1 a.failure::after {
+    content: url(../img/red_light_30.png);
+    float: right;
+    position: relative;
+    top: -32px;
+    animation: blinker 1.2s linear infinite;
 }
 
 h2.failure::after {

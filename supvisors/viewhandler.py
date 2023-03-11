@@ -101,13 +101,10 @@ class ViewHandler(MeldView):
         auto_refresh = self.view_ctx.parameters[AUTO]
         if not auto_refresh:
             root.findmeld('meta_mid').deparent()
-        # configure Supvisors hyperlink
-        elt = root.findmeld('supvisors_mid')
-        url = self.view_ctx.format_url('', SUPVISORS_PAGE)
-        elt.attributes(href=url)
         # blink main title in conciliation state
         if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
-            update_attrib(elt, 'class', 'blink')
+            elt = root.findmeld('supvisors_mid')
+            update_attrib(elt, 'class', 'failure')
         # set Supvisors version
         root.findmeld('version_mid').content(API_VERSION)
         # set current Supvisors instance identifier

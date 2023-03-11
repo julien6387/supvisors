@@ -29,7 +29,7 @@ from supvisors.ttypes import ApplicationStates, StartingStrategies, SupvisorsSta
 from supvisors.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewimage import process_cpu_img, process_mem_img
-from supvisors.webutils import SUPVISORS_PAGE, MASTER_SYMBOL
+from supvisors.webutils import MASTER_SYMBOL
 from .base import DummyHttpContext
 from .conftest import create_element, create_application
 
@@ -146,42 +146,36 @@ def test_write_common(mocker, handler):
                                                         'get_gravity.return_value': 'severe',
                                                         'get_message.return_value': 'a message'})
     # build xml template
-    mocked_meta = Mock(attrib={})
-    mocked_supv = Mock(attrib={})
-    mocked_version = Mock()
-    mocked_identifier = Mock()
-    mocked_refresh = Mock()
-    mocked_autorefresh = Mock(attrib={'class': 'button'})
-    mocked_root = Mock(**{'findmeld.side_effect': [mocked_supv, mocked_version, mocked_identifier, mocked_refresh,
-                                                   mocked_autorefresh]})
+    mocked_meta = create_element()
+    mocked_supv = create_element()
+    mocked_version = create_element()
+    mocked_identifier = create_element()
+    mocked_refresh = create_element()
+    mocked_autorefresh = create_element()
+    mocked_autorefresh.attrib['class'] = 'button'
+    mocked_root = create_element({'meta_mid': mocked_meta, 'supvisors_mid': mocked_supv,
+                                  'version_mid': mocked_version, 'identifier_mid': mocked_identifier,
+                                  'refresh_a_mid': mocked_refresh, 'autorefresh_a_mid': mocked_autorefresh})
     # 1. test no conflict and auto-refresh
     handler.supvisors.fsm.state = SupvisorsStates.OPERATION
     handler.write_common(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('supvisors_mid'), call('version_mid'),
-                                                   call('identifier_mid'), call('refresh_a_mid'),
-                                                   call('autorefresh_a_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('identifier_mid'),
+                                                   call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert not mocked_meta.deparent.called
-    assert mocked_supv.attributes.call_args_list == [call(href='an url')]
-    assert 'class' not in mocked_supv.attrib
+    assert 'failure' not in mocked_supv.attrib['class']
     assert mocked_version.content.call_args_list == [call(API_VERSION)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_identifier)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button active'
-    assert handler.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE),
-                                                          call('', 'dummy.html'),
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
                                                           call('', 'dummy.html', auto=False)]
     assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
     # reset mocks
-    mocked_root.findmeld.reset_mock()
-    handler.view_ctx.format_url.reset_mock()
-    mocked_supv.attributes.reset_mock()
-    mocked_version.content.reset_mock()
-    mocked_identifier.content.reset_mock()
-    mocked_refresh.attributes.reset_mock()
-    mocked_autorefresh.attributes.reset_mock()
+    mocked_root.reset_all()
     mocked_autorefresh.attrib['class'] = 'button'
     mocked_msg.reset_mock()
+    handler.view_ctx.format_url.reset_mock()
     # 2. test conflicts and no auto-refresh
     mocked_root.findmeld.side_effect = [mocked_meta, mocked_supv, mocked_version, mocked_identifier, mocked_refresh,
                                         mocked_autorefresh]
@@ -193,15 +187,13 @@ def test_write_common(mocker, handler):
                                                    call('identifier_mid'), call('refresh_a_mid'),
                                                    call('autorefresh_a_mid')]
     assert mocked_meta.deparent.called
-    assert mocked_supv.attributes.call_args_list == [call(href='an url')]
-    assert mocked_supv.attrib == {'class': 'blink'}
+    assert mocked_supv.attrib == {'class': 'failure'}
     assert mocked_version.content.call_args_list == [call(API_VERSION)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_identifier)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button'
-    assert handler.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE),
-                                                          call('', 'dummy.html'),
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
                                                           call('', 'dummy.html', auto=True)]
     assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
 
