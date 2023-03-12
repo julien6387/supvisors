@@ -1,5 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+import threading
+
+import pytest
 
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
@@ -16,8 +19,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
-
-import pytest
 pytest.importorskip('websockets', reason='cannot test as optional websockets is not installed')
 
 import json
@@ -77,6 +78,18 @@ def publish_all(publisher, close=False):
         publisher.close()
 
 
+def wait_thread_alive(thr: threading.Thread) -> bool:
+    """ Wait for thread to be alive (5 seconds max). """
+    cpt = 10
+    while cpt > 0:
+        time.sleep(0.5)
+        cpt -= 1
+        if thr.is_alive():
+            break
+    time.sleep(0.5)
+    return thr.is_alive()
+
+
 def check_subscription(subscriber, publisher,
                        supvisors_subscribed=False, instance_subscribed=False,
                        application_subscribed=False, event_subscribed=False, process_subscribed=False,
@@ -84,7 +97,8 @@ def check_subscription(subscriber, publisher,
     """ The method tests the emission and reception of all status, depending on their subscription status. """
     subscriber.start()
     # give time to the websocket client to connect the server
-    time.sleep(2)
+    assert wait_thread_alive(publisher.thread)
+    assert wait_thread_alive(subscriber.thread)
     # publish and receive
     publish_all(publisher)
     # give time to the subscriber to receive data
@@ -122,16 +136,15 @@ def test_external_publish_subscribe(supvisors):
     publisher = WsEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
     subscriber = SupvisorsWsEventInterface('localhost', port, supvisors.logger)
     subscriber.start()
-    time.sleep(1)
+    assert wait_thread_alive(publisher.thread)
+    assert wait_thread_alive(subscriber.thread)
     # check the Server side
-    assert publisher.thread.is_alive()
     assert publisher.thread.loop.is_running()
     assert not publisher.thread.stop_event.is_set()
     # sleep a bit to give time to hit the reception timeout
     time.sleep(WsEventSubscriber.RecvTimeout)
     # check the Client side
     assert subscriber.headers == set()
-    assert subscriber.thread.is_alive()
     assert subscriber.thread.loop.is_running()
     assert not subscriber.thread.stop_event.is_set()
     # close the sockets
@@ -272,7 +285,7 @@ def test_unknown_message(mocker, publisher, real_subscriber):
     """ Test the reception of a message with unknown header. """
     # give time to the websocket client to connect the server
     real_subscriber.start()
-    time.sleep(2)
+    assert wait_thread_alive(real_subscriber.thread)
     # mock the on_xxx methods
     mocked_ons = [mocker.patch.object(real_subscriber, method_name)
                   for method_name in ['on_supvisors_status', 'on_instance_status', 'on_application_status',
@@ -296,7 +309,7 @@ def test_close_server(real_subscriber, publisher):
     """ Test the server closure while a client is connected. """
     # give time to the websocket client to connect the server
     real_subscriber.start()
-    time.sleep(2)
+    assert wait_thread_alive(real_subscriber.thread)
     # the publisher will be stopped just after all the publications
     # default websocket ping is 20 seconds
     publish_all(publisher, True)
