@@ -21,8 +21,8 @@ import pytest
 pytest.importorskip('zmq', reason='cannot test as optional pyzmq is not installed')
 
 import time
+import threading
 
-from time import sleep
 from unittest.mock import call
 
 from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
@@ -34,7 +34,7 @@ def publisher(supvisors):
     test_publisher = ZmqEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
     yield test_publisher
     test_publisher.close()
-    sleep(0.5)
+    time.sleep(0.5)
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def subscriber(mocker, supvisors):
     mocker.patch.object(test_subscriber, 'on_receive')
     yield test_subscriber
     test_subscriber.stop()
-    sleep(0.5)
+    time.sleep(0.5)
 
 
 @pytest.fixture
@@ -57,6 +57,15 @@ def real_subscriber(supvisors):
     test_subscriber.stop()
 
 
+def wait_thread_alive(thr: threading.Thread) -> bool:
+    """ Wait for thread to be alive (5 seconds max). """
+    cpt = 10
+    while cpt > 0 or not thr.is_alive():
+        time.sleep(0.5)
+        cpt -= 1
+    return thr.is_alive()
+
+
 def test_external_publish_subscribe(supvisors):
     """ Test the ZeroMQ publish-subscribe sockets used in the event interface of Supvisors. """
     # create publisher and subscriber
@@ -64,12 +73,11 @@ def test_external_publish_subscribe(supvisors):
     subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', supvisors.options.event_port,
                                             supvisors.logger)
     subscriber.start()
-    time.sleep(1)
+    assert wait_thread_alive(subscriber.thread)
     # check that the ZMQ sockets are ready
     assert not publisher.socket.closed
     # check the Client side
     assert subscriber.headers == set()
-    assert subscriber.thread.is_alive()
     assert subscriber.thread.loop.is_running()
     assert not subscriber.thread.stop_event.is_set()
     # close the sockets and stop the reception thread
@@ -109,7 +117,7 @@ def check_subscription(subscriber, publisher, supvisors_subscribed=False, instan
     """ The method tests the emission and reception of all status, depending on their subscription status. """
     subscriber.start()
     # give time to the websocket client to connect the server
-    time.sleep(2)
+    assert wait_thread_alive(subscriber.thread)
     # publish and receive
     publish_all(publisher)
     # give time to the subscriber to receive data
@@ -259,7 +267,7 @@ def test_unknown_message(mocker, publisher, real_subscriber):
     """ Test the reception of a message with unknown header. """
     # give time to the websocket client to connect the server
     real_subscriber.start()
-    time.sleep(2)
+    assert wait_thread_alive(real_subscriber.thread)
     # mock the on_xxx methods
     mocked_ons = [mocker.patch.object(real_subscriber, method_name)
                   for method_name in ['on_supvisors_status', 'on_instance_status', 'on_application_status',
@@ -284,7 +292,7 @@ def test_erroneous_message(mocker, publisher, real_subscriber):
     """ Test the reception of a message with unknown header. """
     # give time to the websocket client to connect the server
     real_subscriber.start()
-    time.sleep(2)
+    assert wait_thread_alive(real_subscriber.thread)
     # mock the on_xxx methods
     mocked_ons = [mocker.patch.object(real_subscriber, method_name)
                   for method_name in ['on_supvisors_status', 'on_instance_status', 'on_application_status',
@@ -303,7 +311,7 @@ def test_erroneous_socket(mocker, publisher, real_subscriber):
     mocker.patch('zmq.sugar.socket.Socket.recv_json', side_effect=zmq.ZMQError)
     # give time to the websocket client to connect the server
     real_subscriber.start()
-    time.sleep(2)
+    assert wait_thread_alive(real_subscriber.thread)
     # mock the on_xxx methods
     mocked_ons = [mocker.patch.object(real_subscriber, method_name)
                   for method_name in ['on_supvisors_status', 'on_instance_status', 'on_application_status',
