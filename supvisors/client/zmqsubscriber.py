@@ -17,142 +17,124 @@
 # limitations under the License.
 # ======================================================================
 
-import threading
-import zmq
+import zmq.asyncio
+from supervisor.loggers import Logger
 
-from supervisor import loggers
-from supervisor.loggers import LevelsByName
-
-from supvisors.supvisorszmq import EventSubscriber
-from supvisors.ttypes import EventHeaders
+from supvisors.eventinterface import EventSubscriberInterface
+from supvisors.supvisorszmq import ZmqEventSubscriber
+from supvisors.ttypes import Payload
 
 
-def create_logger(logfile=r'subscriber.log', loglevel=LevelsByName.INFO,
-                  fmt='%(asctime)s;%(levelname)s;%(message)s\n',
-                  rotating=True, maxbytes=10 * 1024 * 1024, backups=1, stdout=True):
-    """ Return a Supervisor logger. """
-    logger = loggers.getLogger(loglevel)
-    if stdout:
-        loggers.handle_stdout(logger, fmt)
-    loggers.handle_file(logger, logfile, fmt, rotating, maxbytes, backups)
-    return logger
+class SupvisorsZmqEventInterface(ZmqEventSubscriber, EventSubscriberInterface):
+    """ The SupvisorsZmqEventInterface connects to Supvisors and receives the events published
+    using the PyZMQ interface.
 
+    The SupvisorsEventInterface requires:
+        - an asynchronous PyZMQ context,
+        - the node name where the Supvisors instance is running and publishing its events,
+        - the event port number used by the Supvisors instance to publish its events,
+        - a logger.
 
-class SupvisorsZmqEventInterface(threading.Thread):
-    """ The *SupvisorsEventInterface* is a python thread that connects to |Supvisors| and receives the events published.
-    The subscriber attribute shall be used to define the event types of interest.
-
-    The *SupvisorsEventInterface* requires:
-        - a PyZMQ_ context,
-        - the event port number used by **Supvisors** to publish its events,
-        - a logger reference to log traces.
-
-    This event port number MUST correspond to the ``event_port`` value set in the ``[supvisors]`` section
-    of the |Supervisor| configuration file.
+    This event port number MUST correspond to the event_port value set in the [supvisors] section
+    of the Supervisor configuration file.
 
     The default behaviour is to print the messages received.
-    For any other behaviour, just specialize the methods `on_xxx_status`.
+    For any other behaviour, just specialize the methods on_xxx_status.
 
-    Attributes:
-        - logger: the reference to the logger,
-        - subscriber: the wrapper of the PyZMQ_ socket connected to |Supvisors|,
-        - stop_event: when set, breaks the infinite loop of the thread.
+    WARN: Notifications are received in the context of the client thread.
 
-    Constants:
-        - _Poll_timeout: duration used to time out the PyZMQ_ poller, defaulted to 500 milliseconds.
+    Example:
+        import zmq.asyncio
+        from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
+
+        intf = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', 9003, logger)
+        intf.subscribe_all()
+        intf.start()
+        # ... receive notifications ...
+        intf.stop()
     """
 
-    _Poll_timeout = 500
-
-    def __init__(self, zmq_context, event_port, logger):
+    def __init__(self, zmq_context: zmq.asyncio.Context, node_name: str, event_port: int, logger: Logger):
         """ Initialization of the attributes. """
-        # thread attributes
-        threading.Thread.__init__(self)
-        # store the parameters
-        self.zmq_context = zmq_context
-        self.event_port = event_port
-        self.logger = logger
-        # create event socket
-        self.subscriber = EventSubscriber(self.zmq_context, self.event_port, self.logger)
-        # create stop event
-        self.stop_event = threading.Event()
+        ZmqEventSubscriber.__init__(self, zmq_context, self, node_name, event_port, logger)
 
-    def stop(self):
-        """ This method stops the main loop of the thread. """
-        self.logger.info('SupvisorsEventInterface.stop: request to stop main loop')
-        self.stop_event.set()
+    def on_supvisors_status(self, data: Payload) -> None:
+        """ Receive and log the contents of the Supvisors Status message.
 
-    def run(self):
-        """ Main loop of the thread. """
-        # create poller and register event subscriber
-        poller = zmq.Poller()
-        poller.register(self.subscriber.socket, zmq.POLLIN)
-        # poll events every seconds
-        self.logger.info('SupvisorsEventInterface.run: entering main loop')
-        while not self.stop_event.is_set():
-            socks = dict(poller.poll(self._Poll_timeout))
-            # check if something happened on the socket
-            if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
-                self.logger.debug('SupvisorsEventInterface.run: got message on subscriber')
-                try:
-                    message = self.subscriber.receive()
-                except zmq.ZMQError as exc:
-                    self.logger.error(f'SupvisorsEventInterface.run: failed to get data from subscriber: {exc}')
-                else:
-                    try:
-                        event = EventHeaders(message[0])
-                    except ValueError:
-                        self.logger.error(f'SupvisorsEventInterface.run: unexpected event type {message[0]}')
-                    else:
-                        if event == EventHeaders.SUPVISORS:
-                            self.on_supvisors_status(message[1])
-                        elif event == EventHeaders.INSTANCE:
-                            self.on_instance_status(message[1])
-                        elif event == EventHeaders.APPLICATION:
-                            self.on_application_status(message[1])
-                        elif event == EventHeaders.PROCESS_EVENT:
-                            self.on_process_event(message[1])
-                        elif event == EventHeaders.PROCESS_STATUS:
-                            self.on_process_status(message[1])
-        self.logger.warn('SupvisorsEventInterface.run: exiting main loop')
-        self.subscriber.close()
+        :param data: the latest Supvisors status
+        :return: None
+        """
+        self.logger.info(f'SupvisorsZmqEventInterface.on_supvisors_status: got Supvisors Status message: {data}')
 
-    def on_supvisors_status(self, data):
-        """ Just logs the contents of the |Supvisors| Status message. """
-        self.logger.info(f'SupvisorsEventInterface.on_supvisors_status: got Supvisors Status message: {data}')
+    def on_instance_status(self, data: Payload) -> None:
+        """ Receive and log the contents of the Supvisors Instance Status message.
 
-    def on_instance_status(self, data):
-        """ Just logs the contents of the Supvisors Instance Status message. """
-        self.logger.info(f'SupvisorsEventInterface.on_instance_status: got Instance Status message: {data}')
+        :param data: the latest status about a given Supvisors instance
+        :return: None
+        """
+        self.logger.info(f'SupvisorsZmqEventInterface.on_instance_status: got Instance Status message: {data}')
 
-    def on_application_status(self, data):
-        """ Just logs the contents of the Application Status message. """
-        self.logger.info(f'SupvisorsEventInterface.on_application_status: got Application Status message: {data}')
+    def on_application_status(self, data: Payload) -> None:
+        """ Receive and log the contents of the Application Status message.
 
-    def on_process_event(self, data):
-        """ Just logs the contents of the Process Event message. """
-        self.logger.info(f'SupvisorsEventInterface.on_process_event: got Process Event message: {data}')
+        :param data: the latest status about a given Application
+        :return: None
+        """
+        self.logger.info(f'SupvisorsZmqEventInterface.on_application_status: got Application Status message: {data}')
 
-    def on_process_status(self, data):
-        """ Just logs the contents of the Process Status message. """
-        self.logger.info(f'SupvisorsEventInterface.on_process_status: got Process Status message: {data}')
+    def on_process_event(self, data: Payload) -> None:
+        """ Receive and log the contents of the Process Event message.
+
+        :param data: the latest event about a given Process
+        :return: None
+        """
+        self.logger.info(f'SupvisorsZmqEventInterface.on_process_event: got Process Event message: {data}')
+
+    def on_process_status(self, data: Payload) -> None:
+        """ Receive and log the contents of the Process Status message.
+
+        :param data: the latest status about a given Process
+        :return: None
+        """
+        self.logger.info(f'SupvisorsZmqEventInterface.on_process_status: got Process Status message: {data}')
+
+    def on_host_statistics(self, data: Payload) -> None:
+        """ Receive and log the contents of the Host Statistics message.
+
+        :param data: the latest statistics about a given host where Supvisors is running
+        :return: None
+        """
+        self.logger.info(f'SupvisorsZmqEventInterface.on_host_statistics: got Host Statistics message: {data}')
+
+    def on_process_statistics(self, data: Payload) -> None:
+        """ Receive and log the contents of the Process Statistics message.
+
+        :param data: the latest statistics about a given process running in Supvisors
+        :return: None
+        """
+        self.logger.info(f'SupvisorsZmqEventInterface.on_process_statistics: got Process Statistics message: {data}')
 
 
 if __name__ == '__main__':
+    """ Test program. """
     import argparse
     import time
+    from supervisor.loggers import LevelsByName
+    from supvisors.client.clientutils import create_logger
+
     # get arguments
     parser = argparse.ArgumentParser(description='Start a subscriber to Supvisors events.')
-    parser.add_argument('-p', '--port', type=int, default=60002, help='the event port of Supvisors')
-    parser.add_argument('-s', '--sleep', type=int, metavar='SEC', default=10,
+    parser.add_argument('-n', '--node', type=str, default='127.0.0.1', help='the Supvisors node name')
+    parser.add_argument('-p', '--port', type=int, default=60002, help='the Supvisors event port')
+    parser.add_argument('-s', '--sleep', type=int, metavar='SEC', default=20,
                         help='the duration of the subscription')
     args = parser.parse_args()
     # create test subscriber
-    loop = SupvisorsZmqEventInterface(zmq.Context.instance(), args.port, create_logger())
-    loop.subscriber.subscribe_all()
+    zmq_intf = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), args.node, args.port,
+                                          create_logger(loglevel=LevelsByName.INFO))
+    zmq_intf.subscribe_all()
     # start thread and sleep for a while
-    loop.start()
+    zmq_intf.start()
     time.sleep(args.sleep)
     # stop thread and halt
-    loop.stop()
-    loop.join()
+    zmq_intf.stop()

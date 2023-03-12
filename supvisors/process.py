@@ -313,6 +313,16 @@ class ProcessStatus(object):
                 'extra_args': self.extra_args}
 
     # access
+    def get_pid(self, identifier: str) -> int:
+        """ Return the PID of the process located on the Supvisors instance identified.
+
+        :param identifier: the Supvisors instance identifier
+        :return: the PID
+        """
+        if self.state == ProcessStates.RUNNING and identifier in self.running_identifiers:
+            return self.info_map[identifier]['pid']
+        return 0
+
     def disabled(self) -> bool:
         """ Check if the process is disabled on all Supvisors instances knowing the process.
 
@@ -351,20 +361,27 @@ class ProcessStatus(object):
         """
         return any(info['has_crashed'] for info in self.info_map.values())
 
-    def crashed(self) -> bool:
+    def crashed(self, identifier: str = None) -> bool:
         """ Return True if the process has crashed or has exited unexpectedly.
 
         :return: the crash status of the process
         """
-        return ProcessStatus.is_crashed_event(self.state, self.expected_exit)
+        if identifier:
+            info = self.info_map.get(identifier)
+            if not info:
+                return False
+        else:
+            info = {'state': self.state,
+                    'expected': self.expected_exit}
+        return ProcessStatus.is_crashed_event(info)
 
     @staticmethod
-    def is_crashed_event(state: ProcessStates, expected_exit: bool) -> bool:
+    def is_crashed_event(info: Payload) -> bool:
         """ Return True if the process has crashed or has exited unexpectedly.
 
         :return: the crash status of the process
         """
-        return state == ProcessStates.FATAL or (state == ProcessStates.EXITED and not expected_exit)
+        return info['state'] == ProcessStates.FATAL or (info['state'] == ProcessStates.EXITED and not info['expected'])
 
     def stopped(self) -> bool:
         """ Return True if the process is stopped, as designed in Supervisor.
@@ -387,16 +404,6 @@ class ProcessStatus(object):
         :return: the running status of the process on the considered Supvisors instance
         """
         return self.running() and identifier in self.running_identifiers
-
-    def pid_running_on(self, identifier: str) -> bool:
-        """ Check if process is RUNNING on the Supvisors instance identified.
-        Different from running_on as it considers only the RUNNING state and not STARTING or BACKOFF.
-        This is used by the statistics module that requires an existing PID.
-
-        :param identifier: the Supvisors instance identifier
-        :return: the true running status of the process on the considered Supervisor
-        """
-        return self.state == ProcessStates.RUNNING and identifier in self.running_identifiers
 
     def conflicting(self) -> bool:
         """ Check if the process is in a conflicting state (more than one instance running).
@@ -476,7 +483,7 @@ class ProcessStatus(object):
             info['extra_args'] = ''
             self.extra_args = ''
         # keep history that the process has ever crashed in the Supvisors instance
-        has_crashed = ProcessStatus.is_crashed_event(info['state'], info['expected'])
+        has_crashed = ProcessStatus.is_crashed_event(info)
         info['has_crashed'] = has_crashed | info.get('has_crashed', False)
         # log final payload
         self.logger.trace(f'ProcessStatus.add_info: namespec={self.namespec} - payload={info}'
@@ -521,7 +528,7 @@ class ProcessStatus(object):
         # keep history that the process has ever crashed in the Supvisors instance
         if external:
             # typically, an instance invalidation will not impact the has_crashed status
-            info['has_crashed'] |= ProcessStatus.is_crashed_event(info['state'], info['expected'])
+            info['has_crashed'] |= ProcessStatus.is_crashed_event(info)
         # log final payload
         self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} - new info[{identifier}]={info}')
         # process synthetic information

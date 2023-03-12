@@ -52,7 +52,13 @@ class StatisticsPlot(object):
         self.ax.tick_params(axis='x', colors=StatisticsPlot.TEXT_COLOR)
         self.ax.tick_params(axis='y', colors=StatisticsPlot.TEXT_COLOR)
         # internal data
-        self.ydata = {}
+        self.xdata = []  # uptime in seconds
+        self.ydata = {}  # variable
+
+    def add_timeline(self, xdata):
+        """ Add the timeline for the abscissa. """
+        if len(xdata) > 0:
+            self.xdata = xdata
 
     def add_plot(self, title, unit, ydata):
         """ Add a defined series of values to the plot. """
@@ -69,24 +75,22 @@ class StatisticsPlot(object):
             plt.ylim(self.get_range(all_ydata))
             # create plots for each series of data
             for i, ((title, unit), ydata) in enumerate(self.ydata.items()):
-                # create X axis
-                xdata = [x for x in range(len(ydata))]
                 # get additional statistics
-                avg, rate, (a, b), dev = get_stats(ydata)
+                avg, rate, (a, b), dev = get_stats(self.xdata, ydata)
                 # plot the data
-                data_line, = self.ax.plot(xdata, ydata, label=title)
+                data_line, = self.ax.plot(self.xdata, ydata, label=title)
                 plot_color = data_line.get_color()
                 # plot the mean line
                 avg_data = [avg, ] * len(ydata)
-                mean_line, = self.ax.plot(xdata, avg_data, label='Mean: {:.2f}{}'.format(avg, unit),
+                mean_line, = self.ax.plot(self.xdata, avg_data, label='Mean: {:.2f}{}'.format(avg, unit),
                                           linestyle='--', color=plot_color)
                 if a is not None:
                     # plot the linear regression
-                    self.ax.plot([xdata[0], xdata[-1]], [a * xdata[0] + b, a * xdata[-1] + b],
+                    self.ax.plot([self.xdata[0], self.xdata[-1]], [a * self.xdata[0] + b, a * self.xdata[-1] + b],
                                  linestyle=':', color=plot_color)
                 if dev is not None:
                     # plot the standard deviation
-                    plt.fill_between(xdata, avg - dev, avg + dev, facecolor=plot_color, alpha=.3)
+                    plt.fill_between(self.xdata, avg - dev, avg + dev, facecolor=plot_color, alpha=.3)
                 # create the legend
                 legend = plt.legend(handles=[data_line, mean_line], loc=i + 1,
                                     fontsize='small', fancybox=True, shadow=True)
@@ -106,8 +110,6 @@ class StatisticsPlot(object):
                 plt.savefig(image_contents.new_image(), bbox_inches='tight', format='png')
             except RuntimeError:
                 self.logger.error('StatisticsPlot.export_image: failed to save the matplotlib figure')
-            # reset yData
-            self.ydata = {}
         # close plot
         plt.close()
 

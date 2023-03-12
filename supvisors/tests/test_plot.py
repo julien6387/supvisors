@@ -33,8 +33,10 @@ def test_plot(supvisors):
     plot = StatisticsPlot(supvisors.logger)
     assert plot.ydata == {}
     # add series of data
+    plot.add_timeline([0, 1, 2])
     plot.add_plot('dummy_title_1', 'unit_1', [1, 2, 3])
     plot.add_plot('dummy_title_2', 'unit_2', [10, 20, 30])
+    assert plot.xdata == [0, 1, 2]
     assert plot.ydata == {('dummy_title_1', 'unit_1'): [1, 2, 3], ('dummy_title_2', 'unit_2'): [10, 20, 30]}
     # export image in buffer
     contents = StatsImage()
@@ -48,6 +50,7 @@ def test_plot_error(mocker, supvisors):
     plot = StatisticsPlot(supvisors.logger)
     assert plot.ydata == {}
     # add series of data
+    plot.add_timeline([0, 1, 2])
     plot.add_plot('dummy_title_1', 'unit_1', [1, 2, 3])
     plot.add_plot('dummy_title_2', 'unit_2', [10, 20, 30])
     assert plot.ydata == {('dummy_title_1', 'unit_1'): [1, 2, 3], ('dummy_title_2', 'unit_2'): [10, 20, 30]}

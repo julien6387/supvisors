@@ -86,6 +86,10 @@ class ApplicationView(ViewHandler):
             # write actions related to application
             self.write_application_actions(root)
 
+    def write_periods(self, root):
+        """ Write configured periods for statistics. """
+        self.write_periods_availability(root, self.has_process_statistics)
+
     def write_starting_strategy(self, root):
         """ Write applicable starting strategies. """
         # get the current strategy

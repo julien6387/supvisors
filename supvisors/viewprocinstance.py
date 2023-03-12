@@ -23,7 +23,8 @@ from supervisor.states import ProcessStates, RUNNING_STATES
 
 from .application import ApplicationStatus
 from .instancestatus import SupvisorsInstanceStatus
-from .ttypes import SupvisorsFaults, Payload, PayloadList, ProcessHistoryStats
+from .statscompiler import ProcStatisticsInstance
+from .ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
 from .viewcontext import *
 from .viewinstance import SupvisorsInstanceView
 from .webutils import *
@@ -39,6 +40,10 @@ class ProcInstanceView(SupvisorsInstanceView):
     def __init__(self, context):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
+
+    def write_periods(self, root):
+        """ Write configured periods for statistics. """
+        self.write_periods_availability(root, self.has_process_statistics)
 
     # RIGHT SIDE / BODY part
     def write_contents(self, root):
@@ -75,7 +80,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             # a 'single' process has the same name as its application and the application contains only one process
             single = process.process_name == process.application_name and len(application.processes) == 1
             info = process.info_map[self.view_ctx.local_identifier]
-            crashed = ProcessStatus.is_crashed_event(info['state'], info['expected'])
+            crashed = ProcessStatus.is_crashed_event(info)
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'single': single, 'identifier': self.view_ctx.local_identifier,
@@ -158,7 +163,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         return payload
 
     @staticmethod
-    def sum_process_info(data: PayloadList) -> Tuple[int, int, Optional[ProcessHistoryStats]]:
+    def sum_process_info(data: PayloadList) -> Tuple[int, int, Optional[Tuple[ProcessCPUHistoryStats, ProcessMemHistoryStats]]]:
         """ Get the total resources taken by the processes.
 
         :param data: the list of process payloads
@@ -173,14 +178,18 @@ class ProcInstanceView(SupvisorsInstanceView):
                 # sum CPU / Mem stats
                 proc_stats = info['proc_stats']
                 if proc_stats:
-                    if len(proc_stats[0]) and len(proc_stats[1]):
+                    if len(proc_stats.cpu) and len(proc_stats.mem):
                         reset = False
                         # the most recent value is at the end of the list
-                        cpu += proc_stats[0][-1]
-                        mem += proc_stats[1][-1]
+                        cpu += proc_stats.cpu[-1]
+                        mem += proc_stats.mem[-1]
         # reset appli_stats if no process involved
         # keep output similar to process stats
-        appli_stats = None if reset else [[cpu], [mem]]
+        appli_stats = None
+        if not reset:
+            appli_stats = ProcStatisticsInstance()
+            appli_stats.cpu = [cpu]
+            appli_stats.mem = [mem]
         return expected_load, nb_cores, appli_stats
 
     def write_process_table(self, root, sorted_data: PayloadList, excluded_data: PayloadList) -> None:
@@ -352,13 +361,13 @@ class ProcInstanceView(SupvisorsInstanceView):
             if appli_stats:
                 # update MEM
                 elt = tr_elt.findmeld('mem_total_th_mid')
-                elt.content(f'{appli_stats[1][0]:.2f}%')
+                elt.content(f'{appli_stats.mem[0]:.2f}%')
                 # update CPU
                 elt = tr_elt.findmeld('cpu_total_th_mid')
-                cpuvalue = appli_stats[0][0]
+                cpu_value = appli_stats.cpu[0]
                 if not self.supvisors.options.stats_irix_mode:
-                    cpuvalue /= nb_cores
-                elt.content(f'{cpuvalue:.2f}%')
+                    cpu_value /= nb_cores
+                elt.content(f'{cpu_value:.2f}%')
 
     # ACTION part
     def make_callback(self, namespec, action):

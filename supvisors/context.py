@@ -20,9 +20,9 @@
 from typing import List
 
 from .application import ApplicationRules, ApplicationStatus
+from .eventinterface import EventPublisherInterface
 from .instancestatus import *
 from .process import *
-from .publisherinterface import EventPublisherInterface
 from .ttypes import ApplicationStates, SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
 
 
@@ -139,7 +139,8 @@ class Context(object):
 
         :return: The nodes load
         """
-        return {ip_address: sum(self.instances[identifier].get_load() for identifier in identifiers)
+        return {ip_address: sum(self.instances[identifier].get_load()
+                                for identifier in identifiers)
                 for ip_address, identifiers in self.supvisors.supvisors_mapper.nodes.items()}
 
     # methods on instances
@@ -636,7 +637,8 @@ class Context(object):
                                               ' unknown to local Supervisor')
                     # forced event may be dismissed
                     if updated:
-                        # refresh application status
+                        # refresh internal status
+                        instance_status.update_process(process)
                         application.update_status()
                         # publish process event, status and application status
                         if self.external_publisher:

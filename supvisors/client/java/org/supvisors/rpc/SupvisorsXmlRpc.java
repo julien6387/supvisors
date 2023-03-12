@@ -175,11 +175,9 @@ public class SupvisorsXmlRpc {
 
     /**
      * The getAllLocalProcessInfo methods returns information about all
-     * processes known to Supervisor, but as a subset of supervisor.getProcessInfo,
-     * including extra arguments.
+     * processes known to Supervisor, but as a subset of supervisor.getProcessInfo, including extra arguments.
      *
-     * @return HashMap<String, SupvisorsProcessEvent>: Information about the
-     * processes, sorted by namespec.
+     * @return HashMap<String, SupvisorsProcessEvent>: Information about the processes, sorted by namespec.
      */
     public HashMap<String, SupvisorsProcessEvent> getAllLocalProcessInfo() throws XmlRpcException {
         Object[] objectsArray = client.rpcCall(Namespace + "get_all_local_process_info", null, Object[].class);
@@ -188,8 +186,7 @@ public class SupvisorsXmlRpc {
 
     /**
      * The getLocalProcessInfo methods returns information about a list of
-     * processes known to Supervisor, but as a subset of supervisor.getProcessInfo,
-     * including extra arguments.
+     * processes known to Supervisor, but as a subset of supervisor.getProcessInfo, including extra arguments.
      *
      * @param String namespec: The name of the process (or "applicationName:processName").
      * @return SupvisorsProcessEvent: Information about the process.

@@ -25,11 +25,11 @@ from supervisor.xmlrpc import capped_int
 
 from .process import ProcessStatus
 from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition, NamedPidList, Payload
+from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition, Payload
 from .utils import TICK_PERIOD
 
 
-class StateModes(object):
+class StateModes:
 
     def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, starting_jobs: bool = False,
                  stopping_jobs: bool = False):
@@ -91,7 +91,7 @@ class StateModes(object):
                 'starting_jobs': self.starting_jobs, 'stopping_jobs': self.stopping_jobs}
 
 
-class SupvisorsInstanceStatus(object):
+class SupvisorsInstanceStatus:
     """ Class defining the status of a Supvisors instance.
 
     Attributes:
@@ -120,6 +120,11 @@ class SupvisorsInstanceStatus(object):
         self.processes: Dict[str, ProcessStatus] = {}
         # state and modes
         self.state_modes = StateModes()
+        # the local instance may use the process statistics collector
+        self.process_collector = None
+        is_local = supvisors.supvisors_mapper.local_identifier == self.identifier
+        if is_local and supvisors.options.process_stats_enabled:
+            self.process_collector = supvisors.process_collector
 
     def reset(self):
         """ Reset the contextual part of the Supvisors instance.
@@ -163,13 +168,14 @@ class SupvisorsInstanceStatus(object):
     def serial(self):
         """ Return a serializable form of the SupvisorsInstanceStatus. """
         payload = {'identifier': self.identifier,
-                   'node_name': self.supvisors_id.host_name,
+                   'node_name': self.supvisors_id.host_id,
                    'port': self.supvisors_id.http_port,
                    'statecode': self.state.value, 'statename': self.state.name,
                    'sequence_counter': self.sequence_counter,
                    'remote_time': capped_int(self.remote_time),
                    'local_time': capped_int(self.local_time),
-                   'loading': self.get_load()}
+                   'loading': self.get_load(),
+                   'process_failure': self.has_error()}
         payload.update(self.state_modes.serial())
         return payload
 
@@ -238,13 +244,28 @@ class SupvisorsInstanceStatus(object):
         return new_state in self._Transitions[self.state]
 
     # methods on processes
-    def add_process(self, process):
+    def add_process(self, process: ProcessStatus) -> None:
         """ Add a new process to the process list.
 
         :param process: the process status to be added to the Supvisors instance
         :return: None
         """
         self.processes[process.namespec] = process
+        # update the collector withe process if it is already running
+        if self.process_collector:
+            pid = process.get_pid(self.identifier)
+            if pid > 0:
+                self.process_collector.pid_queue.put((process.namespec, pid))
+
+    def update_process(self, process: ProcessStatus) -> None:
+        """ Upon a process state change, check if a pid is available to update the collector.
+
+        :param process: the process status that has been updated
+        :return: None
+        """
+        if self.process_collector:
+            pid = process.get_pid(self.identifier)
+            self.process_collector.pid_queue.put((process.namespec, pid))
 
     def remove_process(self, process: ProcessStatus) -> None:
         """ Remove a process from the process list.
@@ -253,22 +274,15 @@ class SupvisorsInstanceStatus(object):
         :return: None
         """
         del self.processes[process.namespec]
+        # update the collector
+        if self.process_collector:
+            self.process_collector.pid_queue.put((process.namespec, 0))
 
     def running_processes(self):
         """ Return the process running on the Supvisors instance.
         Here, 'running' means that the process state is in Supervisor RUNNING_STATES. """
         return [process for process in self.processes.values()
                 if process.running_on(self.identifier)]
-
-    def pid_processes(self) -> NamedPidList:
-        """ Return the process running on the Supvisors instance and having a pid.
-       Different from running_processes_on because it excludes the states STARTING and BACKOFF.
-
-        :return: A list of process namespecs and PIDs
-        """
-        return [(process.namespec, process.info_map[self.identifier]['pid'])
-                for process in self.processes.values()
-                if process.pid_running_on(self.identifier)]
 
     def get_load(self) -> int:
         """ Return the load of the Supvisors instance, by summing the declared load of the processes running
@@ -279,6 +293,15 @@ class SupvisorsInstanceStatus(object):
         instance_load = sum(process.rules.expected_load for process in self.running_processes())
         self.logger.trace(f'SupvisorsInstanceStatus.get_load: Supvisors={self.identifier} load={instance_load}')
         return instance_load
+
+    def has_error(self) -> bool:
+        """ Return True if any process managed by the local Supervisor is in failure.
+
+        :return: the error status
+        """
+        return (self.state == SupvisorsInstanceStates.RUNNING
+                and any(process.crashed(self.identifier)
+                        for process in self.processes.values()))
 
     # dictionary for transitions
     _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,

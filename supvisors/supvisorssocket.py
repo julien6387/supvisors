@@ -371,13 +371,21 @@ class InternalPublisher(PublisherServer):
         """
         self.publish(InternalEventHeaders.PROCESS_DISABILITY, payload)
 
-    def send_statistics(self, payload: Payload) -> None:
-        """ Publish the statistics.
+    def send_host_statistics(self, payload: Payload) -> None:
+        """ Publish the host statistics.
 
         :param payload: the statistics to publish
         :return: None
         """
-        self.publish(InternalEventHeaders.STATISTICS, payload)
+        self.publish(InternalEventHeaders.HOST_STATISTICS, payload)
+
+    def send_process_statistics(self, payload: Payload) -> None:
+        """ Publish the process statistics.
+
+        :param payload: the statistics to publish
+        :return: None
+        """
+        self.publish(InternalEventHeaders.PROCESS_STATISTICS, payload)
 
     def send_state_event(self, payload: Payload) -> None:
         """ Publish the Master state event.
@@ -501,7 +509,7 @@ class ClientConnectionThread(Thread):
     def __init__(self, instance: SupvisorsInstanceId, internal_subscriber):
         super().__init__(daemon=True)
         self.identifier = instance.identifier
-        self.address = instance.host_name, instance.internal_port
+        self.address = instance.host_id, instance.internal_port
         self.internal_subscriber = internal_subscriber
 
     def run(self):

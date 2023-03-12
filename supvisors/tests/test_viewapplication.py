@@ -85,7 +85,7 @@ def test_write_navigation(mocker, view):
 def test_write_header(mocker, view):
     """ Test the write_header method. """
     mocked_action = mocker.patch('supvisors.viewapplication.ApplicationView.write_application_actions')
-    mocked_period = mocker.patch('supvisors.viewhandler.ViewHandler.write_periods')
+    mocked_period = mocker.patch('supvisors.viewapplication.ApplicationView.write_periods')
     mocked_strategy = mocker.patch('supvisors.viewapplication.ApplicationView.write_starting_strategy')
     view.application_name = 'dummy_appli'
     view.application = Mock(state=ApplicationStates.STOPPED, major_failure=False, minor_failure=False,
@@ -137,6 +137,20 @@ def test_write_header(mocker, view):
     assert mocked_strategy.call_args_list == [call(mocked_root)]
     assert mocked_period.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
+
+
+def test_write_periods(mocker, view):
+    """ Test the ApplicationView.write_periods method. """
+    mocked_period = mocker.patch('supvisors.viewhandler.ViewHandler.write_periods_availability')
+    mocked_root = Mock()
+    # test with process statistics to be displayed
+    view.write_periods(mocked_root)
+    assert mocked_period.call_args_list == [call(mocked_root, True)]
+    mocked_period.reset_mock()
+    # test with process statistics NOT to be displayed
+    view.has_process_statistics = False
+    view.write_periods(mocked_root)
+    assert mocked_period.call_args_list == [call(mocked_root, False)]
 
 
 def test_write_starting_strategy(view):

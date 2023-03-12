@@ -70,6 +70,20 @@ public final class DataConversion {
     }
 
     /**
+     * The arrayToFloatList function creates a list of Float from an array of Object instances.
+     *
+     * @param Object[] objectsArray: The array of Object instances.
+     * @return List<Float>: The list of float results.
+     */
+    public static List<Float> arrayToFloatList(final Object[] objectArray) {
+        List<Float> list = new ArrayList<>(objectArray.length);
+        for (Object object : objectArray) {
+            list.add(Float.parseFloat(Objects.toString(object, null)));
+        }
+        return list;
+    }
+
+    /**
      * The namespecToStrings function splits a namespec into group and process names.
      * The function accepts 3 patterns:
      *     "processName" returns ["processName", "processName"],

@@ -17,12 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
+import asyncio
+
 import zmq
-
+import zmq.asyncio
 from supervisor.loggers import Logger
-from typing import Any, Tuple
 
-from .publisherinterface import EventPublisherInterface
+from .eventinterface import EventPublisherInterface, EventSubscriber, EventSubscriberInterface
 from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import Payload, EventHeaders
 
@@ -33,7 +34,7 @@ ZMQ_LINGER = 0
 ZmqContext = zmq.Context.instance()
 
 
-class EventPublisher(EventPublisherInterface):
+class ZmqEventPublisher(EventPublisherInterface):
     """ Class for PyZmq publication of Supvisors events. """
 
     def __init__(self, instance: SupvisorsInstanceId, logger: Logger):
@@ -43,11 +44,10 @@ class EventPublisher(EventPublisherInterface):
         :param logger: the Supvisors logger
         """
         self.logger: Logger = logger
-        logger.info('EventPublisher: initiating PyZmq event publisher')
+        logger.info(f'ZmqEventPublisher: initiating PyZmq event publisher on {instance.event_port}')
         self.socket: zmq.Socket = ZmqContext.socket(zmq.PUB)
-        # WARN: this is a local binding, only visible to processes located on the same host
-        url = f'tcp://127.0.0.1:{instance.event_port}'
-        self.logger.debug(f'EventPublisher: binding {url}')
+        url = f'tcp://0.0.0.0:{instance.event_port}'
+        self.logger.debug(f'ZmqEventPublisher: binding {url}')
         self.socket.bind(url)
 
     def close(self) -> None:
@@ -63,7 +63,7 @@ class EventPublisher(EventPublisherInterface):
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace(f'EventPublisher.send_supvisors_status: {status}')
+        self.logger.trace(f'ZmqEventPublisher.send_supvisors_status: {status}')
         self.socket.send_string(EventHeaders.SUPVISORS.value, zmq.SNDMORE)
         self.socket.send_json(status)
 
@@ -73,7 +73,7 @@ class EventPublisher(EventPublisherInterface):
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace(f'EventPublisher.send_instance_status: {status}')
+        self.logger.trace(f'ZmqEventPublisher.send_instance_status: {status}')
         self.socket.send_string(EventHeaders.INSTANCE.value, zmq.SNDMORE)
         self.socket.send_json(status)
 
@@ -83,7 +83,7 @@ class EventPublisher(EventPublisherInterface):
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace(f'EventPublisher.send_application_status: {status}')
+        self.logger.trace(f'ZmqEventPublisher.send_application_status: {status}')
         self.socket.send_string(EventHeaders.APPLICATION.value, zmq.SNDMORE)
         self.socket.send_json(status)
 
@@ -97,7 +97,7 @@ class EventPublisher(EventPublisherInterface):
         # build the event before it is sent
         evt = event.copy()
         evt['identifier'] = identifier
-        self.logger.trace(f'EventPublisher.send_process_event: {evt}')
+        self.logger.trace(f'ZmqEventPublisher.send_process_event: {evt}')
         self.socket.send_string(EventHeaders.PROCESS_EVENT.value, zmq.SNDMORE)
         self.socket.send_json(evt)
 
@@ -107,156 +107,101 @@ class EventPublisher(EventPublisherInterface):
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace(f'EventPublisher.send_process_status: {status}')
+        self.logger.trace(f'ZmqEventPublisher.send_process_status: {status}')
         self.socket.send_string(EventHeaders.PROCESS_STATUS.value, zmq.SNDMORE)
         self.socket.send_json(status)
 
+    def send_host_statistics(self, statistics: Payload) -> None:
+        """ This method sends host statistics through the socket.
 
-class EventSubscriber(object):
-    """ The EventSubscriber wraps the PyZmq socket that connects to **Supvisors**.
+        :param statistics: the statistics to publish
+        :return: None
+        """
+        self.logger.trace(f'ZmqEventPublisher.send_host_statistics: {statistics}')
+        self.socket.send_string(EventHeaders.HOST_STATISTICS.value, zmq.SNDMORE)
+        self.socket.send_json(statistics)
 
-    The TCP socket is configured with a PyZmq ``SUBSCRIBE`` pattern.
-    It is connected to the **Supvisors** instance running on the localhost and bound on the event port.
+    def send_process_statistics(self, statistics: Payload) -> None:
+        """ This method sends process statistics through the socket.
 
-    The EventSubscriber requires:
-        - the event port number used by **Supvisors** to publish its events,
+        :param statistics: the statistics to publish
+        :return: None
+        """
+        self.logger.trace(f'ZmqEventPublisher.send_process_statistics: {statistics}')
+        self.socket.send_string(EventHeaders.PROCESS_STATISTICS.value, zmq.SNDMORE)
+        self.socket.send_json(statistics)
+
+
+class ZmqEventSubscriber(EventSubscriber):
+    """ The ZmqEventSubscriber wraps the PyZmq socket that connects to Supvisors.
+
+    The TCP socket is configured with a PyZmq SUBSCRIBE pattern.
+    It is connected to the Supvisors instance running on the localhost and bound on the event port.
+
+    The ZmqEventSubscriber requires:
+        - the event port number used by Supvisors to publish its events,
         - a logger reference to log traces.
 
     Attributes:
         - logger: the reference to the logger,
-        - socket: the PyZmq socket connected to **Supvisors**.
+        - socket: the PyZmq socket connected to Supvisors.
+
+    Constants:
+        - _Poll_timeout: duration used to time out the PyZMQ poller, defaulted to 500 milliseconds.
     """
 
-    def __init__(self, zmq_context: zmq.Context, port: int, logger: Logger) -> None:
+    # timeout to avoid blocking reception
+    _Poll_timeout = 500
+
+    def __init__(self, zmq_context: zmq.asyncio.Context, intf: EventSubscriberInterface,
+                 node_name: str, event_port: int, logger: Logger) -> None:
         """ Initialization of the attributes.
 
         :param zmq_context: the PyZmq context instance
-        :param port: the port number of the TCP socket
+        :param intf: the event subscriber interface used to provide the messages received
+        :param node_name: the node name of the Supvisors instance that publishes events
+        :param event_port: the port used by the Supvisors instance to publish events from the node
         :param logger: the Supvisors logger
         """
-        self.logger = logger
-        # create ZeroMQ socket
-        self.socket = zmq_context.socket(zmq.SUB)
-        # WARN: this is a local binding, only visible to processes located on the same host
-        url = f'tcp://127.0.0.1:{port}'
-        self.logger.debug(f'EventSubscriber: connecting {url}')
-        self.socket.connect(url)
+        super().__init__(intf, node_name, event_port, logger)
+        self.zmq_context = zmq_context
 
-    def close(self) -> None:
-        """ Close the PyZmq socket.
-
-        :return: None
-        """
-        self.socket.close(ZMQ_LINGER)
-
-    # subscription part
-    def subscribe_all(self) -> None:
-        """ Subscribe to all events.
-
-        :return: None
-        """
-        self.socket.setsockopt(zmq.SUBSCRIBE, b'')
-
-    def subscribe_supvisors_status(self) -> None:
-        """ Subscribe to Supvisors Status messages.
-
-        :return: None
-        """
-        self.subscribe(EventHeaders.SUPVISORS.value)
-
-    def subscribe_instance_status(self) -> None:
-        """ Subscribe to Supvisors Instance Status messages.
-
-        :return: None
-        """
-        self.subscribe(EventHeaders.INSTANCE.value)
-
-    def subscribe_application_status(self) -> None:
-        """ Subscribe to Application Status messages.
-
-        :return: None
-        """
-        self.subscribe(EventHeaders.APPLICATION.value)
-
-    def subscribe_process_event(self) -> None:
-        """ Subscribe to Process Event messages.
-
-        :return: None
-        """
-        self.subscribe(EventHeaders.PROCESS_EVENT.value)
-
-    def subscribe_process_status(self) -> None:
-        """ Subscribe to Process Status messages.
-
-        :return: None
-        """
-        self.subscribe(EventHeaders.PROCESS_STATUS.value)
-
-    def subscribe(self, code: str) -> None:
-        """ Subscribe to the event named code.
-
-        :param code: the message code for subscription
-        :return: None
-        """
-        self.socket.setsockopt(zmq.SUBSCRIBE, code.encode('utf-8'))
-
-    # unsubscription part
-    def unsubscribe_all(self) -> None:
-        """ Unsubscribe from all events.
-
-        :return: None
-        """
-        self.socket.setsockopt(zmq.UNSUBSCRIBE, b'')
-
-    def unsubscribe_supvisors_status(self) -> None:
-        """ Unsubscribe from Supvisors Status messages
-
-        :return: None
-        """
-        self.unsubscribe(EventHeaders.SUPVISORS.value)
-
-    def unsubscribe_instance_status(self) -> None:
-        """ Unsubscribe from Supvisors Instance Status messages
-
-        :return: None
-        """
-        self.unsubscribe(EventHeaders.INSTANCE.value)
-
-    def unsubscribe_application_status(self) -> None:
-        """ Unsubscribe from Application Status messages
-
-        :return: None
-        """
-        self.unsubscribe(EventHeaders.APPLICATION.value)
-
-    def unsubscribe_process_event(self) -> None:
-        """ Unsubscribe from Process Event messages
-
-        :return: None
-        """
-        self.unsubscribe(EventHeaders.PROCESS_EVENT.value)
-
-    def unsubscribe_process_status(self) -> None:
-        """ Unsubscribe from Process Status messages
-
-        :return: None
-        """
-        self.unsubscribe(EventHeaders.PROCESS_STATUS.value)
-
-    def unsubscribe(self, code: str) -> None:
-        """ Remove subscription to the event named code.
-
-        :param code: the message code for unsubscription
-        :return: None
-        """
-        self.socket.setsockopt(zmq.UNSUBSCRIBE, code.encode('utf-8'))
-
-    # reception part
-    def receive(self) -> Tuple[str, Any]:
-        """ Reception of two-parts message:
-            - header as a unicode string,
-            - data encoded in JSON.
-
-        :return: a tuple with header and body
-        """
-        return self.socket.recv_string(), self.socket.recv_json()
+    async def mainloop(self, stop_evt: asyncio.Event, node_name: str, event_port: int) -> None:
+        """ Main loop of the thread. """
+        # create the PyZMQ socket
+        socket: zmq.asyncio.Socket = self.zmq_context.socket(zmq.SUB)
+        # set subscriptions
+        if self.all_subscriptions():
+            socket.setsockopt(zmq.SUBSCRIBE, b'')
+        else:
+            for header in self.headers:
+                socket.setsockopt(zmq.SUBSCRIBE, header.encode('utf-8'))
+        # define the URI
+        uri = f'tcp://{node_name}:{event_port}'
+        while not stop_evt.is_set():
+            self.logger.debug(f'ZmqEventSubscriber: connecting {uri}')
+            socket.connect(uri)
+            # create poller and register event subscriber
+            poller = zmq.asyncio.Poller()
+            poller.register(socket, zmq.POLLIN)
+            # poll events every seconds
+            self.logger.info('ZmqEventSubscriber.run: entering main loop')
+            while not stop_evt.is_set():
+                socks = dict(await poller.poll(ZmqEventSubscriber._Poll_timeout))
+                # check if something happened on the socket
+                if socket in socks and socks[socket] == zmq.POLLIN:
+                    self.logger.debug('ZmqEventSubscriber.run: got message on subscriber')
+                    try:
+                        header = await socket.recv_string()
+                        body = await socket.recv_json()
+                    except zmq.ZMQError as exc:
+                        self.logger.error(f'ZmqEventSubscriber.run: socket error on subscriber: {exc}')
+                    except UnicodeDecodeError:
+                        self.logger.error(f'ZmqEventSubscriber.run: incompatible data type received from {uri}')
+                    else:
+                        try:
+                            self.on_receive(header, body)
+                        except ValueError:
+                            self.logger.error(f'ZmqEventSubscriber.run: unexpected event type {header}')
+            self.logger.warn('ZmqEventSubscriber.run: exiting main loop')
+            socket.close(ZMQ_LINGER)

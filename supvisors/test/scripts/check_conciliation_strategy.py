@@ -21,12 +21,11 @@ import sys
 import time
 import unittest
 
-from socket import gethostname
 from supervisor.compat import xmlrpclib
 from supervisor.states import ProcessStates
 from supervisor.xmlrpc import Faults
-from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
+from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 from .event_queues import SupvisorsEventQueues
 from .running_identifiers import RunningIdentifiersTest
 
@@ -242,7 +241,6 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         state = self.local_supvisors.get_supvisors_state()
         self.assertEqual('OPERATION', state['fsm_statename'])
         # test that Supvisors conflicts is empty
-        print(self.local_supvisors.get_conflicts())
         self.assertEqual([], self.local_supvisors.get_conflicts())
 
     def _create_database_conflicts(self):

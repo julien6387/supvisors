@@ -6,6 +6,7 @@
     <meta charset="utf-8" />
     <meta http-equiv="refresh" content="5" meld:id="meta_mid"/>
     <title>Supvisors status</title>
+    <link href="img/icon.png" rel="icon" type="image/png" />
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
@@ -17,7 +18,7 @@
 
         <div id="left_side">
             <header>
-                <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
+                <h1><a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a></h1>
                 <p><span meld:id="version_mid"></span></p>
                 <p>view from <span meld:id="identifier_mid"></span></p>
             </header>
@@ -42,7 +43,7 @@
 
             <footer>
                 <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-                <p id="copyright">&amp;copy; Copyright 2016-2022 Julien LE CLEACH</p>
+                <p id="copyright">&amp;copy; Copyright 2016-2023 Julien LE CLEACH</p>
             </footer>
         </div>
 
@@ -163,41 +164,53 @@
                 <div id="process_right_side" meld:id="pstats_div_mid" class="vertical_contents">
                     <h4>Detailed Statistics -- <span meld:id="process_h_mid">*</span> on <span meld:id="instance_fig_mid">--</span></h4>
 
-                    <div>
-                        <table>
-                            <tr>
-                                <th colspan="4">MEM</th>
-                                <th colspan="4">CPU</th>
-                            </tr>
-                            <tr>
-                                <th>%</th>
-                                <th>Mean %</th>
-                                <th>Slope %</th>
-                                <th>SD %</th>
-                                <th>%</th>
-                                <th>Mean %</th>
-                                <th>Slope %</th>
-                                <th>SD %</th>
-                            </tr>
-                            <tr class="brightened">
-                                <td meld:id="pmemval_td_mid">--</td>
-                                <td meld:id="pmemavg_td_mid">--</td>
-                                <td meld:id="pmemslope_td_mid">--</td>
-                                <td meld:id="pmemdev_td_mid">--</td>
-                                <td meld:id="pcpuval_td_mid">--</td>
-                                <td meld:id="pcpuavg_td_mid">--</td>
-                                <td meld:id="pcpuslope_td_mid">--</td>
-                                <td meld:id="pcpudev_td_mid">--</td>
-                            </tr>
-                        </table>
+                    <div class="stats_contents">
+                        <div>
+                            <table>
+                                <tr>
+                                    <th colspan="4">CPU</th>
+                                </tr>
+                                <tr>
+                                    <th>%</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
+                                </tr>
+                                <tr class="brightened">
+                                    <td meld:id="pcpuval_td_mid">--</td>
+                                    <td meld:id="pcpuavg_td_mid">--</td>
+                                    <td meld:id="pcpuslope_td_mid">--</td>
+                                    <td meld:id="pcpudev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div>
+                            <table>
+                                <tr>
+                                    <th colspan="4">MEM</th>
+                                </tr>
+                                <tr>
+                                    <th>%</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
+                                </tr>
+                                <tr class="brightened">
+                                    <td meld:id="pmemval_td_mid">--</td>
+                                    <td meld:id="pmemavg_td_mid">--</td>
+                                    <td meld:id="pmemslope_td_mid">--</td>
+                                    <td meld:id="pmemdev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
 
                     <figure>
-                        <img src="process_mem.png" alt="Process Memory Graph"/>
+                        <img src="process_cpu.png" alt="Process CPU Graph"/>
                     </figure>
 
                     <figure>
-                        <img src="process_cpu.png" alt="Process CPU Graph"/>
+                        <img src="process_mem.png" alt="Process Memory Graph"/>
                     </figure>
                 </div>
             </div>

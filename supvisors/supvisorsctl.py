@@ -172,11 +172,12 @@ class ControllerPlugin(ControllerPluginBase):
                 # create template. identifier has variable length
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
                 max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
-                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s%(state)-11s'
-                            '%(load)-6s%(ltime)-10s%(counter)-9s%(fsm_state)-16s%(starting)-10s%(stopping)-10s')
+                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s'
+                            '%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s%(failure)-9s'
+                            '%(fsm_state)-16s%(starting)-10s%(stopping)-10s')
                 # print title
                 payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port', 'state': 'State',
-                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
+                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter', 'failure': 'Failure',
                            'fsm_state': 'FSM', 'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # check request args
@@ -191,6 +192,7 @@ class ControllerPlugin(ControllerPluginBase):
                                    'load': f"{info['loading']}%",
                                    'ltime': simple_localtime(info['local_time']),
                                    'counter': info['sequence_counter'],
+                                   'failure': info['process_failure'],
                                    'fsm_state': info['fsm_statename'],
                                    'starting': info['starting_jobs'],
                                    'stopping': info['stopping_jobs']}

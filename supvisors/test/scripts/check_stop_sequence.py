@@ -116,7 +116,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
                 for identifier in program.identifiers:
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
-        # configure evtlistener stop sequence
+        # configure evt_listener stop sequence
         program = self.context.get_program('evt_listener:evt_listener_00')
         if program:
             if program.state in RUNNING_STATES:

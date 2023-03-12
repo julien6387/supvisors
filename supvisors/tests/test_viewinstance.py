@@ -53,7 +53,8 @@ def view_no_stats(http_context):
     # apply the forced inheritance done in supvisors.plugin
     StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
-    http_context.supervisord.supvisors.options.stats_enabled = False
+    http_context.supervisord.supvisors.host_collector = None
+    http_context.supervisord.supvisors.process_collector = None
     return SupvisorsInstanceView(http_context, HOST_INSTANCE_PAGE)
 
 
@@ -64,7 +65,8 @@ def test_init(view):
         assert isinstance(view, klass)
     # test parameter page name
     assert view.page_name == HOST_INSTANCE_PAGE
-    assert view.has_statistics
+    assert view.has_host_statistics
+    assert view.has_process_statistics
 
 
 def test_init_no_stats(view_no_stats):
@@ -74,7 +76,8 @@ def test_init_no_stats(view_no_stats):
         assert isinstance(view_no_stats, klass)
     # test parameter page name
     assert view_no_stats.page_name == HOST_INSTANCE_PAGE
-    assert not view_no_stats.has_statistics
+    assert not view_no_stats.has_host_statistics
+    assert not view_no_stats.has_process_statistics
 
 
 def test_render(mocker, view):
@@ -173,10 +176,10 @@ def test_write_instance_actions(mocker, view):
 def test_write_view_switch(view):
     """ Test the SupvisorsInstanceView.write_view_switch method. """
     # set context (meant to be set through constructor and render)
-    view.has_statistics = True
+    view.has_host_statistics = True
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # set instance context
-    mocked_status = Mock(**{'supvisors_id.host_name': '10.0.0.1'})
+    mocked_status = Mock(**{'supvisors_id.host_id': '10.0.0.1'})
     # build root structure
     mocked_process_view_mid = create_element()
     mocked_host_view_mid = create_element()
@@ -206,7 +209,7 @@ def test_write_view_switch(view):
     mocked_root.reset_all()
     view.view_ctx.format_url.reset_mock()
     # test call when statistics are disabled or collector is missing
-    view.has_statistics = False
+    view.has_host_statistics = False
     for page in [PROC_INSTANCE_PAGE, HOST_INSTANCE_PAGE]:
         view.page_name = page
         view.write_view_switch(mocked_root, mocked_status)

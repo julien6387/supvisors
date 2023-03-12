@@ -28,9 +28,9 @@ from supervisor.options import make_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
+from .eventinterface import create_external_publisher, EventPublisherInterface
 from .mainloop import SupvisorsMainLoop
 from .process import ProcessStatus
-from .publisherinterface import create_external_publisher
 from .supvisorssocket import SupvisorsSockets, InternalPublisher
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
                      InternalEventHeaders, RemoteCommEvents, Payload)
@@ -70,14 +70,6 @@ class SupervisorListener(object):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
-        # test if statistics collector can be created for local host
-        self.collector = None
-        try:
-            from .statscollector import instant_statistics
-            self.collector = instant_statistics
-        except ImportError:
-            self.logger.info('SupervisorListener: psutil not installed')
-            self.logger.warn('SupervisorListener: this Supvisors instance cannot not collect statistics')
         # other attributes
         self.local_identifier: str = supvisors.supvisors_mapper.local_identifier
         self.counter = 0
@@ -85,6 +77,7 @@ class SupervisorListener(object):
         # Before running, Supervisor forks when daemonized and the sockets are then lost
         self.main_loop: Optional[SupvisorsMainLoop] = None
         self.publisher: Optional[InternalPublisher] = None
+        self.external_publisher: Optional[EventPublisherInterface] = None
         # add new events to Supervisor EventTypes
         add_process_events()
         # subscribe to internal events
@@ -112,6 +105,7 @@ class SupervisorListener(object):
             # create the Supvisors communication structures
             self.supvisors.sockets = SupvisorsSockets(self.supvisors)
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
+            self.external_publisher = self.supvisors.external_publisher
             # keep a reference to the internal publisher used to share the events publication
             self.publisher = self.supvisors.sockets.publisher
             # At this point, Supervisor has forked if necessary so the main loop can be started
@@ -121,6 +115,9 @@ class SupervisorListener(object):
             self.logger.debug('SupervisorListener.on_running: main loop started')
             # Trigger the FSM
             self.supvisors.fsm.next()
+            # Start the process statistics collector
+            if self.supvisors.process_collector:
+                self.supvisors.process_collector.start()
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_running: {format_exc()}')
@@ -130,13 +127,16 @@ class SupervisorListener(object):
         This method stops the Supvisors main loop. """
         self.logger.warn('SupervisorListener.on_stopping: local supervisord is STOPPING')
         try:
+            # Stop the process statistics collector
+            if self.supvisors.process_collector:
+                self.supvisors.process_collector.pid_queue.put(None)
             # force Supervisor to close HTTP servers
             # this will prevent any pending XML-RPC request to block the main loop
             self.supvisors.supervisor_data.close_httpservers()
             # close external publication
-            if self.supvisors.external_publisher:
+            if self.external_publisher:
                 self.logger.debug('SupervisorListener.on_stopping: stopping external publication thread')
-                self.supvisors.external_publisher.close()
+                self.external_publisher.close()
                 self.logger.debug('SupervisorListener.on_stopping: external publication thread stopped')
             # stop the main loop
             self.logger.debug('SupervisorListener.on_stopping: stopping main loop')
@@ -155,6 +155,36 @@ class SupervisorListener(object):
         except Exception as exc:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_stopping: {format_exc()}')
+
+    def on_tick(self, event: events.TickEvent) -> None:
+        """ Called when a TickEvent is notified.
+        The event is published to all Supvisors instances.
+        Then statistics are published and periodic task is triggered.
+
+        :param event: the Supervisor TICK event
+        :return: None
+        """
+        try:
+            self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
+            # reset the time information to get more resolution
+            payload = {'when': time.time(), 'sequence_counter': self.counter}
+            self.counter += 1
+            self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
+            self.publisher.send_tick_event(payload)
+            # get and publish host statistics at tick time (optional)
+            if self.supvisors.host_collector:
+                stats = self.supvisors.host_collector()
+                self.publisher.send_host_statistics(stats)
+            # get and publish the process statistics collected from the last tick (optional)
+            if self.supvisors.process_collector:
+                stats = []
+                while not self.supvisors.process_collector.stats_queue.empty():
+                    stats.append(self.supvisors.process_collector.stats_queue.get())
+                if stats:
+                    self.publisher.send_process_statistics(stats)
+        except Exception:
+            # Supvisors shall never endanger the Supervisor thread
+            self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
 
     def on_process_state(self, event: events.ProcessStateEvent) -> None:
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
@@ -176,7 +206,7 @@ class SupervisorListener(object):
                        'disabled': process_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
             self.publisher.send_process_state_event(payload)
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {format_exc()}')
 
@@ -186,7 +216,6 @@ class SupervisorListener(object):
         :param namespec: the process namespec
         :return: the process local information
         """
-        #
         try:
             rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
             return rpc_intf.get_local_process_info(namespec)
@@ -291,30 +320,6 @@ class SupervisorListener(object):
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
 
-    def on_tick(self, event: events.TickEvent) -> None:
-        """ Called when a TickEvent is notified.
-        The event is published to all Supvisors instances.
-        Then statistics are published and periodic task is triggered.
-
-        :param event: the Supervisor TICK event
-        :return: None
-        """
-        try:
-            self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
-            # reset the time information to get more resolution
-            payload = {'when': time.time(), 'sequence_counter': self.counter}
-            self.counter += 1
-            self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
-            self.publisher.send_tick_event(payload)
-            # get and publish statistics at tick time (optional)
-            if self.collector and self.supvisors.options.stats_enabled:
-                status = self.supvisors.context.instances[self.local_identifier]
-                stats = self.collector(status.pid_processes())
-                self.publisher.send_statistics(stats)
-        except Exception:
-            # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
-
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
         """ Called when a RemoteCommunicationEvent is notified.
         This is used to sequence the events received from the Supvisors thread with the other events handled
@@ -358,10 +363,22 @@ class SupervisorListener(object):
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_DISABILITY from {event_identifier}:'
                               f' {event_data}')
             self.supvisors.fsm.on_process_disability_event(event_identifier, event_data)
-        elif event_type == InternalEventHeaders.STATISTICS.value:
+        elif event_type == InternalEventHeaders.HOST_STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
-            self.logger.trace(f'SupervisorListener.unstack_event: got STATISTICS from {event_identifier}: {event_data}')
-            self.supvisors.statistician.push_statistics(event_identifier, event_data)
+            self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
+                              f' {event_data}')
+            integrated_stats_list = self.supvisors.host_compiler.push_statistics(event_identifier, event_data)
+            if integrated_stats_list and self.external_publisher:
+                for integrated_stats in integrated_stats_list:
+                    self.external_publisher.send_host_statistics(integrated_stats)
+        elif event_type == InternalEventHeaders.PROCESS_STATISTICS.value:
+            # this Supvisors could handle statistics even if psutil is not installed
+            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_STATISTICS from {event_identifier}:'
+                              f' {event_data}')
+            integrated_stats_list = self.supvisors.process_compiler.push_statistics(event_identifier, event_data)
+            if integrated_stats_list and self.external_publisher:
+                for integrated_stats in integrated_stats_list:
+                    self.external_publisher.send_process_statistics(integrated_stats)
         elif event_type == InternalEventHeaders.STATE.value:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}')
             self.supvisors.fsm.on_state_event(event_identifier, event_data)

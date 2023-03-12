@@ -18,7 +18,7 @@
 # ======================================================================
 
 import re
-from unittest.mock import call, patch, Mock
+from unittest.mock import call, Mock
 
 import pytest
 
@@ -37,7 +37,7 @@ def http_context(supvisors):
 
 
 @pytest.fixture
-def ctx(mocker, http_context):
+def ctx(http_context):
     """ Fixture for the instance to test. """
     return ViewContext(http_context)
 
@@ -80,8 +80,8 @@ def test_get_gravity(ctx):
 def test_url_parameters(ctx):
     """ Test the ViewContext.url_parameters method. """
     # test default
-    assert ctx.url_parameters(False) == 'ident=10.0.0.4&period=5&strategy=CONFIG'
-    assert ctx.url_parameters(True) == 'ident=10.0.0.4&period=5&strategy=CONFIG'
+    assert ctx.url_parameters(False) == 'ident=10.0.0.4&period=5.0&strategy=CONFIG'
+    assert ctx.url_parameters(True) == 'ident=10.0.0.4&period=5.0&strategy=CONFIG'
     # update internal parameters
     ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'ident': '10.0.0.1', 'cpuid': 3,
                            'intfname': 'eth0', 'appliname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG',
@@ -203,6 +203,45 @@ def test_update_integer(ctx):
     assert ctx.parameters == ref_parameters
 
 
+def test_update_float(ctx):
+    """ Test the ViewContext._update_float method. """
+    # keep a copy of parameters
+    ref_parameters = ctx.parameters.copy()
+    # test with unknown parameter and no default value
+    assert 'dummy' not in ctx.http_context.form
+    ctx._update_float('dummy', [])
+    ref_parameters.update({'dummy': 0})
+    assert ctx.parameters == ref_parameters
+    # test with unknown parameter and default value
+    assert 'dummy' not in ctx.http_context.form
+    ctx._update_float('dummy', [], 'hello')
+    ref_parameters.update({'dummy': 'hello'})
+    assert ctx.parameters == ref_parameters
+    # test with known parameter, not float and no default value
+    assert 'action' in ctx.http_context.form
+    ctx._update_float('action', [])
+    ref_parameters.update({'action': 0.0})
+    # test with known parameter, not float and default value
+    assert 'action' in ctx.http_context.form
+    ctx._update_float('action', [], 5.0)
+    ref_parameters.update({'action': 5.0})
+    # test with known parameter, float, no default value and value out of list
+    assert 'period' in ctx.http_context.form
+    ctx._update_float('period', [])
+    ref_parameters.update({'period': 0.0})
+    assert ctx.parameters == ref_parameters
+    # test with known parameter, float, default value and value out of list
+    assert 'period' in ctx.http_context.form
+    ctx._update_float('period', [], 12.3)
+    ref_parameters.update({'period': 12.3})
+    assert ctx.parameters == ref_parameters
+    # test with known parameter, float and value in list
+    assert 'period' in ctx.http_context.form
+    ctx._update_float('period', [5.1, 15.0, 60.0])
+    ref_parameters.update({'period': 5.1})
+    assert ctx.parameters == ref_parameters
+
+
 def test_update_boolean(ctx):
     """ Test the ViewContext._update_boolean method. """
     # keep a copy of parameters
@@ -235,7 +274,7 @@ def test_update_boolean(ctx):
 
 def test_update_period(mocker, ctx):
     """ Test the ViewContext.update_period method. """
-    mocked_update = mocker.patch('supvisors.viewcontext.ViewContext._update_integer')
+    mocked_update = mocker.patch('supvisors.viewcontext.ViewContext._update_float')
     # test method with statistics enabled
     ctx.update_period()
     assert mocked_update.call_args_list == [call(PERIOD, ctx.supvisors.options.stats_periods,
@@ -344,7 +383,7 @@ def test_update_namespec(mocker, ctx):
 
 def test_update_cpu_id(mocker, ctx):
     """ Test the ViewContext.update_cpu_id method. """
-    mocker.patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=2)
+    mocker.patch('supvisors.viewcontext.ViewContext.get_nb_cores', return_value=2)
     mocked_update = mocker.patch('supvisors.viewcontext.ViewContext._update_integer')
     # test call
     ctx.update_cpu_id()
@@ -377,14 +416,17 @@ def test_update_interface_name(mocker, ctx):
 def test_format_url(ctx):
     """ Test the ViewContext.format_url method. """
     # test without node and arguments
-    assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4&period=5&strategy=CONFIG'
+    assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4&period=5.0&strategy=CONFIG'
     # test with local node and arguments
-    base_address = f'http://{ctx.local_identifier}:65000/index.html?'
-    url = ctx.format_url(ctx.local_identifier, 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
+    local_instance = ctx.supvisors.supvisors_mapper.local_instance
+    base_address = f'http://{local_instance.host_id}:65000/index.html?'
+    url = ctx.format_url(ctx.local_identifier, 'index.html',
+                         **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&shex=args&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
-    url = ctx.format_url('10.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
+    url = ctx.format_url('10.0.0.1', 'index.html',
+                         **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     base_address = 'http://10.0.0.1:65000/index.html?'
     expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&strategy=CONFIG'
     assert url == base_address + expected
@@ -397,67 +439,54 @@ def test_fire_message(ctx):
     # result depends on dict contents so ordering is unreliable
     url = ctx.http_context.response['headers']['Location']
     base_address = 'http://10.0.0.1:7777/index.html?'
-    expected = 'gravity=warning&ident=10.0.0.4&message=not%20as%20expected&period=5&strategy=CONFIG'
+    expected = 'gravity=warning&ident=10.0.0.4&message=not%20as%20expected&period=5.0&strategy=CONFIG'
     assert url == base_address + expected
 
 
-def test_get_nbcores(ctx):
+def test_get_nb_cores(ctx):
     """ Test the ViewContext.get_nb_cores method. """
     # test default
-    assert ctx.get_nbcores() == 0
+    assert ctx.get_nb_cores() == 0
     # mock the structure
-    stats = ctx.http_context.supervisord.supvisors.statistician
-    stats.nbcores[ctx.local_identifier] = 4
+    stats = ctx.http_context.supervisord.supvisors.host_compiler
+    stats.nb_cores[ctx.local_identifier] = 4
     # test new call
-    assert ctx.get_nbcores() == 4
+    assert ctx.get_nb_cores() == 4
     # test with unknown address
-    assert ctx.get_nbcores('10.0.0.1') == 0
+    assert ctx.get_nb_cores('10.0.0.1') == 0
     # test with known address
-    stats.nbcores['10.0.0.1'] = 8
-    assert ctx.get_nbcores('10.0.0.1') == 8
+    stats.nb_cores['10.0.0.1'] = 8
+    assert ctx.get_nb_cores('10.0.0.1') == 8
 
 
-def test_get_node_stats(ctx):
+def test_get_node_stats(supvisors, ctx):
     """ Test the ViewContext.get_instance_stats method. """
-    # test default
-    assert ctx.get_instance_stats() is None
-    # add statistics data
-    stats_data = ctx.http_context.supervisord.supvisors.statistician.data
-    stats_data[ctx.local_identifier] = {5: 'data for period 5 at self',
-                                        8: 'data for period 8 at self'}
-    stats_data['10.0.0.1'] = {5: 'data for period 5 at 10.0.0.1',
-                              10: 'data for period 10 at 10.0.0.1'}
     # test with default address
-    assert ctx.get_instance_stats() == 'data for period 5 at self'
-    # test with unknown address parameter
-    assert ctx.get_instance_stats('10.0.0.2') is None
+    instance_stats = ctx.get_instance_stats()
+    assert instance_stats.identifier == supvisors.supvisors_mapper.local_identifier
+    assert instance_stats.period == 5.0
+    # test with unknown identifier
+    assert ctx.get_instance_stats('10.0.0.0') is None
     # test with known address parameter and existing period
-    assert ctx.get_instance_stats('10.0.0.1') == 'data for period 5 at 10.0.0.1'
-    # update period
+    instance_stats = ctx.get_instance_stats('10.0.0.1')
+    assert instance_stats.identifier == '10.0.0.1'
+    assert instance_stats.period == 5.0
+    # update with unknown period
     ctx.parameters[PERIOD] = 8
-    # test with default address and existing period
-    assert ctx.get_instance_stats() == 'data for period 8 at self'
-    # test with known address parameter but missing period
     assert ctx.get_instance_stats('10.0.0.1') is None
 
 
-def test_get_process_stats(mocker, ctx):
+def test_get_process_stats(mocker, supvisors, ctx):
     """ Test the ViewContext.get_process_stats method. """
-    mocked_core = mocker.patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=4)
-    # reset mocks that have been called in constructor
+    mocked_core = mocker.patch('supvisors.viewcontext.ViewContext.get_nb_cores', return_value=4)
+    # test no result as no data stored
+    assert ctx.get_process_stats('dummy_proc') == (4, None)
     mocked_core.reset_mock()
-    # patch get_address_stats so that it returns no result
-    with patch.object(ctx, 'get_instance_stats', return_value=None) as mocked_stats:
-        assert ctx.get_process_stats('dummy_proc') == (4, None)
-        assert mocked_stats.call_args_list == [call(ctx.local_identifier)]
-    mocked_core.reset_mock()
-    # patch get_address_stats
-    mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
-    with patch.object(ctx, 'get_instance_stats', return_value=mocked_find) as mocked_stats:
-        assert ctx.get_process_stats('dummy_proc', '10.0.0.1') == (4, 'mock stats')
-        assert mocked_stats.call_args_list == [call('10.0.0.1')]
-        assert mocked_core.call_args_list == [call('10.0.0.1')]
-        assert mocked_find.find_process_stats.call_args_list == [call('dummy_proc')]
+    # fill some internal structures
+    mocked_stats = mocker.patch.object(supvisors.process_compiler, 'get_stats', return_value='mock stats')
+    assert ctx.get_process_stats('dummy_proc', '10.0.0.1') == (4, 'mock stats')
+    assert mocked_core.call_args_list == [call('10.0.0.1')]
+    assert mocked_stats.call_args_list == [call('dummy_proc', '10.0.0.1', 5.0)]
 
 
 def test_get_process_status(mocker, ctx):

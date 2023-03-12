@@ -517,7 +517,7 @@ class RPCInterface(object):
 
     def start_any_process(self, strategy: EnumParameterType, regex: str, extra_args: str = '',
                           wait: bool = True) -> WaitStringReturnType:
-        """ Start a process named ``namespec`` iaw the strategy and the rules file.
+        """ Start one process among those matching the ``regex`` iaw the strategy and the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
         :param StartingStrategies strategy: the strategy used to choose a **Supvisors** instance,

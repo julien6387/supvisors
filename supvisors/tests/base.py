@@ -20,7 +20,7 @@
 import os
 import random
 import socket
-from socket import gethostname
+from socket import getfqdn, gethostname
 from unittest.mock import Mock
 
 from supervisor.loggers import getLogger, handle_stdout, Logger
@@ -31,6 +31,8 @@ import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
 from supvisors.rpcinterface import RPCInterface
+from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
+from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
 from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.supvisorssocket import SupvisorsSockets
@@ -50,10 +52,16 @@ class MockedSupvisors:
         self.supervisor_data = SupervisorData(self, supervisord)
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
+        fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:55100']
+                       f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
         self.supvisors_mapper.configure(identifiers, [])
         self.server_options = Mock(procnumbers={'xclock': 2})
+        # set real statistics collectors
+        self.host_collector = instant_host_statistics
+        self.process_collector = ProcessStatisticsCollector(self.logger)
+        self.host_compiler = HostStatisticsCompiler(self)
+        self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
         # build context from node mapper
         self.context = Context(self)
         # mock by spec
@@ -66,7 +74,6 @@ class MockedSupvisors:
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
         self.fsm = Mock(spec=FiniteStateMachine)
-        self.statistician = Mock(data={}, nbcores={})
         self.listener = Mock(spec=SupervisorListener, collector=Mock())
         self.parser = Mock(spec=Parser)
         # should be set in listener
@@ -110,6 +117,7 @@ class DummyServerOptions:
         # build a fake server config
         server_config = {'section': 'inet_http_server',
                          'family': socket.AF_INET,
+                         'host': gethostname(),
                          'port': 65000,
                          'username': 'user',
                          'password': 'p@$$w0rd'}
@@ -119,7 +127,7 @@ class DummyServerOptions:
         self.here = '.'
         self.environ_expansions = {}
         self.identifier = gethostname()
-        self.serverurl = f'http://{gethostname()}:65000'
+        self.serverurl = 'unix://tmp/supervisor.sock'
         self.mood = SupervisorStates.RUNNING
         self.nodaemon = True
         self.silent = False
@@ -195,6 +203,7 @@ class DummyHttpContext:
                      'processname': 'dummy_proc',
                      'appliname': 'dummy_appli',
                      'intfname': 'eth0',
+                     'period': 5.1,
                      'auto': 'false'}
         self.response = {'headers': {'Location': None}}
 

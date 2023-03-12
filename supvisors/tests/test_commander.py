@@ -759,7 +759,7 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
                for command in sequence)
     mocker.resetall()
     # test resource found
-    mocked_get_node.return_value = supvisors.supvisors_mapper.instances['test'].host_name
+    mocked_get_node.return_value = supvisors.supvisors_mapper.instances['test'].host_id
     mocked_get_instance.return_value = '10.0.0.1'
     application_start_job_1.distribute_to_single_node()
     expected_identifiers = [supvisors.supvisors_mapper.local_identifier, 'test']

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -654,13 +653,20 @@ def test_supvisors_start_args(xml_rpc, client):
     mocked_func = xml_rpc.supvisors.start_args
     # test error with missing parameter
     check_post_error(client, f'{base_url}', mocked_func)
-    check_post_error(client, f'{base_url}/my_movies:converter_02', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/my_movies:converter_02/-x 2', mocked_func,
+    check_post_success(client, f'{base_url}/my_movies:converter_02', mocked_func,
+                       [call('my_movies:converter_02', '', True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/my_movies:converter_02?extra_args=-x 2', mocked_func,
                        [call('my_movies:converter_02', '-x 2', True)])
     mocked_func.reset_mock()
-    check_post_success(client, f'{base_url}/my_movies:converter_02/-x%202?wait=false', mocked_func,
+    check_post_success(client, f'{base_url}/my_movies:converter_02?extra_args=-x%202&wait=false', mocked_func,
                        [call('my_movies:converter_02', '-x 2', False)])
+    mocked_func.reset_mock()
+    # test with path parameters
+    file_path = os.path.abspath(__file__)
+    check_post_success(client, f'{base_url}/my_movies:converter_02?extra_args={file_path}&wait=false', mocked_func,
+                       [call('my_movies:converter_02', file_path, False)])
 
 
 def test_supvisors_start_process(xml_rpc, client):

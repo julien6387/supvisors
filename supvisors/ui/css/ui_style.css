@@ -178,6 +178,17 @@ nav {
     justify-content: space-around;
 }
 
+.stats_contents {
+    display: flex;
+    flex: 0;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.stats_contents div>* {
+    margin-left: 5px;
+}
+
 #rsc_grid {
     display: grid;
     grid-template-columns: 1fr 300px 1fr;
@@ -266,14 +277,18 @@ header, nav, footer {
     padding: 5px;
 }
 
+header {
+    margin-bottom: 1em;
+}
+
 h1, h2, h3, h4 {
     font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 }
 
 h1 {
-    font-size: 1.6em;
+    text-align: left;
     margin-top: 0.2em;
-    margin-bottom: 0.4em;
+    margin-bottom: 0.2em;
 }
 
 h2, h3 {
@@ -325,7 +340,7 @@ a {
  * Blink Style
  *
  */
-#left_side header a.blink, .blink {
+.blink {
     color: var(--blink-color);
     animation: blinker 1.2s linear infinite;
 }
@@ -452,24 +467,25 @@ ul.vertical li {
  * Common Table style
  */
 table {
-    border-collapse: separate; #collapse;
+    border-collapse: collapse;
     border-spacing: 0;
     caption-side: top;
     background-color: var(--tr-color);
     margin: 0 auto;
 }
 
-caption {
-    padding-right: 4px;
-    font-size: .8em;
-    font-style: italic;
-}
-
-/* add border for all cells */
 th, td {
-    border: 1px solid var(--border-color);
     padding: 3px 5px;
     font-size: .7em;
+}
+
+tr {
+    border: none;
+}
+
+th, td {
+    border-top: solid 1px var(--border-color);
+    border-bottom: solid 1px var(--border-color);
 }
 
 th {
@@ -481,6 +497,12 @@ th {
     position: sticky;
     top: 0;
     z-index: 20;
+}
+
+caption {
+    padding-right: 4px;
+    font-size: .8em;
+    font-style: italic;
 }
 
 .brightened {
@@ -636,6 +658,14 @@ nav li.failure::after {
     float: right;
     position: relative;
     top: -30px;
+}
+
+h1 a.failure::after {
+    content: url(../img/red_light_30.png);
+    float: right;
+    position: relative;
+    top: -32px;
+    animation: blinker 1.2s linear infinite;
 }
 
 h2.failure::after {

@@ -1,8 +1,12 @@
 .. |Supvisors| replace:: **Supvisors**
 .. |Supervisor| replace:: Supervisor_
 .. |psutil| replace:: psutil_
+.. |lxml| replace:: lxml_
 .. |Flask-RESTX| replace:: Flask-RESTX_
 .. |Flask| replace:: Flask_
+.. |PyZMQ| replace:: PyZMQ_
+.. |ZeroMQ| replace:: ZeroMQ_
+.. |Websockets| replace:: websockets_
 
 .. |start| image:: images/start_button.png
     :alt: Start button
@@ -23,9 +27,11 @@
     :alt: Refresh button
 
 .. _Supervisor: http://supervisord.org
-.. _PyZMQ: http://pyzmq.readthedocs.io
 .. _psutil: https://pypi.python.org/pypi/psutil
-.. _matplotlib: http://matplotlib.org
-.. _lxml: http://lxml.de
+.. _matplotlib: https://matplotlib.org
+.. _lxml: https://lxml.de
 .. _Flask-RESTX: https://flask-restx.readthedocs.io
 .. _Flask: https://flask.palletsprojects.com
+.. _PyZMQ: https://pyzmq.readthedocs.io
+.. _ZeroMQ: https://zeromq.org
+.. _websockets: https://websockets.readthedocs.io

@@ -78,6 +78,7 @@ def test_instance_info(rpc):
     # test with known identifier
     expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0, 'local_time': 0,
                 'remote_time': 0, 'sequence_counter': 0, 'statecode': 0, 'statename': 'UNKNOWN',
+                'process_failure': False,
                 'fsm_statecode': 4, 'fsm_statename': 'CONCILIATION', 'starting_jobs': False, 'stopping_jobs': True}
     assert rpc.get_instance_info('10.0.0.1') == expected
     # test with unknown identifier

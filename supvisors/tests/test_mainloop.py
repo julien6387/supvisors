@@ -46,8 +46,7 @@ def test_creation(supvisors, mocked_rpc, main_loop):
     assert isinstance(main_loop, Thread)
     assert main_loop.supvisors is supvisors
     assert not main_loop.stop_event.is_set()
-    server_url = main_loop.supvisors.supervisor_data.supervisord.options.serverurl
-    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': server_url,
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': f'http://{gethostname()}:65000',
                                      'SUPERVISOR_USERNAME': 'user',
                                      'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
@@ -412,7 +411,7 @@ def check_call(main_loop, mocked_loop, method_name, request, args):
     # send request
     main_loop.send_request(request, args)
     # test mocked main loop
-    assert main_loop.srv_url.parsed_url.geturl() == 'http://10.0.0.2:65000'
+    assert main_loop.srv_url.env['SUPERVISOR_SERVER_URL'] == 'http://10.0.0.2:65000'
     for key, mocked in mocked_loop.items():
         if key == method_name:
             assert mocked.call_count == 1

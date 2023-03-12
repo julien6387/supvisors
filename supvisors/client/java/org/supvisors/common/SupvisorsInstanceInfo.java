@@ -28,34 +28,6 @@ import com.google.gson.annotations.SerializedName;
  */
 public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
 
-    /**
-     * The State enumeration for a node.
-     *
-     * UNKNOWN:   used at initialization, before any heartbeat message is received from this Supvisors instance.
-     * CHECKING:  used when the local Supvisors checks the isolation status of this Supvisors instance.
-     * RUNNING:   used when the local Supvisors receives heartbeat messages from this Supvisors instance.
-     * SILENT:    used when the local Supvisors does not receive any heartbeat message from this Supvisors instance.
-     * ISOLATING: used when the local Supvisors is about to disconnect this Supvisors instance.
-     * ISOLATED:  used when the local Supvisors has actually disconnected this Supvisors instance.
-     */
-    public enum State {
-        UNKNOWN(0),
-        CHECKING(1),
-        RUNNING(2),
-        SILENT(3),
-        ISOLATING(4),
-        ISOLATED(5);
-
-        private final int value;
-        public int getValue() {
-            return value;
-        }
-
-        private State(int value) {
-            this.value = value;
-        }
-    }
-
     /** The identifier of the Supvisors instance. */
     private String identifier;
 
@@ -65,8 +37,8 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /** The HTTP port of the Supvisors instance. */
     private Integer port;
 
-    /** The node state. */
-    private State statename;
+    /** The instance state. */
+    private SupvisorsInstanceState statename;
 
     /** The date of the last heartbeat message, as received. */
     private Integer remote_time;
@@ -83,6 +55,9 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     private Integer loading;
 
+    /** True if one of the local processes has crashed or has exited unexpectedly. */
+    private Boolean process_failure;
+
     /**
      * This constructor gets all information from an HashMap.
      *
@@ -92,11 +67,12 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.identifier = (String) instanceInfo.get("identifier");
         this.node_name = (String) instanceInfo.get("node_name");
         this.port = (Integer) instanceInfo.get("port");
-        this.statename = State.valueOf((String) instanceInfo.get("statename"));
+        this.statename = SupvisorsInstanceState.valueOf((String) instanceInfo.get("statename"));
         this.remote_time = (Integer) instanceInfo.get("remote_time");
         this.local_time = (Integer) instanceInfo.get("local_time");
         this.sequence_counter = (Integer) instanceInfo.get("sequence_counter");
         this.loading = (Integer) instanceInfo.get("loading");
+        this.process_failure = (Boolean) instanceInfo.get("process_failure");
     }
 
     /**
@@ -138,9 +114,9 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /**
      * The getState method returns the state of the node.
      *
-     * @return State: The state of the node.
+     * @return SupvisorsInstanceState: The state of the node.
      */
-    public State getState() {
+    public SupvisorsInstanceState getState() {
         return this.statename;
     }
 
@@ -185,17 +161,30 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The toString method returns a printable form of the contents of the instance.
+     * The hasProcessFailure method returns True .
      *
-     * @return String: The contents of the instance.
+     * @return State: The loading in percent.
+     */
+    public Boolean hasProcessFailure() {
+        return this.process_failure;
+    }
+
+    /**
+     * The toString method returns True if one of the local processes has crashed or has exited unexpectedly.
+     *
+     * @return Boolean: The process failure status.
      */
     public String toString() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsInstanceInfo(identifier=" + this.identifier
-            + " node_name=" + this.node_name + " port=" + this.port
-            + " state=" + this.statename + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
+            + " node_name=" + this.node_name
+            + " port=" + this.port
+            + " state=" + this.statename
+            + " sequenceCounter=" + this.sequence_counter
+            + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
-            + " loading=" + this.loading + " sequenceCounter=" + this.sequence_counter + ")";
+            + " loading=" + this.loading
+            + " processFailure=" + this.process_failure + ")";
     }
 
 }

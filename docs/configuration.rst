@@ -42,7 +42,9 @@ behavior may happen. The present section details where it is applicable.
 ``supvisors_list``
 
     The exhaustive list of |Supvisors| instances to handle, separated by commas.
-    Each element should match the following format: ``<identifier>host_name:http_port:internal_port``,
+    The elements of ``supvisors_list`` define how the |Supvisors| instances will share information between them
+    and must be identical to all |Supvisors| instances or unpredictable behavior may happen.
+    The exhaustive form of an element matches ``<identifier>host_name:http_port:internal_port``,
     where ``identifier`` is the optional but **unique** |Supervisor| identifier (it can be set in the |Supervisor|
     configuration or in the command line when starting the ``supervisord`` program) ;
     ``host_name`` is the name of the node where the |Supvisors| instance is running ;
@@ -50,8 +52,6 @@ behavior may happen. The present section details where it is applicable.
     unique per node) ;
     ``internal_port`` is the port of the socket used by the |Supvisors| instance to publish internal events (also
     unique per node).
-    The value of ``supvisors_list`` defines how the |Supvisors| instances will share information between them and must
-    be identical to all |Supvisors| instances or unpredictable behavior may happen.
 
     *Default*:  the local host name.
 
@@ -82,9 +82,9 @@ behavior may happen. The present section details where it is applicable.
 
     .. important:: *About the deduced names*
 
-        Depending on the value chosen, the *deduced name* of the |Supvisors| instance may vary. As this name is expected
-        to be used in the rules files to define where the processes can be started, it is important to understand how
-        it is built.
+        Depending on the name configured, the *deduced name* of the |Supvisors| instance may vary.
+        As this name is expected to be used in the rules files to define where the processes can be started,
+        it is important to understand how it is built.
 
         As a general rule, ``identifier`` takes precedence as a deduced name when set. Otherwise ``host_name`` is
         used when set alone, unless a ``http_port`` is explicitly defined, in which case ``host_name:http_port``
@@ -148,9 +148,10 @@ behavior may happen. The present section details where it is applicable.
 ``event_link``
 
     The communication protocol type used to publish all |Supvisors| events (Instance, Application and Process events).
-    Value in [``NONE`` ; ``ZMQ``]. Other protocols may be considered in the future.
+    Value in [``NONE`` ; ``ZMQ`` ; ``WS``]. Other protocols may be considered in the future.
     If set to ``NONE``, the interface is not available.
-    If set to ``ZMQ``, events are published through a PyZMQ TCP socket.
+    If set to ``ZMQ``, events are published through a |ZeroMQ| TCP socket.
+    If set to ``WS``, events are published through |Websockets| (requires a :command:`Python` version 3.7 or later).
     The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  NONE.
@@ -254,18 +255,51 @@ behavior may happen. The present section details where it is applicable.
 
     By default, |Supvisors| can provide basic statistics on the node and the processes spawned by |Supervisor|
     on the |Supvisors| :ref:`dashboard`, provided that the |psutil| module is installed.
-    This option can be used to disable the collection of the statistics.
+    This option can be used to adjust or disable the collection of the host and/or process statistics.
+    Possible values are in { ``OFF``, ``HOST``, ``PROCESS``, ``ALL`` }.
+    For backwards compatibility, boolean values ``true`` and ``false`` have been kept and are respectively equal to
+    ``ALL`` and ``OFF``.
 
-    *Default*:  ``true``.
+    *Default*:  ``ALL``.
 
     *Required*:  No.
 
     *Identical*:  No.
 
+``stats_collecting_period``
+
+    This is the *minimum* duration between 2 statistics measurements on one process. It is not a strict period.
+    Value in [``1`` ; ``3600``] seconds.
+
+    *Default*:  ``10``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+    .. note::
+
+        The process statistics collection is deferred to a dedicated process of |Supvisors|. The *Collector* is mainly
+        using the |psutil| module.
+        Regardless of the number of processes to manage, the *Collector* will not take up more than one processor core.
+        If there are more statistics requests than allowed by one processor core, the duration between 2 measurements
+        on the same process will increase automatically.
+
+        If there are *many* processes to deal with and if it is unsuitable to dedicate one whole processor core
+        to process statistics, the ``stats_collecting_period`` should be increased or the process statistics
+        may be deactivated using the the ``stats_enabled`` option.
+
+    .. attention::
+
+        If there are multiple |Supvisors| instances on the same host, there will be multiple *Collector* processes too.
+        The user should pay attention to set the ``stats_collecting_period`` option accordingly so that the CPU load
+        remains within acceptable limits.
+
+
 ``stats_periods``
 
     The list of periods for which the statistics will be provided in the |Supvisors| :ref:`dashboard`, separated by
-    commas. Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of 5.
+    commas. Up to 3 int or float values are allowed in [``1`` ; ``3600``] seconds.
 
     *Default*:  ``10``.
 
@@ -424,6 +458,7 @@ Configuration File Example
     rules_files = ./etc/my_movies*.xml
     auto_fence = false
     internal_port = 60001
+    event_link = WS
     event_port = 60002
     synchro_timeout = 20
     inactivity_ticks = 3
@@ -467,7 +502,7 @@ and the quality of service expected. It relies on the |Supervisor| group and pro
     There can be as many running instances of the same program as |Supervisor| allows over the available |Supvisors|
     instances.
 
-If the `lxml <http://lxml.de>`_ package is available on the system, |Supvisors| uses it to validate the XML rules files
+If the |lxml| package is available on the system, |Supvisors| uses it to validate the XML rules files
 before they are used.
 
 .. hint::
@@ -642,8 +677,8 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 ``<program>`` rules
 ~~~~~~~~~~~~~~~~~~~
 
-The ``program`` element defines the rules applicable to at least one program. This element should be included in an
-``programs`` element. *DEPRECATED* It can be also directly included in an ``application`` element.
+The ``program`` element defines the rules applicable to at least one program. This element must be included in an
+``programs`` element.
 Here follows the definition of the attributes and rules applicable to this element.
 
 .. note::

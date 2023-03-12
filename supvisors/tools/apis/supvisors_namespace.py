@@ -18,7 +18,7 @@
 # ======================================================================
 
 from flask import g, jsonify
-from flask_restx import Namespace, Resource, inputs
+from flask_restx import Namespace, Resource, fields, inputs
 
 from supvisors.rpcinterface import RPCInterface
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies
@@ -44,40 +44,49 @@ start_process_parser.add_argument('extra_args', type=str, default='',
 start_process_parser.add_argument('wait', type=inputs.boolean, default=True,
                                   help='if ``True``, wait until completion of the request')
 
+# Models
+wait_model = api.model('Wait', {'wait': fields.Boolean})
+start_process_model = api.clone('Start process', wait_model, {'extra_args': fields.String})
+
 
 # Routes
 @api.route('/api_version', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_api_version))
 class SupvisorsApiVersion(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supvisors.get_api_version()
 
 
 @api.route('/supvisors_state', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_supvisors_state))
 class SupvisorsState(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supvisors.get_supvisors_state()
 
 
 @api.route('/master_identifier', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_master_identifier))
 class SupvisorsMasterIdentifier(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supvisors.get_master_identifier()
 
 
 @api.route('/strategies', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_strategies))
 class SupvisorsStrategies(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supvisors.get_strategies()
 
 
 @api.route('/all_instances_info', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_all_instances_info))
 class SupvisorsAllInstancesInfo(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.supvisors.get_all_instances_info())
 
 
@@ -92,7 +101,8 @@ class SupvisorsInstanceInfo(Resource):
 @api.route('/all_applications_info', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_all_applications_info))
 class SupvisorsAllApplicationsInfo(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.supvisors.get_all_applications_info())
 
 
@@ -115,7 +125,8 @@ class SupvisorsApplicationRules(Resource):
 @api.route('/all_process_info', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_all_process_info))
 class SupvisorsAllProcessInfo(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.supvisors.get_all_process_info())
 
 
@@ -130,7 +141,8 @@ class SupvisorsProcessInfo(Resource):
 @api.route('/all_local_process_info', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_all_local_process_info))
 class SupvisorsAllLocalProcessInfo(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.supvisors.get_all_local_process_info())
 
 
@@ -153,7 +165,8 @@ class SupvisorsProcessRules(Resource):
 @api.route('/conflicts', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_conflicts))
 class SupvisorsConflicts(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.supvisors.get_conflicts())
 
 
@@ -192,14 +205,14 @@ class SupvisorsRestartApplication(Resource):
         return g.proxy.supvisors.restart_application(strategy, application_name, args.wait)
 
 
-@api.route(f'/start_args/<string:namespec>/<string:extra_args>', methods=('POST',))
+@api.route(f'/start_args/<string:namespec>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.start_args))
 class SupvisorsStartArgs(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.start_args))
-    @api.expect(wait_parser)
-    def post(self, namespec, extra_args):
-        args = wait_parser.parse_args()
-        return g.proxy.supvisors.start_args(namespec, extra_args, args.wait)
+    @api.expect(start_process_parser)
+    def post(self, namespec):
+        args = start_process_parser.parse_args()
+        return g.proxy.supvisors.start_args(namespec, args.extra_args, args.wait)
 
 
 @api.route(f'/start_process/<any({StartingStrategiesParam}):strategy>/<string:namespec>', methods=('POST',))
@@ -299,14 +312,16 @@ class SupvisorsRestartSequence(Resource):
 @api.route(f'/restart', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.restart))
 class SupvisorsRestart(Resource):
-    def post(self):
+    @staticmethod
+    def post():
         return g.proxy.supvisors.restart()
 
 
 @api.route(f'/shutdown', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.shutdown))
 class SupvisorsShutdown(Resource):
-    def post(self):
+    @staticmethod
+    def post():
         return g.proxy.supvisors.shutdown()
 
 

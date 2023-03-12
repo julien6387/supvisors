@@ -102,13 +102,7 @@ def update_views() -> None:
     VIEWS['host_io.png'] = {'template': None, 'view': HostNetworkImageView}
 
 
-def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterface:
-    """ Supervisor entry point for Supvisors plugin.
-
-    :param supervisord: the global Supervisor structure
-    :param config: the config attributes read from the Supvisors section
-    :return: the Supvisors XML-RPC interface
-    """
+def apply_patches():
     # update Supervisor Fault definition
     expand_faults()
     # patch the Supervisor ServerOptions.cleanup_fds
@@ -124,7 +118,18 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     #    * waiting for Supervisor#1273 to be fixed
     #    * to benefit from the commonalities done in supvisors.ViewHandler
     StatusView.__bases__ = (ViewHandler,)
-    # store the Supvisors instance in supervisord instance to ensure persistence
-    supervisord.supvisors = Supvisors(supervisord, **config)
+
+
+def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterface:
+    """ Supervisor entry point for Supvisors plugin.
+
+    :param supervisord: the global Supervisor structure
+    :param config: the config attributes read from the Supvisors section
+    :return: the Supvisors XML-RPC interface
+    """
+    # store the Supvisors instance within supervisord to ensure persistence and uniqueness
+    if not hasattr(supervisord, 'supvisors'):
+        apply_patches()
+        supervisord.supvisors = Supvisors(supervisord, **config)
     # create and return handler
     return RPCInterface(supervisord.supvisors)

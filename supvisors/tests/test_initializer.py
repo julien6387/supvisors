@@ -22,6 +22,8 @@ from unittest.mock import Mock
 import pytest
 
 from supvisors.initializer import *
+from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
+from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .base import DummySupervisor
 
 
@@ -43,10 +45,13 @@ def test_creation(mocker):
     assert isinstance(supv.logger, Logger)
     assert isinstance(supv.supervisor_data, SupervisorData)
     assert isinstance(supv.supvisors_mapper, SupvisorsMapper)
+    assert supv.host_collector is instant_host_statistics
+    assert isinstance(supv.process_collector, ProcessStatisticsCollector)
     assert isinstance(supv.context, Context)
     assert isinstance(supv.starter, Starter)
     assert isinstance(supv.stopper, Stopper)
-    assert isinstance(supv.statistician, StatisticsCompiler)
+    assert isinstance(supv.host_compiler, HostStatisticsCompiler)
+    assert isinstance(supv.process_compiler, ProcStatisticsCompiler)
     assert isinstance(supv.fsm, FiniteStateMachine)
     assert supv.parser == 'Parser'
     assert isinstance(supv.listener, SupervisorListener)
@@ -75,6 +80,17 @@ def test_identifier_exception(mocker):
     # test that local node exception raises a failure to Supervisor
     with pytest.raises(ValueError):
         Supvisors(supervisord_instance)
+
+
+def test_psutil_exception(mocker):
+    """ Test the values set at construction. """
+    mocker.patch('supvisors.initializer.SupvisorsServerOptions')
+    mocker.patch.dict('sys.modules', {'supvisors.statscollector': None})
+    # create Supvisors instance
+    supvisors = Supvisors(DummySupervisor())
+    # test that parser exception is accepted
+    assert supvisors.host_collector is None
+    assert supvisors.process_collector is None
 
 
 def test_parser_exception(mocker):

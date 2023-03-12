@@ -162,7 +162,7 @@ def update_attrib(elt, attribute: str, value: str) -> None:
     """
     current_value = elt.attrib.get(attribute, '')
     if value not in current_value:
-        elt.attrib[attribute] = '{} {}'.format(current_value, value).strip()
+        elt.attrib[attribute] = f'{current_value} {value}'.strip()
 
 
 def apply_shade(elt, shaded: bool) -> None:

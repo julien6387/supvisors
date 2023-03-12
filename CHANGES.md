@@ -1,5 +1,48 @@
 # Change Log
 
+## 0.16 (2023-03-12)
+
+* Add `websockets` as an option to the **Supvisors** event listener (Python 3.7+ only).
+
+* Re-design the `PyZMQ` event listener using the `zmq.asyncio` support for better commonalities
+  with the `wesockets` solution.
+
+* Re-design the statistics collection and compilation.
+
+* The option `stats_enabled` takes additional values to control host and process statistics independently.
+
+* The option `stats_collecting_period` has been added to set the minimum time between process statistics collection.
+
+* The option `stats_periods` accepts float values, not necessarily multiples of 5.
+
+* Fix [Issue #54](https://github.com/julien6387/supvisors/issues/54).
+  Add host and process statistics to the **Supvisors** event interface.
+
+* Fix children process CPU times in statistics.
+
+* Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
+
+* Only one **Supvisors** instance is running when both `unix_http_server` and `inet_http_server` sections are defined
+  in the supervisor configuration file.
+
+* Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
+
+* The local **Supvisors** instance is identified as the item having the same fully qualified domain name
+  (as returned by `socket.gethostaddr` and `socket.getfqdn`) among the items of the `supvisors_list` option. 
+
+* Use the HTTP server port to help the identification of the local **Supvisors** instance when multiple items
+  of the `supvisors_list` option fit and identifier is not set.
+
+* The attribute `process_failure` is added to the `get_instance_info` XML-RPC to inform if there is a process failure
+  in the **Supvisors** instance. The attribute is also provided in the event interface and in the `instance_status`
+  option of the `supervisorctl` command. 
+
+* Raise an exception when the matching **Supvisors** instance in the `supvisors_list` option is inconsistent
+  with the local configuration.
+
+* Add a **Supvisors** logo.
+
+
 ## 0.15 (2022-11-20)
 
 * Publish / Subscribe pattern implemented for **Supvisors** internal communication.
