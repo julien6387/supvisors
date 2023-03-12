@@ -164,41 +164,53 @@
                 <div id="process_right_side" meld:id="pstats_div_mid" class="vertical_contents">
                     <h4>Detailed Statistics -- <span meld:id="process_h_mid">*</span> on <span meld:id="instance_fig_mid">--</span></h4>
 
-                    <div>
-                        <table>
-                            <tr>
-                                <th colspan="4">MEM</th>
-                                <th colspan="4">CPU</th>
-                            </tr>
-                            <tr>
-                                <th>%</th>
-                                <th>Mean %</th>
-                                <th>Slope %</th>
-                                <th>SD %</th>
-                                <th>%</th>
-                                <th>Mean %</th>
-                                <th>Slope %</th>
-                                <th>SD %</th>
-                            </tr>
-                            <tr class="brightened">
-                                <td meld:id="pmemval_td_mid">--</td>
-                                <td meld:id="pmemavg_td_mid">--</td>
-                                <td meld:id="pmemslope_td_mid">--</td>
-                                <td meld:id="pmemdev_td_mid">--</td>
-                                <td meld:id="pcpuval_td_mid">--</td>
-                                <td meld:id="pcpuavg_td_mid">--</td>
-                                <td meld:id="pcpuslope_td_mid">--</td>
-                                <td meld:id="pcpudev_td_mid">--</td>
-                            </tr>
-                        </table>
+                    <div class="stats_contents">
+                        <div>
+                            <table>
+                                <tr>
+                                    <th colspan="4">CPU</th>
+                                </tr>
+                                <tr>
+                                    <th>%</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
+                                </tr>
+                                <tr class="brightened">
+                                    <td meld:id="pcpuval_td_mid">--</td>
+                                    <td meld:id="pcpuavg_td_mid">--</td>
+                                    <td meld:id="pcpuslope_td_mid">--</td>
+                                    <td meld:id="pcpudev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div>
+                            <table>
+                                <tr>
+                                    <th colspan="4">MEM</th>
+                                </tr>
+                                <tr>
+                                    <th>%</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
+                                </tr>
+                                <tr class="brightened">
+                                    <td meld:id="pmemval_td_mid">--</td>
+                                    <td meld:id="pmemavg_td_mid">--</td>
+                                    <td meld:id="pmemslope_td_mid">--</td>
+                                    <td meld:id="pmemdev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
 
                     <figure>
-                        <img src="process_mem.png" alt="Process Memory Graph"/>
+                        <img src="process_cpu.png" alt="Process CPU Graph"/>
                     </figure>
 
                     <figure>
-                        <img src="process_cpu.png" alt="Process CPU Graph"/>
+                        <img src="process_mem.png" alt="Process Memory Graph"/>
                     </figure>
                 </div>
             </div>

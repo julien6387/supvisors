@@ -1,8 +1,8 @@
 # Change Log
 
-## 0.16 (2023-03-xx)
+## 0.16 (2023-03-12)
 
-* Add `websockets` as an option to the **Supvisors** event listener.
+* Add `websockets` as an option to the **Supvisors** event listener (Python 3.7+ only).
 
 * Re-design the `PyZMQ` event listener using the `zmq.asyncio` support for better commonalities
   with the `wesockets` solution.
