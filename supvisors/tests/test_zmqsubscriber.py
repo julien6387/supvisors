@@ -17,9 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-from unittest.mock import call, Mock
-
 import pytest
+pytest.importorskip('zmq', reason='cannot test as optional pyzmq is not installed')
+
+from unittest.mock import call, Mock
 
 from supvisors.client.zmqsubscriber import *
 

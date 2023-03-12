@@ -17,16 +17,16 @@
 # limitations under the License.
 # ======================================================================
 
+import pytest
+pytest.importorskip('zmq', reason='cannot test as optional pyzmq is not installed')
+
 import time
+
 from time import sleep
 from unittest.mock import call
 
-import pytest
-
 from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
 from supvisors.supvisorszmq import *
-
-pytest.importorskip('pyzmq', reason='cannot test as optional pyzmq is not installed')
 
 
 @pytest.fixture
