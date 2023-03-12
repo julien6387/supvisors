@@ -81,9 +81,11 @@ def publish_all(publisher, close=False):
 def wait_thread_alive(thr: threading.Thread) -> bool:
     """ Wait for thread to be alive (5 seconds max). """
     cpt = 10
-    while cpt > 0 and not thr.is_alive():
+    while cpt > 0:
         time.sleep(0.5)
         cpt -= 1
+        if thr.is_alive():
+            break
     time.sleep(0.5)
     return thr.is_alive()
 
