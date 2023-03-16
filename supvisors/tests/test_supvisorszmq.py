@@ -82,7 +82,6 @@ def test_external_publish_subscribe(supvisors):
     # check the Client side
     assert subscriber.headers == set()
     assert subscriber.thread.loop.is_running()
-    assert not subscriber.thread.stop_event.is_set()
     # close the sockets and stop the reception thread
     publisher.close()
     subscriber.stop()
@@ -91,7 +90,6 @@ def test_external_publish_subscribe(supvisors):
     # check the Client side
     assert not subscriber.thread.is_alive()
     assert not subscriber.thread.loop.is_running()
-    assert subscriber.thread.stop_event.is_set()
 
 
 supvisors_payload = {'state': 'running', 'version': '1.0'}

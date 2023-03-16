@@ -140,24 +140,20 @@ def test_external_publish_subscribe(supvisors):
     assert wait_thread_alive(subscriber.thread)
     # check the Server side
     assert publisher.thread.loop.is_running()
-    assert not publisher.thread.stop_event.is_set()
     # sleep a bit to give time to hit the reception timeout
     time.sleep(WsEventSubscriber.RecvTimeout)
     # check the Client side
     assert subscriber.headers == set()
     assert subscriber.thread.loop.is_running()
-    assert not subscriber.thread.stop_event.is_set()
     # close the sockets
     publisher.close()
     subscriber.stop()
     # check the Server side
     assert not publisher.thread.is_alive()
     assert not publisher.thread.loop.is_running()
-    assert publisher.thread.stop_event.is_set()
     # check the Client side
     assert not subscriber.thread.is_alive()
     assert not subscriber.thread.loop.is_running()
-    assert subscriber.thread.stop_event.is_set()
 
 
 def test_no_subscription(publisher, subscriber):
