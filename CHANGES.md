@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.17 (2023-xx-xx)
+
+* Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
+
+
 ## 0.16 (2023-03-12)
 
 * Add `websockets` as an option to the **Supvisors** event listener (Python 3.7+ only).

@@ -483,6 +483,11 @@ tr {
     border: none;
 }
 
+tbody.hoverable tr:hover {
+    background-color: var(--dark1-color);
+    background-image: none;
+}
+
 th, td {
     border-top: solid 1px var(--border-color);
     border-bottom: solid 1px var(--border-color);
