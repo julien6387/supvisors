@@ -2,7 +2,11 @@
 
 ## 0.17 (2023-xx-xx)
 
+* Use IP address rather than host identification when dealing with `SINGLE_NODE` starting strategy. 
+
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
+
+* Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
 
 
 ## 0.16 (2023-03-12)
