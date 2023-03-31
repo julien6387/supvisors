@@ -19,7 +19,7 @@
 
 import re
 from collections import OrderedDict
-from socket import getfqdn, gethostbyaddr, herror, gaierror
+from socket import getfqdn, gethostbyaddr, gethostname, herror, gaierror
 from typing import Any, Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
@@ -55,7 +55,7 @@ class SupvisorsInstanceId:
         - ip_address: the main ip_address of the host, as known by the local network configuration.
     """
 
-    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
+    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
                          r':(?P<internal_port>\d{4,5})?)?$')
 
     def __init__(self, item: str, supvisors: Any):
@@ -91,7 +91,8 @@ class SupvisorsInstanceId:
         :return: None
         """
         # define identifier
-        if not self.identifier and self.host_id:
+        # NOTE: when default supervisor identifier is used, do not consider it
+        if (not self.identifier or self.identifier == 'supervisor') and self.host_id:
             self.identifier = self.host_id
             # use HTTP port in identifier only if it has explicitly been defined
             if self.http_port:
@@ -212,6 +213,23 @@ class SupvisorsMapper(object):
         """
         return self._core_identifiers
 
+    def add_instance(self, item: str, discovery: bool = True) -> SupvisorsInstanceId:
+        """ Store a new Supvisors instance using a format compliant with the supvisors_list option.
+
+        :param item: the Supvisors instance to add
+        :param discovery: if True, instances are not statically declared in the configuration file and added on-the-fly
+        :return: the new Supvisors instance
+        """
+        supvisors_id = SupvisorsInstanceId(item, self.supvisors)
+        if supvisors_id.ip_address:
+            if discovery:
+                self.logger.info(f'SupvisorsMapper.add_instance: new SupvisorsInstanceId={supvisors_id}')
+            self._instances[supvisors_id.identifier] = supvisors_id
+            self._nodes.setdefault(supvisors_id.ip_address, []).append(supvisors_id.identifier)
+            return supvisors_id
+        message = f'could not define a Supvisors identification from "{item}"'
+        raise ValueError(message)
+
     def configure(self, supvisors_list: NameList, core_list: NameList) -> None:
         """ Store the identification of the Supvisors instances declared in the configuration file and determine
         the local Supvisors instance in this list.
@@ -220,18 +238,18 @@ class SupvisorsMapper(object):
         :param core_list: the minimum Supvisors identifiers to end the synchronization phase
         :return: None
         """
-        # get Supervisor identification from each element
-        for item in supvisors_list:
-            supvisors_id = SupvisorsInstanceId(item, self.supvisors)
-            if supvisors_id.ip_address:
-                self.logger.debug(f'SupvisorsMapper.configure: new SupvisorsInstanceId={supvisors_id}')
-                self._instances[supvisors_id.identifier] = supvisors_id
-                self._nodes.setdefault(supvisors_id.ip_address, []).append(supvisors_id.identifier)
-            else:
-                message = f'could not define a Supvisors identification from "{item}"'
-                raise ValueError(message)
+        if supvisors_list:
+            # get Supervisor identification from each element
+            for item in supvisors_list:
+                self.add_instance(item, False)
+        else:
+            # if supvisors_list is empty, use self identification from supervisor internal data
+            supervisor = self.supvisors.supervisor_data
+            item = f'<{supervisor.identifier}>{gethostname()}:{supervisor.server_port}:'
+            self.logger.info(f'SupvisorsMapper.configure: define local Supvisors as {item}')
+            self.add_instance(item, False)
         self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')
-        self.logger.debug(f'SupvisorsMapper.configure: nodes={self.nodes}')
+        self.logger.info(f'SupvisorsMapper.configure: nodes={self.nodes}')
         # get local Supervisor identification from list
         self.find_local_identifier()
         # check core identifiers
@@ -276,14 +294,6 @@ class SupvisorsMapper(object):
                 raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.find_local_identifier: local_identifier={self.local_identifier}')
 
-    def valid(self, identifier: str) -> bool:
-        """ Check if the identifier is among the Supvisors instances list defined in the configuration file.
-
-        :param identifier: the Supvisors identifier to check
-        :return: True if the Supvisors identifier is found in the configured Supvisors identifiers
-        """
-        return identifier in self._instances
-
     def filter(self, identifier_list: NameList) -> NameList:
         """ Check the Supvisors identifiers against the list declared in the configuration file.
         If the identifier is not found, it is removed from the list.
@@ -293,7 +303,7 @@ class SupvisorsMapper(object):
         :return: the filtered list of Supvisors identifiers
         """
         # filter unknown Supvisors identifiers
-        identifiers = [identifier for identifier in identifier_list if self.valid(identifier)]
+        identifiers = [identifier for identifier in identifier_list if identifier in self._instances]
         # log invalid identifiers to warn the user
         for identifier in identifier_list:
             if identifier != '#' and identifier not in identifiers:  # no warn for hashtag

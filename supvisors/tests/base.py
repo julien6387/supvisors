@@ -35,7 +35,7 @@ from supvisors.statscollector import ProcessStatisticsCollector, instant_host_st
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
 from supvisors.supvisorsmapper import SupvisorsMapper
-from supvisors.supvisorssocket import SupvisorsSockets
+from supvisors.supvisorspubsub import SupvisorsPubSub
 from supvisors.utils import extract_process_info
 
 
@@ -77,7 +77,7 @@ class MockedSupvisors:
         self.listener = Mock(spec=SupervisorListener, collector=Mock())
         self.parser = Mock(spec=Parser)
         # should be set in listener
-        self.sockets = Mock(spec=SupvisorsSockets)
+        self.sockets = Mock(spec=SupvisorsPubSub)
         self.sockets.__init__()
         self.external_publisher = None
 

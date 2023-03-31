@@ -21,7 +21,7 @@ import socket
 
 import pytest
 
-from supvisors.supvisorssocket import *
+from supvisors.supvisorspubsub import *
 
 
 def test_payload_to_bytes_to_payload(supvisors):
@@ -36,7 +36,7 @@ def test_payload_to_bytes_to_payload(supvisors):
 @pytest.fixture
 def sockets(supvisors):
     """ Create the SupvisorsSockets instance. """
-    socks = SupvisorsSockets(supvisors)
+    socks = SupvisorsPubSub(supvisors)
     yield socks
     socks.stop()
     socks.subscriber.close()

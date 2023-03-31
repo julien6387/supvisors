@@ -170,6 +170,7 @@ class ProcessDisabledEvent(ProcessEvent):
 # Annotation types
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
+Ipv4Address = Tuple[str, int]
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]

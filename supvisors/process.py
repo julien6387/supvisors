@@ -147,6 +147,7 @@ class ProcessRules(object):
         self.check_start_sequence(namespec)
         self.check_stop_sequence(namespec)
         self.check_autorestart(namespec)
+        # FIXME: to be solved later, when possible identifiers is called
         if self.hash_identifiers:
             self.check_hash_identifiers(namespec)
 
@@ -348,11 +349,17 @@ class ProcessStatus(object):
 
         :return: the list of identifiers where the program could be started
         """
-        identifiers = self.rules.identifiers
+        rules_identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
-            identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        return [identifier for identifier in identifiers
-                if identifier in self.info_map and not self.disabled_on(identifier)]
+            rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        self.logger.info(f'ProcessStatus.possible_identifiers: {rules_identifiers=}')
+        # FIXME: filter here rather than in parser
+        filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
+        self.logger.info(f'ProcessStatus.possible_identifiers: {filtered_identifiers=}')
+        self.logger.info(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
+        return [identifier
+                for identifier in self.info_map
+                if identifier in filtered_identifiers and not self.disabled_on(identifier)]
 
     def has_crashed(self) -> bool:
         """ Return True if any of the processes has ever crashed or has ever exited unexpectedly.

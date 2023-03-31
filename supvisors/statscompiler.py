@@ -376,28 +376,25 @@ class ProcStatisticsCompiler:
         """ Return the number of CPU cores linked to a Supvisors instance. """
         return self.nb_cores.get(identifier, 0)
 
-    def push_statistics(self, identifier: str, stats: PayloadList) -> PayloadList:
+    def push_statistics(self, identifier: str, process_stats: Payload) -> Payload:
         """ Consider a new list of process statistics received from a Supvisors instance.
         Stopped processes (pid=0) are not considered if there is no existing holder. """
-        integrated_stats = []
-        for process_stats in stats:
-            namespec = process_stats['namespec']
-            pid = process_stats['pid']
-            proc_holder = self.holder_map.get(namespec)
-            if pid > 0 and not proc_holder:
-                # new process spawned
-                self.holder_map[namespec] = proc_holder = ProcStatisticsHolder(namespec, self.options, self.logger)
-                self.logger.debug(f'ProcStatisticsCompiler.push_statistics: holder created for {namespec}')
-            if proc_holder:
-                # update the holder data
-                result = proc_holder.push_statistics(identifier, process_stats)
-                if result:
-                    integrated_stats.extend(result)
-                # if no more data, delete the holder
-                if not proc_holder.instance_map:
-                    self.logger.debug(f'ProcStatisticsCompiler.push_statistics: holder deleted for {namespec}')
-                    del self.holder_map[namespec]
-            # set the number of processor cores on the identifier if provided (only in supervisord stats)
-            if 'nb_cores' in process_stats:
-                self.nb_cores[identifier] = process_stats['nb_cores']
+        integrated_stats = {}
+        namespec = process_stats['namespec']
+        pid = process_stats['pid']
+        proc_holder = self.holder_map.get(namespec)
+        if pid > 0 and not proc_holder:
+            # new process spawned
+            self.holder_map[namespec] = proc_holder = ProcStatisticsHolder(namespec, self.options, self.logger)
+            self.logger.debug(f'ProcStatisticsCompiler.push_statistics: holder created for {namespec}')
+        if proc_holder:
+            # update the holder data
+            integrated_stats = proc_holder.push_statistics(identifier, process_stats)
+            # if no more data, delete the holder
+            if not proc_holder.instance_map:
+                self.logger.debug(f'ProcStatisticsCompiler.push_statistics: holder deleted for {namespec}')
+                del self.holder_map[namespec]
+        # set the number of processor cores on the identifier if provided (only in supervisord stats)
+        if 'nb_cores' in process_stats:
+            self.nb_cores[identifier] = process_stats['nb_cores']
         return integrated_stats

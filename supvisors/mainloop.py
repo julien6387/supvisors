@@ -19,16 +19,15 @@
 
 import json
 from http.client import CannotSendRequest, IncompleteRead
-from socket import socket
 from sys import stderr
 from threading import Event, Thread
-from typing import Any, Optional
+from typing import Any, List
 
 from supervisor.childutils import getRPCInterface
 from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import RPCError
 
-from .supvisorssocket import InternalSubscriber
+from .internalinterface import InternalCommReceiver
 from .ttypes import (DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents,
                      SupvisorsInstanceStates, SupvisorsStates, ISOLATION_STATES)
 from .utils import SupervisorServerUrl
@@ -60,7 +59,7 @@ class SupvisorsMainLoop(Thread):
         self.stop_event = Event()
         # keep a reference to the Supvisors instance
         self.supvisors = supvisors
-        self.subscriber: InternalSubscriber = supvisors.sockets.subscriber
+        self.receiver: InternalCommReceiver = supvisors.sockets.receiver
         # create an XML-RPC client to the local Supervisor instance
         self.srv_url = SupervisorServerUrl(supvisors.supervisor_data.get_env())
         self.proxy = getRPCInterface(self.srv_url.env)
@@ -88,39 +87,40 @@ class SupvisorsMainLoop(Thread):
         # poll events forever
         while not self.stopping():
             # Test the sockets for any incoming message
-            requests_socket, external_events_sockets = self.subscriber.poll()
+            puller_event, external_events_sockets = self.receiver.poll()
             # test stop condition again: if Supervisor is stopping,
             # any XML-RPC call would block this thread and the other because of the join
             if not self.stopping():
                 # process events
-                self.check_requests(requests_socket)
+                self.check_requests(puller_event)
                 self.check_external_events(external_events_sockets)
             # heartbeat management with publishers
-            self.subscriber.manage_heartbeat()
+            # TODO: check if it make sense in Multicast
+            self.receiver.manage_heartbeat()
         # close resources gracefully
-        self.subscriber.close()
+        self.receiver.close()
 
-    def check_external_events(self, identifier_socks: InternalSubscriber.SubscriberPollinResult) -> None:
+    def check_external_events(self, fds: List[int]) -> None:
         """ Forward external Supvisors events to the Supervisor main thread.
 
-        :param identifier_socks: the list of sockets to read from
+        :param fds: the list of socket descriptors to read from
         :return: None
         """
-        for message in self.subscriber.read_subscribers(identifier_socks):
+        for message in self.receiver.read_fds(fds):
             # a RemoteCommunicationEvent is used to push the event back into the Supervisor thread.
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, message)
 
-    def check_requests(self, sock: Optional[socket]) -> None:
+    def check_requests(self, puller_event: bool) -> None:
         """ Defer internal requests. """
-        if sock:
-            message = self.subscriber.read_socket(sock)
+        if puller_event:
+            message = self.receiver.read_puller()
             if message:
                 header, body = message
                 deferred_request = DeferredRequestHeaders(header)
                 # check publication event or deferred request
                 if deferred_request == DeferredRequestHeaders.ISOLATE_INSTANCES:
                     # isolation request: disconnect the node from subscriber
-                    self.subscriber.disconnect_subscriber(body)
+                    self.receiver.disconnect_subscriber(body)
                 else:
                     # XML-RPC request
                     self.send_request(deferred_request, body)
@@ -192,8 +192,10 @@ class SupvisorsMainLoop(Thread):
         message = identifier, authorized, master_identifier
         self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, message)
         # provide the local Supvisors with the remote Supvisors instance state and modes
+        instance = self.supvisors.supvisors_mapper.instances[identifier]
+        origin = instance.ip_address, instance.internal_port
         message = InternalEventHeaders.STATE.value, (identifier, state_modes_payload)
-        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, message)
+        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, (origin, message))
         # inform local Supvisors about the processes available remotely
         if all_info:
             message = identifier, all_info

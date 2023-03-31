@@ -28,7 +28,7 @@ from .ttypes import (ApplicationStates, DistributionRules, NameList, Payload, St
                      StartingFailureStrategies, RunningFailureStrategies)
 
 
-class ApplicationRules(object):
+class ApplicationRules:
     """ Definition of the rules for starting an application, iaw rules file.
 
     Attributes are:
@@ -311,16 +311,22 @@ class ApplicationStatus(object):
 
         :return: the list of identifiers where the program could be started
         """
-        identifiers = self.rules.identifiers
+        rules_identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
-            identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+            rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        # FIXME: filter here rather than in parser
+        filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
         # get the identifiers common to all application processes
-        actual_identifiers = [{identifier for identifier, info in process.info_map.items() if not info['disabled']}
+        actual_identifiers = [{identifier
+                               for identifier, info in process.info_map.items()
+                               if not info['disabled']}
                               for process in self.processes.values()]
         if actual_identifiers:
             actual_identifiers = actual_identifiers[0].intersection(*actual_identifiers)
         # intersect with rules
-        return [identifier for identifier in identifiers if identifier in actual_identifiers]
+        return [identifier
+                for identifier in actual_identifiers
+                if identifier in filtered_identifiers]
 
     def get_instance_processes(self, identifier: str) -> ProcessList:
         """ Return the list of application processes configured in the Supervisor instance.

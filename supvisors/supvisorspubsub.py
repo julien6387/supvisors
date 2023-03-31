@@ -17,7 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-import json
 import select
 import struct
 import time
@@ -30,8 +29,10 @@ from typing import Any, Dict, Optional, List, Tuple
 
 from supervisor.loggers import Logger
 
+from .internalinterface import (InternalCommEmitter, InternalCommReceiver, SupvisorsInternalComm,
+                                payload_to_bytes, read_from_socket)
 from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import DeferredRequestHeaders, InternalEventHeaders, Payload, NameList
+from .ttypes import InternalEventHeaders, Ipv4Address, Payload, NameList
 
 # additional annotations
 SocketList = List[socket]
@@ -47,43 +48,7 @@ BLOCK_TIMEOUT = 0.5
 POLL_TIMEOUT = 100
 
 # Chunk size to read a socket
-BUFFER_SIZE = 2048
-
-
-# Common functions
-def payload_to_bytes(msg_type: Enum, payload: Tuple) -> bytes:
-    """ Use a JSON serialization and encode the message with UTF-8.
-
-    :param msg_type: the message type
-    :param payload: the message body
-    :return: the message serialized and encoded, as bytes
-    """
-    return json.dumps((msg_type.value, payload)).encode('utf-8')
-
-
-def bytes_to_payload(message: bytes) -> List:
-    """ Decode and de-serialize the bytearray into a message header and body.
-
-    :param message: the message as bytes
-    :return: the message header and body
-    """
-    return json.loads(message.decode('utf-8'))
-
-
-def read_from_socket(sock: socket, msg_size: int) -> bytes:
-    """ Receive a message from a socket.
-
-    :param sock: the TCP socket
-    :param msg_size: the message size
-    :return: the message, as bytes
-    """
-    message_parts = []
-    to_read = msg_size
-    while to_read > 0:
-        buffer = sock.recv(min(BUFFER_SIZE, to_read))
-        message_parts.append(buffer)
-        to_read -= len(buffer)
-    return b''.join(message_parts)
+BUFFER_SIZE = 4096
 
 
 class SubscriberInterface(Thread):
@@ -328,8 +293,15 @@ class PublisherServer(Thread):
             self.logger.debug('PublisherServer.stop: publisher thread stopped')
 
 
-class InternalPublisher(PublisherServer):
+class InternalPublisher(PublisherServer, InternalCommEmitter):
     """ Class for publishing Supervisor events. """
+
+    def close(self) -> None:
+        """ Stop the PublisherServer when close is called.
+
+        :return: None
+        """
+        self.stop()
 
     def send_tick_event(self, payload: Payload) -> None:
         """ Publish the tick event.
@@ -396,114 +368,6 @@ class InternalPublisher(PublisherServer):
         self.publish(InternalEventHeaders.STATE, payload)
 
 
-class RequestPusher:
-    """ Class for pushing deferred XML-RPC.
-
-    Attributes:
-        - logger: a reference to the Supvisors logger ;
-        - socket: the push socket.
-    """
-
-    def __init__(self, sock: socket, logger: Logger) -> None:
-        """ Initialization of the attributes.
-
-        :param sock: the socket used to push messages
-        :param logger: the Supvisors logger
-        """
-        self.logger = logger
-        self.socket = sock
-
-    def push_message(self, *event) -> None:
-        """ Serialize the event and send it to the socket.
-
-        :param event: the event to send, as a tuple
-        :return: None
-        """
-        # format the event into a message
-        message = payload_to_bytes(*event)
-        buffer = len(message).to_bytes(4, 'big') + message
-        # send the message bytes
-        try:
-            self.socket.sendall(buffer)
-        except OSError:
-            self.logger.error(f'RequestPusher.send_message: failed to send message type={event[0].name}')
-
-    def send_check_instance(self, identifier: str) -> None:
-        """ Send request to check authorization to deal with the Supvisors instance.
-
-        :param identifier: the identifier of the Supvisors instance to check
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.CHECK_INSTANCE, (identifier,))
-
-    def send_isolate_instances(self, identifiers: NameList) -> None:
-        """ Send request to isolate instances.
-
-        :param identifiers: the identifiers of the Supvisors instances to isolate
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.ISOLATE_INSTANCES, tuple(identifiers))
-
-    def send_start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
-        """ Send request to start process.
-
-        :param identifier: the identifier of the Supvisors instance where the process has to be started
-        :param namespec: the process namespec
-        :param extra_args: the additional arguments to be passed to the command line
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.START_PROCESS, (identifier, namespec, extra_args))
-
-    def send_stop_process(self, identifier: str, namespec: str) -> None:
-        """ Send request to stop process.
-
-        :param identifier: the identifier of the Supvisors instance where the process has to be stopped
-        :param namespec: the process namespec
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.STOP_PROCESS, (identifier, namespec))
-
-    def send_restart(self, identifier: str):
-        """ Send request to restart a Supervisor.
-
-        :param identifier: the identifier of the Supvisors instance where Supvisors has to be restarted
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.RESTART, (identifier,))
-
-    def send_shutdown(self, identifier: str):
-        """ Send request to shut down a Supervisor.
-
-        :param identifier: the identifier of the Supvisors instance where Supvisors has to be shut down
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.SHUTDOWN, (identifier,))
-
-    def send_restart_sequence(self, identifier: str):
-        """ Send request to trigger the DEPLOYMENT phase.
-
-        :param identifier: the Master Supvisors instance
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.RESTART_SEQUENCE, (identifier,))
-
-    def send_restart_all(self, identifier: str):
-        """ Send request to restart Supvisors.
-
-        :param identifier: the Master Supvisors instance
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.RESTART_ALL, (identifier,))
-
-    def send_shutdown_all(self, identifier: str):
-        """ Send request to shut down Supvisors.
-
-        :param identifier: the Master Supvisors instance
-        :return: None
-        """
-        self.push_message(DeferredRequestHeaders.SHUTDOWN_ALL, (identifier,))
-
-
 class ClientConnectionThread(Thread):
 
     def __init__(self, instance: SupvisorsInstanceId, internal_subscriber):
@@ -529,40 +393,32 @@ class ClientConnectionThread(Thread):
             time.sleep(1)
 
 
-class InternalSubscriber:
+class InternalSubscriber(InternalCommReceiver):
     """ Class for sockets used from the Supvisors thread. """
-
-    # types for annotations
-    SubscriberPollinResult = List[Tuple[str, socket]]  # [(identifier, subscriber_sock)]
-    PollinResult = Tuple[socket, SubscriberPollinResult]  # (puller_sock, [(identifier, subscriber_sock)])
 
     def __init__(self, puller_sock: socket, supvisors: Any) -> None:
         """ Create the sockets and the poller.
         The Supervisor logger cannot be used here (not thread-safe).
 
+        :param puller_sock: the socket pair end used to receive the deferred Supvisors XML-RPC results
         :param supvisors: the Supvisors global structure
         """
+        super().__init__(puller_sock, supvisors.logger)
         self.identifier: str = supvisors.supvisors_mapper.local_identifier
-        # create socket pairs for the communication from the Supervisor thread to the Supvisors thread
-        self.puller_sock = puller_sock
         # subscriber sockets are TCP clients so connection is to be dealt on-the-fly
         self.instances = supvisors.supvisors_mapper.instances.copy()
         self.subscribers: Dict[str, List] = {}  # {identifier: [socket, hb_sent, hb_recv]}
-        # get list of readers for select
-        self.poller = select.poll()
-        self.poller.register(self.puller_sock, select.POLLIN)
         # start connections threads
         for instance in self.instances.values():
             ClientConnectionThread(instance, self).start()
 
     def close(self) -> None:
-        """ Close the puller, the publisher and the subscribers sockets.
+        """ Close the subscribers sockets.
         Should be called only from the SupvisorsMainLoop.
 
         :return: None
         """
-        self.poller.unregister(self.puller_sock)
-        self.puller_sock.close()
+        super().close()
         for sock, _, _ in self.subscribers.values():
             self.poller.unregister(sock)
             sock.close()
@@ -604,68 +460,37 @@ class InternalSubscriber:
                     # update the emission time
                     self.subscribers[identifier][1] = current_time
 
-    def poll(self) -> PollinResult:
-        """ Poll the sockets during POLL_TIMEOUT milliseconds.
+    def on_poll_error(self, fd: int):
+        """ Close the subscriber when an error happens on its socket. """
+        identifier = next((identifier
+                           for identifier, (sock, _, _) in self.subscribers.copy().items()
+                           if fd == sock.fileno()), None)
+        if identifier:
+            self.close_subscriber(identifier)
 
-        :return: a list of sockets ready for reading
-        """
-        event_puller, request_puller = None, None
-        subscribers = []
-        # poll the sockets registered
-        events = self.poller.poll(POLL_TIMEOUT)
-        # sort the readable and erroneous sockets
-        for fd, event in events:
-            # check for error
-            if event & select.POLLERR:
-                for identifier, (sock, _, _) in self.subscribers.copy().items():
-                    if fd == sock.fileno():
-                        self.close_subscriber(identifier)
-            # check for input
-            if event & select.POLLIN:
-                if fd == self.puller_sock.fileno():
-                    request_puller = self.puller_sock
-                else:
-                    for identifier, (sock, _, _) in self.subscribers.items():
-                        if fd == sock.fileno():
-                            subscribers.append((identifier, sock))
-        return request_puller, subscribers
-
-    def read_subscribers(self, identifier_socks: SubscriberPollinResult) -> List[Payload]:
+    def read_fds(self, fds: List[int]) -> List[Tuple[Ipv4Address, Payload]]:
         """ Read the messages from the subscriber sockets.
         Disconnect the erroneous sockets.
 
-        :param identifier_socks: the sockets to read
+        :param fds: the file descriptors of the sockets to read
         :return: the messages received
         """
         messages = []
-        for identifier, sock in identifier_socks:
-            try:
-                message = InternalSubscriber.read_socket(sock)
-                if message:
-                    # update heartbeat reception time on subscriber
-                    msg_type, msg_body = message
-                    if msg_type == InternalEventHeaders.HEARTBEAT.value:
-                        self.subscribers[identifier][2] = time.time()
-                    # store message in list
-                    messages.append(message)
-            except error:
-                # unregister and close the socket on error
-                self.close_subscriber(identifier)
+        for identifier, (sock, _, _) in self.subscribers.items():
+            if sock.fileno() in fds:
+                try:
+                    message = InternalCommReceiver.read_socket(sock)
+                    if message:
+                        # update heartbeat reception time on subscriber
+                        msg_type, msg_body = message
+                        if msg_type == InternalEventHeaders.HEARTBEAT.value:
+                            self.subscribers[identifier][2] = time.time()
+                        # store message in list
+                        messages.append((sock.getpeername(), message))
+                except error:
+                    # unregister and close the socket on error
+                    self.close_subscriber(identifier)
         return messages
-
-    @staticmethod
-    def read_socket(sock: socket) -> Payload:
-        """ Return the message received on the socket.
-
-        :param sock: the socket to read
-        :return: the message received
-        """
-        msg_size_as_bytes = sock.recv(4)
-        msg_size = int.from_bytes(msg_size_as_bytes, byteorder='big')
-        if msg_size > 0:
-            msg_as_bytes = read_from_socket(sock, msg_size)
-            return bytes_to_payload(msg_as_bytes)
-        return {}
 
     def close_subscriber(self, identifier: str) -> None:
         """ Close the subscriber socket corresponding to the identifier.
@@ -692,30 +517,21 @@ class InternalSubscriber:
             del self.instances[identifier]
 
 
-class SupvisorsSockets:
-    """ Class holding all structures used for Supvisors internal communication and external events. """
+class SupvisorsPubSub(SupvisorsInternalComm):
+    """ Class holding all structures used for Supvisors internal communication
+    using a TCP Publish-Subscribe pattern. """
 
     def __init__(self, supvisors: Any) -> None:
         """ Construction of all communication blocks.
 
         :param supvisors: the Supvisors global structure
         """
-        # create socket pairs for the deferred requests
-        pusher_sock, puller_sock = socketpair()
-        # create the pusher used to detach the XML-RPC requests from the Supervisor Thread
-        self.pusher = RequestPusher(pusher_sock, supvisors.logger)
+        super().__init__(supvisors)
         # create the Supvisors instance publisher and start it directly
         local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
-        self.publisher = InternalPublisher(local_instance.identifier, local_instance.internal_port, supvisors.logger)
-        self.publisher.start()
+        self.emitter = InternalPublisher(local_instance.identifier,
+                                         local_instance.internal_port,
+                                         supvisors.logger)
+        self.emitter.start()
         # create the global subscriber that receives deferred XML-RPC requests and events sent by all publishers
-        self.subscriber = InternalSubscriber(puller_sock, supvisors)
-
-    def stop(self) -> None:
-        """ Close the pusher sockets.
-        Should be called only from the Supervisor thread.
-
-        :return: None
-        """
-        self.pusher.socket.close()
-        self.publisher.stop()
+        self.receiver = InternalSubscriber(self.puller_sock, supvisors)

@@ -21,7 +21,6 @@ import glob
 import os
 import platform
 from collections import OrderedDict
-from socket import gethostname
 from typing import Dict, List, Tuple, TypeVar
 
 from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byte_size, existing_dirpath,
@@ -56,6 +55,7 @@ class SupvisorsOptions:
 
     Attributes are:
         - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
+        - supvisors_group: UDP Multicast Group where Supvisors will exchange data ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
         - internal_port: port number used to publish local events to remote Supvisors instances ;
         - event_link: type of the event link used to publish all Supvisors events ;
@@ -93,8 +93,10 @@ class SupvisorsOptions:
         self.supervisord_options = supervisord.options
         self.logger = logger
         # get values from config
-        self.supvisors_list = self._get_value(config, 'supvisors_list', [gethostname()],
+        self.supvisors_list = self._get_value(config, 'supvisors_list', None,
                                               lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
+        self.multicast_address = self._get_value(config, 'multicast_address', None, str)  # TODO
+        self.multicast_ttl = self._get_value(config, 'multicast_ttl', 2, int)  # TODO
         self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
         # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
         self.internal_port = self._get_value(config, 'internal_port', 0, self.to_port_num)
@@ -128,7 +130,9 @@ class SupvisorsOptions:
 
     def __str__(self):
         """ Contents as string. """
-        return (f'supvisors_list={self.supvisors_list} rules_files={self.rules_files}'
+        return (f'supvisors_list={self.supvisors_list}'
+                f' supvisors_group={self.supvisors_group}'
+                f' rules_files={self.rules_files}'
                 f' internal_port={self.internal_port}'
                 f' event_link={self.event_link.name} event_port={self.event_port}'
                 f' auto_fence={self.auto_fence}'

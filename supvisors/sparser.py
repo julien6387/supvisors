@@ -289,7 +289,9 @@ class Parser(object):
             identifiers = ['*']
         else:
             # filter the unknown identifiers (or remaining aliases)
-            identifiers = self.supvisors.supvisors_mapper.filter(identifiers)
+            # FIXME: it is unsuitable to filter so early when in discovering mode
+            # identifiers = self.supvisors.supvisors_mapper.filter(identifiers)
+            pass
         # re-inject the hashtag if needed. position does not matter
         if ref_hashtag:
             identifiers.append('#')
