@@ -2,6 +2,11 @@
 
 ## 0.17 (2023-xx-xx)
 
+* Provide a discovery mode where the **Supvisors** instances are established on-the-fly without declaring them in
+  the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_address` and
+  `multicast_ttl` added to that purpose).
+  *Not stable yet*.
+
 * Use IP address rather than host identification when dealing with `SINGLE_NODE` starting strategy. 
 
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
