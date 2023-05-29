@@ -389,7 +389,7 @@ class ClientConnectionThread(Thread):
                 else:
                     # store socket and register to poller
                     self.internal_subscriber.subscribers[self.identifier] = [sock, 0, time.time()]
-                    self.internal_subscriber.poller.register(sock, select.POLLIN | select.POLLERR)
+                    self.internal_subscriber.poller.register(sock, select.POLLIN)
             time.sleep(1)
 
 
@@ -460,15 +460,7 @@ class InternalSubscriber(InternalCommReceiver):
                     # update the emission time
                     self.subscribers[identifier][1] = current_time
 
-    def on_poll_error(self, fd: int):
-        """ Close the subscriber when an error happens on its socket. """
-        identifier = next((identifier
-                           for identifier, (sock, _, _) in self.subscribers.copy().items()
-                           if fd == sock.fileno()), None)
-        if identifier:
-            self.close_subscriber(identifier)
-
-    def read_fds(self, fds: List[int]) -> List[Tuple[Ipv4Address, Payload]]:
+    def read_fds(self, fds: List[int]) -> List[Tuple[Ipv4Address, List]]:
         """ Read the messages from the subscriber sockets.
         Disconnect the erroneous sockets.
 
@@ -476,19 +468,18 @@ class InternalSubscriber(InternalCommReceiver):
         :return: the messages received
         """
         messages = []
-        for identifier, (sock, _, _) in self.subscribers.items():
+        for identifier, (sock, _, _) in self.subscribers.copy().items():
             if sock.fileno() in fds:
-                try:
-                    message = InternalCommReceiver.read_socket(sock)
-                    if message:
-                        # update heartbeat reception time on subscriber
-                        msg_type, msg_body = message
-                        if msg_type == InternalEventHeaders.HEARTBEAT.value:
-                            self.subscribers[identifier][2] = time.time()
-                        # store message in list
-                        messages.append((sock.getpeername(), message))
-                except error:
-                    # unregister and close the socket on error
+                message = InternalCommReceiver.read_socket(sock)
+                if message:
+                    # update heartbeat reception time on subscriber
+                    peer, (msg_type, msg_body) = message
+                    if msg_type == InternalEventHeaders.HEARTBEAT.value:
+                        self.subscribers[identifier][2] = time.time()
+                    # store message in list
+                    messages.append(message)
+                else:
+                    # message of 0 or negative size. socket closed
                     self.close_subscriber(identifier)
         return messages
 

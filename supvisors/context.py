@@ -94,20 +94,21 @@ class Context(object):
         self._master_identifier = identifier
         self._is_master = identifier == self.local_identifier
 
-    def check_discovery(self, identifier: str, ip_address: str, port: int) -> None:
-        """ Check if the identifier is among the Supvisors instances list defined in the configuration file.
-        If Supvisors is in discovery mode, a new Supvisors instance is created if unknown
+    def check_discovery(self, identifier: str, ip_address: str, port: int) -> bool:
+        """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
 
         :param identifier: the Supvisors identifier to check
         :param ip_address: the IP address of the Supvisors instance
         :param port: the port of the Supvisors instance
-        :return: None
+        :return: True if a new Supvisors instance has been inserted
         """
-        if identifier not in self.instances and self.supvisors.options.multicast_address:
+        if self.supvisors.options.discovery_mode and identifier not in self.instances:
             item = f'<{identifier}>{ip_address}:{port}:'
-            self.logger.info(f'Context.check_discovery: adding item={item}')
+            self.logger.info(f'Context.check_discovery: adding instance={item}')
             new_instance = self.supvisors.supvisors_mapper.add_instance(item)
             self.instances[identifier] = SupvisorsInstanceStatus(new_instance, self.supvisors)
+            return True
+        return False
 
     def is_valid(self, identifier: str, ip_address: str) -> bool:
         """ Check the validity of the message emitter.
@@ -116,6 +117,7 @@ class Context(object):
             status = self.instances[identifier]
             if not status.in_isolation() and status.supvisors_id.ip_address == ip_address:
                 return True
+        return False
 
     def publish_state_modes(self, event: Payload) -> None:
         """ Publish the Supvisors instance state and modes.
@@ -184,6 +186,7 @@ class Context(object):
         if self.supvisors.supvisors_mapper.core_identifiers:
             identifiers = self.running_identifiers()
             return all(identifier in identifiers for identifier in self.supvisors.supvisors_mapper.core_identifiers)
+        return False
 
     def isolating_instances(self) -> NameList:
         """ Return the identifiers of the Supervisor instances in ISOLATING state. """
@@ -415,12 +418,14 @@ class Context(object):
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding SupvisorsInstanceStatus and its ProcessStatus.
         Finally, the updated SupvisorsInstanceStatus is published.
+        It is assumed that identifier validity has been checked before.
 
-        :param identifier: the identifier of the Supvisors instance from which the event has been received
+        :param identifier: the valid identifier of the Supvisors instance from which the event has been received
         :param event: the TICK event sent
         :return: None
         """
         # check if local tick has been received yet
+        # TODO: why ???
         if identifier != self.local_identifier:
             if self.local_instance.state != SupvisorsInstanceStates.RUNNING:
                 self.logger.debug('Context.on_tick_event: waiting for local tick first')

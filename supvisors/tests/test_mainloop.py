@@ -50,7 +50,7 @@ def test_creation(supvisors, mocked_rpc, main_loop):
                                      'SUPERVISOR_USERNAME': 'user',
                                      'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-    assert main_loop.subscriber is not None
+    assert main_loop.receiver is not None
 
 
 def test_stopping(mocked_rpc, main_loop):
@@ -78,13 +78,13 @@ def test_run(mocker, main_loop):
     """ Test the running of the main loop thread. """
     mocked_evt = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_external_events')
     mocked_req = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_requests')
-    main_loop.subscriber.poll.return_value = ('requests', ['events'])
+    main_loop.receiver.poll.return_value = ('requests', ['events'])
     # patch one loop
     mocker.patch.object(main_loop, 'stopping', side_effect=[False, False, True])
     main_loop.run()
     # test that mocked functions were called once
-    assert main_loop.subscriber.poll.call_args_list == [call()]
-    assert main_loop.subscriber.manage_heartbeat.call_args_list == [call()]
+    assert main_loop.receiver.poll.call_args_list == [call()]
+    assert main_loop.receiver.manage_heartbeat.call_args_list == [call()]
     assert mocked_evt.call_args_list == [call(['events'])]
     assert mocked_req.call_args_list == [call('requests')]
 
@@ -93,9 +93,9 @@ def test_check_external_events(mocker, main_loop):
     """ Test the processing of the events received. """
     mocked_send = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
     # test with appropriate socks but with exception
-    main_loop.subscriber.read_subscribers.return_value = ['a message', 'a second message']
+    main_loop.receiver.read_fds.return_value = ['a message', 'a second message']
     main_loop.check_external_events(['poll result'])
-    assert main_loop.subscriber.read_subscribers.call_args_list == [call(['poll result'])]
+    assert main_loop.receiver.read_fds.call_args_list == [call(['poll result'])]
     assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_EVENT, 'a message'),
                                           call(RemoteCommEvents.SUPVISORS_EVENT, 'a second message')]
 
@@ -104,37 +104,37 @@ def test_check_requests(mocker, main_loop):
     """ Test the processing of the requests received. """
     mocked_send = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_request')
     # test with empty socks
-    main_loop.check_requests(None)
-    assert not main_loop.subscriber.read_socket.called
-    assert not main_loop.subscriber.disconnect_subscriber.called
+    main_loop.check_requests(False)
+    assert not main_loop.receiver.read_socket.called
+    assert not main_loop.receiver.disconnect_subscriber.called
     assert not mocked_send.called
     # test with empty message
-    main_loop.subscriber.read_socket.return_value = None
-    main_loop.check_requests('socket')
-    assert main_loop.subscriber.read_socket.call_args_list == [call('socket')]
-    assert not main_loop.subscriber.disconnect_subscriber.called
+    main_loop.receiver.read_puller.return_value = None
+    main_loop.check_requests(True)
+    assert main_loop.receiver.read_puller.call_args_list == [call()]
+    assert not main_loop.receiver.disconnect_subscriber.called
     assert not mocked_send.called
     # reset mocks
-    main_loop.subscriber.read_socket.reset_mock()
+    main_loop.receiver.read_puller.reset_mock()
     # test with node isolation message
-    main_loop.subscriber.read_socket.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
-    main_loop.check_requests('socket')
-    assert main_loop.subscriber.read_socket.call_args_list == [call('socket')]
-    assert main_loop.subscriber.disconnect_subscriber.call_args_list == [call('a message')]
+    main_loop.receiver.read_puller.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
+    main_loop.check_requests(True)
+    assert main_loop.receiver.read_puller.call_args_list == [call()]
+    assert main_loop.receiver.disconnect_subscriber.call_args_list == [call('a message')]
     assert not mocked_send.called
     # reset mocks
-    main_loop.subscriber.read_socket.reset_mock()
-    main_loop.subscriber.disconnect_subscriber.reset_mock()
+    main_loop.receiver.read_puller.reset_mock()
+    main_loop.receiver.disconnect_subscriber.reset_mock()
     # test with other deferred message
     for event in DeferredRequestHeaders:
         if event != DeferredRequestHeaders.ISOLATE_INSTANCES:
-            main_loop.subscriber.read_socket.return_value = event.value, 'a message'
-            main_loop.check_requests('socket')
-            assert main_loop.subscriber.read_socket.call_args_list == [call('socket')]
-            assert not main_loop.subscriber.disconnect_subscriber.called
+            main_loop.receiver.read_puller.return_value = event.value, 'a message'
+            main_loop.check_requests(True)
+            assert main_loop.receiver.read_puller.call_args_list == [call()]
+            assert not main_loop.receiver.disconnect_subscriber.called
             assert mocked_send.call_args_list == [call(event, 'a message')]
             # reset mocks
-            main_loop.subscriber.read_socket.reset_mock()
+            main_loop.receiver.read_puller.reset_mock()
             mocked_send.reset_mock()
 
 
@@ -148,8 +148,10 @@ def test_check_instance_no_com(mocker, mocked_rpc, main_loop):
     main_loop.check_instance('10.0.0.1')
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
     auth_message = '10.0.0.1', None, ''
-    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', {'fsm_statecode': 0, 'starting_jobs': False,
-                                                                    'stopping_jobs': False})
+    local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
+    origin_payload = local_instance.ip_address, local_instance.http_port
+    state_payload = {'fsm_statecode': 0, 'starting_jobs': False, 'stopping_jobs': False}
+    state_message = origin_payload, (InternalEventHeaders.STATE.value, ('10.0.0.1', state_payload))
     assert mocked_evt.call_args_list == [call(RemoteCommEvents.SUPVISORS_AUTH, auth_message),
                                          call(RemoteCommEvents.SUPVISORS_EVENT, state_message)]
 
@@ -168,12 +170,14 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     mocked_rpc.return_value = rpc_intf
     # test with local Supvisors instance isolated by remote
     instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'starting_jobs': False, 'stopping_jobs': True}
-    auth_message = '10.0.0.1:60000', False, '10.0.0.5'
-    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1:60000', instance_info)
+    auth_message = '10.0.0.1', False, '10.0.0.5'
+    local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
+    origin_payload = local_instance.ip_address, local_instance.http_port
+    state_message = origin_payload, (InternalEventHeaders.STATE.value, ('10.0.0.1', instance_info))
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
-        main_loop.check_instance('10.0.0.1:60000')
-        assert mocked_instance.call_args_list == [call(hostname), call('10.0.0.1:60000')]
+        main_loop.check_instance('10.0.0.1')
+        assert mocked_instance.call_args_list == [call(hostname), call('10.0.0.1')]
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         assert mocked_evt.call_args_list == [call(RemoteCommEvents.SUPVISORS_AUTH, auth_message),
                                              call(RemoteCommEvents.SUPVISORS_EVENT, state_message)]
@@ -201,7 +205,9 @@ def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
     # exception on get_all_local_process_info
     instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'starting_jobs': False, 'stopping_jobs': True}
     auth_message = '10.0.0.1', True, '10.0.0.5'
-    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', instance_info)
+    local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
+    origin_payload = local_instance.ip_address, local_instance.http_port
+    state_message = origin_payload, (InternalEventHeaders.STATE.value, ('10.0.0.1', instance_info))
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING,
                   SupvisorsInstanceStates.SILENT]:
         mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})
@@ -236,7 +242,9 @@ def test_check_instance_normal(mocker, mocked_rpc, main_loop):
     instance_info = {'fsm_statecode': SupvisorsStates.OPERATION.value, 'starting_jobs': True, 'stopping_jobs': False}
     auth_message = '10.0.0.1', True, '10.0.0.5'
     info_message = '10.0.0.1', dummy_info
-    state_message = InternalEventHeaders.STATE.value, ('10.0.0.1', instance_info)
+    local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
+    origin_payload = local_instance.ip_address, local_instance.http_port
+    state_message = origin_payload, (InternalEventHeaders.STATE.value, ('10.0.0.1', instance_info))
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING,
                   SupvisorsInstanceStates.SILENT]:
         mocked_instance.return_value = dict(instance_info, **{'statecode': state.value})

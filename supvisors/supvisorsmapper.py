@@ -150,7 +150,7 @@ class SupvisorsInstanceId:
         return self.identifier
 
 
-class SupvisorsMapper(object):
+class SupvisorsMapper:
     """ Class used for storage of the Supvisors instances declared in the configuration file.
 
     Attributes are:
@@ -244,6 +244,7 @@ class SupvisorsMapper(object):
                 self.add_instance(item, False)
         else:
             # if supvisors_list is empty, use self identification from supervisor internal data
+            # TODO: use FQDN ?
             supervisor = self.supvisors.supervisor_data
             item = f'<{supervisor.identifier}>{gethostname()}:{supervisor.server_port}:'
             self.logger.info(f'SupvisorsMapper.configure: define local Supvisors as {item}')
@@ -264,6 +265,7 @@ class SupvisorsMapper(object):
         :return: the identifier of the local Supvisors
         """
         # get the must-match parameters
+        local_host_name = getfqdn()
         local_host_name = getfqdn()
         local_http_port = self.supvisors.supervisor_data.server_port
         # search for local Supervisor identifier first

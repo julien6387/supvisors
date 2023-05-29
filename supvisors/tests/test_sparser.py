@@ -17,14 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from io import BytesIO
 
-from supvisors.sparser import *
-from supvisors.process import ProcessRules
-from supvisors.ttypes import RunningFailureStrategies, StartingFailureStrategies
+import pytest
 
+from supvisors.sparser import *
+from supvisors.ttypes import RunningFailureStrategies, StartingFailureStrategies
 from .configurations import InvalidXmlTest, XmlTest
 
 
@@ -82,9 +80,9 @@ def check_aliases_valid(parser):
     assert parser.check_identifier_list('nodes_model_03') == ['10.0.0.4', '10.0.0.2']
     assert parser.check_identifier_list('10.0.0.1,nodes_model_03') == ['10.0.0.1', '10.0.0.4', '10.0.0.2']
     assert parser.check_identifier_list('10.0.0.5,nodes_appli_D,10.0.0.1') == ['10.0.0.5', '10.0.0.1']
-    assert parser.check_identifier_list('192.17.8.2,nodes_model_03') == ['10.0.0.4', '10.0.0.2']
+    assert parser.check_identifier_list('192.17.8.2,nodes_model_03') == ['192.17.8.2', '10.0.0.4', '10.0.0.2']
     assert parser.check_identifier_list('192.17.8.2,nodes_model_03,*') == ['*']
-    assert parser.check_identifier_list('not used,10.0.0.3') == ['10.0.0.2', '10.0.0.3']
+    assert parser.check_identifier_list('not used,10.0.0.3') == ['10.0.0.2', 'nodes_appli_D', '10.0.0.3']
 
 
 def check_valid(parser):
@@ -179,7 +177,7 @@ def check_aliases_invalid(parser):
     assert parser.check_identifier_list('nodes_prg_B1') == ['#']
     assert parser.check_identifier_list('nodes_appli_D') == []
     assert parser.check_identifier_list('nodes_prg_B3,10.0.0.1') == ['*']
-    assert parser.check_identifier_list('10.0.0.5,not used too') == ['10.0.0.5', '10.0.0.1', '#']
+    assert parser.check_identifier_list('10.0.0.5,not used too') == ['10.0.0.5', '#', '10.0.0.1', '192.168.12.20']
     assert parser.check_identifier_list('10.0.0.5,not used') == ['*']
 
 

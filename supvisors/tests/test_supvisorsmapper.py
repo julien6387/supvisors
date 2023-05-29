@@ -17,8 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-from socket import gethostname
-
 import pytest
 
 from supvisors.supvisorsmapper import *
@@ -152,6 +150,33 @@ def test_mapper_create(supvisors, mapper):
     assert mapper.local_identifier is None
 
 
+def test_add_instance(mapper):
+    """ Test the SupvisorsMapper.add_instance method. """
+    # test error (no IP address)
+    with pytest.raises(ValueError):
+        mapper.add_instance('<dummy>:1234:', False)
+    assert mapper.instances == {}
+    assert mapper.nodes == {}
+    with pytest.raises(ValueError):
+        mapper.add_instance('<dummy>:1234:4321')
+    assert mapper.instances == {}
+    assert mapper.nodes == {}
+    # test correct format without discovery log
+    mapper.add_instance('<dummy_1>10.0.0.1:1234:4321', False)
+    assert list(mapper.instances.keys()) == ['dummy_1']
+    assert mapper.nodes == {'10.0.0.1': ['dummy_1']}
+    mapper.add_instance('10.0.0.2:1234:', False)
+    assert sorted(mapper.instances.keys()) == ['10.0.0.2:1234', 'dummy_1']
+    assert mapper.nodes == {'10.0.0.1': ['dummy_1'], '10.0.0.2': ['10.0.0.2:1234']}
+    # test correct format with discovery log
+    mapper.add_instance('<dummy_2>10.0.0.1:1234:4321')
+    assert sorted(mapper.instances.keys()) == ['10.0.0.2:1234', 'dummy_1', 'dummy_2']
+    assert mapper.nodes == {'10.0.0.1': ['dummy_1', 'dummy_2'], '10.0.0.2': ['10.0.0.2:1234']}
+    mapper.add_instance('10.0.0.2:4321:', True)
+    assert sorted(mapper.instances.keys()) == ['10.0.0.2:1234', '10.0.0.2:4321', 'dummy_1', 'dummy_2']
+    assert mapper.nodes == {'10.0.0.1': ['dummy_1', 'dummy_2'], '10.0.0.2': ['10.0.0.2:1234', '10.0.0.2:4321']}
+
+
 def test_mapper_configure(mocker, mapper):
     """ Test the storage of the expected Supvisors instances. """
     mocked_find = mocker.patch.object(mapper, 'find_local_identifier')
@@ -254,25 +279,6 @@ def test_find_local_identifier_none(mapper):
         mapper._instances[supvisors_id.identifier] = supvisors_id
     with pytest.raises(ValueError):
         mapper.find_local_identifier()
-
-
-def test_valid(mapper):
-    """ Test the SupvisorsMapper.valid method. """
-    # add context
-    hostname = gethostname()
-    items = ['127.0.0.1', '<host>10.0.0.1:2222:', f'{hostname}:60000:7777']
-    for item in items:
-        supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
-        mapper._instances[supvisors_id.identifier] = supvisors_id
-    # force host name to FQDN
-    mapper._instances[f'{hostname}:60000'].host_name = getfqdn()
-    # test calls
-    assert mapper.valid('127.0.0.1')
-    assert mapper.valid('host')
-    assert mapper.valid(f'{hostname}:60000')
-    assert not mapper.valid(hostname)
-    assert not mapper.valid('supervisor')
-    assert not mapper.valid('10.0.0.1')
 
 
 def test_filter(mapper):

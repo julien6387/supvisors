@@ -187,7 +187,6 @@ def test_rules_check_hash_identifiers(rules):
 
 def test_rules_check_dependencies(mocker, rules):
     """ Test the dependencies in process rules. """
-    mocked_hash = mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
     mocked_auto = mocker.patch('supvisors.process.ProcessRules.check_autorestart')
     mocked_start = mocker.patch('supvisors.process.ProcessRules.check_start_sequence')
     mocked_stop = mocker.patch('supvisors.process.ProcessRules.check_stop_sequence')
@@ -199,7 +198,6 @@ def test_rules_check_dependencies(mocker, rules):
     assert mocked_start.call_args_list == [call('dummy')]
     assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_auto.call_args_list == [call('dummy')]
-    assert not mocked_hash.called
     # reset mocks
     mocker.resetall()
     # test with hash
@@ -210,7 +208,6 @@ def test_rules_check_dependencies(mocker, rules):
     assert mocked_start.call_args_list == [call('dummy')]
     assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_auto.call_args_list == [call('dummy')]
-    assert mocked_hash.call_args_list == [call('dummy')]
 
 
 # ProcessStatus part
@@ -267,8 +264,8 @@ def test_process_disabled_on(supvisors):
     assert process.disabled_on('10.0.0.2')
 
 
-def test_process_possible_identifiers(supvisors):
-    """ Test the ProcessStatus.possible_identifiers method. """
+def test_process_possible_identifiers_no_hash(supvisors):
+    """ Test the ProcessStatus.possible_identifiers method with hashtag already resolved. """
     info = any_process_info()
     process = create_process(info, supvisors)
     process.add_info('10.0.0.2', info)
@@ -289,12 +286,36 @@ def test_process_possible_identifiers(supvisors):
     assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
     # test with full status and all instances in rules + re-enable on '10.0.0.3'
     process.update_disability('10.0.0.3', False)
-    for node_name in supvisors.supvisors_mapper.instances:
-        process.add_info(node_name, info.copy())
+    for identifier in supvisors.supvisors_mapper.instances:
+        process.add_info(identifier, info.copy())
     assert process.possible_identifiers() == list(supvisors.supvisors_mapper.instances.keys())
     # restrict again instances in rules
     process.rules.identifiers = ['10.0.0.5']
     assert process.possible_identifiers() == ['10.0.0.5']
+
+
+def test_process_possible_identifiers_hash(supvisors):
+    """ Test the ProcessStatus.possible_identifiers method with hashtag unresolved. """
+    # in mocked supvisors, xclock has a procnumber of 2
+    info = process_info_by_name('xclock')
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    process.add_info('10.0.0.3', info.copy())
+    # check no resolution when no hashtag
+    assert process.rules.hash_identifiers == []
+    assert process.possible_identifiers() == ['10.0.0.1', '10.0.0.3']
+    # check hashtag resolution using wildcard
+    process.rules.hash_identifiers = ['*']
+    assert process.possible_identifiers() == ['10.0.0.3']
+    assert process.rules.hash_identifiers == []
+    # check hashtag resolution using subset identifiers list that does not include existing information
+    process.rules.hash_identifiers = ['10.0.0.2']
+    assert process.possible_identifiers() == []
+    assert process.rules.hash_identifiers == []
+    # check hashtag resolution using subset identifiers list that does not include existing information
+    process.rules.hash_identifiers = ['10.0.0.1']
+    assert process.possible_identifiers() == ['10.0.0.1']
+    assert process.rules.hash_identifiers == []
 
 
 def test_status_stopped_process(supvisors):

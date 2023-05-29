@@ -50,7 +50,8 @@ def test_abstract_state(supvisors_ctx):
     assert state.local_identifier == supvisors_ctx.supvisors_mapper.local_identifier
     # call empty methods
     state.enter()
-    state.next()
+    with pytest.raises(NotImplementedError):
+        state.next()
     state.exit()
     # test check_instances method
     # declare local and master address running
@@ -73,6 +74,22 @@ def test_abstract_state(supvisors_ctx):
     assert supvisors_ctx.stopper.abort.called
 
 
+def test_off_state(supvisors_ctx):
+    """ Test the Initialization state of the fsm. """
+    state = OffState(supvisors_ctx)
+    assert isinstance(state, AbstractState)
+    local_identifier = state.local_identifier
+    # 1. test enter method: no behaviour
+    state.enter()
+    # 2. test next method
+    assert supvisors_ctx.sockets
+    assert state.next() == SupvisorsStates.INITIALIZATION
+    supvisors_ctx.sockets = None
+    assert state.next() == SupvisorsStates.OFF
+    # 3. test exit method: no behaviour
+    state.exit()
+
+
 def test_initialization_state(mocker, supvisors_ctx):
     """ Test the Initialization state of the fsm. """
     mocker.patch('supvisors.statemachine.time', return_value=1234)
@@ -83,44 +100,69 @@ def test_initialization_state(mocker, supvisors_ctx):
     # test that all active instances have been reset to UNKNOWN
     state.enter()
     assert state.context.master_identifier == ''
-    nodes = supvisors_ctx.context.instances
-    assert nodes[local_identifier].state == SupvisorsInstanceStates.UNKNOWN
-    assert nodes['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
-    assert nodes['10.0.0.2'].state == SupvisorsInstanceStates.UNKNOWN
-    assert nodes['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATING
-    assert nodes['10.0.0.4'].state == SupvisorsInstanceStates.UNKNOWN
-    assert nodes['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
+    instances = supvisors_ctx.context.instances
+    assert instances[local_identifier].state == SupvisorsInstanceStates.UNKNOWN
+    assert instances['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
+    assert instances['10.0.0.2'].state == SupvisorsInstanceStates.UNKNOWN
+    assert instances['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATING
+    assert instances['10.0.0.4'].state == SupvisorsInstanceStates.UNKNOWN
+    assert instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
     # 2. test next method
-    # trigger log for synchro time out
+    #    Supvisors wait for all instances to be running or a timeout is reached
+    # test case no Supvisors instance is yet running, especially the local instance, even if timeout is reached
+    for start_date in [0, 1230]:
+        state.context.start_date = start_date
+        result = state.next()
+        assert result == SupvisorsStates.INITIALIZATION
+    # from now, the local Supvisors instance is running
+    #  and working with no core instances
+    instances[local_identifier]._state = SupvisorsInstanceStates.RUNNING
+    assert not supvisors_ctx.supvisors_mapper._core_identifiers
+    # test case where some Supvisors instances are still unknown and timeout is reached
+    # NOTE: in the normal FSM, the instances state is set by the reception of a tick or by the periodic check
     state.context.start_date = 0
-    # test that Supvisors wait for all instances to be running or a given timeout is reached
-    # test case no node is running, especially local node
+    instances['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
+    instances['10.0.0.4']._state = SupvisorsInstanceStates.SILENT
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
-    # test case where addresses are still unknown and timeout is not reached
-    nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
-    nodes['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
-    nodes['10.0.0.4']._state = SupvisorsInstanceStates.SILENT
+    # test case where no more instances are still unknown, whatever if the timeout is reached or not
+    #  only when NOT in discovery mode
+    assert not supvisors_ctx.options.discovery_mode
+    instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    for start_date in [0, 1230]:
+        state.context.start_date = start_date
+        result = state.next()
+        assert result == SupvisorsStates.DEPLOYMENT
+    # same test in discovery mode but timeout not reached yet
+    state.context.start_date = 1230
+    supvisors_ctx.options.multicast_address = '239.0.0.1'
+    assert supvisors_ctx.options.discovery_mode
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
-    # test case where no more instances are still unknown
-    nodes['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
-    nodes['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    # when the min timeout is reached and in discovery mode, DEPLOYMENT can be reached
+    state.context.start_date = 0
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # test case where end of synchro is forced based on core instances running
+    state.context.start_date = 1234 - SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1
     supvisors_ctx.supvisors_mapper._core_identifiers = {'10.0.0.2', '10.0.0.4'}
-    nodes['10.0.0.3']._state = SupvisorsInstanceStates.UNKNOWN
-    nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
-    # SYNCHRO_TIMEOUT_MIN not passed yet
-    state.context.start_date = 1224
+    # still one core instance to wait
+    instances['10.0.0.2']._state = SupvisorsInstanceStates.UNKNOWN
+    instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
-    # no master set
-    state.context.start_date = 0
+    # one core instance SILENT and force another to be UNKOWN to avoid transition due to all in known state
+    instances['10.0.0.2']._state = SupvisorsInstanceStates.SILENT
+    instances['10.0.0.3']._state = SupvisorsInstanceStates.UNKNOWN
+    result = state.next()
+    assert result == SupvisorsStates.INITIALIZATION
+    # all core instances running and no master set
+    instances['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
+    assert not supvisors_ctx.context.master_identifier
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
-    # master known, not in core instances and not running
+    # master known, not in core instances and not running (unknown in the present case)
     supvisors_ctx.context.master_identifier = '10.0.0.3'
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
@@ -128,6 +170,10 @@ def test_initialization_state(mocker, supvisors_ctx):
     supvisors_ctx.context.master_identifier = local_identifier
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
+    # when the min timeout is NOT reached, do not transition
+    state.context.start_date = 1234 - SupvisorsOptions.SYNCHRO_TIMEOUT_MIN
+    result = state.next()
+    assert result == SupvisorsStates.INITIALIZATION
     # 3. test exit method
     # test when master_identifier is already set: no change
     state.exit()
@@ -193,14 +239,19 @@ def test_master_operation_state(mocker, supvisors_ctx):
     # create instance
     state = MasterOperationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
-    # no enter implementation. just call it without test
+    # 1. no enter implementation. just call it without test
     state.enter()
-    # test next method if check_instances return something
+    # 2. test next method if check_instances return something
     mocker.patch.object(state, 'check_instances', return_value=SupvisorsStates.INITIALIZATION)
     assert state.next() == SupvisorsStates.INITIALIZATION
     assert not mocked_start.called
     # test next method if check_instances return nothing
     state.check_instances.return_value = None
+    # no conflict, no mark, no job: keep in OPERATION
+    mocked_start.return_value = False
+    mocked_stop.return_value = False
+    result = state.next()
+    assert result == SupvisorsStates.OPERATION
     # do not leave OPERATION state if a starting or a stopping is in progress
     mocked_start.return_value = True
     result = state.next()
@@ -225,7 +276,7 @@ def test_master_operation_state(mocker, supvisors_ctx):
     mocked_conflict.return_value = True
     result = state.next()
     assert result == SupvisorsStates.CONCILIATION
-    # no exit implementation. just call it without test
+    # 3. no exit implementation. just call it without test
     state.exit()
 
 
@@ -268,7 +319,7 @@ def test_master_conciliation_state(mocker, supvisors_ctx):
     mocked_enter = mocker.patch.object(state, 'enter')
     result = state.next()
     assert mocked_enter.call_count == 1
-    assert result is None
+    assert result == SupvisorsStates.CONCILIATION
     # transit to OPERATION if local node and master node are RUNNING and no conflict detected
     supvisors_ctx.context.conflicting.return_value = False
     result = state.next()
@@ -445,31 +496,30 @@ def test_state_string(fsm):
 
 
 # Patch all state events
-MASTER_STATES = [cls.__name__ for cls in FiniteStateMachine._MasterStateInstances.values()]
-SLAVE_STATES = ['OffState', 'InitializationState', 'SlaveMainState', 'SlaveRestartingState', 'RestartState',
-                'SlaveShuttingDownState', 'ShutdownState']
+MASTER_STATES = [(state, cls.__name__) for state, cls in FiniteStateMachine._MasterStateInstances.items()]
+SLAVE_STATES = [(state, cls.__name__) for state, cls in FiniteStateMachine._SlaveStateInstances.items()]
 EVENTS = ['enter', 'next', 'exit']
 
 
 @pytest.fixture
 def mock_master_events(mocker):
-    return [[mocker.patch(f'supvisors.statemachine.{cls}.{evt}', return_value=None)
+    return [[(f'{state}.{evt}', mocker.patch(f'supvisors.statemachine.{cls}.{evt}', return_value=state))
              for evt in EVENTS]
-            for cls in MASTER_STATES]
+            for state, cls in MASTER_STATES]
 
 
 @pytest.fixture
 def mock_slave_events(mocker):
-    return [[mocker.patch(f'supvisors.statemachine.{cls}.{evt}', return_value=None)
+    return [[(f'{state}.{evt}', mocker.patch(f'supvisors.statemachine.{cls}.{evt}', return_value=state))
              for evt in EVENTS]
-            for cls in SLAVE_STATES]
+            for state, cls in SLAVE_STATES]
 
 
 def compare_calls(call_counts, mock_events):
     """ Compare call counts of mocked methods. """
     for state_call_counts, state_mock_events in zip(call_counts, mock_events):
-        for call_count, mocked in zip(state_call_counts, state_mock_events):
-            assert mocked.call_count == call_count
+        for call_count, (tested, mocked) in zip(state_call_counts, state_mock_events):
+            assert mocked.call_count == call_count, tested
             mocked.reset_mock()
 
 
@@ -509,27 +559,30 @@ def test_slave_simple_set_state(fsm, mock_slave_events):
     compare_calls([(0, 0, 1), (1, 1, 0), (0, 0, 0)], mock_slave_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.INITIALIZATION
-    # test set_state with not authorized transition
+    # test set_state with not authorized transition in Master but authorized in Slave
+    # as DEPLOYMENT, OPERATION and CONCILIATION are a common state in Slave FSM, only CONCILIATION holds the change
+    # in SlaveMainState, automatic transition is allowed from OPERATION to CONCILIATION (Master state)
     fsm.set_state(SupvisorsStates.OPERATION)
-    compare_calls([(0, 0, 0), (0, 0, 1), (1, 1, 0)], mock_slave_events)
+    compare_calls([(0, 0, 0), (0, 0, 1), (0, 0, 0), (0, 0, 0), (2, 2, 1)], mock_slave_events)
     assert fsm.instance is not instance_ref
-    assert fsm.state == SupvisorsStates.OPERATION
-    # test set_state with authorized transition
+    assert fsm.state == SupvisorsStates.CONCILIATION
+    # in SlaveMainState, automatic transition is allowed from DEPLOYMENT to CONCILIATION (Master state)
     fsm.set_state(SupvisorsStates.DEPLOYMENT)
-    compare_calls([(0, 0, 0), (0, 0, 0), (1, 1, 1)], mock_slave_events)
+    compare_calls([(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (2, 2, 2)], mock_slave_events)
     assert fsm.instance is not instance_ref
-    assert fsm.state == SupvisorsStates.DEPLOYMENT
+    assert fsm.state == SupvisorsStates.CONCILIATION
     # test set_state with unauthorized transition
     fsm.set_state(SupvisorsStates.SHUTDOWN)
-    compare_calls([(0, 0, 0), (0, 0, 0), (0, 0, 1), (0, 0, 0), (0, 0, 0), (0, 0, 0), (1, 1, 0)], mock_slave_events)
+    compare_calls([(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 1), (0, 0, 0), (0, 0, 0), (0, 0, 0), (1, 1, 0)],
+                  mock_slave_events)
     assert fsm.state == SupvisorsStates.SHUTDOWN
 
 
 def test_master_complex_set_state(fsm, mock_master_events):
     """ Test multiple transitions of the Master FSM using set_state method. """
-    mock_master_events[0][1].return_value = SupvisorsStates.INITIALIZATION
-    mock_master_events[1][1].return_value = SupvisorsStates.DEPLOYMENT
-    mock_master_events[2][1].return_value = SupvisorsStates.OPERATION
+    mock_master_events[0][1][1].return_value = SupvisorsStates.INITIALIZATION
+    mock_master_events[1][1][1].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[2][1][1].return_value = SupvisorsStates.OPERATION
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
@@ -550,7 +603,7 @@ def test_fsm_next(mocker, fsm):
 
 def test_master_no_next(fsm, mock_master_events):
     """ Test no transition of the state machine using next method. """
-    mock_master_events[0][1].return_value = SupvisorsStates.OFF
+    mock_master_events[0][1][1].return_value = SupvisorsStates.OFF
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
@@ -562,9 +615,9 @@ def test_master_no_next(fsm, mock_master_events):
 
 def test_master_simple_next(fsm, mock_master_events):
     """ Test single transition of the state machine using next_method. """
-    mock_master_events[0][1].return_value = SupvisorsStates.INITIALIZATION
-    mock_master_events[1][1].return_value = SupvisorsStates.DEPLOYMENT
-    mock_master_events[2][1].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[0][1][1].return_value = SupvisorsStates.INITIALIZATION
+    mock_master_events[1][1][1].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[2][1][1].return_value = SupvisorsStates.DEPLOYMENT
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
@@ -576,13 +629,13 @@ def test_master_simple_next(fsm, mock_master_events):
 
 def test_master_complex_next(fsm, mock_master_events):
     """ Test multiple transitions of the state machine using next_method. """
-    mock_master_events[0][1].return_value = SupvisorsStates.INITIALIZATION
-    mock_master_events[1][1].side_effect = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.DEPLOYMENT]
-    mock_master_events[2][1].side_effect = [SupvisorsStates.OPERATION, SupvisorsStates.OPERATION]
-    mock_master_events[3][1].side_effect = [SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION,
-                                            SupvisorsStates.RESTARTING]
-    mock_master_events[4][1].side_effect = [SupvisorsStates.OPERATION]
-    mock_master_events[5][1].return_value = SupvisorsStates.RESTART
+    mock_master_events[0][1][1].return_value = SupvisorsStates.INITIALIZATION
+    mock_master_events[1][1][1].side_effect = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.DEPLOYMENT]
+    mock_master_events[2][1][1].side_effect = [SupvisorsStates.OPERATION, SupvisorsStates.OPERATION]
+    mock_master_events[3][1][1].side_effect = [SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION,
+                                               SupvisorsStates.RESTARTING]
+    mock_master_events[4][1][1].side_effect = [SupvisorsStates.OPERATION]
+    mock_master_events[5][1][1].return_value = SupvisorsStates.RESTART
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context._is_master = True
@@ -648,16 +701,27 @@ def test_tick_event(mocker, fsm):
     mocked_evt = mocker.patch.object(fsm.supvisors.context, 'on_tick_event')
     mocked_check = mocker.patch.object(fsm, 'periodic_check')
     # test when tick comes from another node
-    event = {'tick': 1234}
+    event = {'tick': 1234, 'ip_address': '10.0.0.1', 'server_port': 1234}
     fsm.on_tick_event('10.0.0.1', event)
     assert mocked_evt.call_args_list == [call('10.0.0.1', event)]
     assert not mocked_check.called
+    assert not fsm.redeploy_mark
     mocker.resetall()
     # test when tick comes from local node
     local_identifier = fsm.supvisors.supvisors_mapper.local_identifier
+    event['ip_address'] = fsm.supvisors.supvisors_mapper.local_instance.ip_address
     fsm.on_tick_event(local_identifier, event)
     assert mocked_evt.call_args_list == [call(local_identifier, event)]
     assert mocked_check.call_args_list == [call(event)]
+    assert not fsm.redeploy_mark
+    mocker.resetall()
+    # activate discovery mode
+    fsm.supvisors.options.multicast_address = '239.0.0.1'
+    event = {'tick': 1357, 'ip_address': '192.168.1.1', 'server_port': 5000}
+    fsm.on_tick_event('rocky52', event)
+    assert mocked_evt.call_args_list == [call('rocky52', event)]
+    assert not mocked_check.called
+    assert fsm.redeploy_mark
 
 
 def test_process_state_event_process_not_found(mocker, fsm):

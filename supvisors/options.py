@@ -55,7 +55,8 @@ class SupvisorsOptions:
 
     Attributes are:
         - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
-        - supvisors_group: UDP Multicast Group where Supvisors will exchange data ;
+        - multicast_address: UDP Multicast Group where Supvisors will exchange data ;
+        - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
         - internal_port: port number used to publish local events to remote Supvisors instances ;
         - event_link: type of the event link used to publish all Supvisors events ;
@@ -92,11 +93,13 @@ class SupvisorsOptions:
         """
         self.supervisord_options = supervisord.options
         self.logger = logger
-        # get values from config
+        # get expected Supvisors instances
         self.supvisors_list = self._get_value(config, 'supvisors_list', None,
                                               lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
-        self.multicast_address = self._get_value(config, 'multicast_address', None, str)  # TODO
+        # get multicast parameters for discovery mode
+        self.multicast_address = self._get_value(config, 'multicast_address', None, str)  # TODO: check IP form ?
         self.multicast_ttl = self._get_value(config, 'multicast_ttl', 2, int)  # TODO
+        # get the rules files
         self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
         # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
         self.internal_port = self._get_value(config, 'internal_port', 0, self.to_port_num)
@@ -109,6 +112,7 @@ class SupvisorsOptions:
         self.core_identifiers = self._get_value(config, 'core_identifiers', set(),
                                                 lambda x: set(filter(None, list_of_strings(x))))
         # get disabilities file
+        # FIXME #112: store the file anyway
         self.disabilities_file = self._get_value(config, 'disabilities_file', None, existing_dirpath)
         # get strategies
         self.conciliation_strategy = self._get_value(config, 'conciliation_strategy', ConciliationStrategies.USER,
@@ -131,20 +135,35 @@ class SupvisorsOptions:
     def __str__(self):
         """ Contents as string. """
         return (f'supvisors_list={self.supvisors_list}'
-                f' supvisors_group={self.supvisors_group}'
+                f' multicast_address={self.multicast_address}'
+                f' multicast_ttl={self.multicast_ttl}'
                 f' rules_files={self.rules_files}'
                 f' internal_port={self.internal_port}'
-                f' event_link={self.event_link.name} event_port={self.event_port}'
+                f' event_link={self.event_link.name}'
+                f' event_port={self.event_port}'
                 f' auto_fence={self.auto_fence}'
-                f' synchro_timeout={self.synchro_timeout} inactivity_ticks={self.inactivity_ticks}'
-                f' core_identifiers={self.core_identifiers} disabilities_file={self.disabilities_file}'
+                f' synchro_timeout={self.synchro_timeout}'
+                f' inactivity_ticks={self.inactivity_ticks}'
+                f' core_identifiers={self.core_identifiers}'
+                f' disabilities_file={self.disabilities_file}'
                 f' conciliation_strategy={self.conciliation_strategy.name}'
                 f' starting_strategy={self.starting_strategy.name}'
-                f' host_stats_enabled={self.host_stats_enabled} process_stats_enabled={self.process_stats_enabled}'
+                f' host_stats_enabled={self.host_stats_enabled}'
+                f' process_stats_enabled={self.process_stats_enabled}'
                 f' collecting_period={self.collecting_period}'
-                f' stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
+                f' stats_periods={self.stats_periods}'
+                f' stats_histo={self.stats_histo}'
                 f' stats_irix_mode={self.stats_irix_mode}'
-                f' tail_limit={self.tail_limit} tailf_limit={self.tailf_limit}')
+                f' tail_limit={self.tail_limit}'
+                f' tailf_limit={self.tailf_limit}')
+
+    @property
+    def discovery_mode(self) -> bool:
+        """ Return True if Supvisors is in discovery mode.
+
+        :return: True if the multicast address is set
+        """
+        return self.multicast_address is not None
 
     def _get_value(self, config: Payload, attr: str, default_value, fct=None):
         """ Read and convert the option.

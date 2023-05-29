@@ -17,20 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-import socket
+from socket import gethostbyname, gethostname
 
 import pytest
 
 from supvisors.supvisorspubsub import *
+from supvisors.ttypes import DeferredRequestHeaders
 
-
-def test_payload_to_bytes_to_payload(supvisors):
-    """ Test the serialization and deserialization. """
-    msg_type_enum = Enum('MessageType', ['TEST', 'TEST_2'])
-    payload = 'a message source', {'body': 'a message body'}
-    msg_bytes = payload_to_bytes(msg_type_enum.TEST_2, payload)
-    assert isinstance(msg_bytes, bytes)
-    assert bytes_to_payload(msg_bytes) == [2, ['a message source', {'body': 'a message body'}]]
+local_ip = gethostbyname(gethostname())
 
 
 @pytest.fixture
@@ -39,13 +33,14 @@ def sockets(supvisors):
     socks = SupvisorsPubSub(supvisors)
     yield socks
     socks.stop()
-    socks.subscriber.close()
+    socks.receiver.close()
 
 
 def check_sockets(subscriber: InternalSubscriber,
                   request: Any,
                   notification: Any,
-                  heartbeat_identifier: str, hb_dates: List[float],
+                  heartbeat_identifier: Optional[str],
+                  hb_dates: List[float],
                   heartbeat_required: bool = False):
     """ Check that requests, notifications or heartbeats have been received as expected.
     Poll timeout is 100ms, so this method waits up to 3 seconds to get the messages expected.
@@ -56,12 +51,12 @@ def check_sockets(subscriber: InternalSubscriber,
         # test request part
         assert not requests_socket or request
         if requests_socket:
-            assert requests_socket is subscriber.puller_sock
-            assert subscriber.read_socket(requests_socket) == request
+            assert subscriber.read_socket(subscriber.puller_sock) == ('', request)
             got_expected_request = True
         # test notification part
-        messages = subscriber.read_subscribers(external_events_sockets)
-        for msg_type, (identifier, msg_body) in messages:
+        messages = subscriber.read_fds(external_events_sockets)
+        for peer, (msg_type, (identifier, msg_body)) in messages:
+            assert peer == (local_ip, 65100)
             # test heartbeat part
             if msg_type == InternalEventHeaders.HEARTBEAT.value:
                 assert identifier == heartbeat_identifier
@@ -95,10 +90,10 @@ def check_sockets(subscriber: InternalSubscriber,
 
 
 def test_global_normal(supvisors, sockets):
-    """ Test the Supvisors internal communications in one single test. """
-    subscriber = sockets.subscriber
+    """ Test the Supvisors TCP publish / subscribe in one single test. """
+    subscriber = sockets.receiver
     pusher = sockets.pusher
-    publisher = sockets.publisher
+    publisher = sockets.emitter
     # initial check for connectable instances
     assert sorted(subscriber.instances.keys()) == sorted(supvisors.supvisors_mapper.instances.keys())
     # wait for publisher server to be alive
@@ -205,53 +200,15 @@ def test_global_normal(supvisors, sockets):
     assert local_identifier not in subscriber.instances
     # check that nothing is received anymore by the subscribers
     publisher.send_state_event({'state': 'operational', 'mode': 'starting'})
-    check_sockets(subscriber, None, None, None, None, True)
-
-
-def test_read_socket_zero_message_size():
-    """ Test of the reception of a 0-sized message in the InternalSubscriber.read_socket method. """
-    send_sock, recv_sock = socketpair()
-    send_sock.sendall(int.to_bytes(0, 4, 'big'))
-    assert InternalSubscriber.read_socket(recv_sock) == {}
-
-
-def test_read_subscribers_exception(supvisors, sockets):
-    """ Test the exception management when reading from a socket that has been closed after poll returned a result. """
-    subscriber = sockets.subscriber
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert sockets.publisher.is_alive()
-    # the subscriber has connected the local publisher instance
-    local_identifier = supvisors.supvisors_mapper.local_identifier
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    # poll until heartbeat is received
-    max_wait = 40  # 40 loops of 100ms
-    external_events_sockets = None
-    while not external_events_sockets and max_wait > 0:
-        _, external_events_sockets = subscriber.poll()
-        max_wait -= 1
-    # close socket before it is used for reading or writing
-    client_sock = subscriber.subscribers[local_identifier][0]
-    assert (local_identifier, client_sock) in external_events_sockets
-    client_sock.close()
-    # try to read from it
-    assert subscriber.read_subscribers(external_events_sockets) == []
-    assert local_identifier not in subscriber.subscribers
-    # check that a new subscriber socket is created after a while
-    time.sleep(2)
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    client_sock, hb_sent, hb_recv = subscriber.subscribers[local_identifier]
-    assert isinstance(client_sock, socket)
-    assert hb_sent == 0
-    assert time.time() > hb_recv > 0
+    check_sockets(subscriber, None, None, None, [], True)
 
 
 def test_send_heartbeat_exception(supvisors, sockets):
     """ Test the exception management when sending heartbeat to a socket that has been closed. """
-    subscriber = sockets.subscriber
+    subscriber = sockets.receiver
     # wait for publisher server to be alive
     time.sleep(1)
-    assert sockets.publisher.is_alive()
+    assert sockets.emitter.is_alive()
     # the subscriber has connected the local publisher instance
     local_identifier = supvisors.supvisors_mapper.local_identifier
     assert list(subscriber.subscribers.keys()) == [local_identifier]
@@ -263,7 +220,7 @@ def test_send_heartbeat_exception(supvisors, sockets):
         max_wait -= 1
     # close socket before it is used for reading or writing
     client_sock = subscriber.subscribers[local_identifier][0]
-    assert (local_identifier, client_sock) in external_events_sockets
+    assert client_sock.fileno() in external_events_sockets
     client_sock.close()
     # try to write to it
     subscriber._send_heartbeat()
@@ -280,10 +237,10 @@ def test_send_heartbeat_exception(supvisors, sockets):
 
 def test_publisher_heartbeat_timeout(supvisors, sockets):
     """ Test the exception management in publisher when heartbeat missing from a subscriber. """
-    subscriber = sockets.subscriber
+    subscriber = sockets.receiver
     # wait for publisher server to be alive
     time.sleep(1)
-    assert sockets.publisher.is_alive()
+    assert sockets.emitter.is_alive()
     # the subscriber has connected the local publisher instance
     local_identifier = supvisors.supvisors_mapper.local_identifier
     assert list(subscriber.subscribers.keys()) == [local_identifier]
@@ -311,19 +268,6 @@ def test_publisher_heartbeat_timeout(supvisors, sockets):
     assert time.time() > hb_recv > 0
 
 
-def test_push_message_exception(supvisors):
-    """ Test the socket exception when pushing a message with the RequestPusher.push_message method. """
-    push_sock, pull_sock = socketpair()
-    pusher = RequestPusher(push_sock, supvisors.logger)
-    # normal case
-    pusher.push_message(DeferredRequestHeaders.START_PROCESS, ('a message',))
-    assert InternalSubscriber.read_socket(pull_sock) == [2, ['a message']]
-    # exception case
-    push_sock.close()
-    pusher.push_message(DeferredRequestHeaders.START_PROCESS, ('a message',))
-    assert InternalSubscriber.read_socket(pull_sock) == {}
-
-
 def test_publisher_bind_exception(supvisors):
     """ Test the bind exception of the PublisherServer. """
     local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
@@ -348,8 +292,8 @@ def test_publisher_bind_exception(supvisors):
 
 def test_publisher_forward_empty_message(supvisors, sockets):
     """ Test the robustness when the publisher forwards an empty message. """
-    subscriber = sockets.subscriber
-    publisher = sockets.publisher
+    subscriber = sockets.receiver
+    publisher = sockets.emitter
     # wait for publisher server to be alive
     time.sleep(1)
     assert publisher.is_alive()
@@ -369,7 +313,7 @@ def test_publisher_forward_empty_message(supvisors, sockets):
     reached = False
     for idx in range(120):  # HEARTBEAT_TIMEOUT + margin
         _, external_events_sockets = subscriber.poll()
-        subscriber.read_subscribers(external_events_sockets)
+        subscriber.read_fds(external_events_sockets)
         subscriber.manage_heartbeat()
         # check if a new subscriber socket has been created
         if local_identifier in subscriber.subscribers:

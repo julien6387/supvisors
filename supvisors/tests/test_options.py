@@ -31,6 +31,7 @@ from .configurations import *
 @pytest.fixture
 def config():
     return {'supvisors_list': 'cliche01,cliche03,cliche02',
+            'multicast_address': '239.0.0.1', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
             'internal_port': '60001',
             'event_link': 'zmq', 'event_port': '60002',
@@ -83,7 +84,9 @@ def test_filled_logger_configuration(config):
 
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
-    assert opt.supvisors_list == [gethostname()]
+    assert opt.supvisors_list is None
+    assert opt.multicast_address is None
+    assert opt.multicast_ttl == 2
     assert opt.rules_files is None
     assert opt.internal_port == 0
     assert opt.event_link == EventLinks.NONE
@@ -108,6 +111,8 @@ def test_options_creation(opt):
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
+    assert filled_opt.multicast_address == '239.0.0.1'
+    assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
     assert filled_opt.event_link == EventLinks.ZMQ
@@ -131,13 +136,34 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0'
+    assert str(opt) == ('supvisors_list=None multicast_address=None multicast_ttl=2'
+                        ' rules_files=None internal_port=0'
                         ' event_link=NONE event_port=0'
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
                         ' host_stats_enabled=True process_stats_enabled=True'
                         ' collecting_period=5 stats_periods=[10] stats_histo=200'
                         ' stats_irix_mode=False tail_limit=1024 tailf_limit=1024')
+
+
+def test_filled_str(filled_opt):
+    """ Test the string output. """
+    variable_core_1 = "{'cliche01', 'cliche03'}"
+    variable_core_2 = "{'cliche03', 'cliche01'}"
+    result = str(filled_opt)
+    assert any(result == (f"supvisors_list=['cliche01', 'cliche03', 'cliche02']"
+                          ' multicast_address=239.0.0.1 multicast_ttl=5'
+                          " rules_files=['my_movies.xml']"
+                          ' internal_port=60001'
+                          ' event_link=ZMQ event_port=60002'
+                          ' auto_fence=True synchro_timeout=20 inactivity_ticks=9'
+                          f' core_identifiers={var}'
+                          ' disabilities_file=/tmp/disabilities.json'
+                          ' conciliation_strategy=SENICIDE starting_strategy=MOST_LOADED'
+                          ' host_stats_enabled=False process_stats_enabled=True'
+                          ' collecting_period=2.0 stats_periods=[5.0, 50.0, 77.7] stats_histo=100'
+                          ' stats_irix_mode=True tail_limit=1048576 tailf_limit=512')
+               for var in [variable_core_1, variable_core_2])
 
 
 def test_get_value(opt, config):

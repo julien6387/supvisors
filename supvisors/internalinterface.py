@@ -20,7 +20,7 @@
 import json
 import select
 from enum import Enum
-from socket import socket, socketpair
+from socket import error, socket, socketpair
 from typing import Any, Optional, List, Tuple
 
 from supervisor.loggers import Logger
@@ -180,12 +180,8 @@ class InternalCommReceiver:
         fds = []
         # poll the sockets registered
         events = self.poller.poll(POLL_TIMEOUT)
-        # sort the readable and erroneous sockets
+        # check for the readable sockets
         for fd, event in events:
-            # check for error
-            if event & select.POLLERR:
-                self.on_poll_error(fd)
-            # check for input
             if event & select.POLLIN:
                 if fd == self.puller_sock.fileno():
                     puller_event = True
@@ -193,15 +189,13 @@ class InternalCommReceiver:
                     fds.append(fd)
         return puller_event, fds
 
-    def on_poll_error(self, fd: int):
-        """ Undefined behaviour when an error happens on a socket. """
-
     def read_puller(self) -> List:
         """ Read the message received on the puller socket. """
-        return self.read_socket(self.puller_sock)
+        return self.read_socket(self.puller_sock)[1]
 
     def read_fds(self, fds) -> List[Tuple[Ipv4Address, Payload]]:
         """ Read the messages received on the file descriptors. """
+        return []
 
     def manage_heartbeat(self) -> None:
         """ Check heartbeat reception from publishers and send heartbeat to them.
@@ -217,19 +211,23 @@ class InternalCommReceiver:
         """
 
     @staticmethod
-    def read_socket(sock: socket) -> List:
+    def read_socket(sock: socket) -> Optional[Tuple[Ipv4Address, List]]:
         """ Return the message received on the socket.
         ONLY valid for TCP and UNIX sockets.
 
         :param sock: the socket to read
         :return: the message received
         """
-        msg_size_as_bytes = sock.recv(4)
-        msg_size = int.from_bytes(msg_size_as_bytes, byteorder='big')
-        if msg_size > 0:
-            msg_as_bytes = read_from_socket(sock, msg_size)
-            return bytes_to_payload(msg_as_bytes)
-        return []
+        try:
+            msg_size_as_bytes = sock.recv(4)
+            msg_size = int.from_bytes(msg_size_as_bytes, byteorder='big')
+            if msg_size > 0:
+                msg_as_bytes = read_from_socket(sock, msg_size)
+                return sock.getpeername(), bytes_to_payload(msg_as_bytes)
+        except error:
+            # failed to read from socket
+            pass
+        return None
 
 
 class RequestPusher:
@@ -369,7 +367,7 @@ class SupvisorsInternalComm:
         if self.emitter:
             self.emitter.close()
         self.pusher_sock.close()
-        # WARN: do NOT close receiver and puller_sock as it will be done from the Supvisors thread
+        # WARN: do NOT close receiver and puller_sock as it will be done from the Supvisors thread (mainloop.py)
 
 
 def create_internal_comm(supvisors: Any) -> Optional[SupvisorsInternalComm]:
@@ -380,7 +378,7 @@ def create_internal_comm(supvisors: Any) -> Optional[SupvisorsInternalComm]:
     """
     publisher_instance = None
     publisher_class = None
-    if supvisors.options.multicast_address:
+    if supvisors.options.discovery_mode:
         # create a PyZMQ publisher factory
         from supvisors.supvisorsmulticast import SupvisorsMulticast
         supvisors.logger.info('create_internal_publisher: using UDP Multicast for internal communications')

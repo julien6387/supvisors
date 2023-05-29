@@ -41,7 +41,7 @@ behavior may happen. The present section details where it is applicable.
 
 ``supvisors_list``
 
-    The exhaustive list of |Supvisors| instances to handle, separated by commas.
+    The list of expected |Supvisors| instances to handle, separated by commas.
     The elements of ``supvisors_list`` define how the |Supvisors| instances will share information between them
     and must be identical to all |Supvisors| instances or unpredictable behavior may happen.
     The exhaustive form of an element matches ``<identifier>host_name:http_port:internal_port``,
@@ -50,7 +50,7 @@ behavior may happen. The present section details where it is applicable.
     ``host_name`` is the name of the node where the |Supvisors| instance is running ;
     ``http_port`` is the port of the internet socket used to communicate with the |Supervisor| instance (obviously
     unique per node) ;
-    ``internal_port`` is the port of the socket used by the |Supvisors| instance to publish internal events (also
+    ``internal_port`` is the port of the TCP socket used by the |Supvisors| instance to publish internal events (also
     unique per node).
 
     *Default*:  the local host name.
@@ -108,6 +108,36 @@ behavior may happen. The present section details where it is applicable.
 
         The recommendation is to uniformly use the |Supervisor| identifier.
 
+``multicast_address``
+
+    The IP address of the Multicast Group where the |Supvisors| instances will share information between them.
+    This is an alternative to the ``supvisors_list`` option, replacing the TCP Publish / Subscribe, and it allows
+    |Supvisors| to work in a discovery mode *(Not stable yet)*.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  Yes.
+
+    .. hint::
+
+        Although it is an alternative, this option can yet be combined with ``supvisors_list`` and ``core_identifiers``.
+        In this case, the multicast group is definitely used to exchange information.
+        The impact is on the ``INITIALIZATION`` state where the status of the declared |Supvisors| instances (as defined
+        in the ``supvisors_list`` option) will be evaluated before exiting this state and the phase could eventually be
+        ended when the ``core_identifiers`` are all in a known state before the ``synchro_timeout`` is reached.
+
+``multicast_ttl``
+
+    The time-to-live of a message sent on the |Supvisors| multicast interface.
+
+    *Default*:  2.
+
+    *Required*:  No.
+
+    *Identical*:  Yes.
+
 ``rules_files``
 
     A space-separated sequence of file globs, in the same vein as
@@ -135,15 +165,17 @@ behavior may happen. The present section details where it is applicable.
 
 ``internal_port``
 
-    The internal port number used to publish the local events to the other |Supvisors| instances.
-    Events are published using a Publish / Subscribe pattern based on a TCP socket.
-    The value must match the ``internal_port`` value of the corresponding |Supvisors| instance in ``supvisors_list``.
+    The internal port number used to share the local events to the other |Supvisors| instances.
+    Events are published either by using a Publish / Subscribe pattern based on a TCP socket, or through a Multicast
+    Group when the |Supvisors| discovery mode is activated by setting the option ``multicast_address``.
+    **TODO OBSOLETE** The value must match the ``internal_port`` value of the corresponding |Supvisors| instance in ``supvisors_list``.
 
     *Default*:  local |Supervisor| HTTP port + 1.
 
     *Required*:  No.
 
     *Identical*:  No.
+
 
 ``event_link``
 
@@ -162,7 +194,7 @@ behavior may happen. The present section details where it is applicable.
 
 ``event_port``
 
-    The port number used to publish all |Supvisors| events (Instance, Application and Process events).
+    The port number used to publish all |Supvisors| events (Instance, Application, Process ans Statistics events).
     The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  local |Supervisor| HTTP port + 2.

@@ -33,20 +33,22 @@ from .internalinterface import (SupvisorsInternalComm, InternalCommEmitter, Inte
 from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import InternalEventHeaders, Ipv4Address, Payload
 
-MULTICAST_TTL = 2  # TODO: set in options
-BUFFER_SIZE = 16*1024
+# default size of the reception buffer
+BUFFER_SIZE = 16 * 1024
 
 
 class MulticastSender(InternalCommEmitter):
 
-    def __init__(self, identifier: str, address: str, port: int):
+    def __init__(self, identifier: str, address: str, port: int, ttl: int,
+                 logger: Logger):
         """ Create a socket to multicast messages. """
         self.identifier: str = identifier
         self.address: str = address
         self.port: int = port
+        self.logger: Logger = logger
         # create the socket
         self.socket = socket(AF_INET, SOCK_DGRAM)
-        self.socket.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, MULTICAST_TTL)
+        self.socket.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, ttl)
 
     def close(self) -> None:
         """ Close the UDP socket. """
@@ -55,7 +57,10 @@ class MulticastSender(InternalCommEmitter):
     def send_message(self, event_type: Enum, event_body: Payload):
         """ Multicast a message. """
         message = payload_to_bytes(event_type, (self.identifier, event_body))
-        self.socket.sendto(message, (self.address, self.port))
+        try:
+            self.socket.sendto(message, (self.address, self.port))
+        except OSError:
+            self.logger.error(f'MulticastSender.send_message: failed to send event (type={event_type.name})')
 
     def send_tick_event(self, payload: Payload) -> None:
         """ Publish the tick event.
@@ -136,7 +141,13 @@ class MulticastReceiver(InternalCommReceiver):
         if self.socket:
             self.poller.register(self.socket, select.POLLIN)
 
-    def _bind(self, address: str, port: int):
+    def _bind(self, address: str, port: int) -> None:
+        """ Bind the receiver to the multicast group.
+
+        :param address: the IP address of the multicast group
+        :param port: the port of the multicast group
+        :return: None
+        """
         # create the socket
         sock = socket(AF_INET, SOCK_DGRAM)
         sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -151,7 +162,7 @@ class MulticastReceiver(InternalCommReceiver):
             self.logger.info(f'MulticastReceiver._bind: multicast socket bound to {address}:{port}')
             self.socket = sock
 
-    def read_fds(self, fds: List[int]) -> List[Tuple[Ipv4Address, Payload]]:
+    def read_fds(self, fds: List[int]) -> List[Tuple[Ipv4Address, List]]:
         """ Read the messages received on the file descriptors.
 
         :param fds: the file descriptors of the sockets to read
@@ -189,7 +200,9 @@ class SupvisorsMulticast(SupvisorsInternalComm):
         local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
         self.emitter = MulticastSender(local_instance.identifier,
                                        supvisors.options.multicast_address,
-                                       local_instance.internal_port)
+                                       local_instance.internal_port,
+                                       supvisors.options.multicast_ttl,
+                                       supvisors.logger)
         # create the global subscriber that receives deferred XML-RPC requests and events sent by all publishers
         self.receiver = MulticastReceiver(self.puller_sock,
                                           supvisors.options.multicast_address,

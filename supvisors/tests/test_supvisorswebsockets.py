@@ -1,8 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import threading
-
-import pytest
 
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
@@ -19,17 +16,20 @@ import pytest
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
-pytest.importorskip('websockets', reason='cannot test as optional websockets is not installed')
 
 import json
+import threading
 import time
-import websockets
-
 from unittest.mock import call
+
+import pytest
+import websockets
 
 from supvisors.client.wssubscriber import SupvisorsWsEventInterface
 from supvisors.supvisorswebsocket import WsEventPublisher, WsEventSubscriber, websocket_clients
 from supvisors.ttypes import EventHeaders
+
+pytest.importorskip('websockets', reason='cannot test as optional websockets is not installed')
 
 
 @pytest.fixture

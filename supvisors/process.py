@@ -119,6 +119,7 @@ class ProcessRules(object):
         """
         _, process_name = split_namespec(namespec)
         try:
+            # FIXME: provide this information using local_process XML-RPC and store it
             procnumber = self.supvisors.server_options.procnumbers[process_name]
         except KeyError:
             self.logger.error(f'ProcessRules.check_hash_identifiers: cannot apply "#" to unknown program={namespec}')
@@ -147,9 +148,6 @@ class ProcessRules(object):
         self.check_start_sequence(namespec)
         self.check_stop_sequence(namespec)
         self.check_autorestart(namespec)
-        # FIXME: to be solved later, when possible identifiers is called
-        if self.hash_identifiers:
-            self.check_hash_identifiers(namespec)
 
     def __str__(self) -> str:
         """ Get the process rules as string.
@@ -349,17 +347,23 @@ class ProcessStatus(object):
 
         :return: the list of identifiers where the program could be started
         """
+        # solve hash identifiers
+        if self.rules.hash_identifiers:
+            self.rules.check_hash_identifiers(self.namespec)
+            # FIXME: something smarter expected because it may need to be re-evaluated at some point
+            self.rules.hash_identifiers = []
+        # get the applicable identifiers
         rules_identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
             rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         self.logger.info(f'ProcessStatus.possible_identifiers: {rules_identifiers=}')
-        # FIXME: filter here rather than in parser
+        # filter identifiers based on known list (may change due to discovery mode)
         filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
-        self.logger.info(f'ProcessStatus.possible_identifiers: {filtered_identifiers=}')
-        self.logger.info(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
+        self.logger.debug(f'ProcessStatus.possible_identifiers: filtered={filtered_identifiers=}')
+        self.logger.debug(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
         return [identifier
-                for identifier in self.info_map
-                if identifier in filtered_identifiers and not self.disabled_on(identifier)]
+                for identifier in filtered_identifiers
+                if identifier in self.info_map and not self.disabled_on(identifier)]
 
     def has_crashed(self) -> bool:
         """ Return True if any of the processes has ever crashed or has ever exited unexpectedly.

@@ -23,6 +23,7 @@ from typing import Any, Optional
 from supervisor.loggers import Logger
 
 from .context import Context
+from .options import SupvisorsOptions
 from .strategy import conciliate_conflicts
 from .ttypes import SupvisorsInstanceStates, RunningFailureStrategies, SupvisorsStates, Payload, PayloadList
 
@@ -31,7 +32,7 @@ class Forced:
     pass
 
 
-class AbstractState(object):
+class AbstractState:
     """ Base class for a state with simple entry / next / exit actions.
 
     Attributes are:
@@ -58,12 +59,13 @@ class AbstractState(object):
         :return: None
         """
 
-    def next(self) -> Optional[SupvisorsStates]:
+    def next(self) -> SupvisorsStates:
         """ Actions performed upon reception of an event.
         May be redefined in subclasses.
 
         :return: None
         """
+        raise NotImplementedError
 
     def exit(self) -> None:
         """ Actions performed when leaving the state.
@@ -78,8 +80,7 @@ class AbstractState(object):
 
         :return: the suggested state if local or Master Supvisors instance is not active anymore
         """
-        # FIXME: for local, this cannot happen anymore
-        if self.context.instances[self.local_identifier].state != SupvisorsInstanceStates.RUNNING:
+        if self.context.local_instance.state != SupvisorsInstanceStates.RUNNING:
             self.logger.critical('AbstractState.check_instances: local Supvisors instance not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
         if self.context.instances[self.context.master_identifier].state != SupvisorsInstanceStates.RUNNING:
@@ -106,6 +107,7 @@ class OffState(AbstractState):
         # The Supvisors sockets is an easy mark to know that Supervisor is running
         if self.supvisors.sockets:
             return SupvisorsStates.INITIALIZATION
+        return SupvisorsStates.OFF
 
 
 class InitializationState(AbstractState):
@@ -129,37 +131,38 @@ class InitializationState(AbstractState):
 
         :return: the new Supvisors state
         """
-        uptime = time() - self.context.start_date
-        if uptime > self.supvisors.options.synchro_timeout:
-            self.logger.warn('InitializationState.next: synchro timed out')
+        # get duration from start date
+        uptime: float = time() - self.context.start_date
+        self.logger.trace(f'InitializationState.next: uptime={uptime} ')
         # cannot get out of this state without local Supvisors instance RUNNING
         running_identifiers = self.context.running_identifiers()
         if self.local_identifier in running_identifiers:
-            # synchro done if the state of all Supvisors instances is known
-            if len(self.context.unknown_identifiers()) == 0:
-                self.logger.info('InitializationState.next: all Supvisors instances are in a known state')
+            # synchro done if the state of all expected Supvisors instances is known (no discovery mode),
+            #  whatever the synchronization timeout is reached or not
+            #  or the timeout is reached and the state of all found Supvisors instances is known (discovery mode)
+            if (len(self.context.unknown_identifiers()) == 0
+                    and (not self.supvisors.options.discovery_mode
+                         or uptime > self.supvisors.options.synchro_timeout)):
+                self.logger.info('InitializationState.next: all known Supvisors instances are in a known state')
                 return SupvisorsStates.DEPLOYMENT
-            # even when based on a subset of Supvisors instances, the synchronization phase cannot be ended before
-            # SYNCHRO_TIMEOUT_MIN seconds have passed
-            # a margin (1s per instance) is added to consider the number of active Supvisors instances,
-            # without exceeding the value given in the synchro_timeout option
-            # in case of a Supervisor restart, this gives a chance to all Supvisors instances to send their tick
-            delay = min(self.supvisors.options.synchro_timeout,
-                        max(self.supvisors.options.SYNCHRO_TIMEOUT_MIN, len(self.supvisors.context.active_instances())))
-            self.logger.trace(f'InitializationState.next: delay={delay}')
-            if uptime > delay:
-                # check synchro on core instances
-                if self.context.running_core_identifiers():
-                    # if ok, master must be running if already known
-                    if self.context.master_identifier and self.context.master_identifier not in running_identifiers:
-                        self.logger.info('InitializationState.next: all core Supvisors instances are RUNNING but not'
-                                         f' Master={self.context.master_identifier}')
-                        return SupvisorsStates.INITIALIZATION
+            # partial synchro depending on core instances
+            if uptime > SupvisorsOptions.SYNCHRO_TIMEOUT_MIN and self.context.running_core_identifiers():
+                # if ok, master must be running if already known
+                if not self.context.master_identifier or self.context.master_identifier in running_identifiers:
                     self.logger.info('InitializationState.next: all core Supvisors instances are RUNNING')
+                    # the DEPLOYMENT state will be reached with Supvisors instances still UNKNOWN
                     return SupvisorsStates.DEPLOYMENT
+                self.logger.info('InitializationState.next: all core Supvisors instances are RUNNING but not'
+                                 f' the declared Master={self.context.master_identifier}')
+                return SupvisorsStates.INITIALIZATION
             self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
-            self.logger.debug(f'InitializationState.next: local Supvisors={self.local_identifier} still not RUNNING')
+            if uptime > self.supvisors.options.synchro_timeout:
+                self.logger.critical(f'InitializationState.next: local Supvisors={self.local_identifier} still'
+                                     f' not RUNNING after {int(uptime)} seconds')
+            else:
+                self.logger.debug(f'InitializationState.next: local Supvisors={self.local_identifier} still'
+                                  f' not RUNNING after {int(uptime)} seconds')
         return SupvisorsStates.INITIALIZATION
 
     def exit(self) -> None:
@@ -232,6 +235,7 @@ class MasterOperationState(AbstractState):
         # back to DEPLOYMENT state to repair what may have failed before
         if self.supvisors.fsm.redeploy_mark:
             return SupvisorsStates.DEPLOYMENT
+        return SupvisorsStates.OPERATION
 
 
 class MasterConciliationState(AbstractState):
@@ -262,6 +266,7 @@ class MasterConciliationState(AbstractState):
         # new conflicts may happen while conciliation is in progress
         # call enter again to trigger a new conciliation
         self.enter()
+        return SupvisorsStates.CONCILIATION
 
 
 class MasterRestartingState(AbstractState):
@@ -322,6 +327,13 @@ class RestartState(AbstractState):
         self.supvisors.sockets.pusher.send_restart(self.local_identifier)
         # other instances will shut down on reception of RESTART state
 
+    def next(self):
+        """ Cannot exit this state.
+
+        :return: the new Supvisors state
+        """
+        return SupvisorsStates.RESTART
+
 
 class ShutdownState(AbstractState):
     """ This is the final state. """
@@ -330,6 +342,13 @@ class ShutdownState(AbstractState):
         """ When entering the SHUTDOWN state, request the Supervisor shutdown. """
         self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
         # other instances will shut down on reception of SHUTDOWN state
+
+    def next(self):
+        """ Cannot exit this state.
+
+        :return: the new Supvisors state
+        """
+        return SupvisorsStates.SHUTDOWN
 
 
 class SlaveMainState(AbstractState):
@@ -437,7 +456,7 @@ class FiniteStateMachine:
         :param next_state: the new state
         :return: None
         """
-        while next_state is not None and next_state != self.state:
+        while next_state != self.state:
             # check that the transition is allowed
             # a Slave Supvisors will always follow the Master state
             if self.context.is_master and next_state not in self._Transitions[self.state]:
@@ -482,6 +501,7 @@ class FiniteStateMachine:
         if identifiers:
             self.supvisors.sockets.pusher.send_isolate_instances(identifiers)
 
+    # Event handling methods
     def on_tick_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to refresh the data related to the Supvisors instance.
         If the local instance is updated, perform a global check on all Supvisors instances.
@@ -490,10 +510,16 @@ class FiniteStateMachine:
         :param event: the tick event
         :return:
         """
-        self.context.on_tick_event(identifier, event)
-        if identifier == self.instance.local_identifier:
-            # trigger periodic check
-            self.periodic_check(event)
+        # When Supvisors is in discovery mode, new Supvisors instances may be added on-the-fly
+        if self.context.check_discovery(identifier, event['ip_address'], event['server_port']):
+            # a DEPLOYMENT will be requested if a new Supvisors instance has been inserted
+            self.redeploy_mark = True
+        if self.context.is_valid(identifier, event['ip_address']):
+            # update the Supvisors instance status
+            self.context.on_tick_event(identifier, event)
+            # trigger periodic check on local TICK
+            if identifier == self.instance.local_identifier:
+                self.periodic_check(event)
 
     def on_process_state_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event sent from the Supvisors instance.

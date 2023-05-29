@@ -313,9 +313,10 @@ class ApplicationStatus(object):
         """
         rules_identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
-            rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        # FIXME: filter here rather than in parser
-        filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
+            filtered_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        else:
+            # filter the unknown identifiers (due to Supvisors discovery mode, any identifier may be lately known)
+            filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
         # get the identifiers common to all application processes
         actual_identifiers = [{identifier
                                for identifier, info in process.info_map.items()

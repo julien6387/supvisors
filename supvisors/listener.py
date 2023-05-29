@@ -61,9 +61,10 @@ class SupervisorListener(object):
 
         - supvisors: the Supvisors global structure ;
         - logger: the Supvisors logger ;
-        - collector: the statistics compiler ;
         - local_instance: the local Supvisors instance parameters;
-        - publisher: the socket used to publish Supvisors internal events to all Supvisors instances ;
+        - counter: the TICK counter;
+        - emitter: the com interface used to publish Supvisors internal events to all Supvisors instances ;
+        - external_publisher: the com interface used to publish Supvisors events to Supvisors listeners ;
         - main_loop: the Supvisors' event thread.
     """
 
@@ -343,12 +344,12 @@ class SupervisorListener(object):
         """ Unstack and process one event from the event queue. """
         event_address, (event_type, (event_identifier, event_data)) = json.loads(message)
         header = InternalEventHeaders(event_type)
-        # TICK message contains the necessary information for Supvisors instance discovery mode
+        # Note: TICK messages contain the necessary information for Supvisors instances discovery,
+        #  so it has to be processed first
         if header == InternalEventHeaders.TICK:
             self.logger.trace(f'SupervisorListener.unstack_event: got TICK from {event_identifier}: {event_data}')
-            self.supvisors.context.check_discovery(event_identifier,
-                                                   event_data['ip_address'],
-                                                   event_data['server_port'])
+            self.supvisors.fsm.on_tick_event(event_identifier, event_data)
+            return
         # check message origin validity
         if not self.supvisors.context.is_valid(event_identifier, event_address[0]):
             self.logger.error('SupervisorListener.unstack_event: got event from unknown'
@@ -360,9 +361,6 @@ class SupervisorListener(object):
             # NOTE: at the moment, Supvisors still relies on the TICK to identify a node disconnection
             #  if more reactivity is needed at some point, the HEARTBEAT could be used
             # self.supvisors.fsm.on_tick_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.TICK:
-            # already logged above
-            self.supvisors.fsm.on_tick_event(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS from {event_identifier}: {event_data}')
             self.supvisors.fsm.on_process_state_event(event_identifier, event_data)

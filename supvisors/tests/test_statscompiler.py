@@ -624,15 +624,15 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     mocked_holder_constr = mocker.patch('supvisors.statscompiler.ProcStatisticsHolder', return_value=mocked_holder)
     process_stats = {'namespec': 'dummy_proc', 'pid': 0}
     # 1. test with non-existing holder and 0 pid
-    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
-    assert result == []
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', process_stats)
+    assert result == {}
     assert proc_statistics_compiler.nb_cores == {}
     assert proc_statistics_compiler.holder_map == {}
     assert not mocked_holder_constr.called
     assert not mocked_holder.push_statistics.called
     # 2. test with non-existing holder and pid > 0
     process_stats['pid'] = 1234
-    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', process_stats)
     assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {}
     assert list(proc_statistics_compiler.holder_map.keys()) == ['dummy_proc']
@@ -643,7 +643,7 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     mocked_holder.push_statistics.reset_mock()
     # 3. test with existing holder and pid > 0
     process_stats['nb_cores'] = 4
-    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', process_stats)
     assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {'10.0.0.1': 4}
     assert list(proc_statistics_compiler.holder_map.keys()) == ['dummy_proc']
@@ -653,7 +653,7 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     # 4. test with existing holder and 0 pid
     process_stats['pid'] = 0
     process_stats['nb_cores'] = 6
-    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', process_stats)
     assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {'10.0.0.1': 6}
     assert list(proc_statistics_compiler.holder_map.keys()) == ['dummy_proc']
@@ -662,7 +662,7 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     mocked_holder.push_statistics.reset_mock()
     # test case when instance_map has been removed
     mocked_holder.instance_map = {}
-    result = proc_statistics_compiler.push_statistics('10.0.0.1', [process_stats])
+    result = proc_statistics_compiler.push_statistics('10.0.0.1', process_stats)
     assert result == ['dummy_proc stats']
     assert proc_statistics_compiler.nb_cores == {'10.0.0.1': 6}
     assert proc_statistics_compiler.holder_map == {}

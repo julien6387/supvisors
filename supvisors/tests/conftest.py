@@ -48,7 +48,7 @@ def options():
     return {'internal_port': '65100',
             'event_link': 'none',
             'event_port': '65200',
-            'synchro_timeout': '15',
+            'synchro_timeout': '20',
             'inactivity_ticks': '2',
             'core_identifiers': '',
             'disabilities_file': 'disabilities.json',

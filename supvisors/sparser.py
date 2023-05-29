@@ -18,6 +18,7 @@
 # ======================================================================
 
 import re
+from collections import OrderedDict
 from distutils.util import strtobool
 from os import path
 from sys import stderr
@@ -268,17 +269,10 @@ class Parser(object):
         :param identifier_list: the identifiers of the Supervisor instances, separated by commas
         :return: the list of validated identifiers
         """
-        # resolve aliases
-        # Version 1: simple pass on input elements considering that an alias cannot include another alias
-        # identifiers = []
-        # for identifier in list_of_strings(identifier_list):
-        #     if identifier in self.aliases:
-        #         identifiers.extend(self.aliases[identifier])
-        #     else:
-        #         identifiers.append(identifier)
-        # Version 2: use list slicing to insert aliases
-        # here an alias can be referenced in another alias if declared after in the XML
+        # get ordered list, removing duplicates and empty elements
         identifiers = list_of_strings(identifier_list)
+        # resolve aliases by using list slicing to insert aliases
+        # here an alias can be referenced in another alias if declared after in the XML
         for alias_name, alias in self.aliases.items():
             if alias_name in identifiers:
                 pos = identifiers.index(alias_name)
@@ -287,15 +281,11 @@ class Parser(object):
         ref_hashtag = '#' in identifiers
         if '*' in identifiers:
             identifiers = ['*']
-        else:
-            # filter the unknown identifiers (or remaining aliases)
-            # FIXME: it is unsuitable to filter so early when in discovering mode
-            # identifiers = self.supvisors.supvisors_mapper.filter(identifiers)
-            pass
         # re-inject the hashtag if needed. position does not matter
         if ref_hashtag:
             identifiers.append('#')
-        return identifiers
+        # return ordered list, removing duplicates and empty elements
+        return list(OrderedDict.fromkeys(filter(None, identifiers)))
 
     def load_identifiers(self, elt: Any, rules: AnyRules) -> None:
         """ Get the identifiers of the Supvisors instances where the program is allowed to run.

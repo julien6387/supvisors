@@ -193,7 +193,7 @@ class SupvisorsMainLoop(Thread):
         self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, message)
         # provide the local Supvisors with the remote Supvisors instance state and modes
         instance = self.supvisors.supvisors_mapper.instances[identifier]
-        origin = instance.ip_address, instance.internal_port
+        origin = instance.ip_address, instance.http_port
         message = InternalEventHeaders.STATE.value, (identifier, state_modes_payload)
         self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, (origin, message))
         # inform local Supvisors about the processes available remotely

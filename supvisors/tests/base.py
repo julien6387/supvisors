@@ -35,7 +35,6 @@ from supvisors.statscollector import ProcessStatisticsCollector, instant_host_st
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
 from supvisors.supvisorsmapper import SupvisorsMapper
-from supvisors.supvisorspubsub import SupvisorsPubSub
 from supvisors.utils import extract_process_info
 
 
@@ -70,11 +69,12 @@ class MockedSupvisors:
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.listener import SupervisorListener
         from supvisors.sparser import Parser
+        from supvisors.supvisorspubsub import SupvisorsPubSub
         self.starter = Mock(spec=Starter)
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
-        self.fsm = Mock(spec=FiniteStateMachine)
-        self.listener = Mock(spec=SupervisorListener, collector=Mock())
+        self.fsm = Mock(spec=FiniteStateMachine, redeploy_mark=False)
+        self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
         # should be set in listener
         self.sockets = Mock(spec=SupvisorsPubSub)
