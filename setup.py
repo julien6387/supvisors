@@ -25,9 +25,10 @@ requires = ['supervisor >= 4.2.4']
 
 statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib >= 3.3.3']
 xml_valid_require = ['lxml >= 4.6.2']
-flask_require = ['flask-restx == 0.5.1', 'Werkzeug == 2.0.3']
+flask_require_36 = ['flask-restx == 0.5.1', 'Werkzeug == 2.0.3']
+flask_require = ['flask-restx >= 1.1.0']
 zmq_require = ['pyzmq >= 20.0.0']
-websockets_require = ['websockets >= 10.2', 'python_version >= 3.7']
+websockets_require = ['websockets >= 10.2']
 
 testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
 
@@ -78,9 +79,10 @@ setup(name='supvisors',
       install_requires=requires,
       extras_require={'statistics': statistics_require,
                       'xml_valid': xml_valid_require,
-                      'flask': flask_require,
+                      'flask:python_version < "3.7"': flask_require_36,
+                      'flask:python_version >= "3.7"': flask_require,
                       'zmq': zmq_require,
-                      'ws': websockets_require,
+                      'ws:python_version >= "3.7"': websockets_require,
                       'all': statistics_require + xml_valid_require + flask_require + zmq_require + websockets_require,
                       'testing': testing_extras},
       include_package_data=True,
