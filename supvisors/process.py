@@ -356,10 +356,10 @@ class ProcessStatus(object):
         rules_identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
             rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        self.logger.info(f'ProcessStatus.possible_identifiers: {rules_identifiers=}')
+        self.logger.info(f'ProcessStatus.possible_identifiers: rules_identifiers={rules_identifiers}')
         # filter identifiers based on known list (may change due to discovery mode)
         filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
-        self.logger.debug(f'ProcessStatus.possible_identifiers: filtered={filtered_identifiers=}')
+        self.logger.debug(f'ProcessStatus.possible_identifiers: filtered={filtered_identifiers}')
         self.logger.debug(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
         return [identifier
                 for identifier in filtered_identifiers
