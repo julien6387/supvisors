@@ -23,7 +23,6 @@ import time
 from unittest.mock import call
 
 import pytest
-import websockets
 
 from supvisors.client.wssubscriber import SupvisorsWsEventInterface
 from supvisors.supvisorswebsocket import WsEventPublisher, WsEventSubscriber, websocket_clients
