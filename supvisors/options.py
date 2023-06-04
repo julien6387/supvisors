@@ -23,8 +23,7 @@ import platform
 from collections import OrderedDict
 from typing import Dict, List, Tuple, TypeVar
 
-from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byte_size, existing_dirpath,
-                                  logging_level, list_of_strings)
+from supervisor.datatypes import Automatic, logfile_name, boolean, integer, byte_size, logging_level, list_of_strings
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
@@ -112,8 +111,7 @@ class SupvisorsOptions:
         self.core_identifiers = self._get_value(config, 'core_identifiers', set(),
                                                 lambda x: set(filter(None, list_of_strings(x))))
         # get disabilities file
-        # FIXME #112: store the file anyway
-        self.disabilities_file = self._get_value(config, 'disabilities_file', None, existing_dirpath)
+        self.disabilities_file = self._get_value(config, 'disabilities_file', None, self.check_dirpath)
         # get strategies
         self.conciliation_strategy = self._get_value(config, 'conciliation_strategy', ConciliationStrategies.USER,
                                                      self.to_conciliation_strategy)
@@ -164,6 +162,28 @@ class SupvisorsOptions:
         :return: True if the multicast address is set
         """
         return self.multicast_address is not None
+
+    def check_dirpath(self, file_path: str) -> str:
+        """ Check if the path provided exists and create the folder tree if necessary.
+        update of Supervisor datatypes.existing_dirpath.
+
+        :param file_path: the file path to check.
+        :return: the file path.
+        """
+        expanded_file_path = os.path.expanduser(file_path)
+        file_dir = os.path.dirname(expanded_file_path)
+        if not file_dir:
+            # relative pathname with no directory component
+            return expanded_file_path
+        if not os.path.isdir(file_dir):
+            # if the folder path does not exist, try to create it
+            try:
+                self.logger.info(f'SupvisorsOptions.check_dirpath: creating folder={file_dir}')
+                os.makedirs(file_dir)
+            except PermissionError:
+                # creation of the folder tree denied
+                raise ValueError(f'The directory named as part of the path={file_path} cannot be created')
+        return expanded_file_path
 
     def _get_value(self, config: Payload, attr: str, default_value, fct=None):
         """ Read and convert the option.

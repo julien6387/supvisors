@@ -363,6 +363,10 @@ class Context(object):
         for application in self.applications.values():
             application.update_sequences()
             application.update_status()
+        # Write the disabilities file when all local information is made available,
+        # so that an example exists whatever enable / disable has been called or not
+        if identifier == self.local_identifier:
+            self.supvisors.supervisor_data.write_disabilities(False)
 
     # methods on events
     def on_instance_state_event(self, identifier: str, event: Payload) -> None:

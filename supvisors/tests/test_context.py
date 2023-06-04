@@ -508,6 +508,7 @@ def test_load_processes(mocker, context):
     """ Test the storage of processes handled by Supervisor on a given node. """
     mocker.patch('supvisors.application.ApplicationStatus.update_sequences')
     mocker.patch('supvisors.application.ApplicationStatus.update_status')
+    mocked_write = mocker.patch.object(context.supvisors.supervisor_data, 'write_disabilities')
     # check application list
     assert context.applications == {}
     for node in context.instances.values():
@@ -518,6 +519,9 @@ def test_load_processes(mocker, context):
     assert context.applications == {}
     for node in context.instances.values():
         assert node.processes == {}
+    assert not mocked_write.called
+    # force local_identifier
+    context.local_identifier = '10.0.0.2'
     # load ProcessInfoDatabase with known node
     context.load_processes('10.0.0.1', database_copy())
     # check context contents
@@ -531,6 +535,7 @@ def test_load_processes(mocker, context):
                                                                       'sample_test_1:xlogo', 'sample_test_2:sleep',
                                                                       'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
     assert context.instances['10.0.0.2'].processes == {}
+    assert not mocked_write.called
     # check application calls
     assert all(application.update_sequences.called and application.update_status.called
                for application in context.applications.values())
@@ -547,6 +552,7 @@ def test_load_processes(mocker, context):
                 'sample_test_1:xlogo', 'sample_test_2:sleep', 'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
     assert sorted(context.instances['10.0.0.2'].processes.keys()) == expected
     assert context.instances['10.0.0.1'].processes == context.instances['10.0.0.2'].processes
+    assert mocked_write.call_args_list == [call(False)]
     # check application calls
     assert all(application.update_sequences.called and application.update_status.called
                for application in context.applications.values())
@@ -565,6 +571,7 @@ def test_load_processes(mocker, context):
     assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
     assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
     assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
+    assert not mocked_write.called
     # check application calls
     assert all(application.update_sequences.called and application.update_status.called
                for application in context.applications.values())

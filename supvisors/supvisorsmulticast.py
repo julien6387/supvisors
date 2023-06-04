@@ -61,6 +61,7 @@ class MulticastSender(InternalCommEmitter):
             self.socket.sendto(message, (self.address, self.port))
         except OSError:
             self.logger.error(f'MulticastSender.send_message: failed to send event (type={event_type.name})')
+            self.logger.info(f'MulticastSender.send_message: {traceback.format_exc()}')
 
     def send_tick_event(self, payload: Payload) -> None:
         """ Publish the tick event.

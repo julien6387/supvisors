@@ -253,6 +253,16 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
+    .. hint::
+
+        Both absolute and relative paths are supported. User expansion is also allowed.
+        It is expected that the folder tree exists. However |Supvisors| will try to create it if not,
+        unless write permission is denied.
+
+    .. note::
+
+        If the file does not exist at startup, all processes are enabled by default and a first version of the file
+        will be written down accordingly.
 
 ``starting_strategy``
 

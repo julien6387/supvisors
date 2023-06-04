@@ -2,6 +2,10 @@
 
 ## 0.17 (2023-xx-xx)
 
+* Fix [Issue #112](https://github.com/julien6387/supvisors/issues/112).
+  Write the disabilities file even if no call to `disable` and `enable` XML-RPCs have been done.
+  Try to create the folder at startup if it does not exist.
+
 * Provide a discovery mode where the **Supvisors** instances are established on-the-fly without declaring them in
   the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_address` and
   `multicast_ttl` added to that purpose).

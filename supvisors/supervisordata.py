@@ -492,22 +492,26 @@ class SupervisorData(object):
         else:
             self.logger.warn('SupervisorData.read_disabilities: no persistence for program disabilities')
 
-    def write_disabilities(self) -> None:
+    def write_disabilities(self, force: bool = True) -> None:
         """ Write disabilities file from Supervisor processes.
+        If forced (default), the file will be written with the current status.
+        If not forced, the file will be written if it does not exist.
 
+        :param force: if True, overwrite the existing file.
         :return: None
         """
         disabilities_file = self.supvisors.options.disabilities_file
         if disabilities_file:
-            # serialize to the file defined in options
-            with open(disabilities_file, 'w+') as out_file:
-                out_file.write(json.dumps(self.disabilities))
+            if force or not os.path.isfile(disabilities_file):
+                # serialize to the file defined in options
+                with open(disabilities_file, 'w+') as out_file:
+                    out_file.write(json.dumps(self.disabilities))
 
     def get_subprocesses(self, program_name) -> NameList:
         """ Find all processes related to the program definition.
 
-        :param program_name: the name of the program, as declared in the configuration files
-        :return: the Subprocess instances corresponding to the program
+        :param program_name: the name of the program, as declared in the configuration files.
+        :return: the Subprocess instances corresponding to the program.
         """
         program_groups = self.supvisors.server_options.program_processes[program_name]
         return [make_namespec(group_name, process_config.name)

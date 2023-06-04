@@ -167,11 +167,22 @@ def test_filled_str(filled_opt):
 
 
 def test_get_value(opt, config):
-    """ Test the get_value method. """
+    """ Test the SupvisorsOptions.get_value method. """
     assert opt._get_value(config, 'dummy', 'anything') == 'anything'
     assert opt._get_value(config, 'event_port', 'anything') == '60002'
     assert opt._get_value(config, 'event_port', 'anything', int) == 60002
     assert opt._get_value(config, 'rules_files', 'anything', int) == 'anything'
+
+
+def test_check_dirpath(opt):
+    """ Minimal test of check_dirpath because mostly tested in Supervisor's existing_dirpath. """
+    # existing folder
+    assert opt.check_dirpath('/tmp/disabilities.json') == '/tmp/disabilities.json'
+    # existing folder that can be created
+    assert opt.check_dirpath('/tmp/dummy/disabilities.json') == '/tmp/dummy/disabilities.json'
+    # existing folder that cannot be created
+    with pytest.raises(ValueError):
+        assert opt.check_dirpath('/usr/dummy/disabilities.json')
 
 
 def test_to_filepaths(opt):
