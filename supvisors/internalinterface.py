@@ -379,12 +379,13 @@ def create_internal_comm(supvisors: Any) -> Optional[SupvisorsInternalComm]:
     publisher_instance = None
     publisher_class = None
     if supvisors.options.discovery_mode:
-        # create a PyZMQ publisher factory
+        # create a Multicast factory
         from supvisors.supvisorsmulticast import SupvisorsMulticast
         supvisors.logger.info('create_internal_publisher: using UDP Multicast for internal communications')
         publisher_class = SupvisorsMulticast
-    elif supvisors.options.supvisors_list:
-        # get a Websocket publisher factory
+    else:
+        # no need to check for supvisors_list as this is the fallback com
+        # get a Publish / Subscribe factory
         from supvisors.supvisorspubsub import SupvisorsPubSub
         supvisors.logger.info('create_internal_publisher: using TCP Publish-Subscribe for internal communications')
         publisher_class = SupvisorsPubSub

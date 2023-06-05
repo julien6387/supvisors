@@ -230,15 +230,17 @@ def test_internal_com_creation(supvisors):
     """ Test the factory of Supvisors internal communications. """
     from supvisors.supvisorsmulticast import SupvisorsMulticast
     from supvisors.supvisorspubsub import SupvisorsPubSub
-    instance = create_internal_comm(supvisors)
     # by default, no supvisors_list and no multicast_address
-    assert instance is None
-    # create a supvisors_list
+    # Publish / Subscribe is the fallback com mode
+    instance = create_internal_comm(supvisors)
+    instance.stop()
+    assert isinstance(instance, SupvisorsPubSub)
+    # create a supvisors_list to get a Publish / Subscribe
     supvisors.options.supvisors_list = list(supvisors.supvisors_mapper.instances.keys())
     instance = create_internal_comm(supvisors)
     instance.stop()
     assert isinstance(instance, SupvisorsPubSub)
-    # use multicast configuration
+    # use multicast configuration to get a Multicast
     supvisors.options.multicast_address = '239.0.0.1'
     instance = create_internal_comm(supvisors)
     instance.stop()
