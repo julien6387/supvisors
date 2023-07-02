@@ -470,7 +470,7 @@ class ViewHandler(MeldView):
                 elt.content(f'{dev:.2f}')
             return True
 
-    def write_process_plots(self, proc_stats: ProcStatisticsInstance, nb_cores: int) -> None:
+    def write_process_plots(self, proc_stats: ProcStatisticsInstance, nb_cores: int) -> bool:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
             from supvisors.plot import StatisticsPlot
@@ -488,9 +488,10 @@ class ViewHandler(MeldView):
             mem_img.add_timeline(proc_stats.times)
             mem_img.add_plot('MEM', '%', proc_stats.mem)
             mem_img.export_image(process_mem_img)
+            return True
         except ImportError:
             # matplotlib not installed
-            pass
+            return False
 
     def write_process_statistics(self, root, info: Payload) -> None:
         """ Display detailed statistics about the selected process. """
@@ -511,7 +512,10 @@ class ViewHandler(MeldView):
                 if elt is not None:
                     elt.content(info['identifier'])
                 # write CPU / Memory plots
-                self.write_process_plots(proc_stats, info['nb_cores'])
+                if not self.write_process_plots(proc_stats, info['nb_cores']):
+                    # matplolib not installed: remove figure elements
+                    for mid in ['cpuimage_fig_mid', 'memimage_fig_mid']:
+                        stats_elt.findmeld(mid).replace('')
         else:
             # remove stats part if empty
             stats_elt.replace('')

@@ -940,7 +940,7 @@ def test_write_process_plots_no_plot(mocker, handler):
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     mocker.patch.dict('sys.modules', {'supvisors.plot': None})
     # test call
-    handler.write_process_plots([], 0)
+    assert not handler.write_process_plots([], 0)
     # test that plot methods are not called
     assert not mocked_export.called
 
@@ -955,14 +955,14 @@ def test_write_process_plots(mocker, handler):
     mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
     # test call with dummy stats and Solaris mode
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 24], mem=[20, 32, 32])
-    handler.write_process_plots(proc_stats, 2)
+    assert handler.write_process_plots(proc_stats, 2)
     assert mocked_time.call_args_list == [call([1, 2, 3]), call([1, 2, 3])]
     assert mocked_plot.call_args_list == [call('CPU', '%', [5, 8, 12]), call('MEM', '%', [20, 32, 32])]
     assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
     mocker.resetall()
     # test call with dummy stats and IRIX mode
     handler.supvisors.options.stats_irix_mode = True
-    handler.write_process_plots(proc_stats, 2)
+    assert handler.write_process_plots(proc_stats, 2)
     assert mocked_time.call_args_list == [call([1, 2, 3]), call([1, 2, 3])]
     assert mocked_plot.call_args_list == [call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])]
     assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
@@ -970,52 +970,76 @@ def test_write_process_plots(mocker, handler):
 
 def test_write_process_statistics(mocker, handler):
     """ Test the write_process_statistics method. """
-    mocked_plots = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_plots')
+    mocked_plots = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_plots', return_value=True)
     mocked_mem = mocker.patch('supvisors.viewhandler.ViewHandler.write_detailed_process_mem', return_value=False)
     mocked_cpu = mocker.patch('supvisors.viewhandler.ViewHandler.write_detailed_process_cpu', return_value=False)
     # patch the view context
     handler.view_ctx = Mock(parameters={PROCESS: None})
     # patch the meld elements
-    row_elt = Mock(attrib={})
-    title_elt = Mock()
-    stats_elt = Mock(attrib={}, **{'findmeld.side_effect': [title_elt, row_elt]})
-    root_elt = Mock(attrib={}, **{'findmeld.return_value': stats_elt})
+    process_h_mid = create_element()
+    instance_fig_mid = create_element()
+    cpuimage_fig_mid = create_element()
+    memimage_fig_mid = create_element()
+    stats_elt = create_element({'process_h_mid': process_h_mid, 'instance_fig_mid': instance_fig_mid,
+                                'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid})
+    root_elt = create_element({'pstats_div_mid': stats_elt})
     # test call with no namespec selection
     info = {}
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert stats_elt.replace.call_args_list == [call('')]
-    assert stats_elt.findmeld.call_args_list == []
-    assert mocked_cpu.call_args_list == []
-    assert mocked_mem.call_args_list == []
-    assert title_elt.content.call_args_list == []
-    assert 'class' not in row_elt.attrib
-    assert mocked_plots.call_args_list == []
-    root_elt.findmeld.reset_mock()
-    stats_elt.replace.reset_mock()
+    assert not stats_elt.findmeld.called
+    assert not mocked_cpu.called
+    assert not mocked_mem.called
+    assert not process_h_mid.content.called
+    assert not instance_fig_mid.content.called
+    assert not cpuimage_fig_mid.replace.called
+    assert not memimage_fig_mid.replace.called
+    assert not mocked_plots.called
+    root_elt.reset_all()
     # test call with namespec selection and no stats found
     info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
-    assert stats_elt.replace.call_args_list == []
-    assert stats_elt.findmeld.call_args_list == []
+    assert not stats_elt.replace.called
+    assert not stats_elt.findmeld.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert title_elt.content.call_args_list == []
-    assert 'class' not in row_elt.attrib
-    assert mocked_plots.call_args_list == []
-    root_elt.findmeld.reset_mock()
-    mocked_cpu.reset_mock()
-    mocked_mem.reset_mock()
+    assert not process_h_mid.content.called
+    assert not instance_fig_mid.content.called
+    assert not cpuimage_fig_mid.replace.called
+    assert not memimage_fig_mid.replace.called
+    assert not mocked_plots.called
+    root_elt.reset_all()
+    mocker.resetall()
     # test call with namespec selection and stats found
     mocked_cpu.return_value = True
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert stats_elt.findmeld.call_args_list == [call('process_h_mid'), call('instance_fig_mid')]
-    assert stats_elt.replace.call_args_list == []
+    assert not stats_elt.replace.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert title_elt.content.call_args_list == [call('dummy_proc')]
+    assert process_h_mid.content.call_args_list == [call('dummy_proc')]
+    assert instance_fig_mid.content.call_args_list == [call('10.0.0.1')]
+    assert not cpuimage_fig_mid.replace.called
+    assert not memimage_fig_mid.replace.called
+    assert mocked_plots.call_args_list == [call('dummy_stats', 8)]
+    root_elt.reset_all()
+    mocker.resetall()
+    # test again with matplotlib import failure
+    mocked_plots.return_value = False
+    handler.write_process_statistics(root_elt, info)
+    assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
+    assert stats_elt.findmeld.call_args_list == [call('process_h_mid'), call('instance_fig_mid'),
+                                                 call('cpuimage_fig_mid'), call('memimage_fig_mid')]
+    assert not stats_elt.replace.called
+    assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
+    assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
+    assert process_h_mid.content.call_args_list == [call('dummy_proc')]
+    assert instance_fig_mid.content.call_args_list == [call('10.0.0.1')]
+    assert cpuimage_fig_mid.replace.call_args_list == [call('')]
+    assert memimage_fig_mid.replace.call_args_list == [call('')]
     assert mocked_plots.call_args_list == [call('dummy_stats', 8)]
 
 

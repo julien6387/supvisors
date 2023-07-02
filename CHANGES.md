@@ -15,6 +15,8 @@
 
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
 
+* Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.
+
 * Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
 
 
