@@ -96,6 +96,12 @@ def test_instant_io_statistics():
     assert stats['lo'][0] == stats['lo'][1]
 
 
+def test_instant_host_statistics_exception(mocker):
+    """ Test the instant host statistics when OSError has been raised by psutil. """
+    mocker.patch('supvisors.statscollector.instant_all_cpu_statistics', side_effect=OSError)
+    assert instant_host_statistics() == {}
+
+
 def test_instant_host_statistics():
     """ Test the instant host statistics. """
     stats = instant_host_statistics()
@@ -141,6 +147,9 @@ def test_instant_process_statistics(mocker):
     # check with exception PID
     mocker.patch.object(this_process, 'as_dict', side_effect=psutil.NoSuchProcess(os.getpid()))
     assert instant_process_statistics(this_process, False) is None
+    # check with exception OSError
+    mocker.patch.object(this_process, 'as_dict', side_effect=OSError)
+    assert instant_process_statistics(this_process, False) == ()
 
 
 def test_instant_process_statistics_children(mocker):
@@ -191,13 +200,20 @@ def test_collected_processes_update_process_list(mocker, queues, collected_proce
     """ Test the CollectedProcesses.update_process_list method. """
     mocker.patch('supvisors.statscollector.time', return_value=7777)
     mocked_process = mocker.patch.object(psutil, 'Process', side_effect=psutil.NoSuchProcess(1234))
-    # first try: not found and process does not exist
+    # 1. not found and process does not exist
     collected_processes.update_process_list('dummy_proc', 1234)
     assert mocked_process.call_args_list == [call(1234)]
     assert queues[1].empty()
     assert collected_processes.processes == []
     mocked_process.reset_mock()
-    # second try: not found but process exists
+    # é. not found and psutil raises an OSError
+    mocked_process.side_effect = OSError
+    collected_processes.update_process_list('dummy_proc', 1234)
+    assert mocked_process.call_args_list == [call(1234)]
+    assert queues[1].empty()
+    assert collected_processes.processes == []
+    mocked_process.reset_mock()
+    # 3. not found but process exists
     mocked_process.side_effect = lambda x: Mock(pid=x)
     collected_processes.update_process_list('dummy_proc', 1234)
     assert mocked_process.call_args_list == [call(1234)]
@@ -208,7 +224,7 @@ def test_collected_processes_update_process_list(mocker, queues, collected_proce
     assert process['last'] == 0
     assert process['process'].pid == 1234
     mocked_process.reset_mock()
-    # third try: update with same pid
+    # 4. update with same pid
     collected_processes.update_process_list('dummy_proc', 1234)
     assert not mocked_process.called
     assert queues[1].empty()
@@ -218,7 +234,7 @@ def test_collected_processes_update_process_list(mocker, queues, collected_proce
     assert process['last'] == 0
     assert process['process'].pid == 1234
     mocked_process.reset_mock()
-    # fourth try: update with a different positive pid
+    # 5. update with a different positive pid
     collected_processes.update_process_list('dummy_proc', 4321)
     assert mocked_process.call_args_list == [call(4321)]
     assert not queues[1].empty()
@@ -229,7 +245,7 @@ def test_collected_processes_update_process_list(mocker, queues, collected_proce
     assert process['last'] == 0
     assert process['process'].pid == 4321
     mocked_process.reset_mock()
-    # fifth try: update with a different zero pid
+    # 6. update with a different zero pid
     collected_processes.update_process_list('dummy_proc', 0)
     assert not mocked_process.called
     assert not queues[1].empty()
@@ -240,11 +256,11 @@ def test_collected_processes_update_process_list(mocker, queues, collected_proce
 def test_collected_processes_collect_supervisor(mocker, queues, collected_processes):
     """ Test the CollectedProcesses.collect_supervisor method. """
     mocked_time = mocker.patch('supvisors.statscollector.time', return_value=4)
-    # first try with not enough time to trigger the collection
+    # 1. with not enough time to trigger the collection
     collected_processes.collect_supervisor()
     assert queues[1].empty()
     assert collected_processes.supervisor_process['last'] == 0
-    # second try with enough time to trigger the collection
+    # 2. with enough time to trigger the collection
     mocked_time.return_value = 5
     collected_processes.collect_supervisor()
     assert not queues[1].empty()
@@ -258,6 +274,12 @@ def test_collected_processes_collect_supervisor(mocker, queues, collected_proces
     assert supervisor_stats['proc_work'] > 0
     assert len(supervisor_stats['cpu']) == 2
     assert collected_processes.supervisor_process['last'] == 5
+    # 3. with no stats provided (OSError)
+    mocked_time.return_value = 10
+    mocker.patch('supvisors.statscollector.instant_process_statistics', return_value=())
+    collected_processes.collect_supervisor()
+    assert queues[1].empty()
+    assert collected_processes.supervisor_process['last'] == 10
 
 
 def test_collected_processes_collect_recent_process(mocker, queues, collected_processes):
