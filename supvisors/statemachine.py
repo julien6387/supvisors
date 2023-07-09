@@ -74,7 +74,7 @@ class AbstractState:
         :return: None
         """
 
-    def check_instances(self) -> SupvisorsStates:
+    def check_instances(self) -> Optional[SupvisorsStates]:
         """ Check that local and Master Supvisors instances are still RUNNING.
         If their ticks are not received anymore, back to INITIALIZATION state to force a synchronization phase.
 
@@ -86,6 +86,7 @@ class AbstractState:
         if self.context.instances[self.context.master_identifier].state != SupvisorsInstanceStates.RUNNING:
             self.logger.warn('AbstractState.check_instances: Master Supvisors instance not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
+        return None
 
     def abort_jobs(self) -> None:
         """ Abort starting jobs in progress.
@@ -178,15 +179,16 @@ class InitializationState(AbstractState):
         # of course master instance must be running
         self.logger.debug(f'InitializationState.exit: master_identifier={self.context.master_identifier}')
         if not self.context.master_identifier or self.context.master_identifier not in running_identifiers:
-            # choose Master among the core instances because these instances are expected to be more stable
+            # choose Master among the core instances because they are expected to be more stable
             core_identifiers = self.supvisors.supvisors_mapper.core_identifiers
             self.logger.info(f'InitializationState.exit: core_identifiers={core_identifiers}')
             if core_identifiers:
                 running_core_identifiers = set(running_identifiers).intersection(core_identifiers)
                 if running_core_identifiers:
                     running_identifiers = running_core_identifiers
-            # arbitrarily choice : master instance has the 'lowest' identifier among running instances
+            # arbitrarily choice: master instance has the 'lowest' identifier among running instances
             self.context.master_identifier = min(running_identifiers)
+            # WARN: at this point, the Master state may not be known yet
 
 
 class MasterDeploymentState(AbstractState):
@@ -320,7 +322,7 @@ class MasterShuttingDownState(AbstractState):
 
 
 class RestartState(AbstractState):
-    """ This is a final state. """
+    """ This is a final state. Supvisors is about to restart. """
 
     def enter(self):
         """ When entering the RESTART state, request the full restart. """
@@ -336,7 +338,7 @@ class RestartState(AbstractState):
 
 
 class ShutdownState(AbstractState):
-    """ This is the final state. """
+    """ This is a final state. Supvisors is about to shut down. """
 
     def enter(self):
         """ When entering the SHUTDOWN state, request the Supervisor shutdown. """
@@ -363,7 +365,7 @@ class SlaveMainState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             return next_state
-        # next state is the Master state
+        # next state is the Master state (maybe None)
         return self.supvisors.fsm.master_state
 
 
@@ -449,14 +451,15 @@ class FiniteStateMachine:
         # check state machine
         self.set_state(self.instance.next())
 
-    def set_state(self, next_state: SupvisorsStates) -> None:
+    def set_state(self, next_state: Optional[SupvisorsStates]) -> None:
         """ Update the current state of the state machine and transitions as long as possible.
         The transition can be forced, especially when getting the first Master state.
 
         :param next_state: the new state
         :return: None
         """
-        while next_state != self.state:
+        # in the event of a Slave FSM, the master state may not be known yet, hence the test on next_state
+        while next_state and next_state != self.state:
             # check that the transition is allowed
             # a Slave Supvisors will always follow the Master state
             if self.context.is_master and next_state not in self._Transitions[self.state]:
