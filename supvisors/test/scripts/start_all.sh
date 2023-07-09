@@ -30,4 +30,4 @@ done
 cd $TEST_DIR
 pwd
 sleep 1
-tail -f -n +1 log/sup*
+tail -f -n +1 log/supervisord*
