@@ -18,8 +18,10 @@
 # ======================================================================
 
 import os
+from threading import RLock
 
 from supervisor import xmlrpc
+from supervisor.loggers import Handler
 from supervisor.options import ServerOptions
 from supervisor.process import Subprocess
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
@@ -61,6 +63,19 @@ def cleanup_fds(self) -> None:
 
     :return: None
     """
+
+
+def patch_logger():
+    """ Make Supervisor logger thread-safe. """
+    # create global lock for all calls
+    logger_mutex = RLock()
+    # use an emit method that uses the global lock
+    def emit(self, record):
+        with logger_mutex:
+            self._emit(record)
+    # update the Handler class
+    if not hasattr(Handler, '_emit'):
+        Handler._emit, Handler.emit = Handler.emit, emit
 
 
 def patch_591() -> None:
@@ -107,6 +122,8 @@ def apply_patches():
     expand_faults()
     # patch the Supervisor ServerOptions.cleanup_fds
     ServerOptions.cleanup_fds = cleanup_fds
+    # patch the Supervisor logger so that it is thread-safe
+    patch_logger()
     # apply patch for Supervisor issue #591
     patch_591()
     # replace Supervisor http web pages
