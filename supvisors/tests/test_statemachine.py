@@ -136,7 +136,7 @@ def test_initialization_state(mocker, supvisors_ctx):
         assert result == SupvisorsStates.DEPLOYMENT
     # same test in discovery mode but timeout not reached yet
     state.context.start_date = 1230
-    supvisors_ctx.options.multicast_address = '239.0.0.1'
+    supvisors_ctx.options.multicast_group = '239.0.0.1', 7777
     assert supvisors_ctx.options.discovery_mode
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
@@ -713,7 +713,7 @@ def test_tick_event(mocker, fsm):
     assert not fsm.redeploy_mark
     mocker.resetall()
     # activate discovery mode
-    fsm.supvisors.options.multicast_address = '239.0.0.1'
+    fsm.supvisors.options.multicast_group = '239.0.0.1', 7777
     event = {'tick': 1357, 'ip_address': '192.168.1.1', 'server_port': 5000}
     fsm.on_tick_event('rocky52', event)
     assert mocked_evt.call_args_list == [call('rocky52', event)]
