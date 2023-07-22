@@ -19,6 +19,7 @@
 
 import pickle
 import random
+import time
 
 import pytest
 from supervisor.states import ProcessStates
