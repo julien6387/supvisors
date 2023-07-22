@@ -20,9 +20,11 @@
 
 * Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.
 
+* Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
+
 * Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
 
-* Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
+* Fix `flask-restx` dependency in setup according to Python version.
 
 
 ## 0.16 (2023-03-12)

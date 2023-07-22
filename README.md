@@ -65,15 +65,15 @@ but is not maintained anymore.
 
 **Supvisors** has dependencies on:
 
-| Package                                           | Release | Optional |
-|---------------------------------------------------|---------|----------|
-| [Supervisor](http://supervisord.org)              | 4.2.4   |          |
-| [psutil](https://pypi.python.org/pypi/psutil)     | 5.7.3   | X        |
-| [matplotlib](http://matplotlib.org)               | 3.3.3   | X        |
-| [lxml](http://lxml.de)                            | 4.6.2   | X        |
-| [Flask-RESTX](https://flask-restx.readthedocs.io) | 0.5.1   | X        |
-| [PyZMQ](http://pyzmq.readthedocs.io)              | 20.0.0  | X        |
-| [websockets](https://websockets.readthedocs.io)   | 10.4    | X        |
+| Package                                           | Optional | Minimal release             |
+|---------------------------------------------------|----------|-----------------------------|
+| [Supervisor](http://supervisord.org)              |          | 4.2.4                       |
+| [psutil](https://pypi.python.org/pypi/psutil)     | X        | 5.7.3                       |
+| [matplotlib](http://matplotlib.org)               | X        | 3.3.3                       |
+| [lxml](http://lxml.de)                            | X        | 4.6.2                       |
+| [Flask-RESTX](https://flask-restx.readthedocs.io) | X        | 0.5.1 (py36), 1.1.0 (py37+) |
+| [PyZMQ](http://pyzmq.readthedocs.io)              | X        | 20.0.0                      |
+| [websockets](https://websockets.readthedocs.io)   | X        | 10.2                        |
 
 Please note that some of these dependencies may have their own dependencies.
 
