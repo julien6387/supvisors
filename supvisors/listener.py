@@ -32,6 +32,7 @@ from .eventinterface import create_external_publisher, EventPublisherInterface
 from .internalinterface import create_internal_comm, InternalCommEmitter
 from .mainloop import SupvisorsMainLoop
 from .process import ProcessStatus
+from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
                      InternalEventHeaders, RemoteCommEvents, Payload)
@@ -60,26 +61,17 @@ class SupervisorListener(object):
     Attributes are:
 
         - supvisors: the Supvisors global structure ;
-        - logger: the Supvisors logger ;
-        - local_instance: the local Supvisors instance parameters;
         - counter: the TICK counter;
-        - emitter: the com interface used to publish Supvisors internal events to all Supvisors instances ;
-        - external_publisher: the com interface used to publish Supvisors events to Supvisors listeners ;
         - main_loop: the Supvisors' event thread.
     """
 
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
-        # other attributes
-        self.local_instance: SupvisorsInstanceId = supvisors.context.local_instance.supvisors_id
         self.counter = 0
-        # WARN: the SupvisorsMainLoop cannot be created at this level
-        # Before running, Supervisor forks when daemonized and the sockets are then lost
+        # NOTE: The SupvisorsMainLoop cannot be created at this level
+        #       Before running, Supervisor forks when daemonized and the sockets are then lost
         self.main_loop: Optional[SupvisorsMainLoop] = None
-        self.emitter: Optional[InternalCommEmitter] = None
-        self.external_publisher: Optional[EventPublisherInterface] = None
         # add new events to Supervisor EventTypes
         add_process_events()
         # subscribe to internal events
@@ -95,6 +87,46 @@ class SupervisorListener(object):
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
 
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
+
+    @property
+    def local_instance(self) -> SupvisorsInstanceId:
+        """ Get the Supvisors logger. """
+        return self.supvisors.context.local_instance.supvisors_id
+
+    @property
+    def host_collector(self) -> Any:
+        """ Get the Supvisors function in charge of collecting host statistics. """
+        return self.supvisors.host_collector
+
+    @property
+    def process_collector(self) -> Any:
+        """ Get the Supvisors instance in charge of collecting process statistics. """
+        return self.supvisors.process_collector
+
+    @property
+    def host_compiler(self) -> Optional[HostStatisticsCompiler]:
+        """ Get the Supvisors function in charge of compiling host statistics. """
+        return self.supvisors.host_compiler
+
+    @property
+    def process_compiler(self) -> Optional[ProcStatisticsCompiler]:
+        """ Get the Supvisors instance in charge of compiling process statistics. """
+        return self.supvisors.process_compiler
+
+    @property
+    def emitter(self) -> Optional[InternalCommEmitter]:
+        """ Get the com interface used to publish Supvisors internal events to all Supvisors instances. """
+        return self.supvisors.sockets.emitter
+
+    @property
+    def external_publisher(self) -> Optional[EventPublisherInterface]:
+        """ Get the com interface used to publish Supvisors events to all Supvisors listeners. """
+        return self.supvisors.external_publisher
+
     def on_running(self, _):
         """ Called when Supervisor is RUNNING.
         This method start the Supvisors main loop. """
@@ -104,13 +136,11 @@ class SupervisorListener(object):
             self.counter = 0
             # update Supervisor internal data for Supvisors support
             self.supvisors.supervisor_data.update_supervisor()
-            # create the Supvisors communication structures
+            # NOTE: The communication structures and SupvisorsMainLoop cannot be created before this level
+            #       Before running, Supervisor forks when daemonized and the sockets are then lost
+            #       At this point, Supervisor has forked if not daemonized
             self.supvisors.sockets = create_internal_comm(self.supvisors)
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
-            self.external_publisher = self.supvisors.external_publisher
-            # keep a reference to the internal publisher used to share the events publication
-            self.emitter = self.supvisors.sockets.emitter
-            # At this point, Supervisor has forked if necessary so the main loop can be started
             self.main_loop = SupvisorsMainLoop(self.supvisors)
             self.logger.debug('SupervisorListener.on_running: request to start main loop')
             self.main_loop.start()
@@ -118,8 +148,8 @@ class SupervisorListener(object):
             # Trigger the FSM
             self.supvisors.fsm.next()
             # Start the process statistics collector
-            if self.supvisors.process_collector:
-                self.supvisors.process_collector.start()
+            if self.process_collector:
+                self.process_collector.start()
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_running: {format_exc()}')
@@ -154,7 +184,7 @@ class SupervisorListener(object):
             # WARN: only if it is not the supervisor logger
             if hasattr(self.logger, 'SUPVISORS'):
                 self.logger.close()
-        except Exception as exc:
+        except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_stopping: {format_exc()}')
 
@@ -175,15 +205,27 @@ class SupervisorListener(object):
                        'sequence_counter': self.counter}
             self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
+            # trigger the periodic check
+            # NOTE: do not involve the Supvisors internal communications to that end
+            #       because it is used to detect network failures
+            self.supvisors.fsm.on_timer_event(payload)
+            # publish the TICK to all supvisors instances
             self.emitter.send_tick_event(payload)
             # get and publish host statistics at tick time (optional)
-            if self.supvisors.host_collector:
-                stats = self.supvisors.host_collector()
-                self.emitter.send_host_statistics(stats)
+            if self.host_collector:
+                stats = self.host_collector()
+                if stats:
+                    # publish host statistics to other Supvisors instances
+                    self.emitter.send_host_statistics(stats)
+                    # check if network interfaces have changed
+                    self.supvisors.sockets.check_intf(list(stats['io'].keys()))
+                    # TODO: TBC need to move to INITIALIZATION
+                else:
+                    self.logger.error(f'SupervisorListener.on_tick: failed to get host statistics')
             # get and publish the process statistics collected from the last tick (optional)
-            if self.supvisors.process_collector:
-                while not self.supvisors.process_collector.stats_queue.empty():
-                    stats = self.supvisors.process_collector.stats_queue.get()
+            if self.process_collector:
+                while not self.process_collector.stats_queue.empty():
+                    stats = self.process_collector.stats_queue.get()
                     self.emitter.send_process_statistics(stats)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
@@ -380,7 +422,7 @@ class SupervisorListener(object):
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
                               f' {event_data}')
-            integrated_stats_list = self.supvisors.host_compiler.push_statistics(event_identifier, event_data)
+            integrated_stats_list = self.host_compiler.push_statistics(event_identifier, event_data)
             if integrated_stats_list and self.external_publisher:
                 for integrated_stats in integrated_stats_list:
                     self.external_publisher.send_host_statistics(integrated_stats)
@@ -388,7 +430,7 @@ class SupervisorListener(object):
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_STATISTICS from {event_identifier}:'
                               f' {event_data}')
-            integrated_stats_list = self.supvisors.process_compiler.push_statistics(event_identifier, event_data)
+            integrated_stats_list = self.process_compiler.push_statistics(event_identifier, event_data)
             if integrated_stats_list and self.external_publisher:
                 for integrated_stats in integrated_stats_list:
                     self.external_publisher.send_process_statistics(integrated_stats)

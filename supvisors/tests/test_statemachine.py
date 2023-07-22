@@ -664,7 +664,7 @@ def test_timer_event(mocker, fsm):
     # test when not master and instances to isolate
     assert not fsm.context.is_master
     event = {'counter': 1234}
-    fsm.periodic_check(event)
+    fsm.on_timer_event(event)
     # check result: marked processes are started
     assert mocked_event.call_args_list == [call(event)]
     assert mocked_starter.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
@@ -683,7 +683,7 @@ def test_timer_event(mocker, fsm):
     fsm.context._is_master = True
     mocked_isolation.return_value = []
     assert fsm.context.is_master
-    fsm.periodic_check(event)
+    fsm.on_timer_event(event)
     # check result: marked processes are started
     assert mocked_event.call_args_list == [call(event)]
     assert mocked_starter.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
@@ -699,12 +699,10 @@ def test_tick_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a tick event. """
     # inject tick event and test call to context on_tick_event
     mocked_evt = mocker.patch.object(fsm.supvisors.context, 'on_tick_event')
-    mocked_check = mocker.patch.object(fsm, 'periodic_check')
     # test when tick comes from another node
     event = {'tick': 1234, 'ip_address': '10.0.0.1', 'server_port': 1234}
     fsm.on_tick_event('10.0.0.1', event)
     assert mocked_evt.call_args_list == [call('10.0.0.1', event)]
-    assert not mocked_check.called
     assert not fsm.redeploy_mark
     mocker.resetall()
     # test when tick comes from local node
@@ -712,7 +710,6 @@ def test_tick_event(mocker, fsm):
     event['ip_address'] = fsm.supvisors.supvisors_mapper.local_instance.ip_address
     fsm.on_tick_event(local_identifier, event)
     assert mocked_evt.call_args_list == [call(local_identifier, event)]
-    assert mocked_check.call_args_list == [call(event)]
     assert not fsm.redeploy_mark
     mocker.resetall()
     # activate discovery mode
@@ -720,7 +717,6 @@ def test_tick_event(mocker, fsm):
     event = {'tick': 1357, 'ip_address': '192.168.1.1', 'server_port': 5000}
     fsm.on_tick_event('rocky52', event)
     assert mocked_evt.call_args_list == [call('rocky52', event)]
-    assert not mocked_check.called
     assert fsm.redeploy_mark
 
 

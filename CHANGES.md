@@ -6,6 +6,9 @@
   Write the disabilities file even if no call to `disable` and `enable` XML-RPCs have been done.
   Try to create the folder at startup if it does not exist.
 
+* Improve robustness against network failures. The periodic check is performed prior to the TICK publication.
+  The internal TCP sockets are rebound when a network interface becomes up.
+
 * Provide a discovery mode where the **Supvisors** instances are established on-the-fly without declaring them in
   the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_address` and
   `multicast_ttl` added to that purpose).
@@ -18,6 +21,8 @@
 * Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.
 
 * Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
+
+* Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
 
 
 ## 0.16 (2023-03-12)

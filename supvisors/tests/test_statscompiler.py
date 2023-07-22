@@ -625,7 +625,7 @@ def test_proc_statistics_compiler_push_statistics(mocker, proc_statistics_compil
     process_stats = {'namespec': 'dummy_proc', 'pid': 0}
     # 1. test with non-existing holder and 0 pid
     result = proc_statistics_compiler.push_statistics('10.0.0.1', process_stats)
-    assert result == {}
+    assert result == []
     assert proc_statistics_compiler.nb_cores == {}
     assert proc_statistics_compiler.holder_map == {}
     assert not mocked_holder_constr.called

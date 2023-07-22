@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -235,6 +234,39 @@ def test_send_heartbeat_exception(supvisors, sockets):
     assert time.time() > hb_recv > 0
 
 
+def test_subscriber_heartbeat_timeout(mocker, supvisors, sockets):
+    """ Test the exception management in SubscriberInterface when heartbeat missing from a client. """
+    publisher = sockets.emitter
+    subscriber = sockets.receiver
+    # wait for publisher server to be alive
+    time.sleep(1)
+    assert publisher.is_alive()
+    # the subscriber has connected the local publisher instance
+    local_identifier = supvisors.supvisors_mapper.local_identifier
+    assert list(subscriber.subscribers.keys()) == [local_identifier]
+    assert len(publisher.publisher_thread.clients) == 1
+    # poll until heartbeat is received
+    max_wait = 40  # 40 loops of 100ms
+    external_events_sockets = None
+    while not external_events_sockets and max_wait > 0:
+        _, external_events_sockets = subscriber.poll()
+        max_wait -= 1
+    # SubscriberInterface instances cannot be accessed from the sockets structure
+    # closing the subscriber will raise the POLLHUP event
+    # so mock the InternalSubscriber heartbeat emission and at some point the SubscriberInterface will close
+    mocker.patch.object(subscriber, '_send_heartbeat')
+    # remove identifier from InternalSubscriber instances to prevent reconnection
+    subscriber.instances = {}
+    # read everything during 10 seconds
+    target = time.time() + 10
+    while time.time() < target:
+        _, external_events_sockets = subscriber.poll()
+        subscriber.read_fds(external_events_sockets)
+    # check disconnection on subscriber side and publisher side
+    assert subscriber.subscribers == {}
+    assert publisher.publisher_thread.clients == []
+
+
 def test_publisher_heartbeat_timeout(supvisors, sockets):
     """ Test the exception management in publisher when heartbeat missing from a subscriber. """
     subscriber = sockets.receiver
@@ -322,3 +354,31 @@ def test_publisher_forward_empty_message(supvisors, sockets):
                 reached = True
                 break
     assert reached
+
+
+def test_publisher_restart(sockets):
+    """ Test the publisher restart in case of new network interface. """
+    # wait for publisher server to be alive
+    ref_publisher = sockets.emitter
+    time.sleep(1)
+    assert ref_publisher.is_alive()
+    # first try (init)
+    sockets.check_intf(['localhost'])
+    assert ref_publisher is sockets.emitter
+    assert sockets.intf_names == ['localhost']
+    # second try / confirm network interface names
+    sockets.check_intf(['localhost'])
+    assert ref_publisher is sockets.emitter
+    assert sockets.intf_names == ['localhost']
+    # third try / add an interface name
+    sockets.check_intf(['localhost', 'eth0'])
+    assert ref_publisher is not sockets.emitter
+    assert sockets.intf_names == ['localhost', 'eth0']
+    # wait for publisher server to be alive
+    ref_publisher = sockets.emitter
+    time.sleep(1)
+    assert ref_publisher.is_alive()
+    # fourth try / remove an interface name
+    sockets.check_intf(['localhost'])
+    assert ref_publisher is sockets.emitter
+    assert sockets.intf_names == ['localhost']

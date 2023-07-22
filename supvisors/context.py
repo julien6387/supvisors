@@ -17,26 +17,30 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import List
+import re
+import time
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from supervisor.loggers import Logger
+from supervisor.options import make_namespec, split_namespec
 
 from .application import ApplicationRules, ApplicationStatus
 from .eventinterface import EventPublisherInterface
-from .instancestatus import *
-from .process import *
-from .ttypes import ApplicationStates, SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
+from .instancestatus import SupvisorsInstanceStatus
+from .process import ProcessRules, ProcessStatus
+from .ttypes import (ApplicationStates, SupvisorsInstanceStates, CLOSING_STATES,
+                     NameList, Payload, PayloadList, LoadMap)
 
 
 class Context(object):
     """ The Context class holds the main data of Supvisors:
 
     - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier) ;
-    - local_identifier: the identifier of the local Supvisors instance ;
-    - local_instance: the SupvisorsInstanceStatus of the local Supvisors instance ;
     - applications: the dictionary of all ApplicationStatus (key is application name) ;
     - master_identifier: the name of the Supvisors master ;
     - is_master: a boolean telling if the local Supvisors instance is the master instance ;
     - start_date: the date since Supvisors entered the INITIALIZATION state ;
-    - local_sequence_counter: the last sequence counter received from the local TICK.
+    - last_state_modes: the last Supvisors State and Modes published.
     """
 
     # annotation types
@@ -47,15 +51,10 @@ class Context(object):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
-        self.external_publisher: Optional[EventPublisherInterface] = None
         # the Supvisors instances declared statically
         self.instances: Context.InstancesMap = {
             identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
             for identifier, supvisors_id in self.supvisors.supvisors_mapper.instances.items()}
-        # the local Supvisors instance
-        self.local_identifier: str = self.supvisors.supvisors_mapper.local_identifier
-        self.local_instance: SupvisorsInstanceStatus = self.instances[self.local_identifier]
         # the applications known to Supvisors
         self.applications: Context.ApplicationsMap = {}
         # master attributes
@@ -63,8 +62,6 @@ class Context(object):
         self._is_master: bool = False
         # start time to manage end of synchronization phase
         self.start_date: float = 0.0
-        # last local TICK sequence counter, used for node invalidation
-        self.local_sequence_counter: int = 0
         # keep history of last state and modes publication
         self.last_state_modes = None
 
@@ -74,22 +71,48 @@ class Context(object):
         :return: None
         """
         self.master_identifier = ''
-        self.start_date = time()
+        self.start_date = time.time()
         for status in self.instances.values():
             status.reset()
-        # store the reference to the external publisher
-        self.external_publisher = self.supvisors.external_publisher
+
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
+
+    @property
+    def external_publisher(self) -> Optional[EventPublisherInterface]:
+        """ Get the Supvisors external publisher. """
+        return self.supvisors.external_publisher
+
+    @property
+    def local_identifier(self) -> str:
+        """ Get last local TICK sequence counter, used for node invalidation. """
+        return self.supvisors.supvisors_mapper.local_identifier
+
+    @property
+    def local_instance(self) -> SupvisorsInstanceStatus:
+        """ Get last local TICK sequence counter, used for node invalidation. """
+        return self.instances[self.local_identifier]
+
+    @property
+    def local_sequence_counter(self) -> int:
+        """ Get last local TICK sequence counter, used for node invalidation. """
+        return self.local_instance.sequence_counter
 
     @property
     def master_identifier(self) -> str:
+        """ Get the identifier of the Supvisors Master. """
         return self._master_identifier
 
     @property
     def is_master(self) -> bool:
+        """ Return True if the local Supvisors instance is the Supvisors Master. """
         return self._is_master
 
     @master_identifier.setter
-    def master_identifier(self, identifier) -> None:
+    def master_identifier(self, identifier: str) -> None:
+        """ Set the identifier of the known Supvisors Master. """
         self.logger.info(f'Context.master_identifier: {identifier}')
         self._master_identifier = identifier
         self._is_master = identifier == self.local_identifier
@@ -207,18 +230,16 @@ class Context(object):
 
     def invalid(self, status: SupvisorsInstanceStatus, fence=None) -> None:
         """ Declare SILENT or ISOLATING the SupvisorsInstanceStatus in parameter, according to the auto_fence option.
-        The local Supvisors instance is never ISOLATING, whatever the option is set or not.
+        The local Supvisors instance is never set to ISOLATING / ISOLATED, whatever the option is set or not.
         Always give it a chance to restart. """
         if status.identifier == self.local_identifier:
-            # this is very unlikely
-            # 1. invalidation by end of sync would mean that the SupvisorsMainLoop thread is broken and unable to
-            #    provide ticks, which is a critical failure
-            # 2. invalidation by timer is impossible as is it driven by the local TICK
-            #    a Supvisors instance cannot have a counter shift with itself
-            # 3. on_authorization - the local Supvisors instance cannot be ISOLATED from itself by design
-            #    that's precisely the aim of the following instructions
-            # 4. a discrepancy has been detected between the internal context and the process events received
+            # A very few events can cause this situation:
+            # 1. invalidation at the end of the synchronization phase or by the periodic check would mean
+            #    that the SupvisorsMainLoop thread is not operational, which is a critical failure.
+            #    this is very likely due to a network failure
+            # 2. a discrepancy has been detected between the internal context and the process events received
             #    a new CHECKING phase is required
+            # NOTE: the local Supvisors instance cannot be ISOLATED from itself
             self.logger.critical('Context.invalid: local Supvisors instance is either SILENT or inconsistent')
             status.state = SupvisorsInstanceStates.SILENT
         elif fence or self.supvisors.options.auto_fence:
@@ -429,64 +450,60 @@ class Context(object):
         :return: None
         """
         # check if local tick has been received yet
-        # TODO: why ???
+        # NOTE: it is needed because remote ticks are tagged against last local tick received
         if identifier != self.local_identifier:
             if self.local_instance.state != SupvisorsInstanceStates.RUNNING:
                 self.logger.debug('Context.on_tick_event: waiting for local tick first')
                 return
-        # process node event
-        status = self.instances[identifier]
         # ISOLATING / ISOLATED instances are not updated anymore
-        # should not happen as the subscriber should have been disconnected but there may be a tick in the pipe
+        status = self.instances[identifier]
         if not status.in_isolation():
-            self.logger.debug(f'Context.on_tick_event: got tick {event} from Supvisors={identifier}')
-            # check sequence counter to identify rapid supervisor restart
-            if (status.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]
-                    and event['sequence_counter'] < status.sequence_counter):
-                self.logger.warn(f'Context.on_tick_event: stealth restart of Supvisors={identifier}')
-                # it's not enough to change the instance status as some handling may be required on running processes
-                # so force node inactivity by resetting its local_sequence_counter
-                # FSM on_timer_event will handle the node invalidation
-                status.local_sequence_counter = 0
-            else:
-                # update internal times
-                status.update_times(event['sequence_counter'], event['when'], self.local_sequence_counter, time())
-                # check node
-                if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
-                    self.check_instance(status)
-                # publish SupvisorsInstanceStatus and SupvisorsStatus events
-                if self.external_publisher:
-                    self.external_publisher.send_instance_status(status.serial())
-                    self._publish_state_mode()
+            # update the Supvisors instance with the TICK event
+            counter = event['sequence_counter']
+            tick_time = event['when']
+            # for local Supvisors instance, use local data
+            # for remote Supvisors instance, use local Supvisors instance data
+            local_counter = counter if identifier == self.local_identifier else self.local_sequence_counter
+            local_time = tick_time if identifier == self.local_identifier else time.time()
+            status.update_tick(counter, tick_time, local_counter, local_time)
+            # trigger hand-shake on first TICK received
+            if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
+                status.state = SupvisorsInstanceStates.CHECKING
+                self.supvisors.sockets.pusher.send_check_instance(status.identifier)
+            # publish new Supvisors Instance status
+            if self.external_publisher:
+                self.external_publisher.send_instance_status(status.serial())
+                self._publish_state_mode()
 
     def on_timer_event(self, event: Payload) -> Tuple[NameList, Set[ProcessStatus]]:
         """ Check that all Supvisors instances are still publishing.
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s.
 
-        :param event: the local tick event
         :return: the identifiers of the invalidated Supvisors instances and the processes in failure
         """
-        invalidated_identifiers, process_failures = [], set({})  # strange but avoids IDE warning on annotations
-        # find all Supvisors instances that did not send their periodic tick
-        current_time = event['when']
-        self.local_sequence_counter = event['sequence_counter']
+        invalidated_identifiers: List[str] = []
+        process_failures: Set[ProcessStatus] = set({})  # strange but avoids IDE warning on annotations
+        # first update the local instance with the new TICK
+        sequence_counter = event['sequence_counter']
+        tick_time = event['when']
+        # use the local TICK time received as a reference
         # do not check for invalidation before synchro_timeout
-        if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
+        if (tick_time - self.start_date) > self.supvisors.options.synchro_timeout:
             # check all Supvisors instances
             for status in self.instances.values():
                 if status.state == SupvisorsInstanceStates.UNKNOWN:
                     # invalid unknown Supvisors instances
                     # nothing to do on processes as none received yet
                     self.invalid(status)
-                elif status.inactive(self.local_sequence_counter):
+                elif status.inactive(sequence_counter):
                     # invalid silent Supvisors instances
                     self.invalid(status)
                     invalidated_identifiers.append(status.identifier)
                     # for processes that were running on node, invalidate node in process
-                    # WARN: decision is made NOT to remove the node payload from the ProcessStatus and NOT to remove
-                    # the ProcessStatus from the Context if no more node payload left.
-                    # The aim is to keep a trace in the Web UI about the application processes that have been lost
-                    # and their related description.
+                    # WARN: Decision is made NOT to remove the node payload from the ProcessStatus and NOT to remove
+                    #       the ProcessStatus from the Context if no more node payload left.
+                    #       The aim is to keep a trace in the Web UI about the application processes that have been lost
+                    #       and their related description.
                     process_failures.update({process for process in status.running_processes()
                                              if process.invalidate_identifier(status.identifier)})
             # publish process status in failure
@@ -663,16 +680,6 @@ class Context(object):
                         self.external_publisher.send_process_status(process.serial())
                         self.external_publisher.send_application_status(application.serial())
                     return process
-
-    def check_instance(self, status) -> None:
-        """ Asynchronous port-knocking used to check how the remote Supvisors instance considers the local instance.
-        Also used to get the full process list from the node
-
-        :param status: the Supvisors instance to check
-        :return: None
-        """
-        status.state = SupvisorsInstanceStates.CHECKING
-        self.supvisors.sockets.pusher.send_check_instance(status.identifier)
 
     def handle_isolation(self) -> NameList:
         """ Move ISOLATING Supvisors instances to ISOLATED and publish related events. """

@@ -97,23 +97,23 @@ class HostStatisticsInstance:
         self.mem: MemHistoryStats = []
         self.io: InterfaceHistoryStats = {}
 
-    def _push_times_stats(self, time_value: float):
+    def _push_times_stats(self, time_value: float) -> None:
         """ Add new Times statistics. """
         self.times.append(time_value)
         trunc_depth(self.times, self.depth)
 
-    def _push_cpu_stats(self, cpu_stats: FloatList):
+    def _push_cpu_stats(self, cpu_stats: FloatList) -> None:
         """ Add new CPU statistics. """
         for lst in self.cpu:
             lst.append(cpu_stats.pop(0))
             trunc_depth(lst, self.depth)
 
-    def _push_mem_stats(self, mem_value: float):
+    def _push_mem_stats(self, mem_value: float) -> None:
         """ Add new MEM statistics. """
         self.mem.append(mem_value)
         trunc_depth(self.mem, self.depth)
 
-    def _push_io_stats(self, io_stats: InterfaceIntegratedStats):
+    def _push_io_stats(self, io_stats: InterfaceIntegratedStats) -> None:
         """ Add new IO statistics. """
         # on certain node configurations, interface list may be dynamic
         # unlike processes, it is interesting to log when it happens
@@ -132,11 +132,13 @@ class HostStatisticsInstance:
                 trunc_depth(sent_stats, self.depth)
         # destroy obsolete elements
         for intf in destroy_list:
-            self.logger.warn(f'StatisticsInstance.push_io_stats: obsolete interface: {intf}')
+            self.logger.warn(f'StatisticsInstance.push_io_stats: obsolete interface={intf} on {self.identifier}'
+                             f' (period={self.period})')
             del self.io[intf]
         # add new elements
         for intf, (recv_bytes, sent_bytes) in io_stats.items():
-            self.logger.warn(f'StatisticsInstance.push_io_stats: new interface: {intf}')
+            self.logger.warn(f'StatisticsInstance.push_io_stats: new interface={intf} on {self.identifier}'
+                             f' (period={self.period})')
             self.io[intf] = [recv_bytes], [sent_bytes]
 
     def integrate(self, last: Payload) -> IntegratedHostStatistics:
@@ -149,11 +151,12 @@ class HostStatisticsInstance:
         return last['now'] - self.ref_start_time, cpu, mem, io
 
     def push_statistics(self, stats: Payload) -> Payload:
-        """ Calculate new statistics given a new series of measures. """
+        """ Calculate new statistics given a new series of measures.
+        Return True upon any change on network interfaces. """
         result = {}
         if self.ref_stats:
             if stats['now'] - self.ref_stats['now'] >= self.period:
-                # rearrange data so that there is less processing afterwards
+                # rearrange data so that there is less processing afterward
                 uptime, cpu, mem, io = self.integrate(stats)
                 # create the result structure (use a copy as the _push functions will pop)
                 result = {'identifier': self.identifier,
@@ -266,7 +269,7 @@ class ProcStatisticsInstance:
         result = {}
         if self.ref_stats:
             if proc_stats['now'] - self.ref_stats['now'] >= self.period:
-                # rearrange data so that there is less processing afterwards
+                # rearrange data so that there is less processing afterward
                 cpu_value, mem_value, time_value = self.integrate(proc_stats)
                 # create the result structure (use a copy as the _push functions will pop)
                 result = {'namespec': self.namespec,
@@ -376,10 +379,10 @@ class ProcStatisticsCompiler:
         """ Return the number of CPU cores linked to a Supvisors instance. """
         return self.nb_cores.get(identifier, 0)
 
-    def push_statistics(self, identifier: str, process_stats: Payload) -> Payload:
+    def push_statistics(self, identifier: str, process_stats: Payload) -> PayloadList:
         """ Consider a new list of process statistics received from a Supvisors instance.
         Stopped processes (pid=0) are not considered if there is no existing holder. """
-        integrated_stats = {}
+        integrated_stats = []
         namespec = process_stats['namespec']
         pid = process_stats['pid']
         proc_holder = self.holder_map.get(namespec)

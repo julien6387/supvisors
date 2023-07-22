@@ -211,6 +211,8 @@ def test_internal_com(supvisors, internal_com):
     buffer = len(msg).to_bytes(4, 'big') + msg
     internal_com.pusher.socket.send(buffer)
     assert InternalCommReceiver.read_socket(internal_com.puller_sock) == ('', 1234)
+    # test empty check_intf
+    internal_com.check_intf([])
     # test close without emitter set
     internal_com.stop()
     with pytest.raises(OSError):

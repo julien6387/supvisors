@@ -25,7 +25,7 @@ from typing import Any, Optional, List, Tuple
 
 from supervisor.loggers import Logger
 
-from .ttypes import DeferredRequestHeaders, Ipv4Address, Payload, NameList
+from .ttypes import DeferredRequestHeaders, Ipv4Address, Payload, PayloadList, NameList
 
 # timeout for polling, in milliseconds
 POLL_TIMEOUT = 100
@@ -96,7 +96,7 @@ class InternalCommEmitter:
         """
         raise NotImplementedError
 
-    def send_process_added_event(self, payload: Payload) -> None:
+    def send_process_added_event(self, payload: PayloadList) -> None:
         """ Send the process added event.
 
         :param payload: the added process to send
@@ -191,7 +191,8 @@ class InternalCommReceiver:
 
     def read_puller(self) -> List:
         """ Read the message received on the puller socket. """
-        return self.read_socket(self.puller_sock)[1]
+        message = self.read_socket(self.puller_sock)
+        return message[1] if message else []
 
     def read_fds(self, fds) -> List[Tuple[Ipv4Address, Payload]]:
         """ Read the messages received on the file descriptors. """
@@ -349,6 +350,7 @@ class SupvisorsInternalComm:
 
         :param supvisors: the Supvisors global structure
         """
+        self.supvisors = supvisors
         # create socket pairs for the deferred requests
         self.pusher_sock, self.puller_sock = socketpair()
         # create the pusher used to detach the XML-RPC requests from the Supervisor Thread
@@ -369,6 +371,9 @@ class SupvisorsInternalComm:
         self.pusher_sock.close()
         # WARN: do NOT close receiver and puller_sock as it will be done from the Supvisors thread (mainloop.py)
 
+    def check_intf(self, intf_names: List[str]):
+        """ Look for any change in the network interfaces and eventually restart the internal communications. """
+
 
 def create_internal_comm(supvisors: Any) -> Optional[SupvisorsInternalComm]:
     """ Create the relevant internal publisher in accordance with the option selected.
@@ -376,8 +381,6 @@ def create_internal_comm(supvisors: Any) -> Optional[SupvisorsInternalComm]:
     :param supvisors: the global Supvisors instance
     :return: the internal publisher instance
     """
-    publisher_instance = None
-    publisher_class = None
     if supvisors.options.discovery_mode:
         # create a Multicast factory
         from supvisors.supvisorsmulticast import SupvisorsMulticast
@@ -385,11 +388,9 @@ def create_internal_comm(supvisors: Any) -> Optional[SupvisorsInternalComm]:
         publisher_class = SupvisorsMulticast
     else:
         # no need to check for supvisors_list as this is the fallback com
-        # get a Publish / Subscribe factory
+        # get a Publish-Subscribe factory
         from supvisors.supvisorspubsub import SupvisorsPubSub
         supvisors.logger.info('create_internal_publisher: using TCP Publish-Subscribe for internal communications')
         publisher_class = SupvisorsPubSub
     # create the publisher instance
-    if publisher_class:
-        publisher_instance = publisher_class(supvisors)
-    return publisher_instance
+    return publisher_class(supvisors) if publisher_class else None

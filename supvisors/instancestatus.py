@@ -135,6 +135,7 @@ class SupvisorsInstanceStatus:
         if self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
             # do NOT use state setter as transition may be rejected
             self._state = SupvisorsInstanceStates.UNKNOWN
+        self.sequence_counter = 0
         self.local_sequence_counter = 0
         self.remote_time = 0.0
         self.local_time = 0.0
@@ -155,7 +156,7 @@ class SupvisorsInstanceStatus:
         if self._state != new_state:
             if self.check_transition(new_state):
                 self._state = new_state
-                self.logger.info(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
+                self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
                 if new_state in [SupvisorsInstanceStates.SILENT,
                                  SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
                     self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.identifier}')
@@ -204,6 +205,9 @@ class SupvisorsInstanceStatus:
         :param local_sequence_counter: the current local sequence counter
         :return: the inactivity status
         """
+        # NOTE: by design, there will be always a gap of 1 (hopefully not much) between the local_sequence_counter
+        #       and the self.local_sequence_counter on the local Supvisors instance
+        #       because the periodic check is performed on the new TICK that has not been published yet
         return (self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]
                 and (local_sequence_counter - self.local_sequence_counter) > self.supvisors.options.inactivity_ticks)
 
@@ -211,23 +215,35 @@ class SupvisorsInstanceStatus:
         """ Return True if the Supvisors instance is in isolation. """
         return self.state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
 
-    def update_times(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
+    def update_tick(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
         """ Update the time attributes of the current object, including the time attributes of all its processes.
 
         :param sequence_counter: the TICK counter
         :param remote_time: the timestamp received from the Supvisors instance
         :param local_sequence_counter: the last TICK counter received from the local Supvisors instance
-        :param local_time: the timestamp received from the Supvisors instance, in the local reference time
+        :param local_time: the timestamp of the local Supvisors instance
         :return:
         """
+        self.logger.debug(f'SupvisorsInstanceStatus.update_tick: update Supvisors={self.identifier}'
+                          f' with sequence_counter={sequence_counter} remote_time={remote_time}'
+                          f' local_sequence_counter={local_sequence_counter}')
+        # check sequence counter to identify rapid supervisor restart
+        if sequence_counter < self.sequence_counter:
+            self.logger.warn(f'SupvisorsInstanceStatus.update_tick: stealth restart of Supvisors={self.identifier}')
+            # it's not enough to change the instance status as some handling may be required on running processes
+            #   so force Supvisors inactivity by resetting its local_sequence_counter
+            # the Supvisors periodical check will handle the node invalidation
+            local_sequence_counter = 0
+        # update internal times
         if not self.start_time:
-            # deduce start time from sequence_counter and TICK_PERIOD
+            # deduce raw start time from sequence_counter and TICK_PERIOD
             # approximation is good enough as it is just for Web UI display
             self.start_time = local_time - TICK_PERIOD * sequence_counter
         self.sequence_counter = sequence_counter
         self.local_sequence_counter = local_sequence_counter
         self.remote_time = remote_time
         self.local_time = local_time
+        # update all process times
         for process in self.processes.values():
             process.update_times(self.identifier, remote_time)
 

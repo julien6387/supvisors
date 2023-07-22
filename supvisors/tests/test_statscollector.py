@@ -84,8 +84,9 @@ def test_instant_io_statistics():
     with open('/proc/net/dev') as netfile:
         # two first lines are title
         contents = netfile.readlines()[2:]
-    interfaces = [intf.strip().split(':')[0] for intf in contents]
-    assert list(stats.keys()) == interfaces
+    # test that Supvisors works on a subset
+    interfaces = {intf.strip().split(':')[0] for intf in contents}
+    assert set(stats.keys()).issubset(interfaces)
     assert 'lo' in stats.keys()
     # test that values are pairs
     for intf, io_bytes in stats.items():

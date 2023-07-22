@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict
+from typing import Dict, List
 
 from .instancestatus import SupvisorsInstanceStatus
 from .strategy import conciliate_conflicts
@@ -47,7 +47,7 @@ class SupvisorsView(ViewHandler):
         ViewHandler.__init__(self, context)
         self.page_name: str = SUPVISORS_PAGE
         # get applicable conciliation strategies
-        self.strategies = {x.name.lower() for x in ConciliationStrategies}
+        self.strategies: List[str] = [x.name.lower() for x in ConciliationStrategies]
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
         self.global_methods: SupvisorsView.ProcessCallableMap = {'sup_restart': self.sup_restart_action,

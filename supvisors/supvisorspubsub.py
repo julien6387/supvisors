@@ -32,7 +32,7 @@ from supervisor.loggers import Logger
 from .internalinterface import (InternalCommEmitter, InternalCommReceiver, SupvisorsInternalComm,
                                 payload_to_bytes, read_from_socket)
 from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import InternalEventHeaders, Ipv4Address, Payload, NameList
+from .ttypes import InternalEventHeaders, Ipv4Address, Payload, PayloadList, NameList
 
 # additional annotations
 SocketList = List[socket]
@@ -54,24 +54,29 @@ BUFFER_SIZE = 4096
 class SubscriberInterface(Thread):
     """ Class used to exchange messages between a unique TCP client and the internal services. """
 
-    def __init__(self, internal_sock: socket, client_sock: socket):
+    def __init__(self, internal_sock: socket, client_sock: socket, addr: Tuple[str, int], logger: Logger):
         """ Store the sockets used to exchange information.
 
         :param internal_sock: the internal publisher socket
         :param client_sock: the client subscriber socket
+        :param addr: the client subscriber address
+        :param logger: the Supvisors logger
         """
         super().__init__(daemon=True)
         self.internal_sock: socket = internal_sock
         self.client_sock: socket = client_sock
+        self.addr: Tuple[str, int] = addr
+        self.logger: Logger = logger
         # create poller
         self.poller = select.poll()
-        self.poller.register(self.internal_sock, select.POLLIN)
-        self.poller.register(self.client_sock, select.POLLIN)
+        self.poller.register(self.internal_sock, select.POLLIN | select.POLLHUP)
+        self.poller.register(self.client_sock, select.POLLIN | select.POLLHUP)
         # heartbeat management
         self.last_heartbeat_time = 0
 
     def run(self) -> None:
         """ Infinite main loop. """
+        self.logger.trace(f'SubscriberInterface.run: entering main loop {self.addr}')
         self.last_heartbeat_time = time.time()
         try:
             while True:
@@ -79,7 +84,12 @@ class SubscriberInterface(Thread):
                 events = self.poller.poll(POLL_TIMEOUT)
                 # sort the readable sockets
                 for fd, event in events:
-                    if event == select.POLLIN:
+                    if event & select.POLLHUP:
+                        if fd == self.internal_sock.fileno():
+                            raise ConnectionError(f'internal socket closed')
+                        if fd == self.client_sock.fileno():
+                            raise ConnectionError(f'client socket closed')
+                    elif event & select.POLLIN:
                         if fd == self.internal_sock.fileno():
                             self.read_internal_message()
                         elif fd == self.client_sock.fileno():
@@ -87,17 +97,20 @@ class SubscriberInterface(Thread):
                 # check heartbeat reception from client
                 duration = time.time() - self.last_heartbeat_time
                 if duration > HEARTBEAT_TIMEOUT:
-                    raise ConnectionError(f'no heartbeat received for {duration} seconds')
-        except ConnectionError:
+                    raise ConnectionError(f'no heartbeat received for {duration:.2f} seconds')
+        except ConnectionError as exc:
             # client connection closed (detected by the reception of a zero message size)
             # or no heartbeat received anymore
+            self.logger.warn(f'SubscriberInterface.run: ConnectionError raised for {self.addr} - {str(exc)}')
             self.internal_sock.close()
             self.client_sock.close()
+        self.logger.trace(f'SubscriberInterface.run: exiting main loop {self.addr}')
 
     def read_internal_message(self):
         """ Read the internal socket and forward to the client subscriber. """
         msg_size_as_bytes = self.internal_sock.recv(4)
         msg_size = int.from_bytes(msg_size_as_bytes, byteorder='big')
+        self.logger.trace(f'SubscriberInterface.read_internal_message: message received {msg_size} bytes')
         if msg_size == 0:
             raise ConnectionError(f'empty message')
         msg_body = read_from_socket(self.internal_sock, msg_size)
@@ -106,6 +119,7 @@ class SubscriberInterface(Thread):
     def read_external_message(self):
         """ Only heartbeat messages are expected. """
         msg_size = int.from_bytes(self.client_sock.recv(4), byteorder='big')
+        self.logger.trace(f'SubscriberInterface.read_external_message: message received {msg_size} bytes')
         if msg_size == 0:
             raise ConnectionError(f'incorrect message size {msg_size}')
         read_from_socket(self.client_sock, msg_size)
@@ -117,10 +131,11 @@ class PublisherThread(Thread):
     """ Publisher thread of the simple Publish / Subscribe implementation.
     A heartbeat is added both ways for robustness. """
 
-    def __init__(self, identifier: str):
+    def __init__(self, identifier: str, logger: Logger):
         """ Initialization of the attributes. """
         super().__init__(daemon=True)
-        self.identifier = identifier
+        self.identifier: str = identifier
+        self.logger: Logger = logger
         self.queue: Queue = Queue()
         # TCP clients list (mutex protection not needed due to the Python GIL)
         self.clients: List[socket] = []
@@ -134,24 +149,28 @@ class PublisherThread(Thread):
 
         :return: the condition to stop the main loop
         """
+        self.logger.debug('PublisherThread.stopping: called')
         return self.stop_event.is_set()
 
-    def add_client(self, sock: socket, *_) -> None:
+    def add_client(self, sock: socket, addr: Tuple[str, int]) -> None:
         """ Add a new TCP client to the publisher.
 
         :param sock: the client socket
+        :param addr: the client address
         :return: None
         """
+        self.logger.debug(f'PublisherThread.add_client: new subscriber client accepted {addr}')
         # set the SO_LINGER option on the socket to avoid TIME_WAIT sockets
         sock.setsockopt(SOL_SOCKET, SO_LINGER, struct.pack('ii', 1, 0))
         # create the message handler
         put_sock, get_sock = socketpair()
-        SubscriberInterface(get_sock, sock).start()
+        SubscriberInterface(get_sock, sock, addr, self.logger).start()
         self.clients.append(put_sock)
 
     def run(self) -> None:
         """ Main loop dedicated to the emitting part.
         The reception part is only managed in the client sockets. """
+        self.logger.debug(f'PublisherThread.run: entering main loop')
         while not self.stopping():
             # blocking pop from internal queue
             try:
@@ -165,8 +184,9 @@ class PublisherThread(Thread):
                 if message:
                     self._publish_event(*message)
         # close all sockets
-        for client in self.clients:
-            client.close()
+        for put_sock in self.clients:
+            put_sock.close()
+        self.logger.debug(f'PublisherThread.run: exiting main loop')
 
     def _manage_heartbeat(self) -> None:
         """ Send a periodic heartbeat to all clients. """
@@ -174,6 +194,7 @@ class PublisherThread(Thread):
         if current_time - self.last_heartbeat_time > HEARTBEAT_PERIOD:
             self._publish_heartbeat()
             self.last_heartbeat_time = current_time
+            self.logger.trace(f'PublisherThread._manage_heartbeat: heartbeat emitted at {current_time}')
 
     def _publish_heartbeat(self) -> None:
         """ Send a heartbeat to all TCP clients.
@@ -202,13 +223,13 @@ class PublisherThread(Thread):
         # prepare the buffer to send by prepending its length
         buffer = len(message).to_bytes(4, 'big') + message
         # send the message to all clients
-        for client in self.clients.copy():
+        for put_sock in self.clients.copy():
             try:
-                client.sendall(buffer)
+                put_sock.sendall(buffer)
             except error:
                 # upon exception, remove the client from the clients list
-                self.clients.remove(client)
-                client.close()
+                self.clients.remove(put_sock)
+                put_sock.close()
 
     def stop(self):
         """ Send a stop event to this thread.
@@ -232,7 +253,7 @@ class PublisherServer(Thread):
         # the following is done only if the server socket has bound
         if self.server:
             # start the Publisher thread that will publish to all registered clients
-            self.publisher_thread: PublisherThread = PublisherThread(identifier)
+            self.publisher_thread: PublisherThread = PublisherThread(identifier, logger)
             self.publisher_thread.start()
             # create an event to stop the thread
             self.stop_event: Event = Event()
@@ -258,11 +279,13 @@ class PublisherServer(Thread):
             self.logger.debug(f'PublisherServer._bind: {traceback.format_exc()}')
         else:
             # assign the server socket when all went well
+            self.logger.info(f'PublisherServer._bind: localhost:{port} success')
             self.server = sock
 
     def run(self) -> None:
         """ Main loop to accept TCP clients.
         A dedicated thread is started for every TCP client connection. """
+        self.logger.info(f'PublisherServer.run: entering main loop')
         if self.server:
             self.server.listen()
             # wait for new clients until stop event is received
@@ -272,6 +295,7 @@ class PublisherServer(Thread):
                 except OSError:
                     # expected when socket has been closed
                     pass
+        self.logger.info(f'PublisherServer.run: exiting main loop')
 
     def stop(self) -> None:
         """ Close the TCP server, stop this thread and the publisher thread.
@@ -319,7 +343,7 @@ class InternalPublisher(PublisherServer, InternalCommEmitter):
         """
         self.publish(InternalEventHeaders.PROCESS, payload)
 
-    def send_process_added_event(self, payload: Payload) -> None:
+    def send_process_added_event(self, payload: PayloadList) -> None:
         """ Publish the process added event.
 
         :param payload: the added process to publish
@@ -510,7 +534,7 @@ class InternalSubscriber(InternalCommReceiver):
 
 class SupvisorsPubSub(SupvisorsInternalComm):
     """ Class holding all structures used for Supvisors internal communication
-    using a TCP Publish-Subscribe pattern. """
+    using a TCP Publish-Subscribe custom pattern. """
 
     def __init__(self, supvisors: Any) -> None:
         """ Construction of all communication blocks.
@@ -518,11 +542,32 @@ class SupvisorsPubSub(SupvisorsInternalComm):
         :param supvisors: the Supvisors global structure
         """
         super().__init__(supvisors)
-        # create the Supvisors instance publisher and start it directly
-        local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
-        self.emitter = InternalPublisher(local_instance.identifier,
-                                         local_instance.internal_port,
-                                         supvisors.logger)
-        self.emitter.start()
+        # create the publisher
+        self._start_publisher()
         # create the global subscriber that receives deferred XML-RPC requests and events sent by all publishers
         self.receiver = InternalSubscriber(self.puller_sock, supvisors)
+        # store network interface names
+        self.intf_names: List[str] = []
+
+    def check_intf(self, intf_names: List[str]):
+        """ Restart the Publisher when a new network interfaces is added. """
+        if self.intf_names:
+            # check if there's a new network interface
+            new_intf_names = [x for x in intf_names if x not in self.intf_names]
+            if new_intf_names:
+                if self.emitter:
+                    self.supvisors.logger.warn('SupvisorsPubSub.restart: publisher restart'
+                                               f' due to new network interfaces {new_intf_names}')
+                    self.emitter.close()
+                # create a new publisher
+                self._start_publisher()
+        # store current list
+        self.intf_names = intf_names
+
+    def _start_publisher(self):
+        """ Start the Publisher thread. """
+        local_instance: SupvisorsInstanceId = self.supvisors.supvisors_mapper.local_instance
+        self.emitter = InternalPublisher(local_instance.identifier,
+                                         local_instance.internal_port,
+                                         self.supvisors.logger)
+        self.emitter.start()

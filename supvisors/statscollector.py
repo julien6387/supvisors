@@ -71,10 +71,13 @@ def instant_memory_statistics() -> float:
 def instant_io_statistics() -> InterfaceInstantStats:
     """ Return the instant values of receive / sent bytes per network interface. """
     result: InterfaceInstantStats = {}
-    # IO details
+    # get active interfaces
+    active_nics = [key for key, value in psutil.net_if_stats().items() if value.isup]
+    # IO details (only if active)
     io_stats = psutil.net_io_counters(pernic=True)
-    for intf, io_stat in io_stats.items():
-        result[intf] = io_stat.bytes_recv, io_stat.bytes_sent
+    for nic, io_stat in io_stats.items():
+        if nic in active_nics:
+            result[nic] = io_stat.bytes_recv, io_stat.bytes_sent
     return result
 
 

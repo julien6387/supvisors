@@ -209,3 +209,7 @@ class SupvisorsMulticast(SupvisorsInternalComm):
                                           supvisors.options.multicast_address,
                                           local_instance.internal_port,
                                           supvisors.logger)
+
+    def restart(self):
+        """ Restart the internal communications in case of network interfaces change. """
+        # TODO: restart MulticastReceiver (bind) ?

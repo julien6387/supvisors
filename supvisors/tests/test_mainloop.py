@@ -55,9 +55,9 @@ def test_creation(supvisors, mocked_rpc, main_loop):
 
 def test_stopping(mocked_rpc, main_loop):
     """ Test the get_loop method. """
-    assert not main_loop.stopping()
+    assert not main_loop.stopping
     main_loop.stop_event.set()
-    assert main_loop.stopping()
+    assert main_loop.stopping
 
 
 def test_stop(mocker, mocked_rpc, main_loop):
@@ -79,14 +79,27 @@ def test_run(mocker, main_loop):
     mocked_evt = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_external_events')
     mocked_req = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_requests')
     main_loop.receiver.poll.return_value = ('requests', ['events'])
-    # patch one loop
-    mocker.patch.object(main_loop, 'stopping', side_effect=[False, False, True])
+    # patch two loop
+    mocker.patch.object(main_loop.stop_event, 'is_set', side_effect=[False, False, True]*2)
     main_loop.run()
     # test that mocked functions were called once
     assert main_loop.receiver.poll.call_args_list == [call()]
     assert main_loop.receiver.manage_heartbeat.call_args_list == [call()]
     assert mocked_evt.call_args_list == [call(['events'])]
     assert mocked_req.call_args_list == [call('requests')]
+    mocker.resetall()
+    main_loop.receiver.poll.reset_mock()
+    main_loop.receiver.manage_heartbeat.reset_mock()
+    # test exception management
+    mocked_evt.side_effect = KeyError
+    mocked_req.side_effect = KeyError
+    main_loop.run()
+    # test that mocked functions were called once
+    assert main_loop.receiver.poll.call_args_list == [call()]
+    assert main_loop.receiver.manage_heartbeat.call_args_list == [call()]
+    assert mocked_evt.call_args_list == [call(['events'])]
+    assert mocked_req.call_args_list == [call('requests')]
+    mocker.resetall()
 
 
 def test_check_external_events(mocker, main_loop):
@@ -140,7 +153,6 @@ def test_check_requests(mocker, main_loop):
 
 def test_check_instance_no_com(mocker, mocked_rpc, main_loop):
     """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that does not respond. """
-    mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
     # test rpc error: SHUTDOWN event is sent to local Supervisor
@@ -158,7 +170,6 @@ def test_check_instance_no_com(mocker, mocked_rpc, main_loop):
 
 def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that has isolated the local instance. """
-    mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
     hostname = gethostname()
@@ -191,7 +202,6 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
 def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
     """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that has not isolated the local instance
     but that is about to restart or shut down. """
-    mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
     hostname = gethostname()
@@ -227,7 +237,6 @@ def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
 def test_check_instance_normal(mocker, mocked_rpc, main_loop):
     """ Test the SupvisorsMainLoop.check_instance with a remote Supervisor that has not isolated the local instance
     and that provide process information. """
-    mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     mocked_rpc.reset_mock()
     hostname = gethostname()
@@ -264,7 +273,6 @@ def test_check_instance_normal(mocker, mocked_rpc, main_loop):
 
 def test_start_process(mocker, mocked_rpc, main_loop):
     """ Test the protocol to start a process handled by a remote Supervisor. """
-    mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
     mocked_rpc.side_effect = KeyError
     main_loop.start_process('10.0.0.1', 'dummy_process', 'extra args')
@@ -284,7 +292,6 @@ def test_start_process(mocker, mocked_rpc, main_loop):
 
 def test_stop_process(mocker, mocked_rpc, main_loop):
     """ Test the protocol to stop a process handled by a remote Supervisor. """
-    mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
     mocked_rpc.side_effect = ConnectionResetError
     main_loop.stop_process('10.0.0.1', 'dummy_process')
@@ -304,7 +311,6 @@ def test_stop_process(mocker, mocked_rpc, main_loop):
 
 def test_restart(mocker, mocked_rpc, main_loop):
     """ Test the protocol to restart a remote Supervisor. """
-    mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
     mocked_rpc.side_effect = OSError
     main_loop.restart('10.0.0.1')
@@ -323,8 +329,7 @@ def test_restart(mocker, mocked_rpc, main_loop):
 
 
 def test_shutdown(mocker, mocked_rpc, main_loop):
-    """ Test the protocol to shutdown a remote Supervisor. """
-    mocker.patch('supvisors.mainloop.stderr')
+    """ Test the protocol to shut down a remote Supervisor. """
     # test rpc error
     mocked_rpc.side_effect = RPCError(12)
     main_loop.shutdown('10.0.0.1')
@@ -344,7 +349,6 @@ def test_shutdown(mocker, mocked_rpc, main_loop):
 
 def test_restart_sequence(mocker, mocked_rpc, main_loop):
     """ Test the protocol to trigger the start_sequence of Supvisors. """
-    mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
     mocked_rpc.side_effect = OSError
     main_loop.restart_sequence('10.0.0.1')
@@ -364,7 +368,6 @@ def test_restart_sequence(mocker, mocked_rpc, main_loop):
 
 def test_restart_all(mocker, mocked_rpc, main_loop):
     """ Test the protocol to restart Supvisors. """
-    mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
     mocked_rpc.side_effect = OSError
     main_loop.restart_all('10.0.0.1')
@@ -383,8 +386,7 @@ def test_restart_all(mocker, mocked_rpc, main_loop):
 
 
 def test_shutdown_all(mocker, mocked_rpc, main_loop):
-    """ Test the protocol to shutdown Supvisors. """
-    mocker.patch('supvisors.mainloop.stderr')
+    """ Test the protocol to shut down Supvisors. """
     # test rpc error
     mocked_rpc.side_effect = RPCError(12)
     main_loop.shutdown_all('10.0.0.1')
@@ -404,7 +406,6 @@ def test_shutdown_all(mocker, mocked_rpc, main_loop):
 
 def test_comm_event(mocker, mocked_rpc, main_loop):
     """ Test the protocol to send a comm event to the local Supervisor. """
-    mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
     mocker.patch.object(main_loop.proxy.supervisor, 'sendRemoteCommEvent', side_effect=RPCError(100))
     main_loop.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, 'event data')

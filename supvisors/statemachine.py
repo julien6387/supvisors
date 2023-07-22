@@ -470,7 +470,7 @@ class FiniteStateMachine:
             self.instance.exit()
             # assign the new state and publish SupvisorsStatus event internally and externally
             self.state = next_state
-            self.logger.info(f'FiniteStateMachine.set_state: Supvisors in {self.state.name}')
+            self.logger.warn(f'FiniteStateMachine.set_state: Supvisors in {self.state.name}')
             # publish the new state
             self.supvisors.context.publish_state_modes({'fsm_state': self.state})
             # create the new state and enters it
@@ -482,9 +482,9 @@ class FiniteStateMachine:
             # evaluate current state
             next_state = self.instance.next()
 
-    def periodic_check(self, event: Payload) -> None:
+    def on_timer_event(self, event: Payload) -> None:
         """ Periodic task used to check if remote Supvisors instances are still active.
-        This is also the main event on this state machine. """
+        This is also the main event trigger of this state machine. """
         invalidated_identifiers, process_failures = self.context.on_timer_event(event)
         self.logger.debug(f'FiniteStateMachine.periodic_check: invalidated_identifiers={invalidated_identifiers}'
                           f' process_failures={[process.namespec for process in process_failures]}')
@@ -507,7 +507,6 @@ class FiniteStateMachine:
     # Event handling methods
     def on_tick_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to refresh the data related to the Supvisors instance.
-        If the local instance is updated, perform a global check on all Supvisors instances.
 
         :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the tick event
@@ -520,9 +519,6 @@ class FiniteStateMachine:
         if self.context.is_valid(identifier, event['ip_address']):
             # update the Supvisors instance status
             self.context.on_tick_event(identifier, event)
-            # trigger periodic check on local TICK
-            if identifier == self.instance.local_identifier:
-                self.periodic_check(event)
 
     def on_process_state_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event sent from the Supvisors instance.

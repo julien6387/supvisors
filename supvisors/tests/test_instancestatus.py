@@ -19,7 +19,6 @@
 
 import pickle
 import random
-import time
 
 import pytest
 from supervisor.states import ProcessStates
@@ -349,15 +348,16 @@ def test_add_process_stopped_collector(supvisors, local_status):
     assert data == (process.namespec, 0)
 
 
-def test_update_times(filled_status):
-    """ Test the SupvisorsInstanceStatus.update_times method. """
+def test_update_tick(filled_status):
+    """ Test the SupvisorsInstanceStatus.update_tick method. """
+    now = time.time()
     # get current process times
     ref_data = {process.namespec: (process.state, info['now'], info['uptime'])
                 for process in filled_status.processes.values()
                 for info in [process.info_map['supvisors']]}
-    # update times and check
-    now = time.time()
-    filled_status.update_times(28, now + 10, 27, now)
+    # update times and check with normal counter
+    filled_status.sequence_counter = 25
+    filled_status.update_tick(28, now + 10, 27, now)
     ref_start_time = now - 28 * TICK_PERIOD
     assert filled_status.sequence_counter == 28
     assert filled_status.local_sequence_counter == 27
@@ -377,12 +377,19 @@ def test_update_times(filled_status):
         else:
             assert new_info[2] == ref_info[2]
     # update times aa second time to check that start_time hasn't changed
-    filled_status.update_times(29, now + 15, 28, now + 5)
+    filled_status.update_tick(29, now + 15, 28, now + 5)
     assert filled_status.sequence_counter == 29
     assert filled_status.local_sequence_counter == 28
     assert filled_status.start_time == ref_start_time
     assert filled_status.remote_time == now + 15
     assert filled_status.local_time == now + 5
+    # test counter issue (going backwards)
+    filled_status.update_tick(28, now + 10, 27, now)
+    assert filled_status.sequence_counter == 28
+    assert filled_status.local_sequence_counter == 0
+    assert filled_status.start_time == ref_start_time
+    assert filled_status.remote_time == now + 10
+    assert filled_status.local_time == now
 
 
 def test_get_remote_time(filled_status):
