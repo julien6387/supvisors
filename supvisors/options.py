@@ -27,7 +27,7 @@ from supervisor.datatypes import Automatic, logfile_name, boolean, integer, byte
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
-from .ttypes import ConciliationStrategies, EventLinks, Payload, StartingStrategies, StatisticsTypes
+from .ttypes import ConciliationStrategies, EventLinks, Payload, StartingStrategies, StatisticsTypes, Ipv4Address
 
 
 # Options of main section
@@ -54,10 +54,10 @@ class SupvisorsOptions:
 
     Attributes are:
         - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
-        - multicast_address: UDP Multicast Group where Supvisors will exchange data ;
+        - multicast: UDP Multicast Group where Supvisors will exchange data ;
         - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
-        - internal_port: port number used to publish local events to remote Supvisors instances ;
+        - internal_port: port number used to publish local events to remote Supvisors instances (not used for multicast) ;
         - event_link: type of the event link used to publish all Supvisors events ;
         - event_port: port number used to publish all Supvisors events ;
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive ;
@@ -83,6 +83,8 @@ class SupvisorsOptions:
     INACTIVITY_TICKS_MIN = 2
     INACTIVITY_TICKS_MAX = 720
 
+    RESERVED_MULTICAST_ADDRESSES = ['224.0.0.0', '232.0.0.0', '233.0.0.0', '239.0.0.0']
+
     def __init__(self, supervisord, logger: Logger, **config):
         """ Initialization of the attributes.
 
@@ -96,8 +98,8 @@ class SupvisorsOptions:
         self.supvisors_list = self._get_value(config, 'supvisors_list', None,
                                               lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
         # get multicast parameters for discovery mode
-        self.multicast_address = self._get_value(config, 'multicast_address', None, str)  # TODO: check IP form ?
-        self.multicast_ttl = self._get_value(config, 'multicast_ttl', 2, int)  # TODO
+        self.multicast_group = self._get_value(config, 'multicast_group', None, self.to_multicast_group)
+        self.multicast_ttl = self._get_value(config, 'multicast_ttl', 1, self.to_ttl)
         # get the rules files
         self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
         # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
@@ -133,7 +135,7 @@ class SupvisorsOptions:
     def __str__(self):
         """ Contents as string. """
         return (f'supvisors_list={self.supvisors_list}'
-                f' multicast_address={self.multicast_address}'
+                f' multicast_group={self.multicast_group}'
                 f' multicast_ttl={self.multicast_ttl}'
                 f' rules_files={self.rules_files}'
                 f' internal_port={self.internal_port}'
@@ -159,9 +161,9 @@ class SupvisorsOptions:
     def discovery_mode(self) -> bool:
         """ Return True if Supvisors is in discovery mode.
 
-        :return: True if the multicast address is set
+        :return: True if the multicast group is set
         """
-        return self.multicast_address is not None
+        return self.multicast_group is not None
 
     def check_dirpath(self, file_path: str) -> str:
         """ Check if the path provided exists and create the folder tree if necessary.
@@ -229,19 +231,77 @@ class SupvisorsOptions:
         return sorted(rules_files)
 
     @staticmethod
+    def to_multicast_group(value: str) -> Ipv4Address:
+        """ Convert a string into a TTL number, in [0;255].
+
+        :param value: the multicast address + port as a string
+        :return: the verified multicast address + port
+        """
+        # parse the value to find address + port
+        values = value.split(':', 1)
+        if len(values) != 2:
+            raise ValueError(f'invalid value for multicast_group: "{value}".'
+                             f' "ip_address:port" expected')
+        SupvisorsOptions._check_multicast_address(values[0])
+        return values[0], SupvisorsOptions.to_port_num(values[1])
+
+    @staticmethod
+    def _check_multicast_address(value: str):
+        """ Check the formatting of the multicast address from 224.0.0.0 to 239.255.255.255.
+
+        :param value: the multicast address to check
+        :return: None
+        """
+        if value in SupvisorsOptions.RESERVED_MULTICAST_ADDRESSES:
+            raise ValueError(f'reserved multicast address: "{value}".'
+                             f' reserved addresses are {SupvisorsOptions.RESERVED_MULTICAST_ADDRESSES}')
+        # parse the IP address
+        try:
+            values = value.split('.')
+            if len(values) != 4:
+                raise ValueError('wrong number of bytes')
+            SupvisorsOptions.to_integer(values[0], 'multicast byte 1', (224, 239))
+            for idx in range(1, 4):
+                SupvisorsOptions.to_integer(values[idx], f'multicast byte {idx}', (0, 255))
+        except ValueError:
+            raise ValueError(f'invalid value for multicast address: "{value}".'
+                             ' IP address expected from 224.0.0.0 to 239.255.255.255')
+
+    @staticmethod
+    def to_ttl(value: str) -> int:
+        """ Convert a string into a TTL number, in [0;255].
+
+        :param value: the TTL as a string
+        :return: the TTL as an integer
+        """
+        return SupvisorsOptions.to_integer(value, 'multicast_ttl', (0, 255))
+
+    @staticmethod
     def to_port_num(value: str) -> int:
-        """ Convert a string into a port number, in [0;65535].
+        """ Convert a string into a port number, in [1;65535].
 
         :param value: the port number as a string
         :return: the port number as an integer
         """
+        return SupvisorsOptions.to_integer(value, 'port', (1, 65535))
+
+    @staticmethod
+    def to_integer(value: str, type_name: str, limits: Tuple[int, int]) -> int:
+        """ Convert a string into an integer within given limits.
+
+        :param value: the integer as a string
+        :param type_name: the integer nature for log in case of exception
+        :param limits: the integer limits, given as a tuple(min, max) of inclusive bounds
+        :return: the integer found
+        """
         try:
             port = integer(value)
-            if 1 > port or port > 65535:
+            if limits[0] > port or port > limits[1]:
                 raise ValueError
             return port
         except ValueError:
-            raise ValueError(f'invalid value for port: {value}. integer expected in [1;65535]')
+            raise ValueError(f'invalid value for {type_name}: "{value}".'
+                             f' integer expected in {limits}')
 
     @staticmethod
     def to_timeout(value: str) -> int:
@@ -256,7 +316,7 @@ class SupvisorsOptions:
                 raise ValueError
             return timeout
         except ValueError:
-            raise ValueError(f'invalid value for synchro_timeout: {value}.'
+            raise ValueError(f'invalid value for synchro_timeout: "{value}".'
                              f' integer expected in [{SupvisorsOptions.SYNCHRO_TIMEOUT_MIN};'
                              f'{SupvisorsOptions.SYNCHRO_TIMEOUT_MAX}] (seconds)')
 
@@ -273,7 +333,7 @@ class SupvisorsOptions:
                 raise ValueError
             return ticks
         except ValueError:
-            raise ValueError(f'invalid value for inactivity_ticks: {value}.'
+            raise ValueError(f'invalid value for inactivity_ticks: "{value}".'
                              f' integer expected in [{SupvisorsOptions.INACTIVITY_TICKS_MIN};'
                              f'{SupvisorsOptions.INACTIVITY_TICKS_MAX}]')
 
@@ -283,7 +343,7 @@ class SupvisorsOptions:
         try:
             event_link = EventLinks[value.upper()]
         except KeyError:
-            raise ValueError(f'invalid value for event_link: {value}.'
+            raise ValueError(f'invalid value for event_link: "{value}".'
                              f' expected in {[x.name for x in EventLinks]}')
         return event_link
 
@@ -293,7 +353,7 @@ class SupvisorsOptions:
         try:
             strategy = ConciliationStrategies[value.upper()]
         except KeyError:
-            raise ValueError(f'invalid value for conciliation_strategy: {value}.'
+            raise ValueError(f'invalid value for conciliation_strategy: "{value}".'
                              f' expected in {[x.name for x in ConciliationStrategies]}')
         return strategy
 
@@ -303,7 +363,7 @@ class SupvisorsOptions:
         try:
             strategy = StartingStrategies[value.upper()]
         except KeyError:
-            raise ValueError(f'invalid value for starting_strategy: {value}.'
+            raise ValueError(f'invalid value for starting_strategy: "{value}".'
                              f' expected in {[x.name for x in StartingStrategies]}')
         return strategy
 
@@ -323,7 +383,7 @@ class SupvisorsOptions:
                 try:
                     stats_types.append(StatisticsTypes.ALL if boolean(val) else StatisticsTypes.OFF)
                 except ValueError:
-                    raise ValueError(f'invalid value for stats_enabled: {value}.'
+                    raise ValueError(f'invalid value for stats_enabled: "{value}".'
                                      f' expected in {[x.name for x in StatisticsTypes]}')
         return (StatisticsTypes.ALL in stats_types or StatisticsTypes.HOST in stats_types,
                 StatisticsTypes.ALL in stats_types or StatisticsTypes.PROCESS in stats_types)
@@ -337,7 +397,7 @@ class SupvisorsOptions:
                 raise ValueError
             return period
         except ValueError:
-            raise ValueError(f'invalid value for stats_collecting_period: {value}.'
+            raise ValueError(f'invalid value for stats_collecting_period: "{value}".'
                              f' float expected in [1.0;3600.0] (seconds)')
 
     @staticmethod
@@ -345,9 +405,11 @@ class SupvisorsOptions:
         """ Convert a string into a list of period values. """
         str_periods = list_of_strings(value)
         if len(str_periods) == 0:
-            raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}. minimum is 1')
+            raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}.'
+                              ' minimum is 1')
         if len(str_periods) > 3:
-            raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}. maximum is 3')
+            raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}.'
+                             ' maximum is 3')
         periods = []
         for val in str_periods:
             try:
@@ -356,7 +418,7 @@ class SupvisorsOptions:
                     raise ValueError
                 periods.append(period)
             except ValueError:
-                raise ValueError(f'invalid value for stats_periods: {val}.'
+                raise ValueError(f'invalid value for stats_periods: "{val}".'
                                  f' float expected in [1.0;3600.0] (seconds)')
         return sorted(periods)
 
@@ -373,7 +435,8 @@ class SupvisorsOptions:
                 raise ValueError
             return histo
         except ValueError:
-            raise ValueError(f'invalid value for stats_histo: {value}. integer expected in [10;1500] (seconds)')
+            raise ValueError(f'invalid value for stats_histo: "{value}".'
+                             f' integer expected in [10;1500] (seconds)')
 
 
 class SupvisorsServerOptions(ServerOptions):

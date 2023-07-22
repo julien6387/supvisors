@@ -43,7 +43,7 @@ behavior may happen. The present section details where it is applicable.
 
     The list of expected |Supvisors| instances to handle, separated by commas.
     The elements of ``supvisors_list`` define how the |Supvisors| instances will share information between them
-    and must be identical to all |Supvisors| instances or unpredictable behavior may happen.
+    and MUST be identical to all |Supvisors| instances or unpredictable behavior may happen.
     The exhaustive form of an element matches ``<identifier>host_name:http_port:internal_port``,
     where ``identifier`` is the optional but **unique** |Supervisor| identifier (it can be set in the |Supervisor|
     configuration or in the command line when starting the ``supervisord`` program) ;
@@ -71,11 +71,11 @@ behavior may happen. The present section details where it is applicable.
 
     .. hint::
 
-        Actually, only the ``host_name`` is strictly required.
+        If the |Supvisors| is configured with at most one |Supvisors| instance per host, only the ``host_name`` may be
+        necessary.
 
         if ``http_port`` or ``internal_port`` are not provided, the local |Supvisors| instance takes the assumption
         that the other |Supvisors| instance uses the same ``http_port`` and ``internal_port``.
-        In this case, the outcome is that there cannot be 2 |Supvisors| instances on the same node.
 
         ``identifier`` can be seen as a nickname that may be more user-friendly than a ``host_name`` or a
         ``host_name:http_port`` when displayed in the |Supvisors| Web UI or used in the `Supvisors' Rules File`_.
@@ -108,11 +108,12 @@ behavior may happen. The present section details where it is applicable.
 
         The recommendation is to uniformly use the |Supervisor| identifier.
 
-``multicast_address``
+``multicast_group``
 
-    The IP address of the Multicast Group where the |Supvisors| instances will share information between them.
-    This is an alternative to the ``supvisors_list`` option, replacing the TCP Publish / Subscribe, and it allows
-    |Supvisors| to work in a discovery mode *(Not stable yet)*.
+    The IP address and port number of the Multicast Group where the |Supvisors| instances will share information
+    between them, separated by a colon (example: ``239.0.0.1:1234``).
+    This is an alternative to the ``supvisors_list`` option, replacing the internal TCP Publish / Subscribe,
+    and it allows |Supvisors| to work in a discovery mode *(Not stable yet)*.
 
     *Default*:  None.
 
@@ -132,7 +133,7 @@ behavior may happen. The present section details where it is applicable.
 
     The time-to-live of a message sent on the |Supvisors| multicast interface.
 
-    *Default*:  2.
+    *Default*:  1.
 
     *Required*:  No.
 
@@ -165,10 +166,10 @@ behavior may happen. The present section details where it is applicable.
 
 ``internal_port``
 
-    The internal port number used to share the local events to the other |Supvisors| instances.
-    Events are published either by using a Publish / Subscribe pattern based on a TCP socket, or through a Multicast
-    Group when the |Supvisors| discovery mode is activated by setting the option ``multicast_address``.
-    **TODO OBSOLETE** The value must match the ``internal_port`` value of the corresponding |Supvisors| instance in ``supvisors_list``.
+    When |Supvisors| is configured to use a TCP Publish / Subscribe pattern to share the local events to the other
+    |Supvisors| instances, this value is the port number where the local |Supvisors| instance will bind its server.
+    The value must match the ``internal_port`` value of the corresponding |Supvisors| instance in ``supvisors_list``
+    (if it has been set).
 
     *Default*:  local |Supervisor| HTTP port + 1.
 

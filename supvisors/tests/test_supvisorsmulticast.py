@@ -30,7 +30,7 @@ local_ip = gethostbyname(gethostname())
 @pytest.fixture
 def mc(supvisors):
     """ Create the SupvisorsSockets instance. """
-    supvisors.options.multicast_address = '239.0.0.1'
+    supvisors.options.multicast_group = '239.0.0.1', 7777
     socks = SupvisorsMulticast(supvisors)
     yield socks
     socks.stop()
@@ -188,5 +188,5 @@ def test_emitter_send_exception(mc):
 def test_receiver_bind_exception(supvisors):
     """ Test the bind exception of the MulticastReceiver (use wrong IP). """
     push_sock, pull_sock = socketpair()
-    sender = MulticastReceiver(pull_sock, '10.0.0', 1234, supvisors.logger)
+    sender = MulticastReceiver(pull_sock, ('10.0.0', 1234), supvisors.logger)
     assert not sender.socket

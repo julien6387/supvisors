@@ -31,7 +31,7 @@ from .configurations import *
 @pytest.fixture
 def config():
     return {'supvisors_list': 'cliche01,cliche03,cliche02',
-            'multicast_address': '239.0.0.1', 'multicast_ttl': '5',
+            'multicast': '239.0.0.1:7777', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
             'internal_port': '60001',
             'event_link': 'zmq', 'event_port': '60002',
@@ -85,8 +85,8 @@ def test_filled_logger_configuration(config):
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     assert opt.supvisors_list is None
-    assert opt.multicast_address is None
-    assert opt.multicast_ttl == 2
+    assert opt.multicast is None
+    assert opt.multicast_ttl == 1
     assert opt.rules_files is None
     assert opt.internal_port == 0
     assert opt.event_link == EventLinks.NONE
@@ -111,7 +111,7 @@ def test_options_creation(opt):
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
-    assert filled_opt.multicast_address == '239.0.0.1'
+    assert filled_opt.multicast == '239.0.0.1:7777'
     assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
@@ -136,7 +136,7 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == ('supvisors_list=None multicast_address=None multicast_ttl=2'
+    assert str(opt) == ('supvisors_list=None multicast=None multicast_ttl=1'
                         ' rules_files=None internal_port=0'
                         ' event_link=NONE event_port=0'
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
@@ -152,7 +152,7 @@ def test_filled_str(filled_opt):
     variable_core_2 = "{'cliche03', 'cliche01'}"
     result = str(filled_opt)
     assert any(result == (f"supvisors_list=['cliche01', 'cliche03', 'cliche02']"
-                          ' multicast_address=239.0.0.1 multicast_ttl=5'
+                          ' multicast_address=239.0.0.1:7777 multicast_ttl=5'
                           " rules_files=['my_movies.xml']"
                           ' internal_port=60001'
                           ' event_link=ZMQ event_port=60002'
@@ -198,6 +198,59 @@ def test_to_filepaths(opt):
 
 
 common_error_message = r'invalid value for {}'
+
+def test_check_multicast_address():
+    """ Test the checking of a multicast address. """
+    error_message = common_error_message.format('multicast address')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('127.0.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('192.168.12.4')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('10.0.0.4')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('240.256.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('240..0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('240.0.1')
+    # test reserved addresses
+    for addr in SupvisorsOptions.RESERVED_MULTICAST_ADDRESSES:
+        with pytest.raises(ValueError, match='reserved multicast address'):
+            SupvisorsOptions._check_multicast_address(addr)
+    # test valid values
+    SupvisorsOptions._check_multicast_address('224.0.0.1')
+    SupvisorsOptions._check_multicast_address('239.255.255.255') == 1
+    SupvisorsOptions._check_multicast_address('239.0.0.1')
+
+
+def test_multicast_group():
+    """ Test the conversion into to a valid multicast group. """
+    error_message = common_error_message.format('multicast_group')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_multicast_group('239.0.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_multicast_group('7777')
+    # test valid values
+    assert SupvisorsOptions.to_multicast_group('239.0.0.1:7777') == ('239.0.0.1', 7777)
+
+
+def test_ttl():
+    """ Test the conversion into to a TTL number. """
+    error_message = common_error_message.format('multicast_ttl')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ttl('-1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ttl('256')
+    # test valid values
+    assert SupvisorsOptions.to_ttl('0') == 0
+    assert SupvisorsOptions.to_ttl('1') == 1
+    assert SupvisorsOptions.to_ttl('255') == 255
 
 
 def test_port_num():
