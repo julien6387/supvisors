@@ -134,8 +134,9 @@ class SupvisorsOptions:
 
     def __str__(self):
         """ Contents as string. """
+        mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}' if self.multicast_group else None
         return (f'supvisors_list={self.supvisors_list}'
-                f' multicast_group={self.multicast_group}'
+                f' multicast_group={mc_group}'
                 f' multicast_ttl={self.multicast_ttl}'
                 f' rules_files={self.rules_files}'
                 f' internal_port={self.internal_port}'

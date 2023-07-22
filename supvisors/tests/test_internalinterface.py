@@ -243,7 +243,7 @@ def test_internal_com_creation(supvisors):
     instance.stop()
     assert isinstance(instance, SupvisorsPubSub)
     # use multicast configuration to get a Multicast
-    supvisors.options.multicast_address = '239.0.0.1'
+    supvisors.options.multicast_group = '239.0.0.1', 7777
     instance = create_internal_comm(supvisors)
     instance.stop()
     assert isinstance(instance, SupvisorsMulticast)

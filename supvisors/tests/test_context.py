@@ -138,7 +138,7 @@ def test_check_discovery(context):
     assert sup_id.http_port == ref_port
     assert 'rocky52' not in context.instances
     # activate discovery mode
-    context.supvisors.options.multicast_address = '239.0.0.1'
+    context.supvisors.options.multicast_group = '239.0.0.1', 7777
     assert context.supvisors.options.discovery_mode
     # test in discovery mode and identifier known and identical
     assert not context.check_discovery('10.0.0.1', '10.0.0.1', 65000)

@@ -31,7 +31,7 @@ from .configurations import *
 @pytest.fixture
 def config():
     return {'supvisors_list': 'cliche01,cliche03,cliche02',
-            'multicast': '239.0.0.1:7777', 'multicast_ttl': '5',
+            'multicast_group': '239.0.0.1:7777', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
             'internal_port': '60001',
             'event_link': 'zmq', 'event_port': '60002',
@@ -85,7 +85,7 @@ def test_filled_logger_configuration(config):
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     assert opt.supvisors_list is None
-    assert opt.multicast is None
+    assert opt.multicast_group is None
     assert opt.multicast_ttl == 1
     assert opt.rules_files is None
     assert opt.internal_port == 0
@@ -111,7 +111,7 @@ def test_options_creation(opt):
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
-    assert filled_opt.multicast == '239.0.0.1:7777'
+    assert filled_opt.multicast_group == ('239.0.0.1', 7777)
     assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
@@ -136,7 +136,7 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == ('supvisors_list=None multicast=None multicast_ttl=1'
+    assert str(opt) == ('supvisors_list=None multicast_group=None multicast_ttl=1'
                         ' rules_files=None internal_port=0'
                         ' event_link=NONE event_port=0'
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
@@ -152,7 +152,7 @@ def test_filled_str(filled_opt):
     variable_core_2 = "{'cliche03', 'cliche01'}"
     result = str(filled_opt)
     assert any(result == (f"supvisors_list=['cliche01', 'cliche03', 'cliche02']"
-                          ' multicast_address=239.0.0.1:7777 multicast_ttl=5'
+                          ' multicast_group=239.0.0.1:7777 multicast_ttl=5'
                           " rules_files=['my_movies.xml']"
                           ' internal_port=60001'
                           ' event_link=ZMQ event_port=60002'
