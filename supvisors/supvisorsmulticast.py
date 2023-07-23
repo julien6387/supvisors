@@ -31,7 +31,7 @@ from supervisor.loggers import Logger
 from .internalinterface import (SupvisorsInternalComm, InternalCommEmitter, InternalCommReceiver,
                                 payload_to_bytes, bytes_to_payload)
 from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import InternalEventHeaders, Ipv4Address, Payload
+from .ttypes import InternalEventHeaders, Ipv4Address, Payload, NameList
 
 # default size of the reception buffer
 BUFFER_SIZE = 16 * 1024
@@ -182,6 +182,26 @@ class MulticastReceiver(InternalCommReceiver):
         if self.socket:
             self.poller.unregister(self.socket)
             self.socket.close()
+
+    def manage_heartbeat(self) -> None:
+        """ Check heartbeat reception from publishers and send heartbeat to them.
+
+        WARN: Empty implementation as it does not make any sense in Multicast.
+        This is only for connected mode.
+
+        :return: None
+        """
+
+    def disconnect_subscriber(self, identifiers: NameList) -> None:
+        """ Disconnect forever the Supvisors instances from the subscription socket.
+
+        WARN: Empty implementation as it does not make any sense in Multicast.
+        This is only for connected mode when applying fencing on the TCP Publish / Subscribe.
+        The discovery mode will only rely on the ISOLATION status.
+
+        :param identifiers: the identifiers of the Supvisors instances to disconnect
+        :return: None
+        """
 
 
 class SupvisorsMulticast(SupvisorsInternalComm):

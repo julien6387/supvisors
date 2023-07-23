@@ -116,7 +116,6 @@ class SupvisorsMainLoop(Thread):
                     self.logger.error('SupvisorsMainLoop.run: failed to check external events')
                     self.logger.error(f'SupvisorsMainLoop.run: {traceback.format_exc()}')
             # heartbeat management with publishers
-            # TODO: check if it make sense in Multicast
             self.receiver.manage_heartbeat()
         self.receiver.close()
         self.logger.info('SupvisorsMainLoop.run: exiting main loop')

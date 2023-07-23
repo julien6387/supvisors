@@ -203,6 +203,7 @@ class InternalCommReceiver:
 
         :return: None
         """
+        raise NotImplementedError
 
     def disconnect_subscriber(self, identifiers: NameList) -> None:
         """ Disconnect forever the Supvisors instances from the subscription socket.
@@ -210,6 +211,7 @@ class InternalCommReceiver:
         :param identifiers: the identifiers of the Supvisors instances to disconnect
         :return: None
         """
+        raise NotImplementedError
 
     @staticmethod
     def read_socket(sock: socket) -> Optional[Tuple[Ipv4Address, List]]:
