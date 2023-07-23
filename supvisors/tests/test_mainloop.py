@@ -162,7 +162,8 @@ def test_check_instance_no_com(mocker, mocked_rpc, main_loop):
     auth_message = '10.0.0.1', None, ''
     local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
     origin_payload = local_instance.ip_address, local_instance.http_port
-    state_payload = {'fsm_statecode': 0, 'starting_jobs': False, 'stopping_jobs': False}
+    state_payload = {'fsm_statecode': 0, 'discovery_mode': False,
+                     'starting_jobs': False, 'stopping_jobs': False}
     state_message = origin_payload, (InternalEventHeaders.STATE.value, ('10.0.0.1', state_payload))
     assert mocked_evt.call_args_list == [call(RemoteCommEvents.SUPVISORS_AUTH, auth_message),
                                          call(RemoteCommEvents.SUPVISORS_EVENT, state_message)]
@@ -180,7 +181,8 @@ def test_check_instance_isolation(mocker, mocked_rpc, main_loop):
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
     mocked_rpc.return_value = rpc_intf
     # test with local Supvisors instance isolated by remote
-    instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'starting_jobs': False, 'stopping_jobs': True}
+    instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'discovery_mode': False,
+                     'starting_jobs': False, 'stopping_jobs': True}
     auth_message = '10.0.0.1', False, '10.0.0.5'
     local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
     origin_payload = local_instance.ip_address, local_instance.http_port
@@ -213,7 +215,8 @@ def test_check_instance_info_exception(mocker, mocked_rpc, main_loop):
     mocked_rpc.return_value = rpc_intf
     # test with local Supvisors instance not isolated by remote
     # exception on get_all_local_process_info
-    instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'starting_jobs': False, 'stopping_jobs': True}
+    instance_info = {'fsm_statecode': SupvisorsStates.CONCILIATION.value, 'discovery_mode': True,
+                     'starting_jobs': False, 'stopping_jobs': True}
     auth_message = '10.0.0.1', True, '10.0.0.5'
     local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
     origin_payload = local_instance.ip_address, local_instance.http_port
@@ -248,7 +251,8 @@ def test_check_instance_normal(mocker, mocked_rpc, main_loop):
     mocker.patch.object(rpc_intf.supvisors, 'get_master_identifier', return_value='10.0.0.5')
     mocked_rpc.return_value = rpc_intf
     # test with local Supvisors instance not isolated by remote and with remote not in closing state
-    instance_info = {'fsm_statecode': SupvisorsStates.OPERATION.value, 'starting_jobs': True, 'stopping_jobs': False}
+    instance_info = {'fsm_statecode': SupvisorsStates.OPERATION.value, 'discovery_mode': False,
+                     'starting_jobs': True, 'stopping_jobs': False}
     auth_message = '10.0.0.1', True, '10.0.0.5'
     info_message = '10.0.0.1', dummy_info
     local_instance = main_loop.supvisors.supvisors_mapper.instances['10.0.0.1']
