@@ -31,8 +31,8 @@ from .utils import TICK_PERIOD
 
 class StateModes:
 
-    def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, starting_jobs: bool = False,
-                 stopping_jobs: bool = False):
+    def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, discovery_mode: bool = False,
+                 starting_jobs: bool = False, stopping_jobs: bool = False):
         """ Initialization of the attributes.
 
         :param state: the FSM state
@@ -40,6 +40,7 @@ class StateModes:
         :param stopping_jobs: the Stopper progress
         """
         self.state: SupvisorsStates = state
+        self.discovery_mode: bool = discovery_mode
         self.starting_jobs: bool = starting_jobs
         self.stopping_jobs: bool = stopping_jobs
 
@@ -48,7 +49,7 @@ class StateModes:
 
         :return: a copy of this StateModes object
         """
-        return type(self)(self.state, self.starting_jobs, self.stopping_jobs)
+        return type(self)(self.state, self.discovery_mode, self.starting_jobs, self.stopping_jobs)
 
     def __eq__(self, other) -> bool:
         """ Check if the other object is equivalent.
@@ -58,6 +59,7 @@ class StateModes:
         """
         if isinstance(other, StateModes):
             return (self.state == other.state
+                    and self.discovery_mode == other.discovery_mode
                     and self.starting_jobs == other.starting_jobs
                     and self.stopping_jobs == other.stopping_jobs)
 
@@ -83,12 +85,15 @@ class StateModes:
         :return: None
         """
         self.state = SupvisorsStates(payload['fsm_statecode'])
+        self.discovery_mode = payload['discovery_mode']
         self.starting_jobs = payload['starting_jobs']
         self.stopping_jobs = payload['stopping_jobs']
 
     def serial(self):
         return {'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
-                'starting_jobs': self.starting_jobs, 'stopping_jobs': self.stopping_jobs}
+                'discovery_mode': self.discovery_mode,
+                'starting_jobs': self.starting_jobs,
+                'stopping_jobs': self.stopping_jobs}
 
 
 class SupvisorsInstanceStatus:
@@ -123,8 +128,12 @@ class SupvisorsInstanceStatus:
         # the local instance may use the process statistics collector
         self.process_collector = None
         is_local = supvisors.supvisors_mapper.local_identifier == self.identifier
-        if is_local and supvisors.options.process_stats_enabled:
-            self.process_collector = supvisors.process_collector
+        if is_local:
+            # use the condition to set the local discovery mode in states / modes object
+            self.state_modes.discovery_mode = supvisors.options.discovery_mode
+            # copy the process collector reference
+            if supvisors.options.process_stats_enabled:
+                self.process_collector = supvisors.process_collector
 
     def reset(self):
         """ Reset the contextual part of the Supvisors instance.

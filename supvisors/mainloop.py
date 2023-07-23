@@ -179,6 +179,7 @@ class SupvisorsMainLoop(Thread):
         authorized = None
         master_identifier = ''
         state_modes_payload = {'fsm_statecode': SupvisorsStates.OFF.value,
+                               'discovery_mode': False,
                                'starting_jobs': False, 'stopping_jobs': False}
         all_info = []
         # get authorization from remote Supvisors instance
@@ -193,10 +194,9 @@ class SupvisorsMainLoop(Thread):
             # check how the remote Supvisors instance defines itself
             remote_status_payload = supvisors_rpc.get_instance_info(identifier)
             self.logger.debug(f'SupvisorsMainLoop.check_instance: master_identifier={master_identifier}')
-            state_modes_keys = ['fsm_statecode', 'starting_jobs', 'stopping_jobs']
-            state_modes_payload = {key: remote_status_payload[key] for key in state_modes_keys}
+            state_modes_payload = {key: remote_status_payload[key] for key in state_modes_payload}
         except SupvisorsMainLoop.RpcExceptions:
-            # Remote Supvisors instance close din the gap or Supvisors is incorrectly configured
+            # Remote Supvisors instance closed in the gap or Supvisors is incorrectly configured
             self.logger.error(f'SupvisorsMainLoop.check_instance: failed to check Supvisors={identifier}')
         else:
             instance_state = SupvisorsInstanceStates(local_status_payload['statecode'])

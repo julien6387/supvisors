@@ -43,6 +43,7 @@ Status
             'fsm_statename'    ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
                                              ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
                                              ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
+            'discovery_mode'   ``bool``      True if the |Supvisors| discovery mode is activated.
             'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
             'stopping_jobs'    ``list(str)`` The list of |Supvisors| instances having stopping jobs in progress.
             ================== ============= ===========
@@ -71,6 +72,7 @@ Status
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
                                          ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
+            'discovery_mode'   ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
             'remote_time'      ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the remote reference time.
             'local_time'       ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,

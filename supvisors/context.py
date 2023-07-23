@@ -165,11 +165,18 @@ class Context(object):
         :return: the Supvisors state and the identifiers of the Supvisors instances having starting or stopping jobs
         """
         payload = self.local_instance.state_modes.serial()
-        # overwrite starting_jobs and starting_jobs based on a synthesis of modes in all Supvisors instances
-        payload.update({'starting_jobs': [identifier for identifier, status in self.instances.items()
-                                          if status.state_modes.starting_jobs],
-                        'stopping_jobs': [identifier for identifier, status in self.instances.items()
-                                          if status.state_modes.stopping_jobs]})
+        # overwrite starting_jobs and starting_jobs based on a synthesis from all Supvisors instances
+        starting, stopping = [], []
+        for identifier, status in self.instances.items():
+            if status.state_modes.starting_jobs:
+                starting.append(identifier)
+            if status.state_modes.stopping_jobs:
+                stopping.append(identifier)
+        # update the payload
+        # NOTE: discovery mode is only based on the local Supvisors instance
+        #       there's no chance that Supvisors instances in discovery mode would communicate with Supvisors instances
+        #       that are NOT in discovery mode
+        payload.update({'starting_jobs': starting, 'stopping_jobs': stopping})
         return payload
 
     def _publish_state_mode(self) -> None:

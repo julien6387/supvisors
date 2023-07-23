@@ -187,19 +187,23 @@ def test_publish_state_modes(context):
     # test changed
     context.publish_state_modes({'starter': True})
     assert mocked_send_state.call_args_list == [call({'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                                                      'discovery_mode': False,
                                                       'starting_jobs': True, 'stopping_jobs': False})]
 
 
 def test_get_state_modes(context):
     """ Test the Context.get_state_modes method. """
     assert context.get_state_modes() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                                         'discovery_mode': False,
                                          'starting_jobs': [], 'stopping_jobs': []}
     # assign state and set some jobs
     context.local_instance.state_modes.state = SupvisorsStates.OPERATION
+    context.local_instance.state_modes.discovery_mode = True
     for idx, status in enumerate(context.instances.values()):
         status.state_modes.starting_jobs = (idx % 3) == 0
         status.state_modes.stopping_jobs = (idx % 4) == 0
     assert context.get_state_modes() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                                         'discovery_mode': True,
                                          'starting_jobs': ['10.0.0.1', '10.0.0.4', 'test'],
                                          'stopping_jobs': ['10.0.0.1', '10.0.0.5']}
 
@@ -211,6 +215,7 @@ def test_publish_state_mode(context):
     # first call publishes the default
     context._publish_state_mode()
     assert mocked_send.call_args_list == [call({'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                                                'discovery_mode': False,
                                                 'starting_jobs': [], 'stopping_jobs': []})]
     mocked_send.reset_mock()
     # second call: no change so no publication
@@ -218,11 +223,13 @@ def test_publish_state_mode(context):
     assert not mocked_send.called
     # for third call, assign state and set some jobs
     context.local_instance.state_modes.state = SupvisorsStates.OPERATION
+    context.local_instance.state_modes.discovery_mode = True
     for idx, status in enumerate(context.instances.values()):
         status.state_modes.starting_jobs = (idx % 3) == 0
         status.state_modes.stopping_jobs = (idx % 4) == 0
     context._publish_state_mode()
     assert mocked_send.call_args_list == [call({'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                                                'discovery_mode': True,
                                                 'starting_jobs': ['10.0.0.1', '10.0.0.4', 'test'],
                                                 'stopping_jobs': ['10.0.0.1', '10.0.0.5']})]
     mocked_send.reset_mock()
@@ -607,10 +614,12 @@ def test_on_instance_state_event_normal_self(context):
     mocked_send = context.supvisors.external_publisher.send_supvisors_status
     hostname = gethostname()
     context.instances[hostname]._state = SupvisorsInstanceStates.RUNNING
-    event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'starting_jobs': True, 'stopping_jobs': False}
+    event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'discovery_mode': False,
+             'starting_jobs': True, 'stopping_jobs': False}
     context.on_instance_state_event(hostname, event)
     assert context.instances[hostname].state_modes == StateModes()
-    expected = {'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': [], 'stopping_jobs': []}
+    expected = {'fsm_statecode': 0, 'fsm_statename': 'OFF', 'discovery_mode': False,
+              'starting_jobs': [], 'stopping_jobs': []}
     assert mocked_send.call_args_list == [call(expected)]
 
 
@@ -619,11 +628,13 @@ def test_on_instance_state_event_normal_other(context):
     context.supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = context.supvisors.external_publisher.send_supvisors_status
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
-    event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'starting_jobs': True, 'stopping_jobs': False}
+    event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'discovery_mode': False,
+              'starting_jobs': True, 'stopping_jobs': False}
     context.on_instance_state_event('10.0.0.1', event)
-    assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.DEPLOYMENT, True, False)
+    assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.DEPLOYMENT, False, True, False)
     # FSM state is still OFF as it reflects the FSM state as seen by the local instance
-    expected = {'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': ['10.0.0.1'], 'stopping_jobs': []}
+    expected = {'fsm_statecode': 0, 'fsm_statename': 'OFF', 'discovery_mode': False,
+              'starting_jobs': ['10.0.0.1'], 'stopping_jobs': []}
     assert mocked_send.call_args_list == [call(expected)]
 
 
@@ -721,7 +732,8 @@ def test_on_tick_event_local(mocker, context):
         expected = {'identifier': context.local_identifier,
                     'node_name': context.local_instance.supvisors_id.host_name,
                     'port': 65000, 'sequence_counter': 31,
-                    'statecode': 1, 'statename': 'CHECKING', 'remote_time': 1234, 'local_time': 1234,
+                    'statecode': 1, 'statename': 'CHECKING', 'discovery_mode': False,
+                    'remote_time': 1234, 'local_time': 1234,
                     'loading': 0, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
@@ -744,7 +756,8 @@ def test_on_tick_event_local(mocker, context):
         expected = {'identifier': context.local_identifier,
                     'node_name': context.local_instance.supvisors_id.host_name,
                     'port': 65000, 'sequence_counter': 57,
-                    'statecode': state.value, 'statename': state.name, 'remote_time': 5678, 'local_time': 5678,
+                    'statecode': state.value, 'statename': state.name, 'discovery_mode': False,
+                     'remote_time': 5678, 'local_time': 5678,
                     'loading': 0, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
@@ -762,7 +775,8 @@ def test_on_tick_event_local(mocker, context):
     expected = {'identifier': context.local_identifier,
                 'node_name': context.local_instance.supvisors_id.host_name,
                 'port': 65000, 'sequence_counter': 2,
-                'statecode': state.value, 'statename': state.name, 'remote_time': 6789, 'local_time': 6789,
+                'statecode': state.value, 'statename': state.name, 'discovery_mode': False,
+                     'remote_time': 6789, 'local_time': 6789,
                 'loading': 0, 'process_failure': False,
                 'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     assert mocked_send.call_args_list == [call(expected)]
@@ -823,7 +837,8 @@ def test_on_tick_event_remote(mocker, context):
         assert mocked_check.call_args_list == [call('10.0.0.1')]
         expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1',
                     'port': 65000, 'sequence_counter': 31,
-                    'statecode': 1, 'statename': 'CHECKING', 'remote_time': 1234, 'local_time': 3600,
+                    'statecode': 1, 'statename': 'CHECKING', 'discovery_mode': False,
+                     'remote_time': 1234, 'local_time': 3600,
                     'loading': 0, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
@@ -840,7 +855,8 @@ def test_on_tick_event_remote(mocker, context):
         assert status.local_time == 3600
         assert not mocked_check.called
         expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'sequence_counter': 57,
-                    'statecode': state.value, 'statename': state.name, 'remote_time': 5678, 'local_time': 3600,
+                    'statecode': state.value, 'statename': state.name, 'discovery_mode': False,
+                     'remote_time': 5678, 'local_time': 3600,
                     'loading': 0, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
@@ -857,7 +873,8 @@ def test_on_tick_event_remote(mocker, context):
     assert not mocked_check.called
     expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1',
                 'port': 65000, 'sequence_counter': 2,
-                'statecode': state.value, 'statename': state.name, 'remote_time': 6789, 'local_time': 3600,
+                'statecode': state.value, 'statename': state.name, 'discovery_mode': False,
+                     'remote_time': 6789, 'local_time': 3600,
                 'loading': 0, 'process_failure': False,
                 'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     assert mocked_send.call_args_list == [call(expected)]
@@ -1430,12 +1447,14 @@ def test_on_timer_event(mocker, context):
     context.start_date = 3579
     assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == (['10.0.0.2'], {proc_2})
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING
-    expected_1 = {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 65000, 'statecode': 4,
-                  'statename': 'ISOLATING', 'remote_time': 0, 'local_time': 0, 'loading': 15,
+    expected_1 = {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 65000,
+                  'statecode': 4, 'statename': 'ISOLATING', 'discovery_mode': False,
+                  'remote_time': 0, 'local_time': 0, 'loading': 15,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
-    expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000, 'statecode': 4,
-                  'statename': 'ISOLATING', 'remote_time': 0, 'local_time': 0, 'loading': 0,
+    expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000,
+                  'statecode': 4, 'statename': 'ISOLATING', 'discovery_mode': False,
+                  'remote_time': 0, 'local_time': 0, 'loading': 0,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     assert mocked_send.call_args_list == [call(expected_1), call(expected_2)]
@@ -1473,15 +1492,18 @@ def test_handle_isolation(context):
     assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATED
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
     # check calls to publisher.send_instance_status
-    expected_1 = {'identifier': '10.0.0.4', 'node_name': '10.0.0.4', 'port': 65000, 'statecode': 5,
-                  'statename': 'ISOLATED', 'remote_time': 0, 'local_time': 0, 'loading': 0,
+    expected_1 = {'identifier': '10.0.0.4', 'node_name': '10.0.0.4', 'port': 65000,
+                  'statecode': 5, 'statename': 'ISOLATED', 'discovery_mode': False,
+                  'remote_time': 0, 'local_time': 0, 'loading': 0,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
-    expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000, 'statecode': 5,
-                  'statename': 'ISOLATED', 'remote_time': 0, 'local_time': 0, 'loading': 0,
+    expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000,
+                  'statecode': 5, 'statename': 'ISOLATED', 'discovery_mode': False,
+                  'remote_time': 0, 'local_time': 0, 'loading': 0,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     assert mocked_send_instance.call_args_list == [call(expected_1), call(expected_2)]
     # no change in state and modes. only one publication expected
-    expected_3 = {'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': [], 'stopping_jobs': []}
+    expected_3 = {'fsm_statecode': 0, 'fsm_statename': 'OFF', 'discovery_mode': False,
+                  'starting_jobs': [], 'stopping_jobs': []}
     assert mocked_send_supvisors.call_args_list == [call(expected_3)]

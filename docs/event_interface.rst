@@ -51,6 +51,7 @@ Key	               Type               Value
 'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``,
                                      ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
                                      ``'SHUTDOWN'`` }.
+'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
 'starting_jobs'    ``list(str)``     The list of |Supvisors| instances having starting jobs in progress.
 'stopping_jobs'    ``list(str)``     The list of |Supvisors| instances having stopping jobs in progress.
 ================== ================= ==================
@@ -68,6 +69,7 @@ Key	               Type              Value
 'statecode'        ``int``           The |Supvisors| instance state, in [0;5].
 'statename'        ``str``           The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``,
                                      ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
+'discovery_mode'   ``bool``          True if the discovery mode is activated in the |Supvisors| instance.
 'sequence_counter' ``int``           The TICK counter, i.e. the number of Tick events received since it is running.
 'remote_time'      ``float``         The date of the last ``TICK`` event received from this node, in ms.
 'local_time'       ``float``         The local date of the last ``TICK`` event received from this node, in ms.

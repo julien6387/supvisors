@@ -1009,7 +1009,7 @@ def test_on_state_event(mocker, fsm):
     mocked_state = mocker.patch.object(fsm, 'set_state')
     fsm.master_state = SupvisorsStates.OPERATION
     fsm.context.master_identifier = '10.0.0.1'
-    payload = {'starting_jobs': False, 'stopping_jobs': False}
+    payload = {'discovery_mode': True, 'starting_jobs': False, 'stopping_jobs': False}
     # test event not sent by Master node
     for state in SupvisorsStates:
         payload['fsm_statecode'] = state.value
