@@ -20,7 +20,8 @@ import java.net.URL;
 import java.net.MalformedURLException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
-    
+import org.apache.xmlrpc.XmlRpcException;
+
 /**
  * The Class SupervisorXmlRpcClient.
  *
@@ -80,13 +81,8 @@ public class SupervisorXmlRpcClient {
      * @return T result: The result of the XML-RPC.
      */
     @SuppressWarnings({"unchecked"})
-    public <T> T rpcCall(final String rpcName, final Object[] args, final Class<T> type) {
-        T result = null;
-        try {
-            result = (T) client.execute(rpcName, args);
-        } catch (Exception exception) {
-            System.err.println("SupervisorXmlRpcClient: " + exception);
-        }
+    public <T> T rpcCall(final String rpcName, final Object[] args, final Class<T> type) throws XmlRpcException {
+        T result = (T) client.execute(rpcName, args);
         return result;
     }
 

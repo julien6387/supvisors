@@ -24,6 +24,8 @@
 
 * Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
 
+* Do not catch XmlRpc exceptions in the JAVA client.
+
 * Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
 
 * Fix `flask-restx` dependency in setup according to Python version.

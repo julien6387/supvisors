@@ -542,7 +542,11 @@ public class SupervisorXmlRpc {
 
         // first remove test group, so as it does not interfere with this test
         System.out.println("### Testing supervisor.removeProcessGroup(...) ###");
-        System.out.println(supervisor.removeProcessGroup("test"));
+        try {
+            System.out.println(supervisor.removeProcessGroup("test"));
+        } catch (XmlRpcException exception) {
+            System.err.println(exception);
+        }
 
         // test supervisor process control
         System.out.println("### Testing supervisor.getAllProcessInfo(...) ###");
@@ -597,7 +601,11 @@ public class SupervisorXmlRpc {
         System.out.println("### Testing supervisor.readProcessLog(...) ###");
         System.out.println(supervisor.readProcessLog(namespec, 0, 100));
         System.out.println("### Testing supervisor.readProcessStderrLog(...) ###");
-        System.out.println(supervisor.readProcessStderrLog(namespec, 0, 100));
+        try {
+            System.out.println(supervisor.readProcessStderrLog(namespec, 0, 100));
+        } catch (XmlRpcException exception) {
+            System.err.println(exception);
+        }
         System.out.println("### Testing supervisor.tailProcessStdoutLog(...) ###");
         System.out.println(supervisor.tailProcessStdoutLog(namespec, 0, 100));
         System.out.println("### Testing supervisor.tailProcessLog(...) ###");
