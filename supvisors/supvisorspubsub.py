@@ -54,18 +54,18 @@ BUFFER_SIZE = 4096
 class SubscriberInterface(Thread):
     """ Class used to exchange messages between a unique TCP client and the internal services. """
 
-    def __init__(self, internal_sock: socket, client_sock: socket, addr: Tuple[str, int], logger: Logger):
+    def __init__(self, internal_sock: socket, client_sock: socket, addr: Ipv4Address, logger: Logger):
         """ Store the sockets used to exchange information.
 
         :param internal_sock: the internal publisher socket
         :param client_sock: the client subscriber socket
-        :param addr: the client subscriber address
+        :param addr: the client subscriber address (used only for logs)
         :param logger: the Supvisors logger
         """
         super().__init__(daemon=True)
         self.internal_sock: socket = internal_sock
         self.client_sock: socket = client_sock
-        self.addr: Tuple[str, int] = addr
+        self.addr: str = f'{addr[0]}:{addr[1]}'
         self.logger: Logger = logger
         # create poller
         self.poller = select.poll()
@@ -101,7 +101,7 @@ class SubscriberInterface(Thread):
         except ConnectionError as exc:
             # client connection closed (detected by the reception of a zero message size)
             # or no heartbeat received anymore
-            self.logger.warn(f'SubscriberInterface.run: ConnectionError raised for {self.addr} - {str(exc)}')
+            self.logger.warn(f'SubscriberInterface.run: ConnectionError on {self.addr} - {str(exc)}')
             self.internal_sock.close()
             self.client_sock.close()
         self.logger.trace(f'SubscriberInterface.run: exiting main loop {self.addr}')
@@ -152,7 +152,7 @@ class PublisherThread(Thread):
         self.logger.debug('PublisherThread.stopping: called')
         return self.stop_event.is_set()
 
-    def add_client(self, sock: socket, addr: Tuple[str, int]) -> None:
+    def add_client(self, sock: socket, addr: Ipv4Address) -> None:
         """ Add a new TCP client to the publisher.
 
         :param sock: the client socket

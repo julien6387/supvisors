@@ -76,14 +76,27 @@ class SupvisorsInstanceId:
         self.check_values()
         # choose the node name among the possible node identifiers
         self.host_name = None
-        self.ip_address = None
+        self.aliases = None
+        self.ip_addresses = None
         if self.host_id:
             addresses = get_addresses(self.host_id, self.logger)
             if addresses:
-                self.host_name, _, ip_addresses = addresses
-                self.ip_address = ip_addresses[0]
+                self.host_name, self.aliases, self.ip_addresses = addresses
                 self.logger.debug(f'SupvisorsInstanceId: host_id={self.host_id} host_name={self.host_name}'
-                                  f' ip_address={self.ip_address}')
+                                  f' aliases={self.aliases} ip_addresses={self.ip_addresses}')
+
+    @property
+    def ip_address(self):
+        """ Return the main IP address. """
+        return self.ip_addresses[0] if self.ip_addresses else None
+
+    def host_matches(self, fdqn: str) -> bool:
+        """ Check if the fully-qualified domain name matches the host name or any alias.
+
+        :param fdqn: the fully-qualified domain name to check
+        :return: True if fdqn is the local host name or a known alias
+        """
+        return fdqn == self.host_name or fdqn in self.aliases
 
     def check_values(self) -> None:
         """ Complete information where not provided.
@@ -119,7 +132,7 @@ class SupvisorsInstanceId:
                 # in this case, assign to http_port + 1
                 self.event_port = self.http_port + 1
         self.logger.debug(f'SupvisorsInstanceId.check_values: identifier={self.identifier}'
-                          f' host_name={self.host_id} http_port={self.http_port}'
+                          f' host_id={self.host_id} http_port={self.http_port}'
                           f' internal_port={self.internal_port}')
 
     def parse_from_string(self, item: str):
@@ -266,34 +279,25 @@ class SupvisorsMapper:
         """
         # get the must-match parameters
         local_host_name = getfqdn()
-        local_host_name = getfqdn()
         local_http_port = self.supvisors.supervisor_data.server_port
-        # search for local Supervisor identifier first
-        if self.supvisors.supervisor_data.identifier in self._instances:
-            self.local_identifier = self.supvisors.supervisor_data.identifier
-            # check consistency
-            sup_id = self._instances[self.local_identifier]
-            if sup_id.host_name != local_host_name or sup_id.http_port != local_http_port:
-                self.logger.warn(f'SupvisorsMapper.find_local_identifier: {sup_id.host_name} != {local_host_name}'
-                                 f' or {sup_id.http_port} != {local_http_port}')
-                message = f'candidate {self.local_identifier} does not match the local Supvisors'
-                self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
-                raise ValueError(message)
+        # try to find a Supvisors instance corresponding to the local configuration
+        # WARN: there MUST be exactly one unique matching Supvisors instance
+        matching_identifiers = [sup_id.identifier
+                                for sup_id in self._instances.values()
+                                if sup_id.host_matches(local_host_name) and sup_id.http_port == local_http_port]
+        if len(matching_identifiers) == 1:
+            self.local_identifier = matching_identifiers[0]
+            if self.local_identifier != self.supvisors.supervisor_data.identifier:
+                self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
+                                 f' "{self.supvisors.supervisor_data.identifier}"'
+                                 f' and local Supvisors in supvisors_list "{self.local_identifier}"')
         else:
-            # if not found, try to find a Supvisors instance corresponding to the local host name
-            # WARN: in this case, there MUST be exactly one unique matching Supvisors instance
-            matching_identifiers = [sup_id.identifier
-                                    for sup_id in self._instances.values()
-                                    if sup_id.host_name == local_host_name and sup_id.http_port == local_http_port]
-            if len(matching_identifiers) == 1:
-                self.local_identifier = matching_identifiers[0]
+            if len(matching_identifiers) > 1:
+                message = f'multiple candidates for the local Supvisors identifiers={matching_identifiers}'
             else:
-                if len(matching_identifiers) > 1:
-                    message = f'multiple candidates for the local Supvisors identifiers={matching_identifiers}'
-                else:
-                    message = 'could not find the local Supvisors in supvisors_list'
-                self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
-                raise ValueError(message)
+                message = 'could not find the local Supvisors in supvisors_list'
+            self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
+            raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.find_local_identifier: local_identifier={self.local_identifier}')
 
     def filter(self, identifier_list: NameList) -> NameList:

@@ -14,6 +14,8 @@
   `multicast_ttl` added to that purpose).
   *Not stable yet*.
 
+* Use host aliases when looking for the local **Supvisors** instance.
+
 * Use IP address rather than host identification when dealing with `SINGLE_NODE` starting strategy. 
 
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.

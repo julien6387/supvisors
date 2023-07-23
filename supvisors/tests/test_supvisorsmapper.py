@@ -46,6 +46,8 @@ def test_sup_id_create_no_match(supvisors):
         assert sup_id.internal_port == 65100  # defaulted to options.internal_port
         assert sup_id.event_port == 65200  # defaulted to options.event_port
         assert sup_id.host_name is None
+        assert sup_id.aliases is None
+        assert sup_id.ip_addresses is None
         assert sup_id.ip_address is None
         with pytest.raises(TypeError):
             str(sup_id)
@@ -63,6 +65,8 @@ def test_sup_id_create_simple_no_default(supvisors):
     assert sup_id.internal_port == 65001  # defaulted to http_port + 1
     assert sup_id.event_port == 65002  # defaulted to http_port + 2
     assert sup_id.host_name is None
+    assert sup_id.aliases is None
+    assert sup_id.ip_addresses is None
     assert sup_id.ip_address is None
     with pytest.raises(TypeError):
         str(sup_id)
@@ -78,6 +82,8 @@ def test_sup_id_create_host(supvisors):
     assert sup_id.internal_port == 65100  # defaulted to options.internal_port
     assert sup_id.event_port == 65200  # defaulted to options.event_port
     assert sup_id.host_name == '10.0.0.1'
+    assert sup_id.aliases == ['10.0.0.1']
+    assert sup_id.ip_addresses == ['10.0.0.1']
     assert sup_id.ip_address == '10.0.0.1'
     assert str(sup_id) == '10.0.0.1'
 
@@ -88,19 +94,25 @@ def test_sup_id_create_host_port(supvisors):
     sup_id = SupvisorsInstanceId('10.0.0.1:7777:', supvisors)
     assert sup_id.identifier == '10.0.0.1:7777'
     assert sup_id.host_id == '10.0.0.1'
-    assert sup_id.ip_address == '10.0.0.1'
     assert sup_id.http_port == 7777
     assert sup_id.internal_port == 65100  # defaulted to options.internal_port
     assert sup_id.event_port == 65200  # defaulted to options.event_port
+    assert sup_id.host_name == '10.0.0.1'
+    assert sup_id.aliases == ['10.0.0.1']
+    assert sup_id.ip_addresses == ['10.0.0.1']
+    assert sup_id.ip_address == '10.0.0.1'
     assert str(sup_id) == '10.0.0.1:7777'
     # test with host+ports match (internal port defined)
     supvisors.options.event_port = 0
     sup_id = SupvisorsInstanceId('10.0.0.1:7777:8000', supvisors)
     assert sup_id.identifier == '10.0.0.1:7777'
     assert sup_id.host_id == '10.0.0.1'
-    assert sup_id.ip_address == '10.0.0.1'
     assert sup_id.http_port == 7777
     assert sup_id.internal_port == 8000
+    assert sup_id.host_name == '10.0.0.1'
+    assert sup_id.aliases == ['10.0.0.1']
+    assert sup_id.ip_addresses == ['10.0.0.1']
+    assert sup_id.ip_address == '10.0.0.1'
     assert sup_id.event_port == 8001  # defaulted to internal_port + 1
     assert str(sup_id) == '10.0.0.1:7777'
     # test with host+ports match (internal port defined before HTTP port)
@@ -108,10 +120,13 @@ def test_sup_id_create_host_port(supvisors):
     sup_id = SupvisorsInstanceId('10.0.0.1:7777:7776', supvisors)
     assert sup_id.identifier == '10.0.0.1:7777'
     assert sup_id.host_id == '10.0.0.1'
-    assert sup_id.ip_address == '10.0.0.1'
     assert sup_id.http_port == 7777
     assert sup_id.internal_port == 7776
     assert sup_id.event_port == 7778  # defaulted to http_port + 1
+    assert sup_id.host_name == '10.0.0.1'
+    assert sup_id.aliases == ['10.0.0.1']
+    assert sup_id.ip_addresses == ['10.0.0.1']
+    assert sup_id.ip_address == '10.0.0.1'
     assert str(sup_id) == '10.0.0.1:7777'
 
 
@@ -121,18 +136,34 @@ def test_sup_id_create_identifier(supvisors):
     sup_id = SupvisorsInstanceId('<supvisors>cliche81', supvisors)
     assert sup_id.identifier == 'supvisors'
     assert sup_id.host_id == 'cliche81'
-    assert sup_id.ip_address == 'cliche81'
     assert sup_id.http_port == 65000
     assert sup_id.internal_port == 65100  # defaulted to options.internal_port
     assert sup_id.event_port == 65200  # defaulted to options.event_port
+    assert sup_id.host_name == 'cliche81'
+    assert sup_id.aliases == ['cliche81']
+    assert sup_id.ip_addresses == ['cliche81']
+    assert sup_id.ip_address == 'cliche81'
     # test with identifier set
     sup_id = SupvisorsInstanceId('<supvisors>cliche81:8888:5555', supvisors)
     assert sup_id.identifier == 'supvisors'
     assert sup_id.host_id == 'cliche81'
-    assert sup_id.ip_address == 'cliche81'
     assert sup_id.http_port == 8888
     assert sup_id.internal_port == 5555  # defaulted to options.internal_port
     assert sup_id.event_port == 65200  # defaulted to options.event_port
+    assert sup_id.host_name == 'cliche81'
+    assert sup_id.aliases == ['cliche81']
+    assert sup_id.ip_addresses == ['cliche81']
+    assert sup_id.ip_address == 'cliche81'
+
+
+def test_sup_id_host_matches(supvisors):
+    """ Test the SupvisorsInstanceId.host_matches method. """
+    sup_id = SupvisorsInstanceId('<supvisors>cliche81', supvisors)
+    sup_id.aliases = ['cliche', 'rocky51']
+    assert sup_id.host_matches('cliche81')
+    assert sup_id.host_matches('cliche')
+    assert sup_id.host_matches('rocky51')
+    assert not sup_id.host_matches('rocky')
 
 
 @pytest.fixture
@@ -197,30 +228,46 @@ def test_mapper_configure(mocker, mapper):
     assert not mocked_find.called
 
 
-def test_find_local_identifier_identifier(mapper):
-    """ Test the SupvisorsMapper.find_local_identifier method when Supervisor identifier is among the instances. """
-    host_name = gethostname()
-    items = [host_name, '<supervisor>10.0.0.5:7777:']
+def test_find_local_identifier_fqdn(mapper):
+    """ Test the SupvisorsMapper.find_local_identifier method when the item host name matches the . """
+    fqdn = getfqdn()
+    items = [fqdn, '<supervisor>10.0.0.5:7777:']
     for item in items:
         supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
         mapper._instances[supvisors_id.identifier] = supvisors_id
-    # force host name to FQDN
-    mapper._instances[host_name].host_name = getfqdn()
+    # 1. force host name and aliases
+    sup_id = mapper._instances[fqdn]
+    sup_id.host_name = fqdn
+    sup_id.aliases = ['dummy']
     # find self
     mapper.find_local_identifier()
-    assert mapper.local_identifier == host_name
+    assert mapper.local_identifier == fqdn
+    # 2. move fqdn
+    sup_id.host_name = 'dummy'
+    sup_id.aliases = [fqdn]
+    # find self
+    mapper.find_local_identifier()
+    assert mapper.local_identifier == fqdn
 
 
 def test_find_local_identifier_host_name(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the host name and the HTTP
     server port. """
-    host_name = gethostname()
+    host_name, fqdn = gethostname(), getfqdn()
     items = ['127.0.0.1', f'{host_name}:65000:7777']
     for item in items:
         supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
         mapper._instances[supvisors_id.identifier] = supvisors_id
-    # force host name to FQDN
-    mapper._instances[f'{host_name}:65000'].host_name = getfqdn()
+    # 1. force host name and aliases
+    sup_id = mapper._instances[f'{host_name}:65000']
+    sup_id.host_name = fqdn
+    sup_id.aliases = ['dummy']
+    # find self
+    mapper.find_local_identifier()
+    assert mapper.local_identifier == f'{host_name}:65000'
+    # 2. move fqdn
+    sup_id.host_name = 'dummy'
+    sup_id.aliases = [fqdn]
     # find self
     mapper.find_local_identifier()
     assert mapper.local_identifier == f'{host_name}:65000'
@@ -229,13 +276,22 @@ def test_find_local_identifier_host_name(mapper):
 def test_find_local_identifier_ip_address(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the IP address of the host
     and the HTTP server port. """
-    host_name, _, ip_addresses = gethostbyaddr(gethostname())
+    host_name, fqdn = gethostname(), getfqdn()
+    _, _, ip_addresses = get_addresses(fqdn, mapper.logger)
     items = ['127.0.0.1', f'<host>{ip_addresses[0]}:65000:7777']
     for item in items:
         supvisors_id = SupvisorsInstanceId(item, mapper.supvisors)
         mapper._instances[supvisors_id.identifier] = supvisors_id
-    # force host name to FQDN
-    mapper._instances['host'].host_name = getfqdn()
+    # 1. force host name and aliases
+    sup_id = mapper._instances[f'host']
+    sup_id.host_name = fqdn
+    sup_id.aliases = ['dummy']
+    # find self
+    mapper.find_local_identifier()
+    assert mapper.local_identifier == 'host'
+    # 2. move fqdn
+    sup_id.host_name = 'dummy'
+    sup_id.aliases = [fqdn]
     # find self
     mapper.find_local_identifier()
     assert mapper.local_identifier == 'host'
