@@ -129,6 +129,17 @@ behavior may happen. The present section details where it is applicable.
         in the ``supvisors_list`` option) will be evaluated before exiting this state and the phase could eventually be
         ended when the ``core_identifiers`` are all in a known state before the ``synchro_timeout`` is reached.
 
+``multicast_interface``
+
+    The network interface where the |Supvisors| multicast group will be bound.
+    If not set, ``INADDR_ANY`` will be applied so as to bind on all network interfaces.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  Yes.
+
 ``multicast_ttl``
 
     The time-to-live of a message sent on the |Supvisors| multicast interface.

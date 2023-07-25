@@ -10,8 +10,8 @@
   The internal TCP sockets are rebound when a network interface becomes up.
 
 * Provide a discovery mode where the **Supvisors** instances are established on-the-fly without declaring them in
-  the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_group` and
-  `multicast_ttl` added to that purpose).
+  the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_group`,
+  `multicast_interface` and `multicast_ttl` added to that purpose).
   The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
   *Not stable yet*.
 

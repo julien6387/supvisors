@@ -31,7 +31,7 @@ from .configurations import *
 @pytest.fixture
 def config():
     return {'supvisors_list': 'cliche01,cliche03,cliche02',
-            'multicast_group': '239.0.0.1:7777', 'multicast_ttl': '5',
+            'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
             'internal_port': '60001',
             'event_link': 'zmq', 'event_port': '60002',
@@ -86,6 +86,7 @@ def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     assert opt.supvisors_list is None
     assert opt.multicast_group is None
+    assert opt.multicast_interface is None
     assert opt.multicast_ttl == 1
     assert opt.rules_files is None
     assert opt.internal_port == 0
@@ -112,6 +113,7 @@ def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
     assert filled_opt.multicast_group == ('239.0.0.1', 7777)
+    assert opt.multicast_interface == '192.168.1.1'
     assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
@@ -136,7 +138,7 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == ('supvisors_list=None multicast_group=None multicast_ttl=1'
+    assert str(opt) == ('supvisors_list=None multicast_group=None multicast_interface=None multicast_ttl=1'
                         ' rules_files=None internal_port=0'
                         ' event_link=NONE event_port=0'
                         ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
@@ -152,7 +154,7 @@ def test_filled_str(filled_opt):
     variable_core_2 = "{'cliche03', 'cliche01'}"
     result = str(filled_opt)
     assert any(result == (f"supvisors_list=['cliche01', 'cliche03', 'cliche02']"
-                          ' multicast_group=239.0.0.1:7777 multicast_ttl=5'
+                          ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
                           " rules_files=['my_movies.xml']"
                           ' internal_port=60001'
                           ' event_link=ZMQ event_port=60002'
@@ -223,8 +225,29 @@ def test_check_multicast_address():
             SupvisorsOptions._check_multicast_address(addr)
     # test valid values
     SupvisorsOptions._check_multicast_address('224.0.0.1')
-    SupvisorsOptions._check_multicast_address('239.255.255.255') == 1
+    SupvisorsOptions._check_multicast_address('239.255.255.255')
     SupvisorsOptions._check_multicast_address('239.0.0.1')
+
+
+def test_ip_address():
+    """ Test the validity of an IP address. """
+    error_message = common_error_message.format('IP address')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('7777')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('240.256.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('240..0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('240.0.1')
+    # test valid values
+    assert SupvisorsOptions.to_ip_address('ANY') is None
+    assert SupvisorsOptions.to_ip_address('INADDR_ANY') is None
+    assert SupvisorsOptions.to_ip_address('10.0.0.1') == '10.0.0.1'
+    assert SupvisorsOptions.to_ip_address('192.168.10.5') == '192.168.10.5'
 
 
 def test_multicast_group():

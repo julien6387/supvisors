@@ -24,6 +24,7 @@ import pytest
 from supvisors.supvisorsmulticast import *
 from supvisors.ttypes import DeferredRequestHeaders
 
+# get local IP address
 local_ip = gethostbyname(gethostname())
 
 
@@ -31,6 +32,17 @@ local_ip = gethostbyname(gethostname())
 def mc(supvisors):
     """ Create the SupvisorsSockets instance. """
     supvisors.options.multicast_group = '239.0.0.1', 7777
+    socks = SupvisorsMulticast(supvisors)
+    yield socks
+    socks.stop()
+    socks.receiver.close()
+
+
+@pytest.fixture
+def mc_intf(supvisors):
+    """ Create the SupvisorsSockets instance. """
+    supvisors.options.multicast_group = '239.0.0.1', 7777
+    supvisors.options.multicast_interface = '10.0.0.1'
     socks = SupvisorsMulticast(supvisors)
     yield socks
     socks.stop()
@@ -170,23 +182,16 @@ def test_global_normal(supvisors, mc):
     check_sockets(mc.receiver, None,
                   [InternalEventHeaders.STATE.value, {'state': 'operational', 'mode': 'starting'}],
                   local_identifier)
-    # test subscriber disconnect and check that nothing is received anymore
-    #mc.receiver.disconnect_subscriber([local_identifier])
-    #assert mc.receiver.subscribers == {}
-    #assert local_identifier not in mc.receiver.instances
-    # check that nothing is received anymore by the subscribers
-    #mc.emitter.send_state_event({'state': 'operational', 'mode': 'starting'})
-    #check_sockets(mc.receiver, None, None, None)
 
 
-def test_emitter_send_exception(mc):
+def test_emitter_send_exception(mc_intf):
     """ Test the sendto exception of the MulticastSender. """
-    mc.emitter.close()
-    mc.emitter.send_tick_event({})
+    mc_intf.emitter.close()
+    mc_intf.emitter.send_tick_event({})
 
 
 def test_receiver_bind_exception(supvisors):
     """ Test the bind exception of the MulticastReceiver (use wrong IP). """
     push_sock, pull_sock = socketpair()
-    sender = MulticastReceiver(pull_sock, ('10.0.0', 1234), supvisors.logger)
+    sender = MulticastReceiver(pull_sock, ('10.0.0', 1234), '192.168.10.25', supvisors.logger)
     assert not sender.socket

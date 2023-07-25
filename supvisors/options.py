@@ -21,7 +21,7 @@ import glob
 import os
 import platform
 from collections import OrderedDict
-from typing import Dict, List, Tuple, TypeVar
+from typing import Dict, List, Optional, Tuple, TypeVar
 
 from supervisor.datatypes import Automatic, logfile_name, boolean, integer, byte_size, logging_level, list_of_strings
 from supervisor.loggers import Logger
@@ -55,6 +55,7 @@ class SupvisorsOptions:
     Attributes are:
         - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
         - multicast: UDP Multicast Group where Supvisors will exchange data ;
+        - multicast_interface: UDP Multicast Group interface ;
         - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
         - internal_port: port number used to publish local events to remote Supvisors instances (not used for multicast) ;
@@ -99,6 +100,7 @@ class SupvisorsOptions:
                                               lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
         # get multicast parameters for discovery mode
         self.multicast_group = self._get_value(config, 'multicast_group', None, self.to_multicast_group)
+        self.multicast_interface = self._get_value(config, 'multicast_interface', None, self.to_ip_address)
         self.multicast_ttl = self._get_value(config, 'multicast_ttl', 1, self.to_ttl)
         # get the rules files
         self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
@@ -137,6 +139,7 @@ class SupvisorsOptions:
         mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}' if self.multicast_group else None
         return (f'supvisors_list={self.supvisors_list}'
                 f' multicast_group={mc_group}'
+                f' multicast_interface={self.multicast_interface}'
                 f' multicast_ttl={self.multicast_ttl}'
                 f' rules_files={self.rules_files}'
                 f' internal_port={self.internal_port}'
@@ -245,6 +248,27 @@ class SupvisorsOptions:
                              f' "ip_address:port" expected')
         SupvisorsOptions._check_multicast_address(values[0])
         return values[0], SupvisorsOptions.to_port_num(values[1])
+
+    @staticmethod
+    def to_ip_address(value: str) -> Optional[str]:
+        """ Check the formatting of the IP address.
+
+        :param value: the IP address to check
+        :return: None
+        """
+        # will set INADDR_ANY later
+        if value in ['ANY', 'INADDR_ANY']:
+            return None
+        # parse the IP address
+        try:
+            values = value.split('.')
+            if len(values) != 4:
+                raise ValueError('wrong number of bytes')
+            for idx in range(0, 4):
+                SupvisorsOptions.to_integer(values[idx], f'IP byte {idx}', (0, 255))
+        except ValueError:
+            raise ValueError(f'invalid value for IP address: "{value}"')
+        return value
 
     @staticmethod
     def _check_multicast_address(value: str):
@@ -402,7 +426,7 @@ class SupvisorsOptions:
                              f' float expected in [1.0;3600.0] (seconds)')
 
     @staticmethod
-    def to_periods(value: str) -> List[int]:
+    def to_periods(value: str) -> List[float]:
         """ Convert a string into a list of period values. """
         str_periods = list_of_strings(value)
         if len(str_periods) == 0:
@@ -479,7 +503,7 @@ class SupvisorsServerOptions(ServerOptions):
         :param parser: the config parser
         :param section: the program section
         :param group_name: the group that embeds the program definition
-        :param klass: the ProcessConfig class (may be EventListenerConfig or FastCGIProcessConfig)
+        :param klass: the ProcessConfig class (or EventListenerConfig or FastCGIProcessConfig)
         :return: the list of ProcessConfig
         """
         # keep a reference to the parser, so that it is not garbage-collected
@@ -495,6 +519,7 @@ class SupvisorsServerOptions(ServerOptions):
         self.program_class[program_name] = klass
         # store the number and the program of each process
         for idx, process_config in enumerate(process_configs):
+            # process_config.name is the process_name
             self.processes_program[process_config.name] = program_name
             self.procnumbers[process_config.name] = idx
         # return original result

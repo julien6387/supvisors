@@ -21,9 +21,9 @@ import select
 import struct
 import traceback
 from enum import Enum
-from socket import (inet_aton, socket,
+from socket import (inet_aton, error, socket,
                     AF_INET, INADDR_ANY, SOCK_DGRAM, SOL_SOCKET, SO_REUSEADDR,
-                    IPPROTO_IP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL)
+                    IPPROTO_IP, IPPROTO_UDP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL)
 from typing import Any, List, Optional, Tuple
 
 from supervisor.loggers import Logger
@@ -45,7 +45,7 @@ class MulticastSender(InternalCommEmitter):
         self.mc_group: Ipv4Address = mc_group
         self.logger: Logger = logger
         # create the socket
-        self.socket = socket(AF_INET, SOCK_DGRAM)
+        self.socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
         self.socket.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, ttl)
 
     def close(self) -> None:
@@ -53,8 +53,10 @@ class MulticastSender(InternalCommEmitter):
         self.socket.close()
 
     def send_message(self, event_type: Enum, event_body: Payload):
-        """ Multicast a message. """
+        """ Multicast a message.
+        It is not necessary to add a message size . """
         message = payload_to_bytes(event_type, (self.identifier, event_body))
+        self.logger.debug(f'MulticastSender.send_message: size={len(message)}')
         try:
             self.socket.sendto(message, self.mc_group)
         except OSError:
@@ -128,7 +130,7 @@ class MulticastSender(InternalCommEmitter):
 
 class MulticastReceiver(InternalCommReceiver):
 
-    def __init__(self, puller_sock: socket, mc_group: Ipv4Address, logger: Logger):
+    def __init__(self, puller_sock: socket, mc_group: Ipv4Address, mc_interface: Optional[str], logger: Logger):
         """ Create the multicast reception and the poller.
 
         :param puller_sock: the socket pair end used to receive the deferred Supvisors XML-RPC results
@@ -136,28 +138,31 @@ class MulticastReceiver(InternalCommReceiver):
         super().__init__(puller_sock, logger)
         self.socket: Optional[socket] = None
         # create the reception socket for the Multicast messages
-        self._bind(mc_group)
+        self._bind(mc_group, mc_interface)
         if self.socket:
             self.poller.register(self.socket, select.POLLIN)
 
-    def _bind(self, mc_group: Ipv4Address) -> None:
+    def _bind(self, mc_group: Ipv4Address, mc_interface: Optional[str]) -> None:
         """ Bind the receiver to the multicast group.
 
         :param mc_group: the IPv4 address + port of the multicast group
         :return: None
         """
         # create the socket
-        sock = socket(AF_INET, SOCK_DGRAM)
+        sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
         sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         try:
             sock.bind(mc_group)
-            mcast_req = struct.pack('4sl', inet_aton(mc_group[0]), INADDR_ANY)
+            if mc_interface:
+                mcast_req = struct.pack('=4s4s', inet_aton(mc_group[0]), inet_aton(mc_interface))
+            else:
+                mcast_req = struct.pack('=4sl', inet_aton(mc_group[0]), INADDR_ANY)
             sock.setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP, mcast_req)
         except OSError:
-            self.logger.error(f'MulticastReceiver._bind: cannot bind multicast socket to {mc_group}')
+            self.logger.error(f'MulticastReceiver._bind: cannot bind socket to {mc_group}')
             self.logger.debug(f'MulticastReceiver._bind: {traceback.format_exc()}')
         else:
-            self.logger.info(f'MulticastReceiver._bind: multicast socket bound to {mc_group}')
+            self.logger.info(f'MulticastReceiver._bind: socket bound to {mc_group}')
             self.socket = sock
 
     def read_fds(self, fds: List[int]) -> List[Tuple[Ipv4Address, List]]:
@@ -168,8 +173,11 @@ class MulticastReceiver(InternalCommReceiver):
         """
         if self.socket.fileno() in fds:
             # read the message from the socket
-            msg_as_bytes, address = self.socket.recvfrom(BUFFER_SIZE)
-            return [(address, bytes_to_payload(msg_as_bytes))]
+            try:
+                msg_as_bytes, address = self.socket.recvfrom(BUFFER_SIZE)
+                return [(address, bytes_to_payload(msg_as_bytes))]
+            except error as exc:
+                self.logger.error(f'MulticastReceiver.read_fds: failed to read from socket - {str(exc)}')
         return []
 
     def close(self) -> None:
@@ -223,8 +231,9 @@ class SupvisorsMulticast(SupvisorsInternalComm):
         # create the global subscriber that receives deferred XML-RPC requests and events sent by all publishers
         self.receiver = MulticastReceiver(self.puller_sock,
                                           supvisors.options.multicast_group,
+                                          supvisors.options.multicast_interface,
                                           supvisors.logger)
 
     def restart(self):
-        """ Restart the internal communications in case of network interfaces change. """
-        # TODO: restart MulticastReceiver (bind) ?
+        """ Restart the internal communications in case of network interfaces change.
+        TBC: Not needed in Multicast. """
