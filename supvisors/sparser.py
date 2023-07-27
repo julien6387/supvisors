@@ -22,7 +22,7 @@ from collections import OrderedDict
 from distutils.util import strtobool
 from os import path
 from sys import stderr
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from supervisor.datatypes import list_of_strings
 from supervisor.options import split_namespec
@@ -31,6 +31,7 @@ from .application import ApplicationRules
 from .process import ProcessRules
 from .ttypes import (DistributionRules, StartingStrategies, StartingFailureStrategies,
                      RunningFailureStrategies, EnumClassType)
+from .utils import ATSIGN, HASHTAG, WILDCARD
 
 # XSD for XML validation
 supvisors_folder = path.dirname(__file__)
@@ -160,12 +161,12 @@ class Parser(object):
         :return: None
         """
         self.logger.trace(f'Parser.load_program_rules: searching program element for {namespec}')
-        program_elt = self.get_program_element(namespec)
+        program_elt, is_pattern = self.get_program_element(namespec)
         if program_elt is not None:
             # load element parameters into rules
             self.load_model_rules(program_elt, rules, Parser.LOOP_CHECK)
         # check that rules are compliant with dependencies
-        rules.check_dependencies(namespec)
+        rules.check_dependencies(namespec, is_pattern)
         self.logger.debug(f'Parser.load_program_rules: process={namespec} rules={rules}')
 
     def load_model_rules(self, program_elt: Any, rules: ProcessRules, loop_check: int) -> None:
@@ -209,7 +210,7 @@ class Parser(object):
         """
         return elt.get('name') or elt.get('pattern')
 
-    def get_program_element(self, namespec: str) -> Optional[Any]:
+    def get_program_element(self, namespec: str) -> Tuple[Optional[Any], bool]:
         """ Try to find the definition of a program in rules files.
         First try to find the definition based on the exact program name.
         If not found, second try to find a corresponding pattern.
@@ -222,19 +223,21 @@ class Parser(object):
         application_elt = self.get_application_element(application_name)
         if application_elt is None:
             self.logger.debug(f'Parser.get_program_element: no application element found for program={namespec}')
-            return None
+            return None, False
         program_elt = application_elt.find(f'./programs/program[@name="{process_name}"]')
         self.logger.trace(f'Parser.get_program_element: direct search for program={namespec} found'
                           f' {program_elt is not None}')
+        is_pattern = False
         if program_elt is None:
             # if not found as it is, try to find a corresponding pattern
             if application_elt in self.program_patterns:
                 prg_patterns = self.program_patterns[application_elt]
                 pattern = self.get_best_pattern(process_name, prg_patterns.keys())
                 program_elt = prg_patterns.get(pattern)
-        return program_elt
+                is_pattern = program_elt is not None
+        return program_elt, is_pattern
 
-    def get_best_pattern(self, name: str, patterns: Dict):
+    def get_best_pattern(self, name: str, patterns: Dict) -> Optional[Any]:
         """ Return the pattern having the greatest capture for the string considered.
 
         :param name: the string to match
@@ -253,6 +256,7 @@ class Parser(object):
             pattern, performance = max(matching_patterns, key=lambda x: len(x[1]))
             self.logger.debug(f'Parser.get_best_pattern: pattern={pattern} (perf={performance}) selected for {name}')
             return pattern
+        return None
 
     def get_model_element(self, elt: Any) -> Optional[Any]:
         """ Find if element references a model
@@ -277,13 +281,6 @@ class Parser(object):
             if alias_name in identifiers:
                 pos = identifiers.index(alias_name)
                 identifiers[pos:pos+1] = alias
-        # keep reference to hashtag as it will be removed by supvisors_mapper.filter
-        ref_hashtag = '#' in identifiers
-        if '*' in identifiers:
-            identifiers = ['*']
-        # re-inject the hashtag if needed. position does not matter
-        if ref_hashtag:
-            identifiers.append('#')
         # return ordered list, removing duplicates and empty elements
         return list(OrderedDict.fromkeys(filter(None, identifiers)))
 
@@ -296,19 +293,29 @@ class Parser(object):
         """
         value = elt.findtext('identifiers')
         if value:
-            rules.identifiers = self.check_identifier_list(value)
-            if '#' in rules.identifiers:
-                # if '#' is alone or associated to '*', the logic is applicable to all Supervisor instances
-                if len(rules.identifiers) == 1 or '*' in rules.identifiers:
-                    rules.hash_identifiers = ['*']
-                else:
-                    # '#' is applicable to a subset of identifiers
-                    rules.identifiers.remove('#')
-                    rules.hash_identifiers = rules.identifiers
-                # process cannot be started anywhere until hash_identifiers is resolved
-                rules.identifiers = []
-            elif '*' in rules.identifiers:
-                rules.identifiers = ['*']
+            identifiers = self.check_identifier_list(value)
+            self.logger.trace(f'Parser.load_identifiers: value={value} identifiers={identifiers}')
+            # clear the list from special signs but keep the information
+            has_atsign = ATSIGN in identifiers
+            has_hashtag = HASHTAG in identifiers
+            for sign in [ATSIGN, HASHTAG]:
+                if sign in identifiers:
+                    identifiers.remove(sign)
+            # if '*' is set, any other identifier is redundant
+            # if '@' or '#' are set without any other identifier, all instances are applicable
+            if ((has_atsign or has_hashtag) and not identifiers) or (WILDCARD in identifiers):
+                identifiers = [WILDCARD]
+            if has_atsign:
+                # process cannot be started anywhere until at_identifiers are resolved
+                rules.at_identifiers, rules.identifiers = identifiers, []
+            if has_hashtag:
+                # process cannot be started anywhere until hash_identifiers are resolved
+                rules.hash_identifiers, rules.identifiers = identifiers, []
+            # standard case
+            if not has_atsign and not has_hashtag:
+                rules.identifiers = identifiers
+            self.logger.trace(f'Parser.load_identifiers: identifiers={rules.identifiers}'
+                              f' at_identifiers={rules.at_identifiers} hash_identifiers={rules.hash_identifiers}')
 
     def load_sequence(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the sequence value found from the XML element.

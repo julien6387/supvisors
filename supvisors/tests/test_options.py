@@ -113,7 +113,7 @@ def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
     assert filled_opt.multicast_group == ('239.0.0.1', 7777)
-    assert opt.multicast_interface == '192.168.1.1'
+    assert filled_opt.multicast_interface == '192.168.1.1'
     assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
@@ -476,14 +476,14 @@ def test_server_options(mocker, server_opt):
     assert server_opt.program_class == {}
     assert server_opt.program_processes == {}
     assert server_opt.processes_program == {}
-    assert server_opt.procnumbers == {}
+    assert server_opt.process_indexes == {}
     # call realize
     server = create_server(mocker, server_opt, ProgramConfiguration)
     assert server_opt.processes_program == {'dumber_10': 'dumber', 'dumber_11': 'dumber', 'dummy': 'dummy',
                                             'dummy_0': 'dummies', 'dummy_1': 'dummies', 'dummy_2': 'dummies',
                                             'dummy_ears_20': 'dummy_ears', 'dummy_ears_21': 'dummy_ears'}
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1,
-                                  'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1,
+                                      'dummy_ears_20': 0, 'dummy_ears_21': 1}
     expected_printable = {program_name: {group_name: [process.name for process in processes]}
                           for program_name, program_configs in server.program_processes.items()
                           for group_name, processes in program_configs.items()}
@@ -502,8 +502,8 @@ def test_server_options(mocker, server_opt):
     result = server.reload_processes_from_section('program:dummies', 'dummy_group')
     expected_printable = [process.name for process in result]
     assert expected_printable == ['dummy_0']
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1,
-                                  'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1,
+                                      'dummy_ears_20': 0, 'dummy_ears_21': 1}
     # udpate procnums of a FastCGI program
     assert server.update_numprocs('dumber', 1) == 'fcgi-program:dumber'
     assert server.parser['fcgi-program:dumber']['numprocs'] == '1'
@@ -511,7 +511,7 @@ def test_server_options(mocker, server_opt):
     result = server.reload_processes_from_section('fcgi-program:dumber', 'dumber')
     expected_printable = [process.name for process in result]
     assert expected_printable == ['dumber_10']
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
     # udpate procnums of an event listener
     assert server.update_numprocs('dummy_ears', 3) == 'eventlistener:dummy_ears'
     assert server.parser['eventlistener:dummy_ears']['numprocs'] == '3'
@@ -519,5 +519,5 @@ def test_server_options(mocker, server_opt):
     result = server.reload_processes_from_section('eventlistener:dummy_ears', 'dummy_ears')
     expected_printable = [process.name for process in result]
     assert expected_printable == ['dummy_ears_20', 'dummy_ears_21', 'dummy_ears_22']
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0,
-                                  'dummy_ears_20': 0, 'dummy_ears_21': 1, 'dummy_ears_22': 2}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0,
+                                      'dummy_ears_20': 0, 'dummy_ears_21': 1, 'dummy_ears_22': 2}

@@ -29,8 +29,10 @@ from .ttypes import Payload
 # TICK period in seconds for internal Supvisors heartbeat
 TICK_PERIOD = 5
 
-# a Supervisor TICK is expected every 5 seconds
-SUPERVISOR_ALERT_TIMEOUT = 10
+# special characters used in rules
+WILDCARD = '*'
+HASHTAG = '#'
+ATSIGN = '@'
 
 
 def simple_localtime(now=None):

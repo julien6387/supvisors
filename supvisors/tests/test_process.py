@@ -70,7 +70,7 @@ def test_rules_check_start_sequence(rules):
     rules.start_sequence = 0
     rules.required = False
     # call check dependencies
-    rules.check_dependencies('dummy')
+    rules.check_dependencies('dummy', False)
     # check rules unchanged
     assert rules.start_sequence == 0
     assert not rules.required
@@ -78,7 +78,7 @@ def test_rules_check_start_sequence(rules):
     rules.start_sequence = 0
     rules.required = True
     # check dependencies
-    rules.check_dependencies('dummy')
+    rules.check_dependencies('dummy', False)
     # check required has been changed
     assert rules.start_sequence == 0
     assert not rules.required
@@ -86,7 +86,7 @@ def test_rules_check_start_sequence(rules):
     rules.start_sequence = 1
     rules.required = False
     # check dependencies
-    rules.check_dependencies('dummy')
+    rules.check_dependencies('dummy', False)
     # check rules unchanged
     assert rules.start_sequence == 1
     assert not rules.required
@@ -94,7 +94,7 @@ def test_rules_check_start_sequence(rules):
     rules.start_sequence = 1
     rules.required = True
     # check dependencies
-    rules.check_dependencies('dummy')
+    rules.check_dependencies('dummy', False)
     # check rules unchanged
     assert rules.start_sequence == 1
     assert rules.required
@@ -164,47 +164,41 @@ def test_rules_check_hash_identifiers(rules):
     rules.identifiers = []
     # in mocked supvisors, xclock has a procnumber of 2
     # 1. test with unknown namespec
-    rules.check_hash_identifiers('sample_test_1:xfontsel')
+    rules.check_hash_identifiers('sample_test_1:xfontsel', True)
     # identifiers is unchanged
     assert rules.hash_identifiers == ['*']
     assert rules.identifiers == []
     # 2. update rules to test '#' with all instances available
     # address '10.0.0.3' has an index of 2 in supvisors_mapper
-    rules.check_hash_identifiers('sample_test_1:xclock')
+    rules.check_hash_identifiers('sample_test_1:xclock', True)
     assert rules.identifiers == ['10.0.0.3']
     # 3. update rules to test '#' with a subset of instances available
     rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
     rules.identifiers = []
     # here, at index 2 of this list, '10.0.0.5' can be found
-    rules.check_hash_identifiers('sample_test_1:xclock')
+    rules.check_hash_identifiers('sample_test_1:xclock', True)
     assert rules.identifiers == ['10.0.0.5']
     # 4. test the case where procnumber is greater than the subset list of instances available
     rules.hash_identifiers = ['10.0.0.1']
     rules.identifiers = []
-    rules.check_hash_identifiers('sample_test_1:xclock')
+    rules.check_hash_identifiers('sample_test_1:xclock', True)
     assert rules.identifiers == ['10.0.0.1']
 
 
 def test_rules_check_dependencies(mocker, rules):
     """ Test the dependencies in process rules. """
-    mocked_auto = mocker.patch('supvisors.process.ProcessRules.check_autorestart')
+    mocked_at = mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
+    mocked_hash = mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
+    mocked_sign = mocker.patch('supvisors.process.ProcessRules.check_sign_identifiers')
     mocked_start = mocker.patch('supvisors.process.ProcessRules.check_start_sequence')
     mocked_stop = mocker.patch('supvisors.process.ProcessRules.check_stop_sequence')
-    # test with no hash
-    rules.hash_identifiers = []
+    mocked_auto = mocker.patch('supvisors.process.ProcessRules.check_autorestart')
     # check dependencies
-    rules.check_dependencies('dummy')
+    rules.check_dependencies('dummy', False)
     # test calls
-    assert mocked_start.call_args_list == [call('dummy')]
-    assert mocked_stop.call_args_list == [call('dummy')]
-    assert mocked_auto.call_args_list == [call('dummy')]
-    # reset mocks
-    mocker.resetall()
-    # test with hash
-    rules.hash_identifiers = ['*']
-    # check dependencies
-    rules.check_dependencies('dummy')
-    # test calls
+    assert mocked_at.call_args_list == [call('dummy', False)]
+    assert mocked_hash.call_args_list == [call('dummy', False)]
+    assert mocked_sign.call_args_list == [call('dummy')]
     assert mocked_start.call_args_list == [call('dummy')]
     assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_auto.call_args_list == [call('dummy')]

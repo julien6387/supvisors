@@ -81,7 +81,7 @@ def check_aliases_valid(parser):
     assert parser.check_identifier_list('10.0.0.1,nodes_model_03') == ['10.0.0.1', '10.0.0.4', '10.0.0.2']
     assert parser.check_identifier_list('10.0.0.5,nodes_appli_D,10.0.0.1') == ['10.0.0.5', '10.0.0.1']
     assert parser.check_identifier_list('192.17.8.2,nodes_model_03') == ['192.17.8.2', '10.0.0.4', '10.0.0.2']
-    assert parser.check_identifier_list('192.17.8.2,nodes_model_03,*') == ['*']
+    assert parser.check_identifier_list('192.17.8.2,nodes_model_03,*') == ['192.17.8.2', '10.0.0.4', '10.0.0.2', '*']
     assert parser.check_identifier_list('not used,10.0.0.3') == ['10.0.0.2', 'nodes_appli_D', '10.0.0.3']
 
 
@@ -90,10 +90,13 @@ def check_valid(parser):
     # test aliases, models & patterns
     assert parser.aliases == {'nodes_model_03': ['10.0.0.4', '10.0.0.2'], 'nodes_appli_D': ['10.0.0.1', '10.0.0.5'],
                               'not used': ['10.0.0.2', 'nodes_appli_D']}
+    print('COUCOU aliases')
     check_aliases_valid(parser)
+    print('COUCOU fin aliases')
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02',
                                             'dummy_model_03', 'dummy_model_04', 'dummy_model_05']
     assert parser.printable_program_patterns() == {'application_D': ['dummies_', '^d.*s_01_', 'dum+ies_02_']}
+    print('COUCOU debut appli')
     # check unknown application
     rules = load_application_rules(parser, 'dummy_application_X')
     assert_default_application_rules(rules)
@@ -119,6 +122,7 @@ def check_valid(parser):
     assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES,  ['*'], 0, 0,
                              StartingStrategies.MOST_LOADED,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
+    print('COUCOU fin appli')
     # check program from unknown application: all default
     rules = load_program_rules(parser, 'dummy_application_X', 'dummy_program_X0')
     assert_default_process_rules(rules)
@@ -176,9 +180,9 @@ def check_valid(parser):
 def check_aliases_invalid(parser):
     assert parser.check_identifier_list('nodes_prg_B1') == ['#']
     assert parser.check_identifier_list('nodes_appli_D') == []
-    assert parser.check_identifier_list('nodes_prg_B3,10.0.0.1') == ['*']
+    assert parser.check_identifier_list('nodes_prg_B3,10.0.0.1') == ['*', '10.0.0.4', '192.168.12.20', '10.0.0.1']
     assert parser.check_identifier_list('10.0.0.5,not used too') == ['10.0.0.5', '#', '10.0.0.1', '192.168.12.20']
-    assert parser.check_identifier_list('10.0.0.5,not used') == ['*']
+    assert parser.check_identifier_list('10.0.0.5,not used') == ['10.0.0.5', '*', '10.0.0.4', '192.168.12.20']
 
 
 def check_invalid(parser):

@@ -18,7 +18,7 @@
 # ======================================================================
 
 import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from supervisor.loggers import Logger
 from supervisor.states import ProcessStates
@@ -26,6 +26,11 @@ from supervisor.states import ProcessStates
 from .process import ProcessStatus
 from .ttypes import (ApplicationStates, DistributionRules, NameList, Payload, StartingStrategies,
                      StartingFailureStrategies, RunningFailureStrategies)
+from .utils import WILDCARD
+
+# additional annotation types
+ProcessList = List[ProcessStatus]
+ProcessMap = Dict[str, ProcessStatus]  # {process_name: ProcessStatus}
 
 
 class ApplicationRules:
@@ -56,7 +61,8 @@ class ApplicationRules:
         # attributes
         self.managed: bool = False
         self.distribution: DistributionRules = DistributionRules.ALL_INSTANCES
-        self.identifiers: NameList = ['*']
+        self.identifiers: NameList = [WILDCARD]
+        self.at_identifiers: NameList = []
         self.hash_identifiers: NameList = []
         self.start_sequence: int = 0
         self.stop_sequence: int = -1
@@ -86,6 +92,9 @@ class ApplicationRules:
         hash_identifiers is expected to contain:
             - either ['*'] when all Supervisors are applicable
             - or any subset of these Supervisors.
+
+        FIXME: consider @
+        FIXME: restriction for discovery mode
 
         :param application_name: the name of the application considered.
         :return: None
@@ -156,7 +165,175 @@ class ApplicationRules:
         return {'managed': False}
 
 
-class ApplicationStatus(object):
+class HomogeneousGroup:
+    """ Class used to store all the application processes that are configured using the same program definition.
+    It has been introduced to manage the # rules optionally set to some processes of the application start sequence
+    to distribute the processes over a set of Supvisors instances. """
+
+    def __init__(self, program_name: str, supvisors: Any) -> None:
+        """ Initialization of the attributes.
+
+        :param program_name: the name of the homogeneous group
+        :param supvisors: the global Supvisors structure
+        """
+        # keep reference to common logger
+        self.supvisors = supvisors
+        self.logger: Logger = supvisors.logger
+        # information part
+        self.program_name: str = program_name
+        # applicable process at/hash rules
+        self.at_identifiers: Optional[NameList] = None
+        self.hash_identifiers: Optional[NameList] = None
+        # the list of processes belonging to the group
+        self.processes: ProcessList = []
+
+    def add_process(self, process: ProcessStatus) -> None:
+        """ Add a process to the homogeneous group.
+
+        :param process: the process belonging to the group
+        :return: None
+        """
+        self.processes.append(process)
+        # check at/hash rule consistence
+        # NOTE: Based on the same program definition, is it possible to give multiple rules driven by patterns
+        #       e.g. from program:prg with numprocs=30, patterns prg_0* / prog_1* / prg_2*
+        # TODO: this has to be clarified in doc
+        if process.rules.at_identifiers:
+            if self.at_identifiers is not None and self.hash_identifiers != process.rules.hash_identifiers:
+                self.logger.error('HomogeneousGroup.add_process: inconsistent identifiers rules applied on'
+                                  f' homogeneous group={self.program_name} - @={self.at_identifiers} vs '
+                                  f' @={process.rules.at_identifiers}')
+            self.at_identifiers = process.rules.at_identifiers
+        if process.rules.hash_identifiers:
+            if self.hash_identifiers is not None and self.hash_identifiers != process.rules.hash_identifiers:
+                self.logger.error('HomogeneousGroup.add_process: inconsistent identifiers rules applied on'
+                                  f' homogeneous group={self.program_name} - #={self.hash_identifiers} vs '
+                                  f' #={process.rules.hash_identifiers}')
+            self.hash_identifiers = process.rules.hash_identifiers
+        if self.at_identifiers and self.hash_identifiers:
+            self.logger.error('HomogeneousGroup.add_process: inconsistent identifiers rules applied on'
+                                  f' homogeneous group={self.program_name} - @={self.at_identifiers} and '
+                                  f' #={self.hash_identifiers}')
+            self.hash_identifiers = None
+
+    def remove_process(self, process: ProcessStatus) -> None:
+        """ Remove a process from the homogeneous group.
+
+        :param process: the process to remove from the group
+        :return: None
+        """
+        self.processes.remove(process)
+
+    def resolve_rules(self) -> None:
+        """ When a '#' or a '@' is set in program rules, an association has to be made between the process_index
+        of the process and the index of the Supvisors identifier in the applicable identifiers list.
+        In this case, rules.hash_identifiers is expected to contain:
+            - either ['*'] when all Supervisors are applicable
+            - or any subset of these Supervisors.
+
+        The hash_identifiers were originally solved just after the Process rules were loaded because all Supvisors
+        instances were known right from the start.
+
+        The discovery mode changes things a bit. In this case, Supvisors instances are not known in advance.
+        However, the list can only increase in time and the ordering is kept, even when considering auto-fencing.
+
+        That's why the resolution logic can be kept quite identical as before. It just needs to be deferred,
+        and eventually updated.
+
+        NOTE: At resolution time, some of these processes may have already been started on the 'wrong' Supvisors
+              instance using direct calls to Supervisor, or by setting their autostart option to True.
+              The resolution logic in Supvisors does NOT consider this case because it is clearly a misuse.
+
+        Updating the process rules has no effect on a running process. The update will effectively take place when the
+        process will be started again.
+
+        :return: None
+        """
+        if self.at_identifiers:
+            self.assign_at_identifiers()
+        if self.hash_identifiers:
+            self.assign_hash_identifiers()
+
+    def assign_at_identifiers(self) -> None:
+        """ Assign identifiers wrt the '@' rule set on the homogeneous group.
+        The assignment is strictly limited by the length of the identifiers list, without roll-over.
+        If the number of candidate processes is greater than the candidate identifiers, the processes in excess
+        cannot be started using Supvisors.
+
+        :return: None
+        """
+        # get process list ordered by process_index
+        process_list = sorted(self.processes, key=lambda x: x.process_index)
+        # get instances
+        if WILDCARD in self.at_identifiers:
+            # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
+            ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        else:
+            # the subset of applicable identifiers is the second element of rule 'identifiers'
+            ref_identifiers = self.at_identifiers
+        # basic loop for '@' / no roll over
+        for process, identifier in zip(process_list, ref_identifiers):
+            self.logger.trace(f'HomogeneousGroup.assign_at_identifiers: namespec={process.namespec}'
+                              f' process_index={process.process_index} identifier={identifier}')
+            # the process at_identifiers can be reset even in discovery mode as there are only new Supvisors instances
+            if process.rules.at_identifiers:
+                process.rules.at_identifiers = []
+                process.rules.identifiers = [identifier]
+                self.logger.debug(f'ProcessRules.assign_at_identifiers: namespec={process.namespec}'
+                                  f' identifiers={process.rules.identifiers}')
+            else:
+                self.logger.debug(f'ProcessRules.assign_at_identifiers: namespec={process.namespec}'
+                                  f' already resolved identifiers={process.rules.identifiers}')
+        # when NOT in discovery mode, remove at status from homogeneous group because the assignment is final
+        if not self.supvisors.options.discovery_mode:
+            self.at_identifiers = []
+
+    def assign_hash_identifiers(self) -> None:
+        """ Assign identifiers wrt the '#' rule set on the homogeneous group.
+        The assignment is NOT limited by the length of the identifiers list.
+        If the number of candidate processes is greater than the candidate `identifiers`, the assignment is performed
+        by rolling over the identifiers list.
+
+        :return: None
+        """
+        # get process list ordered by process_index
+        process_list = sorted(self.processes, key=lambda x: x.process_index)
+        # get instances
+        if WILDCARD in self.hash_identifiers:
+            # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
+            ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        else:
+            # the subset of applicable identifiers is the second element of rule 'identifiers'
+            ref_identifiers = self.hash_identifiers
+        # the aim of hash_identifiers is to distribute the processes over a list of Supvisors instances, so
+        # unassigned processes will go to the least loaded Supvisors instance, wrt the homogeneous group considered
+        process_count_per_instance = {identifier: [] for identifier in ref_identifiers}
+        for process in process_list:
+            if process.rules.identifiers:
+                # NOTE: assumed size == 1 and identifier in ref_identifiers
+                process_count_per_instance[process.rules.identifiers[0]].append(process)
+        # re-arrange to keep ref_identifiers ordering
+        process_count = [[len(process_count_per_instance[identifier]), identifier]
+                         for identifier in ref_identifiers]
+        for process in process_list:
+            if process.rules.hash_identifiers:
+                # choose the Supvisors instance the least loaded
+                count, identifier = identifier_count = min(process_count)
+                process.rules.hash_identifiers = []
+                process.rules.identifiers = [identifier]
+                self.logger.debug(f'ProcessRules.assign_hash_identifiers: namespec={process.namespec}'
+                                  f' identifiers={process.rules.identifiers}')
+                # increment identifier counter
+                identifier_count[0] = count + 1
+            else:
+                self.logger.debug(f'ProcessRules.assign_hash_identifiers: namespec={process.namespec}'
+                                  f' already resolved identifiers={process.rules.identifiers}')
+        # when NOT in discovery mode, remove at status from homogeneous group because the assignment is final
+        if not self.supvisors.options.discovery_mode:
+            self.at_identifiers = []
+
+
+class ApplicationStatus:
     """ Class defining the status of an application in Supvisors.
 
     Attributes are:
@@ -165,6 +342,7 @@ class ApplicationStatus(object):
         - major_failure: a status telling if a required process is stopped while the application is running,
         - minor_failure: a status telling if an optional process has crashed while the application is running,
         - processes: the map (key is process name) of the ProcessStatus belonging to the application,
+        - process_groups: the ProcessStatus map, sorted as homogeneous groups,
         - rules: the ApplicationRules applicable to this application,
         - start_sequence: the sequencing to start the processes belonging to the application, as a dictionary.
         - stop_sequence: the sequencing to stop the processes belonging to the application, as a dictionary.
@@ -173,10 +351,9 @@ class ApplicationStatus(object):
     """
 
     # types for annotations
-    ProcessList = List[ProcessStatus]
     ApplicationSequence = Dict[int, ProcessList]
     PrintableApplicationSequence = Dict[int, Sequence[str]]
-    ProcessMap = Dict[str, ProcessStatus]
+    HomogeneousGroupsMap = Dict[str, HomogeneousGroup]  # {program_name: HomogeneousGroup}
 
     def __init__(self, application_name: str, rules: ApplicationRules, supvisors: Any) -> None:
         """ Initialization of the attributes.
@@ -194,7 +371,8 @@ class ApplicationStatus(object):
         self.major_failure: bool = False
         self.minor_failure: bool = False
         # process part
-        self.processes: ApplicationStatus.ProcessMap = {}
+        self.processes: ProcessMap = {}
+        self.process_groups: ApplicationStatus.HomogeneousGroupsMap = {}
         self.rules: ApplicationRules = rules
         self.start_sequence: ApplicationStatus.ApplicationSequence = {}
         self.stop_sequence: ApplicationStatus.ApplicationSequence = {}
@@ -288,7 +466,15 @@ class ApplicationStatus(object):
         :param process: the process status to be added to the application
         :return: None
         """
+        self.logger.trace(f'ApplicationStatus.add_process: {self.application_name}'
+                          f' - adding process={process.process_name}')
         self.processes[process.process_name] = process
+        # add to homogeneous groups
+        group = self.process_groups.get(process.program_name)
+        if not group:
+            group = HomogeneousGroup(process.program_name, self.supvisors)
+            self.process_groups[process.program_name] = group
+        group.add_process(process)
 
     def remove_process(self, process_name: str) -> None:
         """ Remove a process from the process list.
@@ -296,11 +482,28 @@ class ApplicationStatus(object):
         :param process_name: the process to be removed from the application
         :return: None
         """
-        self.logger.info(f'ApplicationStatus.remove_process: {self.application_name} - removing process={process_name}')
-        del self.processes[process_name]
+        self.logger.trace(f'ApplicationStatus.remove_process: {self.application_name}'
+                          f' - removing process={process_name}')
+        process = self.processes.pop(process_name)
+        # clear entry from homogeneous groups
+        self.process_groups[process.program_name].remove_process(process)
+        if not self.process_groups[process.program_name].processes:
+            del self.process_groups[process.program_name]
         # re-evaluate sequences and status
         self.update_sequences()
         self.update_status()
+
+    def resolve_rules(self):
+        """ Call for hash identifiers resolution as the application is marked to be started in the Supvisors Starter.
+        The resolution will be based on the current known list of Supvisors instances.
+        """
+        # get the programs involved in the starting sequence
+        sequenced_programs = {process.program_name
+                              for sub_seq in self.start_sequence.values()
+                              for process in sub_seq}
+        # set their rules identifiers
+        for program in sequenced_programs:
+            self.process_groups[program].resolve_rules()
 
     def possible_identifiers(self) -> NameList:
         """ Return the list of Supervisor identifiers where the application could be started.

@@ -55,7 +55,7 @@ class MockedSupvisors:
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
                        f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
         self.supvisors_mapper.configure(identifiers, [])
-        self.server_options = Mock(procnumbers={'xclock': 2})
+        self.server_options = Mock(process_indexes={'xclock': 2})
         # set real statistics collectors
         self.host_collector = instant_host_statistics
         self.process_collector = ProcessStatisticsCollector(self.logger)
@@ -253,6 +253,11 @@ def extract_and_complete(info):
     """ Provide payload as processed by Supvisors. """
     extracted_info = extract_process_info(info)
     extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': '', 'disabled': False})
+    if info['name'].startswith('yeux'):
+        program_name, process_index = info['name'].split('_')
+        extracted_info.update({'program_name': program_name, 'process_index': int(process_index)})
+    else:
+        extracted_info.update({'program_name': info['name'], 'process_index': 0})
     return extracted_info
 
 

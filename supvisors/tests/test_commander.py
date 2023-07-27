@@ -1245,8 +1245,10 @@ def test_starter_store_application_separate(starter, sample_test_1, sample_test_
     assert starter.planned_jobs == {}
     # add a start sequence in applications
     for command in sample_test_1:
+        appli1.add_process(command.process)
         appli1.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     for command in sample_test_2:
+        appli2.add_process(command.process)
         appli2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     # call method and check result
     starter.store_application(appli1)
@@ -1292,11 +1294,13 @@ def test_starter_store_application_mixed(starter, sample_test_1, sample_test_2):
     appli1.rules.start_sequence = 2
     appli1.rules.starting_strategy = StartingStrategies.LESS_LOADED
     for command in sample_test_1:
+        appli1.add_process(command.process)
         appli1.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     appli2 = create_application('sample_test_2', starter.supvisors)
     appli2.rules.start_sequence = 2
     appli2.rules.starting_strategy = StartingStrategies.MOST_LOADED
     for command in sample_test_2:
+        appli2.add_process(command.process)
         appli2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     # call method and check result
     starter.store_application(appli1)

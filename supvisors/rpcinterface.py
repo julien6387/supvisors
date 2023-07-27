@@ -1118,9 +1118,15 @@ class RPCInterface(object):
         sub_info = extract_process_info(info)
         # transform now from int to float
         sub_info['now'] *= 1.0
-        # add startsecs, stopwaitsecs and extra_args values
-        namespec = make_namespec(info['group'], info['name'])
+        # add program-related information for internal purpose
+        # add startsecs, stopwaitsecs and extra_args values taken from Supervisor internal model
+        process_name = info['name']
+        namespec = make_namespec(info['group'], process_name)
         option_names = 'startsecs', 'stopwaitsecs', 'extra_args', 'disabled'
         options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
         sub_info.update(options)
+        # add program and process_index taken from SupvisorsServerOptions
+        srv_options = self.supvisors.server_options
+        sub_info['program_name'] = srv_options.processes_program[process_name]
+        sub_info['process_index'] = srv_options.process_indexes[process_name]
         return sub_info

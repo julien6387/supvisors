@@ -1705,6 +1705,8 @@ def test_get_internal_process_rules(rpc):
 
 def test_get_local_info(mocker, rpc):
     """ Test the _get_local_info utility. """
+    rpc.supvisors.server_options.processes_program = {'dummy_name': 'dummy_name'}
+    rpc.supvisors.server_options.process_indexes = {'dummy_name': 0}
     # prepare context
     info = {'group': 'dummy_group', 'name': 'dummy_name',
             'key': 'value', 'state': 0, 'statename': 'STOPPED',
@@ -1721,7 +1723,8 @@ def test_get_local_info(mocker, rpc):
                                          'state': 0, 'statename': 'STOPPED',
                                          'start': 1234, 'stop': 7777, 'now': 4321.0, 'pid': 4567,
                                          'description': 'process dead', 'expected': True, 'spawnerr': '',
-                                         'startsecs': 2, 'stopwaitsecs': 10}
+                                         'startsecs': 2, 'stopwaitsecs': 10,
+                                         'program_name': 'dummy_name', 'process_index': 0}
 
 
 def test_startProcess(mocker, supvisors):

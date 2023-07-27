@@ -626,14 +626,15 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     `Instance aliases`_, and separated by commas.
     Special values can be used.
 
-    The wildcard ``*`` stands for all names deduced from ``supvisors_list``.
+    The *wildcard symbol* ``*`` stands for all names deduced from ``supvisors_list``.
     Any name list including a ``*`` is strictly equivalent to ``*`` alone.
 
-    The hashtag ``#`` can be used with a ``pattern`` definition and eventually complemented by a list of deduced names.
+    The *hashtag symbol* ``#`` can be used with a ``pattern`` definition and eventually complemented by a list
+    of deduced names.
     The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list
     (made of names deduced from ``supvisors_list``) to the Nth instance of the application, **assuming that 'N' is
     provided at the end of the application name, preceded by a dash or an underscore**.
-    Yeah, a bit tricky to explain... Examples will be given in `Using patterns and hashtags`_.
+    Yeah, a bit tricky to explain... Examples will be given in `Using patterns and symbols`_.
 
     *Default*:  ``*``.
 
@@ -764,13 +765,14 @@ Here follows the definition of the attributes and rules applicable to this eleme
     `rpcinterface extension point`_ or from the declared `Instance aliases`_, and separated by commas.
     Special values can be applied.
 
-    The wildcard ``*`` stands for all names deduced from ``supvisors_list``.
+    The *wildcard symbol* ``*`` stands for all names deduced from ``supvisors_list``.
     Any name list including a ``*`` is strictly equivalent to ``*`` alone.
 
-    The hashtag ``#`` can be used with a ``pattern`` definition and eventually complemented by a list of deduced names.
+    The *hashtag symbol* ``#`` and the *at symbol* ``@`` can be used with a ``pattern`` definition and eventually
+    complemented by a list of deduced names.
     The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list (made of
     names deduced from ``supvisors_list``) to the Nth instance of the program in a homogeneous process group.
-    Examples will be given in `Using patterns and hashtags`_.
+    Examples will be given in `Using patterns and symbols`_.
 
     *Default*:  ``*``.
 
@@ -934,28 +936,22 @@ their own application.
 
 .. note::
 
-    |Supervisor| does not provide support for *homogeneous* groups. So in order to have N running instances of the same
-    application, the only possible solution is to define N times the |Supervisor| group using a variation in the group
-    name (e.g. an index suffix). It is however possible to include the same |Supervisor| program definitions into
-    different groups.
+    |Supervisor| does not provide support for *homogeneous* groups of *heterogeneous* programs.
+    So in order to have N running instances of the same application, the only possible solution is to define N times
+    the |Supervisor| group using a variation in the group name (e.g. an index suffix).
+    It is however possible to include the same |Supervisor| program definitions into different groups.
 
-    Unfortunately, using *homogeneous* program groups with ``numprocs`` set to N cannot help in the present case because
-    |Supervisor| considers the program name in the group and not the ``process_name``.
-
-.. hint::
-
-    As it may be a bit clumsy to define the N definition sets, a script :command:`supvisors_breed` is provided in
-    |Supvisors| package to help the user to duplicate an application from a template.
-    Use examples can be found in the |Supvisors| use cases :ref:`scenario_2` and :ref:`scenario_3`.
+    Unfortunately, using *homogeneous* program groups with ``numprocs`` set to N cannot help in the present case
+    because |Supervisor| considers the program name in the group and not the ``process_name``.
 
 
 .. _patterns_hashtags:
 
-Using patterns and hashtags
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using patterns and signs
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Using a hashtag ``#`` in the program ``identifiers`` is designed for a program that is meant to be started on every
-|Supvisors| instances available, or on a subset of them.
+The *hashtag symbol* ``#`` and *at symbol* in the program ``identifiers`` are designed for a program that is meant
+to be started on every |Supvisors| instances available, or on a subset of them.
 
 As an example, based on the following simplified |Supervisor| configuration:
 
@@ -1006,19 +1002,23 @@ It is also possible to give a subset of deduced names.
     list. In the second example above, :program:`prg_01` will be assigned to ``cliche04`` and :program:`prg_02` to
     ``cliche02``.
 
-    |Supvisors| does take into account the start index defined in ``numprocs_start``.
+    When using the |Supvisors| discovery mode is activated, the |Supvisors| instances are chosen in accordance with
+    their arrival in the system, which is random but fixed when established.
+
+    The start index defined in ``numprocs_start`` has no consequence.
 
 .. important::
 
     In the initial |Supvisors| design, it was expected that the ``numprocs`` value set in the program configuration file
-    would match the number of elements in ``supvisors_list``.
+    would exactly match the number of |Supvisors| instances.
 
-    However, if the number of elements in ``supvisors_list`` is greater than the ``numprocs`` value, programs will
-    be assigned to the ``numprocs`` first |Supvisors| instances.
+    However, if the number of |Supvisors| instances is greater than the ``numprocs`` value, processes will be assigned
+    to the ``numprocs`` first |Supvisors| instances, with both ``#`` and ``@``.
 
-    On the other side, if the number of elements in ``supvisors_list`` is lower than the ``numprocs`` value,
-    the assignment will roll over the elements in ``supvisors_list`` in a *modulo* fashion. As a consequence,
-    there will be multiple programs assigned to a single |Supvisors| instance.
+    On the other side, if the number of |Supvisors| instances is lower than the ``numprocs`` value:
+        - when using ``@``, one process will be assigned to each |Supvisors| instance, leaving the processes in excess
+          unassigned ;
+        - when using ``#``, all the processes will be equally assigned on the |Supvisors| instances.
 
 .. attention::
 
@@ -1027,7 +1027,7 @@ It is also possible to give a subset of deduced names.
     As written before, the |Supervisor| configuration can be different for all |Supvisors| instances, including
     the definition of groups and programs.
 
-.. important:: *Convention for application names when using patterns and hashtags*
+.. important:: *Convention for application names when using patterns and symbols*
 
     When the hashtag is used for the application ``identifiers``, |Supvisors| cannot rely on the |Supervisor|
     configuration to map the application instances to the |Supvisors| instances.

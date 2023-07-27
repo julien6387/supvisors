@@ -17,15 +17,16 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import AbstractSet, Any, Dict, Optional, Set
+from time import time
+from typing import AbstractSet, Any, Dict, Optional, Set, Tuple
 
 from supervisor.loggers import Logger, LevelsByName
-from supervisor.options import make_namespec, split_namespec
+from supervisor.options import make_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from .ttypes import NameList, RunningFailureStrategies, StartingFailureStrategies
-from .utils import *
+from .ttypes import NameList, Payload, RunningFailureStrategies, StartingFailureStrategies
+from .utils import WILDCARD
 
 
 class ProcessRules(object):
@@ -33,7 +34,10 @@ class ProcessRules(object):
 
     Attributes are:
         - identifiers: the identifiers of the Supvisors instances where the process can be started (default: all) ;
-        - hash_identifiers: when # rule is used, the process can be started on only one of the Supvisors instances ;
+        - at_identifiers: when @ rule is used, the process can be started on only one Supvisors instance
+          but multiple processes of the same homogeneous group can be started on the same Supvisors instance ;
+        - hash_identifiers: when # rule is used, the processes of the same homogeneous group can only be started
+          on one the Supvisors instances ;
         - start_sequence: the order in the starting sequence of the application ;
         - stop_sequence: the order in the stopping sequence of the application ;
         - required: a status telling if the process is required within the application ;
@@ -56,7 +60,8 @@ class ProcessRules(object):
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         # attributes
-        self.identifiers: NameList = ['*']
+        self.identifiers: NameList = [WILDCARD]
+        self.at_identifiers: NameList = []
         self.hash_identifiers: NameList = []
         self.start_sequence: int = 0
         self.stop_sequence: int = -1
@@ -66,6 +71,41 @@ class ProcessRules(object):
         self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
         self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
 
+    def check_at_identifiers(self, namespec: str, is_pattern: bool) -> None:
+        """ When '@' is used, it must be part within a program/pattern element.
+
+        :param namespec: the namespec of the program considered.
+        :param is_pattern: True is the rules were taken from a pattern element.
+        :return: None
+        """
+        if self.at_identifiers and not is_pattern:
+            self.logger.error(f'ProcessRules.check_at_identifiers: {namespec} - at_identifiers reset'
+                              ' because not part of a pattern')
+            self.identifiers, self.at_identifiers = [WILDCARD], []
+
+    def check_hash_identifiers(self, namespec: str, is_pattern: bool) -> None:
+        """ When '#' is used, it must be part within a program/pattern element.
+
+        :param namespec: the namespec of the program considered.
+        :param is_pattern: True is the rules were taken from a pattern element.
+        :return: None
+        """
+        if self.hash_identifiers and not is_pattern:
+            self.logger.error(f'ProcessRules.check_hash_identifiers: {namespec} - hash_identifiers reset'
+                              ' because not part of a pattern')
+            self.identifiers, self.hash_identifiers = [WILDCARD], []
+
+    def check_sign_identifiers(self, namespec: str) -> None:
+        """ Having both '#' and '@' in the same rule does not make sense.
+
+        :param namespec: the namespec of the program considered.
+        :return: None
+        """
+        if self.at_identifiers and self.hash_identifiers:
+            self.logger.error(f'ProcessRules.check_sign_identifiers: {namespec} - hash_identifiers reset'
+                              ' because both at_identifiers and hash_identifiers are set')
+            self.hash_identifiers = []
+
     def check_start_sequence(self, namespec: str) -> None:
         """ ProcessRules having required=True MUST have start_sequence > 0,
         so force required to False if start_sequence is not set.
@@ -74,8 +114,8 @@ class ProcessRules(object):
         :return: None
         """
         if self.required and self.start_sequence == 0:
-            self.logger.warn(f'ProcessRules.check_start_sequence: {namespec} - required forced to False'
-                             ' because no start_sequence defined')
+            self.logger.error(f'ProcessRules.check_start_sequence: {namespec} - required forced to False'
+                              ' because no start_sequence defined')
             self.required = False
 
     def check_stop_sequence(self, namespec: str) -> None:
@@ -107,44 +147,16 @@ class ProcessRules(object):
             except KeyError:
                 self.logger.debug(f'ProcessRules.check_autorestart: namespec={namespec} unknown to local Supervisor')
 
-    def check_hash_identifiers(self, namespec: str) -> None:
-        """ When a '#' is set in program rules, an association has to be made between the procnumber of the process
-        and the index of the Supvisors identifier in the applicable identifiers list.
-        In this case, rules.hash_identifiers is expected to contain:
-            - either ['*'] when all Supervisors are applicable
-            - or any subset of these Supervisors.
-
-        :param namespec: the namespec of the program considered.
-        :return: None
-        """
-        _, process_name = split_namespec(namespec)
-        try:
-            # FIXME: provide this information using local_process XML-RPC and store it
-            procnumber = self.supvisors.server_options.procnumbers[process_name]
-        except KeyError:
-            self.logger.error(f'ProcessRules.check_hash_identifiers: cannot apply "#" to unknown program={namespec}')
-            self.logger.debug(f'ProcessRules.check_hash_identifiers: namespec={namespec} reset start_sequence')
-            self.start_sequence = 0
-        else:
-            self.logger.trace(f'ProcessRules.check_hash_identifiers: namespec={namespec} procnumber={procnumber}')
-            if '*' in self.hash_identifiers:
-                # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
-                ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-            else:
-                # the subset of applicable identifiers is the second element of rule 'identifiers'
-                ref_identifiers = self.hash_identifiers
-            # if there are more program instances than possible identifiers, roll over
-            index = procnumber % len(ref_identifiers)
-            self.identifiers = [ref_identifiers[index]]
-            self.logger.debug(f'ProcessRules.check_hash_identifiers: namespec={namespec}'
-                              f' identifiers={self.identifiers}')
-
-    def check_dependencies(self, namespec: str) -> None:
+    def check_dependencies(self, namespec: str, is_pattern: bool) -> None:
         """ Update rules after they have been read from the rules file.
 
         :param namespec: the namespec of the program considered.
+        :param is_pattern: True is the rules were taken from a pattern element.
         :return: None
         """
+        self.check_at_identifiers(namespec, is_pattern)
+        self.check_hash_identifiers(namespec, is_pattern)
+        self.check_sign_identifiers(namespec)
         self.check_start_sequence(namespec)
         self.check_stop_sequence(namespec)
         self.check_autorestart(namespec)
@@ -186,6 +198,8 @@ class ProcessStatus(object):
         - expected_exit: a status telling if the process has exited expectantly ;
         - last_event_time: the local date of the last information received ;
         - extra_args: the additional arguments passed to the command line ;
+        - program_name: the program name, as found in the [program] section of the Supervisor configuration file ;
+        - process_index: always 0 unless the process is part of a homogeneous group ;
         - running_identifiers: the list of all Supervisors where the process is running ;
         - info_map: a process info dictionary for each Supvisors identifier (running or not) ;
         - rules: the rules related to this process.
@@ -211,10 +225,13 @@ class ProcessStatus(object):
         self.forced_reason: str = ''
         self.expected_exit: bool = True
         self.last_event_time: float = 0.0
+        # common information across all Supvisors instances (hopefully)
+        self._program_name: str = ''
+        self._process_index: int = 0
         self._extra_args: str = ''
         # rules part
         self.rules: ProcessRules = rules
-        # one single running identifier is expected
+        # one single running identifier is expected for managed processes
         self.running_identifiers: Set[str] = set()  # identifiers
         self.info_map: Dict[str, Payload] = {}  # identifier: process_info
 
@@ -278,7 +295,7 @@ class ProcessStatus(object):
 
     @property
     def extra_args(self) -> str:
-        """ Getter of extra arguments attribute.
+        """ Getter of the extra arguments attribute.
 
         :return: the extra arguments applicable to the command line of the process
         """
@@ -286,7 +303,7 @@ class ProcessStatus(object):
 
     @extra_args.setter
     def extra_args(self, new_args: str) -> None:
-        """ Setter of extra arguments attribute.
+        """ Setter of the extra arguments attribute.
 
         :param new_args: the extra arguments applicable to the command line of the process
         :return: None
@@ -297,6 +314,51 @@ class ProcessStatus(object):
                 self.supvisors.supervisor_data.update_extra_args(self.namespec, new_args)
             except KeyError:
                 self.logger.debug(f'ProcessStatus.extra_args: namespec={self.namespec} unknown to local Supervisor')
+
+    @property
+    def program_name(self) -> str:
+        """ Getter of the program_name attribute.
+
+        :return: the program name
+        """
+        return self._program_name
+
+    @program_name.setter
+    def program_name(self, prg_name: str) -> None:
+        """ Setter of the program_name attribute.
+
+        :param prg_name: the new program name
+        :return: None
+        """
+        if self._program_name and self._program_name != prg_name:
+            # this is very unlikely, almost mischievous if it ever happens
+            program_names = {identifier: info['program_name'] for identifier, info in self.info_map.items()}
+            self.logger.error(f'ProcessStatus.program_name: inconsistent program_name for namespec={self.namespec}'
+                              f' program_names={program_names}')
+        # apply the latest received, whatever there is an issue or not
+        self._program_name = prg_name
+
+    @property
+    def process_index(self) -> int:
+        """ Getter of the _process_index attribute.
+
+        :return: the process index (always 0 unless part of a homogeneous group)
+        """
+        return self._process_index
+
+    @process_index.setter
+    def process_index(self, idx: int) -> None:
+        """ Setter of the _process_index attribute.
+
+        :param idx: the new process index
+        :return: None
+        """
+        if self._process_index > 0 and self._process_index != idx:
+            proc_indexes = {identifier: info['process_index'] for identifier, info in self.info_map.items()}
+            self.logger.error(f'ProcessStatus.process_index: inconsistent values for namespec={self.namespec}'
+                              f' proc_indexes={proc_indexes}')
+        # apply the latest received, whatever there is an issue or not
+        self._process_index = idx
 
     def serial(self) -> Payload:
         """ Get a serializable form of the ProcessStatus.
@@ -337,33 +399,6 @@ class ProcessStatus(object):
         :return: the disabled status of the process on the considered Supvisors instance
         """
         return identifier in self.info_map and self.info_map[identifier]['disabled']
-
-    def possible_identifiers(self) -> NameList:
-        """ Return the list of identifier where the program could be started.
-        To achieve that, three conditions:
-            - the Supervisor of the Supvisors instance must know the program ;
-            - the Supvisors identifier must be declared in the rules file ;
-            - the program shall not be disabled.
-
-        :return: the list of identifiers where the program could be started
-        """
-        # solve hash identifiers
-        if self.rules.hash_identifiers:
-            self.rules.check_hash_identifiers(self.namespec)
-            # FIXME: something smarter expected because it may need to be re-evaluated at some point
-            self.rules.hash_identifiers = []
-        # get the applicable identifiers
-        rules_identifiers = self.rules.identifiers
-        if '*' in self.rules.identifiers:
-            rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        self.logger.info(f'ProcessStatus.possible_identifiers: rules_identifiers={rules_identifiers}')
-        # filter identifiers based on known list (may change due to discovery mode)
-        filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
-        self.logger.debug(f'ProcessStatus.possible_identifiers: filtered={filtered_identifiers}')
-        self.logger.debug(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
-        return [identifier
-                for identifier in filtered_identifiers
-                if identifier in self.info_map and not self.disabled_on(identifier)]
 
     def has_crashed(self) -> bool:
         """ Return True if any of the processes has ever crashed or has ever exited unexpectedly.
@@ -466,6 +501,29 @@ class ProcessStatus(object):
             desc = desc + ' on ' + identifier
         return identifier, desc
 
+    # rules consideration
+    def possible_identifiers(self) -> NameList:
+        """ Return the list of identifier where the program could be started.
+        To achieve that, three conditions:
+            - the Supervisor of the Supvisors instance must know the program ;
+            - the Supvisors identifier must be declared in the rules file ;
+            - the program shall not be disabled.
+
+        :return: the list of identifiers where the program could be started
+        """
+        # get the applicable identifiers
+        rules_identifiers = self.rules.identifiers
+        if WILDCARD in self.rules.identifiers:
+            rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        self.logger.debug(f'ProcessStatus.possible_identifiers: rules_identifiers={rules_identifiers}')
+        # filter identifiers based on known list (may change due to discovery mode)
+        filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
+        self.logger.debug(f'ProcessStatus.possible_identifiers: filtered={filtered_identifiers}')
+        self.logger.debug(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
+        return [identifier
+                for identifier in filtered_identifiers
+                if identifier in self.info_map and not self.disabled_on(identifier)]
+
     # methods
     def state_string(self) -> str:
         """ Get the process state as a string.
@@ -493,6 +551,9 @@ class ProcessStatus(object):
             # difference of view, reset
             info['extra_args'] = ''
             self.extra_args = ''
+        # store the program name and the process index at global level
+        self.program_name = info['program_name']
+        self.process_index = info['process_index']
         # keep history that the process has ever crashed in the Supvisors instance
         has_crashed = ProcessStatus.is_crashed_event(info)
         info['has_crashed'] = has_crashed | info.get('has_crashed', False)

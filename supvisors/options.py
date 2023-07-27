@@ -472,8 +472,9 @@ class SupvisorsServerOptions(ServerOptions):
         - program_class: the Supervisor class type of the program among {ProcessConfig, FastCGIProcessConfig,
           EventListenerConfig} ;
         - program_processes: for each program, the group names using it and the corresponding process configurations ;
-        - process_programs: the program associated to each process (key is a process name, not a namespec).
-        - procnumbers: the index of each process (key is a process name, not a namespec).
+        - process_programs: the program associated to each process (key is a process name, not a namespec) ;
+        - process_indexes: the index of each process (key is a process name, not a namespec), so numprocs_start
+          has no impact on the number.
     """
 
     # annotation types
@@ -493,7 +494,7 @@ class SupvisorsServerOptions(ServerOptions):
         self.program_class: SupvisorsServerOptions.ProcessClassInfo = {}
         self.program_processes: SupvisorsServerOptions.ProcessGroupInfo = {}
         self.processes_program: Dict[str, str] = {}
-        self.procnumbers: Dict[str, int] = {}
+        self.process_indexes: Dict[str, int] = {}
 
     def _processes_from_section(self, parser, section, group_name, klass=None) -> List[ProcessConfig]:
         """ This method is overridden to: store the program number of a homogeneous program.
@@ -521,7 +522,7 @@ class SupvisorsServerOptions(ServerOptions):
         for idx, process_config in enumerate(process_configs):
             # process_config.name is the process_name
             self.processes_program[process_config.name] = program_name
-            self.procnumbers[process_config.name] = idx
+            self.process_indexes[process_config.name] = idx
         # return original result
         return process_configs
 
@@ -562,7 +563,7 @@ class SupvisorsServerOptions(ServerOptions):
         for process_list in self.program_processes[program_name].values():
             for process in process_list:
                 self.processes_program.pop(process.name, None)
-                self.procnumbers.pop(process.name, None)
+                self.process_indexes.pop(process.name, None)
         # call parser again
         klass = self.program_class[program_name]
         return self.processes_from_section(self.parser, section, group_name, klass)

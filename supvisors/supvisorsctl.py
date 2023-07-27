@@ -398,7 +398,7 @@ class ControllerPlugin(ControllerPluginBase):
                 payload = {'appli': 'Application', 'proc': 'Process', 'disabled': 'Disabled', 'state': 'State',
                            'start': 'Start', 'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
                 self.ctl.output(template % payload)
-                # print filtered payloads
+                # print filtered payloads (some attributes serve only Supvisors internal purpose)
                 for info in match_list:
                     start_time = simple_localtime(info['start']) if info['start'] else 0
                     now_time = simple_localtime(info['now']) if info['now'] else 0

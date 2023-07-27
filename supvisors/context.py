@@ -340,11 +340,12 @@ class Context(object):
             self.applications[application_name] = application
         return application
 
-    def setdefault_process(self, info: Payload) -> Optional[ProcessStatus]:
+    def setdefault_process(self, identifier: str, info: Payload) -> Optional[ProcessStatus]:
         """ Return the process corresponding to info if found,
         otherwise load rules from the rules file, create a new process entry if rules exist and return it.
         Processes that are not defined in the rules files will not be stored in the Supvisors context.
 
+        :param identifier: the identification of the Supvisors instance that sent this payload.
         :param info: the payload representing the process.
         :return: the process stored in the Supvisors context.
         """
@@ -354,17 +355,23 @@ class Context(object):
         application = self.setdefault_application(application_name)
         # search for existing process in application
         process = application.processes.get(process_name)
-        if not process:
+        new_process = process is  None
+        if new_process:
+            # create process rules
             # by default, apply application starting / running failure strategies
             rules = ProcessRules(self.supvisors)
             rules.starting_failure_strategy = application.rules.starting_failure_strategy
             rules.running_failure_strategy = application.rules.running_failure_strategy
             if self.supvisors.parser:
-                # load rules from rules file
+                # load process rules from rules files
                 self.supvisors.parser.load_program_rules(namespec, rules)
                 self.logger.debug(f'Context.setdefault_process: namespec={namespec} rules={rules}')
-            # add new process to context
+            # create a new ProcessStatus
             process = ProcessStatus(application_name, info['name'], rules, self.supvisors)
+        # store the payload in the ProcessStatus
+        process.add_info(identifier, info)
+        # add a new ProcessStatus to the ApplicationStatus
+        if new_process:
             application.add_process(process)
         return process
 
@@ -381,10 +388,8 @@ class Context(object):
         # store processes into their application entry
         for info in all_info:
             # get or create process
-            process = self.setdefault_process(info)
+            process = self.setdefault_process(identifier, info)
             if process:
-                # update the current entry
-                process.add_info(identifier, info)
                 # share the instance to the Supervisor instance that holds it
                 status.add_process(process)
         # re-evaluate application sequences and status

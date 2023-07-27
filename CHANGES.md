@@ -15,6 +15,11 @@
   The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
   *Not stable yet*.
 
+* The new item `@` in the `identifiers` of the Program rules takes the behavior of the item `#` as it was
+  before **Supvisors** version 0.13, i.e. the assignment is strictly limited by the length of the `identifiers` list,
+  without roll-over.
+  NOTE: This is not available for Application rules.
+
 * Use host aliases when looking for the local **Supvisors** instance.
 
 * Use IP address rather than host identification when dealing with `SINGLE_NODE` starting strategy. 
@@ -160,7 +165,7 @@
   points out the **Supvisors** instances where the modes are activated, and the applications involved in its own
   `Starter` or `Stopper`.
 
-* When using `#` in the `identifiers` of the Application or Program rules and with a number of candidate
+* When using the item `#` in the `identifiers` of the Application or Program rules and with a number of candidate
   applications or processes greater than the candidate `identifiers`, the assignment is performed by rolling over
   the `identifiers` list. 
 

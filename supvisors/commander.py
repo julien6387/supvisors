@@ -1054,9 +1054,9 @@ class Starter(Commander):
                           trigger: bool = True) -> None:
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested.
 
-        :param strategy: the strategy to be used to start the application
-        :param application: the application to start
-        :param trigger: a status telling if the jobs have to be triggered directly or not
+        :param strategy: the strategy to be used to start the application.
+        :param application: the application to start.
+        :param trigger: a status telling if the jobs have to be triggered directly or not.
         :return: None
         """
         self.logger.debug(f'Starter.start_application: application={application.application_name}')
@@ -1076,9 +1076,9 @@ class Starter(Commander):
         i.e. their start_sequence is > 0.
         When the strategy is not provided, the application default starting strategy is used.
 
-        :param application: the application to start
-        :param strategy: the strategy to be used to choose the Supvisors instances where processes may be started
-        :return: True if application start sequence added to planned_jobs
+        :param application: the application to start.
+        :param strategy: the strategy to be used to choose the Supvisors instances where processes may be started.
+        :return: True if application start sequence added to planned_jobs.
         """
         # use application default starting strategy (application rules) if not provided as parameter
         if strategy is None:
@@ -1096,6 +1096,8 @@ class Starter(Commander):
             sequence[application.application_name] = job
             self.logger.debug(f'Starter.store_application: starting of {application.application_name}'
                               f' planned using strategy {strategy.name} with priority={priority}')
+            # resolve hash rules if necessary
+            application.resolve_rules()
             return True
         self.logger.warn(f'Starter.store_application: {application.application_name} has no valid start_sequence')
 

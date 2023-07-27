@@ -51,9 +51,8 @@ def filled_context(context):
     """ Push ProcessInfoDatabase process info in SupvisorsInstanceStatus. """
     context.supvisors.parser.load_application_rules = load_application_rules
     for info in database_copy():
-        process = context.setdefault_process(info)
         identifier = random.choice(list(context.instances.keys()))
-        process.add_info(identifier, info)
+        process = context.setdefault_process(identifier, info)
         context.instances[identifier].add_process(process)
     return context
 
@@ -472,10 +471,12 @@ def test_setdefault_process(context):
     # check application list
     assert context.applications == {}
     # test data
-    dummy_info1 = {'group': 'dummy_application_1', 'name': 'dummy_process_1'}
-    dummy_info2 = {'group': 'dummy_application_2', 'name': 'dummy_process_2'}
+    dummy_info1 = any_process_info()
+    dummy_info1.update({'group': 'dummy_application_1', 'name': 'dummy_process_1'})
+    dummy_info2 = any_process_info()
+    dummy_info2.update({'group': 'dummy_application_2', 'name': 'dummy_process_2'})
     # in this test, there is no rules file so application rules managed won't be changed by load_application_rules
-    process1 = context.setdefault_process(dummy_info1)
+    process1 = context.setdefault_process('10.0.0.1', dummy_info1)
     assert process1.application_name == 'dummy_application_1'
     assert process1.process_name == 'dummy_process_1'
     assert list(context.applications.keys()) == ['dummy_application_1']
@@ -489,7 +490,7 @@ def test_setdefault_process(context):
     # so patch load_application_rules to avoid that
     context.supvisors.parser.load_application_rules = load_application_rules
     # get process
-    process1 = context.setdefault_process(dummy_info1)
+    process1 = context.setdefault_process('10.0.0.1', dummy_info1)
     # check application still unmanaged
     application1 = context.applications['dummy_application_1']
     assert not application1.rules.managed
@@ -499,7 +500,7 @@ def test_setdefault_process(context):
     assert process1.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert process1.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
     # get application
-    process2 = context.setdefault_process(dummy_info2)
+    process2 = context.setdefault_process('10.0.0.1', dummy_info2)
     # check application and process list
     assert sorted(context.applications.keys()) == ['dummy_application_1', 'dummy_application_2']
     application1 = context.applications['dummy_application_1']
@@ -1003,14 +1004,19 @@ def test_on_process_removed_event_running_process(mocker, context):
     # add context. processes removed are expected to be STOPPED
     application = context.applications['dummy_application'] = create_application('dummy_application', context.supvisors)
     dummy_info_1 = {'group': 'dummy_application', 'name': 'dummy_process_1', 'expected': True, 'state': 0,
-                    'now': 1234, 'stop': 1230, 'extra_args': '-h'}
+                    'now': 1234, 'stop': 1230, 'extra_args': '-h',
+                    'program_name': 'dummy_process', 'process_index': 0}
     dummy_info_2 = {'group': 'dummy_application', 'name': 'dummy_process_2', 'expected': True, 'state': 0,
-                    'now': 4321, 'stop': 4300, 'extra_args': ''}
-    process_1 = application.processes['dummy_process_1'] = create_process(dummy_info_1, context.supvisors)
-    process_2 = application.processes['dummy_process_2'] = create_process(dummy_info_2, context.supvisors)
+                    'now': 4321, 'stop': 4300, 'extra_args': '',
+                    'program_name': 'dummy_process', 'process_index': 1}
+    process_1 = create_process(dummy_info_1, context.supvisors)
+    process_2 = create_process(dummy_info_2, context.supvisors)
+    application.add_process(process_2)
     process_1.add_info('10.0.0.1', dummy_info_1)
     process_1.add_info('10.0.0.2', dummy_info_1)
     process_2.add_info('10.0.0.2', dummy_info_2)
+    application.add_process(process_1)
+    application.add_process(process_2)
     context.instances['10.0.0.1'].processes[process_1.namespec] = process_1
     context.instances['10.0.0.2'].processes[process_1.namespec] = process_1
     context.instances['10.0.0.2'].processes[process_2.namespec] = process_2
@@ -1086,16 +1092,21 @@ def test_on_process_removed_event_running_group(mocker, context):
     context.supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_publisher = context.supvisors.external_publisher
     # add context. processes removed are expected to be STOPPED
-    application = context.applications['dummy_application'] = create_application('dummy_application', context.supvisors)
+    application = create_application('dummy_application', context.supvisors)
+    context.applications['dummy_application'] = application
     dummy_info_1 = {'group': 'dummy_application', 'name': 'dummy_process_1', 'expected': True, 'state': 0,
-                    'now': 1234, 'stop': 1230, 'extra_args': '-h'}
+                    'now': 1234, 'stop': 1230, 'extra_args': '-h',
+                    'program_name': 'dummy_process', 'process_index': 0}
     dummy_info_2 = {'group': 'dummy_application', 'name': 'dummy_process_2', 'expected': True, 'state': 0,
-                    'now': 4321, 'stop': 4300, 'extra_args': ''}
-    process_1 = application.processes['dummy_process_1'] = create_process(dummy_info_1, context.supvisors)
-    process_2 = application.processes['dummy_process_2'] = create_process(dummy_info_2, context.supvisors)
+                    'now': 4321, 'stop': 4300, 'extra_args': '',
+                    'program_name': 'dummy_process', 'process_index': 1}
+    process_1 = create_process(dummy_info_1, context.supvisors)
+    process_2 = create_process(dummy_info_2, context.supvisors)
     process_1.add_info('10.0.0.1', dummy_info_1)
     process_1.add_info('10.0.0.2', dummy_info_1)
     process_2.add_info('10.0.0.2', dummy_info_2)
+    application.add_process(process_1)
+    application.add_process(process_2)
     context.instances['10.0.0.1'].processes[process_1.namespec] = process_1
     context.instances['10.0.0.2'].processes[process_1.namespec] = process_1
     context.instances['10.0.0.2'].processes[process_2.namespec] = process_2
@@ -1196,8 +1207,9 @@ def test_on_process_disability_event(mocker, context):
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
     dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'state': 0,
-                  'now': 1234, 'stop': 0, 'extra_args': '-h', 'disabled': False}
-    process = context.setdefault_process(dummy_info)
+                  'now': 1234, 'stop': 0, 'extra_args': '-h', 'disabled': False,
+                  'program_name': 'dummy_process', 'process_index': 0}
+    process = context.setdefault_process('10.0.0.2', dummy_info)
     process.add_info('10.0.0.2', dummy_info)
     mocker.patch.object(context, 'check_process', return_value=(None, process))
     # check that process disabled status is not updated if the process has no information from the Supvisors instance
@@ -1275,9 +1287,9 @@ def test_on_process_state_event_locally_unknown_forced(mocker, context):
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
     dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'state': ProcessStates.RUNNING,
-                  'now': 1234, 'start': 1230, 'expected': True, 'extra_args': '-h'}
-    process = context.setdefault_process(dummy_info)
-    process.add_info('10.0.0.1', dummy_info)
+                  'now': 1234, 'start': 1230, 'expected': True, 'extra_args': '-h',
+                  'program_name': 'dummy_process', 'process_index': 0}
+    process = context.setdefault_process('10.0.0.1', dummy_info)
     assert 'dummy_application' in context.applications
     application = context.applications['dummy_application']
     assert 'dummy_process' in application.processes
@@ -1320,9 +1332,9 @@ def test_on_process_state_event_locally_known_forced_dismissed(context):
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
     dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'state': ProcessStates.RUNNING,
-                  'now': 1234, 'start': 1230, 'expected': True, 'extra_args': '-h'}
-    process = context.setdefault_process(dummy_info)
-    process.add_info('10.0.0.1', dummy_info)
+                  'now': 1234, 'start': 1230, 'expected': True, 'extra_args': '-h',
+                  'program_name': 'dummy_process', 'process_index': 0}
+    process = context.setdefault_process('10.0.0.1', dummy_info)
     application = context.applications['dummy_application']
     # update sequences for the test
     application.rules.managed = True
@@ -1355,9 +1367,9 @@ def test_on_process_state_event(mocker, context):
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
     dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'state': 0,
-                  'now': 1234, 'stop': 0, 'extra_args': '-h'}
-    process = context.setdefault_process(dummy_info)
-    process.add_info('10.0.0.1', dummy_info)
+                  'now': 1234, 'stop': 0, 'extra_args': '-h',
+                  'program_name': 'dummy_process', 'process_index': 0}
+    process = context.setdefault_process('10.0.0.1', dummy_info)
     application = context.applications['dummy_application']
     assert application.state == ApplicationStates.STOPPED
     # update sequences for the test
