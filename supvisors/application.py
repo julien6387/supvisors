@@ -197,9 +197,8 @@ class HomogeneousGroup:
         # check at/hash rule consistence
         # NOTE: Based on the same program definition, is it possible to give multiple rules driven by patterns
         #       e.g. from program:prg with numprocs=30, patterns prg_0* / prog_1* / prg_2*
-        # TODO: this has to be clarified in doc
         if process.rules.at_identifiers:
-            if self.at_identifiers is not None and self.hash_identifiers != process.rules.hash_identifiers:
+            if self.at_identifiers is not None and self.at_identifiers != process.rules.at_identifiers:
                 self.logger.error('HomogeneousGroup.add_process: inconsistent identifiers rules applied on'
                                   f' homogeneous group={self.program_name} - @={self.at_identifiers} vs '
                                   f' @={process.rules.at_identifiers}')
