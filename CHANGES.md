@@ -9,11 +9,13 @@
 * Improve robustness against network failures. The periodic check is performed prior to the TICK publication.
   The internal TCP sockets are rebound when a network interface becomes up.
 
+* Monkeypatch fix of [Supervisor Issue #1596](https://github.com/Supervisor/supervisor/issues/1596).
+  Shutdown of the asyncore socket before it is closed.
+
 * Provide a discovery mode where the **Supvisors** instances are established on-the-fly without declaring them in
   the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_group`,
   `multicast_interface` and `multicast_ttl` added to that purpose).
   The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
-  *Not stable yet*.
 
 * The new item `@` in the `identifiers` of the Program rules takes the behavior of the item `#` as it was
   before **Supvisors** version 0.13, i.e. the assignment is strictly limited by the length of the `identifiers` list,

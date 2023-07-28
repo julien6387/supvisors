@@ -162,22 +162,22 @@ class SupervisorListener(object):
             # Stop the process statistics collector
             if self.supvisors.process_collector:
                 self.supvisors.process_collector.pid_queue.put(None)
+            # close pusher and publication sockets
+            self.logger.debug('SupervisorListener.on_stopping: stopping internal emitter')
+            self.supvisors.sockets.stop()
+            self.logger.debug('SupervisorListener.on_stopping: internal emitter stopped')
             # force Supervisor to close HTTP servers
             # this will prevent any pending XML-RPC request to block the main loop
             self.supvisors.supervisor_data.close_httpservers()
             # close external publication
             if self.external_publisher:
-                self.logger.debug('SupervisorListener.on_stopping: stopping external publication thread')
+                self.logger.debug('SupervisorListener.on_stopping: stopping external notifier')
                 self.external_publisher.close()
-                self.logger.debug('SupervisorListener.on_stopping: external publication thread stopped')
+                self.logger.debug('SupervisorListener.on_stopping: external notifier stopped')
             # stop the main loop
             self.logger.debug('SupervisorListener.on_stopping: stopping main loop')
             self.main_loop.stop()
             self.logger.debug('SupervisorListener.on_stopping: main loop stopped')
-            # close pusher and publication sockets
-            self.logger.debug('SupervisorListener.on_stopping: stopping internal publication thread')
-            self.supvisors.sockets.stop()
-            self.logger.debug('SupervisorListener.on_stopping: internal publication thread stopped')
             # unsubscribe from events
             events.clear()
             # finally, close logger

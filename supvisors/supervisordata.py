@@ -215,7 +215,7 @@ class SupervisorData(object):
         # WARN: this is also triggered by adding groups in Supervisor, however the initial group added events
         # are sent before the Supvisors RPC interface is created
         self.update_internal_data()
-
+    
     def update_internal_data(self, group_name: str = None) -> None:
         """ Add extra attributes to Supervisor internal data.
 
@@ -276,6 +276,12 @@ class SupervisorData(object):
         """ Call the close_httpservers of Supervisor.
         This is called when receiving the Supervisor stopping event in order to force the termination
         of any asynchronous job. """
+        # Supervisor issue #1596:
+        #     In the event of a reload, the HTTP socket will be re-opened very quickly.
+        #     Despite the REUSEADDR is set, there may still be a handle somewhere on the socket that makes it
+        #     NOT deallocated, although it has been closed.
+        #     To avoid issues, it is better to shut the socket down before closing it.
+        self.http_server.socket.shutdown(socket.SHUT_RDWR)
         self.supervisord.options.close_httpservers()
         self.supervisord.options.httpservers = ()
 
