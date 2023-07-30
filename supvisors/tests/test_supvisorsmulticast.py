@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
 #
@@ -205,5 +204,5 @@ def test_receiver_recv_exception(mc):
     The aim is to hit the line 180 in MulticastSender.read_fds.
     Checked ok with debugger.
     """
-    mc.receiver.socket.close()
-    assert mc.receiver.read_fds([-1]) == []
+    mc.receiver.socket.setblocking(False)
+    assert mc.receiver.read_fds([mc.receiver.socket.fileno()]) == []
