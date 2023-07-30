@@ -196,7 +196,7 @@ class InternalCommReceiver:
 
     def read_fds(self, fds) -> List[Tuple[Ipv4Address, Payload]]:
         """ Read the messages received on the file descriptors. """
-        return []
+        raise NotImplementedError
 
     def manage_heartbeat(self) -> None:
         """ Check heartbeat reception from publishers and send heartbeat to them.

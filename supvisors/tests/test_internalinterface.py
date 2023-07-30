@@ -108,9 +108,12 @@ def test_internal_comm_receiver_creation(supvisors, push_pull, receiver):
     assert receiver.puller_sock is push_pull[1]
     assert receiver.logger is supvisors.logger
     # test calls to empty methods
-    assert receiver.read_fds([]) == []
-    receiver.manage_heartbeat()
-    receiver.disconnect_subscriber([])
+    with pytest.raises(NotImplementedError):
+        receiver.read_fds([])
+    with pytest.raises(NotImplementedError):
+        receiver.manage_heartbeat()
+    with pytest.raises(NotImplementedError):
+        receiver.disconnect_subscriber([])
     # try polling when nothing sent
     assert receiver.poll() == (False, [])
     # close pusher / puller properly

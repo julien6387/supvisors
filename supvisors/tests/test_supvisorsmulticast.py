@@ -31,6 +31,8 @@ local_ip = gethostbyname(gethostname())
 @pytest.fixture
 def mc(supvisors):
     """ Create the SupvisorsSockets instance. """
+    supvisors.logger.error = print
+    supvisors.logger.debug = print
     supvisors.options.multicast_group = '239.0.0.1', 7777
     socks = SupvisorsMulticast(supvisors)
     yield socks
@@ -87,13 +89,7 @@ def check_sockets(receiver: MulticastReceiver,
 
 def test_global_normal(supvisors, mc):
     """ Test the Supvisors Multicast in one single test. """
-    # initial check for connectable instances
-    # assert sorted(mc.receiver.instances.keys()) == sorted(supvisors.supvisors_mapper.instances.keys())
-    # the subscriber has connected the local publisher instance
     local_identifier = supvisors.supvisors_mapper.local_identifier
-    #assert list(mc.receiver.subscribers.keys()) == [local_identifier]
-    #client_sock, hb_sent, hb_recv = mc.receiver.subscribers[local_identifier]
-    #assert isinstance(client_sock, socket)
     # poll during 3 seconds: nothing sent but heartbeat
     check_sockets(mc.receiver, None, None, local_identifier)
     # test push / subscribe for CHECK_INSTANCE
@@ -184,14 +180,30 @@ def test_global_normal(supvisors, mc):
                   local_identifier)
 
 
+# testing exception cases (by line number)
 def test_emitter_send_exception(mc_intf):
-    """ Test the sendto exception of the MulticastSender. """
+    """ Test the sendto exception of the MulticastSender.
+    The aim is to hit the lines 63-64 in MulticastSender.send_message.
+    Checked ok with debugger.
+    """
     mc_intf.emitter.close()
     mc_intf.emitter.send_tick_event({})
 
 
 def test_receiver_bind_exception(supvisors):
-    """ Test the bind exception of the MulticastReceiver (use wrong IP). """
+    """ Test the bind exception of the MulticastReceiver (use wrong IP).
+    The aim is to hit the lines 162-163 in MulticastSender.send_message.
+    Checked ok with debugger.
+    """
     push_sock, pull_sock = socketpair()
     sender = MulticastReceiver(pull_sock, ('10.0.0', 1234), '192.168.10.25', supvisors.logger)
     assert not sender.socket
+
+
+def test_receiver_recv_exception(mc):
+    """ Test the recvfrom exception in the MulticastReceiver.
+    The aim is to hit the line 180 in MulticastSender.read_fds.
+    Checked ok with debugger.
+    """
+    mc.receiver.socket.close()
+    assert mc.receiver.read_fds([-1]) == []
