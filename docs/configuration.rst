@@ -634,7 +634,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list
     (made of names deduced from ``supvisors_list``) to the Nth instance of the application, **assuming that 'N' is
     provided at the end of the application name, preceded by a dash or an underscore**.
-    Yeah, a bit tricky to explain... Examples will be given in `Using patterns and symbols`_.
+    Yeah, a bit tricky to explain... Examples will be given in `Using patterns and signs`_.
 
     *Default*:  ``*``.
 
@@ -772,7 +772,7 @@ Here follows the definition of the attributes and rules applicable to this eleme
     complemented by a list of deduced names.
     The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list (made of
     names deduced from ``supvisors_list``) to the Nth instance of the program in a homogeneous process group.
-    Examples will be given in `Using patterns and symbols`_.
+    Examples will be given in `Using patterns and signs`_.
 
     *Default*:  ``*``.
 
@@ -1027,7 +1027,7 @@ It is also possible to give a subset of deduced names.
     As written before, the |Supervisor| configuration can be different for all |Supvisors| instances, including
     the definition of groups and programs.
 
-.. important:: *Convention for application names when using patterns and symbols*
+.. important:: *Convention for application names when using patterns and signs*
 
     When the hashtag is used for the application ``identifiers``, |Supvisors| cannot rely on the |Supervisor|
     configuration to map the application instances to the |Supvisors| instances.
