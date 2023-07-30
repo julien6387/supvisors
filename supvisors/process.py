@@ -166,7 +166,8 @@ class ProcessRules(object):
 
         :return: the printable process rules
         """
-        return (f'identifiers={self.identifiers} hash_identifiers={self.hash_identifiers}'
+        return (f'identifiers={self.identifiers}'
+                f' at_identifiers={self.at_identifiers} hash_identifiers={self.hash_identifiers}'
                 f' start_sequence={self.start_sequence} stop_sequence={self.stop_sequence} required={self.required}'
                 f' wait_exit={self.wait_exit} expected_load={self.expected_load}'
                 f' starting_failure_strategy={self.starting_failure_strategy.name}'
@@ -354,6 +355,7 @@ class ProcessStatus(object):
         :return: None
         """
         if self._process_index > 0 and self._process_index != idx:
+            # very strange but it may happen if numprocs_start options are configured differently
             proc_indexes = {identifier: info['process_index'] for identifier, info in self.info_map.items()}
             self.logger.error(f'ProcessStatus.process_index: inconsistent values for namespec={self.namespec}'
                               f' proc_indexes={proc_indexes}')
@@ -513,11 +515,12 @@ class ProcessStatus(object):
         """
         # get the applicable identifiers
         rules_identifiers = self.rules.identifiers
-        if WILDCARD in self.rules.identifiers:
-            rules_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         self.logger.debug(f'ProcessStatus.possible_identifiers: rules_identifiers={rules_identifiers}')
-        # filter identifiers based on known list (may change due to discovery mode)
-        filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
+        if WILDCARD in self.rules.identifiers:
+            filtered_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        else:
+            # filter identifiers based on currently known list (may change due to discovery mode)
+            filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
         self.logger.debug(f'ProcessStatus.possible_identifiers: filtered={filtered_identifiers}')
         self.logger.debug(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
         return [identifier

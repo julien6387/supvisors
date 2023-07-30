@@ -93,9 +93,6 @@ class ApplicationRules:
             - either ['*'] when all Supervisors are applicable
             - or any subset of these Supervisors.
 
-        FIXME: consider @
-        FIXME: restriction for discovery mode
-
         :param application_name: the name of the application considered.
         :return: None
         """
@@ -178,7 +175,6 @@ class HomogeneousGroup:
         """
         # keep reference to common logger
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
         # information part
         self.program_name: str = program_name
         # applicable process at/hash rules
@@ -187,8 +183,14 @@ class HomogeneousGroup:
         # the list of processes belonging to the group
         self.processes: ProcessList = []
 
+    @property
+    def logger(self) -> Logger:
+        """ Return the Supvisors logger. """
+        return self.supvisors.logger
+
     def add_process(self, process: ProcessStatus) -> None:
         """ Add a process to the homogeneous group.
+        process is expected to have the correct program_name (not checked here).
 
         :param process: the process belonging to the group
         :return: None
@@ -211,8 +213,8 @@ class HomogeneousGroup:
             self.hash_identifiers = process.rules.hash_identifiers
         if self.at_identifiers and self.hash_identifiers:
             self.logger.error('HomogeneousGroup.add_process: inconsistent identifiers rules applied on'
-                                  f' homogeneous group={self.program_name} - @={self.at_identifiers} and '
-                                  f' #={self.hash_identifiers}')
+                              f' homogeneous group={self.program_name} - @={self.at_identifiers} and '
+                              f' #={self.hash_identifiers}')
             self.hash_identifiers = None
 
     def remove_process(self, process: ProcessStatus) -> None:
@@ -226,7 +228,7 @@ class HomogeneousGroup:
     def resolve_rules(self) -> None:
         """ When a '#' or a '@' is set in program rules, an association has to be made between the process_index
         of the process and the index of the Supvisors identifier in the applicable identifiers list.
-        In this case, rules.hash_identifiers is expected to contain:
+        In this case, rules.hash_identifiers or rules.hash_identifiers is expected to contain:
             - either ['*'] when all Supervisors are applicable
             - or any subset of these Supervisors.
 
@@ -263,29 +265,41 @@ class HomogeneousGroup:
         """
         # get process list ordered by process_index
         process_list = sorted(self.processes, key=lambda x: x.process_index)
-        # get instances
-        if WILDCARD in self.at_identifiers:
-            # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
-            ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        else:
-            # the subset of applicable identifiers is the second element of rule 'identifiers'
-            ref_identifiers = self.at_identifiers
-        # basic loop for '@' / no roll over
-        for process, identifier in zip(process_list, ref_identifiers):
-            self.logger.trace(f'HomogeneousGroup.assign_at_identifiers: namespec={process.namespec}'
-                              f' process_index={process.process_index} identifier={identifier}')
-            # the process at_identifiers can be reset even in discovery mode as there are only new Supvisors instances
-            if process.rules.at_identifiers:
+        # get unassigned processes
+        unassigned_processes = [process for process in process_list
+                                if process.rules.at_identifiers]
+        if unassigned_processes:
+            # get instances
+            if WILDCARD in self.at_identifiers:
+                # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
+                ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+            else:
+                # the subset of applicable identifiers is the second element of rule 'identifiers'
+                # filter the unknown identifiers (or remaining aliases)
+                ref_identifiers = self.supvisors.supvisors_mapper.filter(self.at_identifiers)
+            self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
+                              f' ref_identifiers={ref_identifiers}')
+            # the aim of at_identifiers is to distribute the processes over a list of Supvisors instances,
+            #   without having 2 processes assigned to the same identifier
+            # get assigned identifiers, assuming rules identifiers have size == 1
+            assigned_identifiers = [process.rules.identifiers[0] for process in process_list
+                                    if process.rules.identifiers]
+            self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
+                              f' assigned_identifiers={assigned_identifiers}')
+            # deduce unassigned identifiers
+            unassigned_identifiers = [identifier for identifier in ref_identifiers
+                                      if identifier not in assigned_identifiers]
+            self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
+                              f' unassigned_identifiers={unassigned_identifiers}')
+            # resolve what can be done
+            for process, identifier in zip(unassigned_processes, unassigned_identifiers):
                 process.rules.at_identifiers = []
                 process.rules.identifiers = [identifier]
-                self.logger.debug(f'ProcessRules.assign_at_identifiers: namespec={process.namespec}'
-                                  f' identifiers={process.rules.identifiers}')
-            else:
-                self.logger.debug(f'ProcessRules.assign_at_identifiers: namespec={process.namespec}'
-                                  f' already resolved identifiers={process.rules.identifiers}')
-        # when NOT in discovery mode, remove at status from homogeneous group because the assignment is final
-        if not self.supvisors.options.discovery_mode:
-            self.at_identifiers = []
+                self.logger.info(f'ProcessRules.assign_at_identifiers: namespec={process.namespec} assigned to'
+                                 f' identifiers={process.rules.identifiers}')
+            # WARN: even if not in discovery mode, do NOT remove the 'at' status from homogeneous group
+            #       the assignment is final but the number of processes in a homogeneous group can change
+            #       (through the update_numprocs XML-RPC)
 
     def assign_hash_identifiers(self) -> None:
         """ Assign identifiers wrt the '#' rule set on the homogeneous group.
@@ -297,39 +311,44 @@ class HomogeneousGroup:
         """
         # get process list ordered by process_index
         process_list = sorted(self.processes, key=lambda x: x.process_index)
-        # get instances
-        if WILDCARD in self.hash_identifiers:
-            # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
-            ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
-        else:
-            # the subset of applicable identifiers is the second element of rule 'identifiers'
-            ref_identifiers = self.hash_identifiers
-        # the aim of hash_identifiers is to distribute the processes over a list of Supvisors instances, so
-        # unassigned processes will go to the least loaded Supvisors instance, wrt the homogeneous group considered
-        process_count_per_instance = {identifier: [] for identifier in ref_identifiers}
-        for process in process_list:
-            if process.rules.identifiers:
-                # NOTE: assumed size == 1 and identifier in ref_identifiers
-                process_count_per_instance[process.rules.identifiers[0]].append(process)
-        # re-arrange to keep ref_identifiers ordering
-        process_count = [[len(process_count_per_instance[identifier]), identifier]
-                         for identifier in ref_identifiers]
-        for process in process_list:
-            if process.rules.hash_identifiers:
-                # choose the Supvisors instance the least loaded
-                count, identifier = identifier_count = min(process_count)
+        # get unassigned processes
+        unassigned_processes = [process for process in process_list
+                                if process.rules.hash_identifiers]
+        if unassigned_processes:
+            # get instances
+            if WILDCARD in self.hash_identifiers:
+                # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
+                ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+            else:
+                # the subset of applicable identifiers is the second element of rule 'identifiers'
+                # filter the unknown identifiers (or remaining aliases)
+                ref_identifiers = self.supvisors.supvisors_mapper.filter(self.hash_identifiers)
+            self.logger.debug(f'ProcessRules.assign_hash_identifiers: program={self.program_name}'
+                              f' ref_identifiers={ref_identifiers}')
+            # the aim of hash_identifiers is to distribute the processes over a list of Supvisors instances, so
+            # unassigned processes will go to the least loaded Supvisors instance, wrt the homogeneous group considered
+            process_count_per_instance = {identifier: [] for identifier in ref_identifiers}
+            for process in process_list:
+                if process.rules.identifiers:
+                    # NOTE: assumed size == 1 and identifier in ref_identifiers
+                    process_count_per_instance[process.rules.identifiers[0]].append(process)
+            # re-arrange to keep ref_identifiers ordering
+            process_count = [[len(process_count_per_instance[identifier]), identifier]
+                             for identifier in ref_identifiers]
+            self.logger.debug(f'ProcessRules.assign_hash_identifiers: program={self.program_name}'
+                              f' process_count={process_count}')
+            for process in unassigned_processes:
+                # choose the Supvisors instance the least loaded (without sorting by identifier name)
+                count, identifier = identifier_count = min(process_count, key=lambda x: x[0])
                 process.rules.hash_identifiers = []
                 process.rules.identifiers = [identifier]
-                self.logger.debug(f'ProcessRules.assign_hash_identifiers: namespec={process.namespec}'
-                                  f' identifiers={process.rules.identifiers}')
+                self.logger.info(f'ProcessRules.assign_hash_identifiers: namespec={process.namespec} assigned to'
+                                 f' identifiers={process.rules.identifiers}')
                 # increment identifier counter
                 identifier_count[0] = count + 1
-            else:
-                self.logger.debug(f'ProcessRules.assign_hash_identifiers: namespec={process.namespec}'
-                                  f' already resolved identifiers={process.rules.identifiers}')
-        # when NOT in discovery mode, remove at status from homogeneous group because the assignment is final
-        if not self.supvisors.options.discovery_mode:
-            self.at_identifiers = []
+            # WARN: even if not in discovery mode, do NOT remove the 'at' status from homogeneous group
+            #       the assignment is final but the number of processes in a homogeneous group can change
+            #       (through the update_numprocs XML-RPC)
 
 
 class ApplicationStatus:

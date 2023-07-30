@@ -17,6 +17,8 @@
   `multicast_interface` and `multicast_ttl` added to that purpose).
   The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
 
+* Refactoring of the `InternalPublisher` (**Supvisors** TCP Publish-Subscribe).
+
 * The new item `@` in the `identifiers` of the Program rules takes the behavior of the item `#` as it was
   before **Supvisors** version 0.13, i.e. the assignment is strictly limited by the length of the `identifiers` list,
   without roll-over.

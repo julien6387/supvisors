@@ -312,7 +312,7 @@ class SupvisorsMapper:
         identifiers = [identifier for identifier in identifier_list if identifier in self._instances]
         # log invalid identifiers to warn the user
         for identifier in identifier_list:
-            if identifier != '#' and identifier not in identifiers:  # no warn for hashtag
+            if identifier not in identifiers:
                 self.logger.warn(f'SupvisorsMapper.valid: identifier={identifier} invalid')
         # remove duplicates keeping the same ordering
         return list(OrderedDict.fromkeys(identifiers))

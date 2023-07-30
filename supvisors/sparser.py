@@ -167,7 +167,7 @@ class Parser(object):
             self.load_model_rules(program_elt, rules, Parser.LOOP_CHECK)
         # check that rules are compliant with dependencies
         rules.check_dependencies(namespec, is_pattern)
-        self.logger.debug(f'Parser.load_program_rules: process={namespec} rules={rules}')
+        self.logger.debug(f'Parser.load_program_rules: process={namespec} is_pattern={is_pattern} rules=[{rules}]')
 
     def load_model_rules(self, program_elt: Any, rules: ProcessRules, loop_check: int) -> None:
         """ Load the parameters found whatever it is given by a program or a model section.
@@ -281,6 +281,8 @@ class Parser(object):
             if alias_name in identifiers:
                 pos = identifiers.index(alias_name)
                 identifiers[pos:pos+1] = alias
+        # WARN: checking the list vs the instances registered in supvisors_mapper has been removed
+        #       so that
         # return ordered list, removing duplicates and empty elements
         return list(OrderedDict.fromkeys(filter(None, identifiers)))
 
@@ -303,6 +305,7 @@ class Parser(object):
                     identifiers.remove(sign)
             # if '*' is set, any other identifier is redundant
             # if '@' or '#' are set without any other identifier, all instances are applicable
+            # if both '@' or '#' are set, '@' will prevail
             if ((has_atsign or has_hashtag) and not identifiers) or (WILDCARD in identifiers):
                 identifiers = [WILDCARD]
             if has_atsign:

@@ -23,7 +23,7 @@ from unittest.mock import call
 import pytest
 
 from supvisors.application import *
-from .base import database_copy, any_process_info, any_stopped_process_info, any_process_info_by_state
+from .base import database_copy, process_info_by_name, any_stopped_process_info, any_process_info_by_state
 from .conftest import create_application, create_process
 
 
@@ -145,11 +145,282 @@ def test_rules_serial(rules):
                               'running_failure_strategy': 'CONTINUE'}
 
 
+# Homogeneous group part
+def test_homogeneous_group_create(supvisors):
+    """ Test the values set at construction. """
+    group = HomogeneousGroup('yeux', supvisors)
+    assert group.supvisors is supvisors
+    assert group.program_name == 'yeux'
+    assert group.at_identifiers is None
+    assert group.hash_identifiers is None
+    assert group.processes == []
+    assert group.logger is supvisors.logger
+
+
+def test_homogeneous_group_add_remove(supvisors):
+    """ Test the HomogeneousGroup methods add_process and remove_process. """
+    group = HomogeneousGroup('yeux', supvisors)
+    # get 2 processes for test
+    info = process_info_by_name('yeux_00')
+    process_1 = create_process(info, supvisors)
+    process_1.add_info('10.0.0.1', info)
+    info = process_info_by_name('yeux_01')
+    process_2 = create_process(info, supvisors)
+    process_2.add_info('10.0.0.1', info)
+    # 1. add a process with default rules to the application
+    group.add_process(process_1)
+    # check that process is stored
+    assert process_1 in group.processes
+    assert group.at_identifiers is None
+    assert group.hash_identifiers is None
+    # 2. test removal
+    group.remove_process(process_1)
+    # check that process is not stored anymore
+    assert group.processes == []
+    assert group.at_identifiers is None
+    assert group.hash_identifiers is None
+    # 3. add a process with hash rules to the application
+    process_1.rules.hash_identifiers = ['10.0.0.1']
+    group.add_process(process_1)
+    # check that process is stored
+    assert group.processes == [process_1]
+    assert group.at_identifiers is None
+    assert group.hash_identifiers == ['10.0.0.1']
+    # 4. add a process with same program name and at rules to the application
+    process_2.rules.hash_identifiers = ['10.0.0.2', '10.0.0.3']
+    group.add_process(process_2)
+    # check that process is stored
+    assert group.processes == [process_1, process_2]
+    assert group.at_identifiers is None
+    assert group.hash_identifiers == ['10.0.0.2', '10.0.0.3']
+    # 5. test removal
+    group.remove_process(process_1)
+    # check that process is not stored anymore
+    assert group.processes == [process_2]
+    assert group.at_identifiers is None
+    assert group.hash_identifiers == ['10.0.0.2', '10.0.0.3']
+    # 6. test removal
+    group.remove_process(process_2)
+    # check that process is not stored anymore
+    assert group.processes == []
+    assert group.at_identifiers is None
+    assert group.hash_identifiers == ['10.0.0.2', '10.0.0.3']
+    # 7. quickly test with at_identifiers (at prevail on hash)
+    process_1.rules.at_identifiers = ['10.0.0.1']
+    process_1.rules.hash_identifiers = []
+    group.add_process(process_1)
+    # check stored information
+    assert group.processes == [process_1]
+    assert group.at_identifiers == ['10.0.0.1']
+    assert group.hash_identifiers is None
+    # 8. second process with at identifier
+    process_2.rules.at_identifiers = ['10.0.0.0']
+    process_2.rules.hash_identifiers = []
+    group.add_process(process_2)
+    # check stored information
+    assert group.processes == [process_1, process_2]
+    assert group.at_identifiers == ['10.0.0.0']
+    assert group.hash_identifiers is None
+
+
+@pytest.fixture
+def homogeneous_group(supvisors):
+    """ Return the HomogeneousGroup instance to test. """
+    group = HomogeneousGroup('yeux', supvisors)
+    # add 2 processes of the same program
+    info = process_info_by_name('yeux_00')
+    process_1 = create_process(info, supvisors)
+    process_1.add_info('10.0.0.1', info)
+    group.add_process(process_1)
+    info = process_info_by_name('yeux_01')
+    process_2 = create_process(info, supvisors)
+    process_2.add_info('10.0.0.1', info)
+    group.add_process(process_2)
+    return group
+
+
+def test_homogeneous_group_resolve_at_wildcard(homogeneous_group):
+    """ Test the HomogeneousGroup.assign_at_identifiers method with wildcard rules and no discovery mode. """
+    # force at-* rules in processes and group
+    homogeneous_group.at_identifiers = [WILDCARD]
+    process_1 = homogeneous_group.processes[0]
+    process_1.rules.at_identifiers = [WILDCARD]
+    process_1.rules.identifiers = []
+    process_2 = homogeneous_group.processes[1]
+    process_2.rules.at_identifiers = [WILDCARD]
+    process_2.rules.identifiers = []
+    # 1. check assignment
+    # the number of instance exceeds the number of processes
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.at_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.at_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.2']
+    # 2. check no change with same call
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.at_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.at_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.2']
+    # 3. in standard mode, the list of Supvisors instances cannot change
+    #    but the number of processes in a homogeneous group can (update_numprocs XML-RPC)
+    info = process_2.info_map['10.0.0.1']
+    info.update({'name': 'yeux_02', 'process_index': 2})
+    process_3 = create_process(info, homogeneous_group.supvisors)
+    process_3.add_info('10.0.0.1', info)
+    process_3.rules.at_identifiers = [WILDCARD]
+    process_3.rules.identifiers = []
+    homogeneous_group.add_process(process_3)
+    # call new resolution
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.at_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.at_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.2']
+    assert process_3.rules.at_identifiers == []
+    assert process_3.rules.identifiers == ['10.0.0.3']
+
+
+def test_homogeneous_group_resolve_at_list(homogeneous_group):
+    """ Test the HomogeneousGroup.assign_at_identifiers method. """
+    # patch list of instances so that it is smaller than the list of processes
+    mapper = homogeneous_group.supvisors.supvisors_mapper
+    ref_instances = mapper.instances.copy()
+    mapper._instances = {'10.0.0.1': ref_instances['10.0.0.1']}
+    # force at-* rules in processes and group
+    homogeneous_group.at_identifiers = ['10.0.0.2', '10.0.0.1']
+    process_1 = homogeneous_group.processes[0]
+    process_1.rules.at_identifiers = ['10.0.0.2', '10.0.0.1']
+    process_1.rules.identifiers = []
+    process_2 = homogeneous_group.processes[1]
+    process_2.rules.at_identifiers = ['10.0.0.2', '10.0.0.1']
+    process_2.rules.identifiers = []
+    # 1. check assignment
+    # the number of instance exceeds the number of processes
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.at_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.at_identifiers == ['10.0.0.2', '10.0.0.1']
+    assert process_2.rules.identifiers == []
+    # 2. check no change with same call
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.at_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.at_identifiers == ['10.0.0.2', '10.0.0.1']
+    assert process_2.rules.identifiers == []
+    # 3. in discovery mode, the list of Supvisors instances may increase
+    mapper._instances = {'10.0.0.1': ref_instances['10.0.0.1'],
+                         '10.0.0.3': ref_instances['10.0.0.3'],
+                         '10.0.0.2': ref_instances['10.0.0.2']}
+    # call new resolution
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.at_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.at_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.2']
+
+
+def test_homogeneous_group_resolve_hash_wildcard(homogeneous_group):
+    """ Test the HomogeneousGroup.assign_at_identifiers method with wildcard rules and no discovery mode. """
+    # patch list of instances so that it is smaller than the list of processes
+    mapper = homogeneous_group.supvisors.supvisors_mapper
+    ref_instances = mapper.instances.copy()
+    mapper._instances = {'10.0.0.1': ref_instances['10.0.0.1'],
+                         '10.0.0.2': ref_instances['10.0.0.2']}
+    # force hash-* rules in processes and group
+    homogeneous_group.hash_identifiers = [WILDCARD]
+    process_1 = homogeneous_group.processes[0]
+    process_1.rules.hash_identifiers = [WILDCARD]
+    process_1.rules.identifiers = []
+    process_2 = homogeneous_group.processes[1]
+    process_2.rules.hash_identifiers = [WILDCARD]
+    process_2.rules.identifiers = []
+    # 1. check assignment
+    # the number of instance exceeds the number of processes
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.hash_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.hash_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.2']
+    # 2. check no change with same call
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.hash_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.hash_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.2']
+    # 3. in standard mode, the list of Supvisors instances cannot change
+    #    but the number of processes in a homogeneous group can (update_numprocs XML-RPC)
+    info = process_2.info_map['10.0.0.1']
+    info.update({'name': 'yeux_02', 'process_index': 2})
+    process_3 = create_process(info, homogeneous_group.supvisors)
+    process_3.add_info('10.0.0.1', info)
+    process_3.rules.hash_identifiers = [WILDCARD]
+    process_3.rules.identifiers = []
+    homogeneous_group.add_process(process_3)
+    # call new resolution
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.hash_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.1']
+    assert process_2.rules.hash_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.2']
+    assert process_3.rules.hash_identifiers == []
+    assert process_3.rules.identifiers == ['10.0.0.1']
+
+
+def test_homogeneous_group_resolve_hash_list(homogeneous_group):
+    """ Test the HomogeneousGroup.assign_at_identifiers method. """
+    # patch list of instances so that it is smaller than the list of processes
+    mapper = homogeneous_group.supvisors.supvisors_mapper
+    ref_instances = mapper.instances.copy()
+    mapper._instances = {'10.0.0.1': ref_instances['10.0.0.1'],
+                         '10.0.0.2': ref_instances['10.0.0.2']}
+    # force at-* rules in processes and group
+    homogeneous_group.hash_identifiers = ['10.0.0.3', '10.0.0.2', '10.0.0.1']
+    process_1 = homogeneous_group.processes[0]
+    process_1.rules.hash_identifiers = ['10.0.0.3', '10.0.0.2', '10.0.0.1']
+    process_1.rules.identifiers = []
+    process_2 = homogeneous_group.processes[1]
+    process_2.rules.hash_identifiers = ['10.0.0.3', '10.0.0.2', '10.0.0.1']
+    process_2.rules.identifiers = []
+    # 1. check assignment
+    # the number of instance exceeds the number of processes
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.hash_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.2']
+    assert process_2.rules.hash_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.1']
+    # 2. check no change with same call
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.hash_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.2']
+    assert process_2.rules.hash_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.1']
+    # 3. in standard mode, the list of Supvisors instances cannot change
+    #    but the number of processes in a homogeneous group can (update_numprocs XML-RPC)
+    info = process_2.info_map['10.0.0.1']
+    info.update({'name': 'yeux_02', 'process_index': 2})
+    process_3 = create_process(info, homogeneous_group.supvisors)
+    process_3.add_info('10.0.0.1', info)
+    process_3.rules.hash_identifiers = ['10.0.0.3', '10.0.0.2', '10.0.0.1']
+    process_3.rules.identifiers = []
+    homogeneous_group.add_process(process_3)
+    # call new resolution
+    homogeneous_group.resolve_rules()
+    assert process_1.rules.hash_identifiers == []
+    assert process_1.rules.identifiers == ['10.0.0.2']
+    assert process_2.rules.hash_identifiers == []
+    assert process_2.rules.identifiers == ['10.0.0.1']
+    assert process_3.rules.hash_identifiers == []
+    assert process_3.rules.identifiers == ['10.0.0.2']
+
+
 # ApplicationStatus part
 def test_application_create(supvisors):
     """ Test the values set at construction. """
     application = create_application('ApplicationTest', supvisors)
     # check application default attributes
+    assert application.supvisors is supvisors
+    assert application.logger is supvisors.logger
     assert application.application_name == 'ApplicationTest'
     assert application.state == ApplicationStates.STOPPED
     assert not application.major_failure
@@ -273,24 +544,102 @@ def test_application_serial(supvisors):
     assert serialized == loaded
 
 
-def test_application_add_remove_process(mocker, supvisors):
+def test_application_add_remove_process(supvisors):
     """ Test the add_process and remove_process methods. """
     application = create_application('ApplicationTest', supvisors)
-    mocked_sequence = mocker.patch.object(application, 'update_sequences')
-    mocked_status = mocker.patch.object(application, 'update_status')
-    # add a process to the application
-    info = any_process_info()
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    application.add_process(process)
+    # get 3 processes for test
+    processes = []
+    for name in ['xclock', 'yeux_00', 'yeux_01']:
+        info = process_info_by_name(name)
+        process = create_process(info, supvisors)
+        process.add_info('10.0.0.1', info)
+        processes.append(process)
+    process_1 = processes[0]
+    process_2 = processes[1]
+    process_2.rules.at_identifiers = ['10.0.0.1']
+    process_3 = processes[2]
+    process_3.program_name = process_2.program_name
+    process_3.rules.at_identifiers = ['10.0.0.2', '10.0.0.3']
+    # 1. add a process with default rules to the application
+    application.add_process(process_1)
     # check that process is stored
-    assert process.process_name in application.processes
-    assert process is application.processes[process.process_name]
-    # test removal
-    application.remove_process(process.process_name)
+    assert application.processes == {process_1.process_name: process_1}
+    assert list(application.process_groups.keys()) == [process_1.program_name]
+    group = application.process_groups[process_1.program_name]
+    assert process_1 in group.processes
+    assert group.at_identifiers is None
+    assert group.hash_identifiers is None
+    # 2. add a process with hash rules to the application
+    application.add_process(process_2)
+    # check that process is stored
+    assert application.processes == {process_1.process_name: process_1,
+                                     process_2.process_name: process_2}
+    assert sorted(application.process_groups.keys()) == sorted([process_1.program_name, process_2.program_name])
+    group = application.process_groups[process_2.program_name]
+    assert group.processes == [process_2]
+    assert group.at_identifiers == ['10.0.0.1']
+    assert group.hash_identifiers is None
+    # 3. add a process with same program name and at rules to the application
+    application.add_process(process_3)
+    # check that process is stored
+    assert application.processes == {process_1.process_name: process_1,
+                                     process_2.process_name: process_2,
+                                     process_3.process_name: process_3}
+    assert sorted(application.process_groups.keys()) == sorted([process_1.program_name, process_2.program_name])
+    group = application.process_groups[process_3.program_name]
+    assert group.processes == [process_2, process_3]
+    assert group.at_identifiers == ['10.0.0.2', '10.0.0.3']
+    assert group.hash_identifiers is None
+    # 4. test first removal
+    application.remove_process(process_2.process_name)
+    # check that process is not stored anymore
+    assert application.processes == {process_1.process_name: process_1,
+                                     process_3.process_name: process_3}
+    assert sorted(application.process_groups.keys()) == sorted([process_1.program_name, process_2.program_name])
+    group = application.process_groups[process_1.program_name]
+    assert group.processes == [process_1]
+    group = application.process_groups[process_3.program_name]
+    assert group.processes == [process_3]
+    # 5. test second removal
+    application.remove_process(process_1.process_name)
+    # check that process is not stored anymore
+    assert application.processes == {process_3.process_name: process_3}
+    assert list(application.process_groups.keys()) == [process_3.program_name]
+    group = application.process_groups[process_3.program_name]
+    assert group.processes == [process_3]
+    # 5. test third removal
+    application.remove_process(process_3.process_name)
+    # check that process is not stored anymore
     assert application.processes == {}
-    assert mocked_sequence.called
-    assert mocked_status.called
+    assert application.process_groups == {}
+    # 6. quickly test with hash_identifiers
+    process_2.rules.at_identifiers = []
+    process_2.rules.hash_identifiers = ['10.0.0.1']
+    process_3.rules.at_identifiers = []
+    process_3.rules.hash_identifiers = ['10.0.0.2', '10.0.0.3']
+    application.add_process(process_3)
+    application.add_process(process_2)
+    # check stored information
+    assert application.processes == {process_2.process_name: process_2,
+                                     process_3.process_name: process_3}
+    assert list(application.process_groups.keys()) == [process_2.program_name]
+    group = application.process_groups[process_3.program_name]
+    assert group.processes == [process_3, process_2]
+    assert group.at_identifiers is None
+    assert group.hash_identifiers == ['10.0.0.1']
+    # 7. finish with last "should not happen" case
+    process_1.program_name = process_2.program_name
+    process_1.rules.at_identifiers = ['10.0.0.0']
+    application.add_process(process_1)
+    # check stored information
+    assert application.processes == {process_1.process_name: process_1,
+                                     process_2.process_name: process_2,
+                                     process_3.process_name: process_3}
+    assert list(application.process_groups.keys()) == [process_2.program_name]
+    group = application.process_groups[process_1.program_name]
+    assert group.processes == [process_3, process_2, process_1]
+    assert group.at_identifiers == ['10.0.0.0']
+    assert group.hash_identifiers is None
 
 
 def test_application_possible_identifiers(supvisors):

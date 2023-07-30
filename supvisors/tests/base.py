@@ -103,6 +103,7 @@ class DummyHttpServer:
     """ Simple supervisord RPC handler with dummy attributes. """
 
     def __init__(self):
+        self.socket = Mock()
         self.handlers = [DummyRpcHandler(),
                          Mock(handler_name='tail_handler'),
                          Mock(handler_name='main_tail_handler'),

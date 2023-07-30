@@ -52,7 +52,8 @@ def test_rules_create(supvisors, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == ("identifiers=['*'] hash_identifiers=[] start_sequence=0 stop_sequence=-1 required=False"
+    assert str(rules) == ("identifiers=['*'] at_identifiers=[] hash_identifiers=[]"
+                          " start_sequence=0 stop_sequence=-1 required=False"
                           " wait_exit=False expected_load=0 starting_failure_strategy=ABORT"
                           " running_failure_strategy=CONTINUE")
 
@@ -157,32 +158,76 @@ def test_rules_check_autorestart(mocker, rules):
             assert not mocked_disable.called
 
 
+def test_rules_check_at_identifiers(rules):
+    """ Test the rules consistence when at_identifiers is set. """
+    assert rules.at_identifiers == []
+    assert rules.identifiers == ['*']
+    # test with no at_identifiers
+    for is_pattern in [True, False]:
+        rules.check_at_identifiers('dummy_process', is_pattern)
+        assert rules.at_identifiers == []
+        assert rules.identifiers == ['*']
+    # test with pattern: no change
+    rules.at_identifiers = ['10.0.0.1', '10.0.0.2']
+    assert rules.identifiers == ['*']
+    rules.check_at_identifiers('dummy_process', True)
+    assert rules.at_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules.identifiers == ['*']
+    # test without pattern: reset
+    rules.check_at_identifiers('dummy_process', False)
+    assert rules.at_identifiers == []
+    assert rules.identifiers == ['*']
+
+
 def test_rules_check_hash_identifiers(rules):
-    """ Test the resolution of instances when hash_identifiers is set. """
-    # set initial attributes
-    rules.hash_identifiers = ['*']
-    rules.identifiers = []
-    # in mocked supvisors, xclock has a procnumber of 2
-    # 1. test with unknown namespec
-    rules.check_hash_identifiers('sample_test_1:xfontsel', True)
-    # identifiers is unchanged
-    assert rules.hash_identifiers == ['*']
-    assert rules.identifiers == []
-    # 2. update rules to test '#' with all instances available
-    # address '10.0.0.3' has an index of 2 in supvisors_mapper
-    rules.check_hash_identifiers('sample_test_1:xclock', True)
-    assert rules.identifiers == ['10.0.0.3']
-    # 3. update rules to test '#' with a subset of instances available
-    rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
-    rules.identifiers = []
-    # here, at index 2 of this list, '10.0.0.5' can be found
-    rules.check_hash_identifiers('sample_test_1:xclock', True)
-    assert rules.identifiers == ['10.0.0.5']
-    # 4. test the case where procnumber is greater than the subset list of instances available
-    rules.hash_identifiers = ['10.0.0.1']
-    rules.identifiers = []
-    rules.check_hash_identifiers('sample_test_1:xclock', True)
-    assert rules.identifiers == ['10.0.0.1']
+    """ Test the rules consistence when hash_identifiers is set. """
+    assert rules.hash_identifiers == []
+    assert rules.identifiers == ['*']
+    # test with no at_identifiers
+    for is_pattern in [True, False]:
+        rules.check_hash_identifiers('dummy_process', is_pattern)
+        assert rules.hash_identifiers == []
+        assert rules.identifiers == ['*']
+    # test with pattern: no change
+    rules.hash_identifiers = ['10.0.0.1', '10.0.0.2']
+    assert rules.identifiers == ['*']
+    rules.check_hash_identifiers('dummy_process', True)
+    assert rules.hash_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules.identifiers == ['*']
+    # test without pattern: reset
+    rules.check_hash_identifiers('dummy_process', False)
+    assert rules.hash_identifiers == []
+    assert rules.identifiers == ['*']
+
+
+def test_rules_check_sign_identifiers(rules):
+    """ Test the rules consistence when at_identifiers and hash_identifiers is set. """
+    assert rules.at_identifiers == []
+    assert rules.hash_identifiers == []
+    assert rules.identifiers == ['*']
+    # test no change with no hash or at identifiers
+    rules.check_sign_identifiers('dummy_process')
+    assert rules.at_identifiers == []
+    assert rules.hash_identifiers == []
+    assert rules.identifiers == ['*']
+    # test no change with only at identifiers
+    rules.at_identifiers = ['10.0.0.1', '10.0.0.2']
+    rules.check_sign_identifiers('dummy_process')
+    assert rules.at_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules.hash_identifiers == []
+    assert rules.identifiers == ['*']
+    # test no change with only hash identifiers
+    rules.at_identifiers, rules.hash_identifiers = rules.hash_identifiers, rules.at_identifiers
+    rules.check_sign_identifiers('dummy_process')
+    assert rules.at_identifiers == []
+    assert rules.hash_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules.identifiers == ['*']
+    # test change with both at and hash identifiers
+    rules.at_identifiers = ['10.0.0.1', '10.0.0.2']
+    rules.check_sign_identifiers('dummy_process')
+    assert rules.at_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules.hash_identifiers == []
+    assert rules.identifiers == ['*']
 
 
 def test_rules_check_dependencies(mocker, rules):
@@ -226,6 +271,36 @@ def test_process_create(supvisors):
     assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
 
 
+def test_process_program_name_process_index(supvisors):
+    """ Test the ProcessStatus program_name and process_index properties. """
+    # create process
+    info = any_process_info()
+    info['program_name'] = 'dummy_process'
+    info['process_index'] = 5
+    process = create_process(info, supvisors)
+    assert process.program_name == ''
+    assert process.process_index == 0
+    # add info payload to identifier 10.0.0.1
+    process.info_map['10.0.0.1'] = info
+    # test program_name / process_index set for the first time
+    process.program_name = info['program_name']
+    process.process_index = info['process_index']
+    assert process.program_name == 'dummy_process'
+    assert process.process_index == 5
+    # add info payload to identifier 10.0.0.2
+    process.info_map['10.0.0.1'] = info
+    # test set consistent program_name
+    process.program_name = info['program_name']
+    process.process_index = info['process_index']
+    assert process.program_name == 'dummy_process'
+    assert process.process_index == 5
+    # test set inconsistent program_name (accepted but this triggers error logs)
+    process.program_name = 'dummy_proc'
+    process.process_index = 4
+    assert process.program_name == 'dummy_proc'
+    assert process.process_index == 4
+
+
 def test_process_disabled(supvisors):
     """ Test the ProcessStatus.disabled method. """
     info = any_process_info()
@@ -258,8 +333,8 @@ def test_process_disabled_on(supvisors):
     assert process.disabled_on('10.0.0.2')
 
 
-def test_process_possible_identifiers_no_hash(supvisors):
-    """ Test the ProcessStatus.possible_identifiers method with hashtag already resolved. """
+def test_process_possible_identifiers(supvisors):
+    """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
     process = create_process(info, supvisors)
     process.add_info('10.0.0.2', info)
@@ -286,30 +361,6 @@ def test_process_possible_identifiers_no_hash(supvisors):
     # restrict again instances in rules
     process.rules.identifiers = ['10.0.0.5']
     assert process.possible_identifiers() == ['10.0.0.5']
-
-
-def test_process_possible_identifiers_hash(supvisors):
-    """ Test the ProcessStatus.possible_identifiers method with hashtag unresolved. """
-    # in mocked supvisors, xclock has a procnumber of 2
-    info = process_info_by_name('xclock')
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    process.add_info('10.0.0.3', info.copy())
-    # check no resolution when no hashtag
-    assert process.rules.hash_identifiers == []
-    assert process.possible_identifiers() == ['10.0.0.1', '10.0.0.3']
-    # check hashtag resolution using wildcard
-    process.rules.hash_identifiers = ['*']
-    assert process.possible_identifiers() == ['10.0.0.3']
-    assert process.rules.hash_identifiers == []
-    # check hashtag resolution using subset identifiers list that does not include existing information
-    process.rules.hash_identifiers = ['10.0.0.2']
-    assert process.possible_identifiers() == []
-    assert process.rules.hash_identifiers == []
-    # check hashtag resolution using subset identifiers list that does not include existing information
-    process.rules.hash_identifiers = ['10.0.0.1']
-    assert process.possible_identifiers() == ['10.0.0.1']
-    assert process.rules.hash_identifiers == []
 
 
 def test_status_stopped_process(supvisors):
