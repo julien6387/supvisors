@@ -22,6 +22,7 @@ from unittest.mock import call, patch, Mock
 import pytest
 from supervisor.web import MeldView
 
+from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.viewsupvisors import *
 from supvisors.webutils import PROC_INSTANCE_PAGE, SUPVISORS_PAGE
 from .base import DummyHttpContext
