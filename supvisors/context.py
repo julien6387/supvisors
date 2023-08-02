@@ -226,14 +226,22 @@ class Context(object):
         """ Return the identifiers of the Supervisors in ISOLATING or ISOLATED state. """
         return self.instances_by_states([SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED])
 
-    def active_instances(self) -> NameList:
+    def valid_instances(self) -> NameList:
         """ Return the identifiers of the Supervisors NOT in ISOLATING or ISOLATED state. """
-        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING,
+        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN,
+                                         SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
                                          SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.SILENT])
 
     def instances_by_states(self, states: List[SupvisorsInstanceStates]) -> NameList:
         """ Return the Supervisor identifiers sorted by Supervisor state. """
         return [identifier for identifier, status in self.instances.items() if status.state in states]
+
+    def activate_checked(self):
+        """ Once authorized, a Supvisors instance will be set to RUNNING only when it is certain it won't interfere
+        with any sequencing in progress. """
+        for status in self.instances.values():
+            if status.state == SupvisorsInstanceStates.CHECKED:
+                status.state = SupvisorsInstanceStates.RUNNING
 
     def invalid(self, status: SupvisorsInstanceStatus, fence=None) -> None:
         """ Declare SILENT or ISOLATING the SupvisorsInstanceStatus in parameter, according to the auto_fence option.
@@ -355,7 +363,7 @@ class Context(object):
         application = self.setdefault_application(application_name)
         # search for existing process in application
         process = application.processes.get(process_name)
-        new_process = process is  None
+        new_process = process is None
         if new_process:
             # create process rules
             # by default, apply application starting / running failure strategies
@@ -446,7 +454,7 @@ class Context(object):
         else:
             self.logger.info(f'Context.on_authorization: local Supvisors instance is authorized to work with'
                              f' Supvisors={identifier}')
-            status.state = SupvisorsInstanceStates.RUNNING
+            status.state = SupvisorsInstanceStates.CHECKED
             return True
         return False
 
@@ -464,7 +472,7 @@ class Context(object):
         # check if local tick has been received yet
         # NOTE: it is needed because remote ticks are tagged against last local tick received
         if identifier != self.local_identifier:
-            if self.local_instance.state != SupvisorsInstanceStates.RUNNING:
+            if self.local_instance.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
                 self.logger.debug('Context.on_tick_event: waiting for local tick first')
                 return
         # ISOLATING / ISOLATED instances are not updated anymore
@@ -507,7 +515,7 @@ class Context(object):
                     # invalid unknown Supvisors instances
                     # nothing to do on processes as none received yet
                     self.invalid(status)
-                elif status.inactive(sequence_counter):
+                elif status.is_inactive(sequence_counter):
                     # invalid silent Supvisors instances
                     self.invalid(status)
                     invalidated_identifiers.append(status.identifier)
@@ -575,8 +583,8 @@ class Context(object):
         :return: None
         """
         instance_status = self.instances[identifier]
-        # accept events only in RUNNING state
-        if instance_status.state == SupvisorsInstanceStates.RUNNING:
+        # accept events only in CHECKED / RUNNING state
+        if instance_status.state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             self.logger.debug(f'Context.on_remove_process_event: got event {event} from Supvisors={identifier}')
             # get internal data
             app_proc = self.check_process(instance_status, event)
@@ -624,8 +632,8 @@ class Context(object):
         :return: None
         """
         instance_status = self.instances[identifier]
-        # accept events only in RUNNING state
-        if instance_status.state == SupvisorsInstanceStates.RUNNING:
+        # accept events only in CHECKED / RUNNING state
+        if instance_status.state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             self.logger.debug(f'Context.on_process_enabled_event: got event {event} from Supvisors={identifier}')
             # get internal data
             app_proc = self.check_process(instance_status, event)
@@ -649,8 +657,8 @@ class Context(object):
         :return: None
         """
         instance_status = self.instances[identifier]
-        # accept events only in RUNNING state
-        if instance_status.state == SupvisorsInstanceStates.RUNNING:
+        # accept events only in CHECKED / RUNNING state
+        if instance_status.state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             self.logger.debug(f'Context.on_process_event: got event {event} from Supvisors={identifier}')
             # WARN: the Master may send a process event corresponding to a process that is not configured in it
             forced_event = 'forced' in event

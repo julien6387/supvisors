@@ -78,8 +78,12 @@ class AbstractState:
         """ Check that local and Master Supvisors instances are still RUNNING.
         If their ticks are not received anymore, back to INITIALIZATION state to force a synchronization phase.
 
+        Set CHECKED Supvisors instances to RUNNING if no start sequence is in progress (in order to avoid interference).
+
         :return: the suggested state if local or Master Supvisors instance is not active anymore
         """
+        if not self.supvisors.starter.in_progress():
+            self.context.activate_checked()
         if self.context.local_instance.state != SupvisorsInstanceStates.RUNNING:
             self.logger.critical('AbstractState.check_instances: local Supvisors instance not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
@@ -132,6 +136,8 @@ class InitializationState(AbstractState):
 
         :return: the new Supvisors state
         """
+        # no risk in INITIALIZATION state to interfere with a starting sequence
+        self.context.activate_checked()
         # get duration from start date
         uptime: float = time() - self.context.start_date
         self.logger.trace(f'InitializationState.next: uptime={uptime} ')

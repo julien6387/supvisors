@@ -65,7 +65,7 @@ class ProcessCommand(object):
         # the worst case is during a full restart with a minimal set of core identifiers
         # the DEPLOYMENT phase is in progress while there are still lots to Supvisors instances in CHECKING state
         self.minimum_ticks = max(ProcessCommand.DEFAULT_TICK_TIMEOUT,
-                                 len(process.supvisors.context.active_instances()) // 10)
+                                 len(process.supvisors.context.valid_instances()) // 10)
         self._wait_ticks: int = self.minimum_ticks
 
     def __str__(self) -> str:

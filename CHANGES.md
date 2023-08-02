@@ -31,6 +31,11 @@
 * Fix a case where the Starter would block if the process reaches the expected state without reception
   of the corresponding event.
 
+* To prevent the previous situation, a new state `CHECKED` is added to `SupvisorsInstanceStates`, which is actually
+  a pre-`RUNNING` state.
+  Such a **Supvisors** instance is considered active and is updated with received events but cannot be part of any
+  starting sequence until all starting jobs in progress are completed.
+
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
 
 * Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.

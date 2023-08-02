@@ -66,9 +66,9 @@ Key	               Type              Value
 'identifier'       ``str``           The deduced name of the |Supvisors| instance.
 'node_name'        ``str``           The name of the node where the |Supvisors| instance is running.
 'port'             ``int``           The HTTP port of the |Supvisors| instance.
-'statecode'        ``int``           The |Supvisors| instance state, in [0;5].
+'statecode'        ``int``           The |Supvisors| instance state, in [0;6].
 'statename'        ``str``           The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``,
-                                     ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
+                                     `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
 'discovery_mode'   ``bool``          True if the discovery mode is activated in the |Supvisors| instance.
 'sequence_counter' ``int``           The TICK counter, i.e. the number of Tick events received since it is running.
 'remote_time'      ``float``         The date of the last ``TICK`` event received from this node, in ms.

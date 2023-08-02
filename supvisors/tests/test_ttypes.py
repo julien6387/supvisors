@@ -26,7 +26,7 @@ from supvisors.ttypes import *
 
 def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
-    expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
+    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
     assert [x.name for x in SupvisorsInstanceStates] == expected
 
 

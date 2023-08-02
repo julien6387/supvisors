@@ -21,7 +21,7 @@ from typing import Dict, List
 
 from .instancestatus import SupvisorsInstanceStatus
 from .strategy import conciliate_conflicts
-from .ttypes import SupvisorsInstanceStates, ConciliationStrategies, SupvisorsStates
+from .ttypes import ConciliationStrategies, SupvisorsStates
 from .utils import simple_gmtime, simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
@@ -112,7 +112,7 @@ class SupvisorsView(ViewHandler):
         """
         # set Supvisors instance name
         elt = instance_div_elt.findmeld('identifier_th_mid')
-        if status.state == SupvisorsInstanceStates.RUNNING:
+        if status.has_active_state():
             # go to web page located hosted by the Supvisors instance
             url = self.view_ctx.format_url(status.identifier, PROC_INSTANCE_PAGE)
             elt.attributes(href=url)
@@ -127,7 +127,7 @@ class SupvisorsView(ViewHandler):
         elt.content(status.state.name)
         # set Supvisors instance current time
         elt = instance_div_elt.findmeld('time_th_mid')
-        if status.state == SupvisorsInstanceStates.RUNNING:
+        if status.has_active_state():
             remote_time = status.get_remote_time(self.current_time)
             elt.content(simple_localtime(remote_time))
         # set Supvisors instance current load

@@ -69,9 +69,9 @@ Status
             'identifier'       ``str``   The deduced name of the |Supvisors| instance.
             'node_name'        ``str``   The name of the node where the |Supvisors| instance is running.
             'port'             ``int``   The HTTP port of the |Supvisors| instance.
-            'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
+            'statecode'	       ``int``   The |Supvisors| instance state, in [0;6].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
-                                         ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
+                                         `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
             'discovery_mode'   ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
             'remote_time'      ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the remote reference time.

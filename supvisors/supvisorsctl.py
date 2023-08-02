@@ -85,7 +85,7 @@ class ControllerPlugin(ControllerPluginBase):
             info_list = []
         return {info['identifier']: 'http://%s:%d' % (info['node_name'], info['port'])
                 for info in info_list
-                if info['statecode'] == SupvisorsInstanceStates.RUNNING.value}
+                if info['statecode'] in [SupvisorsInstanceStates.CHECKED.value, SupvisorsInstanceStates.RUNNING.value]}
 
     def do_sversion(self, _):
         """ Command to get the Supvisors API version. """

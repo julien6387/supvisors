@@ -152,7 +152,8 @@ def test_reset(status):
         status.remote_time = 28.452
         status.local_time = 27.456
         status.reset()
-        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                     SupvisorsInstanceStates.RUNNING]:
             assert status.state == SupvisorsInstanceStates.UNKNOWN
         else:
             assert status.state == state
@@ -171,7 +172,7 @@ def test_serialization(status):
     # test to_json method
     serialized = status.serial()
     assert serialized == {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
-                          'statecode': 2, 'statename': 'RUNNING', 'discovery_mode': False,
+                          'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
                           'remote_time': 50, 'local_time': 60,
                           'sequence_counter': 28, 'process_failure': False,
                           'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
@@ -233,21 +234,33 @@ def test_apply_state_modes(status):
     assert status.apply_state_modes(event) == (False, StateModes(SupvisorsStates.INITIALIZATION, False, True, True))
 
 
+def test_has_active_state(status):
+    """ Test the SupvisorsInstanceStatus.has_active_state method. """
+    for state in SupvisorsInstanceStates:
+        status._state = state
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                     SupvisorsInstanceStates.RUNNING]:
+            assert status.has_active_state()
+        else:
+            assert not status.has_active_state()
+
+
 def test_inactive(status):
     """ Test the SupvisorsInstanceStatus.inactive method. """
     # test active
     status.local_sequence_counter = 8
     for state in SupvisorsInstanceStates:
         status._state = state
-        assert not status.inactive(10)
+        assert not status.is_inactive(10)
     # test not active
     status.local_sequence_counter = 7
     for state in SupvisorsInstanceStates:
         status._state = state
-        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
-            assert status.inactive(10)
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                     SupvisorsInstanceStates.RUNNING]:
+            assert status.is_inactive(10)
         else:
-            assert not status.inactive(10)
+            assert not status.is_inactive(10)
 
 
 def test_isolation(status):

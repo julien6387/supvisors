@@ -275,10 +275,11 @@ def test_supvisors(controller, plugin):
 def test_get_running_instances(controller, plugin, mocked_check):
     """ Test the get_running_instances request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
-    mocked_rpc.return_value = [{'identifier': 'first', 'node_name': '10.0.0.1', 'port': 30000, 'statecode': 2},
+    mocked_rpc.return_value = [{'identifier': 'third', 'node_name': '10.0.0.3', 'port': 30000, 'statecode': 3},
+                               {'identifier': 'first', 'node_name': '10.0.0.1', 'port': 30000, 'statecode': 2},
                                {'identifier': 'second', 'node_name': '10.0.0.2', 'port': 60000, 'statecode': 0}]
     # test request
-    assert plugin.get_running_instances() == {'first': 'http://10.0.0.1:30000'}
+    assert plugin.get_running_instances() == {'first': 'http://10.0.0.1:30000', 'third': 'http://10.0.0.3:30000'}
     # test output (with no error)
     assert not controller.output.called
     # test request error

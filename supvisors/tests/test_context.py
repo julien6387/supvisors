@@ -261,8 +261,8 @@ def test_instances_by_states(context):
     assert context.running_identifiers() == []
     assert context.isolating_instances() == []
     assert context.isolation_instances() == []
-    assert context.active_instances() == all_instances
-    assert sorted(context.isolation_instances() + context.active_instances()) == all_instances
+    assert context.valid_instances() == all_instances
+    assert sorted(context.isolation_instances() + context.valid_instances()) == all_instances
     assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == []
     assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == []
     assert sorted(context.instances_by_states([SupvisorsInstanceStates.UNKNOWN])) == \
@@ -279,8 +279,8 @@ def test_instances_by_states(context):
     assert context.running_identifiers() == ['10.0.0.4', local_identifier]
     assert context.isolating_instances() == ['10.0.0.2']
     assert context.isolation_instances() == ['10.0.0.2', '10.0.0.3']
-    assert context.active_instances() == ['10.0.0.1', '10.0.0.4', '10.0.0.5', gethostname(), 'test']
-    assert sorted(context.isolation_instances() + context.active_instances()) == all_instances
+    assert context.valid_instances() == ['10.0.0.1', '10.0.0.4', '10.0.0.5', gethostname(), 'test']
+    assert sorted(context.isolation_instances() + context.valid_instances()) == all_instances
     assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == \
            ['10.0.0.3', '10.0.0.4', local_identifier]
     assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == ['10.0.0.1']
@@ -312,6 +312,25 @@ def test_running_core_identifiers(supvisors):
     # test new states
     assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5', 'test']
     assert context.running_core_identifiers()
+
+
+def test_activate_checked(context):
+    """ Test the activation of checked nodes. """
+    # change node states
+    context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
+    context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKED
+    context.instances['10.0.0.5']._state = SupvisorsInstanceStates.CHECKING
+    # check status after call to activate_checked
+    context.activate_checked()
+    assert context.local_instance.state == SupvisorsInstanceStates.RUNNING
+    assert context.instances['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
+    assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.ISOLATING
+    assert context.instances['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATED
+    assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.RUNNING
+    assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.CHECKING
 
 
 def check_invalid_node_status(context, node_name, new_state, fence=None):
@@ -679,7 +698,7 @@ def test_authorization_checking_normal(context):
         context.supvisors.options.auto_fence = fencing
         context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
         context.on_authorization('10.0.0.2', True)
-        assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.RUNNING
+        assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.CHECKED
     # check state becomes ISOLATING if not authorized and auto fencing activated
     context.supvisors.options.auto_fence = True
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
@@ -740,12 +759,12 @@ def test_on_tick_event_local(mocker, context):
         assert mocked_send.call_args_list == [call(expected)]
         mocked_check.reset_mock()
         mocked_send.reset_mock()
-    # when a TICK is received from a CHECKING or RUNNING state, check that:
-    #   * Supvisors instance is CHECKING
+    # when a TICK is received from a CHECKING / CHECKED or RUNNING state, check that:
+    #   * Supvisors instance state is unchanged
     #   * time is updated using local time
     #   * send_check_instance is NOT called
     #   * Supvisors instance status is sent
-    for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
+    for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
         status._state = state
         context.on_tick_event(context.local_identifier, {'sequence_counter': 57, 'when': 5678})
         assert status.state == state
@@ -758,29 +777,33 @@ def test_on_tick_event_local(mocker, context):
                     'node_name': context.local_instance.supvisors_id.host_name,
                     'port': 65000, 'sequence_counter': 57,
                     'statecode': state.value, 'statename': state.name, 'discovery_mode': False,
-                     'remote_time': 5678, 'local_time': 5678,
+                    'remote_time': 5678, 'local_time': 5678,
                     'loading': 0, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
         mocked_send.reset_mock()
     # check that the Supvisors instance local_sequence_counter is forced to 0 when its sequence_counter
     #   is lower than expected (stealth restart)
-    status._state = SupvisorsInstanceStates.RUNNING
-    context.on_tick_event(context.local_identifier, {'sequence_counter': 2, 'when': 6789})
-    assert status.state == SupvisorsInstanceStates.RUNNING
-    assert status.sequence_counter == 2
-    assert status.local_sequence_counter == 0  # invalidated
-    assert status.remote_time == 6789
-    assert status.local_time == 6789
-    assert not mocked_check.called
-    expected = {'identifier': context.local_identifier,
-                'node_name': context.local_instance.supvisors_id.host_name,
-                'port': 65000, 'sequence_counter': 2,
-                'statecode': state.value, 'statename': state.name, 'discovery_mode': False,
-                     'remote_time': 6789, 'local_time': 6789,
-                'loading': 0, 'process_failure': False,
-                'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
-    assert mocked_send.call_args_list == [call(expected)]
+    for state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+        status._state = state
+        status.sequence_counter = 57
+        status.local_sequence_counter = 57
+        context.on_tick_event(context.local_identifier, {'sequence_counter': 2, 'when': 6789})
+        assert status.state == state
+        assert status.sequence_counter == 2
+        assert status.local_sequence_counter == 0  # invalidated
+        assert status.remote_time == 6789
+        assert status.local_time == 6789
+        assert not mocked_check.called
+        expected = {'identifier': context.local_identifier,
+                    'node_name': context.local_instance.supvisors_id.host_name,
+                    'port': 65000, 'sequence_counter': 2,
+                    'statecode': state.value, 'statename': state.name, 'discovery_mode': False,
+                    'remote_time': 6789, 'local_time': 6789,
+                    'loading': 0, 'process_failure': False,
+                    'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
+        assert mocked_send.call_args_list == [call(expected)]
+        mocked_send.reset_mock()
 
 
 def test_on_tick_event_remote(mocker, context):
@@ -971,7 +994,7 @@ def test_process_removed_event_not_running(context):
     instance_status = context.instances['10.0.0.1']
     # check no change with known instance not RUNNING
     for state in SupvisorsInstanceStates:
-        if state != SupvisorsInstanceStates.RUNNING:
+        if state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             instance_status._state = state
             context.on_process_removed_event('10.0.0.1', {})
             assert not mocked_publisher.send_process_event.called
@@ -1174,7 +1197,7 @@ def test_on_process_disability_event_not_running_instance(context):
     instance_status = context.instances['10.0.0.1']
     # check no change with known node not RUNNING
     for state in SupvisorsInstanceStates:
-        if state != SupvisorsInstanceStates.RUNNING:
+        if state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             instance_status._state = state
             context.on_process_disability_event('10.0.0.1', {})
             assert not mocked_publisher.send_process_event.called
@@ -1247,7 +1270,7 @@ def test_on_process_state_event_not_running_instance(mocker, context):
     instance_status = context.instances['10.0.0.1']
     # check no change with known node not RUNNING
     for state in SupvisorsInstanceStates:
-        if state != SupvisorsInstanceStates.RUNNING:
+        if state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             instance_status._state = state
             assert context.on_process_state_event('10.0.0.1', {}) is None
             assert not mocked_update_args.called
@@ -1460,12 +1483,12 @@ def test_on_timer_event(mocker, context):
     assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == (['10.0.0.2'], {proc_2})
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING
     expected_1 = {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 65000,
-                  'statecode': 4, 'statename': 'ISOLATING', 'discovery_mode': False,
+                  'statecode': 5, 'statename': 'ISOLATING', 'discovery_mode': False,
                   'remote_time': 0, 'local_time': 0, 'loading': 15,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000,
-                  'statecode': 4, 'statename': 'ISOLATING', 'discovery_mode': False,
+                  'statecode': 5, 'statename': 'ISOLATING', 'discovery_mode': False,
                   'remote_time': 0, 'local_time': 0, 'loading': 0,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
@@ -1505,12 +1528,12 @@ def test_handle_isolation(context):
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
     # check calls to publisher.send_instance_status
     expected_1 = {'identifier': '10.0.0.4', 'node_name': '10.0.0.4', 'port': 65000,
-                  'statecode': 5, 'statename': 'ISOLATED', 'discovery_mode': False,
+                  'statecode': 6, 'statename': 'ISOLATED', 'discovery_mode': False,
                   'remote_time': 0, 'local_time': 0, 'loading': 0,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
     expected_2 = {'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000,
-                  'statecode': 5, 'statename': 'ISOLATED', 'discovery_mode': False,
+                  'statecode': 6, 'statename': 'ISOLATED', 'discovery_mode': False,
                   'remote_time': 0, 'local_time': 0, 'loading': 0,
                   'sequence_counter': 0, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}

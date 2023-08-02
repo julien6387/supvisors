@@ -586,12 +586,12 @@ table .STOPPING {
     color: black;
 }
 
-table .RUNNING {
+table .RUNNING, table .CHECKED {
     background-image: linear-gradient(165deg, white, green, green, white);
     color: black;
 }
 
-table .RUNNING.crashed {
+table .RUNNING.crashed, table .CHECKED.crashed {
     background-image: linear-gradient(165deg, orange, green, green, orange);
     color: black;
 }
@@ -630,11 +630,11 @@ nav .STOPPED.active {
     background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
 }
 
-nav .RUNNING {
+nav .RUNNING, nav .CHECKED {
     background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
 }
 
-nav .RUNNING.active {
+nav .RUNNING.active, nav .CHECKED.active {
     background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
 }
 

@@ -24,9 +24,10 @@ from supervisor.compat import as_bytes, as_string
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
+from .instancestatus import SupvisorsInstanceStatus
 from .rpcinterface import API_VERSION
 from .statscompiler import ProcStatisticsInstance
-from .ttypes import (SupvisorsInstanceStates, SupvisorsStates, Payload, PayloadList)
+from .ttypes import SupvisorsStates, Payload, PayloadList
 from .utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
@@ -138,7 +139,7 @@ class ViewHandler(MeldView):
         identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         for li_elt, item in mid_elt.repeat(identifiers):
             try:
-                status = self.sup_ctx.instances[item]
+                status: SupvisorsInstanceStatus = self.sup_ctx.instances[item]
             except KeyError:
                 self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:
@@ -150,7 +151,7 @@ class ViewHandler(MeldView):
                 elt = li_elt.findmeld('instance_a_mid')
                 if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
                     update_attrib(elt, 'class', 'blink')
-                if status.state == SupvisorsInstanceStates.RUNNING:
+                if status.has_active_state():
                     # go to web page located on the Supvisors instance to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
                     elt.attributes(href=url)

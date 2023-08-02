@@ -26,7 +26,7 @@ from supervisor.events import Event
 # all enumerations
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, RUNNING, SILENT, ISOLATING, ISOLATED = range(6)
+    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATING, ISOLATED = range(7)
 
 
 class SupvisorsStates(Enum):

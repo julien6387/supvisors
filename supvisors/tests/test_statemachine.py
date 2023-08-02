@@ -42,9 +42,11 @@ def supvisors_ctx(supvisors):
     return supvisors
 
 
-def test_abstract_state(supvisors_ctx):
+def test_abstract_state(mocker, supvisors_ctx):
     """ Test the Abstract state of the self.fsm. """
     state = AbstractState(supvisors_ctx)
+    # patch the context
+    mocker.patch.object(supvisors_ctx.starter, 'in_progress', return_value=False)
     # check attributes at creation
     assert state.supvisors is supvisors_ctx
     assert state.local_identifier == supvisors_ctx.supvisors_mapper.local_identifier
@@ -56,16 +58,16 @@ def test_abstract_state(supvisors_ctx):
     # test check_instances method
     # declare local and master address running
     supvisors_ctx.context._master_identifier = '10.0.0.3'
-    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.RUNNING
-    supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.CHECKED
     assert state.check_instances() is None
     # transition to INITIALIZATION state if the local address or master address is not RUNNING
-    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.RUNNING
     supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
     # test abort_jobs method
     state.abort_jobs()

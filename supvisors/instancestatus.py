@@ -141,7 +141,7 @@ class SupvisorsInstanceStatus:
 
         :return: None
         """
-        if self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
+        if self.has_active_state():
             # do NOT use state setter as transition may be rejected
             self._state = SupvisorsInstanceStates.UNKNOWN
         self.sequence_counter = 0
@@ -208,7 +208,15 @@ class SupvisorsInstanceStatus:
         self.state_modes.apply(**event)
         return ref_state_modes != self.state_modes, self.state_modes
 
-    def inactive(self, local_sequence_counter: int):
+    def has_active_state(self) -> bool:
+        """ Return True if the instance status is in an active state.
+
+        :return: the activity status
+        """
+        return self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                              SupvisorsInstanceStates.RUNNING]
+
+    def is_inactive(self, local_sequence_counter: int) -> bool:
         """ Return True if the latest update was received more than INACTIVITY_TICKS ago.
 
         :param local_sequence_counter: the current local sequence counter
@@ -217,7 +225,7 @@ class SupvisorsInstanceStatus:
         # NOTE: by design, there will be always a gap of 1 (hopefully not much) between the local_sequence_counter
         #       and the self.local_sequence_counter on the local Supvisors instance
         #       because the periodic check is performed on the new TICK that has not been published yet
-        return (self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]
+        return (self.has_active_state()
                 and (local_sequence_counter - self.local_sequence_counter) > self.supvisors.options.inactivity_ticks)
 
     def in_isolation(self):
@@ -332,9 +340,12 @@ class SupvisorsInstanceStatus:
     _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,
                                                       SupvisorsInstanceStates.ISOLATING,
                                                       SupvisorsInstanceStates.SILENT),
-                    SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.RUNNING,
+                    SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.CHECKED,
                                                        SupvisorsInstanceStates.ISOLATING,
                                                        SupvisorsInstanceStates.SILENT),
+                    SupvisorsInstanceStates.CHECKED: (SupvisorsInstanceStates.RUNNING,
+                                                      SupvisorsInstanceStates.ISOLATING,
+                                                      SupvisorsInstanceStates.SILENT),
                     SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.SILENT,
                                                       SupvisorsInstanceStates.ISOLATING,
                                                       SupvisorsInstanceStates.CHECKING),
