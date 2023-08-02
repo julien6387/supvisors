@@ -28,6 +28,9 @@
 
 * Use IP address rather than host identification when dealing with `SINGLE_NODE` starting strategy. 
 
+* Fix a case where the Starter would block if the process reaches the expected state without reception
+  of the corresponding event.
+
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
 
 * Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.

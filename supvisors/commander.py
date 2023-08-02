@@ -244,10 +244,14 @@ class ProcessStartCommand(ProcessCommand):
         if process_state == ProcessStates.RUNNING:
             if self.process.rules.wait_exit and not self.ignore_wait_exit:
                 return ProcessStates.EXITED, ProcessRequestResult.IN_PROGRESS, process_state_date
-            # WARN: never happened but if the execution gets here, that would mean events have been missed
-            # the Starter will be blocked indefinitely - no further action unless this event is reported to occur
-            self.logger.critical(f'ProcessStartCommand.timed_out: {self.process.namespec} already RUNNING'
-                                 f' on {self.identifier}. Events have been missed')
+            # WARN: very seldom but seen once.
+            #       It happened in a context where a Supvisors instance was set to RUNNING during the start sequence
+            #       The Supvisors instance was then a possible candidate to start a process.
+            #       However, its process information was not received yet.
+            #       The new instance has been selected and the process information has been received just after.
+            #       The context.load_processes does NOT feed the sequencers.
+            self.logger.warn(f'ProcessStartCommand.timed_out: {self.process.namespec} already RUNNING'
+                             f' on {self.identifier}')
             return ProcessStates.RUNNING, ProcessRequestResult.SUCCESS, process_state_date
         # once STARTING, the RUNNING state is expected after startsecs seconds
         if process_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
@@ -327,6 +331,12 @@ class ProcessStopCommand(ProcessCommand):
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPED'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
                 return expected_state, ProcessRequestResult.TIMED_OUT, process_state_time
+        elif process_state in STOPPED_STATES:
+            # WARN: very unlikely. never happened. if the present section is reached, something wrong happened.
+            #       It has to be dealt with anyway to avoid the sequencer to block.
+            self.logger.critical(f'ProcessStopCommand.timed_out: {self.process.namespec} already stopped'
+                                 f' on {self.identifier}. Events have been missed')
+            return process_state, ProcessRequestResult.SUCCESS, process_state_time
         else:
             # from RUNNING_STATES, STOPPING event is expected quite immediately
             expected_state = ProcessStates.STOPPING
@@ -516,7 +526,10 @@ class ApplicationJobs(object):
                                                             self.failure_state, reason)
                 # don't wait for event, abort the job right now
                 self.current_jobs.remove(command)
-            # FIXME: process result SUCCESS (events missed)
+            if result == ProcessRequestResult.SUCCESS:
+                # NOTE: the result has been reached outside the scope of the sequencer
+                #       the job MUST be removed of the sequencer will block
+                self.current_jobs.remove(command)
         # trigger jobs
         self.next()
 

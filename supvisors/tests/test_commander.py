@@ -299,8 +299,15 @@ def test_stop_command_timed_out(stop_command):
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.IN_PROGRESS, 1234)
     stop_command.instance_status.sequence_counter = 15
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.TIMED_OUT, 1234)
+    # check call for all stopped states
+    for state in STOPPED_STATES:
+        process_info['state'] = state
+        stop_command.instance_status.sequence_counter = 12
+        assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
+        stop_command.instance_status.sequence_counter = 13
+        assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
     # check call for all other states
-    for state in list(RUNNING_STATES) + list(STOPPED_STATES):
+    for state in RUNNING_STATES:
         process_info['state'] = state
         stop_command.instance_status.sequence_counter = 12
         assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.IN_PROGRESS, 1234)
@@ -383,7 +390,7 @@ def test_application_job_print(application_job_1):
 def test_application_job_get_command(sample_test_1):
     """ Test the ApplicationJobs.get_command method. """
     # initial ProcessCommands have no identifiers set
-    # test with non existing process
+    # test with non-existing process
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes')
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes', '10.0.0.1')
     # test with existing process
@@ -392,7 +399,7 @@ def test_application_job_get_command(sample_test_1):
     # set identifiers
     for command in sample_test_1:
         command.identifier = '10.0.0.1'
-    # test with non existing process
+    # test with non-existing process
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes')
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes', '10.0.0.1')
     # test with existing process
@@ -539,7 +546,15 @@ def test_application_job_check(mocker, application_job_1, sample_test_1):
     assert mocked_timeout.call_args_list == [call(), call()]
     assert mocked_force.call_args_list == [call(sample_test_1[0].process, '10.0.0.1', 1234, ProcessStates.UNKNOWN,
                                                 'process RUNNING event not received in time')]
-    assert mocked_next.called
+    assert mocked_next.called1
+    mocker.resetall()
+    # trigger unexpected success on remaining element of current_jobs
+    mocked_timeout.side_effect = None
+    mocked_timeout.return_value = (ProcessStates.RUNNING, ProcessRequestResult.SUCCESS, 1234)
+    application_job_1.check()
+    assert application_job_1.current_jobs == []
+    assert mocked_timeout.call_args_list == [call()]
+    assert not mocked_force.called
 
 
 def test_application_job_on_event(mocker, application_job_1, sample_test_1):
