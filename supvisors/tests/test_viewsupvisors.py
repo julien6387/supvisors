@@ -547,40 +547,6 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
     assert mocked_dwarn.called
     assert not mocked_error.called
     assert not mocked_warn.called
-    # reset mocks
-    mocked_dwarn.reset_mock()
-    # test delayed result with RPC error
-    mocked_onwait = Mock(side_effect=RPCError('failed RPC'))
-    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
-    cb = method_cb()
-    assert callable(cb)
-    assert cb() == 'error'
-    assert not mocked_derror.called
-    assert not mocked_dwarn.called
-    assert mocked_error.called
-    assert not mocked_warn.called
-    # reset mocks
-    mocked_error.reset_mock()
-    # test delayed / uncompleted result
-    mocked_onwait = Mock(return_value=NOT_DONE_YET)
-    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
-    cb = method_cb()
-    assert callable(cb)
-    assert cb() is NOT_DONE_YET
-    assert not mocked_derror.called
-    assert not mocked_dwarn.called
-    assert not mocked_error.called
-    assert not mocked_warn.called
-    # test delayed / completed result
-    mocked_onwait = Mock(return_value='done')
-    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
-    cb = method_cb()
-    assert callable(cb)
-    assert cb() == 'warning'
-    assert not mocked_derror.called
-    assert not mocked_dwarn.called
-    assert not mocked_error.called
-    assert mocked_warn.called
 
 
 def test_stop_action(mocker, view):

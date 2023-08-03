@@ -297,18 +297,6 @@ class SupvisorsView(ViewHandler):
             cb = self.supvisors.supervisor_data.supvisors_rpc_interface.restart()
         except RPCError as e:
             return delayed_error(f'restart: {e}')
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError as exc:
-                    return error_message(f'restart: {exc}')
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                return warn_message('Supvisors restart requested')
-
-            onwait.delay = 0.1
-            return onwait
         return delayed_warn('Supvisors restart requested')
 
     def sup_shutdown_action(self):
@@ -317,18 +305,6 @@ class SupvisorsView(ViewHandler):
             cb = self.supvisors.supervisor_data.supvisors_rpc_interface.shutdown()
         except RPCError as e:
             return delayed_error(f'shutdown: {e}')
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError as exc:
-                    return error_message(f'shutdown: {exc}')
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                return warn_message('Supvisors shutdown requested')
-
-            onwait.delay = 0.1
-            return onwait
         return delayed_warn('Supvisors shutdown requested')
 
     def stop_action(self, namespec: str, identifier: str) -> Callable:
