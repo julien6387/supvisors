@@ -61,6 +61,7 @@ def check_success(rv, mocked_func, call_args_list, json):
     assert rv.status == '200 OK'
     assert rv.headers['Content-Type'] == 'application/json'
     assert rv.json == json
+    mocked_func.reset_mock()
 
 
 def check_get_success(client, url, mocked_func, call_args_list, json):
@@ -798,9 +799,10 @@ def test_supvisors_restart_sequence(xml_rpc, client):
     """ Check the restart_sequence REST API. """
     base_url = '/supvisors/restart_sequence'
     mocked_func = xml_rpc.supvisors.restart_sequence
-    # test with parameters
+    # test without parameter
     check_post_success(client, f'{base_url}', mocked_func, [call(True)])
     mocked_func.reset_mock()
+    # test with wait parameter
     check_post_success(client, f'{base_url}?wait=false', mocked_func, [call(False)])
 
 
@@ -808,7 +810,7 @@ def test_supvisors_restart(xml_rpc, client):
     """ Check the restart REST API. """
     base_url = '/supvisors/restart'
     mocked_func = xml_rpc.supvisors.restart
-    # test with parameters
+    # test without parameter
     check_post_success(client, f'{base_url}', mocked_func, [call()])
 
 
@@ -816,8 +818,18 @@ def test_supvisors_shutdown(xml_rpc, client):
     """ Check the shutdown REST API. """
     base_url = '/supvisors/shutdown'
     mocked_func = xml_rpc.supvisors.shutdown
-    # test with parameters
+    # test without parameter
     check_post_success(client, f'{base_url}', mocked_func, [call()])
+
+
+def test_supvisors_end_sync(xml_rpc, client):
+    """ Check the end_sync REST API. """
+    base_url = '/supvisors/end_sync'
+    mocked_func = xml_rpc.supvisors.end_sync
+    # test without parameters
+    check_post_success(client, f'{base_url}', mocked_func, [call()])
+    # test with parameters
+    check_post_success(client, f'{base_url}/10.0.0.1', mocked_func, [call('10.0.0.1')])
 
 
 def test_supvisors_change_log_level(xml_rpc, client):

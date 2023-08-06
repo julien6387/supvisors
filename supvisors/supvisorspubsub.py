@@ -31,7 +31,7 @@ from supervisor.loggers import Logger
 from .internalinterface import (InternalCommEmitter, InternalCommReceiver, SupvisorsInternalComm,
                                 bytes_to_payload, payload_to_bytes, read_from_socket)
 from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import InternalEventHeaders, Ipv4Address, Payload, PayloadList, NameList
+from .ttypes import InternalEventHeaders, Ipv4Address, NameList
 
 # additional annotations
 SocketList = List[socket]
@@ -120,28 +120,8 @@ class PublisherServer(Thread):
             self.put_sock, self.get_sock = socketpair()
             self.poller.register(self.get_sock, select.POLLIN)
 
-    def publish(self, event_type: Enum, event_body: Any) -> None:
-        """ Encode and forward the event to the Publisher thread using the FIFO.
-
-        :param event_type: the type of the event to send
-        :param event_body: the body of the event to send
-        :return: None
-        """
-        if self.put_sock:
-            # encode the message
-            message = payload_to_bytes(event_type, (self.identifier, event_body))
-            # prepare the buffer to send by prepending its length
-            buffer = len(message).to_bytes(4, 'big') + message
-            # send the message to the publication thread
-            try:
-                self.put_sock.sendall(buffer)
-            except error as exc:
-                # critical error. cannot go on
-                self.logger.critical(f'PublisherServer.publish: internal socket error - {str(exc)}')
-                self.stop()
-
     def stop(self) -> None:
-        """ Request the Publisher main loop to stop.
+        """ Stop the PublisherServer when close is called.
 
         :return: None
         """
@@ -317,75 +297,31 @@ class InternalPublisher(PublisherServer, InternalCommEmitter):
     """ Class for publishing Supervisor events. """
 
     def close(self) -> None:
-        """ Stop the PublisherServer when close is called.
+        """ Close the resources used.
 
         :return: None
         """
         self.stop()
 
-    def send_tick_event(self, payload: Payload) -> None:
-        """ Publish the tick event.
+    def emit_message(self, event_type: Enum, event_body: Any) -> None:
+        """ Encode and forward the event to the Publisher thread using the FIFO.
 
-        :param payload: the tick to push
+        :param event_type: the type of the event to send
+        :param event_body: the body of the event to send
         :return: None
         """
-        self.publish(InternalEventHeaders.TICK, payload)
-
-    def send_process_state_event(self, payload: Payload) -> None:
-        """ Publish the process state event.
-
-        :param payload: the process state to publish
-        :return: None
-        """
-        self.publish(InternalEventHeaders.PROCESS, payload)
-
-    def send_process_added_event(self, payload: PayloadList) -> None:
-        """ Publish the process added event.
-
-        :param payload: the added process to publish
-        :return: None
-        """
-        self.publish(InternalEventHeaders.PROCESS_ADDED, payload)
-
-    def send_process_removed_event(self, payload: Payload) -> None:
-        """ Publish the process removed event.
-
-        :param payload: the removed process to publish
-        :return: None
-        """
-        self.publish(InternalEventHeaders.PROCESS_REMOVED, payload)
-
-    def send_process_disability_event(self, payload: Payload) -> None:
-        """ Publish the process disability event.
-
-        :param payload: the enabled/disabled process to publish
-        :return: None
-        """
-        self.publish(InternalEventHeaders.PROCESS_DISABILITY, payload)
-
-    def send_host_statistics(self, payload: Payload) -> None:
-        """ Publish the host statistics.
-
-        :param payload: the statistics to publish
-        :return: None
-        """
-        self.publish(InternalEventHeaders.HOST_STATISTICS, payload)
-
-    def send_process_statistics(self, payload: Payload) -> None:
-        """ Publish the process statistics.
-
-        :param payload: the statistics to publish
-        :return: None
-        """
-        self.publish(InternalEventHeaders.PROCESS_STATISTICS, payload)
-
-    def send_state_event(self, payload: Payload) -> None:
-        """ Publish the Master state event.
-
-        :param payload: the Supvisors state to publish
-        :return: None
-        """
-        self.publish(InternalEventHeaders.STATE, payload)
+        if self.put_sock:
+            # encode the message
+            message = payload_to_bytes(event_type, (self.identifier, event_body))
+            # prepare the buffer to send by prepending its length
+            buffer = len(message).to_bytes(4, 'big') + message
+            # send the message to the publication thread
+            try:
+                self.put_sock.sendall(buffer)
+            except error as exc:
+                # critical error. cannot go on
+                self.logger.critical(f'PublisherServer.publish: internal socket error - {str(exc)}')
+                self.stop()
 
 
 class ClientConnectionThread(Thread):

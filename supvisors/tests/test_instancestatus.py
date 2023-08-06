@@ -35,40 +35,54 @@ def test_state_modes():
     sm_1 = StateModes()
     assert sm_1.state == SupvisorsStates.OFF
     assert not sm_1.discovery_mode
+    assert sm_1.master_identifier == ''
     assert not sm_1.starting_jobs
     assert not sm_1.stopping_jobs
     assert sm_1.serial() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
                              'discovery_mode': False,
+                             'master_identifier': '',
                              'starting_jobs': False, 'stopping_jobs': False}
     sm_1.apply(fsm_state=SupvisorsStates.OPERATION)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
                              'discovery_mode': False,
+                             'master_identifier': '',
+                             'starting_jobs': False, 'stopping_jobs': False}
+    sm_1.apply(master_identifier='10.0.0.1')
+    assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': False, 'stopping_jobs': False}
     sm_1.apply(starter=True)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
                              'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': True, 'stopping_jobs': False}
     sm_1.apply(stopper=True)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
                              'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': True, 'stopping_jobs': True}
     with pytest.raises(TypeError):
         sm_1.apply(Starter=True)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
                              'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': True, 'stopping_jobs': True}
     sm_2 = copy(sm_1)
-    assert sm_1.state == SupvisorsStates.OPERATION
-    assert not sm_1.discovery_mode
-    assert sm_1.starting_jobs
-    assert sm_1.stopping_jobs
+    assert sm_2.state == SupvisorsStates.OPERATION
+    assert not sm_2.discovery_mode
+    assert sm_2.master_identifier == '10.0.0.1'
+    assert sm_2.starting_jobs
+    assert sm_2.stopping_jobs
     assert sm_1 == sm_2
     sm_2.update({'fsm_statecode': SupvisorsStates.SHUTTING_DOWN,
                  'discovery_mode': True,
+                 'master_identifier': '',
                  'starting_jobs': False, 'stopping_jobs': True})
     assert sm_1 != sm_2
     assert sm_2.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
                              'discovery_mode': True,
+                             'master_identifier': '',
                              'starting_jobs': False, 'stopping_jobs': True}
 
 
@@ -175,7 +189,9 @@ def test_serialization(status):
                           'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
                           'remote_time': 50, 'local_time': 60,
                           'sequence_counter': 28, 'process_failure': False,
-                          'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
+                          'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                          'master_identifier': '',
+                          'starting_jobs': False, 'stopping_jobs': False}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -213,9 +229,11 @@ def test_update_state_modes(status):
     assert status.state_modes == StateModes()
     status.update_state_modes({'fsm_statecode': SupvisorsStates.SHUTTING_DOWN,
                                'discovery_mode': True,
+                               'master_identifier': '10.0.0.1',
                                'starting_jobs': False, 'stopping_jobs': True})
     assert status.state_modes.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
                                            'discovery_mode': True,
+                                           'master_identifier': '10.0.0.1',
                                            'starting_jobs': False, 'stopping_jobs': True}
 
 
@@ -223,15 +241,20 @@ def test_apply_state_modes(status):
     """ Test the SupvisorsInstanceStatus.apply_state_modes method. """
     assert status.state_modes == StateModes()
     assert status.apply_state_modes({}) == (False, StateModes())
+    event = {'master_identifier': '10.0.0.1'}
+    assert status.apply_state_modes(event) == (True, StateModes(master_identifier='10.0.0.1'))
     event = {'starter': True}
-    assert status.apply_state_modes(event) == (True, StateModes(starting_jobs=True))
+    assert status.apply_state_modes(event) == (True, StateModes(starting_jobs=True, master_identifier='10.0.0.1'))
     event = {'stopper': False}
-    assert status.apply_state_modes(event) == (False, StateModes(starting_jobs=True))
+    assert status.apply_state_modes(event) == (False, StateModes(master_identifier='10.0.0.1', starting_jobs=True))
     event = {'fsm_state': SupvisorsStates.RESTARTING}
-    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.RESTARTING, False, True))
+    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.RESTARTING,
+                                                                False, '10.0.0.1', True))
     event = {'fsm_state': SupvisorsStates.INITIALIZATION, 'stopper': True}
-    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.INITIALIZATION, False, True, True))
-    assert status.apply_state_modes(event) == (False, StateModes(SupvisorsStates.INITIALIZATION, False, True, True))
+    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.INITIALIZATION,
+                                                                False, '10.0.0.1', True, True))
+    assert status.apply_state_modes(event) == (False, StateModes(SupvisorsStates.INITIALIZATION,
+                                                                 False, '10.0.0.1', True, True))
 
 
 def test_has_active_state(status):
@@ -246,7 +269,7 @@ def test_has_active_state(status):
 
 
 def test_inactive(status):
-    """ Test the SupvisorsInstanceStatus.inactive method. """
+    """ Test the SupvisorsInstanceStatus.is_inactive method. """
     # test active
     status.local_sequence_counter = 8
     for state in SupvisorsInstanceStates:

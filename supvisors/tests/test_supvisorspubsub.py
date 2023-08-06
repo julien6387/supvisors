@@ -256,27 +256,9 @@ def test_publisher_bind_exception(supvisors):
     server2.stop()
 
 
-def test_publisher_publish_exception(sockets):
-    """ Test the sendto exception of the PublisherServer.
-    The aim is to hit the lines 139-141 in PublisherServer.publish.
-    Checked ok with debugger.
-    """
-    # wait for publisher server to be alive
-    publisher = sockets.emitter
-    time.sleep(1)
-    assert publisher.is_alive()
-    # close the internal put socket
-    publisher.put_sock.close()
-    # try to publish a message
-    publisher.publish(InternalEventHeaders.TICK, {})
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert not publisher.is_alive()
-
-
 def test_publisher_accept_exception(mocker, sockets):
     """ Test the accept exception of the PublisherServer.
-    The aim is to hit the line 231 in PublisherServer._handle_events.
+    The aim is to hit the line 209-211 in PublisherServer._handle_events.
     Checked ok with debugger.
     """
     subscriber = sockets.receiver
@@ -291,7 +273,7 @@ def test_publisher_accept_exception(mocker, sockets):
     # now force the subscriber to reconnect / create new subscriber
     subscriber.close()
     sockets.pusher_sock, sockets.puller_sock = socketpair()
-    subscriber = sockets.receiver = InternalSubscriber(sockets.puller_sock, sockets.supvisors)
+    sockets.receiver = InternalSubscriber(sockets.puller_sock, sockets.supvisors)
     time.sleep(1)
     # check no connection registered
     assert publisher.clients == {}
@@ -299,7 +281,7 @@ def test_publisher_accept_exception(mocker, sockets):
 
 def test_publisher_forward_empty_message(supvisors, sockets):
     """ Test the robustness when the publisher forwards an empty message.
-    The aim is to hit the lines 250-251 in PublisherServer._forward_message.
+    The aim is to hit the lines 230-231 in PublisherServer._forward_message.
     Checked ok with debugger.
     """
     subscriber = sockets.receiver
@@ -321,7 +303,7 @@ def test_publisher_forward_empty_message(supvisors, sockets):
 
 def test_publisher_receive_empty_message(sockets):
     """ Test the robustness when the publisher receives an empty message.
-    The aim is to hit the lines 266-267 in PublisherServer._receive_client_heartbeat.
+    The aim is to hit the lines 246-247 in PublisherServer._receive_client_heartbeat.
     Checked ok with debugger.
     """
     subscriber = sockets.receiver
@@ -343,7 +325,7 @@ def test_publisher_receive_empty_message(sockets):
 
 def test_publisher_heartbeat_timeout(mocker, sockets):
     """ Test the exception management in PublisherServer when heartbeat missing from a client.
-    The aim is to hit the lines 295-297 in PublisherServer._manage_heartbeats.
+    The aim is to hit the lines 275-277 in PublisherServer._manage_heartbeats.
     Checked ok with debugger.
     """
     publisher = sockets.emitter
@@ -379,7 +361,7 @@ def test_publisher_heartbeat_timeout(mocker, sockets):
 
 def test_publisher_publish_message_exception(sockets):
     """ Test the publish exception management in PublisherServer when the client is closed.
-    The aim is to hit the line 313 in PublisherServer._publish_message.
+    The aim is to hit the line 291-293 in PublisherServer._publish_message.
     Checked ok with debugger.
     """
     publisher = sockets.emitter
@@ -400,9 +382,27 @@ def test_publisher_publish_message_exception(sockets):
     assert publisher.clients == {}
 
 
+def test_publisher_publish_exception(sockets):
+    """ Test the sendto exception of the PublisherServer.
+    The aim is to hit the lines 321-324 in InternalPublisher.emit_message.
+    Checked ok with debugger.
+    """
+    # wait for publisher server to be alive
+    publisher = sockets.emitter
+    time.sleep(1)
+    assert publisher.is_alive()
+    # close the internal put socket
+    publisher.put_sock.close()
+    # try to publish a message
+    publisher.emit_message(InternalEventHeaders.TICK, {})
+    # wait for publisher server to be alive
+    time.sleep(1)
+    assert not publisher.is_alive()
+
+
 def test_subscriber_heartbeat_timeout(sockets):
     """ Test the exception management in subscriber when heartbeat missing from a publisher.
-    The aim is to hit the line 461 in InternalSubscriber._check_heartbeat.
+    The aim is to hit the line 398 in InternalSubscriber._check_heartbeat.
     Checked ok with debugger.
     """
     subscriber = sockets.receiver
@@ -438,7 +438,7 @@ def test_subscriber_heartbeat_timeout(sockets):
 
 def test_send_heartbeat_exception(sockets):
     """ Test the exception management when sending heartbeat to a socket that has been closed.
-    The aim is to trigger the OSError in InternalSubscriber._send_heartbeat (line 477).
+    The aim is to trigger the OSError in InternalSubscriber._send_heartbeat (line 413-414).
     Checked ok with debugger.
     """
     subscriber = sockets.receiver

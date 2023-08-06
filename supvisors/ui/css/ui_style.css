@@ -498,6 +498,16 @@ th {
     text-align: center;
 }
 
+table.buttons {
+    border: none;
+    background: transparent;
+}
+
+table.buttons td {
+    border: none;
+    padding: 2px 3px;
+}
+
 #process_table th {
     position: sticky;
     top: 0;

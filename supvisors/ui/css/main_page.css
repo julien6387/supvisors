@@ -44,10 +44,14 @@
     max-width: 250px;
 }
 
-.instanceBox .button {
+.instanceBox tbody .button {
     padding: 2px 4px;
     margin-bottom: 4px;
     background-color: #007600;
     border-radius: 6px;
     cursor: default;
+}
+
+.instanceBox thead .button {
+    font-size: 1.4em;
 }

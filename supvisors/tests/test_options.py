@@ -35,7 +35,8 @@ def config():
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
             'internal_port': '60001',
             'event_link': 'zmq', 'event_port': '60002',
-            'synchro_timeout': '20', 'inactivity_ticks': '9',
+            'synchro_options': 'LIST,USER', 'synchro_timeout': '20',
+            'inactivity_ticks': '9',
             'core_identifiers': 'cliche01,cliche03',
             'disabilities_file': '/tmp/disabilities.json',
             'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
@@ -141,7 +142,8 @@ def test_str(opt):
     assert str(opt) == ('supvisors_list=None multicast_group=None multicast_interface=None multicast_ttl=1'
                         ' rules_files=None internal_port=0'
                         ' event_link=NONE event_port=0'
-                        ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
+                        " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
+                        ' inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
                         ' host_stats_enabled=True process_stats_enabled=True'
                         ' collecting_period=5 stats_periods=[10] stats_histo=200'
@@ -153,12 +155,15 @@ def test_filled_str(filled_opt):
     variable_core_1 = "{'cliche01', 'cliche03'}"
     variable_core_2 = "{'cliche03', 'cliche01'}"
     result = str(filled_opt)
+    print(result)
     assert any(result == (f"supvisors_list=['cliche01', 'cliche03', 'cliche02']"
                           ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
                           " rules_files=['my_movies.xml']"
                           ' internal_port=60001'
                           ' event_link=ZMQ event_port=60002'
-                          ' auto_fence=True synchro_timeout=20 inactivity_ticks=9'
+                          ' auto_fence=True'
+                          " synchro_options=['LIST', 'USER'] synchro_timeout=20"
+                          ' inactivity_ticks=9'
                           f' core_identifiers={var}'
                           ' disabilities_file=/tmp/disabilities.json'
                           ' conciliation_strategy=SENICIDE starting_strategy=MOST_LOADED'
@@ -174,6 +179,21 @@ def test_get_value(opt, config):
     assert opt._get_value(config, 'event_port', 'anything') == '60002'
     assert opt._get_value(config, 'event_port', 'anything', int) == 60002
     assert opt._get_value(config, 'rules_files', 'anything', int) == 'anything'
+
+
+def test_check_synchro_options(opt, config):
+    """ Test the SupvisorsOptions.check_synchro_options method. """
+    opt.synchro_options = [SynchronizationOptions.LIST, SynchronizationOptions.CORE]
+    assert not opt.supvisors_list
+    assert not opt.core_identifiers
+    # call to check_synchro_options will empty synchro_options
+    with pytest.raises(ValueError):
+        opt.check_synchro_options()
+    # call check_synchro_options with USER and TIMEOUT
+    for option in [SynchronizationOptions.USER, SynchronizationOptions.TIMEOUT]:
+        opt.synchro_options = [option]
+        opt.check_synchro_options()
+        assert opt.synchro_options == [option]
 
 
 def test_check_dirpath(opt):
@@ -200,6 +220,7 @@ def test_to_filepaths(opt):
 
 
 common_error_message = r'invalid value for {}'
+
 
 def test_check_multicast_address():
     """ Test the checking of a multicast address. """
@@ -289,6 +310,23 @@ def test_port_num():
     # test valid values
     assert SupvisorsOptions.to_port_num('1') == 1
     assert SupvisorsOptions.to_port_num('65535') == 65535
+
+
+def test_to_synchro_options():
+    """ Test the conversion of a string to a list of SynchronizationOptions. """
+    error_message = common_error_message.format('synchro_options')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_synchro_options('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_synchro_options('time,TIMEOUT')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_synchro_options('user-core')
+    # test valid values
+    assert SupvisorsOptions.to_synchro_options('list,timeout,core,user') == [x for x in SynchronizationOptions]
+    assert SupvisorsOptions.to_synchro_options('  user, , liST,  USER,') == [SynchronizationOptions.USER,
+                                                                             SynchronizationOptions.LIST]
+    assert SupvisorsOptions.to_synchro_options('CoRe') == [SynchronizationOptions.CORE]
 
 
 def test_timeout():

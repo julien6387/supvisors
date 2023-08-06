@@ -215,11 +215,33 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
+``synchro_options``
+
+    The conditions applied by |Supvisors| to exit the ``INITIALIZATION`` state.
+    Multiple values in [``LIST`` ; ``TIMEOUT`` ; ``CORE`` ; ``USER``], separated by commas.
+    If ``LIST`` is selected, |Supvisors| exits the ``INITIALIZATION`` state when all the |Supvisors| instances
+    declared in the ``supvisors_list`` option are no more in the ``UNKNOWN`` state.
+    If ``TIMEOUT`` is selected, |Supvisors| exits the ``INITIALIZATION`` state after the duration defined in the
+    ``synchro_timeout`` option.
+    If ``CORE`` is selected, |Supvisors| exits the ``INITIALIZATION`` state when all the |Supvisors| instances
+    identified in the ``core_identifiers`` option are in a ``RUNNING`` state.
+    If ``USER`` is selected, |Supvisors| exits the ``INITIALIZATION`` state as soon as the *Master* instance is set,
+    which can be triggered upon user request (using the |Supvisors| Web UI, the ``end_sync`` XML-RPC or the ``end_sync``
+    command of ``supervisorctl``).
+    The use of this option is more detailed in :ref:`synchronizing`.
+
+    *Default*:  ``LIST,TIMEOUT,CORE``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``synchro_timeout``
 
     The time in seconds that |Supvisors| waits for all expected |Supvisors| instances to publish their TICK.
     Value in [``15`` ; ``1200``].
-    This use of this option is detailed in :ref:`synchronizing`.
+    This option is taken into account only if ``TIMEOUT`` is selected in the ``synchro_options``.
+    The use of this option is more detailed in :ref:`synchronizing`.
 
     *Default*:  ``15``.
 
@@ -242,9 +264,10 @@ behavior may happen. The present section details where it is applicable.
 ``core_identifiers``
 
     A subset of the names deduced from ``supvisors_list``, separated by commas. If the |Supvisors| instances of this
-    subset are all in a ``RUNNING`` state, this will put an end to the synchronization phase in |Supvisors|.
-    When not set, |Supvisors| waits for all expected |Supvisors| instances to publish their TICK until
-    ``synchro_timeout`` seconds.
+    subset are all in a ``RUNNING`` state and the ``CORE`` value is set in the ``synchro_options`` option, this will
+    put an end to the synchronization phase in |Supvisors|.
+    Independently from the ``CORE`` option being used, |Supvisors| will preferably take a member of this list when
+    selecting a *Master* instance.
     This parameter must be identical to all |Supvisors| instances or unpredictable behavior may happen.
 
     *Default*:  None.

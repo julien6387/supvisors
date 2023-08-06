@@ -21,7 +21,7 @@ from socket import gethostbyname, gethostname, socketpair
 import pytest
 
 from supvisors.supvisorsmulticast import *
-from supvisors.ttypes import DeferredRequestHeaders
+from supvisors.ttypes import DeferredRequestHeaders, InternalEventHeaders
 
 # get local IP address
 local_ip = gethostbyname(gethostname())

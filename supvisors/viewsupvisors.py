@@ -21,7 +21,7 @@ from typing import Dict, List
 
 from .instancestatus import SupvisorsInstanceStatus
 from .strategy import conciliate_conflicts
-from .ttypes import ConciliationStrategies, SupvisorsStates
+from .ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions
 from .utils import simple_gmtime, simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
@@ -50,7 +50,8 @@ class SupvisorsView(ViewHandler):
         self.strategies: List[str] = [x.name.lower() for x in ConciliationStrategies]
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
-        self.global_methods: SupvisorsView.ProcessCallableMap = {'sup_restart': self.sup_restart_action,
+        self.global_methods: SupvisorsView.ProcessCallableMap = {'sup_sync': self.sup_sync_action,
+                                                                 'sup_restart': self.sup_restart_action,
                                                                  'sup_shutdown': self.sup_shutdown_action}
         # process actions
         self.process_methods: SupvisorsView.ProcessCallableMap = {'pstop': self.stop_action,
@@ -78,6 +79,10 @@ class SupvisorsView(ViewHandler):
 
     def write_supvisors_actions(self, root) -> None:
         """ Write actions related to Supvisors. """
+        # configure end of sync button
+        elt = root.findmeld('start_a_mid')
+        url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_sync'})
+        elt.attributes(href=url)
         # configure restart button
         elt = root.findmeld('restart_a_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'})
@@ -103,13 +108,30 @@ class SupvisorsView(ViewHandler):
             self.write_instance_boxes(root)
 
     # Standard part
-    def _write_instance_box_title(self, instance_div_elt, status: SupvisorsInstanceStatus) -> None:
+    def _write_instance_box_title(self, instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool) -> None:
         """ Rendering of the Supvisors instance box title.
 
-        :param instance_div_elt: the Supvisors instance box element
-        :param status: the Supvisors instance status
+        :param instance_div_elt: the Supvisors instance box element.
+        :param status: the Supvisors instance status.
+        :param user_sync: True if the Supvisors is configured to let the user end the synchronization phase.
         :return: None
         """
+        # remove the end_synchro button if appropriate
+        th_elt = instance_div_elt.findmeld('user_sync_th_mid')
+        elt = th_elt.findmeld('user_sync_a_mid')
+        if user_sync:
+            # fill the button with Supvisors star symbol
+            elt.content('&#160;&#10026;&#160;')
+            if status.state == SupvisorsInstanceStates.RUNNING:
+                update_attrib(elt, 'class', 'on')
+                url = self.view_ctx.format_url('', SUPVISORS_PAGE,
+                                               **{IDENTIFIER: status.identifier, ACTION: 'sup_master_sync'})
+                elt.attributes(href=url)
+            else:
+                update_attrib(elt, 'class', 'off')
+        else:
+            # remove the button cell and extend the next cell
+            th_elt.replace('')
         # set Supvisors instance name
         elt = instance_div_elt.findmeld('identifier_th_mid')
         if status.has_active_state():
@@ -135,7 +157,7 @@ class SupvisorsView(ViewHandler):
         elt.content(f'{status.get_load()}%')
 
     @staticmethod
-    def _write_instance_box_processes(instance_div_elt, status):
+    def _write_instance_box_processes(instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool):
         """ Rendering of the Supvisors instance box running processes. """
         appli_tr_mid = instance_div_elt.findmeld('appli_tr_mid')
         running_processes = status.running_processes()
@@ -149,6 +171,9 @@ class SupvisorsView(ViewHandler):
                 # set application name
                 app_name_td_mid = appli_tr_elt.findmeld('app_name_td_mid')
                 app_name_td_mid.content(application_name)
+                # group cells if the User sync button is displayed
+                if user_sync:
+                    update_attrib(app_name_td_mid, 'colspan', '2')
                 # set running process list
                 process_li_mid = appli_tr_elt.findmeld('process_li_mid')
                 processes = filter(lambda x: x.application_name == application_name, running_processes)
@@ -163,14 +188,19 @@ class SupvisorsView(ViewHandler):
     def write_instance_boxes(self, root):
         """ Rendering of the Supvisors instance boxes. """
         instance_div_mid = root.findmeld('instance_div_mid')
+        # check if user end of sync is allowed
+        user_sync = (SynchronizationOptions.USER in self.supvisors.options.synchro_options
+                     and self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION
+                     and not self.sup_ctx.master_identifier)
+        # create a box for every Supvisors instances
         identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         for instance_div_elt, identifier in instance_div_mid.repeat(identifiers):
             # get Supvisors instance status from Supvisors context
             status = self.sup_ctx.instances[identifier]
             # write box_title
-            self._write_instance_box_title(instance_div_elt, status)
+            self._write_instance_box_title(instance_div_elt, status, user_sync)
             # fill with running processes
-            self._write_instance_box_processes(instance_div_elt, status)
+            self._write_instance_box_processes(instance_div_elt, status, user_sync)
 
     # Conciliation part
     def write_conciliation_strategies(self, root):
@@ -290,11 +320,26 @@ class SupvisorsView(ViewHandler):
         if action in self.process_methods:
             identifier = self.view_ctx.get_identifier()
             return self.process_methods[action](namespec, identifier)
+        # user sync action
+        if action == 'sup_master_sync':
+            identifier = self.view_ctx.get_identifier()
+            return self.sup_sync_action(identifier)
+
+    def sup_sync_action(self, master_identifier: str = ''):
+        """ Restart all Supervisor instances. """
+        try:
+            self.supvisors.supervisor_data.supvisors_rpc_interface.end_synchro(master_identifier)
+        except RPCError as e:
+            return delayed_error(f'end_synchro: {e}')
+        message = 'Supvisors end of sync requested'
+        if master_identifier:
+            message += f' with Master={master_identifier}'
+        return delayed_warn(message)
 
     def sup_restart_action(self):
         """ Restart all Supervisor instances. """
         try:
-            cb = self.supvisors.supervisor_data.supvisors_rpc_interface.restart()
+            self.supvisors.supervisor_data.supvisors_rpc_interface.restart()
         except RPCError as e:
             return delayed_error(f'restart: {e}')
         return delayed_warn('Supvisors restart requested')
@@ -302,7 +347,7 @@ class SupvisorsView(ViewHandler):
     def sup_shutdown_action(self):
         """ Stop all Supervisor instances. """
         try:
-            cb = self.supvisors.supervisor_data.supvisors_rpc_interface.shutdown()
+            self.supvisors.supervisor_data.supvisors_rpc_interface.shutdown()
         except RPCError as e:
             return delayed_error(f'shutdown: {e}')
         return delayed_warn('Supvisors shutdown requested')

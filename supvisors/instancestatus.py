@@ -32,15 +32,17 @@ from .utils import TICK_PERIOD
 class StateModes:
 
     def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, discovery_mode: bool = False,
-                 starting_jobs: bool = False, stopping_jobs: bool = False):
+                 master_identifier: str = '', starting_jobs: bool = False, stopping_jobs: bool = False):
         """ Initialization of the attributes.
 
-        :param state: the FSM state
-        :param starting_jobs: the Starter progress
-        :param stopping_jobs: the Stopper progress
+        :param state: the FSM state.
+        :param master_identifier: the identifier of the Supvisors Master instance.
+        :param starting_jobs: the Starter progress.
+        :param stopping_jobs: the Stopper progress.
         """
         self.state: SupvisorsStates = state
         self.discovery_mode: bool = discovery_mode
+        self.master_identifier: str = master_identifier
         self.starting_jobs: bool = starting_jobs
         self.stopping_jobs: bool = stopping_jobs
 
@@ -49,7 +51,8 @@ class StateModes:
 
         :return: a copy of this StateModes object
         """
-        return type(self)(self.state, self.discovery_mode, self.starting_jobs, self.stopping_jobs)
+        return type(self)(self.state, self.discovery_mode, self.master_identifier,
+                          self.starting_jobs, self.stopping_jobs)
 
     def __eq__(self, other) -> bool:
         """ Check if the other object is equivalent.
@@ -60,19 +63,24 @@ class StateModes:
         if isinstance(other, StateModes):
             return (self.state == other.state
                     and self.discovery_mode == other.discovery_mode
+                    and self.master_identifier == other.master_identifier
                     and self.starting_jobs == other.starting_jobs
                     and self.stopping_jobs == other.stopping_jobs)
 
-    def apply(self, fsm_state: SupvisorsStates = None, starter: bool = None, stopper: bool = None):
+    def apply(self, fsm_state: SupvisorsStates = None, master_identifier: str = None,
+              starter: bool = None, stopper: bool = None):
         """ Get the Supvisors instance state and modes with changes applied.
 
-        :param fsm_state: the new FSM state
-        :param starter: the Starter progress
-        :param stopper: the Stopper progress
-        :return: True if state and modes have changed, and the changed state and modes
+        :param fsm_state: the new FSM state.
+        :param master_identifier: the identifier of the Master Supvisors instance.
+        :param starter: the Starter progress.
+        :param stopper: the Stopper progress.
+        :return: True if state and modes have changed, and the changed state and modes.
         """
         if fsm_state is not None:
             self.state = fsm_state
+        if master_identifier is not None:
+            self.master_identifier = master_identifier
         if starter is not None:
             self.starting_jobs = starter
         if stopper is not None:
@@ -86,12 +94,15 @@ class StateModes:
         """
         self.state = SupvisorsStates(payload['fsm_statecode'])
         self.discovery_mode = payload['discovery_mode']
+        self.master_identifier = payload['master_identifier']
         self.starting_jobs = payload['starting_jobs']
         self.stopping_jobs = payload['stopping_jobs']
 
     def serial(self):
+        """ Return a serializable form of the StatesModes. """
         return {'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
                 'discovery_mode': self.discovery_mode,
+                'master_identifier': self.master_identifier,
                 'starting_jobs': self.starting_jobs,
                 'stopping_jobs': self.stopping_jobs}
 

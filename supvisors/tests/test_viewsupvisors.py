@@ -22,11 +22,10 @@ from unittest.mock import call, patch, Mock
 import pytest
 from supervisor.web import MeldView
 
-from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.viewsupvisors import *
 from supvisors.webutils import PROC_INSTANCE_PAGE, SUPVISORS_PAGE
 from .base import DummyHttpContext
-from .conftest import create_element
+from .conftest import create_element, to_simple_url
 
 
 @pytest.fixture
@@ -42,7 +41,7 @@ def http_context(supvisors):
 def view(http_context):
     """ Fixture for the instance to test. """
     view = SupvisorsView(http_context)
-    view.view_ctx = Mock(parameters={}, **{'format_url.return_value': 'an url'})
+    view.view_ctx = Mock(parameters={}, **{'format_url.side_effect': to_simple_url})
     return view
 
 
@@ -98,14 +97,19 @@ def test_write_supvisors_actions(view):
     # set context (meant to be set through render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure
+    start_mid = create_element()
     restart_mid = create_element()
     shutdown_mid = create_element()
-    mocked_root = create_element({'restart_a_mid': restart_mid, 'shutdown_a_mid': shutdown_mid})
+    mocked_root = create_element({'start_a_mid': start_mid,
+                                  'restart_a_mid': restart_mid,
+                                  'shutdown_a_mid': shutdown_mid})
     # test call
     view.write_supvisors_actions(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('restart_a_mid'), call('shutdown_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'}),
+    assert mocked_root.findmeld.call_args_list == [call('start_a_mid'), call('restart_a_mid'), call('shutdown_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE, **{ACTION: 'sup_sync'}),
+                                                       call('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'}),
                                                        call('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})]
+    assert start_mid.attributes.call_args_list == [call(href='an url')]
     assert restart_mid.attributes.call_args_list == [call(href='an url')]
     assert shutdown_mid.attributes.call_args_list == [call(href='an url')]
 
@@ -151,18 +155,28 @@ def test_write_instance_box_title(mocker, view):
                             'get_load.return_value': 17,
                             'get_remote_time.return_value': 1234})
     # build root structure with one single element
+    mocked_sync_a_mid = create_element()
+    mocked_sync_th_mid = create_element({'user_sync_a_mid': mocked_sync_a_mid})
     mocked_identifier_mid = create_element()
     mocked_state_mid = create_element()
     mocked_time_mid = create_element()
     mocked_percent_mid = create_element()
-    mid_map = {'identifier_th_mid': mocked_identifier_mid, 'state_th_mid': mocked_state_mid,
+    mid_map = {'user_sync_th_mid': mocked_sync_th_mid,
+               'identifier_th_mid': mocked_identifier_mid, 'state_th_mid': mocked_state_mid,
                'time_th_mid': mocked_time_mid, 'percent_th_mid': mocked_percent_mid}
     mocked_root = create_element(mid_map)
-    # test call in RUNNING state but not master
-    view._write_instance_box_title(mocked_root, mocked_status)
-    # test address element
+    # test call in RUNNING state but not master and user_sync
+    view._write_instance_box_title(mocked_root, mocked_status, True)
+    # test USER sync element
+    assert not mocked_sync_th_mid.replace.called
+    assert mocked_sync_a_mid.attrib['class'] == 'on'
+    expected_url = 'http:///index.html?ident=10.0.0.1&action=sup_master_sync'
+    assert mocked_sync_a_mid.attributes.call_args_list == [call(href=expected_url)]
+    assert mocked_sync_a_mid.content.call_args_list == [call('&#160;&#10026;&#160;')]
+    # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == 'on'
-    assert mocked_identifier_mid.attributes.call_args_list == [call(href='an url')]
+    expected_url = 'http://10.0.0.1/proc_instance.html'
+    assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
     # test state element
     assert mocked_state_mid.attrib['class'] == 'RUNNING state'
@@ -173,12 +187,18 @@ def test_write_instance_box_title(mocker, view):
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
     mocked_root.reset_all()
-    # test call in RUNNING state and master
+    # test call in RUNNING state and master and not user_sync
     view.sup_ctx.master_identifier = '10.0.0.1'
-    view._write_instance_box_title(mocked_root, mocked_status)
-    # test address element
+    view._write_instance_box_title(mocked_root, mocked_status, False)
+    # test USER sync element
+    assert mocked_sync_th_mid.replace.call_args_list == [call('')]
+    assert mocked_sync_a_mid.attrib['class'] == ''
+    assert not mocked_sync_a_mid.attributes.called
+    assert not mocked_sync_a_mid.content.called
+    # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == 'on'
-    assert mocked_identifier_mid.attributes.call_args_list == [call(href='an url')]
+    expected_url = 'http://10.0.0.1/proc_instance.html'
+    assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
     assert mocked_state_mid.attrib['class'] == 'RUNNING state'
@@ -189,12 +209,17 @@ def test_write_instance_box_title(mocker, view):
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
     mocked_root.reset_all()
-    # test call in SILENT state
+    # test call in SILENT state and user sync
     mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.SILENT,
                          **{'has_active_state.return_value': False,
                             'get_load.return_value': 0})
-    view._write_instance_box_title(mocked_root, mocked_status)
-    # test node element
+    view._write_instance_box_title(mocked_root, mocked_status, True)
+    # test USER sync element
+    assert not mocked_sync_th_mid.replace.called
+    assert mocked_sync_a_mid.attrib['class'] == 'off'
+    assert not mocked_sync_a_mid.attributes.called
+    assert mocked_sync_a_mid.content.call_args_list == [call('&#160;&#10026;&#160;')]
+    # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == ''
     assert not mocked_identifier_mid.attributes.called
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
@@ -216,7 +241,7 @@ def test_write_node_box_processes(view):
     mocked_appli_tr_mid = create_element({'process_li_mid': mocked_process_li_mid})
     mocked_root = create_element({'appli_tr_mid': mocked_appli_tr_mid})
     # test call with no running process
-    view._write_instance_box_processes(mocked_root, mocked_status)
+    view._write_instance_box_processes(mocked_root, mocked_status, True)
     # test elements
     assert not mocked_appli_tr_mid.repeat.called
     assert mocked_process_li_mid.replace.call_args_list == [call('')]
@@ -225,11 +250,11 @@ def test_write_node_box_processes(view):
     mocked_process_2 = Mock(application_name='other_appli', process_name='other_proc')
     mocked_status = Mock(**{'running_processes.return_value': [mocked_process_1, mocked_process_2]})
     # build root structure
-    mocked_name_mids = [Mock(), Mock()]
-    mocked_process_a_mids = [Mock(), Mock()]
-    mocked_process_li_mid = Mock(**{'findmeld.side_effect': mocked_process_a_mids})
+    mocked_name_mids = [create_element(), create_element()]
+    mocked_process_a_mids = [create_element(), create_element()]
+    mocked_process_li_mid = Mock(**{'findmeld.side_effect': mocked_process_a_mids * 2})
     mocked_process_template = Mock(**{'repeat.side_effect': [[(mocked_process_li_mid, mocked_process_1)],
-                                                             [(mocked_process_li_mid, mocked_process_2)]]})
+                                                             [(mocked_process_li_mid, mocked_process_2)]] * 2})
     mocked_appli_tr_mids = [create_element({'app_name_td_mid': mocked_name_mids[0],
                                             'process_li_mid': mocked_process_template}),
                             create_element({'app_name_td_mid': mocked_name_mids[1],
@@ -238,8 +263,8 @@ def test_write_node_box_processes(view):
     mocked_appli_template.repeat.return_value = [(mocked_appli_tr_mids[0], 'dummy_appli'),
                                                  (mocked_appli_tr_mids[1], 'other_appli')]
     mocked_root = create_element({'appli_tr_mid': mocked_appli_template})
-    # test call with 2 running processes
-    view._write_instance_box_processes(mocked_root, mocked_status)
+    # 2.1 test call with 2 running processes and user_sync set
+    view._write_instance_box_processes(mocked_root, mocked_status, True)
     # test elements
     assert not mocked_appli_template.findmeld.called
     # test shade in mocked_appli_tr_mids
@@ -247,7 +272,28 @@ def test_write_node_box_processes(view):
     assert mocked_appli_tr_mids[1].attrib['class'] == 'shaded'
     # test application names in mocked_name_mids
     assert mocked_name_mids[0].content.call_args_list == [call('dummy_appli')]
+    assert mocked_name_mids[0].attrib['colspan'] == '2'
     assert mocked_name_mids[1].content.call_args_list == [call('other_appli')]
+    assert mocked_name_mids[1].attrib['colspan'] == '2'
+    # test process elements in mocked_process_a_mids
+    assert mocked_process_a_mids[0].content.call_args_list == [call('dummy_proc')]
+    assert mocked_process_a_mids[1].content.call_args_list == [call('other_proc')]
+    # reset mocks
+    for mid in mocked_name_mids + mocked_process_a_mids:
+        mid.attrib = {}
+        mid.content.reset_mock()
+    # 2.2 test call with 2 running processes and user_sync set
+    view._write_instance_box_processes(mocked_root, mocked_status, False)
+    # test elements
+    assert not mocked_appli_template.findmeld.called
+    # test shade in mocked_appli_tr_mids
+    assert mocked_appli_tr_mids[0].attrib['class'] == 'brightened'
+    assert mocked_appli_tr_mids[1].attrib['class'] == 'shaded'
+    # test application names in mocked_name_mids
+    assert mocked_name_mids[0].content.call_args_list == [call('dummy_appli')]
+    assert 'colspan' not in mocked_name_mids[0].attrib
+    assert mocked_name_mids[1].content.call_args_list == [call('other_appli')]
+    assert 'colspan' not in mocked_name_mids[1].attrib
     # test process elements in mocked_process_a_mids
     assert mocked_process_a_mids[0].content.call_args_list == [call('dummy_proc')]
     assert mocked_process_a_mids[1].content.call_args_list == [call('other_proc')]
@@ -258,22 +304,31 @@ def test_write_node_boxes(mocker, view):
     mocked_box_processes = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_processes')
     mocked_box_title = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_title')
     # patch context
-    mocked_node_1 = Mock(address_name='10.0.0.1')
-    mocked_node_2 = Mock(address_name='10.0.0.2')
-    view.sup_ctx.instances = {'10.0.0.1': mocked_node_1, '10.0.0.2': mocked_node_2}
-    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+    local_identifier = view.sup_ctx.local_identifier
+    ref_instances = view.sup_ctx.instances
+    view.sup_ctx.instances = {local_identifier: ref_instances[local_identifier],
+                              '10.0.0.1': ref_instances['10.0.0.1']}
     # build root structure with one single element
     mocked_box_mid_1 = Mock()
     mocked_box_mid_2 = Mock()
-    mocked_address_template = Mock(**{'repeat.return_value': [(mocked_box_mid_1, '10.0.0.1'),
-                                                              (mocked_box_mid_2, '10.0.0.2')]})
+    mocked_address_template = Mock(**{'repeat.return_value': [(mocked_box_mid_1, local_identifier),
+                                                              (mocked_box_mid_2, '10.0.0.1')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
-    # test call
+    # test call with user sync disabled
     view.write_instance_boxes(mocked_root)
-    assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
-                                               call(mocked_box_mid_2, mocked_node_2)]
-    assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
-                                                   call(mocked_box_mid_2, mocked_node_2)]
+    assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], False),
+                                               call(mocked_box_mid_2, ref_instances['10.0.0.1'], False)]
+    assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], False),
+                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1'], False)]
+    mocker.resetall()
+    # test call with user sync enabled
+    view.supvisors.options.synchro_options = [SynchronizationOptions.USER]
+    view.supvisors.fsm.state = SupvisorsStates.INITIALIZATION
+    view.write_instance_boxes(mocked_root)
+    assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], True),
+                                               call(mocked_box_mid_2, ref_instances['10.0.0.1'], True)]
+    assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], True),
+                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1'], True)]
 
 
 def test_write_conciliation_strategies(view):
@@ -615,6 +670,35 @@ def test_conciliation_action(mocker, view):
     assert mocked_info.call_args_list == [call('STOP in progress for proc_conflict')]
 
 
+def test_sup_sync_action(mocker, view):
+    """ Test the conciliation_action method. """
+    mocked_derror = mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error')
+    mocked_dwarn = mocker.patch('supvisors.viewsupvisors.delayed_warn', return_value='delayed warning')
+    mocked_rpc = mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'end_synchro',
+                                     side_effect=RPCError('failed RPC'))
+    # test error with no parameter
+    assert view.sup_sync_action() == 'delayed error'
+    assert mocked_rpc.call_args_list == [call('')]
+    assert mocked_derror.called
+    assert not mocked_dwarn.called
+    mocked_rpc.reset_mock()
+    mocked_derror.reset_mock()
+    # test success with no parameter
+    mocked_rpc.side_effect = None
+    mocked_rpc.return_value = True
+    assert view.sup_sync_action() == 'delayed warning'
+    assert mocked_rpc.call_args_list == [call('')]
+    assert not mocked_derror.called
+    assert mocked_dwarn.called
+    mocked_rpc.reset_mock()
+    mocked_dwarn.reset_mock()
+    # test success with parameter
+    assert view.sup_sync_action('10.0.0.1') == 'delayed warning'
+    assert mocked_rpc.call_args_list == [call('10.0.0.1')]
+    assert not mocked_derror.called
+    assert mocked_dwarn.called
+
+
 def test_make_callback(mocker, view):
     """ Test the make_callback method. """
     mocked_conciliate = mocker.patch.object(view, 'conciliation_action', return_value='conciliation called')
@@ -622,6 +706,7 @@ def test_make_callback(mocker, view):
         view.global_methods[action_name] = Mock(return_value='%s called' % action_name)
     for action_name in list(view.process_methods.keys()):
         view.process_methods[action_name] = Mock(return_value='%s called' % action_name)
+    mocked_sync = mocker.patch.object(view, 'sup_sync_action', return_value='sup_master_sync called')
     # patch context
     view.view_ctx = Mock(**{'get_identifier.return_value': '10.0.0.2'})
     # test strategies but USER
@@ -631,18 +716,21 @@ def test_make_callback(mocker, view):
         mocked_conciliate.reset_mock()
     assert not any(mocked.called for mocked in view.global_methods.values())
     assert not any(mocked.called for mocked in view.process_methods.values())
+    assert not mocked_sync.called
     # test USER strategy
     assert not view.make_callback('dummy_namespec', 'user')
     assert not any(mocked.called for mocked in view.global_methods.values())
     assert not any(mocked.called for mocked in view.process_methods.values())
+    assert not mocked_sync.called
     # test global actions
-    for action in ['sup_restart', 'sup_shutdown']:
+    for action in ['sup_sync', 'sup_restart', 'sup_shutdown']:
         assert view.make_callback(None, action) == '%s called' % action
         assert view.global_methods[action].call_args_list == [call()]
         view.global_methods[action].reset_mock()
         assert not any(mocked.called for mocked in view.global_methods.values())
     assert not any(mocked.called for mocked in view.process_methods.values())
     assert not mocked_conciliate.called
+    assert not mocked_sync.called
     # test process actions
     for action in ['pstop', 'pkeep']:
         assert view.make_callback('dummy_namespec', action) == '%s called' % action
@@ -650,3 +738,10 @@ def test_make_callback(mocker, view):
         view.process_methods[action].reset_mock()
         assert not any(mocked.called for mocked in view.process_methods.values())
     assert not any(mocked.called for mocked in view.global_methods.values())
+    assert not mocked_sync.called
+    # test user sync action
+    assert view.make_callback(None, 'sup_master_sync') == 'sup_master_sync called'
+    assert mocked_sync.call_args_list == [call('10.0.0.2')]
+    assert not any(mocked.called for mocked in view.global_methods.values())
+    assert not any(mocked.called for mocked in view.process_methods.values())
+    assert not mocked_conciliate.called

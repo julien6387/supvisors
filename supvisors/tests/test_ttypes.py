@@ -91,6 +91,12 @@ def test_statistics_types():
     assert [x.name for x in StatisticsTypes] == expected
 
 
+def test_synchronization_options():
+    """ Test the SynchronizationOptions enumeration. """
+    expected = ['LIST', 'TIMEOUT', 'CORE', 'USER']
+    assert [x.name for x in SynchronizationOptions] == expected
+
+
 def test_internal_event_headers():
     """ Test the InternalEventHeaders enumeration. """
     expected = ['HEARTBEAT', 'TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED', 'PROCESS_DISABILITY',

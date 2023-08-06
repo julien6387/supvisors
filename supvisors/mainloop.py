@@ -27,9 +27,10 @@ from supervisor.childutils import getRPCInterface
 from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import RPCError
 
+from .instancestatus import StateModes
 from .internalinterface import InternalCommReceiver
 from .ttypes import (DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents,
-                     SupvisorsInstanceStates, SupvisorsStates, ISOLATION_STATES)
+                     SupvisorsInstanceStates, ISOLATION_STATES)
 from .utils import SupervisorServerUrl
 
 
@@ -107,12 +108,12 @@ class SupvisorsMainLoop(Thread):
                 # process events
                 try:
                     self.check_requests(puller_event)
-                except:
+                except Exception:
                     self.logger.error('SupvisorsMainLoop.run: failed to check internal requests')
                     self.logger.error(f'SupvisorsMainLoop.run: {traceback.format_exc()}')
                 try:
                     self.check_external_events(external_events_sockets)
-                except:
+                except Exception:
                     self.logger.error('SupvisorsMainLoop.run: failed to check external events')
                     self.logger.error(f'SupvisorsMainLoop.run: {traceback.format_exc()}')
             # heartbeat management with publishers
@@ -175,57 +176,83 @@ class SupvisorsMainLoop(Thread):
         :param identifier: the identifier of the Supvisors instance to get information from
         :return: None
         """
-        authorized = None
-        master_identifier = ''
-        state_modes_payload = {'fsm_statecode': SupvisorsStates.OFF.value,
-                               'discovery_mode': False,
-                               'starting_jobs': False, 'stopping_jobs': False}
-        all_info = []
-        # get authorization from remote Supvisors instance
+        authorized = self._is_authorized(identifier)
+        self.logger.info(f'SupvisorsMainLoop.check_instance: identifier={identifier} authorized={authorized}')
+        if authorized:
+            self._transfer_states_modes(identifier)
+            self._transfer_process_info(identifier)
+        # inform local Supvisors that authorization result is available
+        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, (identifier, authorized))
+
+    def _is_authorized(self, identifier: str) -> bool:
+        """ Get authorization from remote Supvisors instance.
+        If the remote Supvisors instance considers the local Supvisors instance as ISOLATED, authorization is denied.
+
+        :param identifier: the identifier of the remote Supvisors instance.
+        :return: True if the local Supvisors instance is accepted by the remote Supvisors instance.
+        """
         try:
             supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
-            # get remote perception of master node and state
-            master_identifier = supvisors_rpc.get_master_identifier()
-            self.logger.debug(f'SupvisorsMainLoop.check_instance: master_identifier={master_identifier}')
             # check authorization
-            local_status_payload = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
-            self.logger.debug(f'SupvisorsMainLoop.check_instance: master_identifier={master_identifier}')
-            # check how the remote Supvisors instance defines itself
-            remote_status_payload = supvisors_rpc.get_instance_info(identifier)
-            self.logger.debug(f'SupvisorsMainLoop.check_instance: master_identifier={master_identifier}')
-            state_modes_payload = {key: remote_status_payload[key] for key in state_modes_payload}
+            local_status_payload = supvisors_rpc.get_instance_info(self.supvisors.context.local_identifier)
+            self.logger.debug(f'SupvisorsMainLoop._is_authorized: local_status_payload={local_status_payload}')
         except SupvisorsMainLoop.RpcExceptions:
             # Remote Supvisors instance closed in the gap or Supvisors is incorrectly configured
-            self.logger.error(f'SupvisorsMainLoop.check_instance: failed to check Supvisors={identifier}')
+            self.logger.error(f'SupvisorsMainLoop._is_authorized: failed to check Supvisors={identifier}')
+            return False
+        # check the local Supvisors instance state as seen by the remote Supvisors instance
+        state = local_status_payload['statecode']
+        try:
+            instance_state = SupvisorsInstanceStates(state)
+        except ValueError:
+            self.logger.error(f'SupvisorsMainLoop._is_authorized: unknown Supvisors instance state={state}')
+            return False
+        # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
+        return instance_state not in ISOLATION_STATES
+
+    def _transfer_process_info(self, identifier: str) -> None:
+        """ Get the process information from the remote Supvisors instance and post it to the local Supvisors instance.
+
+        :param identifier: the identifier of the remote Supvisors instance.
+        :return: None
+        """
+        # get information about all processes handled by Supervisor
+        try:
+            supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
+            all_info = supvisors_rpc.get_all_local_process_info()
+        except SupvisorsMainLoop.RpcExceptions:
+            self.logger.error('SupvisorsMainLoop._transfer_process_info: failed to get process information'
+                              f' from Supvisors={identifier}')
+            # the remote Supvisors instance may have gone to a closing state since the previous calls and thus be
+            # not able to respond to the request (long shot but not impossible)
+            # do NOT set authorized to False in this case or an unwanted isolation may happen
         else:
-            instance_state = SupvisorsInstanceStates(local_status_payload['statecode'])
-            # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
-            authorized = instance_state not in ISOLATION_STATES
-        # get process info if authorized and remote not restarting or shutting down
-        if authorized:
-            try:
-                # get information about all processes handled by Supervisor
-                all_info = supvisors_rpc.get_all_local_process_info()
-            except SupvisorsMainLoop.RpcExceptions:
-                self.logger.error('SupvisorsMainLoop.check_instance: failed to get process information'
-                                  f' from Supvisors={identifier}')
-                # the remote Supvisors instance may have gone to a closing state since the previous calls and thus be
-                # not able to respond to the request (long shot but not impossible)
-                # do NOT set authorized to False in this case or an unwanted isolation may happen
-        # inform local Supvisors that authorization is available
-        message = identifier, authorized, master_identifier
-        self.logger.info(f'SupvisorsMainLoop.check_instance: identifier={identifier} authorized={authorized}'
-                         f' master_identifier={master_identifier}')
-        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, message)
-        # provide the local Supvisors with the remote Supvisors instance state and modes
-        instance = self.supvisors.supvisors_mapper.instances[identifier]
-        origin = instance.ip_address, instance.http_port
-        message = InternalEventHeaders.STATE.value, (identifier, state_modes_payload)
-        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, (origin, message))
-        # inform local Supvisors about the processes available remotely
-        if all_info:
-            message = identifier, all_info
-            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, message)
+            # inform local Supvisors about the processes available remotely
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, (identifier, all_info))
+
+    def _transfer_states_modes(self, identifier: str) -> None:
+        """ Get the states and modes from the remote Supvisors instance and post it to the local Supvisors instance.
+
+        :param identifier: the identifier of the remote Supvisors instance.
+        :return: None
+        """
+        # get authorization from remote Supvisors instance
+        try:
+            # check how the remote Supvisors instance defines itself
+            supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
+            remote_status = supvisors_rpc.get_instance_info(identifier)
+        except SupvisorsMainLoop.RpcExceptions:
+            # Remote Supvisors instance closed in the gap or Supvisors is incorrectly configured
+            self.logger.error(f'SupvisorsMainLoop._transfer_states_modes: failed to check Supvisors={identifier}')
+        else:
+            self.logger.debug(f'SupvisorsMainLoop._transfer_states_modes: remote_status={remote_status}')
+            state_modes = StateModes()
+            state_modes.update(remote_status)
+            # provide the local Supvisors with the remote Supvisors instance state and modes
+            instance = self.supvisors.supvisors_mapper.instances[identifier]
+            origin = instance.ip_address, instance.http_port
+            message = InternalEventHeaders.STATE.value, (identifier, state_modes.serial())
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, (origin, message))
 
     def start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """

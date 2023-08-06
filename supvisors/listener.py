@@ -451,9 +451,9 @@ class SupervisorListener(object):
 
     def authorization(self, message: str) -> None:
         """ Extract authorization and identifier from data and process event. """
-        identifier, authorized, master_identifier = json.loads(message)
+        identifier, authorized = json.loads(message)
         self.logger.trace(f'SupervisorListener.authorization: got authorization event from {identifier}')
-        self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier)
+        self.supvisors.fsm.on_authorization(identifier, authorized)
 
     def force_process_state(self, process: ProcessStatus, identifier: str, event_date: float,
                             forced_state: ProcessStates, reason: str) -> None:

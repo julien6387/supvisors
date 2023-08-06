@@ -487,7 +487,7 @@ def test_write_supervisord_status(mocker, view):
     tr_elt = create_element({'shex_td_mid': shex_elt, 'name_a_mid': name_elt, 'start_a_mid': start_elt,
                              'tailerr_a_mid': tailerr_elt})
     # test call while not Master
-    view.sup_ctx._is_master = False
+    assert not view.sup_ctx.is_master
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_state.call_args_list == [call(tr_elt, info)]
@@ -506,7 +506,8 @@ def test_write_supervisord_status(mocker, view):
     tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
     # test call while Master
-    view.sup_ctx._is_master = True
+    view.sup_ctx.master_identifier = view.sup_ctx.local_identifier
+    assert view.sup_ctx.is_master
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_state.call_args_list == [call(tr_elt, info)]

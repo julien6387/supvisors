@@ -779,6 +779,19 @@ def test_sshutdown(controller, plugin, mocked_check):
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sshutdown, plugin.do_sshutdown, '', [call()])
 
 
+def test_end_sync(controller, plugin, mocked_check):
+    """ Test the end_sync request. """
+    mocked_rpc = plugin.supvisors().end_sync
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_end_sync, plugin.do_end_synchro,
+                '', [call('')])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_end_sync, plugin.do_end_synchro,
+                '10.0.0.1', [call('10.0.0.1')])
+    # test error
+    plugin.do_end_sync('10.0.0.1 10.0.0.2')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+
+
 def test_loglevel(controller, plugin, mocked_check):
     """ Test the loglevel request. """
     mocked_rpc = plugin.supvisors().change_log_level

@@ -220,11 +220,11 @@ class SupvisorsMapper:
 
     @property
     def core_identifiers(self) -> NameList:
-        """ Property getter for the _core_identifiers attribute.
+        """ Get the known Supvisors core identifiers.
 
         :return: the minimum Supvisors identifiers to end the synchronization phase
         """
-        return self._core_identifiers
+        return self.filter(self._core_identifiers)
 
     def add_instance(self, item: str, discovery: bool = True) -> SupvisorsInstanceId:
         """ Store a new Supvisors instance using a format compliant with the supvisors_list option.
@@ -257,7 +257,6 @@ class SupvisorsMapper:
                 self.add_instance(item, False)
         else:
             # if supvisors_list is empty, use self identification from supervisor internal data
-            # TODO: use FQDN ?
             supervisor = self.supvisors.supervisor_data
             item = f'<{supervisor.identifier}>{gethostname()}:{supervisor.server_port}:'
             self.logger.info(f'SupvisorsMapper.configure: define local Supvisors as {item}')
@@ -266,9 +265,9 @@ class SupvisorsMapper:
         self.logger.info(f'SupvisorsMapper.configure: nodes={self.nodes}')
         # get local Supervisor identification from list
         self.find_local_identifier()
-        # check core identifiers
-        self._core_identifiers = self.filter(core_list)
-        self.logger.info(f'SupvisorsMapper.configure: core_identifiers={self._core_identifiers}')
+        # store core identifiers without filtering. it will be filtered on access because of discovery mode
+        self._core_identifiers = core_list
+        self.logger.info(f'SupvisorsMapper.configure: core_identifiers={core_list}')
 
     def find_local_identifier(self):
         """ Find the local Supvisors identification in the list declared in the configuration file.

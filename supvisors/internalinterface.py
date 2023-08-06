@@ -25,7 +25,7 @@ from typing import Any, Optional, List, Tuple
 
 from supervisor.loggers import Logger
 
-from .ttypes import DeferredRequestHeaders, Ipv4Address, Payload, PayloadList, NameList
+from .ttypes import DeferredRequestHeaders, InternalEventHeaders, Ipv4Address, Payload, NameList
 
 # timeout for polling, in milliseconds
 POLL_TIMEOUT = 100
@@ -80,13 +80,22 @@ class InternalCommEmitter:
         """
         raise NotImplementedError
 
+    def emit_message(self, event_type: Enum, event_body: Payload):
+        """ Send the messages to the other Supvisors instances using the technology to be defined in subclasses.
+
+        :param event_type: the type of the event to send
+        :param event_body: the body of the event to send
+        :return: None
+        """
+        raise NotImplementedError
+
     def send_tick_event(self, payload: Payload) -> None:
         """ Send the tick event.
 
         :param payload: the tick to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.TICK, payload)
 
     def send_process_state_event(self, payload: Payload) -> None:
         """ Send the process state event.
@@ -94,15 +103,15 @@ class InternalCommEmitter:
         :param payload: the process state to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.PROCESS, payload)
 
-    def send_process_added_event(self, payload: PayloadList) -> None:
+    def send_process_added_event(self, payload: Payload) -> None:
         """ Send the process added event.
 
         :param payload: the added process to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.PROCESS_ADDED, payload)
 
     def send_process_removed_event(self, payload: Payload) -> None:
         """ Send the process removed event.
@@ -110,7 +119,7 @@ class InternalCommEmitter:
         :param payload: the removed process to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.PROCESS_REMOVED, payload)
 
     def send_process_disability_event(self, payload: Payload) -> None:
         """ Send the process disability event.
@@ -118,7 +127,7 @@ class InternalCommEmitter:
         :param payload: the enabled/disabled process to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.PROCESS_DISABILITY, payload)
 
     def send_host_statistics(self, payload: Payload) -> None:
         """ Send the host statistics.
@@ -126,7 +135,7 @@ class InternalCommEmitter:
         :param payload: the statistics to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.HOST_STATISTICS, payload)
 
     def send_process_statistics(self, payload: Payload) -> None:
         """ Send the process statistics.
@@ -134,7 +143,7 @@ class InternalCommEmitter:
         :param payload: the statistics to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.PROCESS_STATISTICS, payload)
 
     def send_state_event(self, payload: Payload) -> None:
         """ Send the Master state event.
@@ -142,7 +151,7 @@ class InternalCommEmitter:
         :param payload: the Supvisors state to send
         :return: None
         """
-        raise NotImplementedError
+        self.emit_message(InternalEventHeaders.STATE, payload)
 
 
 class InternalCommReceiver:

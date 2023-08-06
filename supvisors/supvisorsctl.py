@@ -1090,6 +1090,31 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the sshutdown command."""
         self.ctl.output('sshutdown\t\t\t\tShutdown Supvisors on all instances')
 
+    def do_end_sync(self, arg):
+        """ Command to end the Supvisors synchronization phase. """
+        if self._upcheck():
+            # check request args
+            args = arg.split()
+            if len(args) > 1:
+                self.ctl.output('ERROR: end_sync optionally takes one single Supvisors identifier')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_end_sync()
+                return
+            master = args[0] if args else ''
+            try:
+                result = self.supvisors().end_sync(master)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'End of Synchronization phase requested: {result}')
+
+    def help_end_sync(self):
+        """ Print the help of the end_sync command."""
+        self.ctl.output('end_sync\t\t\t\tEnd the Supvisors synchronization phase')
+        self.ctl.output('end_sync master_identifier\t\tEnd the Supvisors synchronization phase'
+                        ' and select this identifier as Supvisors Master instance ')
+
     def do_loglevel(self, arg):
         """ Command to change the level of the local Supvisors. """
         if self._upcheck():
@@ -1116,7 +1141,7 @@ class ControllerPlugin(ControllerPluginBase):
     def help_loglevel(self):
         """ Print the help of the loglevel command."""
         self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
-        values = self.supvisors().get_logger_levels().values()
+        values = RPCInterface.get_logger_levels().values()
         self.ctl.output(f'\t\t\t\t\tApplicable values are: {values}.')
 
     def _upcheck(self):

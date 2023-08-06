@@ -31,7 +31,7 @@ from supervisor.loggers import Logger
 from .internalinterface import (SupvisorsInternalComm, InternalCommEmitter, InternalCommReceiver,
                                 payload_to_bytes, bytes_to_payload)
 from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import InternalEventHeaders, Ipv4Address, Payload, NameList
+from .ttypes import Ipv4Address, Payload, NameList
 
 # default size of the reception buffer
 BUFFER_SIZE = 16 * 1024
@@ -52,7 +52,7 @@ class MulticastSender(InternalCommEmitter):
         """ Close the UDP socket. """
         self.socket.close()
 
-    def send_message(self, event_type: Enum, event_body: Payload):
+    def emit_message(self, event_type: Enum, event_body: Payload):
         """ Multicast a message.
         It is not necessary to add a message size . """
         message = payload_to_bytes(event_type, (self.identifier, event_body))
@@ -62,70 +62,6 @@ class MulticastSender(InternalCommEmitter):
         except OSError:
             self.logger.error(f'MulticastSender.send_message: failed to send event (type={event_type.name})')
             self.logger.info(f'MulticastSender.send_message: {traceback.format_exc()}')
-
-    def send_tick_event(self, payload: Payload) -> None:
-        """ Publish the tick event.
-
-        :param payload: the tick to push
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.TICK, payload)
-
-    def send_process_state_event(self, payload: Payload) -> None:
-        """ Publish the process state event.
-
-        :param payload: the process state to publish
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.PROCESS, payload)
-
-    def send_process_added_event(self, payload: Payload) -> None:
-        """ Publish the process added event.
-
-        :param payload: the added process to publish
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.PROCESS_ADDED, payload)
-
-    def send_process_removed_event(self, payload: Payload) -> None:
-        """ Publish the process removed event.
-
-        :param payload: the removed process to publish
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.PROCESS_REMOVED, payload)
-
-    def send_process_disability_event(self, payload: Payload) -> None:
-        """ Publish the process disability event.
-
-        :param payload: the enabled/disabled process to publish
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.PROCESS_DISABILITY, payload)
-
-    def send_host_statistics(self, payload: Payload) -> None:
-        """ Publish the host statistics.
-
-        :param payload: the statistics to publish
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.HOST_STATISTICS, payload)
-
-    def send_process_statistics(self, payload: Payload) -> None:
-        """ Publish the process statistics.
-
-        :param payload: the statistics to publish
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.PROCESS_STATISTICS, payload)
-
-    def send_state_event(self, payload: Payload) -> None:
-        """ Publish the Master state event.
-
-        :param payload: the Supvisors state to publish
-        :return: None
-        """
-        self.send_message(InternalEventHeaders.STATE, payload)
 
 
 class MulticastReceiver(InternalCommReceiver):

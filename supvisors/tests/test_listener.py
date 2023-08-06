@@ -577,8 +577,8 @@ def test_unstack_info(listener):
 
 def test_authorization(listener):
     """ Test the processing of a Supvisors authorization. """
-    listener.authorization('["10.0.0.5:60000", false, "10.0.0.1"]')
-    expected = [call('10.0.0.5:60000', False, '10.0.0.1')]
+    listener.authorization('["10.0.0.5:60000", false]')
+    expected = [call('10.0.0.5:60000', False)]
     assert listener.supvisors.fsm.on_authorization.call_args_list == expected
 
 
@@ -603,6 +603,14 @@ def test_on_remote_event(mocker, listener):
     """ Test the reception of a Supervisor remote comm event. """
     # add patches for what is tested just above
     mocker.patch.multiple(listener, unstack_event=DEFAULT, unstack_info=DEFAULT, authorization=DEFAULT)
+    # test exception
+    event = Mock(type='supv_auth', data={})
+    listener.authorization.side_effect = ValueError
+    listener.on_remote_event(event)
+    assert not listener.unstack_event.called
+    assert not listener.unstack_info.called
+    assert listener.authorization.called
+    listener.authorization.reset_mock()
     # test unknown type
     event = Mock(type='unknown', data='')
     listener.on_remote_event(event)
@@ -610,21 +618,21 @@ def test_on_remote_event(mocker, listener):
     assert not listener.unstack_info.called
     assert not listener.authorization.called
     # test event
-    event = Mock(type='event', data={'state': 'RUNNING'})
+    event = Mock(type='supv_event', data={'state': 'RUNNING'})
     listener.on_remote_event(event)
     assert listener.unstack_event.call_args_list == [call({'state': 'RUNNING'})]
     assert not listener.unstack_info.called
     assert not listener.authorization.called
     listener.unstack_event.reset_mock()
     # test info
-    event = Mock(type='info', data={'name': 'dummy_process'})
+    event = Mock(type='supv_info', data={'name': 'dummy_process'})
     listener.on_remote_event(event)
     assert not listener.unstack_event.called
     assert listener.unstack_info.call_args_list == [call({'name': 'dummy_process'})]
     assert not listener.authorization.called
     listener.unstack_info.reset_mock()
     # test authorization
-    event = Mock(type='auth', data=('10.0.0.1', True))
+    event = Mock(type='supv_auth', data=('10.0.0.1', True))
     listener.on_remote_event(event)
     assert not listener.unstack_event.called
     assert not listener.unstack_info.called

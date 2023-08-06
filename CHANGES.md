@@ -7,7 +7,7 @@
   Try to create the folder at startup if it does not exist.
 
 * Improve robustness against network failures. The periodic check is performed prior to the TICK publication.
-  The internal TCP sockets are rebound when a network interface becomes up.
+  The internal TCP sockets are rebound when a network interface becomes up (requires `psutil`).
 
 * Monkeypatch fix of [Supervisor Issue #1596](https://github.com/Supervisor/supervisor/issues/1596).
   Shutdown of the asyncore socket before it is closed.
@@ -17,7 +17,11 @@
   `multicast_interface` and `multicast_ttl` added to that purpose).
   The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
 
-* Refactoring of the `InternalPublisher` (**Supvisors** TCP Publish-Subscribe).
+* Add a new option `syncho_options` to enable the user to choose the conditions putting an end to the **Supvisors**
+  synchronization phase.
+  More particularly when using the new `USER` condition, the **Supvisors** Web UI provides a means to end the
+  `INITIALIZATION` state, with optional *Master* selection. The command is also available as an XML-RPC `end_synchro`
+  and has been added to `supervisorctl`.
 
 * The new item `@` in the `identifiers` of the Program rules takes the behavior of the item `#` as it was
   before **Supvisors** version 0.13, i.e. the assignment is strictly limited by the length of the `identifiers` list,
@@ -42,11 +46,15 @@
 
 * Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
 
+* Add RPC `changeLogLevel` to the JAVA client.
+
 * Do not catch XmlRpc exceptions in the JAVA client.
 
 * Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
 
 * Fix `flask-restx` dependency in setup according to Python version.
+
+* Refactoring of the `InternalPublisher` (**Supvisors** TCP Publish-Subscribe).
 
 
 ## 0.16 (2023-03-12)

@@ -80,6 +80,11 @@ class StatisticsTypes(Enum):
     OFF, HOST, PROCESS, ALL = range(4)
 
 
+class SynchronizationOptions(Enum):
+    """ Options to stop the synchronization phase. """
+    LIST, TIMEOUT, CORE, USER = range(4)
+
+
 # for internal publish / subscribe
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
@@ -97,9 +102,9 @@ class DeferredRequestHeaders(Enum):
 
 class RemoteCommEvents(Enum):
     """ Strings used for remote communication between the Supvisors main loop and the listener. """
-    SUPVISORS_AUTH = u'auth'
-    SUPVISORS_EVENT = u'event'
-    SUPVISORS_INFO = u'info'
+    SUPVISORS_AUTH = u'supv_auth'
+    SUPVISORS_EVENT = u'supv_event'
+    SUPVISORS_INFO = u'supv_info'
 
 
 class EventHeaders(Enum):
@@ -115,6 +120,7 @@ class EventHeaders(Enum):
 
 # State lists commonly used
 ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
+WORKING_STATES = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
 CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
                   SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
 

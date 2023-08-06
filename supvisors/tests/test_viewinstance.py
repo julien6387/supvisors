@@ -22,6 +22,7 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.web import MeldView
 
+from supvisors.instancestatus import StateModes
 from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.viewinstance import *
 from supvisors.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
@@ -110,10 +111,10 @@ def test_write_header(mocker, view):
                                   'starting_mid': starting_mid, 'stopping_mid': stopping_mid})
     # first call tests with not master
     mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING,
-                         state_modes=Mock(starting_jobs=False, stopping_jobs=True),
+                         state_modes=StateModes(stopping_jobs=True),
                          **{'get_load.return_value': 12})
-    local_identifier = view.supvisors.supvisors_mapper.local_identifier
-    view.sup_ctx._is_master = False
+    local_identifier = view.sup_ctx.local_identifier
+    assert not view.sup_ctx.is_master
     view.sup_ctx.instances[local_identifier] = mocked_status
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),
@@ -131,7 +132,7 @@ def test_write_header(mocker, view):
     mocker.resetall()
     mocked_root.reset_all()
     # second call tests with master and both Starter and Stopper having jobs
-    view.sup_ctx._is_master = True
+    view.sup_ctx.local_instance.state_modes.master_identifier = view.sup_ctx.local_identifier
     mocked_status.state_modes.starting_jobs = True
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),

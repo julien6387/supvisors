@@ -67,26 +67,40 @@
                 </div>
 
                 <div>
-                    <ul class="linear action">
-                        <li>
-                            <a href="#" meld:id="restart_a_mid" class="on">
-                            <img src="img/restart_40.png" alt="Restart" title="Restart Supvisors"/></a>
-                        </li>
-                        <li>
-                            <a href="#" meld:id="shutdown_a_mid" class="on">
-                            <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supvisors"/></a>
-                        </li>
-                    </ul>
-                    <ul class="linear">
-                        <li>
-                            <a href="#" meld:id="refresh_a_mid" class="button on">
-                            <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a>
-                        </li>
-                        <li>
-                            <a href="#" meld:id="autorefresh_a_mid" class="button on">
-                            <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/></a>
-                        </li>
-                    </ul>
+                    <table class="buttons">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <a href="#" meld:id="start_a_mid" class="on">
+                                        <img src="img/start_40.png" alt="End Sync" title="Sync Supvisors"/>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="#" meld:id="restart_a_mid" class="on">
+                                        <img src="img/restart_40.png" alt="Restart" title="Restart Supvisors"/>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="#" meld:id="shutdown_a_mid" class="on">
+                                        <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supvisors"/>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td/>
+                                <td>
+                                    <a href="#" meld:id="refresh_a_mid" class="button on">
+                                        <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="#" meld:id="autorefresh_a_mid" class="button on">
+                                        <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </header>
 
@@ -96,7 +110,12 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th rowspan="2"><a href="#" meld:id="identifier_th_mid">Supervisor</a></th>
+                                    <th meld:id="user_sync_th_mid" rowspan="2">
+                                        <a href="#" meld:id="user_sync_a_mid" class="button"></a>
+                                    </th>
+                                    <th meld:id="identifier_th_mid" rowspan="2">
+                                        <a href="#" meld:id="identifier_a_mid">Supervisor</a>
+                                    </th>
                                     <th rowspan="2" meld:id="state_th_mid">State</th>
                                     <th meld:id="time_th_mid">--:--:--</th>
                                 </tr>

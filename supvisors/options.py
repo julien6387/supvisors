@@ -27,7 +27,8 @@ from supervisor.datatypes import Automatic, logfile_name, boolean, integer, byte
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
-from .ttypes import ConciliationStrategies, EventLinks, Payload, StartingStrategies, StatisticsTypes, Ipv4Address
+from .ttypes import (ConciliationStrategies, EventLinks, StartingStrategies, SynchronizationOptions,
+                     Ipv4Address, Payload, StatisticsTypes)
 
 
 # Options of main section
@@ -58,10 +59,12 @@ class SupvisorsOptions:
         - multicast_interface: UDP Multicast Group interface ;
         - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
-        - internal_port: port number used to publish local events to remote Supvisors instances (not used for multicast) ;
+        - internal_port: the port number used to publish the local events to remote Supvisors instances
+          (not used for multicast) ;
         - event_link: type of the event link used to publish all Supvisors events ;
         - event_port: port number used to publish all Supvisors events ;
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive ;
+        - synchro_options: the conditions that will end the synchronization phase ;
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish ;
         - inactivity_ticks: number of local ticks to wait before considering a remote Supvisors instance inactive ;
         - core_identifiers: subset of supvisors_list identifiers that will force the end of synchro when all RUNNING ;
@@ -80,6 +83,9 @@ class SupvisorsOptions:
 
     SYNCHRO_TIMEOUT_MIN = 15
     SYNCHRO_TIMEOUT_MAX = 1200
+
+    # default SynchronizationOptions list that is equivalent to previous Supvisors versions
+    SYNCHRO_DEFAULT_OPTIONS = [SynchronizationOptions.LIST, SynchronizationOptions.TIMEOUT, SynchronizationOptions.CORE]
 
     INACTIVITY_TICKS_MIN = 2
     INACTIVITY_TICKS_MAX = 720
@@ -109,6 +115,8 @@ class SupvisorsOptions:
         self.event_link = self._get_value(config, 'event_link', EventLinks.NONE, self.to_event_link)
         self.event_port = self._get_value(config, 'event_port', 0, self.to_port_num)
         self.auto_fence = self._get_value(config, 'auto_fence', False, boolean)
+        self.synchro_options = self._get_value(config, 'synchro_options', self.SYNCHRO_DEFAULT_OPTIONS,
+                                               self.to_synchro_options)
         self.synchro_timeout = self._get_value(config, 'synchro_timeout', self.SYNCHRO_TIMEOUT_MIN, self.to_timeout)
         self.inactivity_ticks = self._get_value(config, 'inactivity_ticks', self.INACTIVITY_TICKS_MIN, self.to_ticks)
         # get the minimum list of identifiers to end the synchronization phase
@@ -133,6 +141,8 @@ class SupvisorsOptions:
         # configure log tail limits
         self.tail_limit = self._get_value(config, 'tail_limit', 1024, byte_size)
         self.tailf_limit = self._get_value(config, 'tailf_limit', 1024, byte_size)
+        # check synchro options consistence
+        self.check_synchro_options()
 
     def __str__(self):
         """ Contents as string. """
@@ -146,6 +156,7 @@ class SupvisorsOptions:
                 f' event_link={self.event_link.name}'
                 f' event_port={self.event_port}'
                 f' auto_fence={self.auto_fence}'
+                f' synchro_options={[x.name for x in self.synchro_options]}'
                 f' synchro_timeout={self.synchro_timeout}'
                 f' inactivity_ticks={self.inactivity_ticks}'
                 f' core_identifiers={self.core_identifiers}'
@@ -168,6 +179,22 @@ class SupvisorsOptions:
         :return: True if the multicast group is set
         """
         return self.multicast_group is not None
+
+    def check_synchro_options(self):
+        """ Check the validity of the synchro_options wrt other options. """
+        # when using CORE in synchro_options, core_identifiers cannot be empty
+        if not self.core_identifiers and SynchronizationOptions.CORE in self.synchro_options:
+            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options CORE'
+                             ' with no core_identifiers')
+            self.synchro_options.remove(SynchronizationOptions.CORE)
+        # when using LIST in synchro_options, supvisors_list cannot be empty
+        if not self.supvisors_list and SynchronizationOptions.LIST in self.synchro_options:
+            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options LIST'
+                             ' with no supvisors_list')
+            self.synchro_options.remove(SynchronizationOptions.LIST)
+        # finally, synchron_options must not be empty
+        if not self.synchro_options:
+            raise ValueError('synchro_options must not be empty')
 
     def check_dirpath(self, file_path: str) -> str:
         """ Check if the path provided exists and create the folder tree if necessary.
@@ -329,6 +356,21 @@ class SupvisorsOptions:
                              f' integer expected in {limits}')
 
     @staticmethod
+    def to_synchro_options(value: str) -> List[SynchronizationOptions]:
+        """ Return the list of options selected to end the synchronization phase. """
+        option_str_list = filter(None, list_of_strings(value))
+        option_list = []
+        for option_str in option_str_list:
+            try:
+                option = SynchronizationOptions[option_str.upper()]
+            except KeyError:
+                raise ValueError(f'invalid value for synchro_options: "{option_str}".'
+                                 f' expected in {[x.name for x in SynchronizationOptions]})')
+            if option not in option_list:
+                option_list.append(option)
+        return option_list
+
+    @staticmethod
     def to_timeout(value: str) -> int:
         """ Convert a string into a timeout value, in [15;1200].
 
@@ -431,7 +473,7 @@ class SupvisorsOptions:
         str_periods = list_of_strings(value)
         if len(str_periods) == 0:
             raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}.'
-                              ' minimum is 1')
+                             ' minimum is 1')
         if len(str_periods) > 3:
             raise ValueError(f'unexpected number of stats_periods: {len(str_periods)}.'
                              ' maximum is 3')
