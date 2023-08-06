@@ -25,7 +25,6 @@ from supervisor.states import STOPPED_STATES
 from supervisor.xmlrpc import Faults
 
 from supvisors.ttypes import SupvisorsInstanceStates, StartingStrategies
-
 from .event_queues import SupvisorsEventQueues
 from .running_identifiers import RunningIdentifiersTest
 
@@ -42,7 +41,8 @@ class StartingStrategyTest(RunningIdentifiersTest):
         processes_info = self.local_supvisors.get_process_info('my_movies:*')
         converters = [info for info in processes_info
                       if info['process_name'].startswith('converter') and info['statecode'] in STOPPED_STATES]
-        # check that 10 converter programs are configured with loading 25
+        self.assertEqual(15, len(converters))
+        # check that 15 converter programs are configured with loading 20
         processes_rules = self.local_supvisors.get_process_rules('my_movies:*')
         converters = [rules for rules in processes_rules
                       if rules['process_name'].startswith('converter') and rules['expected_loading'] == 20]

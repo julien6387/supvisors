@@ -335,6 +335,7 @@ def test_collect_process_statistics(mocker, queues):
     # pre-fill the sending queue
     queues[0].put(('dummy_1', 123))
     queues[0].put(('dummy_2', 456))
+
     def terminate():
         sleep(1)
         queues[0].put(None)
@@ -355,8 +356,8 @@ def test_process_statistics_collector(mocker):
     # test creation
     collector = ProcessStatisticsCollector(10)
     assert collector.period == 10
-    assert type(collector.pid_queue) ==  mp.queues.SimpleQueue
-    assert type(collector.stats_queue) ==  mp.queues.SimpleQueue
+    assert type(collector.pid_queue) == mp.queues.SimpleQueue
+    assert type(collector.stats_queue) == mp.queues.SimpleQueue
     assert collector.process is None
     # test thread starting
     collector.start()

@@ -328,6 +328,7 @@ def test_host_statistics_compiler_push_statistics(mocker, host_statistics_compil
     host_statistics_compiler.push_statistics('10.0.0.0', host_stats)
     assert host_statistics_compiler.nb_cores == {}
     assert all((not instance.push_statistics.called
+                for identifier, period_maps in host_statistics_compiler.instance_map.items()
                 for instance in period_maps.values()))
     # test with known identifier
     host_statistics_compiler.push_statistics('10.0.0.1', host_stats)
@@ -376,7 +377,7 @@ def test_proc_statistics_instance_integrate(proc_statistics_instance):
                                           'proc_memory': 1.85}
     last_stats = {'now': 1002, 'cpu': (45, 700),
                   'proc_work': 1.75,
-                      'proc_memory': 1.9}
+                  'proc_memory': 1.9}
     proc_cpu, proc_mem, duration = proc_statistics_instance.integrate(last_stats)
     # check process stats
     assert proc_cpu == 0.5
@@ -535,9 +536,9 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
         instance.push_statistics.reset_mock()
     # 3. test with running process with a different pid on existing host
-    mocked_instance.side_effect=lambda a, b, c, d: Mock(time_label=time.time(),
-                                                        namespec=a, identifier=b, period=c, depth=d,
-                                                        **{'push_statistics.return_value': f'{b}_{c}'})
+    mocked_instance.side_effect = lambda a, b, c, d: Mock(time_label=time.time(),
+                                                          namespec=a, identifier=b, period=c, depth=d,
+                                                          **{'push_statistics.return_value': f'{b}_{c}'})
     proc_stats = {'pid': 18612}
     result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
     assert result == ['10.0.0.1_5.0', '10.0.0.1_15.0', '10.0.0.1_60.0']
@@ -591,7 +592,6 @@ def test_proc_statistics_compiler_creation(supvisors, proc_statistics_compiler):
     assert proc_statistics_compiler.logger is supvisors.logger
     assert proc_statistics_compiler.holder_map == {}
     assert proc_statistics_compiler.nb_cores == {}
-
 
 
 def test_proc_statistics_compiler_get_stats(mocker, proc_statistics_compiler):

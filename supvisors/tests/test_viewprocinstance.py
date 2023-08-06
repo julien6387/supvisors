@@ -415,7 +415,7 @@ def test_write_global_shex(view):
 def test_write_application_status(mocker, view):
     """ Test the ProcInstanceView.write_application_status method. """
     mocked_common = mocker.patch.object(view, 'write_common_statistics')
-    mocked_button = mocker.patch.object(view, '_write_process_button')
+    mocker.patch.object(view, '_write_process_button')
     # patch the context
     view.view_ctx = Mock(**{'get_application_shex.side_effect': [(False, '010'), (True, '101')],
                             'format_url.return_value': 'an url'})

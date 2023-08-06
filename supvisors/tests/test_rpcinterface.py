@@ -499,17 +499,17 @@ def test_start_args(mocker, rpc):
     supervisor_data = rpc.supvisors.supervisor_data
     mocked_extra = mocker.patch.object(supervisor_data, 'update_extra_args', side_effect=KeyError)
     mocked_force = mocker.patch.object(supervisor_data, 'force_process_fatal')
-    mocked_startProcess = supervisor_data.supervisor_rpc_interface.startProcess
-    mocked_startProcess.side_effect = [RPCError(Faults.NO_FILE, 'no file'),
-                                       RPCError(Faults.NOT_EXECUTABLE),
-                                       RPCError(Faults.ABNORMAL_TERMINATION),
-                                       'done']
+    mocked_start_process = supervisor_data.supervisor_rpc_interface.startProcess
+    mocked_start_process.side_effect = [RPCError(Faults.NO_FILE, 'no file'),
+                                        RPCError(Faults.NOT_EXECUTABLE),
+                                        RPCError(Faults.ABNORMAL_TERMINATION),
+                                        'done']
     # test RPC call with extra arguments but with a process that is unknown to Supervisor
     with pytest.raises(RPCError) as exc:
         rpc.start_args('appli:proc', 'dummy arguments')
     assert exc.value.args == (Faults.BAD_NAME, 'namespec appli:proc unknown to this Supervisor instance')
     assert supervisor_data.update_extra_args.call_args_list == [call('appli:proc', 'dummy arguments')]
-    assert mocked_startProcess.call_count == 0
+    assert mocked_start_process.call_count == 0
     # update mocking
     mocked_extra.reset_mock()
     mocked_extra.side_effect = None
@@ -519,37 +519,37 @@ def test_start_args(mocker, rpc):
         rpc.start_args('appli:proc', 'dummy arguments')
     assert exc.value.args == (Faults.NO_FILE, 'no file')
     assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
-    assert mocked_startProcess.call_args_list == [call('appli:proc', True)]
+    assert mocked_start_process.call_args_list == [call('appli:proc', True)]
     assert mocked_force.call_args_list == [call('appli:proc', 'NO_FILE: no file')]
     # reset patches
     mocked_extra.reset_mock()
     mocked_force.reset_mock()
-    mocked_startProcess.reset_mock()
+    mocked_start_process.reset_mock()
     # NOT_EXECUTABLE exception triggers an update of the process state
     with pytest.raises(RPCError) as exc:
         rpc.start_args('appli:proc', 'dummy arguments', wait=False)
     assert exc.value.args == (Faults.NOT_EXECUTABLE, )
     assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
-    assert mocked_startProcess.call_args_list == [call('appli:proc', False)]
+    assert mocked_start_process.call_args_list == [call('appli:proc', False)]
     assert mocked_force.call_args_list == [call('appli:proc', 'NOT_EXECUTABLE')]
     # reset patches
     mocked_extra.reset_mock()
     mocked_force.reset_mock()
-    mocked_startProcess.reset_mock()
+    mocked_start_process.reset_mock()
     # other exception doesn't trigger an update of the process state
     with pytest.raises(RPCError) as exc:
         rpc.start_args('appli:proc', 'dummy arguments', wait=False)
     assert exc.value.args == (Faults.ABNORMAL_TERMINATION, )
     assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
-    assert mocked_startProcess.call_args_list == [call('appli:proc', False)]
+    assert mocked_start_process.call_args_list == [call('appli:proc', False)]
     assert not mocked_force.called
     # reset patches
     mocked_extra.reset_mock()
-    mocked_startProcess.reset_mock()
+    mocked_start_process.reset_mock()
     # finally, normal behaviour
     assert rpc.start_args('appli:proc', 'dummy arguments') == 'done'
     assert mocked_extra.call_args_list == [call('appli:proc', 'dummy arguments')]
-    assert mocked_startProcess.call_args_list == [call('appli:proc', True)]
+    assert mocked_start_process.call_args_list == [call('appli:proc', True)]
     assert not mocked_force.called
 
 
@@ -1784,26 +1784,26 @@ def test_get_local_info(mocker, rpc):
                                          'program_name': 'dummy_name', 'process_index': 0}
 
 
-def test_startProcess(mocker, supvisors):
+def test_start_process(mocker, supvisors):
     """ Test the startProcess RPC.
     This RPC is designed to be added to Supervisor by monkeypatch. """
     SupervisorNamespaceRPCInterface._startProcess = SupervisorNamespaceRPCInterface.startProcess
     SupervisorNamespaceRPCInterface.startProcess = startProcess
     # patch the legacy startProcess
     rpc = DummyRpcInterface(supvisors)
-    mocked_startProcess = mocker.patch.object(rpc.supervisor, '_startProcess')
+    mocked_start_rocess = mocker.patch.object(rpc.supervisor, '_startProcess')
     mocked_update = mocker.patch.object(rpc.supervisor, '_update')
     mocked_get = mocker.patch.object(rpc.supervisor, '_getGroupAndProcess', return_value=('dummy_group', None))
     # first call: no process found from parameter
     rpc.supervisor.startProcess('dummy_group:*', False)
     assert mocked_update.call_args_list == [call('startProcess')]
-    assert mocked_startProcess.call_args_list == [call('dummy_group:*', False)]
+    assert mocked_start_rocess.call_args_list == [call('dummy_group:*', False)]
     mocker.resetall()
     # second call: process found and not disabled
     mocked_get.return_value = 'dummy_group', Mock(**{'config.disabled': False})
     rpc.supervisor.startProcess('dummy_group:dummy_process', True)
     assert mocked_update.call_args_list == [call('startProcess')]
-    assert mocked_startProcess.call_args_list == [call('dummy_group:dummy_process', True)]
+    assert mocked_start_rocess.call_args_list == [call('dummy_group:dummy_process', True)]
     mocker.resetall()
     # third call: process found and disabled
     mocked_get.return_value = 'dummy_group', Mock(**{'config.disabled': True})
@@ -1811,4 +1811,4 @@ def test_startProcess(mocker, supvisors):
         rpc.supervisor.startProcess('dummy_group:dummy_process')
     assert exc.value.args == (SupvisorsFaults.DISABLED.value, 'dummy_group:dummy_process')
     assert mocked_update.call_args_list == [call('startProcess')]
-    assert not mocked_startProcess.called
+    assert not mocked_start_rocess.called

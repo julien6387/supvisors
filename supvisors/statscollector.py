@@ -30,6 +30,7 @@ from .utils import mean
 # Default sleep time when nothing to do
 SLEEP_TIME = 0.2
 
+
 # CPU statistics
 def instant_cpu_statistics() -> Jiffies:
     """ Return the instant average work+idle jiffies. """
@@ -94,8 +95,10 @@ def instant_host_statistics() -> Dict:
         # still unclear why it happens
         return {}
 
+
 # Process statistics
 process_attributes = ['cpu_times', 'memory_percent']
+
 
 def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optional[ProcessStats]:
     """ Return the instant jiffies and memory values for the process identified by pid. """

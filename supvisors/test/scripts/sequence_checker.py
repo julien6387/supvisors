@@ -30,13 +30,17 @@ from supvisors.ttypes import ApplicationStates
 from .event_queues import SupvisorsEventQueues
 
 
-class ProcessStateEvent(object):
+class ProcessStateEvent:
     """ Definition of an expected event coming from a defined Supvisors instance. """
 
-    def __init__(self, statecode, identifiers=[]):
+    def __init__(self, statecode, identifiers=None):
         """ Initialization of the attributes. """
         self.statecode = statecode
-        self.identifiers = list(identifiers) if not type(identifiers) is str else [identifiers]
+        self.identifiers = []
+        if type(identifiers) is str:
+            self.identifiers = [identifiers]
+        elif type(identifiers) is list:
+            self.identifiers = identifiers
 
     @property
     def statename(self):

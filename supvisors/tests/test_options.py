@@ -520,8 +520,8 @@ def test_server_options(mocker, server_opt):
     assert server_opt.processes_program == {'dumber_10': 'dumber', 'dumber_11': 'dumber', 'dummy': 'dummy',
                                             'dummy_0': 'dummies', 'dummy_1': 'dummies', 'dummy_2': 'dummies',
                                             'dummy_ears_20': 'dummy_ears', 'dummy_ears_21': 'dummy_ears'}
-    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1,
-                                      'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0,
+                                      'dumber_11': 1, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
     expected_printable = {program_name: {group_name: [process.name for process in processes]}
                           for program_name, program_configs in server.program_processes.items()
                           for group_name, processes in program_configs.items()}

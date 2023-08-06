@@ -17,14 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
 import os
-import supervisor
-
 from unittest.mock import call, Mock
 
-from supvisors.viewmaintail import *
+import pytest
+import supervisor
 
+from supvisors.viewmaintail import *
 from .base import DummyHttpContext
 
 
@@ -65,7 +64,7 @@ def test_render(mocker, view):
     mid_map = {'title': title_elt, 'tailbody': body_elt, 'refresh_anchor': anchor_elt}
     mocked_root = Mock(**{'findmeld.side_effect': lambda x: mid_map[x],
                           'write_xhtmlstring.return_value': 'xhtml'})
-    mocked_clone = mocker.patch('supervisor.web.MeldView.clone', return_value=mocked_root)
+    mocker.patch('supervisor.web.MeldView.clone', return_value=mocked_root)
     # test RPC error NO_FILE
     rpc.side_effect = RPCError(Faults.NO_FILE)
     assert view.render() == 'xhtml'

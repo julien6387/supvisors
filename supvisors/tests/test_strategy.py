@@ -433,10 +433,10 @@ def add_jobs():
     process_2 = Mock(application_name='dummy_application_A')
     process_3 = Mock(application_name='dummy_application_B')
     process_list = [process_1, process_2, process_3]
-    application_A = Mock(application_name='dummy_application_A',
+    application_a = Mock(application_name='dummy_application_A',
                          **{'get_start_sequenced_processes.return_value': [process_2]})
-    application_B = Mock(application_name='dummy_application_B')
-    application_list = [application_A, application_B]
+    application_b = Mock(application_name='dummy_application_B')
+    application_list = [application_a, application_b]
     return process_list, application_list
 
 
@@ -444,15 +444,15 @@ def test_add_stop_application_job(handler, add_jobs):
     """ Test the addition of a new job using a STOP_APPLICATION strategy. """
     # create dummy applications and processes
     proc_list, app_list = add_jobs
-    application_A, application_B = app_list
+    application_a, application_b = app_list
     _, _, process_3 = proc_list
     # check that stop_application_jobs is updated and that other jobs are cleaned
     handler.restart_application_jobs.update(app_list)
     for job_set in [handler.restart_process_jobs, handler.continue_process_jobs]:
         job_set.update(proc_list)
-    assert application_A not in handler.stop_application_jobs
-    handler.add_stop_application_job(application_A)
-    compare_sets(handler, stop_app={application_A}, restart_app={application_B},
+    assert application_a not in handler.stop_application_jobs
+    handler.add_stop_application_job(application_a)
+    compare_sets(handler, stop_app={application_a}, restart_app={application_b},
                  restart_proc={process_3}, continue_proc={process_3})
 
 
@@ -618,30 +618,30 @@ def test_trigger_stop_application_jobs(add_jobs, handler):
     """ Test the triggering of stop application jobs. """
     # create dummy applications and processes
     _, app_list = add_jobs
-    application_A, application_B = app_list
+    application_a, application_b = app_list
     # update context
     compare_sets(handler)
     handler.stop_application_jobs.update(app_list)
     compare_sets(handler, stop_app=set(app_list))
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_stop_application_jobs({'dummy_application_B'})
-    compare_sets(handler, stop_app={application_B})
-    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A, False)]
+    compare_sets(handler, stop_app={application_b})
+    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_a, False)]
 
 
 def test_restart_application_jobs(add_jobs, handler):
     """ Test the triggering of restart application jobs. """
     # create dummy applications and processes
     _, app_list = add_jobs
-    application_A, application_B = app_list
+    application_a, application_b = app_list
     # update context
     compare_sets(handler)
     handler.restart_application_jobs.update(app_list)
     compare_sets(handler, restart_app=set(app_list))
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_restart_application_jobs({'dummy_application_B'})
-    compare_sets(handler, restart_app={application_B})
-    assert handler.supvisors.stopper.default_restart_application.call_args_list == [call(application_A, False)]
+    compare_sets(handler, restart_app={application_b})
+    assert handler.supvisors.stopper.default_restart_application.call_args_list == [call(application_a, False)]
 
 
 def test_trigger_restart_process_jobs(add_jobs, handler):

@@ -544,7 +544,6 @@ def test_disabilities_serialization(mocker, source):
     assert source.disabilities == {}
 
 
-
 def test_spawn(mocker):
     """ Test the spawn method.
     This method is designed to be added to Supervisor by monkeypatch. """

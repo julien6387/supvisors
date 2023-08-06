@@ -16,6 +16,7 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Union
 from unittest.mock import call, patch
 
 import pytest
@@ -70,7 +71,7 @@ def check_get_success(client, url, mocked_func, call_args_list, json):
     check_success(rv, mocked_func, call_args_list, json)
 
 
-def check_post_success(client, url, mocked_func, call_args_list, json=True):
+def check_post_success(client, url, mocked_func, call_args_list, json: Union[bool, str] = True):
     """ Test POST success. """
     rv = client.post(url)
     check_success(rv, mocked_func, call_args_list, json)
@@ -97,7 +98,7 @@ def check_post_error(client, url, mocked_func):
 
 
 # test System REST API
-def test_system_listMethods(xml_rpc, client):
+def test_system_list_methods(xml_rpc, client):
     """ Check the listMethods REST API. """
     base_url = '/system/listMethods'
     mocked_func = xml_rpc.system.listMethods
@@ -105,7 +106,7 @@ def test_system_listMethods(xml_rpc, client):
                       [['supervisor.getAPIVersion', 'supvisors.get_api_version']])
 
 
-def test_system_methodHelp(xml_rpc, client):
+def test_system_method_help(xml_rpc, client):
     """ Check the methodHelp REST API. """
     base_url = '/system/methodHelp'
     mocked_func = xml_rpc.system.methodHelp
@@ -116,7 +117,7 @@ def test_system_methodHelp(xml_rpc, client):
                       [call('system.methodHelp')], 'it just works')
 
 
-def test_system_methodSignature(xml_rpc, client):
+def test_system_method_signature(xml_rpc, client):
     """ Check the methodSignature REST API. """
     base_url = '/system/methodSignature'
     mocked_func = xml_rpc.system.methodSignature
@@ -128,42 +129,42 @@ def test_system_methodSignature(xml_rpc, client):
 
 
 # test Supervisor REST API
-def test_supervisor_getAPIVersion(xml_rpc, client):
+def test_supervisor_get_api_version(xml_rpc, client):
     """ Check the getAPIVersion REST API. """
     base_url = '/supervisor/getAPIVersion'
     mocked_func = xml_rpc.supervisor.getAPIVersion
     check_get_success(client, f'{base_url}', mocked_func, [call()], '3.0')
 
 
-def test_supervisor_getSupervisorVersion(xml_rpc, client):
+def test_supervisor_get_supervisor_version(xml_rpc, client):
     """ Check the getSupervisorVersion REST API. """
     base_url = '/supervisor/getSupervisorVersion'
     mocked_func = xml_rpc.supervisor.getSupervisorVersion
     check_get_success(client, f'{base_url}', mocked_func, [call()], '4.2.1')
 
 
-def test_supervisor_getIdentification(xml_rpc, client):
+def test_supervisor_get_identification(xml_rpc, client):
     """ Check the getIdentification REST API. """
     base_url = '/supervisor/getIdentification'
     mocked_func = xml_rpc.supervisor.getIdentification
     check_get_success(client, f'{base_url}', mocked_func, [call()], 'server_01')
 
 
-def test_supervisor_getState(xml_rpc, client):
+def test_supervisor_get_state(xml_rpc, client):
     """ Check the getState REST API. """
     base_url = '/supervisor/getState'
     mocked_func = xml_rpc.supervisor.getState
     check_get_success(client, f'{base_url}', mocked_func, [call()], {'statecode': 1, 'statename': 'RUNNING'})
 
 
-def test_supervisor_getPID(xml_rpc, client):
+def test_supervisor_get_pid(xml_rpc, client):
     """ Check the getPID REST API. """
     base_url = '/supervisor/getPID'
     mocked_func = xml_rpc.supervisor.getPID
     check_get_success(client, f'{base_url}', mocked_func, [call()], 1234)
 
 
-def test_supervisor_readLog(xml_rpc, client):
+def test_supervisor_read_log(xml_rpc, client):
     """ Check the readLog REST API. """
     base_url = '/supervisor/readLog'
     mocked_func = xml_rpc.supervisor.readLog
@@ -176,7 +177,7 @@ def test_supervisor_readLog(xml_rpc, client):
     check_get_success(client, f'{base_url}/-1/44', mocked_func, [call(-1, 44)], 'WARN No file matches')
 
 
-def test_supervisor_clearLog(xml_rpc, client):
+def test_supervisor_clear_log(xml_rpc, client):
     """ Check the clearLog REST API. """
     base_url = '/supervisor/clearLog'
     mocked_func = xml_rpc.supervisor.clearLog
@@ -197,14 +198,14 @@ def test_supervisor_restart(xml_rpc, client):
     check_post_success(client, f'{base_url}', mocked_func, [call()], False)
 
 
-def test_supervisor_reloadConfig(xml_rpc, client):
+def test_supervisor_reload_config(xml_rpc, client):
     """ Check the reloadConfig REST API. """
     base_url = '/supervisor/reloadConfig'
     mocked_func = xml_rpc.supervisor.reloadConfig
     check_post_success(client, f'{base_url}', mocked_func, [call()])
 
 
-def test_supervisor_addProcessGroup(xml_rpc, client):
+def test_supervisor_add_process_group(xml_rpc, client):
     """ Check the addProcessGroup REST API. """
     base_url = '/supervisor/addProcessGroup'
     mocked_func = xml_rpc.supervisor.addProcessGroup
@@ -216,7 +217,7 @@ def test_supervisor_addProcessGroup(xml_rpc, client):
     assert mocked_func.call_args_list == [call('test')]
 
 
-def test_supervisor_removeProcessGroup(xml_rpc, client):
+def test_supervisor_remove_process_group(xml_rpc, client):
     """ Check the removeProcessGroup REST API. """
     base_url = '/supervisor/removeProcessGroup'
     mocked_func = xml_rpc.supervisor.removeProcessGroup
@@ -226,7 +227,7 @@ def test_supervisor_removeProcessGroup(xml_rpc, client):
     check_post_success(client, f'{base_url}/test', mocked_func, [call('test')])
 
 
-def test_supervisor_startProcess(xml_rpc, client):
+def test_supervisor_start_process(xml_rpc, client):
     """ Check the startProcess REST API. """
     base_url = '/supervisor/startProcess'
     mocked_func = xml_rpc.supervisor.startProcess
@@ -240,7 +241,7 @@ def test_supervisor_startProcess(xml_rpc, client):
                        [call('my_movies:converter_05', False)])
 
 
-def test_supervisor_startProcessGroup(xml_rpc, client):
+def test_supervisor_start_process_group(xml_rpc, client):
     """ Check the startProcessGroup REST API. """
     base_url = '/supervisor/startProcessGroup'
     mocked_func = xml_rpc.supervisor.startProcessGroup
@@ -252,7 +253,7 @@ def test_supervisor_startProcessGroup(xml_rpc, client):
     check_post_success(client, f'{base_url}/my_movies?wait=false', mocked_func, [call('my_movies', False)])
 
 
-def test_supervisor_startAllProcesses(xml_rpc, client):
+def test_supervisor_start_all_processes(xml_rpc, client):
     """ Check the startAllProcesses REST API. """
     base_url = '/supervisor/startAllProcesses'
     mocked_func = xml_rpc.supervisor.startAllProcesses
@@ -261,7 +262,7 @@ def test_supervisor_startAllProcesses(xml_rpc, client):
     check_post_success(client, f'{base_url}?wait=false', mocked_func, [call(False)])
 
 
-def test_supervisor_stopProcess(xml_rpc, client):
+def test_supervisor_stop_process(xml_rpc, client):
     """ Check the stopProcess REST API. """
     base_url = '/supervisor/stopProcess'
     mocked_func = xml_rpc.supervisor.stopProcess
@@ -275,7 +276,7 @@ def test_supervisor_stopProcess(xml_rpc, client):
                        [call('my_movies:converter_05', False)])
 
 
-def test_supervisor_stopProcessGroup(xml_rpc, client):
+def test_supervisor_stop_process_group(xml_rpc, client):
     """ Check the stopProcessGroup REST API. """
     base_url = '/supervisor/stopProcessGroup'
     mocked_func = xml_rpc.supervisor.stopProcessGroup
@@ -287,7 +288,7 @@ def test_supervisor_stopProcessGroup(xml_rpc, client):
     check_post_success(client, f'{base_url}/my_movies?wait=false', mocked_func, [call('my_movies', False)])
 
 
-def test_supervisor_stopAllProcesses(xml_rpc, client):
+def test_supervisor_stop_all_processes(xml_rpc, client):
     """ Check the stopAllProcesses REST API. """
     base_url = '/supervisor/stopAllProcesses'
     mocked_func = xml_rpc.supervisor.stopAllProcesses
@@ -296,7 +297,7 @@ def test_supervisor_stopAllProcesses(xml_rpc, client):
     check_post_success(client, f'{base_url}?wait=false', mocked_func, [call(False)])
 
 
-def test_supervisor_signalProcess(xml_rpc, client):
+def test_supervisor_signal_process(xml_rpc, client):
     """ Check the signalProcess REST API. """
     base_url = '/supervisor/signalProcess'
     mocked_func = xml_rpc.supervisor.signalProcess
@@ -308,7 +309,7 @@ def test_supervisor_signalProcess(xml_rpc, client):
                        [call('database:movie_server_01', 'SEGV')])
 
 
-def test_supervisor_signalProcessGroup(xml_rpc, client):
+def test_supervisor_signal_process_group(xml_rpc, client):
     """ Check the signalProcessGroup REST API. """
     base_url = '/supervisor/signalProcessGroup'
     mocked_func = xml_rpc.supervisor.signalProcessGroup
@@ -319,7 +320,7 @@ def test_supervisor_signalProcessGroup(xml_rpc, client):
     check_post_success(client, f'{base_url}/database/TERM', mocked_func, [call('database', 'TERM')])
 
 
-def test_supervisor_signalAllProcesses(xml_rpc, client):
+def test_supervisor_signal_all_processes(xml_rpc, client):
     """ Check the signalAllProcesses REST API. """
     base_url = '/supervisor/signalAllProcesses'
     mocked_func = xml_rpc.supervisor.signalAllProcesses
@@ -329,7 +330,7 @@ def test_supervisor_signalAllProcesses(xml_rpc, client):
     check_post_success(client, f'{base_url}/QUIT', mocked_func, [call('QUIT')])
 
 
-def test_supervisor_getAllConfigInfo(xml_rpc, client):
+def test_supervisor_get_all_config_info(xml_rpc, client):
     """ Check the startProcess REST API. """
     base_url = '/supervisor/getAllConfigInfo'
     mocked_func = xml_rpc.supervisor.getAllConfigInfo
@@ -338,7 +339,7 @@ def test_supervisor_getAllConfigInfo(xml_rpc, client):
                        {'stdout_logfile': './log/dummy_2.log'}])
 
 
-def test_supervisor_getProcessInfo(xml_rpc, client):
+def test_supervisor_get_process_info(xml_rpc, client):
     """ Check the getProcessInfo REST API. """
     base_url = '/supervisor/getProcessInfo'
     mocked_func = xml_rpc.supervisor.getProcessInfo
@@ -349,7 +350,7 @@ def test_supervisor_getProcessInfo(xml_rpc, client):
                       {'name': 'movie_srv_01', 'pid': 55636, 'statename': 'RUNNING'})
 
 
-def test_supervisor_getAllProcessInfo(xml_rpc, client):
+def test_supervisor_get_all_process_info(xml_rpc, client):
     """ Check the getAllProcessInfo REST API. """
     base_url = '/supervisor/getAllProcessInfo'
     mocked_func = xml_rpc.supervisor.getAllProcessInfo
@@ -358,7 +359,7 @@ def test_supervisor_getAllProcessInfo(xml_rpc, client):
                        {'logfile': './log/register.log'}])
 
 
-def test_supervisor_readProcessStdoutLog(xml_rpc, client):
+def test_supervisor_read_process_stdout_log(xml_rpc, client):
     """ Check the readProcessStdoutLog REST API. """
     base_url = '/supervisor/readProcessStdoutLog'
     mocked_func = xml_rpc.supervisor.readProcessStdoutLog
@@ -374,7 +375,7 @@ def test_supervisor_readProcessStdoutLog(xml_rpc, client):
                       [call('test:check_starting_sequence', -1, 40)], 'INFO;entering main')
 
 
-def test_supervisor_readProcessStderrLog(xml_rpc, client):
+def test_supervisor_read_process_stderr_log(xml_rpc, client):
     """ Check the readProcessStderrLog REST API. """
     base_url = '/supervisor/readProcessStderrLog'
     mocked_func = xml_rpc.supervisor.readProcessStderrLog
@@ -390,7 +391,7 @@ def test_supervisor_readProcessStderrLog(xml_rpc, client):
                       [call('test:check_starting_sequence', 0, 40)], 'INFO;entering main')
 
 
-def test_supervisor_tailProcessStdoutLog(xml_rpc, client):
+def test_supervisor_tail_process_stdout_log(xml_rpc, client):
     """ Check the readProcessStdoutLog REST API. """
     base_url = '/supervisor/tailProcessStdoutLog'
     mocked_func = xml_rpc.supervisor.tailProcessStdoutLog
@@ -406,7 +407,7 @@ def test_supervisor_tailProcessStdoutLog(xml_rpc, client):
                       [call('test:check_starting_sequence', 0, 40)], 'INFO;entering main')
 
 
-def test_supervisor_tailProcessStderrLog(xml_rpc, client):
+def test_supervisor_tail_process_stderr_log(xml_rpc, client):
     """ Check the tailProcessStderrLog REST API. """
     base_url = '/supervisor/tailProcessStderrLog'
     mocked_func = xml_rpc.supervisor.tailProcessStderrLog
@@ -422,7 +423,7 @@ def test_supervisor_tailProcessStderrLog(xml_rpc, client):
                       [call('test:check_starting_sequence', 0, 40)], 'INFO;entering main')
 
 
-def test_supervisor_clearProcessLogs(xml_rpc, client):
+def test_supervisor_clear_process_logs(xml_rpc, client):
     """ Check the clearProcessLogs REST API. """
     base_url = '/supervisor/clearProcessLogs'
     mocked_func = xml_rpc.supervisor.clearProcessLogs
@@ -433,14 +434,14 @@ def test_supervisor_clearProcessLogs(xml_rpc, client):
                        [call('test:check_starting_sequence')])
 
 
-def test_supervisor_clearAllProcessLogs(xml_rpc, client):
+def test_supervisor_clear_all_process_logs(xml_rpc, client):
     """ Check the clearAllProcessLogs REST API. """
     base_url = '/supervisor/clearAllProcessLogs'
     mocked_func = xml_rpc.supervisor.clearAllProcessLogs
     check_post_success(client, f'{base_url}', mocked_func, [call()])
 
 
-def test_supervisor_sendProcessStdin(xml_rpc, client):
+def test_supervisor_send_process_stdin(xml_rpc, client):
     """ Check the sendProcessStdin REST API. """
     base_url = '/supervisor/sendProcessStdin'
     mocked_func = xml_rpc.supervisor.sendProcessStdin
@@ -452,7 +453,7 @@ def test_supervisor_sendProcessStdin(xml_rpc, client):
                        [call('my_movies:converter_02', 'hello')])
 
 
-def test_supervisor_sendRemoteCommEvent(xml_rpc, client):
+def test_supervisor_send_remote_comm_event(xml_rpc, client):
     """ Check the sendRemoteCommEvent REST API. """
     base_url = '/supervisor/sendRemoteCommEvent'
     mocked_func = xml_rpc.supervisor.sendRemoteCommEvent

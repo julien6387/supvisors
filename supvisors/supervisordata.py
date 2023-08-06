@@ -383,7 +383,7 @@ class SupervisorData(object):
             # add the new processes into Supervisor
             return self._add_processes(program_name, numprocs, current_numprocs, list(program_groups.keys())), []
         # else equal / no change
-        return None, None
+        return [], []
 
     def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> NameList:
         """ Add new processes to all Supervisor groups already including it.

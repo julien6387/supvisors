@@ -27,7 +27,7 @@ from .ttypes import (CPUHistoryStats, CPUInstantStats, JiffiesList, Jiffies,
 
 # additional annotation types
 FloatList = List[float]
-IntegratedProcessStats = Tuple[float, float, float] # cpu, mem, seconds
+IntegratedProcessStats = Tuple[float, float, float]  # cpu, mem, seconds
 IntegratedHostStatistics = Tuple[float, CPUInstantStats, float, InterfaceIntegratedStats]
 
 

@@ -36,7 +36,7 @@ def test_expand_faults():
     assert SupvisorsFaults.DISABLED.value == Faults.DISABLED
 
 
-def test_patch_logger(mocker, supvisors):
+def test_patch_logger(supvisors):
     """ Test the patch_logger function. """
     # check initial context
     assert not hasattr(Handler, '_emit')
@@ -50,7 +50,7 @@ def test_patch_logger(mocker, supvisors):
     assert Handler._emit is ref_emit
     assert Handler.emit is not ref_emit
     # test log emission
-    io = BoundIO(1<<10)
+    io = BoundIO(1 << 10)
     handler = StreamHandler(io)
     handler.emit(LogRecord(LevelsByName.INFO, 'hello'))
     assert io.getvalue() == b'hello'
@@ -61,17 +61,17 @@ def test_patch_591():
     # check initial context
     assert not hasattr(SupervisorNamespaceRPCInterface, '_startProcess')
     assert not hasattr(Subprocess, '_spawn')
-    ref_startProcess = SupervisorNamespaceRPCInterface.startProcess
+    ref_start_process = SupervisorNamespaceRPCInterface.startProcess
     ref_spawn = Subprocess.spawn
     # check monkeypatch
     patch_591()
-    assert SupervisorNamespaceRPCInterface._startProcess is ref_startProcess
+    assert SupervisorNamespaceRPCInterface._startProcess is ref_start_process
     assert Subprocess._spawn is ref_spawn
     assert SupervisorNamespaceRPCInterface.startProcess is startProcess
     assert Subprocess.spawn is spawn
     # check again monkeypatch to ensure that Supvisors patches do not override renamed Supervisor functions
     patch_591()
-    assert SupervisorNamespaceRPCInterface._startProcess is ref_startProcess
+    assert SupervisorNamespaceRPCInterface._startProcess is ref_start_process
     assert Subprocess._spawn is ref_spawn
     assert SupervisorNamespaceRPCInterface.startProcess is startProcess
     assert Subprocess.spawn is spawn

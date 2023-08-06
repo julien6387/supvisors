@@ -713,6 +713,7 @@ def test_write_process_stderr_button(mocker, handler):
                                                  'logtail/dummy_application%3Adummy_process_1/stderr',
                                                  '', 'dummy_application:dummy_process_1', True)]
 
+
 def test_write_process_button(handler):
     """ Test the _write_process_button method. """
     # patch the view context

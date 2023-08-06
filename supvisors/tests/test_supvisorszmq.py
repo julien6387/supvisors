@@ -39,7 +39,8 @@ def publisher(supvisors):
 
 @pytest.fixture
 def subscriber(mocker, supvisors):
-    test_subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', supvisors.options.event_port,
+    test_subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(),
+                                                 'localhost', supvisors.options.event_port,
                                                  supvisors.logger)
     mocker.patch.object(test_subscriber, 'on_receive')
     yield test_subscriber

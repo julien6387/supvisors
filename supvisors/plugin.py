@@ -69,6 +69,7 @@ def patch_logger():
     """ Make Supervisor logger thread-safe. """
     # create global lock for all calls
     logger_mutex = RLock()
+
     # use an emit method that uses the global lock
     def emit(self, record):
         with logger_mutex:

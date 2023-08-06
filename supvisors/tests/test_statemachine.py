@@ -81,7 +81,6 @@ def test_off_state(supvisors_ctx):
     """ Test the Initialization state of the fsm. """
     state = OffState(supvisors_ctx)
     assert isinstance(state, AbstractState)
-    local_identifier = state.local_identifier
     # 1. test enter method: no behaviour
     state.enter()
     # 2. test next method
@@ -389,7 +388,6 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     # create instance to test
     state = MasterRestartingState(supvisors_ctx)
     assert isinstance(state, AbstractState)
-    local_identifier = state.local_identifier
     # test enter method: starting ang stopping in progress are aborted
     state.enter()
     assert mocked_starter.call_count == 1

@@ -20,6 +20,7 @@
 import sys
 import time
 import unittest
+from typing import Dict, List
 
 from supervisor.compat import xmlrpclib
 from supervisor.states import ProcessStates
@@ -53,7 +54,7 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         print('### [INFO] clean-up')
         try:
             self.local_supvisors.restart_application(StartingStrategies.CONFIG.value, 'database')
-        except:
+        except Exception:
             print('### [ERROR] failed to restart database application')
         RunningIdentifiersTest.tearDown(self)
 
@@ -209,8 +210,8 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         self.local_supvisors.conciliate(ConciliationStrategies.RUNNING_FAILURE.value)
         # the my_movies application is expected to restart
         # => 3 manager + 1 hmi to stop
-        expected_events = [{'name': 'manager', 'state': 0, 'identifier': identifier}
-                           for identifier in self.running_identifiers]
+        expected_events: List[Dict] = [{'name': 'manager', 'state': 0, 'identifier': identifier}
+                                       for identifier in self.running_identifiers]
         expected_events.append({'name': 'hmi', 'state': 0})
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(4, len(received_events))

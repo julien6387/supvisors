@@ -20,7 +20,7 @@
 import re
 from math import sqrt
 from time import gmtime, localtime, strftime, time
-from typing import Tuple
+from typing import List
 from urllib.parse import urlparse
 
 from .ttypes import Payload
@@ -161,7 +161,7 @@ SUPVISORS_RTYPE_FORMAT = re.compile(rf'^:rtype:\s+{TYPE_FORMAT}$')
 SUPVISORS_RAISE_FORMAT = re.compile(r'^:raises\s+(?P<exc>\w+):\s+(?P<desc>.*)$')
 
 
-def parse_docstring(comment: str) -> Tuple:
+def parse_docstring(comment: str) -> List:
     """ Extract information from the docstring.
     Return the same structure as supervisor.xmlrpc.gettags. """
     description = [0, None, None, None, []]

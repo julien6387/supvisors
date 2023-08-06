@@ -150,7 +150,7 @@ def test_write_header(mocker, view):
 
 def test_write_instance_actions(mocker, view):
     """ Test the SupvisorsInstanceView.write_instance_actions method. """
-    mocked_switch = mocker.patch.object(view, 'write_view_switch')
+    mocker.patch.object(view, 'write_view_switch')
     # set context (meant to be set through render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # set instance context

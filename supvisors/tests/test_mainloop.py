@@ -107,8 +107,8 @@ def test_check_external_events(mocker, main_loop):
     mocked_send = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
     # test with appropriate socks but with exception
     main_loop.receiver.read_fds.return_value = ['a message', 'a second message']
-    main_loop.check_external_events(['poll result'])
-    assert main_loop.receiver.read_fds.call_args_list == [call(['poll result'])]
+    main_loop.check_external_events([1])
+    assert main_loop.receiver.read_fds.call_args_list == [call([1])]
     assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_EVENT, 'a message'),
                                           call(RemoteCommEvents.SUPVISORS_EVENT, 'a second message')]
 
@@ -205,15 +205,11 @@ def test_is_authorized(mocker, mocked_rpc, main_loop):
         # reset counters
         mocked_call.reset_mock()
         mocked_rpc.reset_mock()
-    # test with local Supvisors instance not isolated by remote but returning an unkown state
-    for state in [x for x in SupvisorsInstanceStates if x not in ISOLATION_STATES]:
-        mocked_call.return_value = {'statecode': 128}
-        assert not main_loop._is_authorized('10.0.0.1')
-        assert mocked_call.call_args_list == [call(local_identifier)]
-        assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-        # reset counters
-        mocked_call.reset_mock()
-        mocked_rpc.reset_mock()
+    # test with local Supvisors instance not isolated by remote but returning an unknown state
+    mocked_call.return_value = {'statecode': 128}
+    assert not main_loop._is_authorized('10.0.0.1')
+    assert mocked_call.call_args_list == [call(local_identifier)]
+    assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
 
 
 def test_transfer_process_info(mocker, mocked_rpc, main_loop):
@@ -251,7 +247,7 @@ def test_transfer_states_modes(mocker, mocked_rpc, main_loop):
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface(main_loop.supvisors)
     instance_info = {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
-                     'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
+                     'statecode': 3, 'statename': 'RUNNING',
                      'remote_time': 50, 'local_time': 60,
                      'sequence_counter': 28, 'process_failure': False,
                      'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',

@@ -37,6 +37,8 @@ class ProcInstanceView(SupvisorsInstanceView):
     so that StatusView inherits from ViewHandler instead of MeldView.
     """
 
+    ProcessStats = Tuple[int, int, Optional[Tuple[ProcessCPUHistoryStats, ProcessMemHistoryStats]]]
+
     def __init__(self, context):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
@@ -163,7 +165,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         return payload
 
     @staticmethod
-    def sum_process_info(data: PayloadList) -> Tuple[int, int, Optional[Tuple[ProcessCPUHistoryStats, ProcessMemHistoryStats]]]:
+    def sum_process_info(data: PayloadList) -> ProcessStats:
         """ Get the total resources taken by the processes.
 
         :param data: the list of process payloads
