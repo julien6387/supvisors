@@ -40,6 +40,9 @@
   Such a **Supvisors** instance is considered active and is updated with received events but cannot be part of any
   starting sequence until all starting jobs in progress are completed.
 
+* Add `master_identifier` to the output of the XML-RPCs `get_supvisors_state` and `get_instances_info`.
+  The `supervisorctl` commands `sstate` and `instance_status` have also been updated.
+
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
 
 * Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.

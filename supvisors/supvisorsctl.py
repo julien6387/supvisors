@@ -111,15 +111,19 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
+                max_master = ControllerPlugin.max_template([state_modes], 'master_identifier', 'Master')
                 max_starting = ControllerPlugin.max_template([state_modes], 'starting_jobs', 'Starting')
                 max_stopping = ControllerPlugin.max_template([state_modes], 'stopping_jobs', 'Stopping')
-                template = f'%(state)-16s%(discovery)-11s%(starting)-{max_starting}s%(stopping)-{max_stopping}s'
+                template = (f'%(state)-16s%(discovery)-11s%(master)-{max_master}s%(starting)-{max_starting}s'
+                            f'%(stopping)-{max_stopping}s')
                 # print title
-                payload = {'state': 'State', 'discovery': 'Discovery', 'starting': 'Starting', 'stopping': 'Stopping'}
+                payload = {'state': 'State', 'discovery': 'Discovery', 'master': 'Master',
+                           'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # print data
                 line = template % {'state': state_modes['fsm_statename'],
                                    'discovery': state_modes['discovery_mode'],
+                                   'master': state_modes['master_identifier'],
                                    'starting': state_modes['starting_jobs'],
                                    'stopping': state_modes['stopping_jobs']}
                 self.ctl.output(line)
@@ -175,12 +179,14 @@ class ControllerPlugin(ControllerPluginBase):
                 max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
                 template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s'
                             '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s%(failure)-9s'
-                            '%(fsm_state)-16s%(starting)-10s%(stopping)-10s')
+                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_node_names}s'
+                            '%(starting)-10s%(stopping)-10s')
                 # print title
                 payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port',
                            'state': 'State', 'discovery': 'Discovery',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter', 'failure': 'Failure',
-                           'fsm_state': 'FSM', 'starting': 'Starting', 'stopping': 'Stopping'}
+                           'fsm_state': 'FSM', 'master': 'Master', 'discovery': 'Discovery',
+                           'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
@@ -197,6 +203,8 @@ class ControllerPlugin(ControllerPluginBase):
                                    'counter': info['sequence_counter'],
                                    'failure': info['process_failure'],
                                    'fsm_state': info['fsm_statename'],
+                                   'discovery': info['discovery_mode'],
+                                   'master': info['master_identifier'],
                                    'starting': info['starting_jobs'],
                                    'stopping': info['stopping_jobs']}
                         self.ctl.output(template % payload)
