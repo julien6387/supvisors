@@ -350,7 +350,7 @@ def test_running_core_identifiers(supvisors):
 
 
 def test_activate_checked(context):
-    """ Test the activation of checked nodes. """
+    """ Test the activation of checked Supvisors instances. """
     # change node states
     context.local_instance._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
@@ -365,6 +365,25 @@ def test_activate_checked(context):
     assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.ISOLATING
     assert context.instances['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATED
     assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.RUNNING
+    assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.CHECKING
+
+
+def test_invalid_unknown(context):
+    """ Test the invalidation of unknown Supvisors instances. """
+    # change node states
+    context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.UNKNOWN
+    context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKED
+    context.instances['10.0.0.5']._state = SupvisorsInstanceStates.CHECKING
+    # check status after call to activate_checked
+    context.invalid_unknown()
+    assert context.local_instance.state == SupvisorsInstanceStates.RUNNING
+    assert context.instances['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
+    assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.SILENT
+    assert context.instances['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATED
+    assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.CHECKED
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.CHECKING
 
 
