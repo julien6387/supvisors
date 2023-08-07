@@ -133,7 +133,7 @@ class SupvisorsView(ViewHandler):
             # remove the button cell and extend the next cell
             th_elt.replace('')
         # set Supvisors instance name
-        elt = instance_div_elt.findmeld('identifier_th_mid')
+        elt = instance_div_elt.findmeld('identifier_a_mid')
         if status.has_active_state():
             # go to web page located hosted by the Supvisors instance
             url = self.view_ctx.format_url(status.identifier, PROC_INSTANCE_PAGE)
@@ -328,7 +328,7 @@ class SupvisorsView(ViewHandler):
     def sup_sync_action(self, master_identifier: str = ''):
         """ Restart all Supervisor instances. """
         try:
-            self.supvisors.supervisor_data.supvisors_rpc_interface.end_synchro(master_identifier)
+            self.supvisors.supervisor_data.supvisors_rpc_interface.end_sync(master_identifier)
         except RPCError as e:
             return delayed_error(f'end_synchro: {e}')
         message = 'Supvisors end of sync requested'

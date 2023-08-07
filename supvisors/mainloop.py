@@ -21,7 +21,7 @@ import json
 import traceback
 from http.client import CannotSendRequest, IncompleteRead
 from threading import Event, Thread
-from typing import Any, List
+from typing import Any, List, Optional
 
 from supervisor.childutils import getRPCInterface
 from supervisor.compat import xmlrpclib
@@ -184,7 +184,7 @@ class SupvisorsMainLoop(Thread):
         # inform local Supvisors that authorization result is available
         self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, (identifier, authorized))
 
-    def _is_authorized(self, identifier: str) -> bool:
+    def _is_authorized(self, identifier: str) -> Optional[bool]:
         """ Get authorization from remote Supvisors instance.
         If the remote Supvisors instance considers the local Supvisors instance as ISOLATED, authorization is denied.
 
@@ -199,7 +199,7 @@ class SupvisorsMainLoop(Thread):
         except SupvisorsMainLoop.RpcExceptions:
             # Remote Supvisors instance closed in the gap or Supvisors is incorrectly configured
             self.logger.error(f'SupvisorsMainLoop._is_authorized: failed to check Supvisors={identifier}')
-            return False
+            return None
         # check the local Supvisors instance state as seen by the remote Supvisors instance
         state = local_status_payload['statecode']
         try:

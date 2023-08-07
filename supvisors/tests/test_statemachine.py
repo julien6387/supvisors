@@ -246,6 +246,14 @@ def test_initialization_state_next(mocker, init_state):
     mocker.resetall()
 
 
+def test_initialization_state_exit(mocker, init_state):
+    """ Test the Initialization state of the FSM / exit method. """
+    mocked_invalid = mocker.patch.object(init_state.context, 'invalid_unknown')
+    # just check that invalid_unknown has been called
+    init_state.exit()
+    assert mocked_invalid.called
+
+
 def test_master_deployment_state(mocker, supvisors_ctx):
     """ Test the Deployment state of the fsm. """
     state = MasterDeploymentState(supvisors_ctx)

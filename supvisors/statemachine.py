@@ -169,7 +169,6 @@ class InitializationState(AbstractState):
                               f' synchro_timeout={synchro_timeout}')
             if uptime >= synchro_timeout:
                 self.logger.info(f'InitializationState._check_end_sync_timeout: timeout {synchro_timeout} reached')
-                self.context.invalid_unknown()
                 return True
         return False
 
@@ -248,6 +247,13 @@ class InitializationState(AbstractState):
                 self.logger.debug(f'InitializationState.next: local Supvisors={self.local_identifier} still'
                                   f' not RUNNING after {int(uptime)} seconds')
         return SupvisorsStates.INITIALIZATION
+
+    def exit(self):
+        """ When exiting the INITIALIZATION state, set all non-responsive Supvisors instances to SILENT or ISOLATED.
+
+        :return: None
+        """
+        self.context.invalid_unknown()
 
 
 class MasterDeploymentState(AbstractState):
@@ -659,7 +665,7 @@ class FiniteStateMachine:
         :param event: the state event
         :return: None
         """
-        self.logger.warn(f'FiniteStateMachine.on_state_event: Supvisors={identifier} sent {event}')
+        self.logger.debug(f'FiniteStateMachine.on_state_event: Supvisors={identifier} sent {event}')
         # WARN: local instance is already up-to-date, could even be a step beyond
         #   so ignore the event if it is a local event
         if identifier != self.context.local_identifier:
@@ -684,7 +690,7 @@ class FiniteStateMachine:
         """
         self.context.load_processes(identifier, info)
 
-    def on_authorization(self, identifier: str, authorized: bool) -> None:
+    def on_authorization(self, identifier: str, authorized: Optional[bool]) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
         When a new Supvisors instance comes in the group, back to DEPLOYMENT for a possible deployment.
 

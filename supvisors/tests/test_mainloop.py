@@ -179,7 +179,7 @@ def test_is_authorized(mocker, mocked_rpc, main_loop):
     local_identifier = main_loop.supvisors.context.local_identifier
     # test with XML-RPC failure
     mocked_rpc.side_effect = ValueError
-    assert not main_loop._is_authorized('10.0.0.1')
+    assert main_loop._is_authorized('10.0.0.1') is None
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
     mocked_rpc.reset_mock()
     # test with a mocked rpc interface
@@ -190,7 +190,7 @@ def test_is_authorized(mocker, mocked_rpc, main_loop):
     # test with local Supvisors instance isolated by remote
     for state in ISOLATION_STATES:
         mocked_call.return_value = {'statecode': state.value}
-        assert not main_loop._is_authorized('10.0.0.1')
+        assert main_loop._is_authorized('10.0.0.1') is False
         assert mocked_call.call_args_list == [call(local_identifier)]
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         # reset counters
@@ -199,7 +199,7 @@ def test_is_authorized(mocker, mocked_rpc, main_loop):
     # test with local Supvisors instance not isolated by remote
     for state in [x for x in SupvisorsInstanceStates if x not in ISOLATION_STATES]:
         mocked_call.return_value = {'statecode': state.value}
-        assert main_loop._is_authorized('10.0.0.1')
+        assert main_loop._is_authorized('10.0.0.1') is True
         assert mocked_call.call_args_list == [call(local_identifier)]
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         # reset counters
@@ -207,7 +207,7 @@ def test_is_authorized(mocker, mocked_rpc, main_loop):
         mocked_rpc.reset_mock()
     # test with local Supvisors instance not isolated by remote but returning an unknown state
     mocked_call.return_value = {'statecode': 128}
-    assert not main_loop._is_authorized('10.0.0.1')
+    assert main_loop._is_authorized('10.0.0.1') is False
     assert mocked_call.call_args_list == [call(local_identifier)]
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
 

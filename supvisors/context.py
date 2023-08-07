@@ -485,6 +485,12 @@ class Context:
                     self.logger.warn('Context.on_instance_state_event: Master instance conflict. '
                                      f' Local declares Master={self.master_identifier}'
                                      f' - Supvisors={identifier} declares Master={remote_master}')
+                    # TODO: reset identifier because if Master conflict happens in INITIALIZATION, enter won't be called
+                    #       check if inconsistency can happen in INITIALIZATION
+                    # self.master_identifier = ''
+                    # TODO: or avoid infinite conflict (TODO: check core_identifiers)
+                    # TODO: stop any sequencing ?
+                    # self.master_identifier = min(remote_master, self.master_identifier)
                     inconsistency = True
             # publish the new Instance status and Supvisors synthesis
             if self.external_publisher:
@@ -508,11 +514,13 @@ class Context:
         # process authorization status
         if authorized is None:
             # the check call in SupvisorsMainLoop failed
-            # the remote Supvisors instance is likely restarting or shutting down so defer
+            # the remote Supvisors instance is likely starting, restarting or shutting down so defer
             self.logger.warn(f'Context.on_authorization: failed to get auth status from Supvisors={identifier}')
-            self.invalid(status)
+            # go back to UNKNOWN to give it a chance at next TICK
+            status.state = SupvisorsInstanceStates.UNKNOWN
         elif not authorized:
-            self.logger.warn('Context.on_authorization: local Supvisors instance is isolated by Supvisors={identifier}')
+            self.logger.warn('Context.on_authorization: the local Supvisors instance is isolated'
+                             f' by Supvisors={identifier}')
             self.invalid(status, True)
         else:
             self.logger.info(f'Context.on_authorization: local Supvisors instance is authorized to work with'
