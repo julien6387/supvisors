@@ -176,7 +176,7 @@ def test_parse_docstring_supvisors():
     assert result == expected
     # test with types including brackets
     expected = [(0, None, None, None,
-                 'Change the logger level for the local **Supvisors**.\n'
+                 'Change the logger level for the local **Supvisors** instance.\n'
                  'If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.'),
                 (3, 'param', 'Union[str, int]', 'level_param', 'the new logger level, as a string or as a value.'),
                 (4, 'return', 'bool', None, 'always ``True`` unless error.')]
