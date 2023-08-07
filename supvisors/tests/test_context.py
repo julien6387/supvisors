@@ -815,9 +815,10 @@ def test_authorization_checking_normal(mocker, context):
     # test authorization None (error in handshake)
     status._state = SupvisorsInstanceStates.CHECKING
     assert not context.on_authorization('10.0.0.1', None)
-    assert mocked_invalid.call_args_list == [call(status)]
-    mocked_invalid.reset_mock()
+    assert not mocked_invalid.called
+    assert status.state == SupvisorsInstanceStates.UNKNOWN
     # test not authorized
+    status._state = SupvisorsInstanceStates.CHECKING
     assert not context.on_authorization('10.0.0.1', False)
     assert mocked_invalid.call_args_list == [call(status, True)]
     mocked_invalid.reset_mock()
