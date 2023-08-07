@@ -214,7 +214,9 @@ def test_write_nav(mocker, handler):
 
 
 def test_write_nav_instances_identifier_error(handler):
-    """ Test the write_nav_instances method with an identifier not existing in supvisors context. """
+    """ Test the write_nav_instances method with an identifier not existing in supvisors context.
+    Use discovery mode to test Supvisors instances ordering in this case. """
+    handler.supvisors.options.multicast_group = '293.0.0.1:7777'
     # patch the meld elements
     href_elt = Mock(attrib={})
     address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -223,7 +225,7 @@ def test_write_nav_instances_identifier_error(handler):
     # test call with no address status in context
     handler.write_nav_instances(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(list(handler.supvisors.supvisors_mapper.instances.keys()))]
+    assert mocked_mid.repeat.call_args_list == [call(sorted(handler.supvisors.supvisors_mapper.instances.keys()))]
     assert address_elt.findmeld.call_args_list == []
 
 

@@ -304,6 +304,7 @@ def test_write_node_boxes(mocker, view):
     mocked_box_processes = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_processes')
     mocked_box_title = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_title')
     # patch context
+    view.supvisors.options.multicast_group = '293.0.0.1:7777'
     local_identifier = view.sup_ctx.local_identifier
     ref_instances = view.sup_ctx.instances
     view.sup_ctx.instances = {local_identifier: ref_instances[local_identifier],
