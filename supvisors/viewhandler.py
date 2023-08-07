@@ -137,6 +137,10 @@ class ViewHandler(MeldView):
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('instance_li_mid')
         identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
+        # so let's sort them by name
+        if self.supvisors.options.discovery_mode:
+            identifiers = sorted(identifiers)
         for li_elt, item in mid_elt.repeat(identifiers):
             try:
                 status: SupvisorsInstanceStatus = self.sup_ctx.instances[item]

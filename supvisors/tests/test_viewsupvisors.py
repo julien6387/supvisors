@@ -162,7 +162,7 @@ def test_write_instance_box_title(mocker, view):
     mocked_time_mid = create_element()
     mocked_percent_mid = create_element()
     mid_map = {'user_sync_th_mid': mocked_sync_th_mid,
-               'identifier_th_mid': mocked_identifier_mid, 'state_th_mid': mocked_state_mid,
+               'identifier_a_mid': mocked_identifier_mid, 'state_th_mid': mocked_state_mid,
                'time_th_mid': mocked_time_mid, 'percent_th_mid': mocked_percent_mid}
     mocked_root = create_element(mid_map)
     # test call in RUNNING state but not master and user_sync
@@ -674,7 +674,7 @@ def test_sup_sync_action(mocker, view):
     """ Test the conciliation_action method. """
     mocked_derror = mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error')
     mocked_dwarn = mocker.patch('supvisors.viewsupvisors.delayed_warn', return_value='delayed warning')
-    mocked_rpc = mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'end_synchro',
+    mocked_rpc = mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'end_sync',
                                      side_effect=RPCError('failed RPC'))
     # test error with no parameter
     assert view.sup_sync_action() == 'delayed error'

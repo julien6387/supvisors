@@ -194,6 +194,10 @@ class SupvisorsView(ViewHandler):
                      and not self.sup_ctx.master_identifier)
         # create a box for every Supvisors instances
         identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
+        # so let's sort them by name
+        if self.supvisors.options.discovery_mode:
+            identifiers = sorted(identifiers)
         for instance_div_elt, identifier in instance_div_mid.repeat(identifiers):
             # get Supvisors instance status from Supvisors context
             status = self.sup_ctx.instances[identifier]
