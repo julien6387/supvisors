@@ -80,7 +80,7 @@ def test_state_modes():
                  'master_identifier': '',
                  'starting_jobs': False, 'stopping_jobs': True})
     assert sm_1 != sm_2
-    assert sm_2.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+    assert sm_2.serial() == {'fsm_statecode': 6, 'fsm_statename': 'SHUTTING_DOWN',
                              'discovery_mode': True,
                              'master_identifier': '',
                              'starting_jobs': False, 'stopping_jobs': True}
@@ -231,7 +231,7 @@ def test_update_state_modes(status):
                                'discovery_mode': True,
                                'master_identifier': '10.0.0.1',
                                'starting_jobs': False, 'stopping_jobs': True})
-    assert status.state_modes.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+    assert status.state_modes.serial() == {'fsm_statecode': 6, 'fsm_statename': 'SHUTTING_DOWN',
                                            'discovery_mode': True,
                                            'master_identifier': '10.0.0.1',
                                            'starting_jobs': False, 'stopping_jobs': True}

@@ -456,14 +456,13 @@ class Context:
             self.supvisors.supervisor_data.write_disabilities(False)
 
     # methods on events
-    def on_instance_state_event(self, identifier: str, event: Payload) -> bool:
+    def on_instance_state_event(self, identifier: str, event: Payload) -> None:
         """ Update the Supvisors instance state and modes.
 
         :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the new state and modes
-        :return: True if the remote Supvisors instance has a perception incompatible with the local Supvisors instance.
+        :return: None
         """
-        inconsistency = False
         # ISOLATING / ISOLATED instances are not updated anymore
         # should not happen as the subscriber should have been disconnected but there may be a tick in the pipe
         status = self.instances[identifier]
@@ -490,16 +489,13 @@ class Context:
                     #   instances having different perceptions, and they are still publishing at their own pace.
                     #   So in order to avoid infinite Master conflict, adjudication is made using the same principle
                     #   as the Master selection. This is expected to converge more quickly.
-                    # TODO TBC
                     candidates = [remote_master, self.master_identifier]
                     self.master_identifier = ''
                     self.elect_master(candidates)
-                    # inconsistency = True
             # publish the new Instance status and Supvisors synthesis
             if self.external_publisher:
                 self.external_publisher.send_instance_status(status.serial())
                 self._publish_state_mode()
-        return inconsistency
 
     def on_authorization(self, identifier: str, authorized: Optional[bool]) -> bool:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance

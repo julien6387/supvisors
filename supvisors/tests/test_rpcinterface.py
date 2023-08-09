@@ -1685,8 +1685,7 @@ def test_check_from_deployment(mocker, rpc):
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_state')
     # test the call to _check_state
     rpc._check_from_deployment()
-    excluded_states = [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION, SupvisorsStates.RESTART,
-                       SupvisorsStates.SHUTDOWN]
+    excluded_states = [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION, SupvisorsStates.FINAL]
     expected = [x for x in SupvisorsStates if x not in excluded_states]
     assert mocked_check.call_args_list == [call(expected)]
 

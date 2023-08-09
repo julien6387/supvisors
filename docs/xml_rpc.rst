@@ -42,7 +42,7 @@ Status
             'fsm_statecode'    ``int``       The |Supvisors| state, in [0;9].
             'fsm_statename'    ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
                                              ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
-                                             ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
+                                             ```'SHUTTING_DOWN'``, ``'FINAL'``].
             'discovery_mode'   ``bool``      True if the |Supvisors| discovery mode is activated.
             'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
             'stopping_jobs'    ``list(str)`` The list of |Supvisors| instances having stopping jobs in progress.
@@ -84,7 +84,7 @@ Status
             'fsm_statecode'    ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
             'fsm_statename'    ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
                                          ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
-                                         ``'RESTART'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
+                                         ``'SHUTTING_DOWN'``, ``'FINAL'``].
             'starting_jobs'    ``bool``  True if the |Supvisors| instance has starting jobs in progress.
             'stopping_jobs'    ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
             ================== ========= ===========

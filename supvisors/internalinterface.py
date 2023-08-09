@@ -214,7 +214,14 @@ class InternalCommReceiver:
         """
         raise NotImplementedError
 
-    def disconnect_subscriber(self, identifiers: NameList) -> None:
+    def connect_subscribers(self) -> None:
+        """ Connect the Supvisors instances to the subscription socket.
+
+        :return: None
+        """
+        raise NotImplementedError
+
+    def disconnect_subscribers(self, identifiers: NameList) -> None:
         """ Disconnect forever the Supvisors instances from the subscription socket.
 
         :param identifiers: the identifiers of the Supvisors instances to disconnect

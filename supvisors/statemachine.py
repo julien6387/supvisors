@@ -80,12 +80,10 @@ class AbstractState:
 
         :return: None
         """
-        raise NotImplementedError
 
     def exit(self) -> None:
         """ Actions performed when leaving the state.
         May be redefined in subclasses.
-        Not used actually, but who knows.
 
         :return: None
         """
@@ -355,11 +353,16 @@ class MasterRestartingState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.RESTART
+            return SupvisorsStates.FINAL
         # check if stopping jobs are in progress
         if self.supvisors.stopper.in_progress():
             return SupvisorsStates.RESTARTING
-        return SupvisorsStates.RESTART
+        return SupvisorsStates.FINAL
+
+    def exit(self):
+        """ When exiting the RESTARTING state, request the Supervisor restart. """
+        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
+        # Slave instances will do the same when they will transition out of their RESTARTING state
 
 
 class MasterShuttingDownState(AbstractState):
@@ -379,43 +382,16 @@ class MasterShuttingDownState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.SHUTDOWN
+            return SupvisorsStates.FINAL
         # check if stopping jobs are in progress
         if self.supvisors.stopper.in_progress():
             return SupvisorsStates.SHUTTING_DOWN
-        return SupvisorsStates.SHUTDOWN
+        return SupvisorsStates.FINAL
 
-
-class RestartState(AbstractState):
-    """ This is a final state. Supvisors is about to restart. """
-
-    def enter(self):
-        """ When entering the RESTART state, request the full restart. """
-        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
-        # other instances will shut down on reception of RESTART state
-
-    def next(self):
-        """ Cannot exit this state.
-
-        :return: the new Supvisors state
-        """
-        return SupvisorsStates.RESTART
-
-
-class ShutdownState(AbstractState):
-    """ This is a final state. Supvisors is about to shut down. """
-
-    def enter(self):
-        """ When entering the SHUTDOWN state, request the Supervisor shutdown. """
+    def exit(self):
+        """ When exiting the SHUTTING_DOWN state, request the Supervisor shutdown. """
         self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
-        # other instances will shut down on reception of SHUTDOWN state
-
-    def next(self):
-        """ Cannot exit this state.
-
-        :return: the new Supvisors state
-        """
-        return SupvisorsStates.SHUTDOWN
+        # Slave instances will do the same when they will transition out of their SHUTTING_DOWN state
 
 
 class SlaveMainState(AbstractState):
@@ -452,9 +428,19 @@ class SlaveRestartingState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.RESTART
-        # next state is the Master state
-        return self.supvisors.context.supvisors_state
+            return SupvisorsStates.FINAL
+        # stay in RESTARTING as long as the Master does
+        if self.supvisors.context.supvisors_state == SupvisorsStates.RESTARTING:
+            return SupvisorsStates.RESTARTING
+        return SupvisorsStates.FINAL
+
+    def exit(self):
+        """ When exiting the RESTARTING state, request the full restart.
+
+        NOTE: this has been moved from the former RestartState.enter because a Supvisors Slave
+        could move from RESTARTING to any other state if the Master commands so,
+        and it's important that Supervisor restarts at this point. """
+        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
 
 
 class SlaveShuttingDownState(AbstractState):
@@ -475,9 +461,24 @@ class SlaveShuttingDownState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.SHUTDOWN
-        # next state is the Master state
-        return self.supvisors.context.supvisors_state
+            return SupvisorsStates.FINAL
+        # stay in SHUTTING_DOWN as long as the Master does
+        if self.supvisors.context.supvisors_state == SupvisorsStates.SHUTTING_DOWN:
+            return SupvisorsStates.SHUTTING_DOWN
+        return SupvisorsStates.FINAL
+
+    def exit(self):
+        """ When exiting the SHUTTING_DOWN state, request the Supervisor shutdown.
+
+        NOTE: this has been moved from the former ShutDownState.enter because a Supvisors Slave
+        could move from SHUTTING_DOWN to any other state if the Master commands so,
+        and it's important that Supervisor shuts down at this point. """
+        self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
+
+
+class FinalState(AbstractState):
+    """ This is a final state for Master and Slaves.
+    Whatever it is a shutdown or a restart, the Supervisor 'session' will end. """
 
 
 class FiniteStateMachine:
@@ -668,23 +669,21 @@ class FiniteStateMachine:
         self.logger.debug(f'FiniteStateMachine.on_state_event: Supvisors={identifier} sent {event}')
         # WARN: local instance is already up-to-date, could even be a step beyond
         #   so ignore the event if it is a local event
-        # if identifier != self.context.local_identifier:  # not received anymore
         ref_master = self.context.master_identifier
+        ref_supvisors_state = self.context.supvisors_state
         # update the Supvisors instance states and modes
-        inconsistency = self.context.on_instance_state_event(identifier, event)
-        if inconsistency:
-            # back to INITIALIZATION state to reset all instances
-            self.set_state(SupvisorsStates.INITIALIZATION)
-        elif ref_master != self.context.master_identifier:
+        self.context.on_instance_state_event(identifier, event)
+        # check if there has been changes in Master and/or its state
+        if ref_master != self.context.master_identifier:
             self.logger.info(f'FiniteStateMachine.on_state_event: new Master Supvisors={self.context.master_identifier}'
                              f' in {self.context.supvisors_state}')
-            # trigger the FSM based on the new Master state
-            # self.next()
-            # TEST JLC
-            # if there has been a Master change and the local identifier is involved, the State type has to change,
+            # if there has been a Master change and the local identifier is involved, the FSM type has to change,
             #   so it is required to go back to INITIALIZATION state
             if self.context.local_identifier in [ref_master, self.context.master_identifier]:
                 self.set_state(SupvisorsStates.INITIALIZATION)
+        elif ref_supvisors_state != self.context.supvisors_state:
+            # the Master has transitioned to another state, so trigger the FSM
+            self.next()
 
     def on_process_info(self, identifier: str, info: PayloadList) -> None:
         """ This event is used to fill the internal structures with processes available on the Supvisors instance.
@@ -780,9 +779,8 @@ class FiniteStateMachine:
                              SupvisorsStates.OPERATION: MasterOperationState,
                              SupvisorsStates.CONCILIATION: MasterConciliationState,
                              SupvisorsStates.RESTARTING: MasterRestartingState,
-                             SupvisorsStates.RESTART: RestartState,
                              SupvisorsStates.SHUTTING_DOWN: MasterShuttingDownState,
-                             SupvisorsStates.SHUTDOWN: ShutdownState}
+                             SupvisorsStates.FINAL: FinalState}
 
     _SlaveStateInstances = {SupvisorsStates.OFF: OffState,
                             SupvisorsStates.INITIALIZATION: InitializationState,
@@ -790,9 +788,8 @@ class FiniteStateMachine:
                             SupvisorsStates.OPERATION: SlaveMainState,
                             SupvisorsStates.CONCILIATION: SlaveMainState,
                             SupvisorsStates.RESTARTING: SlaveRestartingState,
-                            SupvisorsStates.RESTART: RestartState,
                             SupvisorsStates.SHUTTING_DOWN: SlaveShuttingDownState,
-                            SupvisorsStates.SHUTDOWN: ShutdownState}
+                            SupvisorsStates.FINAL: FinalState}
 
     # Transitions allowed between states
     _Transitions = {SupvisorsStates.OFF: [SupvisorsStates.INITIALIZATION],
@@ -810,7 +807,6 @@ class FiniteStateMachine:
                                                    SupvisorsStates.INITIALIZATION,
                                                    SupvisorsStates.RESTARTING,
                                                    SupvisorsStates.SHUTTING_DOWN],
-                    SupvisorsStates.RESTARTING: [SupvisorsStates.RESTART],
-                    SupvisorsStates.RESTART: [],
-                    SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.SHUTDOWN],
-                    SupvisorsStates.SHUTDOWN: []}
+                    SupvisorsStates.RESTARTING: [SupvisorsStates.FINAL],
+                    SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.FINAL],
+                    SupvisorsStates.FINAL: []}

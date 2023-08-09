@@ -50,7 +50,7 @@ Key	               Type               Value
 'fsm_statecode'    ``int``           The state of |Supvisors|, in [0;6].
 'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``,
                                      ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
-                                     ``'SHUTDOWN'`` }.
+                                     ``'FINAL'`` }.
 'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
 'starting_jobs'    ``list(str)``     The list of |Supvisors| instances having starting jobs in progress.
 'stopping_jobs'    ``list(str)``     The list of |Supvisors| instances having stopping jobs in progress.

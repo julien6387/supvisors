@@ -58,7 +58,9 @@
 
 * Fix `flask-restx` dependency in setup according to Python version.
 
-* Refactoring of the `InternalPublisher` (**Supvisors** TCP Publish-Subscribe).
+* Simplify the **Supvisors** state machine and replace the states `RESTART` and `SHUTDOWN` by a single state `FINAL`.
+
+* Refactoring of the **Supvisors** TCP Publish-Subscribe.
 
 
 ## 0.16 (2023-03-12)

@@ -31,7 +31,7 @@ class SupvisorsInstanceStates(Enum):
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    OFF, INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, RESTART, SHUTTING_DOWN, SHUTDOWN = range(9)
+    OFF, INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(8)
 
 
 class ApplicationStates(Enum):
@@ -121,8 +121,7 @@ class EventHeaders(Enum):
 # State lists commonly used
 ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
 WORKING_STATES = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
-CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
-                  SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
+CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.FINAL]
 
 
 # Exceptions

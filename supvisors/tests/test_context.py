@@ -760,7 +760,7 @@ def test_on_instance_state_event(mocker, context):
              'discovery_mode': False,
              'master_identifier': '',
              'starting_jobs': True, 'stopping_jobs': False}
-    assert not context.on_instance_state_event('10.0.0.1', event)
+    context.on_instance_state_event('10.0.0.1', event)
     assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.DEPLOYMENT, False, '', True, False)
     expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000,
                 'statecode': 3, 'statename': 'RUNNING',
@@ -772,30 +772,28 @@ def test_on_instance_state_event(mocker, context):
     # test with Master in the event and no Master known by the local Supvisors instance
     # the Master is accepted by the local Supvisors instance
     event['master_identifier'] = '10.0.0.2'
-    assert not context.on_instance_state_event('10.0.0.1', event)
+    context.on_instance_state_event('10.0.0.1', event)
     assert context.master_identifier == '10.0.0.2'
     assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.DEPLOYMENT, False,
                                                                    '10.0.0.2', True, False)
     # test with Master in the event and different from the Master known by the local Supvisors instance
-    # inconsistency flag is raised
     event['master_identifier'] = '10.0.0.3'
-    assert context.on_instance_state_event('10.0.0.1', event)
+    context.on_instance_state_event('10.0.0.1', event)
     assert context.master_identifier == '10.0.0.2'
     assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.DEPLOYMENT, False,
                                                                    '10.0.0.3', True, False)
     # try the latest 2 steps with an event coming from a Supvisors instance about to restart or shut down
-    # Master inconsistency is ignored
     event.update({'fsm_statecode': 5, 'fsm_statename': 'RESTARTING'})
-    assert not context.on_instance_state_event('10.0.0.1', event)
+    context.on_instance_state_event('10.0.0.1', event)
     assert context.master_identifier == '10.0.0.2'
     assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.RESTARTING, False,
                                                                    '10.0.0.3', True, False)
     # and Master is not accepted
     context.master_identifier = ''
-    event.update({'fsm_statecode': 8, 'fsm_statename': 'SHUTDOWN'})
-    assert not context.on_instance_state_event('10.0.0.1', event)
+    event.update({'fsm_statecode': 7, 'fsm_statename': 'FINAL'})
+    context.on_instance_state_event('10.0.0.1', event)
     assert context.master_identifier == ''
-    assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.SHUTDOWN, False,
+    assert context.instances['10.0.0.1'].state_modes == StateModes(SupvisorsStates.FINAL, False,
                                                                    '10.0.0.3', True, False)
 
 
