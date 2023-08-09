@@ -129,7 +129,9 @@ def test_internal_comm_receiver_creation(supvisors, push_pull, receiver):
     with pytest.raises(NotImplementedError):
         receiver.manage_heartbeat()
     with pytest.raises(NotImplementedError):
-        receiver.disconnect_subscriber([])
+        receiver.connect_subscribers()
+    with pytest.raises(NotImplementedError):
+        receiver.disconnect_subscribers([])
     # try polling when nothing sent
     assert receiver.poll() == (False, [])
     # close pusher / puller properly

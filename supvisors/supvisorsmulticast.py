@@ -136,7 +136,7 @@ class MulticastReceiver(InternalCommReceiver):
         :return: None
         """
 
-    def disconnect_subscriber(self, identifiers: NameList) -> None:
+    def disconnect_subscribers(self, identifiers: NameList) -> None:
         """ Disconnect forever the Supvisors instances from the subscription socket.
 
         WARN: Empty implementation as it does not make any sense in Multicast.

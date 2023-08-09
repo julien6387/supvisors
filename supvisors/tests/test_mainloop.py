@@ -119,13 +119,13 @@ def test_check_requests(mocker, main_loop):
     # test with empty socks
     main_loop.check_requests(False)
     assert not main_loop.receiver.read_socket.called
-    assert not main_loop.receiver.disconnect_subscriber.called
+    assert not main_loop.receiver.disconnect_subscribers.called
     assert not mocked_send.called
     # test with empty message
     main_loop.receiver.read_puller.return_value = None
     main_loop.check_requests(True)
     assert main_loop.receiver.read_puller.call_args_list == [call()]
-    assert not main_loop.receiver.disconnect_subscriber.called
+    assert not main_loop.receiver.disconnect_subscribers.called
     assert not mocked_send.called
     # reset mocks
     main_loop.receiver.read_puller.reset_mock()
@@ -133,18 +133,18 @@ def test_check_requests(mocker, main_loop):
     main_loop.receiver.read_puller.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
     main_loop.check_requests(True)
     assert main_loop.receiver.read_puller.call_args_list == [call()]
-    assert main_loop.receiver.disconnect_subscriber.call_args_list == [call('a message')]
+    assert main_loop.receiver.disconnect_subscribers.call_args_list == [call('a message')]
     assert not mocked_send.called
     # reset mocks
     main_loop.receiver.read_puller.reset_mock()
-    main_loop.receiver.disconnect_subscriber.reset_mock()
+    main_loop.receiver.disconnect_subscribers.reset_mock()
     # test with other deferred message
     for event in DeferredRequestHeaders:
         if event != DeferredRequestHeaders.ISOLATE_INSTANCES:
             main_loop.receiver.read_puller.return_value = event.value, 'a message'
             main_loop.check_requests(True)
             assert main_loop.receiver.read_puller.call_args_list == [call()]
-            assert not main_loop.receiver.disconnect_subscriber.called
+            assert not main_loop.receiver.disconnect_subscribers.called
             assert mocked_send.call_args_list == [call(event, 'a message')]
             # reset mocks
             main_loop.receiver.read_puller.reset_mock()
@@ -250,7 +250,7 @@ def test_transfer_states_modes(mocker, mocked_rpc, main_loop):
                      'statecode': 3, 'statename': 'RUNNING',
                      'remote_time': 50, 'local_time': 60,
                      'sequence_counter': 28, 'process_failure': False,
-                     'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+                     'fsm_statecode': 6, 'fsm_statename': 'SHUTTING_DOWN',
                      'discovery_mode': True,
                      'master_identifier': '10.0.0.1',
                      'starting_jobs': False, 'stopping_jobs': True}
@@ -263,7 +263,7 @@ def test_transfer_states_modes(mocker, mocked_rpc, main_loop):
     assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_EVENT,
                                                (('10.0.0.1', 65000),
                                                 (InternalEventHeaders.STATE.value,
-                                                 ('10.0.0.1', {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+                                                 ('10.0.0.1', {'fsm_statecode': 6, 'fsm_statename': 'SHUTTING_DOWN',
                                                                'discovery_mode': True,
                                                                'master_identifier': '10.0.0.1',
                                                                'starting_jobs': False, 'stopping_jobs': True}))))]

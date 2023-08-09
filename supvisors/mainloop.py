@@ -100,6 +100,9 @@ class SupvisorsMainLoop(Thread):
         self.logger.info('SupvisorsMainLoop.run: entering main loop')
         # poll events forever
         while not self.stopping:
+            self.receiver.connect_subscribers()
+            # FIXME: a problem here because if 30 clients and no one started, we will lose 3 seconds at each loop,
+            #  trying to reconnect
             # Test the sockets for any incoming message
             puller_event, external_events_sockets = self.receiver.poll()
             # test stop condition again: if Supervisor is stopping,
@@ -141,7 +144,7 @@ class SupvisorsMainLoop(Thread):
                 # check publication event or deferred request
                 if deferred_request == DeferredRequestHeaders.ISOLATE_INSTANCES:
                     # isolation request: disconnect the node from subscriber
-                    self.receiver.disconnect_subscriber(body)
+                    self.receiver.disconnect_subscribers(body)
                 else:
                     # XML-RPC request
                     self.send_request(deferred_request, body)

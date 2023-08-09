@@ -324,32 +324,6 @@ class InternalPublisher(PublisherServer, InternalCommEmitter):
                 self.stop()
 
 
-class ClientConnectionThread(Thread):
-
-    def __init__(self, instance: SupvisorsInstanceId, internal_subscriber):
-        super().__init__(daemon=True)
-        self.identifier = instance.identifier
-        self.address = instance.host_id, instance.internal_port
-        self.internal_subscriber = internal_subscriber
-
-    def run(self):
-        # connection loop
-        while self.identifier in self.internal_subscriber.instances:
-            if self.identifier not in self.internal_subscriber.subscribers:
-                try:
-                    sock = socket(AF_INET, SOCK_STREAM)
-                    sock.connect(self.address)
-                except OSError:
-                    # failed to connect. will try next time
-                    pass
-                else:
-                    self.internal_subscriber.logger.warn(f'{self.identifier} connected')
-                    # store socket and register to poller
-                    self.internal_subscriber.subscribers[self.identifier] = [sock, 0, time.time()]
-                    self.internal_subscriber.poller.register(sock, select.POLLIN)
-            time.sleep(1)
-
-
 class InternalSubscriber(InternalCommReceiver):
     """ Class for sockets used from the Supvisors thread. """
 
@@ -367,9 +341,6 @@ class InternalSubscriber(InternalCommReceiver):
         del self.instances[self.identifier]
         # the list of connected Supvisors instances
         self.subscribers: Dict[str, List] = {}  # {identifier: [socket, hb_sent, hb_recv]}
-        # start connections threads
-        for instance in self.instances.values():
-            ClientConnectionThread(instance, self).start()
 
     def close(self) -> None:
         """ Close the subscribers sockets.
@@ -381,7 +352,6 @@ class InternalSubscriber(InternalCommReceiver):
         for sock, _, _ in self.subscribers.values():
             self.poller.unregister(sock)
             sock.close()
-        # TODO: add join on ClientConnectionThread ?
 
     def manage_heartbeat(self) -> None:
         """ Check heartbeat reception from publishers and send heartbeat to them.
@@ -457,7 +427,30 @@ class InternalSubscriber(InternalCommReceiver):
             pass
         sock.close()
 
-    def disconnect_subscriber(self, identifiers: NameList) -> None:
+    def connect_subscribers(self) -> None:
+        """ Connect the Supvisors instances to the subscription socket.
+
+        :return: None
+        """
+        for identifier, instance in self.instances.items():
+            if identifier not in self.subscribers:
+                try:
+                    sock = socket(AF_INET, SOCK_STREAM)
+                    # WARN: set minimal timeout because non-blocking mode 'fails'
+                    # actually, it seems to connect but returns an exception anyway
+                    # sock.setblocking(False)
+                    sock.settimeout(0.1)
+                    sock.connect((instance.host_id, instance.internal_port))
+                except OSError:
+                    # failed to connect. will try next time
+                    self.logger.trace(f'InternalSubscriber.connect_subscribers: failed to connect {identifier}')
+                else:
+                    self.logger.info(f'InternalSubscriber.connect_subscribers: {identifier} connected')
+                    # store socket and register to poller
+                    self.subscribers[identifier] = [sock, 0, time.time()]
+                    self.poller.register(sock, select.POLLIN)
+
+    def disconnect_subscribers(self, identifiers: NameList) -> None:
         """ Disconnect forever the Supvisors instances from the subscription socket.
 
         :param identifiers: the identifiers of the Supvisors instances to disconnect

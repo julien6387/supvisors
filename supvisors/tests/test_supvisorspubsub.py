@@ -34,7 +34,7 @@ def sockets(supvisors):
     # however, it is really a lot easier for unit testing to allow it
     mapper = supvisors.supvisors_mapper
     socks.receiver.instances[mapper.local_identifier] = mapper.local_instance
-    ClientConnectionThread(mapper.local_instance, socks.receiver).start()
+    socks.receiver.connect_subscribers()
     # return the internal com structure
     yield socks
     socks.stop()
@@ -200,7 +200,7 @@ def test_global_normal(sockets):
                   [InternalEventHeaders.STATE.value, {'state': 'operational', 'mode': 'starting'}],
                   local_identifier, [hb_sent, hb_recv])
     # test subscriber disconnect and check that nothing is received anymore
-    subscriber.disconnect_subscriber([local_identifier])
+    subscriber.disconnect_subscribers([local_identifier])
     assert subscriber.subscribers == {}
     assert local_identifier not in subscriber.instances
     # check that nothing is received anymore by the subscribers
@@ -239,7 +239,7 @@ def test_publisher_restart(sockets):
 # testing exception cases (by line number)
 def test_publisher_bind_exception(supvisors):
     """ Test the bind exception of the PublisherServer.
-    The aim is to hit the lines 112-113 in PublisherServer._bind.
+    The aim is to hit the lines 111-113 in PublisherServer._bind.
     Checked ok with debugger.
     """
     local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
@@ -280,10 +280,10 @@ def test_publisher_accept_exception(mocker, sockets):
     subscriber.close()
     sockets.pusher_sock, sockets.puller_sock = socketpair()
     sockets.receiver = InternalSubscriber(sockets.puller_sock, sockets.supvisors)
-    # restore connection to locahost that is disabled by default
+    # restore connection to localhost that is disabled by default
     mapper = sockets.supvisors.supvisors_mapper
     sockets.receiver.instances[mapper.local_identifier] = mapper.local_instance
-    ClientConnectionThread(mapper.local_instance, sockets.receiver).start()
+    sockets.receiver.connect_subscribers()
     time.sleep(1)
     # check no connection registered
     assert publisher.clients == {}
@@ -412,7 +412,7 @@ def test_publisher_publish_exception(sockets):
 
 def test_subscriber_heartbeat_timeout(sockets):
     """ Test the exception management in subscriber when heartbeat missing from a publisher.
-    The aim is to hit the line 398 in InternalSubscriber._check_heartbeat.
+    The aim is to hit the line 372 in InternalSubscriber._check_heartbeat.
     Checked ok with debugger.
     """
     subscriber = sockets.receiver
@@ -436,7 +436,8 @@ def test_subscriber_heartbeat_timeout(sockets):
     subscriber.subscribers[local_identifier][2] = 0
     subscriber._check_heartbeat()
     assert local_identifier not in subscriber.subscribers
-    # check that a new subscriber socket is created after a while
+    # check that a new subscriber socket is created after a while (usually called by SupvisorsMainLoop)
+    subscriber.connect_subscribers()
     time.sleep(2)
     assert list(subscriber.subscribers.keys()) == [local_identifier]
     client_sock, hb_sent, hb_recv = subscriber.subscribers[local_identifier]
@@ -448,7 +449,7 @@ def test_subscriber_heartbeat_timeout(sockets):
 
 def test_send_heartbeat_exception(sockets):
     """ Test the exception management when sending heartbeat to a socket that has been closed.
-    The aim is to trigger the OSError in InternalSubscriber._send_heartbeat (line 413-414).
+    The aim is to trigger the OSError in InternalSubscriber._send_heartbeat (lines 387-388).
     Checked ok with debugger.
     """
     subscriber = sockets.receiver
@@ -472,7 +473,8 @@ def test_send_heartbeat_exception(sockets):
     subscriber._send_heartbeat()
     # check that socket has been removed from the subscribers
     assert local_identifier not in subscriber.subscribers
-    # check that a new subscriber socket is created after a while
+    # check that a new subscriber socket is created after a while (usually called by SupvisorsMainLoop)
+    subscriber.connect_subscribers()
     time.sleep(2)
     assert list(subscriber.subscribers.keys()) == [local_identifier]
     client_sock, hb_sent, hb_recv = subscriber.subscribers[local_identifier]
