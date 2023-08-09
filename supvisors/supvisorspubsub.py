@@ -31,7 +31,7 @@ from supervisor.loggers import Logger
 from .internalinterface import (InternalCommEmitter, InternalCommReceiver, SupvisorsInternalComm,
                                 bytes_to_payload, payload_to_bytes, read_from_socket)
 from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import InternalEventHeaders, Ipv4Address, NameList
+from .ttypes import InternalEventHeaders, Ipv4Address, NameList, Payload
 
 # additional annotations
 SocketList = List[socket]
@@ -303,7 +303,7 @@ class InternalPublisher(PublisherServer, InternalCommEmitter):
         """
         self.stop()
 
-    def emit_message(self, event_type: Enum, event_body: Any) -> None:
+    def emit_message(self, event_type: Enum, event_body: Payload) -> None:
         """ Encode and forward the event to the Publisher thread using the FIFO.
 
         :param event_type: the type of the event to send
@@ -343,6 +343,7 @@ class ClientConnectionThread(Thread):
                     # failed to connect. will try next time
                     pass
                 else:
+                    self.internal_subscriber.logger.warn(f'{self.identifier} connected')
                     # store socket and register to poller
                     self.internal_subscriber.subscribers[self.identifier] = [sock, 0, time.time()]
                     self.internal_subscriber.poller.register(sock, select.POLLIN)
@@ -362,6 +363,9 @@ class InternalSubscriber(InternalCommReceiver):
         self.identifier: str = supvisors.supvisors_mapper.local_identifier
         # subscriber sockets are TCP clients so connection is to be dealt on-the-fly
         self.instances = supvisors.supvisors_mapper.instances.copy()
+        # remove the local Supvisors instance from the list as it will receive events directly
+        del self.instances[self.identifier]
+        # the list of connected Supvisors instances
         self.subscribers: Dict[str, List] = {}  # {identifier: [socket, hb_sent, hb_recv]}
         # start connections threads
         for instance in self.instances.values():

@@ -21,11 +21,11 @@ import json
 import select
 from enum import Enum
 from socket import error, socket, socketpair
-from typing import Any, Optional, List, Tuple, Union
+from typing import Any, Optional, List, Tuple
 
 from supervisor.loggers import Logger
 
-from .ttypes import DeferredRequestHeaders, InternalEventHeaders, Ipv4Address, Payload, PayloadList, NameList
+from .ttypes import DeferredRequestHeaders, InternalEventHeaders, Ipv4Address, Payload, NameList
 
 # timeout for polling, in milliseconds
 POLL_TIMEOUT = 100
@@ -80,7 +80,7 @@ class InternalCommEmitter:
         """
         raise NotImplementedError
 
-    def emit_message(self, event_type: Enum, event_body: Union[Payload, PayloadList]):
+    def emit_message(self, event_type: Enum, event_body: Payload):
         """ Send the messages to the other Supvisors instances using the technology to be defined in subclasses.
 
         :param event_type: the type of the event to send
@@ -105,7 +105,7 @@ class InternalCommEmitter:
         """
         self.emit_message(InternalEventHeaders.PROCESS, payload)
 
-    def send_process_added_event(self, payload: PayloadList) -> None:
+    def send_process_added_event(self, payload: Payload) -> None:
         """ Send the process added event.
 
         :param payload: the added process to send

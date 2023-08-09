@@ -630,14 +630,14 @@ class FiniteStateMachine:
                     if (stop_strategy or restart_strategy) and process.forced_state is None:
                         self.supvisors.failure_handler.add_default_job(process)
 
-    def on_process_added_event(self, identifier: str, event: PayloadList) -> None:
+    def on_process_added_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to fill the internal structures when processes have been added on a Supvisors instance.
 
         :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the list of process information
+        :param event: the process information
         :return: None
         """
-        self.context.load_processes(identifier, event)
+        self.context.load_processes(identifier, [event])
 
     def on_process_removed_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.
@@ -668,18 +668,23 @@ class FiniteStateMachine:
         self.logger.debug(f'FiniteStateMachine.on_state_event: Supvisors={identifier} sent {event}')
         # WARN: local instance is already up-to-date, could even be a step beyond
         #   so ignore the event if it is a local event
-        if identifier != self.context.local_identifier:
-            ref_supvisors_state = self.context.supvisors_state
-            # update the Supvisors instance states and modes
-            inconsistency = self.context.on_instance_state_event(identifier, event)
-            if inconsistency:
-                # back to INITIALIZATION state to reset all instances
+        # if identifier != self.context.local_identifier:  # not received anymore
+        ref_master = self.context.master_identifier
+        # update the Supvisors instance states and modes
+        inconsistency = self.context.on_instance_state_event(identifier, event)
+        if inconsistency:
+            # back to INITIALIZATION state to reset all instances
+            self.set_state(SupvisorsStates.INITIALIZATION)
+        elif ref_master != self.context.master_identifier:
+            self.logger.info(f'FiniteStateMachine.on_state_event: new Master Supvisors={self.context.master_identifier}'
+                             f' in {self.context.supvisors_state}')
+            # trigger the FSM based on the new Master state
+            # self.next()
+            # TEST JLC
+            # if there has been a Master change and the local identifier is involved, the State type has to change,
+            #   so it is required to go back to INITIALIZATION state
+            if self.context.local_identifier in [ref_master, self.context.master_identifier]:
                 self.set_state(SupvisorsStates.INITIALIZATION)
-            elif ref_supvisors_state != self.context.supvisors_state:
-                self.logger.info(f'FiniteStateMachine.on_state_event: Master Supvisors={identifier}'
-                                 f' in {self.context.supvisors_state}')
-                # trigger the FSM based on the new Master state
-                self.next()
 
     def on_process_info(self, identifier: str, info: PayloadList) -> None:
         """ This event is used to fill the internal structures with processes available on the Supvisors instance.

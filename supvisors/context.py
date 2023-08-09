@@ -127,10 +127,11 @@ class Context:
             return self.master_instance.state_modes.state
         return None
 
-    def elect_master(self) -> None:
+    def elect_master(self, running_identifiers: Optional[NameList] = None) -> None:
         """ Select the Master Supvisors instance among the possible candidates. """
-        running_identifiers = self.running_identifiers()
-        self.logger.info(f'Context.elect_master: working with Supvisors instances {running_identifiers}')
+        if not running_identifiers:
+            running_identifiers = self.running_identifiers()
+        self.logger.info(f'Context.elect_master: Supvisors Master instance election among {running_identifiers}')
         if running_identifiers:
             # elect master instance among working instances only if not fixed before
             # of course, master instance must be running
@@ -485,13 +486,15 @@ class Context:
                     self.logger.warn('Context.on_instance_state_event: Master instance conflict. '
                                      f' Local declares Master={self.master_identifier}'
                                      f' - Supvisors={identifier} declares Master={remote_master}')
-                    # TODO: reset identifier because if Master conflict happens in INITIALIZATION, enter won't be called
-                    #       check if inconsistency can happen in INITIALIZATION
-                    # self.master_identifier = ''
-                    # TODO: or avoid infinite conflict (TODO: check core_identifiers)
-                    # TODO: stop any sequencing ?
-                    # self.master_identifier = min(remote_master, self.master_identifier)
-                    inconsistency = True
+                    # WARN: resetting the Master at local level isn't enough because there may be multiple Supvisors
+                    #   instances having different perceptions, and they are still publishing at their own pace.
+                    #   So in order to avoid infinite Master conflict, adjudication is made using the same principle
+                    #   as the Master selection. This is expected to converge more quickly.
+                    # TODO TBC
+                    candidates = [remote_master, self.master_identifier]
+                    self.master_identifier = ''
+                    self.elect_master(candidates)
+                    # inconsistency = True
             # publish the new Instance status and Supvisors synthesis
             if self.external_publisher:
                 self.external_publisher.send_instance_status(status.serial())

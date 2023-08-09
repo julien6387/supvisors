@@ -1071,7 +1071,7 @@ def test_process_state_event_forced_crash(mocker, fsm):
 def test_on_process_added_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a process added event. """
     mocked_load = mocker.patch.object(fsm.context, 'load_processes')
-    fsm.on_process_added_event('10.0.0.1', [{'info': 'dummy_info'}])
+    fsm.on_process_added_event('10.0.0.1', {'info': 'dummy_info'})
     assert mocked_load.call_args_list == [call('10.0.0.1', [{'info': 'dummy_info'}])]
 
 

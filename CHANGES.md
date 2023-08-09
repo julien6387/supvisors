@@ -6,7 +6,8 @@
   Write the disabilities file even if no call to `disable` and `enable` XML-RPCs have been done.
   Try to create the folder at startup if it does not exist.
 
-* Improve robustness against network failures. The periodic check is performed prior to the TICK publication.
+* Improve robustness against network failures. All Supervisor events are applied to the local **Supvisors** instance
+  before they are published, so that it remains functional despite a network failure.
   The internal TCP sockets are rebound when a network interface becomes up (requires `psutil`).
 
 * Monkeypatch fix of [Supervisor Issue #1596](https://github.com/Supervisor/supervisor/issues/1596).

@@ -79,6 +79,22 @@ def test_read_from_socket():
     assert recv == msg
 
 
+def test_read_socket():
+    """ Test the InternalCommReceiver.read_socket. """
+    pusher_sock, puller_sock = socketpair()
+    # test 0-sized message
+    pusher_sock.send(int.to_bytes(0, 4, 'big'))
+    assert InternalCommReceiver.read_socket(puller_sock) is None
+    # test normal message
+    message = b'"dummy"'
+    buffer = len(message).to_bytes(4, 'big') + message
+    pusher_sock.send(buffer)
+    assert InternalCommReceiver.read_socket(puller_sock) == ('', 'dummy')
+    # test read exception
+    pusher_sock.close()
+    assert InternalCommReceiver.read_socket(puller_sock) is None
+
+
 def test_internal_comm_emitter():
     """ Test the InternalCommEmitter abstract class. """
     abstract_emitter = InternalCommEmitter()

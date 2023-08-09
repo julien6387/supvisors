@@ -30,6 +30,12 @@ local_ip = gethostbyname(gethostname())
 def sockets(supvisors):
     """ Create the SupvisorsSockets instance. """
     socks = SupvisorsPubSub(supvisors)
+    # Supvisors does not need a client connection on itself
+    # however, it is really a lot easier for unit testing to allow it
+    mapper = supvisors.supvisors_mapper
+    socks.receiver.instances[mapper.local_identifier] = mapper.local_instance
+    ClientConnectionThread(mapper.local_instance, socks.receiver).start()
+    # return the internal com structure
     yield socks
     socks.stop()
     socks.receiver.close()
@@ -274,6 +280,10 @@ def test_publisher_accept_exception(mocker, sockets):
     subscriber.close()
     sockets.pusher_sock, sockets.puller_sock = socketpair()
     sockets.receiver = InternalSubscriber(sockets.puller_sock, sockets.supvisors)
+    # restore connection to locahost that is disabled by default
+    mapper = sockets.supvisors.supvisors_mapper
+    sockets.receiver.instances[mapper.local_identifier] = mapper.local_instance
+    ClientConnectionThread(mapper.local_instance, sockets.receiver).start()
     time.sleep(1)
     # check no connection registered
     assert publisher.clients == {}

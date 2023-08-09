@@ -33,7 +33,7 @@ from .ttypes import (DistributionRules, NameList, LoadMap, ProcessRequestResult,
                      StartingFailureStrategies)
 
 
-class ProcessCommand(object):
+class ProcessCommand:
     """ Wrapper of the ProcessStatus to manage start and stop requests.
 
     Attributes are:
@@ -257,6 +257,9 @@ class ProcessStartCommand(ProcessCommand):
         if process_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
             expected_state = ProcessStates.RUNNING
             max_tick_counter = self.request_sequence_counter + self.wait_ticks
+            self.logger.debug(f'ProcessStartCommand.timed_out: expect RUNNING for {self.process.namespec} with'
+                              f' max_tick_counter={max_tick_counter}'
+                              f' sequence_counter={self.instance_status.sequence_counter}')
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not RUNNING'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
@@ -267,6 +270,9 @@ class ProcessStartCommand(ProcessCommand):
             # (e.g. stop request while in STARTING state)
             expected_state = ProcessStates.STARTING
             max_tick_counter = self.request_sequence_counter + self.minimum_ticks
+            self.logger.debug(f'ProcessStartCommand.timed_out: expect STARTING for {self.process.namespec} with'
+                              f' max_tick_counter={max_tick_counter}'
+                              f' sequence_counter={self.instance_status.sequence_counter}')
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not STARTING'
                                   f' on {self.identifier} after {self.minimum_ticks} ticks so abort')
@@ -846,7 +852,7 @@ class ApplicationStopJobs(ApplicationJobs):
             return True
 
 
-class Commander(object):
+class Commander:
     """ Base class handling the starting / stopping of processes and applications.
 
     Attributes are:

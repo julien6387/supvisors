@@ -98,6 +98,11 @@ class SupervisorListener(object):
         return self.supvisors.context.local_instance.supvisors_id
 
     @property
+    def local_identifier(self) -> str:
+        """ Get the Supvisors logger. """
+        return self.local_instance.identifier
+
+    @property
     def host_collector(self) -> Any:
         """ Get the Supvisors function in charge of collecting host statistics. """
         return self.supvisors.host_collector
@@ -208,8 +213,9 @@ class SupervisorListener(object):
             # trigger the periodic check
             # NOTE: do not involve the Supvisors internal communications to that end
             #       because it is used to detect network failures
+            self.supvisors.fsm.on_tick_event(self.local_identifier, payload)
             self.supvisors.fsm.on_timer_event(payload)
-            # publish the TICK to all supvisors instances
+            # publish the TICK to all Supvisors instances
             self.emitter.send_tick_event(payload)
             # get and publish host statistics at tick time (optional)
             if self.host_collector:
@@ -250,6 +256,9 @@ class SupervisorListener(object):
                        'extra_args': process_config.extra_args,
                        'disabled': process_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
+            # update local Supvisors instance
+            self.supvisors.fsm.on_process_state_event(self.local_identifier, payload)
+            # publish to the other Supvisors instances
             self.emitter.send_process_state_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
@@ -281,7 +290,10 @@ class SupervisorListener(object):
             process_info = self._get_local_process_info(namespec)
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
-                self.emitter.send_process_added_event([process_info])
+                # update local Supvisors instance
+                self.supvisors.fsm.on_process_added_event(self.local_identifier, process_info)
+                # publish to the other Supvisors instances
+                self.emitter.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
@@ -297,6 +309,9 @@ class SupervisorListener(object):
             self.logger.debug(f'SupervisorListener.on_process_removed: got ProcessRemovedEvent for {namespec}')
             payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
             self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
+            # update local Supvisors instance
+            self.supvisors.fsm.on_process_removed_event(self.local_identifier, payload)
+            # publish to the other Supvisors instances
             self.emitter.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
@@ -316,6 +331,9 @@ class SupervisorListener(object):
             process_info = self._get_local_process_info(namespec)
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_disability: process_info={process_info}')
+                # update local Supvisors instance
+                self.supvisors.fsm.on_process_disability_event(self.local_identifier, process_info)
+                # publish to the other Supvisors instances
                 self.emitter.send_process_disability_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
@@ -334,15 +352,16 @@ class SupervisorListener(object):
             # update Supervisor internal data for extra_args
             self.supvisors.supervisor_data.update_internal_data(event.group)
             # inform all Supvisors instances that new processes have been added
-            group_process_info = []
             for process_name in self.supvisors.supervisor_data.get_group_processes(event.group):
                 namespec = make_namespec(event.group, process_name)
                 # use RPCInterface to get local information on this process
                 process_info = self._get_local_process_info(namespec)
                 if process_info:
                     self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
-                    group_process_info.append(process_info)
-            self.emitter.send_process_added_event(group_process_info)
+                    # update local Supvisors instance
+                    self.supvisors.fsm.on_process_added_event(self.local_identifier, process_info)
+                    # publish to the other Supvisors instances
+                    self.emitter.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
@@ -360,6 +379,9 @@ class SupervisorListener(object):
             self.logger.debug(f'SupervisorListener.on_group_removed: group={event.group}')
             payload = {'name': '*', 'group': event.group}
             self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
+            # update local Supvisors instance
+            self.supvisors.fsm.on_process_removed_event(self.local_identifier, payload)
+            # publish to the other Supvisors instances
             self.emitter.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread

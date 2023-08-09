@@ -145,14 +145,95 @@ def test_on_stopping(mocker, listener):
     assert listener.supvisors.process_collector.pid_queue.get() is None
 
 
+def test_on_tick_exception(mocker, listener):
+    """ Test the protection of the Supervisor thread in case of exception while processing a TickEvent. """
+    mocker.patch.object(listener.supvisors.fsm, 'on_timer_event', side_effect=KeyError)
+    listener.on_tick({})
+
+
+def test_on_tick(mocker, listener):
+    """ Test the reception of a Supervisor TICK event. """
+    # create patches
+    mocker.patch('time.time', return_value=1234.56)
+    host_stats = {'now': 8.5, 'cpu': [(25, 400)], 'mem': 76.1, 'io': {'lo': (500, 500)}}
+    mocked_tick = listener.supvisors.fsm.on_tick_event
+    mocked_timer = listener.supvisors.fsm.on_timer_event
+    mocker.patch.object(listener.supvisors, 'host_collector', return_value=host_stats)
+    listener.supvisors.sockets.emitter = Mock(**{'send_tick_event.return_value': None,
+                                                 'send_statistics.return_value': None})
+    listener.supvisors.context.instances['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
+    # add some data to the process collector
+    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_1'})
+    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_2'})
+    # test tick event
+    event = Tick60Event(120, None)
+    listener.on_tick(event)
+    expected_tick = {'ip_address': listener.local_instance.host_name,
+                     'server_port': listener.local_instance.http_port,
+                     'when': 1234.56, 'sequence_counter': 0}
+    assert mocked_tick.call_args_list == [call(listener.local_identifier, expected_tick)]
+    assert mocked_timer.call_args_list == [call(expected_tick)]
+    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
+    assert listener.emitter.send_host_statistics.call_args_list == [call(host_stats)]
+    assert listener.emitter.send_process_statistics.call_args_list == [call({'namespec': 'dummy_1'}),
+                                                                       call({'namespec': 'dummy_2'})]
+    listener.supvisors.fsm.reset_mock()
+    listener.emitter.reset_mock()
+    mocker.resetall()
+    # test tick event when host collector is not available
+    ref_host_collector = listener.host_collector
+    listener.supvisors.host_collector = None
+    event = Tick60Event(150, None)
+    listener.on_tick(event)
+    expected_tick['sequence_counter'] = 1
+    assert mocked_tick.call_args_list == [call(listener.local_identifier, expected_tick)]
+    assert mocked_timer.call_args_list == [call(expected_tick)]
+    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
+    assert not listener.emitter.send_host_statistics.called
+    assert not listener.emitter.send_process_statistics.called
+    listener.supvisors.fsm.reset_mock()
+    listener.emitter.reset_mock()
+    mocker.resetall()
+    listener.supvisors.host_collector = ref_host_collector
+    # test tick event when host collector is available but returns no result due to an internal error
+    listener.host_collector.return_value = {}
+    event = Tick60Event(150, None)
+    listener.on_tick(event)
+    expected_tick['sequence_counter'] = 2
+    assert mocked_tick.call_args_list == [call(listener.local_identifier, expected_tick)]
+    assert mocked_timer.call_args_list == [call(expected_tick)]
+    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
+    assert not listener.emitter.send_host_statistics.called
+    assert not listener.emitter.send_process_statistics.called
+    listener.supvisors.fsm.reset_mock()
+    listener.emitter.reset_mock()
+    mocker.resetall()
+    # add some data to the process collector
+    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_1'})
+    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_2'})
+    # test tick event when process collector is not available
+    event = Tick60Event(150, None)
+    listener.supvisors.process_collector = None
+    listener.on_tick(event)
+    expected_tick['sequence_counter'] = 3
+    assert mocked_tick.call_args_list == [call(listener.local_identifier, expected_tick)]
+    assert mocked_timer.call_args_list == [call(expected_tick)]
+    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
+    assert not listener.emitter.send_host_statistics.called
+    assert not listener.emitter.send_process_statistics.called
+
+
 def test_on_process_state_exception(listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a ProcessStateEvent. """
+    mocked_fsm = listener.supvisors.fsm.on_process_removed_event
     listener.on_process_state(None)
+    assert not mocked_fsm.called
 
 
 def test_on_process_state(mocker, listener):
     """ Test the reception of a Supervisor PROCESS event. """
     mocker.patch('supvisors.listener.time.time', return_value=77)
+    mocked_fsm = listener.supvisors.fsm.on_process_state_event
     # create a publisher patch
     listener.supvisors.sockets.emitter = Mock(**{'send_process_state_event.return_value': None})
     # test process event
@@ -163,15 +244,18 @@ def test_on_process_state(mocker, listener):
                       'group.config.name': 'dummy_group'})
     event = ProcessStateFatalEvent(process, '')
     listener.on_process_state(event)
-    expected = [call({'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
-                      'extra_args': '-s test', 'now': 77, 'pid': 1234, 'disabled': True,
-                      'expected': True, 'spawnerr': 'resource not available'})]
-    assert listener.emitter.send_process_state_event.call_args_list == expected
+    expected = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
+                'extra_args': '-s test', 'now': 77, 'pid': 1234, 'disabled': True,
+                'expected': True, 'spawnerr': 'resource not available'}
+    assert mocked_fsm.call_args_list == [call(listener.local_identifier, expected)]
+    assert listener.emitter.send_process_state_event.call_args_list == [call(expected)]
 
 
 def test_on_process_added_exception(listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a ProcessAddedEvent. """
+    mocked_fsm = listener.supvisors.fsm.on_process_removed_event
     listener.on_process_added(None)
+    assert not mocked_fsm.called
 
 
 def test_get_local_process_info(listener):
@@ -190,6 +274,7 @@ def test_get_local_process_info(listener):
 
 def test_on_process_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_ADDED event. """
+    mocked_fsm = listener.supvisors.fsm.on_process_added_event
     # patch context
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
                     'extra_args': '-s test', 'now': 77, 'pid': 1234,
@@ -200,29 +285,35 @@ def test_on_process_added(mocker, listener):
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessAddedEvent(process)
     listener.on_process_added(event)
-    assert listener.emitter.send_process_added_event.call_args_list == [call([process_info])]
+    assert mocked_fsm.call_args_list == [call(listener.local_identifier, process_info)]
+    assert listener.emitter.send_process_added_event.call_args_list == [call(process_info)]
     listener.emitter.send_process_added_event.reset_mock()
     # test exception
     mocked_get.return_value = None
     listener.on_process_added(event)
+    assert mocked_fsm.call_args_list == [call(listener.local_identifier, process_info)]
     assert not listener.emitter.send_process_added_event.called
 
 
 def test_on_process_removed_exception(listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a ProcessRemovedEvent. """
+    mocked_fsm = listener.supvisors.fsm.on_process_removed_event
     listener.on_process_removed(None)
+    assert not mocked_fsm.called
 
 
 def test_on_process_removed(listener):
     """ Test the reception of a Supervisor PROCESS_REMOVED event. """
+    mocked_fsm = listener.supvisors.fsm.on_process_removed_event
     # create a publisher patch
     listener.supvisors.sockets.emitter = Mock(**{'send_process_state_event.return_value': None})
     # test process event
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessRemovedEvent(process)
     listener.on_process_removed(event)
-    expected = [call({'name': 'dummy_process', 'group': 'dummy_group'})]
-    assert listener.emitter.send_process_removed_event.call_args_list == expected
+    expected = {'name': 'dummy_process', 'group': 'dummy_group'}
+    assert mocked_fsm.call_args_list == [call(listener.local_identifier, expected)]
+    assert listener.emitter.send_process_removed_event.call_args_list == [call(expected)]
 
 
 def test_on_process_disability_exception(listener):
@@ -266,6 +357,7 @@ def test_on_group_added_exception(listener):
 
 def test_on_group_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
+    mocked_fsm = listener.supvisors.fsm.on_process_added_event
     mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_internal_data')
     mocked_processes = mocker.patch.object(listener.supvisors.supervisor_data, 'get_group_processes',
                                            return_value={'dummy_proc': Mock()})
@@ -277,95 +369,30 @@ def test_on_group_added(mocker, listener):
     assert mocked_prepare.call_args_list == [call('dummy_application')]
     assert mocked_processes.call_args_list == [call('dummy_application')]
     assert mocked_local.call_args_list == [call('dummy_application:dummy_proc')]
-    assert listener.emitter.send_process_added_event.call_args_list == [call([{'namespec': 'dummy_proc'}])]
+    assert mocked_fsm.call_args_list == [call(listener.local_identifier, {'namespec': 'dummy_proc'})]
+    assert listener.emitter.send_process_added_event.call_args_list == [call({'namespec': 'dummy_proc'})]
 
 
 def test_on_group_removed_exception(listener):
     """ Test the protection of the Supervisor thread in case of exception while processing
     a ProcessGroupRemovedEvent. """
+    mocked_fsm = listener.supvisors.fsm.on_process_removed_event
     listener.supvisors.sockets.emitter = Mock(**{'send_process_removed_event.return_value': None})
     listener.on_group_removed(None)
+    assert not mocked_fsm.called
     assert not listener.emitter.send_process_removed_event.called
 
 
 def test_on_group_removed(listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_REMOVED event. """
+    mocked_fsm = listener.supvisors.fsm.on_process_removed_event
     listener.supvisors.sockets.emitter = Mock(**{'send_process_removed_event.return_value': None})
     # test process event
     event = ProcessGroupRemovedEvent('dummy_application')
     listener.on_group_removed(event)
     expected = {'name': '*', 'group': 'dummy_application'}
+    assert mocked_fsm.call_args_list == [call(listener.local_identifier, expected)]
     assert listener.emitter.send_process_removed_event.call_args_list == [call(expected)]
-
-
-def test_on_tick_exception(mocker, listener):
-    """ Test the protection of the Supervisor thread in case of exception while processing a TickEvent. """
-    mocker.patch.object(listener.supvisors.fsm, 'on_timer_event', side_effect=KeyError)
-    listener.on_tick({})
-
-
-def test_on_tick(mocker, listener):
-    """ Test the reception of a Supervisor TICK event. """
-    # create patches
-    mocker.patch('time.time', return_value=1234.56)
-    host_stats = {'now': 8.5, 'cpu': [(25, 400)], 'mem': 76.1, 'io': {'lo': (500, 500)}}
-    mocked_check = mocker.patch.object(listener.supvisors.fsm, 'on_timer_event')
-    mocker.patch.object(listener.supvisors, 'host_collector', return_value=host_stats)
-    listener.supvisors.sockets.emitter = Mock(**{'send_tick_event.return_value': None,
-                                                 'send_statistics.return_value': None})
-    listener.supvisors.context.instances['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
-    # add some data to the process collector
-    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_1'})
-    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_2'})
-    # test tick event
-    event = Tick60Event(120, None)
-    listener.on_tick(event)
-    expected_tick = {'ip_address': listener.local_instance.host_name,
-                     'server_port': listener.local_instance.http_port,
-                     'when': 1234.56, 'sequence_counter': 0}
-    assert mocked_check.call_args_list == [call(expected_tick)]
-    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
-    assert listener.emitter.send_host_statistics.call_args_list == [call(host_stats)]
-    assert listener.emitter.send_process_statistics.call_args_list == [call({'namespec': 'dummy_1'}),
-                                                                       call({'namespec': 'dummy_2'})]
-    listener.emitter.reset_mock()
-    mocker.resetall()
-    # test tick event when host collector is not available
-    ref_host_collector = listener.host_collector
-    listener.supvisors.host_collector = None
-    event = Tick60Event(150, None)
-    listener.on_tick(event)
-    expected_tick['sequence_counter'] = 1
-    assert mocked_check.call_args_list == [call(expected_tick)]
-    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
-    assert not listener.emitter.send_host_statistics.called
-    assert not listener.emitter.send_process_statistics.called
-    listener.emitter.reset_mock()
-    mocker.resetall()
-    listener.supvisors.host_collector = ref_host_collector
-    # test tick event when host collector is available but returns no result due to an internal error
-    listener.host_collector.return_value = {}
-    event = Tick60Event(150, None)
-    listener.on_tick(event)
-    expected_tick['sequence_counter'] = 2
-    assert mocked_check.call_args_list == [call(expected_tick)]
-    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
-    assert not listener.emitter.send_host_statistics.called
-    assert not listener.emitter.send_process_statistics.called
-    listener.emitter.reset_mock()
-    mocker.resetall()
-    # add some data to the process collector
-    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_1'})
-    listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_2'})
-    # test tick event when process collector is not available
-    event = Tick60Event(150, None)
-    listener.supvisors.process_collector = None
-    listener.on_tick(event)
-    expected_tick['sequence_counter'] = 3
-    assert mocked_check.call_args_list == [call(expected_tick)]
-    assert listener.emitter.send_tick_event.call_args_list == [call(expected_tick)]
-    assert not listener.emitter.send_host_statistics.called
-    assert not listener.emitter.send_process_statistics.called
 
 
 def test_unstack_event_tick(mocker, listener):
