@@ -1473,16 +1473,16 @@ def test_on_process_state_event_locally_unknown_forced(mocker, context):
              'expected': False, 'spawnerr': 'bad luck', 'extra_args': '-h'}
     assert context.on_process_state_event('10.0.0.1', event) is process
     assert instance_status.state == SupvisorsInstanceStates.RUNNING
-    assert application.state == ApplicationStates.STOPPED
+    assert application.state == ApplicationStates.RUNNING
     expected = {'group': 'dummy_application', 'name': 'dummy_process', 'pid': 0, 'expected': False,
-                'state': ProcessStates.FATAL, 'extra_args': '-h', 'now': 1234, 'spawnerr': 'bad luck'}
+                'state': ProcessStates.RUNNING, 'extra_args': '-h', 'now': 1234, 'spawnerr': 'bad luck'}
     assert mocked_publisher.send_process_event.call_args_list == [call('10.0.0.1', expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process',
-                'statecode': ProcessStates.FATAL, 'statename': 'FATAL', 'expected_exit': True,
+                'statecode': ProcessStates.RUNNING, 'statename': 'RUNNING', 'expected_exit': True,
                 'last_event_time': 2345, 'identifiers': ['10.0.0.1'], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
-    expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': ApplicationStates.STOPPED.value,
-                'statename': ApplicationStates.STOPPED.name, 'major_failure': False, 'minor_failure': True}
+    expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': ApplicationStates.RUNNING.value,
+                'statename': ApplicationStates.RUNNING.name, 'major_failure': False, 'minor_failure': False}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
 
 

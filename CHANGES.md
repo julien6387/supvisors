@@ -6,12 +6,19 @@
   Write the disabilities file even if no call to `disable` and `enable` XML-RPCs have been done.
   Try to create the folder at startup if it does not exist.
 
-* Improve robustness against network failures. All Supervisor events are applied to the local **Supvisors** instance
-  before they are published, so that it remains functional despite a network failure.
-  The internal TCP sockets are rebound when a network interface becomes up (requires `psutil`).
+* Fix a case where the `Starter` would block if the process reaches the expected state without reception
+  of the corresponding event.
+
+* Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
+
+* Fix `flask-restx` dependency in setup according to Python version.
 
 * Monkeypatch fix of [Supervisor Issue #1596](https://github.com/Supervisor/supervisor/issues/1596).
   Shutdown of the asyncore socket before it is closed.
+
+* Improve robustness against network failures. All Supervisor events are applied to the local **Supvisors** instance
+  before they are published, so that it remains functional despite a network failure.
+  The internal TCP sockets are rebound when a network interface becomes up (requires `psutil`).
 
 * Provide a discovery mode where the **Supvisors** instances are established on-the-fly without declaring them in
   the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_group`,
@@ -33,32 +40,28 @@
 
 * Use IP address rather than host identification when dealing with `SINGLE_NODE` starting strategy. 
 
-* Fix a case where the Starter would block if the process reaches the expected state without reception
-  of the corresponding event.
-
-* To prevent the previous situation, a new state `CHECKED` is added to `SupvisorsInstanceStates`, which is actually
-  a pre-`RUNNING` state.
+* To prevent the situation that led the `Starter` to block, a new state `CHECKED` is added to `SupvisorsInstanceStates`,
+  which is actually a pre-`RUNNING` state.
   Such a **Supvisors** instance is considered active and is updated with received events but cannot be part of any
   starting sequence until all starting jobs in progress are completed.
 
+* Limit the consideration of the process forced state to display in the Application page of the **Supvisors** Web UI,
+  so that it does not interfere with the real process state.
+
 * Add `master_identifier` to the output of the XML-RPCs `get_supvisors_state` and `get_instances_info`.
   The `supervisorctl` commands `sstate` and `instance_status` have also been updated.
+
+* Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
+
+* Simplify the **Supvisors** state machine and replace the states `RESTART` and `SHUTDOWN` by a single state `FINAL`.
 
 * Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
 
 * Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.
 
-* Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
-
 * Add RPC `changeLogLevel` to the JAVA client.
 
 * Do not catch XmlRpc exceptions in the JAVA client.
-
-* Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
-
-* Fix `flask-restx` dependency in setup according to Python version.
-
-* Simplify the **Supvisors** state machine and replace the states `RESTART` and `SHUTDOWN` by a single state `FINAL`.
 
 * Refactoring of the **Supvisors** TCP Publish-Subscribe.
 
@@ -85,10 +88,10 @@
 
 * Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
 
+* Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
+
 * Only one **Supvisors** instance is running when both `unix_http_server` and `inet_http_server` sections are defined
   in the supervisor configuration file.
-
-* Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
 
 * The local **Supvisors** instance is identified as the item having the same fully qualified domain name
   (as returned by `socket.gethostaddr` and `socket.getfqdn`) among the items of the `supvisors_list` option. 

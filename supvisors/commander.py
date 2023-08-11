@@ -780,9 +780,7 @@ class ApplicationStartJobs(ApplicationJobs):
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.supvisors.listener.force_process_state(command.process,
-                                                            self.supvisors.supvisors_mapper.local_identifier,
-                                                            time.time(),
+                self.supvisors.listener.force_process_state(command.process, '', time.time(),
                                                             self.failure_state, 'no resource available')
                 self.process_failure(process)
         # return True when the job is queued

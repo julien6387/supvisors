@@ -100,9 +100,9 @@ class SupvisorsMainLoop(Thread):
         self.logger.info('SupvisorsMainLoop.run: entering main loop')
         # poll events forever
         while not self.stopping:
+            # FIXME: a problem here because if 30 Supvisors instances to connect and none started,
+            #  3 seconds will be lost at each loop, trying to reconnect
             self.receiver.connect_subscribers()
-            # FIXME: a problem here because if 30 clients and no one started, we will lose 3 seconds at each loop,
-            #  trying to reconnect
             # Test the sockets for any incoming message
             puller_event, external_events_sockets = self.receiver.poll()
             # test stop condition again: if Supervisor is stopping,

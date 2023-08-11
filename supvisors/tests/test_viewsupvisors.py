@@ -220,7 +220,7 @@ def test_write_instance_box_title(mocker, view):
     assert not mocked_sync_a_mid.attributes.called
     assert mocked_sync_a_mid.content.call_args_list == [call('&#160;&#10026;&#160;')]
     # test Supvisors instance element
-    assert mocked_identifier_mid.attrib['class'] == ''
+    assert mocked_identifier_mid.attrib['class'] == 'off'
     assert not mocked_identifier_mid.attributes.called
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element

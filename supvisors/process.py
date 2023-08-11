@@ -29,7 +29,7 @@ from .ttypes import NameList, Payload, RunningFailureStrategies, StartingFailure
 from .utils import WILDCARD
 
 
-class ProcessRules(object):
+class ProcessRules:
     """ Defines the rules for starting a process, iaw rules file.
 
     Attributes are:
@@ -186,7 +186,7 @@ class ProcessRules(object):
                 'running_failure_strategy': self.running_failure_strategy.name}
 
 
-class ProcessStatus(object):
+class ProcessStatus:
     """ Class defining the status of a process of Supvisors.
 
     Attributes are:
@@ -239,11 +239,19 @@ class ProcessStatus(object):
     @property
     def state(self) -> ProcessStates:
         """ Getter of state attribute.
+
+        :return: the process state
+        """
+        return self._state
+
+    @property
+    def displayed_state(self) -> ProcessStates:
+        """ Getter of state attribute for display to the user.
         Returns forced state in priority if set.
 
         :return: the process state
         """
-        return self._state if self.forced_state is None else self.forced_state
+        return self.state if self.forced_state is None else self.forced_state
 
     @state.setter
     def state(self, new_state: ProcessStates) -> None:
@@ -277,8 +285,8 @@ class ProcessStatus(object):
             self.last_event_time = time()
             self.forced_state = event['state']
             self.forced_reason = event['spawnerr']
-            self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.state_string()}'
-                             f' ({self.forced_reason})')
+            self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.displayed_state_string()}'
+                             f' (real: {self.state_string()}) - ({self.forced_reason})')
         else:
             self.logger.debug(f'ProcessStatus.force_state: forced event dismissed for {self.namespec}')
         return force_state
@@ -409,7 +417,7 @@ class ProcessStatus(object):
         """
         return any(info['has_crashed'] for info in self.info_map.values())
 
-    def crashed(self, identifier: str = None) -> bool:
+    def crashed(self, identifier: Optional[str] = None) -> bool:
         """ Return True if the process has crashed or has exited unexpectedly.
 
         :return: the crash status of the process
@@ -534,6 +542,13 @@ class ProcessStatus(object):
         :return: the process state as a string
         """
         return getProcessStateDescription(self.state)
+
+    def displayed_state_string(self) -> str:
+        """ Get the displayed process state (considering forced state) as a string.
+
+        :return: the displayed process state as a string
+        """
+        return getProcessStateDescription(self.displayed_state)
 
     def add_info(self, identifier: str, payload: Payload) -> None:
         """ Insert a new process information in internal list.
