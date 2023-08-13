@@ -23,7 +23,7 @@ from unittest.mock import call, Mock
 import pytest
 import supervisor
 
-from supvisors.viewmaintail import *
+from supvisors.web.viewmaintail import *
 from .base import DummyHttpContext
 
 

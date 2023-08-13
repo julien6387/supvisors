@@ -83,9 +83,9 @@ def test_off_state(supvisors_ctx):
     # 1. test enter method: no behaviour
     state.enter()
     # 2. test next method
-    assert supvisors_ctx.sockets
+    assert supvisors_ctx.internal_com
     assert state.next() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.sockets = None
+    supvisors_ctx.internal_com = None
     assert state.next() == SupvisorsStates.OFF
     # 3. test exit method: no behaviour
     state.exit()
@@ -414,7 +414,7 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     assert result == SupvisorsStates.RESTARTING
     # test exit method: call Supervisor restart
     state.exit()
-    assert state.supvisors.sockets.pusher.send_restart.call_args_list == [call(state.local_identifier)]
+    assert state.supvisors.internal_com.pusher.send_restart.call_args_list == [call(state.local_identifier)]
 
 
 def test_master_shutting_down_state(mocker, supvisors_ctx):
@@ -444,7 +444,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     assert result == SupvisorsStates.SHUTTING_DOWN
     # test exit method: call Supervisor shutdown
     state.exit()
-    assert state.supvisors.sockets.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
+    assert state.supvisors.internal_com.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
 
 
 def test_final_state(supvisors_ctx):
@@ -497,7 +497,7 @@ def test_slave_restarting_state(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.FINAL
     # test exit method: call Supervisor restart
     state.exit()
-    assert state.supvisors.sockets.pusher.send_restart.call_args_list == [call(state.local_identifier)]
+    assert state.supvisors.internal_com.pusher.send_restart.call_args_list == [call(state.local_identifier)]
 
 
 def test_slave_shutting_down_state(mocker, supvisors_ctx):
@@ -520,7 +520,7 @@ def test_slave_shutting_down_state(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.FINAL
     # test exit method: call Supervisor shutdown
     state.exit()
-    assert state.supvisors.sockets.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
+    assert state.supvisors.internal_com.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
 
 
 @pytest.fixture
@@ -711,7 +711,7 @@ def test_timer_event(mocker, fsm):
     mocked_add = fsm.supvisors.failure_handler.add_default_job
     mocked_trigger = fsm.supvisors.failure_handler.trigger_jobs
     mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation', return_value=[])
-    mocked_isolate = fsm.supvisors.sockets.pusher.send_isolate_instances
+    mocked_isolate = fsm.supvisors.internal_com.pusher.send_isolate_instances
     # test when no invalidation by context
     event = {'counter': 1234}
     fsm.on_timer_event(event)
@@ -721,7 +721,7 @@ def test_timer_event(mocker, fsm):
     assert not mocked_stopper.called
     assert not mocked_add.called
     assert not mocked_trigger.called
-    assert not mocked_isolation.called
+    assert mocked_isolation.call_args_list == [call()]
     assert not mocked_isolate.called
     mocker.resetall()
     # from this point, context.on_timer_event returns invalidated data
@@ -736,7 +736,7 @@ def test_timer_event(mocker, fsm):
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert not mocked_add.called
         assert not mocked_trigger.called
-        assert not mocked_isolation.called
+        assert mocked_isolation.call_args_list == [call()]
         assert not mocked_isolate.called
         mocker.resetall()
         mocked_starter.reset_mock()
@@ -752,7 +752,7 @@ def test_timer_event(mocker, fsm):
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert not mocked_add.called
         assert not mocked_trigger.called
-        assert mocked_isolation.called
+        assert mocked_isolation.call_args_list == [call()]
         assert not mocked_isolate.called
         mocker.resetall()
         mocked_starter.reset_mock()
@@ -770,7 +770,7 @@ def test_timer_event(mocker, fsm):
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert mocked_add.call_args_list == [call(proc_1), call(proc_2)]
         assert mocked_trigger.called
-        assert mocked_isolation.called
+        assert mocked_isolation.call_args_list == [call()]
         assert mocked_isolate.call_args_list == [call(['10.0.0.2', '10.0.0.3'])]
         mocker.resetall()
         mocked_starter.reset_mock()
@@ -1162,7 +1162,7 @@ def test_on_authorization(mocker, fsm):
 def test_restart_sequence_event(fsm):
     """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
     # inject restart event and test setting of redeploy_mark
-    mocked_zmq = fsm.supvisors.sockets.pusher.send_restart_sequence
+    mocked_zmq = fsm.supvisors.internal_com.pusher.send_restart_sequence
     fsm.supvisors.context.master_identifier = '10.0.0.1'
     assert not fsm.redeploy_mark
     # test when not master
@@ -1181,7 +1181,7 @@ def test_restart_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a restart event. """
     # inject restart event and test call to fsm set_state RESTARTING
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = fsm.supvisors.sockets.pusher.send_restart_all
+    mocked_send = fsm.supvisors.internal_com.pusher.send_restart_all
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_restart()
@@ -1204,7 +1204,7 @@ def test_shutdown_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a shutdown event. """
     # inject shutdown event and test call to fsm set_state SHUTTING_DOWN
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = fsm.supvisors.sockets.pusher.send_shutdown_all
+    mocked_send = fsm.supvisors.internal_com.pusher.send_shutdown_all
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_shutdown()

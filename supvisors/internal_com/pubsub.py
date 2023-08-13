@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import asyncio
 import select
 import struct
 import time
@@ -24,14 +25,14 @@ import traceback
 from enum import Enum
 from socket import error, socket, socketpair, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_LINGER, SO_REUSEADDR, SHUT_RDWR
 from threading import Event, Thread
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, Optional, List
 
 from supervisor.loggers import Logger
 
-from .internalinterface import (InternalCommEmitter, InternalCommReceiver, SupvisorsInternalComm,
-                                bytes_to_payload, payload_to_bytes, read_from_socket)
-from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import InternalEventHeaders, Ipv4Address, NameList, Payload
+from supvisors.ttypes import InternalEventHeaders, Ipv4Address, NameList, Payload
+from .internalinterface import (InternalCommEmitter, ASYNC_TIMEOUT,
+                                bytes_to_payload, payload_to_bytes, read_from_socket, read_stream)
+from .mapper import SupvisorsInstanceId
 
 # additional annotations
 SocketList = List[socket]
@@ -50,6 +51,8 @@ POLL_TIMEOUT = 100
 BUFFER_SIZE = 4096
 
 
+# Publisher part
+#   done in Sync to work in Supervisor thread
 class SubscriberClient:
     """ Simple structure for a connected TCP client. """
 
@@ -177,7 +180,7 @@ class PublisherServer(Thread):
         self.clients[sock.fileno()] = SubscriberClient(sock, addr)
         self.logger.debug(f'PublisherThread._add_client: new subscriber client accepted from {addr}')
         # register the client socket into the poller
-        self.poller.register(sock, select.POLLIN | select.POLLHUP)
+        self.poller.register(sock, select.POLLIN)
 
     def _remove_client(self, fd):
         """ Remove a TCP client from the subscribers.
@@ -197,11 +200,7 @@ class PublisherServer(Thread):
         """
         for fd, event in events:
             # first get socket closure on client sockets
-            if event & select.POLLHUP:
-                if fd in self.clients:
-                    # other end has closed. unregister and close too
-                    self._remove_client(fd)
-            elif event & select.POLLIN:
+            if event & select.POLLIN:
                 if fd == self.server.fileno():
                     # got a new client to accept
                     try:
@@ -266,7 +265,7 @@ class PublisherServer(Thread):
         # check heartbeat emission
         if current_time - self.last_send_heartbeat_time > HEARTBEAT_PERIOD:
             self._publish_message(self.heartbeat_message)
-            self.last_snd_heartbeat_time = current_time
+            self.last_send_heartbeat_time = current_time
             self.logger.trace(f'PublisherServer._manage_heartbeat: heartbeat emitted at {current_time}')
         # check heartbeat reception
         for client in list(self.clients.values()):
@@ -324,179 +323,169 @@ class InternalPublisher(PublisherServer, InternalCommEmitter):
                 self.stop()
 
 
-class InternalSubscriber(InternalCommReceiver):
-    """ Class for sockets used from the Supvisors thread. """
+# Subscriber part
+#   done in Async as working in Supvisors thread
+class InternalAsyncSubscriber:
+    """ Class for subscribing to Supervisor events. """
 
-    def __init__(self, puller_sock: socket, supvisors: Any) -> None:
-        """ Create the sockets and the poller.
+    def __init__(self, instance_id: SupvisorsInstanceId,
+                 queue: asyncio.Queue, stop_event: asyncio.Event,
+                 logger: Logger):
+        """ Initialization of the attributes.
 
-        :param puller_sock: the socket pair end used to receive the deferred Supvisors XML-RPC results
-        :param supvisors: the Supvisors global structure
+        :param instance_id: the identification structure of the publisher to connect.
+        :param queue: the queue used to push the messages received.
+        :param stop_event: the flag to stop the task.
+        :param logger: the Supvisors logger.
         """
-        super().__init__(puller_sock, supvisors.logger)
-        self.identifier: str = supvisors.supvisors_mapper.local_identifier
-        # subscriber sockets are TCP clients so connection is to be dealt on-the-fly
-        self.instances = supvisors.supvisors_mapper.instances.copy()
+        self.instance_id: SupvisorsInstanceId = instance_id
+        self.queue: asyncio.Queue = queue
+        self.stop_event: asyncio.Event = stop_event
+        self.logger: Logger = logger
+
+    @property
+    def identifier(self) -> str:
+        """ Shortcut to the identifier of the remote Supvisors instance. """
+        return self.instance_id.identifier
+
+    @property
+    def ip_address(self) -> str:
+        """ Shortcut to the IP address of the remote Supvisors instance. """
+        return self.instance_id.ip_address
+
+    @property
+    def port(self) -> int:
+        """ Shortcut to the port of the remote Supvisors instance. """
+        return self.instance_id.internal_port
+
+    async def send_heartbeat(self, writer: asyncio.StreamWriter) -> None:
+        """ Send a heartbeat message to the publisher.
+
+        :return: None
+        """
+        message = payload_to_bytes(InternalEventHeaders.HEARTBEAT, (self.identifier,))
+        buffer = len(message).to_bytes(4, 'big') + message
+        writer.write(buffer)
+        await writer.drain()
+
+    async def handle_subscriber(self):
+        """ Handle the lifecycle of the TCP connection with the publisher.
+
+        :return: None
+        """
+        self.logger.debug(f'InternalAsyncSubscriber.handle_subscriber: connecting to {self.identifier}'
+                          f' at {self.ip_address}:{self.port}')
+        # connect the publisher
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(self.ip_address, self.port), ASYNC_TIMEOUT)
+        # the publisher is connected
+        self.logger.info(f'InternalAsyncSubscriber.handle_subscriber: {self.identifier} connected')
+        peer_name = writer.get_extra_info('peername')
+        last_hb_recv: float = time.time()
+        last_hb_sent: float = 0.0
+        # loop until requested to stop, publisher closed or error happened
+        while not self.stop_event.is_set() and not reader.at_eof():
+            current_time: float = time.time()
+            # read the message
+            message = await read_stream(reader)
+            if message is None:
+                self.logger.info('InternalAsyncSubscriber.handle_subscriber: failed to read the message'
+                                 f' from {self.identifier}')
+                break
+            elif not message:
+                self.logger.trace(f'InternalAsyncSubscriber.handle_subscriber: nothing to read from {self.identifier}')
+            else:
+                # process the received message
+                msg_type, msg_body = message
+                if msg_type == InternalEventHeaders.HEARTBEAT.value:
+                    self.logger.trace('InternalAsyncSubscriber.handle_subscriber: heartbeat received'
+                                      f' from {self.identifier}')
+                    last_hb_recv = current_time
+                    # NOTE: at the moment, Supvisors still relies on the TICK to identify a node disconnection
+                    #  if more reactivity is needed at some point, the HEARTBEAT could be used and pushed to the queue
+                else:
+                    # post to queue
+                    await self.queue.put((peer_name, message))
+            # manage heartbeat emission
+            if current_time - last_hb_sent > HEARTBEAT_PERIOD:
+                await self.send_heartbeat(writer)
+                self.logger.trace(f'InternalAsyncSubscriber.handle_subscriber: heartbeat sent to {self.identifier}')
+                last_hb_sent = current_time
+            # manage heartbeat reception
+            duration = current_time - last_hb_recv
+            if duration > HEARTBEAT_TIMEOUT:
+                self.logger.warn('InternalAsyncSubscriber.handle_subscriber: no heartbeat received'
+                                 f' from {self.identifier} since {duration:.0f} seconds')
+                break
+        # close the stream writer
+        writer.close()
+
+    async def auto_connect(self):
+        """ Auto-reconnection to the Publisher. """
+        while not self.stop_event.is_set():
+            try:
+                await self.handle_subscriber()
+            except asyncio.TimeoutError:
+                self.logger.trace(f'InternalAsyncSubscriber.auto_connect: failed to connect {self.identifier}')
+            except ConnectionResetError:
+                self.logger.warn(f'InternalAsyncSubscriber.auto_connect: {self.identifier} closed the connection')
+            except OSError:
+                # OSError takes all other ConnectionError exceptions
+                self.logger.debug(f'InternalAsyncSubscriber.auto_connect: connection to {self.identifier} refused')
+            else:
+                # the subscriber has ended
+                self.logger.warn(f'InternalAsyncSubscriber.auto_connect: connection to {self.identifier} closed')
+            await asyncio.sleep(2.0)
+        self.logger.debug(f'InternalAsyncSubscriber.auto_connect: exit {self.identifier} auto-connect')
+
+
+class InternalAsyncSubscribers:
+    """ This class creates all the tasks that connect to the publishers of the remote Supvisors instances. """
+
+    def __init__(self, queue: asyncio.Queue, stop_event: asyncio.Event, supvisors: Any):
+        """ Initialization of the attributes. """
+        self.supvisors = supvisors
+        self.queue: asyncio.Queue = queue
+        self.global_stop_event: asyncio.Event = stop_event
+        # create a stop event per subscriber to enable selective stop
+        self.stop_events: Dict[str, asyncio.Event] = {}
+
+    def get_coroutines(self) -> List:
+        """ Return the subscriber tasks:
+            - one per remote Supvisors instance to connect ;
+            - one to forward the general stop event.
+
+        NOTE: the local Supvisors instance is not considered.
+        """
+        instance_ids = self.supvisors.supvisors_mapper.instances.copy()
         # remove the local Supvisors instance from the list as it will receive events directly
-        del self.instances[self.identifier]
-        # the list of connected Supvisors instances
-        self.subscribers: Dict[str, List] = {}  # {identifier: [socket, hb_sent, hb_recv]}
+        del instance_ids[self.supvisors.supvisors_mapper.local_identifier]
+        # return the coroutines
+        return [self.create_coroutine(instance_id) for instance_id in instance_ids.values()] + [self.check_stop()]
 
-    def close(self) -> None:
-        """ Close the subscribers sockets.
-        Should be called only from the SupvisorsMainLoop.
+    def create_coroutine(self, instance_id: SupvisorsInstanceId):
+        """ Create a task for a given remote Supvisors instance.
 
-        :return: None
+        :param instance_id: the identification structure of the remote Supvisors instance.
+        :return:
         """
-        super().close()
-        for sock, _, _ in self.subscribers.values():
-            self.poller.unregister(sock)
-            sock.close()
+        self.stop_events[instance_id.identifier] = stop_event = asyncio.Event()
+        subscriber = InternalAsyncSubscriber(instance_id, self.queue, stop_event, self.supvisors.logger)
+        return subscriber.auto_connect()
 
-    def manage_heartbeat(self) -> None:
-        """ Check heartbeat reception from publishers and send heartbeat to them.
-
-        :return: None
-        """
-        self._check_heartbeat()
-        self._send_heartbeat()
-
-    def _check_heartbeat(self) -> None:
-        """ Close every subscriber socket where no heartbeat has been received for a long time.
-
-        :return: None
-        """
-        current_time = time.time()
-        for identifier, (_, _, hb_recv) in self.subscribers.copy().items():
-            if current_time - hb_recv > HEARTBEAT_TIMEOUT:
-                self.close_subscriber(identifier)
-
-    def _send_heartbeat(self):
-        """ Send a heartbeat message to all publishers connected.
-
-        :return: None
-        """
-        current_time: float = time.time()
-        for identifier, (sock, hb_sent, _) in self.subscribers.copy().items():
-            if current_time - hb_sent > HEARTBEAT_PERIOD:
-                # send the heartbeat
-                message = payload_to_bytes(InternalEventHeaders.HEARTBEAT, (self.identifier,))
-                buffer = len(message).to_bytes(4, 'big') + message
-                try:
-                    sock.sendall(buffer)
-                except OSError:
-                    self.close_subscriber(identifier)
-                else:
-                    # update the emission time
-                    self.subscribers[identifier][1] = current_time
-
-    def read_fds(self, fds: List[int]) -> List[Tuple[Ipv4Address, List]]:
-        """ Read the messages from the subscriber sockets.
-        Disconnect the erroneous sockets.
-
-        :param fds: the file descriptors of the sockets to read
-        :return: the messages received
-        """
-        messages = []
-        for identifier, (sock, _, _) in self.subscribers.copy().items():
-            if sock.fileno() in fds:
-                message = InternalCommReceiver.read_socket(sock)
-                if message:
-                    # update heartbeat reception time on subscriber
-                    peer, (msg_type, msg_body) = message
-                    if msg_type == InternalEventHeaders.HEARTBEAT.value:
-                        self.subscribers[identifier][2] = time.time()
-                    # store message in list
-                    messages.append(message)
-                else:
-                    # message of 0 or negative size. socket closed
-                    self.close_subscriber(identifier)
-        return messages
-
-    def close_subscriber(self, identifier: str) -> None:
-        """ Close the subscriber socket corresponding to the identifier.
-
-        :param identifier: the subscriber identifier
-        :return: None
-        """
-        sock = self.subscribers.pop(identifier)[0]
-        try:
-            self.poller.unregister(sock)
-        except ValueError:
-            # if already closed, descriptor is -1
-            pass
-        sock.close()
-
-    def connect_subscribers(self) -> None:
-        """ Connect the Supvisors instances to the subscription socket.
-
-        :return: None
-        """
-        for identifier, instance in self.instances.items():
-            if identifier not in self.subscribers:
-                try:
-                    sock = socket(AF_INET, SOCK_STREAM)
-                    # WARN: set minimal timeout because non-blocking mode 'fails'
-                    # actually, it seems to connect but returns an exception anyway
-                    # sock.setblocking(False)
-                    sock.settimeout(0.1)
-                    sock.connect((instance.host_id, instance.internal_port))
-                except OSError:
-                    # failed to connect. will try next time
-                    self.logger.trace(f'InternalSubscriber.connect_subscribers: failed to connect {identifier}')
-                else:
-                    self.logger.info(f'InternalSubscriber.connect_subscribers: {identifier} connected')
-                    # store socket and register to poller
-                    self.subscribers[identifier] = [sock, 0, time.time()]
-                    self.poller.register(sock, select.POLLIN)
+    async def check_stop(self):
+        """ Task that waits for the general event to be set and that forwards it to all the subscriber tasks. """
+        await self.global_stop_event.wait()
+        for event in self.stop_events.values():
+            event.set()
 
     def disconnect_subscribers(self, identifiers: NameList) -> None:
-        """ Disconnect forever the Supvisors instances from the subscription socket.
+        """ Terminate the corresponding InternalAsyncSubscriber coroutines.
 
         :param identifiers: the identifiers of the Supvisors instances to disconnect
         :return: None
         """
         for identifier in identifiers:
-            self.close_subscriber(identifier)
-            del self.instances[identifier]
-
-
-class SupvisorsPubSub(SupvisorsInternalComm):
-    """ Class holding all structures used for Supvisors internal communication
-    using a TCP Publish-Subscribe custom pattern. """
-
-    def __init__(self, supvisors: Any) -> None:
-        """ Construction of all communication blocks.
-
-        :param supvisors: the Supvisors global structure
-        """
-        super().__init__(supvisors)
-        # create the publisher
-        self._start_publisher()
-        # create the global subscriber that receives deferred XML-RPC requests and events sent by all publishers
-        self.receiver = InternalSubscriber(self.puller_sock, supvisors)
-        # store network interface names
-        self.intf_names: List[str] = []
-
-    def check_intf(self, intf_names: List[str]):
-        """ Restart the Publisher when a new network interfaces is added. """
-        if self.intf_names:
-            # check if there's a new network interface
-            new_intf_names = [x for x in intf_names if x not in self.intf_names]
-            if new_intf_names:
-                if self.emitter:
-                    self.supvisors.logger.warn('SupvisorsPubSub.restart: publisher restart'
-                                               f' due to new network interfaces {new_intf_names}')
-                    self.emitter.close()
-                # create a new publisher
-                self._start_publisher()
-        # store current list
-        self.intf_names = intf_names
-
-    def _start_publisher(self):
-        """ Start the Publisher thread. """
-        local_instance: SupvisorsInstanceId = self.supvisors.supvisors_mapper.local_instance
-        self.emitter = InternalPublisher(local_instance.identifier,
-                                         local_instance.internal_port,
-                                         self.supvisors.logger)
-        self.emitter.start()
+            event = self.stop_events.get(identifier)
+            if event:
+                event.set()
+                del self.stop_events[identifier]

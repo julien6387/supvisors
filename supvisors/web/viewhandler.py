@@ -24,11 +24,11 @@ from supervisor.compat import as_bytes, as_string
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
-from .instancestatus import SupvisorsInstanceStatus
-from .rpcinterface import API_VERSION
-from .statscompiler import ProcStatisticsInstance
-from .ttypes import SupvisorsStates, Payload, PayloadList
-from .utils import get_stats
+from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.rpcinterface import API_VERSION
+from supvisors.statscompiler import ProcStatisticsInstance
+from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
+from supvisors.utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
 from .webutils import *

@@ -30,11 +30,11 @@ from supervisor.states import STOPPED_STATES, SupervisorStates
 import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
+from supvisors.internal_com import SupvisorsMapper
 from supvisors.rpcinterface import RPCInterface
 from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
-from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.utils import extract_process_info
 
 
@@ -69,7 +69,7 @@ class MockedSupvisors:
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.listener import SupervisorListener
         from supvisors.sparser import Parser
-        from supvisors.supvisorspubsub import SupvisorsPubSub
+        from supvisors.internal_com import SupvisorsInternalEmitter
         self.starter = Mock(spec=Starter)
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
@@ -77,8 +77,8 @@ class MockedSupvisors:
         self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
         # should be set in listener
-        self.sockets = Mock(spec=SupvisorsPubSub)
-        self.sockets.__init__()
+        self.internal_com = Mock(spec=SupvisorsInternalEmitter)
+        self.internal_com.__init__()
         self.external_publisher = None
 
 

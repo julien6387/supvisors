@@ -19,7 +19,7 @@
 
 import pytest
 
-from supvisors.supvisorsmapper import *
+from supvisors.internal_com.mapper import *
 
 
 def test_get_addresses(supvisors):

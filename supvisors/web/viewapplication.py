@@ -19,8 +19,8 @@
 
 from supervisor.states import ProcessStates
 
-from .application import ApplicationStatus
-from .ttypes import PayloadList
+from supvisors.application import ApplicationStatus
+from supvisors.ttypes import PayloadList
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *

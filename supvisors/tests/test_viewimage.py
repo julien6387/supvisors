@@ -18,7 +18,7 @@
 # ======================================================================
 
 
-from supvisors.viewimage import *
+from supvisors.web.viewimage import *
 
 from .base import DummyHttpContext
 

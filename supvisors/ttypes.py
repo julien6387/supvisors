@@ -92,19 +92,12 @@ class InternalEventHeaders(Enum):
      HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(9)
 
 
-# for deferred XML-RPC requests
-class DeferredRequestHeaders(Enum):
-    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
-    (CHECK_INSTANCE, ISOLATE_INSTANCES,
-     START_PROCESS, STOP_PROCESS,
-     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(9)
-
-
 class RemoteCommEvents(Enum):
     """ Strings used for remote communication between the Supvisors main loop and the listener. """
     SUPVISORS_AUTH = u'supv_auth'
     SUPVISORS_EVENT = u'supv_event'
     SUPVISORS_INFO = u'supv_info'
+    SUPVISORS_DISCOVERY = u'supv_discovery'
 
 
 class EventHeaders(Enum):

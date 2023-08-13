@@ -17,229 +17,112 @@
 # ======================================================================
 
 from socket import gethostbyname, gethostname
+from unittest.mock import MagicMock
 
 import pytest
 
-from supvisors.supvisorspubsub import *
-from supvisors.ttypes import DeferredRequestHeaders
+from supvisors.internal_com.pubsub import *
 
 local_ip = gethostbyname(gethostname())
 
 
 @pytest.fixture
-def sockets(supvisors):
-    """ Create the SupvisorsSockets instance. """
-    socks = SupvisorsPubSub(supvisors)
-    # Supvisors does not need a client connection on itself
-    # however, it is really a lot easier for unit testing to allow it
-    mapper = supvisors.supvisors_mapper
-    socks.receiver.instances[mapper.local_identifier] = mapper.local_instance
-    socks.receiver.connect_subscribers()
-    # return the internal com structure
-    yield socks
-    socks.stop()
-    socks.receiver.close()
+def publisher(supvisors):
+    local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+    emitter = InternalPublisher(local_instance.identifier,
+                                local_instance.internal_port,
+                                supvisors.logger)
+    emitter.start()
+    yield emitter
+    emitter.close()
 
 
-def check_sockets(subscriber: InternalSubscriber,
-                  request: Any,
-                  notification: Any,
-                  heartbeat_identifier: Optional[str],
-                  hb_dates: List[float],
-                  heartbeat_required: bool = False):
-    """ Check that requests, notifications or heartbeats have been received as expected.
-    Poll timeout is 100ms, so this method waits up to 3 seconds to get the messages expected.
-    Heartbeat period is set to 2 seconds so at least one heartbeat is always expected here. """
-    got_expected_request, got_expected_notification, got_heartbeat = False, False, False
-    for _ in range(30):
-        requests_socket, external_events_sockets = subscriber.poll()
-        # test request part
-        assert not requests_socket or request
-        if requests_socket:
-            assert subscriber.read_socket(subscriber.puller_sock) == ('', request)
-            got_expected_request = True
-        # test notification part
-        messages = subscriber.read_fds(external_events_sockets)
-        for peer, (msg_type, (identifier, msg_body)) in messages:
-            assert peer == (local_ip, 65100)
-            # test heartbeat part
-            if msg_type == InternalEventHeaders.HEARTBEAT.value:
-                assert identifier == heartbeat_identifier
-                assert msg_body == {}
-                got_heartbeat = True
-            else:
-                # test events
-                assert identifier == heartbeat_identifier
-                assert msg_type == notification[0]
-                assert msg_body == notification[1]
-                got_expected_notification = True
-        # send heartbeats
-        subscriber.manage_heartbeat()
-        # exit for loop if request received
-        if got_expected_request and not heartbeat_required and not notification:
-            break
-        # exit for loop if notification received
-        if got_expected_notification and not heartbeat_required and not request:
-            break
-    # final check
-    assert not request or got_expected_request
-    assert not notification or got_expected_notification
-    # heartbeats must have been sent and received
-    assert not heartbeat_required or not heartbeat_identifier or got_heartbeat
-    if got_heartbeat:
-        current_time = time.time()
-        _, hb_sent, hb_recv = subscriber.subscribers[heartbeat_identifier]
-        assert current_time > hb_sent > hb_dates[0]
-        assert current_time > hb_recv > hb_dates[1]
-        hb_dates[:] = [hb_sent, hb_recv]
+@pytest.fixture
+def local_subscriber(supvisors, request):
+    queue = asyncio.Queue()
+    event = asyncio.Event()
+    # create subscriber
+    subscriber = InternalAsyncSubscribers(queue, event, supvisors)
+    subscriber.get_coroutines()  # not used, just hit it
+    # local instance has been removed from the subscribers, but it's actually the only instance that can be tested here
+    local_instance_id = supvisors.supvisors_mapper.local_instance
+    # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
+    all_coro = [asyncio.wait_for(subscriber.check_stop(), request.param),
+                asyncio.wait_for(subscriber.create_coroutine(local_instance_id), request.param)]
+    return subscriber, all_coro
 
 
-def test_global_normal(sockets):
+@pytest.mark.parametrize('local_subscriber', [6.0], indirect=True)
+def test_global_normal(supvisors, publisher, local_subscriber):
     """ Test the Supvisors TCP publish / subscribe in one single test. """
-    subscriber = sockets.receiver
-    pusher = sockets.pusher
-    publisher = sockets.emitter
-    # initial check for connectable instances
-    assert sorted(subscriber.instances.keys()) == sorted(sockets.supvisors.supvisors_mapper.instances.keys())
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert publisher.is_alive()
-    # the subscriber has connected the local publisher instance
-    local_identifier = sockets.supvisors.supvisors_mapper.local_identifier
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    client_sock, hb_sent, hb_recv = subscriber.subscribers[local_identifier]
-    assert isinstance(client_sock, socket)
-    assert hb_sent == 0
-    assert time.time() > hb_recv > 0
-    # poll during 3 seconds: nothing sent but heartbeat
-    check_sockets(subscriber, None, None, local_identifier, [hb_sent, hb_recv], True)
-    # test push / subscribe for CHECK_INSTANCE
-    pusher.send_check_instance('10.0.0.1')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.CHECK_INSTANCE.value, ['10.0.0.1', ]],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for ISOLATE_INSTANCES
-    pusher.send_isolate_instances(['10.0.0.1', '10.0.0.2'])
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.ISOLATE_INSTANCES.value, ['10.0.0.1', '10.0.0.2']],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for START_PROCESS
-    pusher.send_start_process('10.0.0.1', 'group:name', 'extra args')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.START_PROCESS.value, ['10.0.0.1', 'group:name', 'extra args']],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for STOP_PROCESS
-    pusher.send_stop_process('10.0.0.1', 'group:name')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.STOP_PROCESS.value, ['10.0.0.1', 'group:name']],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for RESTART
-    pusher.send_restart('10.0.0.1')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.RESTART.value, ['10.0.0.1', ]],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for SHUTDOWN
-    pusher.send_shutdown('10.0.0.1')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.SHUTDOWN.value, ['10.0.0.1', ]],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for RESTART_SEQUENCE
-    pusher.send_restart_sequence('10.0.0.1')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.RESTART_SEQUENCE.value, ['10.0.0.1', ]],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for RESTART_ALL
-    pusher.send_restart_all('10.0.0.1')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.RESTART_ALL.value, ['10.0.0.1', ]],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test push / subscribe for SHUTDOWN_ALL
-    pusher.send_shutdown_all('10.0.0.1')
-    check_sockets(subscriber,
-                  [DeferredRequestHeaders.SHUTDOWN_ALL.value, ['10.0.0.1', ]],
-                  None, local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for HEARTBEAT (not yet)
-    # test publish / subscribe for TICK
-    publisher.send_tick_event({'when': 1234})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.TICK.value, {'when': 1234}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for PROCESS
-    publisher.send_process_state_event({'namespec': 'dummy_group:dummy_name', 'state': 'running'})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.PROCESS.value, {'namespec': 'dummy_group:dummy_name', 'state': 'running'}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for PROCESS_ADDED
-    publisher.send_process_added_event({'namespec': 'dummy_group:dummy_name'})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.PROCESS_ADDED.value, {'namespec': 'dummy_group:dummy_name'}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for PROCESS_REMOVED
-    publisher.send_process_removed_event({'namespec': 'dummy_group:dummy_name'})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.PROCESS_REMOVED.value, {'namespec': 'dummy_group:dummy_name'}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for PROCESS_DISABILITY
-    publisher.send_process_disability_event({'name': 'dummy_name', 'disabled': True})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.PROCESS_DISABILITY.value, {'name': 'dummy_name', 'disabled': True}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for HOST_STATISTICS
-    publisher.send_host_statistics({'cpu': 25.3, 'mem': 12.5})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.HOST_STATISTICS.value, {'cpu': 25.3, 'mem': 12.5}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for PROCESS_STATISTICS
-    publisher.send_process_statistics({'dummy_process': {'cpu': 25.3, 'mem': 12.5}})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.PROCESS_STATISTICS.value, {'dummy_process': {'cpu': 25.3, 'mem': 12.5}}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test publish / subscribe for STATE
-    publisher.send_state_event({'state': 'operational', 'mode': 'starting'})
-    check_sockets(subscriber, None,
-                  [InternalEventHeaders.STATE.value, {'state': 'operational', 'mode': 'starting'}],
-                  local_identifier, [hb_sent, hb_recv])
-    # test subscriber disconnect and check that nothing is received anymore
-    subscriber.disconnect_subscribers([local_identifier])
-    assert subscriber.subscribers == {}
-    assert local_identifier not in subscriber.instances
-    # check that nothing is received anymore by the subscribers
-    publisher.send_state_event({'state': 'operational', 'mode': 'starting'})
-    check_sockets(subscriber, None, None, None, [], True)
+    subscriber, all_coro = local_subscriber
+    local_identifier = supvisors.supvisors_mapper.local_identifier
 
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # the subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # test publish TICK
+        publisher.send_tick_event({'when': 1234})
+        # test publish PROCESS
+        publisher.send_process_state_event({'namespec': 'dummy_group:dummy_name', 'state': 'running'})
+        # test publish PROCESS_ADDED
+        publisher.send_process_added_event({'namespec': 'dummy_group:dummy_name'})
+        # test publish PROCESS_REMOVED
+        publisher.send_process_removed_event({'namespec': 'dummy_group:dummy_name'})
+        # test publish PROCESS_DISABILITY
+        publisher.send_process_disability_event({'name': 'dummy_name', 'disabled': True})
+        # test publish HOST_STATISTICS
+        publisher.send_host_statistics({'cpu': 25.3, 'mem': 12.5})
+        # test publish PROCESS_STATISTICS
+        publisher.send_process_statistics({'dummy_process': {'cpu': 25.3, 'mem': 12.5}})
+        # test publish for STATE
+        publisher.send_state_event({'state': 'operational', 'mode': 'starting'})
+        # test disconnect subscriber
+        await asyncio.sleep(1.0)
+        subscriber.disconnect_subscribers([local_identifier])
+        # sleep a bit before full close
+        await asyncio.sleep(1.0)
+        subscriber.global_stop_event.set()
 
-def test_publisher_restart(sockets):
-    """ Test the publisher restart in case of new network interface. """
-    # wait for publisher server to be alive
-    ref_publisher = sockets.emitter
-    time.sleep(1)
-    assert ref_publisher.is_alive()
-    # first try (init)
-    sockets.check_intf(['localhost'])
-    assert ref_publisher is sockets.emitter
-    assert sockets.intf_names == ['localhost']
-    # second try / confirm network interface names
-    sockets.check_intf(['localhost'])
-    assert ref_publisher is sockets.emitter
-    assert sockets.intf_names == ['localhost']
-    # third try / add an interface name
-    sockets.check_intf(['localhost', 'eth0'])
-    assert ref_publisher is not sockets.emitter
-    assert sockets.intf_names == ['localhost', 'eth0']
-    # wait for publisher server to be alive
-    ref_publisher = sockets.emitter
-    time.sleep(1)
-    assert ref_publisher.is_alive()
-    # fourth try / remove an interface name
-    sockets.check_intf(['localhost'])
-    assert ref_publisher is sockets.emitter
-    assert sockets.intf_names == ['localhost']
+    async def check_output():
+        addr = local_ip, 65100
+        queue = subscriber.queue
+        # test subscribe TICK
+        expected = InternalEventHeaders.TICK, {'when': 1234}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+        # test subscribe PROCESS
+        expected = InternalEventHeaders.PROCESS, {'namespec': 'dummy_group:dummy_name', 'state': 'running'}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+        # test subscribe PROCESS_ADDED
+        expected = InternalEventHeaders.PROCESS_ADDED, {'namespec': 'dummy_group:dummy_name'}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+        # test subscribe PROCESS_REMOVED
+        expected = InternalEventHeaders.PROCESS_REMOVED, {'namespec': 'dummy_group:dummy_name'}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+        # test subscribe PROCESS_DISABILITY
+        expected = InternalEventHeaders.PROCESS_DISABILITY, {'name': 'dummy_name', 'disabled': True}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+        # test subscribe HOST_STATISTICS
+        expected = InternalEventHeaders.HOST_STATISTICS, {'cpu': 25.3, 'mem': 12.5}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+        # test subscribe PROCESS_STATISTICS
+        expected = InternalEventHeaders.PROCESS_STATISTICS, {'dummy_process': {'cpu': 25.3, 'mem': 12.5}}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+        # test subscribe STATE
+        expected = InternalEventHeaders.STATE, {'state': 'operational', 'mode': 'starting'}
+        assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
+
+    all_tasks = asyncio.gather(publisher_task(), check_output(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
 # testing exception cases (by line number)
 def test_publisher_bind_exception(supvisors):
     """ Test the bind exception of the PublisherServer.
-    The aim is to hit the lines 111-113 in PublisherServer._bind.
+    The aim is to hit the lines 114-116 in PublisherServer._bind.
     Checked ok with debugger.
     """
     local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
@@ -262,143 +145,151 @@ def test_publisher_bind_exception(supvisors):
     server2.stop()
 
 
-def test_publisher_accept_exception(mocker, sockets):
+@pytest.mark.parametrize('local_subscriber', [4.0], indirect=True)
+def test_publisher_accept_exception(mocker, supvisors, publisher, local_subscriber):
     """ Test the accept exception of the PublisherServer.
-    The aim is to hit the line 209-211 in PublisherServer._handle_events.
+    The aim is to hit the line 212-214 in PublisherServer._handle_events.
     Checked ok with debugger.
     """
-    subscriber = sockets.receiver
-    publisher = sockets.emitter
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert publisher.is_alive()
-    # the subscriber has connected the local publisher instance
-    assert len(publisher.clients) == 1
+    subscriber, all_coro = local_subscriber
     # socket.accept is read-only and cannot be mocked, so mock _add_client
     mocker.patch.object(publisher, '_add_client', side_effect=OSError)
-    # now force the subscriber to reconnect / create new subscriber
-    subscriber.close()
-    sockets.pusher_sock, sockets.puller_sock = socketpair()
-    sockets.receiver = InternalSubscriber(sockets.puller_sock, sockets.supvisors)
-    # restore connection to localhost that is disabled by default
-    mapper = sockets.supvisors.supvisors_mapper
-    sockets.receiver.instances[mapper.local_identifier] = mapper.local_instance
-    sockets.receiver.connect_subscribers()
-    time.sleep(1)
-    # check no connection registered
-    assert publisher.clients == {}
+
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # no subscriber could connect the local publisher instance
+        assert len(publisher.clients) == 0
+        # full close
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_publisher_forward_empty_message(supvisors, sockets):
+@pytest.mark.parametrize('local_subscriber', [4.0], indirect=True)
+def test_publisher_forward_empty_message(supvisors, publisher, local_subscriber):
     """ Test the robustness when the publisher forwards an empty message.
-    The aim is to hit the lines 230-231 in PublisherServer._forward_message.
+    The aim is to hit the lines 233-234 in PublisherServer._forward_message.
     Checked ok with debugger.
     """
-    subscriber = sockets.receiver
-    publisher = sockets.emitter
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert publisher.is_alive()
-    # the subscriber has connected the local publisher instance
-    local_identifier = supvisors.supvisors_mapper.local_identifier
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    # send a 0-sized message to the subscriber interface
-    assert len(publisher.clients) == 1
-    buffer = int.to_bytes(0, 4, 'big')
-    publisher.put_sock.sendall(buffer)
-    # wait for publisher server to die
-    time.sleep(1)
-    assert not publisher.is_alive()
+    subscriber, all_coro = local_subscriber
+
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # send a 0-sized message to the subscriber interface
+        buffer = int.to_bytes(0, 4, 'big')
+        publisher.put_sock.sendall(buffer)
+        # wait for publisher server to die
+        await asyncio.sleep(1.0)
+        assert not publisher.is_alive()
+        # full close
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_publisher_receive_empty_message(sockets):
+@pytest.mark.parametrize('local_subscriber', [4.0], indirect=True)
+def test_publisher_receive_empty_message(mocker, publisher, local_subscriber):
     """ Test the robustness when the publisher receives an empty message.
-    The aim is to hit the lines 246-247 in PublisherServer._receive_client_heartbeat.
+    The aim is to hit the lines 249-250 in PublisherServer._receive_client_heartbeat.
     Checked ok with debugger.
     """
-    subscriber = sockets.receiver
-    publisher = sockets.emitter
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert publisher.is_alive()
-    # the subscriber has connected the local publisher instance
-    assert len(publisher.clients) == 1
-    # send empty message from the subscriber
-    local_identifier = sockets.supvisors.supvisors_mapper.local_identifier
-    sock, _, _ = subscriber.subscribers[local_identifier]
-    buffer = int.to_bytes(0, 4, 'big')
-    sock.sendall(buffer)
-    # reconnection will not have time to happen
-    time.sleep(1)
-    assert publisher.clients == {}
+    subscriber, all_coro = local_subscriber
+
+    # mock the send_heartbeat coroutine so that it sends 0-sized heartbeat messages
+    class SendHeartbeat(MagicMock):
+        async def __call__(self, writer: asyncio.StreamWriter):
+            writer.write(int.to_bytes(0, 4, 'big'))
+            await writer.drain()
+    mocker.patch('supvisors.internal_com.pubsub.InternalAsyncSubscriber.send_heartbeat', new_callable=SendHeartbeat)
+
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # reconnection will not have time to happen
+        await asyncio.sleep(1.0)
+        assert publisher.clients == {}
+        # full close
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_publisher_heartbeat_timeout(mocker, sockets):
+@pytest.mark.parametrize('local_subscriber', [15.0], indirect=True)
+def test_publisher_heartbeat_timeout(mocker, publisher, local_subscriber):
     """ Test the exception management in PublisherServer when heartbeat missing from a client.
-    The aim is to hit the lines 275-277 in PublisherServer._manage_heartbeats.
+    The aim is to hit the lines 278-280 in PublisherServer._manage_heartbeats.
     Checked ok with debugger.
     """
-    publisher = sockets.emitter
-    subscriber = sockets.receiver
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert publisher.is_alive()
-    # the subscriber has connected the local publisher instance
-    local_identifier = sockets.supvisors.supvisors_mapper.local_identifier
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    assert len(publisher.clients) == 1
-    # poll until heartbeat is received
-    max_wait = 40  # 40 loops of 100ms
-    external_events_sockets = None
-    while not external_events_sockets and max_wait > 0:
-        _, external_events_sockets = subscriber.poll()
-        max_wait -= 1
-    # SubscriberInterface instances cannot be accessed from the sockets structure
-    # closing the subscriber will raise the POLLHUP event
-    # so mock the InternalSubscriber heartbeat emission and at some point the SubscriberInterface will close
-    mocker.patch.object(subscriber, 'manage_heartbeat')
-    # remove identifier from InternalSubscriber instances to prevent reconnection
-    subscriber.instances = {}
-    # read everything during 10 seconds
-    target = time.time() + 10
-    while time.time() < target:
-        _, external_events_sockets = subscriber.poll()
-        subscriber.read_fds(external_events_sockets)
-    # check disconnection on subscriber side and publisher side
-    assert subscriber.subscribers == {}
-    assert publisher.clients == {}
+    subscriber, all_coro = local_subscriber
+
+    # mock the send_heartbeat coroutine so that it doesn't send heartbeat messages
+    class SendHeartbeat(MagicMock):
+        async def __call__(self, writer: asyncio.StreamWriter):
+            pass
+    mocker.patch('supvisors.internal_com.pubsub.InternalAsyncSubscriber.send_heartbeat', new_callable=SendHeartbeat)
+
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # let missing heartbeat have its consequences
+        await asyncio.sleep(10.0)
+        assert publisher.clients == {}
+        # full close
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_publisher_publish_message_exception(sockets):
+@pytest.mark.parametrize('local_subscriber', [4.0], indirect=True)
+def test_publisher_publish_message_exception(publisher, local_subscriber):
     """ Test the publish exception management in PublisherServer when the client is closed.
-    The aim is to hit the line 291-293 in PublisherServer._publish_message.
+    The aim is to hit the line 294-296 in PublisherServer._publish_message.
     Checked ok with debugger.
     """
-    publisher = sockets.emitter
-    subscriber = sockets.receiver
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert publisher.is_alive()
-    # the subscriber has connected the local publisher instance
-    local_identifier = sockets.supvisors.supvisors_mapper.local_identifier
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    assert len(publisher.clients) == 1
-    # close the client and send a message
-    client = next(x for x in publisher.clients.values())
-    client.socket.shutdown(SHUT_RDWR)
-    # publish a message
-    publisher._publish_message(b'hello')
-    # check that the client is removed
-    assert publisher.clients == {}
+    subscriber, all_coro = local_subscriber
+
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # close the client and send a message
+        client = next(x for x in publisher.clients.values())
+        client.socket.shutdown(SHUT_RDWR)
+        # publish a message
+        publisher._publish_message(b'hello')
+        # check that the client is removed
+        assert publisher.clients == {}
+        # full close
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_publisher_publish_exception(sockets):
-    """ Test the sendto exception of the PublisherServer.
-    The aim is to hit the lines 321-324 in InternalPublisher.emit_message.
+def test_publisher_emit_message_exception(publisher):
+    """ Test the sendall exception of the InternalPublisher.
+    The aim is to hit the lines 324-327 in InternalPublisher.emit_message.
     Checked ok with debugger.
     """
     # wait for publisher server to be alive
-    publisher = sockets.emitter
     time.sleep(1)
     assert publisher.is_alive()
     # close the internal put socket
@@ -410,74 +301,121 @@ def test_publisher_publish_exception(sockets):
     assert not publisher.is_alive()
 
 
-def test_subscriber_heartbeat_timeout(sockets):
-    """ Test the exception management in subscriber when heartbeat missing from a publisher.
-    The aim is to hit the line 372 in InternalSubscriber._check_heartbeat.
+@pytest.mark.parametrize('local_subscriber', [8.0], indirect=True)
+def test_subscriber_read_error(publisher, local_subscriber):
+    """ Test the exception management in subscriber when a message cannot be read completely.
+    The aim is to hit the lines 395-397 in InternalAsyncSubscriber.handle_subscriber.
     Checked ok with debugger.
     """
-    subscriber = sockets.receiver
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert sockets.emitter.is_alive()
-    # the subscriber has connected the local publisher instance
-    local_identifier = sockets.supvisors.supvisors_mapper.local_identifier
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    # poll until heartbeat is received
-    max_wait = 40  # 40 loops of 100ms
-    external_events_sockets = None
-    while not external_events_sockets and max_wait > 0:
-        _, external_events_sockets = subscriber.poll()
-        max_wait -= 1
-    # socket is closed in publisher after 10 seconds without heartbeat
-    assert local_identifier in subscriber.subscribers
-    ref_sock = subscriber.subscribers[local_identifier][0]
-    # wait for 10 seconds without sending heartbeats
-    # force heartbeat reception date
-    subscriber.subscribers[local_identifier][2] = 0
-    subscriber._check_heartbeat()
-    assert local_identifier not in subscriber.subscribers
-    # check that a new subscriber socket is created after a while (usually called by SupvisorsMainLoop)
-    subscriber.connect_subscribers()
-    time.sleep(2)
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    client_sock, hb_sent, hb_recv = subscriber.subscribers[local_identifier]
-    assert client_sock is not ref_sock
-    assert isinstance(client_sock, socket)
-    assert hb_sent == 0
-    assert time.time() > hb_recv > 0
+    subscriber, all_coro = local_subscriber
+
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # publish an incomplete message
+        client = next(x for x in publisher.clients.values())
+        client.socket.sendall(int.to_bytes(6, 4, 'big') + b'hello')
+        # sleep a bit so that reconnection takes place
+        await asyncio.sleep(4.0)
+        assert len(publisher.clients) == 1
+        new_client = next(x for x in publisher.clients.values())
+        assert new_client is not client
+        # full close
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_send_heartbeat_exception(sockets):
+@pytest.mark.parametrize('local_subscriber', [20.0], indirect=True)
+def test_subscriber_recv_heartbeat_exception(mocker, publisher, local_subscriber):
     """ Test the exception management when sending heartbeat to a socket that has been closed.
-    The aim is to trigger the OSError in InternalSubscriber._send_heartbeat (lines 387-388).
+    The aim is to hit the lines 420-422 in InternalSubscriber.handle_subscriber.
     Checked ok with debugger.
     """
-    subscriber = sockets.receiver
-    # wait for publisher server to be alive
-    time.sleep(1)
-    assert sockets.emitter.is_alive()
-    # the subscriber has connected the local publisher instance
-    local_identifier = sockets.supvisors.supvisors_mapper.local_identifier
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    # poll until heartbeat is received
-    max_wait = 40  # 40 loops of 100ms
-    external_events_sockets = None
-    while not external_events_sockets and max_wait > 0:
-        _, external_events_sockets = subscriber.poll()
-        max_wait -= 1
-    # close socket before it is used for reading or writing
-    client_sock = subscriber.subscribers[local_identifier][0]
-    assert client_sock.fileno() in external_events_sockets
-    client_sock.close()
-    # try to write to it
-    subscriber._send_heartbeat()
-    # check that socket has been removed from the subscribers
-    assert local_identifier not in subscriber.subscribers
-    # check that a new subscriber socket is created after a while (usually called by SupvisorsMainLoop)
-    subscriber.connect_subscribers()
-    time.sleep(2)
-    assert list(subscriber.subscribers.keys()) == [local_identifier]
-    client_sock, hb_sent, hb_recv = subscriber.subscribers[local_identifier]
-    assert isinstance(client_sock, socket)
-    assert hb_sent == 0
-    assert time.time() > hb_recv > 0
+    subscriber, all_coro = local_subscriber
+
+    # mock publisher so that it does not publish heartbeat messages
+    mocker.patch.object(publisher, '_manage_heartbeats')
+
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(1.0)
+        assert publisher.is_alive()
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        ref_client = next(x for x in publisher.clients.values())
+        # NOTE: it takes 10 seconds for the subscriber to detect the failure and reconnect
+        #       and a few seconds for the publisher to detect the subscriber absence
+        #       then a new subscriber connects
+        await asyncio.sleep(15.0)
+        assert len(publisher.clients) == 1
+        new_client = next(x for x in publisher.clients.values())
+        assert new_client is not ref_client
+        # full close
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
+
+
+@pytest.mark.parametrize('local_subscriber', [4.0], indirect=True)
+def test_subscriber_connection_refused(publisher, local_subscriber):
+    """ Test the exception management when connecting the publisher.
+    The aim is to hit the lines 431-432 in InternalSubscriber.auto_connect.
+    Checked ok with debugger.
+    """
+    subscriber, all_coro = local_subscriber
+    publisher.close()
+
+    async def stop_task():
+        await asyncio.sleep(1.0)
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(stop_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
+
+
+@pytest.mark.parametrize('local_subscriber', [4.0], indirect=True)
+def test_subscriber_connection_timeout(mocker, publisher, local_subscriber):
+    """ Test the exception management when connecting the publisher.
+    The aim is to hit the lines 433-434 in InternalSubscriber.auto_connect.
+    Checked ok with debugger.
+    """
+    subscriber, all_coro = local_subscriber
+    # set the ASYNC_TIMEOUT to 0, so that the connection times out
+    mocker.patch('supvisors.internal_com.pubsub.ASYNC_TIMEOUT', 0)
+
+    async def stop_task():
+        await asyncio.sleep(1.0)
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(stop_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
+
+
+@pytest.mark.parametrize('local_subscriber', [4.0], indirect=True)
+def test_subscriber_connection_reset(mocker, publisher, local_subscriber):
+    """ Test the exception management when connecting the publisher.
+    The aim is to hit the lines 435-436 in InternalSubscriber.auto_connect.
+    Checked ok with debugger.
+    """
+    subscriber, all_coro = local_subscriber
+
+    # this one is tricky to raise from within handle_subscriber
+    # can't do better than simply mock handle_subscriber
+    class HandleSubscriber(MagicMock):
+        async def __call__(self):
+            raise ConnectionResetError
+    mocker.patch('supvisors.internal_com.pubsub.InternalAsyncSubscriber.handle_subscriber',
+                 new_callable=HandleSubscriber)
+
+    async def stop_task():
+        await asyncio.sleep(1.0)
+        subscriber.global_stop_event.set()
+
+    all_tasks = asyncio.gather(stop_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)

@@ -772,8 +772,8 @@ class ApplicationStartJobs(ApplicationJobs):
                     command.update_identifier(identifier)
             if command.identifier:
                 # use asynchronous xml rpc to start program
-                self.supvisors.sockets.pusher.send_start_process(command.identifier, process.namespec,
-                                                                 command.extra_args)
+                self.supvisors.internal_com.pusher.send_start_process(command.identifier, process.namespec,
+                                                                      command.extra_args)
                 command.update_sequence_counter()
                 self.logger.info(f'ApplicationStartJobs.process_job: {process.namespec} requested to start'
                                  f' on {command.identifier}')
@@ -843,7 +843,7 @@ class ApplicationStopJobs(ApplicationJobs):
                           f' running_on({command.identifier})={running}')
         if running:
             # use asynchronous xml rpc to stop program
-            self.supvisors.sockets.pusher.send_stop_process(command.identifier, process.namespec)
+            self.supvisors.internal_com.pusher.send_stop_process(command.identifier, process.namespec)
             command.update_sequence_counter()
             self.logger.info(f'ApplicationStopJobs.process_job: {process.namespec} requested to stop'
                              f' on {command.identifier}')

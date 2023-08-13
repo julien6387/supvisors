@@ -24,8 +24,8 @@ from supervisor.web import MeldView
 
 from supvisors.instancestatus import StateModes
 from supvisors.ttypes import SupvisorsInstanceStates
-from supvisors.viewinstance import *
-from supvisors.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
+from supvisors.web.viewinstance import *
+from supvisors.web.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -83,7 +83,7 @@ def test_init_no_stats(view_no_stats):
 
 def test_render(mocker, view):
     """ Test the render method. """
-    mocked_render = mocker.patch('supvisors.viewhandler.ViewHandler.render', return_value='default')
+    mocked_render = mocker.patch('supvisors.web.viewhandler.ViewHandler.render', return_value='default')
     assert view.render() == 'default'
     assert mocked_render.call_args_list == [call(view)]
 
@@ -242,8 +242,8 @@ def test_make_callback(mocker, view):
 
 def test_restart_sup_action(mocker, view):
     """ Test the restart_sup_action method. """
-    mocker.patch('supvisors.viewinstance.delayed_warn', return_value='delayed warn')
-    mocked_pusher = mocker.patch.object(view.supvisors.sockets.pusher, 'send_restart')
+    mocker.patch('supvisors.web.viewinstance.delayed_warn', return_value='delayed warn')
+    mocked_pusher = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_restart')
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.restart_sup_action() == 'delayed warn'
     assert mocked_pusher.call_args_list == [call(local_identifier)]
@@ -251,8 +251,8 @@ def test_restart_sup_action(mocker, view):
 
 def test_shutdown_sup_action(mocker, view):
     """ Test the shutdown_sup_action method. """
-    mocker.patch('supvisors.viewinstance.delayed_warn', return_value='delayed warn')
-    mocked_pusher = mocker.patch.object(view.supvisors.sockets.pusher, 'send_shutdown')
+    mocker.patch('supvisors.web.viewinstance.delayed_warn', return_value='delayed warn')
+    mocked_pusher = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_shutdown')
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.shutdown_sup_action() == 'delayed warn'
     assert mocked_pusher.call_args_list == [call(local_identifier)]

@@ -372,12 +372,13 @@ class ProcessStatus:
 
     def serial(self) -> Payload:
         """ Get a serializable form of the ProcessStatus.
+        For the publication to an external subscriber, choose the displayed state.
 
         :return: the process status in a dictionary
         """
         return {'application_name': self.application_name,
                 'process_name': self.process_name,
-                'statecode': self.state, 'statename': self.state_string(),
+                'statecode': self.displayed_state, 'statename': self.displayed_state_string(),
                 'expected_exit': self.expected_exit,
                 'last_event_time': self.last_event_time,
                 'identifiers': list(self.running_identifiers),

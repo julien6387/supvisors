@@ -107,6 +107,8 @@ class AbstractState:
         master_instance = self.context.master_instance
         if not master_instance or master_instance.state != SupvisorsInstanceStates.RUNNING:
             self.logger.warn('AbstractState.check_instances: no Master Supvisors instance RUNNING')
+            # in INITIALIZATION, master_identifier is not reset (state is not re-entered)
+            self.context.master_identifier = ''
             return SupvisorsStates.INITIALIZATION
         return None
 
@@ -128,7 +130,7 @@ class OffState(AbstractState):
         :return: the new Supvisors state
         """
         # The Supvisors sockets is an easy mark to know that Supervisor is running
-        if self.supvisors.sockets:
+        if self.supvisors.internal_com:
             return SupvisorsStates.INITIALIZATION
         return SupvisorsStates.OFF
 
@@ -361,7 +363,7 @@ class MasterRestartingState(AbstractState):
 
     def exit(self):
         """ When exiting the RESTARTING state, request the Supervisor restart. """
-        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
+        self.supvisors.internal_com.pusher.send_restart(self.local_identifier)
         # Slave instances will do the same when they will transition out of their RESTARTING state
 
 
@@ -390,7 +392,7 @@ class MasterShuttingDownState(AbstractState):
 
     def exit(self):
         """ When exiting the SHUTTING_DOWN state, request the Supervisor shutdown. """
-        self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.internal_com.pusher.send_shutdown(self.local_identifier)
         # Slave instances will do the same when they will transition out of their SHUTTING_DOWN state
 
 
@@ -440,7 +442,7 @@ class SlaveRestartingState(AbstractState):
         NOTE: this has been moved from the former RestartState.enter because a Supvisors Slave
         could move from RESTARTING to any other state if the Master commands so,
         and it's important that Supervisor restarts at this point. """
-        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
+        self.supvisors.internal_com.pusher.send_restart(self.local_identifier)
 
 
 class SlaveShuttingDownState(AbstractState):
@@ -473,7 +475,7 @@ class SlaveShuttingDownState(AbstractState):
         NOTE: this has been moved from the former ShutDownState.enter because a Supvisors Slave
         could move from SHUTTING_DOWN to any other state if the Master commands so,
         and it's important that Supervisor shuts down at this point. """
-        self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.internal_com.pusher.send_shutdown(self.local_identifier)
 
 
 class FinalState(AbstractState):
@@ -573,10 +575,10 @@ class FiniteStateMachine:
                     for process in process_failures:
                         self.supvisors.failure_handler.add_default_job(process)
                     self.supvisors.failure_handler.trigger_jobs()
-                # check if new isolating remotes and isolate them at main loop level
-                identifiers = self.context.handle_isolation()
-                if identifiers:
-                    self.supvisors.sockets.pusher.send_isolate_instances(identifiers)
+        # check if new isolating remotes and isolate them at main loop level
+        identifiers = self.context.handle_isolation()
+        if identifiers:
+            self.supvisors.internal_com.pusher.send_isolate_instances(identifiers)
         # trigger FSM for global status re-evaluation
         # the Master may have been invalidated
         # process_failures could also positively impact the conflicts in the CONCILIATION state
@@ -725,7 +727,7 @@ class FiniteStateMachine:
             self.redeploy_mark = Forced
         else:
             # re-route the command to Master
-            self.supvisors.sockets.pusher.send_restart_sequence(self.context.master_identifier)
+            self.supvisors.internal_com.pusher.send_restart_sequence(self.context.master_identifier)
 
     def on_restart(self) -> None:
         """ This event is used to transition the state machine to the RESTARTING state.
@@ -737,7 +739,7 @@ class FiniteStateMachine:
         else:
             if self.context.master_identifier:
                 # re-route the command to Master
-                self.supvisors.sockets.pusher.send_restart_all(self.context.master_identifier)
+                self.supvisors.internal_com.pusher.send_restart_all(self.context.master_identifier)
             else:
                 message = 'no Master instance to perform the Supvisors restart request'
                 self.logger.error(f'FiniteStateMachine.on_restart: {message}')
@@ -753,7 +755,7 @@ class FiniteStateMachine:
         else:
             if self.context.master_identifier:
                 # re-route the command to Master
-                self.supvisors.sockets.pusher.send_shutdown_all(self.context.master_identifier)
+                self.supvisors.internal_com.pusher.send_shutdown_all(self.context.master_identifier)
             else:
                 message = 'no Master instance to perform the Supvisors restart request'
                 self.logger.error(f'FiniteStateMachine.on_restart: {message}')

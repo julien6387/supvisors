@@ -21,10 +21,10 @@ import os
 
 from supervisor.states import ProcessStates, RUNNING_STATES
 
-from .application import ApplicationStatus
-from .instancestatus import SupvisorsInstanceStatus
-from .statscompiler import ProcStatisticsInstance
-from .ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
+from supvisors.application import ApplicationStatus
+from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.statscompiler import ProcStatisticsInstance
+from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
 from .viewcontext import *
 from .viewinstance import SupvisorsInstanceView
 from .webutils import *

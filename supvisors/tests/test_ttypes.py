@@ -104,16 +104,9 @@ def test_internal_event_headers():
     assert [x.name for x in InternalEventHeaders] == expected
 
 
-def test_deferred_request_headers():
-    """ Test the DeferredRequestHeaders enumeration. """
-    expected = ['CHECK_INSTANCE', 'ISOLATE_INSTANCES', 'START_PROCESS', 'STOP_PROCESS', 'RESTART', 'SHUTDOWN',
-                'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
-    assert [x.name for x in DeferredRequestHeaders] == expected
-
-
 def test_remote_comm_events():
     """ Test the RemoteCommEvents enumeration. """
-    expected = ['SUPVISORS_AUTH', 'SUPVISORS_EVENT', 'SUPVISORS_INFO']
+    expected = ['SUPVISORS_AUTH', 'SUPVISORS_EVENT', 'SUPVISORS_INFO', 'SUPVISORS_DISCOVERY']
     assert [x.name for x in RemoteCommEvents] == expected
 
 

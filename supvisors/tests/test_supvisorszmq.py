@@ -26,7 +26,7 @@ import threading
 from unittest.mock import call
 
 from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
-from supvisors.supvisorszmq import *
+from supvisors.external_com.supvisorszmq import *
 
 
 @pytest.fixture

@@ -19,7 +19,7 @@
 
 from supervisor.web import StatusView
 
-from .instancestatus import SupvisorsInstanceStatus
+from supvisors.instancestatus import SupvisorsInstanceStatus
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -29,8 +29,7 @@ class SupvisorsInstanceView(StatusView):
     """ Common methods for the view renderer of the Supvisors Instance page.
     Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
     Note that the inheritance of StatusView has been patched dynamically
-    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
-    inherits from ViewHandler instead of MeldView.
+    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView inherits from ViewHandler instead of MeldView.
     """
 
     def __init__(self, context, page_name):
@@ -125,10 +124,10 @@ class SupvisorsInstanceView(StatusView):
 
     def restart_sup_action(self):
         """ Restart the local supervisor. """
-        self.supvisors.sockets.pusher.send_restart(self.local_identifier)
+        self.supvisors.internal_com.pusher.send_restart(self.local_identifier)
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
-        self.supvisors.sockets.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.internal_com.pusher.send_shutdown(self.local_identifier)
         return delayed_warn('Supervisor shutdown requested')

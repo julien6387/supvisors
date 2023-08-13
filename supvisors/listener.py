@@ -28,12 +28,11 @@ from supervisor.options import make_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
-from .eventinterface import create_external_publisher, EventPublisherInterface
-from .internalinterface import create_internal_comm, InternalCommEmitter
-from .mainloop import SupvisorsMainLoop
+from .external_com import create_external_publisher, EventPublisherInterface
+from .internal_com import (SupvisorsInternalEmitter, InternalPublisher, MulticastSender,
+                           SupvisorsInstanceId, SupvisorsMainLoop)
 from .process import ProcessStatus
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
-from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
                      InternalEventHeaders, RemoteCommEvents, Payload)
 
@@ -123,9 +122,14 @@ class SupervisorListener(object):
         return self.supvisors.process_compiler
 
     @property
-    def emitter(self) -> Optional[InternalCommEmitter]:
+    def publisher(self) -> InternalPublisher:
         """ Get the com interface used to publish Supvisors internal events to all Supvisors instances. """
-        return self.supvisors.sockets.emitter
+        return self.supvisors.internal_com.publisher
+
+    @property
+    def mc_sender(self) -> Optional[MulticastSender]:
+        """ Get the com interface used to publish Supvisors internal events to all Supvisors instances. """
+        return self.supvisors.internal_com.mc_sender
 
     @property
     def external_publisher(self) -> Optional[EventPublisherInterface]:
@@ -144,7 +148,7 @@ class SupervisorListener(object):
             # NOTE: The communication structures and SupvisorsMainLoop cannot be created before this level
             #       Before running, Supervisor forks when daemonized and the sockets are then lost
             #       At this point, Supervisor has forked if not daemonized
-            self.supvisors.sockets = create_internal_comm(self.supvisors)
+            self.supvisors.internal_com = SupvisorsInternalEmitter(self.supvisors)
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
             self.main_loop = SupvisorsMainLoop(self.supvisors)
             self.logger.debug('SupervisorListener.on_running: request to start main loop')
@@ -168,17 +172,17 @@ class SupervisorListener(object):
             if self.supvisors.process_collector:
                 self.supvisors.process_collector.pid_queue.put(None)
             # close pusher and publication sockets
-            self.logger.debug('SupervisorListener.on_stopping: stopping internal emitter')
-            self.supvisors.sockets.stop()
-            self.logger.debug('SupervisorListener.on_stopping: internal emitter stopped')
+            self.logger.debug('SupervisorListener.on_stopping: stopping internal com')
+            self.supvisors.internal_com.stop()
+            self.logger.debug('SupervisorListener.on_stopping: internal com stopped')
             # force Supervisor to close HTTP servers
             # this will prevent any pending XML-RPC request to block the main loop
             self.supvisors.supervisor_data.close_httpservers()
             # close external publication
             if self.external_publisher:
-                self.logger.debug('SupervisorListener.on_stopping: stopping external notifier')
+                self.logger.debug('SupervisorListener.on_stopping: stopping external publisher')
                 self.external_publisher.close()
-                self.logger.debug('SupervisorListener.on_stopping: external notifier stopped')
+                self.logger.debug('SupervisorListener.on_stopping: external publisher stopped')
             # stop the main loop
             self.logger.debug('SupervisorListener.on_stopping: stopping main loop')
             self.main_loop.stop()
@@ -216,15 +220,17 @@ class SupervisorListener(object):
             self.supvisors.fsm.on_tick_event(self.local_identifier, payload)
             self.supvisors.fsm.on_timer_event(payload)
             # publish the TICK to all Supvisors instances
-            self.emitter.send_tick_event(payload)
+            self.publisher.send_tick_event(payload)
+            if self.mc_sender:
+                self.mc_sender.send_tick_event(payload)
             # get and publish host statistics at tick time (optional)
             if self.host_collector:
                 stats = self.host_collector()
                 if stats:
                     # publish host statistics to other Supvisors instances
-                    self.emitter.send_host_statistics(stats)
+                    self.publisher.send_host_statistics(stats)
                     # check if network interfaces have changed
-                    self.supvisors.sockets.check_intf(list(stats['io'].keys()))
+                    self.supvisors.internal_com.check_intf(list(stats['io'].keys()))
                     # TODO: TBC need to move to INITIALIZATION
                 else:
                     self.logger.error(f'SupervisorListener.on_tick: failed to get host statistics')
@@ -232,7 +238,7 @@ class SupervisorListener(object):
             if self.process_collector:
                 while not self.process_collector.stats_queue.empty():
                     stats = self.process_collector.stats_queue.get()
-                    self.emitter.send_process_statistics(stats)
+                    self.publisher.send_process_statistics(stats)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
@@ -259,7 +265,7 @@ class SupervisorListener(object):
             # update local Supvisors instance
             self.supvisors.fsm.on_process_state_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.emitter.send_process_state_event(payload)
+            self.publisher.send_process_state_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {format_exc()}')
@@ -293,7 +299,7 @@ class SupervisorListener(object):
                 # update local Supvisors instance
                 self.supvisors.fsm.on_process_added_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
-                self.emitter.send_process_added_event(process_info)
+                self.publisher.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
@@ -312,7 +318,7 @@ class SupervisorListener(object):
             # update local Supvisors instance
             self.supvisors.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.emitter.send_process_removed_event(payload)
+            self.publisher.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_removed: {format_exc()}')
@@ -334,7 +340,7 @@ class SupervisorListener(object):
                 # update local Supvisors instance
                 self.supvisors.fsm.on_process_disability_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
-                self.emitter.send_process_disability_event(process_info)
+                self.publisher.send_process_disability_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_disability: {format_exc()}')
@@ -361,7 +367,7 @@ class SupervisorListener(object):
                     # update local Supvisors instance
                     self.supvisors.fsm.on_process_added_event(self.local_identifier, process_info)
                     # publish to the other Supvisors instances
-                    self.emitter.send_process_added_event(process_info)
+                    self.publisher.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
@@ -382,7 +388,7 @@ class SupervisorListener(object):
             # update local Supvisors instance
             self.supvisors.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.emitter.send_process_removed_event(payload)
+            self.publisher.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
@@ -420,12 +426,7 @@ class SupervisorListener(object):
                               f' Supvisors=({event_identifier} / {event_address[0]})')
             return
         # process the message depending on the event type
-        if header == InternalEventHeaders.HEARTBEAT:
-            self.logger.trace(f'SupervisorListener.unstack_event: got HEARTBEAT from {event_identifier}')
-            # NOTE: at the moment, Supvisors still relies on the TICK to identify a node disconnection
-            #  if more reactivity is needed at some point, the HEARTBEAT could be used
-            # self.supvisors.fsm.on_tick_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.PROCESS:
+        if header == InternalEventHeaders.PROCESS:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS from {event_identifier}: {event_data}')
             self.supvisors.fsm.on_process_state_event(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS_ADDED:
@@ -495,4 +496,4 @@ class SupervisorListener(object):
                    'now': event_date, 'pid': 0, 'expected': False, 'spawnerr': reason,
                    'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
-        self.emitter.send_process_state_event(payload)
+        self.publisher.send_process_state_event(payload)

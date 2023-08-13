@@ -20,7 +20,7 @@
 import re
 from math import sqrt
 from time import gmtime, localtime, strftime, time
-from typing import List
+from typing import Dict, List
 from urllib.parse import urlparse
 
 from .ttypes import Payload
@@ -65,9 +65,9 @@ def extract_process_info(info: Payload) -> Payload:
 class SupervisorServerUrl:
     """ Store and update the environment for RPC interfaces. """
 
-    def __init__(self, env):
+    def __init__(self, env: Dict):
         """ Parse the Supervisor server URL for later modification. """
-        self.env = env.copy()
+        self.env: Dict = env.copy()
         # get the possible authentication part
         parsed_url = urlparse(env['SUPERVISOR_SERVER_URL'])
         self.authentication = ''

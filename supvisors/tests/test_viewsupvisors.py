@@ -22,8 +22,8 @@ from unittest.mock import call, patch, Mock
 import pytest
 from supervisor.web import MeldView
 
-from supvisors.viewsupvisors import *
-from supvisors.webutils import PROC_INSTANCE_PAGE, SUPVISORS_PAGE
+from supvisors.web.viewsupvisors import *
+from supvisors.web.webutils import PROC_INSTANCE_PAGE, SUPVISORS_PAGE
 from .base import DummyHttpContext
 from .conftest import create_element, to_simple_url
 
@@ -63,7 +63,7 @@ def test_init(view):
 
 def test_write_navigation(mocker, view):
     """ Test the write_navigation method. """
-    mocked_nav = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_nav')
+    mocked_nav = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView.write_nav')
     mocked_root = Mock()
     view.write_navigation(mocked_root)
     assert mocked_nav.call_args_list == [call(mocked_root)]
@@ -116,9 +116,9 @@ def test_write_supvisors_actions(view):
 
 def test_write_contents(mocker, view):
     """ Test the SupvisorsView.write_contents method. """
-    mocked_boxes = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_instance_boxes')
-    mocked_conflicts = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_table')
-    mocked_strategies = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_strategies')
+    mocked_boxes = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView.write_instance_boxes')
+    mocked_conflicts = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView.write_conciliation_table')
+    mocked_strategies = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView.write_conciliation_strategies')
     # patch context
     view.supvisors.fsm.state = SupvisorsStates.OPERATION
     mocker.patch.object(view.sup_ctx, 'conflicts', return_value=True)
@@ -149,7 +149,7 @@ def test_write_contents(mocker, view):
 def test_write_instance_box_title(mocker, view):
     """ Test the _write_instance_box_title method. """
     # patch context
-    mocker.patch('supvisors.viewsupvisors.simple_localtime', return_value='12:34:30')
+    mocker.patch('supvisors.web.viewsupvisors.simple_localtime', return_value='12:34:30')
     mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.RUNNING,
                          **{'has_active_state.return_value': True,
                             'get_load.return_value': 17,
@@ -301,8 +301,8 @@ def test_write_node_box_processes(view):
 
 def test_write_node_boxes(mocker, view):
     """ Test the write_instance_boxes method. """
-    mocked_box_processes = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_processes')
-    mocked_box_title = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_title')
+    mocked_box_processes = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_instance_box_processes')
+    mocked_box_title = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_instance_box_title')
     # patch context
     view.supvisors.options.multicast_group = '293.0.0.1:7777'
     local_identifier = view.sup_ctx.local_identifier
@@ -351,12 +351,12 @@ def test_write_conciliation_strategies(view):
 
 def test_write_conciliation_table(mocker, view):
     """ Test the write_conciliation_table method. """
-    mocked_name = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_name')
-    mocked_node = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_identifier')
-    mocked_time = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_uptime')
-    mocked_actions = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_process_actions')
-    mocked_strategies = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_strategies')
-    mocked_data = mocker.patch('supvisors.viewsupvisors.SupvisorsView.get_conciliation_data')
+    mocked_name = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_conflict_name')
+    mocked_node = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_conflict_identifier')
+    mocked_time = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_conflict_uptime')
+    mocked_actions = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_conflict_process_actions')
+    mocked_strategies = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_conflict_strategies')
+    mocked_data = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView.get_conciliation_data')
     # sample data
     data = [{'namespec': 'proc_1', 'rowspan': 2}, {'namespec': 'proc_1', 'rowspan': 0},
             {'namespec': 'proc_2', 'rowspan': 2}, {'namespec': 'proc_2', 'rowspan': 0}]
@@ -567,19 +567,19 @@ def test_get_conciliation_data(mocker, view):
 
 def test_sup_restart_action(mocker, view):
     """ Test the sup_shutdown_action method. """
-    mocked_methods = [mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error'),
-                      mocker.patch('supvisors.viewsupvisors.delayed_warn', return_value='delayed warning'),
-                      mocker.patch('supvisors.viewsupvisors.error_message', return_value='error'),
-                      mocker.patch('supvisors.viewsupvisors.warn_message', return_value='warning')]
+    mocked_methods = [mocker.patch('supvisors.web.viewsupvisors.delayed_error', return_value='delayed error'),
+                      mocker.patch('supvisors.web.viewsupvisors.delayed_warn', return_value='delayed warning'),
+                      mocker.patch('supvisors.web.viewsupvisors.error_message', return_value='error'),
+                      mocker.patch('supvisors.web.viewsupvisors.warn_message', return_value='warning')]
     _check_sup_action(mocker, view, view.sup_restart_action, 'restart', *mocked_methods)
 
 
 def test_sup_shutdown_action(mocker, view):
     """ Test the sup_shutdown_action method. """
-    mocked_methods = [mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error'),
-                      mocker.patch('supvisors.viewsupvisors.delayed_warn', return_value='delayed warning'),
-                      mocker.patch('supvisors.viewsupvisors.error_message', return_value='error'),
-                      mocker.patch('supvisors.viewsupvisors.warn_message', return_value='warning')]
+    mocked_methods = [mocker.patch('supvisors.web.viewsupvisors.delayed_error', return_value='delayed error'),
+                      mocker.patch('supvisors.web.viewsupvisors.delayed_warn', return_value='delayed warning'),
+                      mocker.patch('supvisors.web.viewsupvisors.error_message', return_value='error'),
+                      mocker.patch('supvisors.web.viewsupvisors.warn_message', return_value='warning')]
     _check_sup_action(mocker, view, view.sup_shutdown_action, 'shutdown', *mocked_methods)
 
 
@@ -607,11 +607,11 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
 
 def test_stop_action(mocker, view):
     """ Test the stop_action method. """
-    mocked_info = mocker.patch('supvisors.viewsupvisors.info_message', return_value='done')
+    mocked_info = mocker.patch('supvisors.web.viewsupvisors.info_message', return_value='done')
     process = Mock(running_identifiers=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
     mocked_get = mocker.patch.object(view.supvisors.context, 'get_process', return_value=process)
     # test call
-    mocked_rpc = mocker.patch.object(view.supvisors.sockets.pusher, 'send_stop_process')
+    mocked_rpc = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_stop_process')
     cb = view.stop_action('dummy_proc', '10.0.0.2')
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.2', 'dummy_proc')]
@@ -627,11 +627,11 @@ def test_stop_action(mocker, view):
 
 def test_keep_action(mocker, view):
     """ Test the keep_action method. """
-    mocked_info = mocker.patch('supvisors.viewsupvisors.info_message', return_value='done')
+    mocked_info = mocker.patch('supvisors.web.viewsupvisors.info_message', return_value='done')
     process = Mock(running_identifiers=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
     mocked_get = mocker.patch.object(view.supvisors.context, 'get_process', return_value=process)
     # test call
-    with patch.object(view.supvisors.sockets.pusher, 'send_stop_process') as mocked_rpc:
+    with patch.object(view.supvisors.internal_com.pusher, 'send_stop_process') as mocked_rpc:
         cb = view.keep_action('dummy_proc', '10.0.0.2')
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.1', 'dummy_proc'), call('10.0.0.3', 'dummy_proc')]
@@ -651,8 +651,8 @@ def test_keep_action(mocker, view):
 
 def test_conciliation_action(mocker, view):
     """ Test the conciliation_action method. """
-    mocked_info = mocker.patch('supvisors.viewsupvisors.delayed_info', return_value='delayed info')
-    mocked_conciliate = mocker.patch('supvisors.viewsupvisors.conciliate_conflicts')
+    mocked_info = mocker.patch('supvisors.web.viewsupvisors.delayed_info', return_value='delayed info')
+    mocked_conciliate = mocker.patch('supvisors.web.viewsupvisors.conciliate_conflicts')
     # patch context
     mocker.patch.object(view.sup_ctx, 'get_process', return_value='a process status')
     mocker.patch.object(view.sup_ctx, 'conflicts', return_value='all conflicting process status')
@@ -673,8 +673,8 @@ def test_conciliation_action(mocker, view):
 
 def test_sup_sync_action(mocker, view):
     """ Test the conciliation_action method. """
-    mocked_derror = mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error')
-    mocked_dwarn = mocker.patch('supvisors.viewsupvisors.delayed_warn', return_value='delayed warning')
+    mocked_derror = mocker.patch('supvisors.web.viewsupvisors.delayed_error', return_value='delayed error')
+    mocked_dwarn = mocker.patch('supvisors.web.viewsupvisors.delayed_warn', return_value='delayed warning')
     mocked_rpc = mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'end_sync',
                                      side_effect=RPCError('failed RPC'))
     # test error with no parameter

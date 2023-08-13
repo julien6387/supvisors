@@ -618,6 +618,8 @@ class ApplicationStatus:
         """ Update the state of the application iaw the state of its sequenced processes.
         An unmanaged application - or generally without starting sequence - is always STOPPED.
 
+        NOTE: This is a displayed status, and thus relies on the displayed state considering the forced state.
+
         :return: None
         """
         # always reset failures
@@ -636,21 +638,21 @@ class ApplicationStatus:
             self.logger.trace(f'ApplicationStatus.update_status: application_name={self.application_name}'
                               f' process={process.namespec} state={process.state_string()}'
                               f' required={process.rules.required} exit_expected={process.expected_exit}')
-            if process.state == ProcessStates.RUNNING:
+            if process.displayed_state == ProcessStates.RUNNING:
                 running = True
-            elif process.state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
+            elif process.displayed_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
                 starting = True
             # STOPPING is not in STOPPED_STATES
-            elif process.state == ProcessStates.STOPPING:
+            elif process.displayed_state == ProcessStates.STOPPING:
                 stopping = True
-            elif (process.state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
-                    or process.state == ProcessStates.EXITED and not process.expected_exit):
+            elif (process.displayed_state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
+                    or process.displayed_state == ProcessStates.EXITED and not process.expected_exit):
                 # a major/minor failure is raised in these states depending on the required option
                 if process.rules.required:
                     self.major_failure = True
                 else:
                     self.minor_failure = True
-            elif process.state == ProcessStates.STOPPED:
+            elif process.displayed_state == ProcessStates.STOPPED:
                 # possible major failure raised if STOPPED
                 # consideration will depend on the global application state
                 if process.rules.required:

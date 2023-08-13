@@ -24,9 +24,9 @@ import pytest
 from supervisor.web import MeldView, StatusView
 
 from supvisors.ttypes import ApplicationStates
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewprocinstance import *
-from supvisors.webutils import PROC_INSTANCE_PAGE
+from supvisors.web.viewhandler import ViewHandler
+from supvisors.web.viewprocinstance import *
+from supvisors.web.webutils import PROC_INSTANCE_PAGE
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
 from .conftest import create_application, create_process, create_element
 
@@ -626,12 +626,13 @@ def test_write_total_status(mocker, view):
 
 def test_make_callback(mocker, view):
     """ Test the ProcInstanceView.make_callback method. """
-    mocker.patch('supvisors.webutils.ctime', return_value='19:10:20')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='19:10:20')
     mocked_start = mocker.patch.object(view, 'start_group_action', return_value='started')
     mocked_stop = mocker.patch.object(view, 'stop_group_action', return_value='stopped')
     mocked_restart = mocker.patch.object(view, 'restart_group_action', return_value='restarted')
     mocked_clear = mocker.patch.object(view, 'clear_log_action', return_value='cleared')
-    mocked_parent = mocker.patch('supvisors.viewinstance.SupvisorsInstanceView.make_callback', return_value='default')
+    mocked_parent = mocker.patch('supvisors.web.viewinstance.SupvisorsInstanceView.make_callback',
+                                 return_value='default')
     # test startgroup
     assert view.make_callback('namespec', 'startgroup') == 'started'
     assert mocked_start.call_args_list == [call('namespec')]

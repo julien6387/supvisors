@@ -693,7 +693,7 @@ def test_serialization(supvisors):
     assert process._state == ProcessStates.STOPPED
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
-                          'statecode': 0, 'statename': 'STOPPED', 'expected_exit': info['expected'],
+                          'statecode': 200, 'statename': 'FATAL', 'expected_exit': info['expected'],
                           'last_event_time': process.last_event_time, 'identifiers': [], 'extra_args': ''}
 
 

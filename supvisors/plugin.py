@@ -29,18 +29,18 @@ from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
 from supervisor.xmlrpc import Faults
 
+from supvisors.web.viewapplication import ApplicationView
+from supvisors.web.viewhandler import ViewHandler
+from supvisors.web.viewhostinstance import HostInstanceView
+from supvisors.web.viewimage import *
+from supvisors.web.viewmaintail import MainTailView
+from supvisors.web.viewprocinstance import ProcInstanceView
+from supvisors.web.viewsupvisors import SupvisorsView
 from .initializer import Supvisors
 from .rpcinterface import RPCInterface, startProcess
 from .supervisordata import spawn
 from .ttypes import SupvisorsFaults
 from .utils import parse_docstring
-from .viewapplication import ApplicationView
-from .viewhandler import ViewHandler
-from .viewhostinstance import HostInstanceView
-from .viewimage import *
-from .viewmaintail import MainTailView
-from .viewprocinstance import ProcInstanceView
-from .viewsupvisors import SupvisorsView
 
 
 def expand_faults():

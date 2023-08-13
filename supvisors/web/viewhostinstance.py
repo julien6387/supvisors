@@ -17,8 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from .statscompiler import HostStatisticsInstance
-from .utils import get_stats
+from supvisors.statscompiler import HostStatisticsInstance
+from supvisors.utils import get_stats
 from .viewcontext import *
 from .viewimage import host_cpu_img, host_mem_img, host_io_img
 from .viewinstance import SupvisorsInstanceView

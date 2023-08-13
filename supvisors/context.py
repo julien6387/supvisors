@@ -24,8 +24,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from supervisor.loggers import Logger
 from supervisor.options import make_namespec, split_namespec
 
+from supvisors.external_com.eventinterface import EventPublisherInterface
 from .application import ApplicationRules, ApplicationStatus
-from .eventinterface import EventPublisherInterface
 from .instancestatus import SupvisorsInstanceStatus
 from .process import ProcessRules, ProcessStatus
 from .ttypes import (ApplicationStates, SupvisorsInstanceStates, SupvisorsStates,
@@ -140,7 +140,7 @@ class Context:
                 # choose Master among the core instances because they are expected to be more stable
                 #   this logic is kept independently of CORE being selected as synchro_options
                 core_identifiers = self.supvisors.supvisors_mapper.core_identifiers
-                self.logger.info(f'Context.elect_master: core_identifiers={core_identifiers}')
+                self.logger.debug(f'Context.elect_master: core_identifiers={core_identifiers}')
                 if core_identifiers:
                     running_core_identifiers = set(running_identifiers).intersection(core_identifiers)
                     if running_core_identifiers:
@@ -187,7 +187,7 @@ class Context:
         changed, state_modes = self.local_instance.apply_state_modes(event)
         if changed:
             # on change, publish the local Supvisors state and modes to the other Supvisors instances
-            self.supvisors.sockets.emitter.send_state_event(state_modes.serial())
+            self.supvisors.internal_com.publisher.send_state_event(state_modes.serial())
 
     def get_state_modes(self) -> Payload:
         """ Get the Supvisors state and modes, based on all connected Supvisors instances.
@@ -559,7 +559,7 @@ class Context:
             # trigger hand-shake on first TICK received
             if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
                 status.state = SupvisorsInstanceStates.CHECKING
-                self.supvisors.sockets.pusher.send_check_instance(status.identifier)
+                self.supvisors.internal_com.pusher.send_check_instance(status.identifier)
             # publish new Supvisors Instance status
             if self.external_publisher:
                 self.external_publisher.send_instance_status(status.serial())

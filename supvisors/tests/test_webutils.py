@@ -22,7 +22,7 @@ from unittest.mock import call
 
 import pytest
 
-from supvisors.webutils import *
+from supvisors.web.webutils import *
 from .conftest import create_element
 
 
@@ -48,7 +48,7 @@ def test_format_gravity_message():
 
 def test_print_message(mocker):
     """ Test the meld formatting of a message. """
-    mocker.patch('supvisors.webutils.ctime', return_value='a date')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='a date')
     # create element structure
     time_mid = create_element()
     message_mid = create_element()
@@ -137,10 +137,10 @@ def test_delayed_error():
 @pytest.fixture
 def messages(mocker):
     """ Install patches on all message functions. """
-    patches = [mocker.patch('supvisors.webutils.delayed_error', return_value='Delayed err'),
-               mocker.patch('supvisors.webutils.delayed_info', return_value='Delayed info'),
-               mocker.patch('supvisors.webutils.error_message', return_value='Msg err'),
-               mocker.patch('supvisors.webutils.info_message', return_value='Msg info')]
+    patches = [mocker.patch('supvisors.web.webutils.delayed_error', return_value='Delayed err'),
+               mocker.patch('supvisors.web.webutils.delayed_info', return_value='Delayed info'),
+               mocker.patch('supvisors.web.webutils.error_message', return_value='Msg err'),
+               mocker.patch('supvisors.web.webutils.info_message', return_value='Msg info')]
     [p.start() for p in patches]
     yield
     [p.stop() for p in patches]

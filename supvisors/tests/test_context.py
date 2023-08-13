@@ -25,7 +25,7 @@ import pytest
 from supervisor.process import ProcessStates
 
 from supvisors.context import *
-from supvisors.eventinterface import EventPublisherInterface
+from supvisors.external_com import EventPublisherInterface
 from supvisors.instancestatus import SupvisorsInstanceId, StateModes
 from supvisors.ttypes import (SupvisorsInstanceStates, ApplicationStates, SupvisorsStates,
                               StartingFailureStrategies, RunningFailureStrategies, ISOLATION_STATES)
@@ -207,7 +207,7 @@ def test_is_valid(context):
 
 def test_publish_state_modes(context):
     """ Test the Context.publish_state_modes method. """
-    mocked_send_state = context.supvisors.sockets.emitter.send_state_event
+    mocked_send_state = context.supvisors.internal_com.publisher.send_state_event
     # test unchanged
     context.publish_state_modes({'starter': False})
     assert not mocked_send_state.called
@@ -847,7 +847,7 @@ def test_authorization_checking_normal(mocker, context):
 def test_on_tick_event_local(mocker, context):
     """ Test the handling of a TICK event on the local Supvisors instance. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
-    mocked_check = context.supvisors.sockets.pusher.send_check_instance
+    mocked_check = context.supvisors.internal_com.pusher.send_check_instance
     context.supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = context.supvisors.external_publisher.send_instance_status
     # check the current context
@@ -948,7 +948,7 @@ def test_on_tick_event_local(mocker, context):
 def test_on_tick_event_remote(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
-    mocked_check = context.supvisors.sockets.pusher.send_check_instance
+    mocked_check = context.supvisors.internal_com.pusher.send_check_instance
     context.supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = context.supvisors.external_publisher.send_instance_status
     # check the current context
@@ -1473,16 +1473,16 @@ def test_on_process_state_event_locally_unknown_forced(mocker, context):
              'expected': False, 'spawnerr': 'bad luck', 'extra_args': '-h'}
     assert context.on_process_state_event('10.0.0.1', event) is process
     assert instance_status.state == SupvisorsInstanceStates.RUNNING
-    assert application.state == ApplicationStates.RUNNING
+    assert application.state == ApplicationStates.STOPPED
     expected = {'group': 'dummy_application', 'name': 'dummy_process', 'pid': 0, 'expected': False,
                 'state': ProcessStates.RUNNING, 'extra_args': '-h', 'now': 1234, 'spawnerr': 'bad luck'}
     assert mocked_publisher.send_process_event.call_args_list == [call('10.0.0.1', expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process',
-                'statecode': ProcessStates.RUNNING, 'statename': 'RUNNING', 'expected_exit': True,
+                'statecode': ProcessStates.FATAL, 'statename': 'FATAL', 'expected_exit': True,
                 'last_event_time': 2345, 'identifiers': ['10.0.0.1'], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
-    expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': ApplicationStates.RUNNING.value,
-                'statename': ApplicationStates.RUNNING.name, 'major_failure': False, 'minor_failure': False}
+    expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': ApplicationStates.STOPPED.value,
+                'statename': ApplicationStates.STOPPED.name, 'major_failure': False, 'minor_failure': True}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
 
 

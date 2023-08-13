@@ -17,18 +17,21 @@
 # limitations under the License.
 # ======================================================================
 
+import asyncio
 import json
-import select
 from enum import Enum
-from socket import error, socket, socketpair
-from typing import Any, Optional, List, Tuple
+from socket import socket
+from typing import Optional, List, Tuple
 
 from supervisor.loggers import Logger
 
-from .ttypes import DeferredRequestHeaders, InternalEventHeaders, Ipv4Address, Payload, NameList
+from supvisors.ttypes import InternalEventHeaders, Payload, NameList
 
 # timeout for polling, in milliseconds
 POLL_TIMEOUT = 100
+
+# timeout for async operations, in seconds
+ASYNC_TIMEOUT = 1.0
 
 # Chunk size to read a socket
 BUFFER_SIZE = 4096
@@ -68,6 +71,14 @@ def read_from_socket(sock: socket, msg_size: int) -> bytes:
         message_parts.append(buffer)
         to_read -= len(buffer)
     return b''.join(message_parts)
+
+
+# Enumeration for deferred XML-RPC requests
+class DeferredRequestHeaders(Enum):
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
+    (CHECK_INSTANCE, ISOLATE_INSTANCES,
+     START_PROCESS, STOP_PROCESS,
+     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(9)
 
 
 class InternalCommEmitter:
@@ -152,101 +163,6 @@ class InternalCommEmitter:
         :return: None
         """
         self.emit_message(InternalEventHeaders.STATE, payload)
-
-
-class InternalCommReceiver:
-    """ Interface for the reception of Supervisor events. """
-
-    # additional annotation types
-    PollinResult = Tuple[bool, List[int]]  # (puller_sock, [other_socks])
-
-    def __init__(self, puller_sock: socket, logger: Logger):
-        """ Create the multicast reception and the poller.
-
-        :param puller_sock: the socket pair end used to receive the deferred Supvisors XML-RPC results
-        """
-        self.puller_sock: socket = puller_sock
-        self.logger = logger
-        # get list of readers for select
-        self.poller = select.poll()
-        self.poller.register(self.puller_sock, select.POLLIN)
-
-    def close(self) -> None:
-        """ Close the resources used.
-        Should be called only from the SupvisorsMainLoop.
-
-        :return: None
-        """
-        self.poller.unregister(self.puller_sock)
-        self.puller_sock.close()
-
-    def poll(self) -> PollinResult:
-        """ Poll the sockets during POLL_TIMEOUT milliseconds.
-
-        :return: a list of sockets ready for reading
-        """
-        puller_event = False
-        fds = []
-        # poll the sockets registered
-        events = self.poller.poll(POLL_TIMEOUT)
-        # check for the readable sockets
-        for fd, event in events:
-            if event & select.POLLIN:
-                if fd == self.puller_sock.fileno():
-                    puller_event = True
-                else:
-                    fds.append(fd)
-        return puller_event, fds
-
-    def read_puller(self) -> List:
-        """ Read the message received on the puller socket. """
-        message = self.read_socket(self.puller_sock)
-        return message[1] if message else []
-
-    def read_fds(self, fds) -> List[Tuple[Ipv4Address, Payload]]:
-        """ Read the messages received on the file descriptors. """
-        raise NotImplementedError
-
-    def manage_heartbeat(self) -> None:
-        """ Check heartbeat reception from publishers and send heartbeat to them.
-
-        :return: None
-        """
-        raise NotImplementedError
-
-    def connect_subscribers(self) -> None:
-        """ Connect the Supvisors instances to the subscription socket.
-
-        :return: None
-        """
-        raise NotImplementedError
-
-    def disconnect_subscribers(self, identifiers: NameList) -> None:
-        """ Disconnect forever the Supvisors instances from the subscription socket.
-
-        :param identifiers: the identifiers of the Supvisors instances to disconnect
-        :return: None
-        """
-        raise NotImplementedError
-
-    @staticmethod
-    def read_socket(sock: socket) -> Optional[Tuple[Ipv4Address, List]]:
-        """ Return the message received on the socket.
-        ONLY valid for TCP and UNIX sockets.
-
-        :param sock: the socket to read
-        :return: the message received
-        """
-        try:
-            msg_size_as_bytes = sock.recv(4)
-            msg_size = int.from_bytes(msg_size_as_bytes, byteorder='big')
-            if msg_size > 0:
-                msg_as_bytes = read_from_socket(sock, msg_size)
-                return sock.getpeername(), bytes_to_payload(msg_as_bytes)
-        except error:
-            # failed to read from socket
-            pass
-        return None
 
 
 class RequestPusher:
@@ -357,58 +273,68 @@ class RequestPusher:
         self.push_message(DeferredRequestHeaders.SHUTDOWN_ALL, (identifier,))
 
 
-class SupvisorsInternalComm:
-    """ Base class for Supvisors internal communication.
+async def read_stream(reader: asyncio.StreamReader) -> Optional[List]:
+    """ Read a message from an asyncio StreamReader.
 
-    The push / pull sockets are used to defer XML-RPC to the Supvisors thread.
-    The emitter / receiver protocol will be defined in inherited classes. """
-
-    def __init__(self, supvisors: Any) -> None:
-        """ Construction of all communication blocks.
-
-        :param supvisors: the Supvisors global structure
-        """
-        self.supvisors = supvisors
-        # create socket pairs for the deferred requests
-        self.pusher_sock, self.puller_sock = socketpair()
-        # create the pusher used to detach the XML-RPC requests from the Supervisor Thread
-        # events will be received in the receiver
-        self.pusher = RequestPusher(self.pusher_sock, supvisors.logger)
-        # declare the emitter and receiver instances
-        self.emitter: Optional[InternalCommEmitter] = None
-        self.receiver: Optional[InternalCommReceiver] = None
-
-    def stop(self) -> None:
-        """ Close all sockets.
-        Should be called only from the Supervisor thread.
-
-        :return: None
-        """
-        if self.emitter:
-            self.emitter.close()
-        self.pusher_sock.close()
-        # WARN: do NOT close receiver and puller_sock as it will be done from the Supvisors thread (mainloop.py)
-
-    def check_intf(self, intf_names: List[str]):
-        """ Look for any change in the network interfaces and eventually restart the internal communications. """
-
-
-def create_internal_comm(supvisors: Any) -> Optional[SupvisorsInternalComm]:
-    """ Create the relevant internal publisher in accordance with the option selected.
-
-    :param supvisors: the global Supvisors instance
-    :return: the internal publisher instance
+    :param reader: the type of the event to send
+    :return: None if reader is closed, empty list if nothing to read, or the 2-parts message
     """
-    if supvisors.options.discovery_mode:
-        # create a Multicast factory
-        from supvisors.supvisorsmulticast import SupvisorsMulticast
-        supvisors.logger.info('create_internal_publisher: using UDP Multicast for internal communications')
-        publisher_class = SupvisorsMulticast
-    else:
-        # no need to check for supvisors_list as this is the fallback com
-        # get a Publish-Subscribe factory
-        from supvisors.supvisorspubsub import SupvisorsPubSub
-        supvisors.logger.info('create_internal_publisher: using TCP Publish-Subscribe for internal communications')
-        publisher_class = SupvisorsPubSub
-    # create the publisher instance
-    return publisher_class(supvisors) if publisher_class else None
+    try:
+        # read the message size
+        msg_size_as_bytes = await asyncio.wait_for(reader.readexactly(4), 1.0)
+    except asyncio.TimeoutError:
+        # nothing to read
+        return []
+    except asyncio.IncompleteReadError:
+        # socket closed during read operation read interruption
+        return None
+    # decode the message size
+    msg_size = int.from_bytes(msg_size_as_bytes, byteorder='big')
+    try:
+        # read the message itself
+        msg_as_bytes = await asyncio.wait_for(reader.readexactly(msg_size), 1.0)
+    except (asyncio.TimeoutError, asyncio.IncompleteReadError):
+        # unexpected message without body or socket closed during read operation
+        return None
+    # return the decoded message
+    return bytes_to_payload(msg_as_bytes)
+
+
+class RequestAsyncPuller:
+    """ Class for pulling deferred XML-RPC using the asynchronous event loop.
+
+    Attributes:
+        - puller_sock: the pull socket ;
+        - queue: the asynchronous queue used to store events pulled ;
+        - stop_event: the termination event ;
+        - logger: a reference to the Supvisors logger.
+    """
+
+    def __init__(self, queue: asyncio.Queue, stop_event: asyncio.Event, supvisors):
+        """ Initialization of the attributes. """
+        self.puller_sock: socket = supvisors.internal_com.puller_sock
+        self.queue: asyncio.Queue = queue
+        self.stop_event: asyncio.Event = stop_event
+        self.logger: Logger = supvisors.logger
+
+    async def handle_puller(self):
+        """ The main coroutine in charge of receiving messages from the RequestPusher. """
+        self.logger.debug(f'RequestAsyncPuller.handle_puller: connecting RequestPusher')
+        # connect the RequestPusher
+        reader, writer = await asyncio.open_unix_connection(sock=self.puller_sock)
+        self.logger.info(f'RequestAsyncPuller.handle_puller: connected')
+        # loop until requested to stop, publisher closed or error happened
+        while not self.stop_event.is_set() and not reader.at_eof():
+            # read the message
+            message = await read_stream(reader)
+            if message is None:
+                self.logger.info(f'RequestAsyncPuller.handle_puller: failed to read the message from RequestPusher')
+                break
+            elif not message:
+                self.logger.trace(f'RequestAsyncPuller.handle_puller: nothing to read from RequestPusher')
+            else:
+                # push the message to queue
+                await self.queue.put(message)
+        # close the stream writer
+        writer.close()
+        self.logger.debug(f'RequestAsyncPuller.handle_puller: exit RequestPusher')

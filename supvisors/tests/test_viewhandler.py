@@ -26,10 +26,10 @@ from supervisor.states import SupervisorStates, ProcessStates
 
 from supvisors.rpcinterface import API_VERSION
 from supvisors.ttypes import ApplicationStates, StartingStrategies, SupvisorsStates, SupvisorsInstanceStates
-from supvisors.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewimage import process_cpu_img, process_mem_img
-from supvisors.webutils import MASTER_SYMBOL
+from supvisors.web.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
+from supvisors.web.viewhandler import ViewHandler
+from supvisors.web.viewimage import process_cpu_img, process_mem_img
+from supvisors.web.webutils import MASTER_SYMBOL
 from .base import DummyHttpContext
 from .conftest import create_element, create_application
 
@@ -70,7 +70,7 @@ def test_init(http_context, handler):
 
 def test_call(mocker, handler):
     """ Test the call method. """
-    mocker.patch('supvisors.viewhandler.MeldView.__call__', side_effect=(NOT_DONE_YET, {'body': u'html_body'}))
+    mocker.patch('supvisors.web.viewhandler.MeldView.__call__', side_effect=(NOT_DONE_YET, {'body': u'html_body'}))
     # first call to MeldView returns NOT_DONE_YET
     assert handler.__call__() is NOT_DONE_YET
     # second call to MeldView returns an HTML struct
@@ -79,13 +79,13 @@ def test_call(mocker, handler):
 
 def test_render_action_in_progress(mocker, handler):
     """ Test the render method when Supervisor is in RUNNING state and when an action is in progress. """
-    mocked_style = mocker.patch('supvisors.viewhandler.ViewHandler.write_style')
-    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common')
-    mocked_contents = mocker.patch('supvisors.viewhandler.ViewHandler.write_contents')
-    mocked_header = mocker.patch('supvisors.viewhandler.ViewHandler.write_header')
-    mocked_nav = mocker.patch('supvisors.viewhandler.ViewHandler.write_navigation')
+    mocked_style = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_style')
+    mocked_common = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_common')
+    mocked_contents = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_contents')
+    mocked_header = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
+    mocked_nav = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_navigation')
     mocked_clone = mocker.patch('supervisor.web.MeldView.clone')
-    mocked_action = mocker.patch('supvisors.viewhandler.ViewHandler.handle_action')
+    mocked_action = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_action')
     # build xml template
     mocked_root = Mock(**{'write_xhtmlstring.return_value': 'xhtml'})
     mocked_clone.return_value = mocked_root
@@ -139,7 +139,7 @@ def test_handle_parameters(handler):
 
 def test_write_common(mocker, handler):
     """ Test the write_common method. """
-    mocked_msg = mocker.patch('supvisors.viewhandler.print_message')
+    mocked_msg = mocker.patch('supvisors.web.viewhandler.print_message')
     # patch context
     handler.page_name = 'dummy.html'
     handler.view_ctx = Mock(parameters={AUTO: True}, **{'format_url.return_value': 'an url',
@@ -206,8 +206,8 @@ def test_write_navigation(handler):
 
 def test_write_nav(mocker, handler):
     """ Test the write_nav method. """
-    mocked_appli = mocker.patch('supvisors.viewhandler.ViewHandler.write_nav_applications')
-    mocked_instances = mocker.patch('supvisors.viewhandler.ViewHandler.write_nav_instances')
+    mocked_appli = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_nav_applications')
+    mocked_instances = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_nav_instances')
     handler.write_nav('root', 'identifier', 'appli')
     assert mocked_instances.call_args_list == [call('root', 'identifier')]
     assert mocked_appli.call_args_list == [call('root', 'appli')]
@@ -626,7 +626,7 @@ def test_write_common_process_mem(handler):
 
 def test_write_process_start_button(mocker, handler):
     """ Test the write_process_start_button method. """
-    mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    mocked_button = mocker.patch('supvisors.web.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection when program is disabled
     info = {'namespec': 'dummy_proc', 'statecode': ProcessStates.STOPPED, 'startable': False}
@@ -641,7 +641,7 @@ def test_write_process_start_button(mocker, handler):
 
 def test_write_process_stop_button(mocker, handler):
     """ Test the write_process_stop_button method. """
-    mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    mocked_button = mocker.patch('supvisors.web.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection
     info = {'namespec': 'dummy_proc', 'statecode': ProcessStates.STARTING}
@@ -651,7 +651,7 @@ def test_write_process_stop_button(mocker, handler):
 
 def test_write_process_restart_button(mocker, handler):
     """ Test the write_process_restart_button method. """
-    mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    mocked_button = mocker.patch('supvisors.web.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call redirection when program is disabled
     info = {'namespec': 'dummy_proc', 'statecode': ProcessStates.RUNNING, 'startable': False}
@@ -666,7 +666,7 @@ def test_write_process_restart_button(mocker, handler):
 
 def test_write_process_clear_button(mocker, handler):
     """ Test the write_process_clear_button method. """
-    mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    mocked_button = mocker.patch('supvisors.web.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection with log check
     info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
@@ -682,7 +682,7 @@ def test_write_process_clear_button(mocker, handler):
 
 def test_write_process_stdout_button(mocker, handler):
     """ Test the write_process_stdout_button method. """
-    mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    mocked_button = mocker.patch('supvisors.web.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection with log check
     info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
@@ -700,7 +700,7 @@ def test_write_process_stdout_button(mocker, handler):
 
 def test_write_process_stderr_button(mocker, handler):
     """ Test the write_process_stderr_button method. """
-    mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    mocked_button = mocker.patch('supvisors.web.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
     info = {'namespec': 'dummy_application:dummy_process_1', 'identifier': '10.0.0.1'}
@@ -816,14 +816,14 @@ def test_write_common_statistics(mocker, handler):
 
 def test_write_common_process_status(mocker, handler):
     """ Test the write_common_process_status method. """
-    mocked_stderr = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_stderr_button')
-    mocked_stdout = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_stdout_button')
-    mocked_clear = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_clear_button')
-    mocked_restart = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_restart_button')
-    mocked_stop = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_stop_button')
-    mocked_start = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_start_button')
-    mocked_state = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_state')
-    mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_statistics')
+    mocked_stderr = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_stderr_button')
+    mocked_stdout = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_stdout_button')
+    mocked_clear = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_clear_button')
+    mocked_restart = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_restart_button')
+    mocked_stop = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_stop_button')
+    mocked_start = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_start_button')
+    mocked_state = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_common_state')
+    mocked_stats = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_common_statistics')
     # patch the view context
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # patch the meld elements
@@ -981,9 +981,9 @@ def test_write_process_plots(mocker, handler):
 
 def test_write_process_statistics(mocker, handler):
     """ Test the write_process_statistics method. """
-    mocked_plots = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_plots', return_value=True)
-    mocked_mem = mocker.patch('supvisors.viewhandler.ViewHandler.write_detailed_process_mem', return_value=False)
-    mocked_cpu = mocker.patch('supvisors.viewhandler.ViewHandler.write_detailed_process_cpu', return_value=False)
+    mocked_plots = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_plots', return_value=True)
+    mocked_mem = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_detailed_process_mem', return_value=False)
+    mocked_cpu = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_detailed_process_cpu', return_value=False)
     # patch the view context
     handler.view_ctx = Mock(parameters={PROCESS: None})
     # patch the meld elements
@@ -1086,7 +1086,7 @@ def test_make_callback(handler):
 
 def test_multicall_rpc_action(mocker, handler):
     """ Test the multicall_rpc_action method. """
-    mocked_rpc = mocker.patch('supvisors.viewhandler.generic_rpc', return_value='a deferred result')
+    mocked_rpc = mocker.patch('supvisors.web.viewhandler.generic_rpc', return_value='a deferred result')
     multicall = [{'methodName': 'supervisor.stopProcessGroup', 'params': ['dummy_proc']},
                  {'methodName': 'supervisor.startProcessGroup', 'params': ['dummy_proc', False]}]
     assert handler.multicall_rpc_action(multicall, 'successful') == 'a deferred result'
@@ -1096,7 +1096,7 @@ def test_multicall_rpc_action(mocker, handler):
 
 def test_supervisor_rpc_action(mocker, handler):
     """ Test the supervisor_rpc_action method. """
-    mocked_rpc = mocker.patch('supvisors.viewhandler.generic_rpc', return_value='a deferred result')
+    mocked_rpc = mocker.patch('supvisors.web.viewhandler.generic_rpc', return_value='a deferred result')
     assert handler.supervisor_rpc_action('startProcess', ('dummy_proc', True), 'successful') == 'a deferred result'
     assert mocked_rpc.call_args_list == [call(handler.supvisors.supervisor_data.supervisor_rpc_interface,
                                               'startProcess', ('dummy_proc', True), 'successful')]
@@ -1104,7 +1104,7 @@ def test_supervisor_rpc_action(mocker, handler):
 
 def test_supvisors_rpc_action(mocker, handler):
     """ Test the supvisors_rpc_action method. """
-    mocked_rpc = mocker.patch('supvisors.viewhandler.generic_rpc', return_value='a deferred result')
+    mocked_rpc = mocker.patch('supvisors.web.viewhandler.generic_rpc', return_value='a deferred result')
     assert handler.supvisors_rpc_action('start_process', (1, 'dummy_proc', True), 'successful') == 'a deferred result'
     assert mocked_rpc.call_args_list == [call(handler.supvisors.supervisor_data.supvisors_rpc_interface,
                                               'start_process', (1, 'dummy_proc', True), 'successful')]

@@ -23,8 +23,8 @@ from typing import Any, Dict, Tuple
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
+from .internal_com.mapper import SupvisorsInstanceId
 from .process import ProcessStatus
-from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition, Payload
 from .utils import TICK_PERIOD
 

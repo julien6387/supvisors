@@ -82,7 +82,7 @@ def supervisor():
 
 @pytest.fixture
 def supvisors(mocker, supervisor, options):
-    mocker.patch('supvisors.supvisorsmapper.get_addresses', side_effect=lambda x, y: (x, [x], [x]))
+    mocker.patch('supvisors.internal_com.mapper.get_addresses', side_effect=lambda x, y: (x, [x], [x]))
     return MockedSupvisors(supervisor, options)
 
 

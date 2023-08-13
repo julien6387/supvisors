@@ -24,9 +24,9 @@ from typing import Dict, Set
 import websockets
 from supervisor.loggers import Logger
 
-from .eventinterface import EventPublisherInterface, EventSubscriber, AsyncEventThread
-from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import Payload, EventHeaders
+from supvisors.external_com.eventinterface import EventPublisherInterface, EventSubscriber, AsyncEventThread
+from supvisors.internal_com.mapper import SupvisorsInstanceId
+from supvisors.ttypes import Payload, EventHeaders
 
 # additional annotation types
 WebSocketSubscriptions = Dict[websockets.WebSocketServerProtocol, Set[EventHeaders]]

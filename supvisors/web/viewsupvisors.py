@@ -19,10 +19,10 @@
 
 from typing import Dict, List
 
-from .instancestatus import SupvisorsInstanceStatus
-from .strategy import conciliate_conflicts
-from .ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions
-from .utils import simple_gmtime, simple_localtime
+from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.strategy import conciliate_conflicts
+from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions
+from supvisors.utils import simple_gmtime, simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -362,7 +362,7 @@ class SupvisorsView(ViewHandler):
         """ Stop the conflicting process. """
         # get running instances of process
         running_identifiers = self.sup_ctx.get_process(namespec).running_identifiers
-        self.supvisors.sockets.pusher.send_stop_process(identifier, namespec)
+        self.supvisors.internal_com.pusher.send_stop_process(identifier, namespec)
 
         def on_wait():
             if identifier in running_identifiers:
@@ -380,7 +380,7 @@ class SupvisorsView(ViewHandler):
         identifiers = running_identifiers.copy()
         identifiers.remove(kept_identifier)
         for identifier in identifiers:
-            self.supvisors.sockets.pusher.send_stop_process(identifier, namespec)
+            self.supvisors.internal_com.pusher.send_stop_process(identifier, namespec)
 
         def on_wait():
             if len(running_identifiers) > 1:

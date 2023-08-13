@@ -303,7 +303,7 @@ def test_user_strategy(supvisors, conflicts):
     strategy.conciliate(conflicts)
     # check that processes are NOT requested to stop
     assert not supvisors.stopper.stop_process.called
-    assert not supvisors.sockets.pusher.send_stop_process.called
+    assert not supvisors.internal_com.pusher.send_stop_process.called
 
 
 def test_stop_strategy(supvisors, conflicts):
@@ -326,7 +326,7 @@ def test_restart_strategy(supvisors, conflicts):
     strategy.conciliate(conflicts)
     # check that all processes are NOT requested to stop directly
     assert not supvisors.stopper.stop_process.called
-    assert not supvisors.sockets.pusher.send_stop_process.called
+    assert not supvisors.internal_com.pusher.send_stop_process.called
     # test failure_handler call
     assert mocked_restart.call_args_list == [call(conflicts[0], False), call(conflicts[1], False)]
     assert mocked_next.called

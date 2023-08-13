@@ -26,7 +26,7 @@ import pytest
 pytest.importorskip('websockets', reason='cannot test as optional websockets is not installed')
 
 from supvisors.client.wssubscriber import SupvisorsWsEventInterface
-from supvisors.supvisorswebsocket import *
+from supvisors.external_com.supvisorswebsocket import *
 from supvisors.ttypes import EventHeaders
 
 

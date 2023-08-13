@@ -19,9 +19,9 @@
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from supvisors.internal_com.mapper import SupvisorsMapper
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .supvisorsmapper import SupvisorsMapper
 from .ttypes import NameList, NameSet, LoadMap, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
 # annotation types

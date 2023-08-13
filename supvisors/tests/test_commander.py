@@ -850,7 +850,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     mocker.patch('time.time', return_value=1234.56)
     mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors.listener.force_process_state
-    mocked_pusher = supvisors.sockets.pusher.send_start_process
+    mocked_pusher = supvisors.internal_com.pusher.send_start_process
     mocked_failure = mocker.patch.object(application_start_job_1, 'process_failure')
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1'
@@ -1008,7 +1008,7 @@ def test_application_stop_job_creation(supvisors, application_stop_job_1, stop_s
 
 def test_application_stop_job_process_job(application_stop_job_1, stop_sample_test_1):
     """ Test the ApplicationStopJobs.process_job method. """
-    mocked_pusher = application_stop_job_1.supvisors.sockets.pusher.send_stop_process
+    mocked_pusher = application_stop_job_1.supvisors.internal_com.pusher.send_stop_process
     # set context
     application_stop_job_1.supvisors.context.instances['10.0.0.1'].sequence_counter = 14
     # test with stopped process

@@ -24,7 +24,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
 
-from .ttypes import NameList
+from supvisors.ttypes import NameList
 
 
 def get_addresses(host_id: str, logger: Logger) -> Optional[Tuple[str, NameList, NameList]]:
