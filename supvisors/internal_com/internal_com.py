@@ -107,7 +107,7 @@ class SupvisorsInternalReceiver:
         self.loop: asyncio.AbstractEventLoop = async_loop
         self.stop_event: asyncio.Event = asyncio.Event(loop=async_loop)
         # asyncio queues
-        # TODO: are 3 queues really needed ?
+        # TODO TBC: are 3 queues really needed ?
         self.requester_queue = asyncio.Queue(loop=async_loop)
         self.subscriber_queue = asyncio.Queue(loop=async_loop)
         self.discovery_queue = asyncio.Queue(loop=async_loop)
