@@ -715,12 +715,13 @@ def test_force_process_state(mocker, listener):
     """ Test the sending of a fake Supervisor process event. """
     mocker.patch('supvisors.listener.time.time', return_value=56)
     # patch publisher
-    listener.supvisors.internal_com.publisher = Mock(**{'send_process_state_event.return_value': None})
+    mocked_fsm = mocker.patch.object(listener.supvisors.fsm, 'on_process_state_event')
+    mocked_pub = mocker.patch.object(listener.supvisors.internal_com.publisher, 'send_process_state_event')
     # test the call
     process = Mock(application_name='appli', process_name='process', extra_args='-h')
     listener.force_process_state(process, '10.0.0.1', 56, ProcessStates.FATAL, 'bad luck')
-    expected = [call({'name': 'process', 'group': 'appli', 'state': ProcessStates.FATAL, 'identifier': '10.0.0.1',
-                      'forced': True, 'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False,
-                      'spawnerr': 'bad luck'})]
-    assert listener.publisher.send_process_state_event.call_args_list == expected
-    listener.publisher.send_process_state_event.reset_mock()
+    expected = {'name': 'process', 'group': 'appli', 'state': ProcessStates.FATAL, 'identifier': '10.0.0.1',
+                'forced': True, 'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False,
+                'spawnerr': 'bad luck'}
+    assert mocked_fsm.call_args_list == [call(listener.local_identifier, expected)]
+    assert mocked_pub.call_args_list == [call(expected)]

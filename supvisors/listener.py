@@ -122,6 +122,11 @@ class SupervisorListener(object):
         return self.supvisors.process_compiler
 
     @property
+    def fsm(self):
+        """ Get the Supvisors state machine. """
+        return self.supvisors.fsm
+
+    @property
     def publisher(self) -> InternalPublisher:
         """ Get the com interface used to publish Supvisors internal events to all Supvisors instances. """
         return self.supvisors.internal_com.publisher
@@ -155,7 +160,7 @@ class SupervisorListener(object):
             self.main_loop.start()
             self.logger.debug('SupervisorListener.on_running: main loop started')
             # Trigger the FSM
-            self.supvisors.fsm.next()
+            self.fsm.next()
             # Start the process statistics collector
             if self.process_collector:
                 self.process_collector.start()
@@ -217,8 +222,8 @@ class SupervisorListener(object):
             # trigger the periodic check
             # NOTE: do not involve the Supvisors internal communications to that end
             #       because it is used to detect network failures
-            self.supvisors.fsm.on_tick_event(self.local_identifier, payload)
-            self.supvisors.fsm.on_timer_event(payload)
+            self.fsm.on_tick_event(self.local_identifier, payload)
+            self.fsm.on_timer_event(payload)
             # publish the TICK to all Supvisors instances
             self.publisher.send_tick_event(payload)
             if self.mc_sender:
@@ -263,7 +268,7 @@ class SupervisorListener(object):
                        'disabled': process_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
             # update local Supvisors instance
-            self.supvisors.fsm.on_process_state_event(self.local_identifier, payload)
+            self.fsm.on_process_state_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
             self.publisher.send_process_state_event(payload)
         except Exception:
@@ -297,7 +302,7 @@ class SupervisorListener(object):
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
                 # update local Supvisors instance
-                self.supvisors.fsm.on_process_added_event(self.local_identifier, process_info)
+                self.fsm.on_process_added_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
                 self.publisher.send_process_added_event(process_info)
         except Exception:
@@ -316,7 +321,7 @@ class SupervisorListener(object):
             payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
             self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
             # update local Supvisors instance
-            self.supvisors.fsm.on_process_removed_event(self.local_identifier, payload)
+            self.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
             self.publisher.send_process_removed_event(payload)
         except Exception:
@@ -338,7 +343,7 @@ class SupervisorListener(object):
             if process_info:
                 self.logger.trace(f'SupervisorListener.on_process_disability: process_info={process_info}')
                 # update local Supvisors instance
-                self.supvisors.fsm.on_process_disability_event(self.local_identifier, process_info)
+                self.fsm.on_process_disability_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
                 self.publisher.send_process_disability_event(process_info)
         except Exception:
@@ -365,7 +370,7 @@ class SupervisorListener(object):
                 if process_info:
                     self.logger.trace(f'SupervisorListener.on_process_added: process_info={process_info}')
                     # update local Supvisors instance
-                    self.supvisors.fsm.on_process_added_event(self.local_identifier, process_info)
+                    self.fsm.on_process_added_event(self.local_identifier, process_info)
                     # publish to the other Supvisors instances
                     self.publisher.send_process_added_event(process_info)
         except Exception:
@@ -386,7 +391,7 @@ class SupervisorListener(object):
             payload = {'name': '*', 'group': event.group}
             self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
             # update local Supvisors instance
-            self.supvisors.fsm.on_process_removed_event(self.local_identifier, payload)
+            self.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
             self.publisher.send_process_removed_event(payload)
         except Exception:
@@ -414,7 +419,7 @@ class SupervisorListener(object):
         #  so it has to be processed first
         if header == InternalEventHeaders.DISCOVERY:
             self.logger.trace(f'SupervisorListener.unstack_event: got DISCOVERY from {event_identifier}: {event_data}')
-            self.supvisors.fsm.on_discovery_event(event_identifier, event_data)
+            self.fsm.on_discovery_event(event_identifier, event_data)
             return
         # check message origin validity
         if not self.supvisors.context.is_valid(event_identifier, event_address[0]):
@@ -425,27 +430,27 @@ class SupervisorListener(object):
         if header == InternalEventHeaders.TICK:
             self.logger.trace(f'SupervisorListener.unstack_event: got TICK from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_tick_event(event_identifier, event_data)
+            self.fsm.on_tick_event(event_identifier, event_data)
         elif header == InternalEventHeaders.AUTHORIZATION:
             self.logger.trace(f'SupervisorListener.unstack_event: got AUTHORIZATION from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_authorization(event_identifier, event_data)
+            self.fsm.on_authorization(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_process_state_event(event_identifier, event_data)
+            self.fsm.on_process_state_event(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS_ADDED:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_ADDED from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_process_added_event(event_identifier, event_data)
+            self.fsm.on_process_added_event(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS_REMOVED:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_REMOVED from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_process_removed_event(event_identifier, event_data)
+            self.fsm.on_process_removed_event(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS_DISABILITY:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_DISABILITY from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_process_disability_event(event_identifier, event_data)
+            self.fsm.on_process_disability_event(event_identifier, event_data)
         elif header == InternalEventHeaders.HOST_STATISTICS:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
@@ -465,11 +470,11 @@ class SupervisorListener(object):
         elif header == InternalEventHeaders.STATE:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_state_event(event_identifier, event_data)
+            self.fsm.on_state_event(event_identifier, event_data)
         elif header == InternalEventHeaders.ALL_INFO:
             self.logger.trace(f'SupervisorListener.unstack_event: got ALL_INFO from {event_identifier}:'
                               f' {event_data}')
-            self.supvisors.fsm.on_process_info(event_identifier, event_data)
+            self.fsm.on_process_info(event_identifier, event_data)
 
     def force_process_state(self, process: ProcessStatus, identifier: str, event_date: float,
                             forced_state: ProcessStates, reason: str) -> None:
@@ -489,4 +494,7 @@ class SupervisorListener(object):
                    'now': event_date, 'pid': 0, 'expected': False, 'spawnerr': reason,
                    'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
+        # update local Supvisors instance
+        self.fsm.on_process_state_event(self.local_identifier, payload)
+        # publish to the other Supvisors instances
         self.publisher.send_process_state_event(payload)
