@@ -34,7 +34,7 @@ from .internal_com import (SupvisorsInternalEmitter, InternalPublisher, Multicas
 from .process import ProcessStatus
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
-                     InternalEventHeaders, RemoteCommEvents, Payload)
+                     SUPVISORS, InternalEventHeaders, Payload)
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
@@ -222,7 +222,7 @@ class SupervisorListener(object):
             # publish the TICK to all Supvisors instances
             self.publisher.send_tick_event(payload)
             if self.mc_sender:
-                self.mc_sender.send_tick_event(payload)
+                self.mc_sender.send_discovery_event(payload)
             # get and publish host statistics at tick time (optional)
             if self.host_collector:
                 stats = self.host_collector()
@@ -400,12 +400,8 @@ class SupervisorListener(object):
         try:
             self.logger.trace(f'SupervisorListener.on_remote_event: got RemoteCommunicationEvent {event.type}'
                               f' / {event.data}')
-            if event.type == RemoteCommEvents.SUPVISORS_AUTH.value:
-                self.authorization(event.data)
-            elif event.type == RemoteCommEvents.SUPVISORS_EVENT.value:
+            if event.type == SUPVISORS:
                 self.unstack_event(event.data)
-            elif event.type == RemoteCommEvents.SUPVISORS_INFO.value:
-                self.unstack_info(event.data)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_remote_event: {format_exc()}')
@@ -414,11 +410,11 @@ class SupervisorListener(object):
         """ Unstack and process one event from the event queue. """
         event_address, (event_type, (event_identifier, event_data)) = json.loads(message)
         header = InternalEventHeaders(event_type)
-        # Note: TICK messages contain the necessary information for Supvisors instances discovery,
+        # Note: DISCOVERY messages contain the necessary information for Supvisors instances discovery,
         #  so it has to be processed first
-        if header == InternalEventHeaders.TICK:
-            self.logger.trace(f'SupervisorListener.unstack_event: got TICK from {event_identifier}: {event_data}')
-            self.supvisors.fsm.on_tick_event(event_identifier, event_data)
+        if header == InternalEventHeaders.DISCOVERY:
+            self.logger.trace(f'SupervisorListener.unstack_event: got DISCOVERY from {event_identifier}: {event_data}')
+            self.supvisors.fsm.on_discovery_event(event_identifier, event_data)
             return
         # check message origin validity
         if not self.supvisors.context.is_valid(event_identifier, event_address[0]):
@@ -426,8 +422,17 @@ class SupervisorListener(object):
                               f' Supvisors=({event_identifier} / {event_address[0]})')
             return
         # process the message depending on the event type
-        if header == InternalEventHeaders.PROCESS:
-            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS from {event_identifier}: {event_data}')
+        if header == InternalEventHeaders.TICK:
+            self.logger.trace(f'SupervisorListener.unstack_event: got TICK from {event_identifier}:'
+                              f' {event_data}')
+            self.supvisors.fsm.on_tick_event(event_identifier, event_data)
+        elif header == InternalEventHeaders.AUTHORIZATION:
+            self.logger.trace(f'SupervisorListener.unstack_event: got AUTHORIZATION from {event_identifier}:'
+                              f' {event_data}')
+            self.supvisors.fsm.on_authorization(event_identifier, event_data)
+        elif header == InternalEventHeaders.PROCESS:
+            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS from {event_identifier}:'
+                              f' {event_data}')
             self.supvisors.fsm.on_process_state_event(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS_ADDED:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_ADDED from {event_identifier}:'
@@ -458,25 +463,13 @@ class SupervisorListener(object):
                 for integrated_stats in integrated_stats_list:
                     self.external_publisher.send_process_statistics(integrated_stats)
         elif header == InternalEventHeaders.STATE:
-            self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}')
+            self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}:'
+                              f' {event_data}')
             self.supvisors.fsm.on_state_event(event_identifier, event_data)
-
-    def unstack_info(self, message: str) -> None:
-        """ Unstack the process info received.
-
-        :param message: the JSON message received.
-        :return: None
-        """
-        # unstack the queue for process info
-        identifier, info = json.loads(message)
-        self.logger.trace(f'SupervisorListener.unstack_info: got process info event from {identifier}')
-        self.supvisors.fsm.on_process_info(identifier, info)
-
-    def authorization(self, message: str) -> None:
-        """ Extract authorization and identifier from data and process event. """
-        identifier, authorized = json.loads(message)
-        self.logger.trace(f'SupervisorListener.authorization: got authorization event from {identifier}')
-        self.supvisors.fsm.on_authorization(identifier, authorized)
+        elif header == InternalEventHeaders.ALL_INFO:
+            self.logger.trace(f'SupervisorListener.unstack_event: got ALL_INFO from {event_identifier}:'
+                              f' {event_data}')
+            self.supvisors.fsm.on_process_info(event_identifier, event_data)
 
     def force_process_state(self, process: ProcessStatus, identifier: str, event_date: float,
                             forced_state: ProcessStates, reason: str) -> None:

@@ -20,7 +20,7 @@
   before they are published, so that it remains functional despite a network failure.
   The internal TCP sockets are rebound when a network interface becomes up (requires `psutil`).
 
-* Provide a discovery mode where the **Supvisors** instances are established on-the-fly without declaring them in
+* Provide a discovery mode where the **Supvisors** instances are added on-the-fly without declaring them in
   the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_group`,
   `multicast_interface` and `multicast_ttl` added to that purpose).
   The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
@@ -63,7 +63,7 @@
 
 * Do not catch XmlRpc exceptions in the JAVA client.
 
-* Refactoring of the **Supvisors** TCP Publish-Subscribe.
+* Refactoring of the **Supvisors** internal communications.
 
 
 ## 0.16 (2023-03-12)

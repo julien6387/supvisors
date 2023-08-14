@@ -183,7 +183,7 @@ def test_get_value(opt, config):
 
 def test_check_synchro_options(opt, config):
     """ Test the SupvisorsOptions.check_synchro_options method. """
-    opt.synchro_options = [SynchronizationOptions.LIST, SynchronizationOptions.CORE]
+    opt.synchro_options = [SynchronizationOptions.STRICT, SynchronizationOptions.CORE]
     assert not opt.supvisors_list
     assert not opt.core_identifiers
     # call to check_synchro_options will empty synchro_options
@@ -323,7 +323,7 @@ def test_to_synchro_options():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_synchro_options('user-core')
     # test valid values
-    assert SupvisorsOptions.to_synchro_options('list,timeout,core,user') == [x for x in SynchronizationOptions]
+    assert SupvisorsOptions.to_synchro_options('strict,list,timeout,core,user') == [x for x in SynchronizationOptions]
     assert SupvisorsOptions.to_synchro_options('  user, , liST,  USER,') == [SynchronizationOptions.USER,
                                                                              SynchronizationOptions.LIST]
     assert SupvisorsOptions.to_synchro_options('CoRe') == [SynchronizationOptions.CORE]

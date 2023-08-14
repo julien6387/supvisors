@@ -22,6 +22,9 @@ from typing import Any, Dict, List, Set, Tuple, TypeVar
 
 from supervisor.events import Event
 
+# Supvisors name
+SUPVISORS = 'Supvisors'
+
 
 # all enumerations
 class SupvisorsInstanceStates(Enum):
@@ -82,22 +85,14 @@ class StatisticsTypes(Enum):
 
 class SynchronizationOptions(Enum):
     """ Options to stop the synchronization phase. """
-    LIST, TIMEOUT, CORE, USER = range(4)
+    STRICT, LIST, TIMEOUT, CORE, USER = range(5)
 
 
 # for internal publish / subscribe
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    (HEARTBEAT, TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
-     HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(9)
-
-
-class RemoteCommEvents(Enum):
-    """ Strings used for remote communication between the Supvisors main loop and the listener. """
-    SUPVISORS_AUTH = u'supv_auth'
-    SUPVISORS_EVENT = u'supv_event'
-    SUPVISORS_INFO = u'supv_info'
-    SUPVISORS_DISCOVERY = u'supv_discovery'
+    (HEARTBEAT, TICK, AUTHORIZATION, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
+     HOST_STATISTICS, PROCESS_STATISTICS, STATE, ALL_INFO, DISCOVERY) = range(12)
 
 
 class EventHeaders(Enum):

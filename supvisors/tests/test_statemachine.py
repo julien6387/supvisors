@@ -116,6 +116,23 @@ def test_initialization_state_enter(mocker, init_state):
     assert instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
 
 
+def test_initialization_state_check_end_sync_strict(init_state):
+    """ Test the Initialization state of the FSM / _check_end_sync_strict method. """
+    init_state.supvisors.supvisors_mapper.initial_identifiers = ['10.0.0.1', '10.0.0.2']
+    assert init_state.context.instances['10.0.0.1']._state == SupvisorsInstanceStates.SILENT
+    assert init_state.context.instances['10.0.0.2']._state == SupvisorsInstanceStates.RUNNING
+    # test with option STRICT not set
+    init_state.supvisors.options.synchro_options = []
+    assert not init_state._check_end_sync_strict()
+    # test with option STRICT set
+    init_state.supvisors.options.synchro_options = [SynchronizationOptions.STRICT]
+    # test when there are still UNKNOWN Supvisors instances
+    assert not init_state._check_end_sync_strict()
+    # test when all initial instances are RUNNING, even there are still unknown states
+    init_state.context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    assert init_state._check_end_sync_strict()
+
+
 def test_initialization_state_check_end_sync_list(init_state):
     """ Test the Initialization state of the FSM / _check_end_sync_list method. """
     # test with option LIST not set
@@ -123,14 +140,15 @@ def test_initialization_state_check_end_sync_list(init_state):
     assert not init_state._check_end_sync_list()
     # test with option LIST set
     init_state.supvisors.options.synchro_options = [SynchronizationOptions.LIST]
-    # test when there are still UNKNOWN Supvisors instances
-    assert init_state.context.instances['10.0.0.3']._state == SupvisorsInstanceStates.ISOLATING
-    assert init_state.context.instances['test'].state == SupvisorsInstanceStates.UNKNOWN
+    # test when there are still non-RUNNING Supvisors instances
+    init_state.context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     assert not init_state._check_end_sync_list()
-    # test when there are no more unknown and transitory (UNKNOWN, ISOLATING, CHECKING) Supvisors instances
-    init_state.context.instances['test']._state = SupvisorsInstanceStates.SILENT
+    init_state.context.instances['test']._state = SupvisorsInstanceStates.RUNNING
+    init_state.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.RUNNING
     assert not init_state._check_end_sync_list()
-    init_state.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    # test when all Supvisors instances are RUNNING
+    for instance in init_state.context.instances.values():
+        instance._state = SupvisorsInstanceStates.RUNNING
     assert init_state._check_end_sync_list()
 
 
@@ -646,7 +664,7 @@ def test_master_complex_set_state(fsm, mock_master_events):
 
 
 def test_fsm_next(mocker, fsm):
-    """ Test the principle of the FiniteStateMachine.next method. """
+    """ Test the principle of the FiniteStateMachine / next method. """
     mocker_state = mocker.patch.object(fsm, 'set_state')
     fsm.next()
     assert fsm.supvisors.starter.check.called
@@ -788,19 +806,19 @@ def test_tick_event(mocker, fsm):
     event = {'tick': 1234, 'ip_address': '10.0.0.1', 'server_port': 1234}
     fsm.on_tick_event('10.0.0.1', event)
     assert mocked_evt.call_args_list == [call('10.0.0.1', event)]
-    assert not fsm.redeploy_mark
     mocker.resetall()
     # test when tick comes from local node
     local_identifier = fsm.supvisors.supvisors_mapper.local_identifier
     event['ip_address'] = fsm.supvisors.supvisors_mapper.local_instance.ip_address
     fsm.on_tick_event(local_identifier, event)
     assert mocked_evt.call_args_list == [call(local_identifier, event)]
-    assert not fsm.redeploy_mark
-    mocker.resetall()
-    # activate discovery mode
-    fsm.supvisors.options.multicast_group = '239.0.0.1', 7777
+
+
+def test_discovery_event(mocker, fsm):
+    """ Test the actions triggered in state machine upon reception of a discovery event. """
+    mocked_evt = mocker.patch.object(fsm.supvisors.context, 'on_discovery_event')
     event = {'tick': 1357, 'ip_address': '192.168.1.1', 'server_port': 5000}
-    fsm.on_tick_event('rocky52', event)
+    fsm.on_discovery_event('rocky52', event)
     assert mocked_evt.call_args_list == [call('rocky52', event)]
     assert fsm.redeploy_mark
 
@@ -1084,8 +1102,8 @@ def test_on_process_info(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a process information. """
     # inject process info and test call to context load_processes
     mocked_load = mocker.patch.object(fsm.context, 'load_processes')
-    fsm.on_process_info('10.0.0.1', {'info': 'dummy_info'})
-    assert mocked_load.call_args_list == [call('10.0.0.1', {'info': 'dummy_info'})]
+    fsm.on_process_info('10.0.0.1', [{'info': 'dummy_info'}])
+    assert mocked_load.call_args_list == [call('10.0.0.1', [{'info': 'dummy_info'}])]
 
 
 def test_on_state_event(mocker, fsm):

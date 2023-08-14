@@ -96,7 +96,7 @@ async def handle_mc_receiver(queue: asyncio.Queue, stop_event: asyncio.Event, su
     try:
         transport, protocol = await loop.create_datagram_endpoint(lambda: MulticastReceiver(queue, supvisors.logger),
                                                                   family=AF_INET, proto=IPPROTO_UDP,
-                                                                  local_addr=mc_address)
+                                                                  local_addr=mc_address, reuse_port=True)
     except error as exc:
         supvisors.logger.error(f'handle_mc_receiver: failed to open endpoint to {mc_address} - {str(exc)}')
     else:

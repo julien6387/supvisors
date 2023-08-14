@@ -45,10 +45,10 @@ def local_subscriber(supvisors, request):
     subscriber = InternalAsyncSubscribers(queue, event, supvisors)
     subscriber.get_coroutines()  # not used, just hit it
     # local instance has been removed from the subscribers, but it's actually the only instance that can be tested here
-    local_instance_id = supvisors.supvisors_mapper.local_instance
+    local_identifier = supvisors.supvisors_mapper.local_identifier
     # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
     all_coro = [asyncio.wait_for(subscriber.check_stop(), request.param),
-                asyncio.wait_for(subscriber.create_coroutine(local_instance_id), request.param)]
+                asyncio.wait_for(subscriber.create_coroutine(local_identifier), request.param)]
     return subscriber, all_coro
 
 

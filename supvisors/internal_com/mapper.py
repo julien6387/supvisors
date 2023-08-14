@@ -193,6 +193,7 @@ class SupvisorsMapper:
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
         self.local_identifier = None
+        self.initial_identifiers: NameList = []
 
     @property
     def local_instance(self) -> SupvisorsInstanceId:
@@ -255,6 +256,8 @@ class SupvisorsMapper:
             # get Supervisor identification from each element
             for item in supvisors_list:
                 self.add_instance(item, False)
+            # keep information about the initial Supvisors identifiers added to the configuration
+            self.initial_identifiers = list(self._instances.keys())
         else:
             # if supvisors_list is empty, use self identification from supervisor internal data
             supervisor = self.supvisors.supervisor_data

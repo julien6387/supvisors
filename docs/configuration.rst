@@ -110,10 +110,9 @@ behavior may happen. The present section details where it is applicable.
 
 ``multicast_group``
 
-    The IP address and port number of the Multicast Group where the |Supvisors| instances will share information
+    The IP address and port number of the Multicast Group where the |Supvisors| instances will share their identity
     between them, separated by a colon (example: ``239.0.0.1:1234``).
-    This is an alternative to the ``supvisors_list`` option, replacing the internal TCP Publish / Subscribe,
-    and it allows |Supvisors| to work in a discovery mode *(Not stable yet)*.
+    This is an alternative to the ``supvisors_list`` option, that allows |Supvisors| to work in a discovery mode.
 
     *Default*:  None.
 
@@ -123,11 +122,9 @@ behavior may happen. The present section details where it is applicable.
 
     .. hint::
 
-        Although it is an alternative, this option can yet be combined with ``supvisors_list`` and ``core_identifiers``.
-        In this case, the multicast group is definitely used to exchange information.
-        The impact is on the ``INITIALIZATION`` state where the status of the declared |Supvisors| instances (as defined
-        in the ``supvisors_list`` option) will be evaluated before exiting this state and the phase could eventually be
-        ended when the ``core_identifiers`` are all in a known state before the ``synchro_timeout`` is reached.
+        Although it is an alternative, this option can yet be combined with ``supvisors_list``.
+        In this case, the |Supvisors| instances declared in the ``supvisors_list`` option will form an initial group
+        that may grow when other unknown |Supvisors| instances declare themselves.
 
 ``multicast_interface``
 
@@ -219,8 +216,10 @@ behavior may happen. The present section details where it is applicable.
 
     The conditions applied by |Supvisors| to exit the ``INITIALIZATION`` state.
     Multiple values in [``LIST`` ; ``TIMEOUT`` ; ``CORE`` ; ``USER``], separated by commas.
-    If ``LIST`` is selected, |Supvisors| exits the ``INITIALIZATION`` state when all the |Supvisors| instances
-    declared in the ``supvisors_list`` option are no more in the ``UNKNOWN`` state.
+    If ``STRICT`` is selected, |Supvisors| exits the ``INITIALIZATION`` state when all the |Supvisors| instances
+    declared in the ``supvisors_list`` option are in the ``RUNNING`` state.
+    If ``LIST`` is selected, |Supvisors| exits the ``INITIALIZATION`` state when all known |Supvisors| instances
+    (including those declared in the ``supvisors_list`` option **AND** those discovered) are in the ``RUNNING`` state.
     If ``TIMEOUT`` is selected, |Supvisors| exits the ``INITIALIZATION`` state after the duration defined in the
     ``synchro_timeout`` option.
     If ``CORE`` is selected, |Supvisors| exits the ``INITIALIZATION`` state when all the |Supvisors| instances
@@ -230,7 +229,7 @@ behavior may happen. The present section details where it is applicable.
     command of ``supervisorctl``).
     The use of this option is more detailed in :ref:`synchronizing`.
 
-    *Default*:  ``LIST,TIMEOUT,CORE``.
+    *Default*:  ``STRICT,TIMEOUT,CORE``.
 
     *Required*:  No.
 

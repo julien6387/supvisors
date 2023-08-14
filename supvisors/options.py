@@ -85,7 +85,9 @@ class SupvisorsOptions:
     SYNCHRO_TIMEOUT_MAX = 1200
 
     # default SynchronizationOptions list that is equivalent to previous Supvisors versions
-    SYNCHRO_DEFAULT_OPTIONS = [SynchronizationOptions.LIST, SynchronizationOptions.TIMEOUT, SynchronizationOptions.CORE]
+    SYNCHRO_DEFAULT_OPTIONS = [SynchronizationOptions.STRICT,
+                               SynchronizationOptions.TIMEOUT,
+                               SynchronizationOptions.CORE]
 
     INACTIVITY_TICKS_MIN = 2
     INACTIVITY_TICKS_MAX = 720
@@ -188,10 +190,10 @@ class SupvisorsOptions:
                              ' with no core_identifiers')
             self.synchro_options.remove(SynchronizationOptions.CORE)
         # when using LIST in synchro_options, supvisors_list cannot be empty
-        if not self.supvisors_list and SynchronizationOptions.LIST in self.synchro_options:
-            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options LIST'
+        if not self.supvisors_list and SynchronizationOptions.STRICT in self.synchro_options:
+            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options STRICT'
                              ' with no supvisors_list')
-            self.synchro_options.remove(SynchronizationOptions.LIST)
+            self.synchro_options.remove(SynchronizationOptions.STRICT)
         # finally, synchron_options must not be empty
         if not self.synchro_options:
             raise ValueError('synchro_options must not be empty')

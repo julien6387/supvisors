@@ -150,33 +150,21 @@ def test_elect_master(context):
     assert context.master_identifier == '10.0.0.3'
 
 
-def test_check_discovery(context):
-    """ Test the Context.check_discovery method. """
-    assert not context.supvisors.options.discovery_mode
+def test_on_discovery_event(context):
+    """ Test the Context.on_discovery_event method. """
     # store reference
     sup_id: SupvisorsInstanceId = context.instances['10.0.0.1'].supvisors_id
     ref_ip_address, ref_port = sup_id.ip_address, sup_id.http_port
-    # test in no discovery mode
-    for identifier, ip_address, port in [('10.0.0.1', '10.0.0.1', 65000),  # known identical
-                                         ('10.0.0.1', '10.0.0.2', 6000),  # known changed
-                                         ('rocky52', '192.168.1.2', 5000)]:  # unknown
-        assert not context.check_discovery(identifier, ip_address, port)
-    assert sup_id.ip_address == ref_ip_address
-    assert sup_id.http_port == ref_port
-    assert 'rocky52' not in context.instances
-    # activate discovery mode
-    context.supvisors.options.multicast_group = '239.0.0.1', 7777
-    assert context.supvisors.options.discovery_mode
     # test in discovery mode and identifier known and identical
-    assert not context.check_discovery('10.0.0.1', '10.0.0.1', 65000)
+    assert not context.on_discovery_event('10.0.0.1', {'ip_address': '10.0.0.1', 'server_port': 65000})
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
     # test in discovery mode and identifier known and changed
-    assert not context.check_discovery('10.0.0.1', '10.0.0.2', 6000)
+    assert not context.on_discovery_event('10.0.0.1', {'ip_address': '10.0.0.2', 'server_port': 6000})
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
     # test in discovery mode and identifier unknown
-    assert context.check_discovery('rocky52', '192.168.1.2', 5000)
+    assert context.on_discovery_event('rocky52', {'ip_address': '192.168.1.2', 'server_port': 5000})
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
     assert 'rocky52' in context.instances
@@ -286,12 +274,47 @@ def test_get_nodes_load(mocker, context):
                                         sup_id.ip_address: 15}
 
 
+def test_initial_running(context):
+    """ Test the check of initial Supvisors instances running. """
+    # update mapper
+    context.supvisors.supvisors_mapper.initial_identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3']
+    assert not context.initial_running()
+    # add some RUNNING
+    context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
+    assert not context.initial_running()
+    # add some RUNNING so that all initial instances are RUNNING
+    context.instances['10.0.0.3']._state = SupvisorsInstanceStates.RUNNING
+    assert context.initial_running()
+    # set all RUNNING
+    for instance in context.instances.values():
+        instance._state = SupvisorsInstanceStates.RUNNING
+    assert context.initial_running()
+
+
+def test_all_running(context):
+    """ Test the check of all Supvisors instances running. """
+    assert not context.all_running()
+    # add some RUNNING
+    context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
+    assert not context.all_running()
+    # set all RUNNING
+    for instance in context.instances.values():
+        instance._state = SupvisorsInstanceStates.RUNNING
+    assert context.all_running()
+
+
 def test_instances_by_states(context):
     """ Test the access to instances in unknown state. """
     local_identifier = context.supvisors.supvisors_mapper.local_identifier
     # test initial states
     all_instances = sorted(context.supvisors.supvisors_mapper.instances.keys())
-    assert sorted(context.unknown_identifiers()) == all_instances
+    assert not context.all_running()
     assert not context.running_core_identifiers()
     assert context.running_identifiers() == []
     assert context.isolating_instances() == []
@@ -309,7 +332,7 @@ def test_instances_by_states(context):
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5', 'test']
+    assert not context.all_running()
     assert not context.running_core_identifiers()
     assert context.running_identifiers() == ['10.0.0.4', local_identifier]
     assert context.isolating_instances() == ['10.0.0.2']
@@ -327,7 +350,7 @@ def test_running_core_identifiers(supvisors):
     supvisors.supvisors_mapper._core_identifiers = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
-    assert sorted(context.unknown_identifiers()) == sorted(context.supvisors.supvisors_mapper.instances.keys())
+    assert not context.all_running()
     assert not context.running_core_identifiers()
     # change states
     context.local_instance._state = SupvisorsInstanceStates.RUNNING
@@ -335,17 +358,17 @@ def test_running_core_identifiers(supvisors):
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.1', '10.0.0.2', '10.0.0.5', 'test']
+    assert not context.all_running()
     assert not context.running_core_identifiers()
     # change states
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5', 'test']
+    assert not context.all_running()
     assert not context.running_core_identifiers()
     # change states
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5', 'test']
+    assert not context.all_running()
     assert context.running_core_identifiers()
 
 

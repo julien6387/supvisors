@@ -179,6 +179,7 @@ def test_mapper_create(supvisors, mapper):
     assert mapper.instances == {}
     assert mapper.nodes == {}
     assert mapper.local_identifier is None
+    assert mapper.initial_identifiers == []
 
 
 def test_add_instance(mapper):
@@ -219,6 +220,7 @@ def test_mapper_configure(mocker, mapper):
     assert mapper.core_identifiers == ['127.0.0.1', 'supervisor_05', '10.0.0.4:15000']
     assert mapper.nodes == {'127.0.0.1': ['127.0.0.1'], '10.0.0.5': ['supervisor_05', '10.0.0.5:9999'],
                             '10.0.0.4': ['10.0.0.4:15000']}
+    assert mapper.initial_identifiers == ['127.0.0.1', 'supervisor_05', '10.0.0.4:15000', '10.0.0.5:9999']
     assert mocked_find.called
     mocked_find.reset_mock()
     # configure mapper with one invalid element

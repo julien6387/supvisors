@@ -21,10 +21,10 @@ import asyncio
 from socket import socketpair
 from typing import Any, List, Optional, Coroutine
 
-from .internalinterface import RequestPusher, RequestAsyncPuller
 from .mapper import SupvisorsInstanceId
 from .multicast import MulticastSender, handle_mc_receiver
 from .pubsub import InternalPublisher, InternalAsyncSubscribers
+from .pushpull import RequestPusher, RequestAsyncPuller
 
 
 class SupvisorsInternalEmitter:
@@ -107,7 +107,6 @@ class SupvisorsInternalReceiver:
         self.loop: asyncio.AbstractEventLoop = async_loop
         self.stop_event: asyncio.Event = asyncio.Event(loop=async_loop)
         # asyncio queues
-        # TODO TBC: are 3 queues really needed ?
         self.requester_queue = asyncio.Queue(loop=async_loop)
         self.subscriber_queue = asyncio.Queue(loop=async_loop)
         self.discovery_queue = asyncio.Queue(loop=async_loop)
@@ -128,7 +127,6 @@ class SupvisorsInternalReceiver:
 
     async def set_stop(self) -> None:
         """ Set the Future stop_event to stop all asynchronous tasks. """
-        print('### set_stop called')
         self.stop_event.set()
 
     def get_tasks(self) -> List:

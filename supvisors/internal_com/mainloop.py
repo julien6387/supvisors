@@ -30,10 +30,11 @@ from supervisor.compat import xmlrpclib
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import RPCError
 
-from supvisors.ttypes import InternalEventHeaders, RemoteCommEvents, SupvisorsInstanceStates, ISOLATION_STATES
+from supvisors.ttypes import InternalEventHeaders, SupvisorsInstanceStates, Ipv4Address, SUPVISORS, ISOLATION_STATES
 from supvisors.utils import SupervisorServerUrl
 from .internal_com import SupvisorsInternalReceiver
-from .internalinterface import DeferredRequestHeaders, ASYNC_TIMEOUT
+from .internalinterface import ASYNC_TIMEOUT
+from .pushpull import DeferredRequestHeaders
 
 
 class SupervisorProxy(threading.Thread):
@@ -65,9 +66,13 @@ class SupervisorProxy(threading.Thread):
         """ Shortcut to the Supvisors logger. """
         return self.supvisors.logger
 
-    def push(self, event_type, message):
+    def push_event(self, message):
         """ Add an event to send to Supervisor. """
-        self.queue.put_nowait((event_type, message))
+        self.queue.put_nowait((None, message))
+
+    def push_request(self, request: DeferredRequestHeaders, params):
+        """ Add an event to send to Supervisor. """
+        self.queue.put_nowait((request, params))
 
     def stop(self):
         """ Set the event to stop the main loop. """
@@ -75,16 +80,18 @@ class SupervisorProxy(threading.Thread):
 
     def run(self):
         """ Main loop. """
+        self.logger.info('SupervisorProxy.run: entering main loop')
         while not self.event.is_set():
             try:
-                event = self.queue.get(timeout=SupervisorProxy.QUEUE_TIMEOUT)
+                event_type, event_data = self.queue.get(timeout=SupervisorProxy.QUEUE_TIMEOUT)
             except queue.Empty:
-                pass
+                self.logger.blather('SupervisorProxy.run: nothing received')
             else:
-                if event[0] in [RemoteCommEvents.SUPVISORS_EVENT, RemoteCommEvents.SUPVISORS_DISCOVERY]:
-                    self.send_remote_comm_event(*event)
-                elif event[0] in DeferredRequestHeaders:
-                    self.execute(*event)
+                if event_type is not None:
+                    self.execute(event_type, event_data)
+                else:
+                    self.send_remote_comm_event(event_data)
+        self.logger.info('SupervisorProxy.run: exiting main loop')
 
     def execute(self, header: DeferredRequestHeaders, body) -> None:
         """ Perform the XML-RPC according to the header. """
@@ -122,7 +129,13 @@ class SupervisorProxy(threading.Thread):
             self._transfer_states_modes(identifier)
             self._transfer_process_info(identifier)
         # inform local Supvisors that authorization result is available
-        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, (identifier, authorized))
+        message = InternalEventHeaders.AUTHORIZATION.value, (identifier, authorized)
+        self.send_remote_comm_event((self._get_origin(identifier), message))
+
+    def _get_origin(self, identifier: str) -> Ipv4Address:
+        """ Return the IPv4 tuple associated with the Supvisors instance. """
+        instance = self.supvisors.supvisors_mapper.instances[identifier]
+        return instance.ip_address, instance.http_port
 
     def _is_authorized(self, identifier: str) -> Optional[bool]:
         """ Get authorization from remote Supvisors instance.
@@ -168,7 +181,8 @@ class SupervisorProxy(threading.Thread):
             # do NOT set authorized to False in this case or an unwanted isolation may happen
         else:
             # inform local Supvisors about the processes available remotely
-            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, (identifier, all_info))
+            message = InternalEventHeaders.ALL_INFO.value, (identifier, all_info)
+            self.send_remote_comm_event((self._get_origin(identifier), message))
 
     def _transfer_states_modes(self, identifier: str) -> None:
         """ Get the states and modes from the remote Supvisors instance and post it to the local Supvisors instance.
@@ -188,10 +202,8 @@ class SupervisorProxy(threading.Thread):
             self.logger.debug(f'SupervisorProxy._transfer_states_modes: remote_status={remote_status}')
             state_modes = {key: remote_status[key] for key in SupervisorProxy.StateModesKeys}
             # provide the local Supvisors with the remote Supvisors instance state and modes
-            instance = self.supvisors.supvisors_mapper.instances[identifier]
-            origin = instance.ip_address, instance.http_port
             message = InternalEventHeaders.STATE.value, (identifier, state_modes)
-            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, (origin, message))
+            self.send_remote_comm_event((self._get_origin(identifier), message))
 
     def start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """
@@ -253,15 +265,14 @@ class SupervisorProxy(threading.Thread):
             self.logger.error('SupervisorProxy.shutdown_all: failed to send Supvisors shutdown'
                               f' to Master {identifier}')
 
-    def send_remote_comm_event(self, event_type: RemoteCommEvents, event_data) -> None:
+    def send_remote_comm_event(self, event_data) -> None:
         """ Perform the Supervisor sendRemoteCommEvent. """
         try:
-            self.proxy.supervisor.sendRemoteCommEvent(event_type.value, json.dumps(event_data))
+            self.proxy.supervisor.sendRemoteCommEvent(SUPVISORS, json.dumps(event_data))
         except SupervisorProxy.RpcExceptions:
             # expected on restart / shutdown
-            self.logger.error('SupervisorProxy.send_remote_comm_event: failed to send event to Supervisor'
-                              f' {event_type} - {event_data}')
-            self.logger.error(f'SupervisorProxy.send_remote_comm_event: {traceback.format_exc()}')
+            self.logger.error(f'SupervisorProxy.send_remote_comm_event: failed to send to Supervisor {event_data}')
+            self.logger.debug(f'SupervisorProxy.send_remote_comm_event: {traceback.format_exc()}')
 
 
 class SupvisorsMainLoop(threading.Thread):
@@ -335,29 +346,35 @@ class SupvisorsMainLoop(threading.Thread):
                 message = await asyncio.wait_for(async_queue.get(), ASYNC_TIMEOUT)
             except asyncio.TimeoutError:
                 # no message
-                self.logger.trace('SupvisorsMainLoop.read_queue: nothing received')
+                self.logger.blather('SupvisorsMainLoop.read_queue: nothing received')
             else:
                 await callback(message)
 
     async def check_remote_event(self, message):
         """ Transfer the message to the Supervisor thread. """
         self.logger.trace(f'SupvisorsMainLoop.check_remote_event: message={message}')
-        self.proxy.push(RemoteCommEvents.SUPVISORS_EVENT, message)
+        self.proxy.push_event(message)
 
     async def check_discovery_event(self, message):
         """ Transfer the message to the Supervisor thread. """
         self.logger.trace(f'SupvisorsMainLoop.check_discovery_event: message={message}')
-        self.proxy.push(RemoteCommEvents.SUPVISORS_DISCOVERY, message)
+        self.proxy.push_event(message)
 
     async def check_requests(self, message) -> None:
         """ Defer internal requests. """
         header, body = message
-        self.logger.trace(f'SupvisorsMainLoop.check_requests: header={header} body={body}')
+        self.logger.debug(f'SupvisorsMainLoop.check_requests: header={header} body={body}')
         deferred_request = DeferredRequestHeaders(header)
         # check publication event or deferred request
         if deferred_request == DeferredRequestHeaders.ISOLATE_INSTANCES:
             # isolation request: disconnect the Supvisors instances from the subscribers
             self.receiver.subscribers.disconnect_subscribers(body)
+        elif deferred_request == DeferredRequestHeaders.CONNECT_INSTANCE:
+            # discovery mode: a new Supvisors instance has to be added to the subscribers
+            for identifier in body:
+                self.logger.info(f'SupvisorsMainLoop.check_requests: add subscriber to {identifier}')
+                coro = self.receiver.subscribers.create_coroutine(identifier)
+                self.receiver.loop.create_task(coro)
         else:
             # XML-RPC requests
-            self.proxy.push(deferred_request, body)
+            self.proxy.push_request(deferred_request, body)

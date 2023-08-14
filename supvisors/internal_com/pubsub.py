@@ -456,19 +456,20 @@ class InternalAsyncSubscribers:
 
         NOTE: the local Supvisors instance is not considered.
         """
-        instance_ids = self.supvisors.supvisors_mapper.instances.copy()
+        identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         # remove the local Supvisors instance from the list as it will receive events directly
-        del instance_ids[self.supvisors.supvisors_mapper.local_identifier]
+        identifiers.remove(self.supvisors.supvisors_mapper.local_identifier)
         # return the coroutines
-        return [self.create_coroutine(instance_id) for instance_id in instance_ids.values()] + [self.check_stop()]
+        return [self.create_coroutine(identifier) for identifier in identifiers] + [self.check_stop()]
 
-    def create_coroutine(self, instance_id: SupvisorsInstanceId):
+    def create_coroutine(self, identifier: str):
         """ Create a task for a given remote Supvisors instance.
 
-        :param instance_id: the identification structure of the remote Supvisors instance.
+        :param identifier: the identifier structure of the remote Supvisors instance.
         :return:
         """
-        self.stop_events[instance_id.identifier] = stop_event = asyncio.Event()
+        instance_id = self.supvisors.supvisors_mapper.instances[identifier]
+        self.stop_events[identifier] = stop_event = asyncio.Event()
         subscriber = InternalAsyncSubscriber(instance_id, self.queue, stop_event, self.supvisors.logger)
         return subscriber.auto_connect()
 

@@ -148,16 +148,27 @@ class InitializationState(AbstractState):
         # reset context, keeping the isolation status
         self.context.reset()
 
-    def _check_end_sync_list(self) -> bool:
-        """ End of sync phase if all Supvisors instances are in a known state.
+    def _check_end_sync_strict(self) -> bool:
+        """ End of sync phase if all Supvisors instances declared in the supvisors_list option are running.
         NOTE: this option is NOT allowed if the supvisors_list is empty (which is expected in discovery mode,
-        but still possible). """
-        if SynchronizationOptions.LIST in self.supvisors.options.synchro_options:
-            nb_unknown_identifiers = len(self.context.unknown_identifiers())
-            self.logger.debug(f'InitializationState._check_end_sync_list: unknown_identifiers={nb_unknown_identifiers}')
-            if nb_unknown_identifiers == 0:
+        but still possible).
+        """
+        if SynchronizationOptions.STRICT in self.supvisors.options.synchro_options:
+            if self.context.initial_running():
                 self.logger.info('InitializationState._check_end_sync_list: all expected Supvisors instances'
-                                 ' are in a known state')
+                                 ' are RUNNING')
+                return True
+        return False
+
+    def _check_end_sync_list(self) -> bool:
+        """ End of sync phase if all known Supvisors instances are running.
+        NOTE: this includes the Supvisors instances declared in the supvisors_list option and the discovered
+        Supvisors instances.
+        """
+        if SynchronizationOptions.LIST in self.supvisors.options.synchro_options:
+            if self.context.all_running():
+                self.logger.info('InitializationState._check_end_sync_list: all known Supvisors instances'
+                                 ' are RUNNING')
                 return True
         return False
 
@@ -219,13 +230,14 @@ class InitializationState(AbstractState):
         if self.local_identifier in running_identifiers:
             # check end of sync conditions
             self.logger.trace(f'InitializationState.next: synchro_options={self.supvisors.options.synchro_options}')
+            strict_sync = self._check_end_sync_strict()
             list_sync = self._check_end_sync_list()
             timeout_synch = self._check_end_sync_timeout(uptime)
             core_sync = self._check_end_sync_core(uptime, running_identifiers)
             user_sync = self._check_end_sync_user(running_identifiers)
-            self.logger.debug(f'InitializationState.next: list_sync={list_sync} timeout_synch={timeout_synch}'
-                              f' core_sync={core_sync} user_sync={user_sync}')
-            if list_sync or timeout_synch or core_sync or user_sync:
+            self.logger.debug(f'InitializationState.next: strict_sync={strict_sync} list_sync={list_sync}'
+                              f' timeout_synch={timeout_synch} core_sync={core_sync} user_sync={user_sync}')
+            if strict_sync or list_sync or timeout_synch or core_sync or user_sync:
                 if self.context.master_identifier:
                     # check Master status and reset if not running
                     if self.context.master_instance.state != SupvisorsInstanceStates.RUNNING:
@@ -439,7 +451,7 @@ class SlaveRestartingState(AbstractState):
     def exit(self):
         """ When exiting the RESTARTING state, request the full restart.
 
-        NOTE: this has been moved from the former RestartState.enter because a Supvisors Slave
+        NOTE: this has been moved from the former RestartState / enter because a Supvisors Slave
         could move from RESTARTING to any other state if the Master commands so,
         and it's important that Supervisor restarts at this point. """
         self.supvisors.internal_com.pusher.send_restart(self.local_identifier)
@@ -472,7 +484,7 @@ class SlaveShuttingDownState(AbstractState):
     def exit(self):
         """ When exiting the SHUTTING_DOWN state, request the Supervisor shutdown.
 
-        NOTE: this has been moved from the former ShutDownState.enter because a Supvisors Slave
+        NOTE: this has been moved from the former ShutDownState / enter because a Supvisors Slave
         could move from SHUTTING_DOWN to any other state if the Master commands so,
         and it's important that Supervisor shuts down at this point. """
         self.supvisors.internal_com.pusher.send_shutdown(self.local_identifier)
@@ -592,13 +604,23 @@ class FiniteStateMachine:
         :param event: the tick event
         :return:
         """
-        # When Supvisors is in discovery mode, new Supvisors instances may be added on-the-fly
-        if self.context.check_discovery(identifier, event['ip_address'], event['server_port']):
-            # a DEPLOYMENT will be requested if a new Supvisors instance has been inserted
-            self.redeploy_mark = True
         if self.context.is_valid(identifier, event['ip_address']):
             # update the Supvisors instance status
             self.context.on_tick_event(identifier, event)
+
+    def on_discovery_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to add new Supvisors instances into the Supvisors system.
+        No need to test if the discovery mode is enabled. This is managed in the internal communication layer.
+
+        :param identifier: the identifier of the Supvisors instance that sent the event
+        :param event: the discovery event
+        :return:
+        """
+        # When Supvisors is in discovery mode, new Supvisors instances may be added on-the-fly
+        if self.context.on_discovery_event(identifier, event):
+            self.supvisors.internal_com.pusher.send_connect_instance(identifier)
+            # a DEPLOYMENT will be requested if a new Supvisors instance has been inserted
+            self.redeploy_mark = True
 
     def on_process_state_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event sent from the Supvisors instance.

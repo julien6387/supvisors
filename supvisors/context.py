@@ -149,22 +149,6 @@ class Context:
                 self.master_identifier = min(running_identifiers)
 
     # States and Modes
-    def check_discovery(self, identifier: str, ip_address: str, port: int) -> bool:
-        """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
-
-        :param identifier: the Supvisors identifier to check
-        :param ip_address: the IP address of the Supvisors instance
-        :param port: the port of the Supvisors instance
-        :return: True if a new Supvisors instance has been inserted
-        """
-        if self.supvisors.options.discovery_mode and identifier not in self.instances:
-            item = f'<{identifier}>{ip_address}:{port}:'
-            self.logger.info(f'Context.check_discovery: adding instance={item}')
-            new_instance = self.supvisors.supvisors_mapper.add_instance(item)
-            self.instances[identifier] = SupvisorsInstanceStatus(new_instance, self.supvisors)
-            return True
-        return False
-
     def is_valid(self, identifier: str, ip_address: str) -> bool:
         """ Check the validity of the message emitter.
         Validity is ok if the identifier is known with the correct IP address and not declared in isolation. """
@@ -231,10 +215,16 @@ class Context:
                 for ip_address, identifiers in self.supvisors.supvisors_mapper.nodes.items()}
 
     # methods on instances
-    def unknown_identifiers(self) -> NameList:
-        """ Return the identifiers of the Supervisor instances in UNKNOWN state. """
-        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING,
-                                         SupvisorsInstanceStates.ISOLATING])
+    def initial_running(self) -> bool:
+        """ Return True if all Supervisor instances are in RUNNING state. """
+        return all(status.state == SupvisorsInstanceStates.RUNNING
+                   for identifier, status in self.instances.items()
+                   if identifier in self.supvisors.supvisors_mapper.initial_identifiers)
+
+    def all_running(self) -> bool:
+        """ Return True if all Supervisor instances are in RUNNING state. """
+        return all(status.state == SupvisorsInstanceStates.RUNNING
+                   for status in self.instances.values())
 
     def running_identifiers(self) -> NameList:
         """ Return the identifiers of the Supervisor instances in RUNNING state. """
@@ -246,8 +236,9 @@ class Context:
         :return: True if all core SupvisorsInstanceStatus are in RUNNING state
         """
         if self.supvisors.supvisors_mapper.core_identifiers:
-            identifiers = self.running_identifiers()
-            return all(identifier in identifiers for identifier in self.supvisors.supvisors_mapper.core_identifiers)
+            return all(status.state == SupvisorsInstanceStates.RUNNING
+                       for identifier, status in self.instances.items()
+                       if identifier in self.supvisors.supvisors_mapper.core_identifiers)
         return False
 
     def isolating_instances(self) -> NameList:
@@ -565,11 +556,29 @@ class Context:
                 self.external_publisher.send_instance_status(status.serial())
                 self._publish_state_mode()
 
+    def on_discovery_event(self, identifier: str, event: Payload) -> bool:
+        """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
+        If this event is received, the discovery mode is enabled.
+
+        :param identifier: the valid identifier of the Supvisors instance from which the event has been received
+        :param event: the DISCOVERY event.
+        :return: True if a new Supvisors instance has been inserted.
+        """
+        ip_address, port = event['ip_address'], event['server_port']
+        if identifier not in self.instances:
+            item = f'<{identifier}>{ip_address}:{port}:'
+            self.logger.info(f'Context.check_discovery: adding instance={item}')
+            new_instance = self.supvisors.supvisors_mapper.add_instance(item)
+            self.instances[identifier] = SupvisorsInstanceStatus(new_instance, self.supvisors)
+            return True
+        return False
+
     def on_timer_event(self, event: Payload) -> Tuple[NameList, Set[ProcessStatus]]:
         """ Check that all Supvisors instances are still publishing.
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s.
 
-        :return: the identifiers of the invalidated Supvisors instances and the processes in failure
+        :param event: the timer event.
+        :return: the identifiers of the invalidated Supvisors instances and the processes in failure.
         """
         invalidated_identifiers: List[str] = []
         process_failures: Set[ProcessStatus] = set({})  # strange but avoids IDE warning on annotations

@@ -17,9 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
+# expose the structures used by other Supvisors modules
 from .internal_com import SupvisorsInternalEmitter
 from .mainloop import SupvisorsMainLoop
-# expose the useful structure
 from .mapper import SupvisorsInstanceId, SupvisorsMapper
 from .multicast import MulticastSender
 from .pubsub import InternalPublisher
+from .pushpull import RequestPusher

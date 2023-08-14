@@ -66,19 +66,22 @@ def test_proxy_run(mocker, proxy):
     assert proxy.is_alive()
     assert not proxy.event.is_set()
     # send a remote event
-    proxy.push(RemoteCommEvents.SUPVISORS_EVENT, ('header', 'body'))
+    message = ('10.0.0.1', 65100), (InternalEventHeaders.TICK.value, ('10.0.0.1', {'when': 1234}))
+    proxy.push_event(message)
     time.sleep(1.0)
-    assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_EVENT, ('header', 'body'))]
+    assert mocked_send.call_args_list == [call(message)]
     assert not mocked_exec.called
     mocked_send.reset_mock()
     # send a discovery event
-    proxy.push(RemoteCommEvents.SUPVISORS_DISCOVERY, ('header', 'body'))
+    proxy.supvisors.logger.debug = print
+    message = ('10.0.0.2', 51243), (InternalEventHeaders.DISCOVERY.value, ('10.0.0.2', {'when': 4321}))
+    proxy.push_event(message)
     time.sleep(1.0)
-    assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_DISCOVERY, ('header', 'body'))]
+    assert mocked_send.call_args_list == [call(message)]
     assert not mocked_exec.called
     mocked_send.reset_mock()
     # send a request
-    proxy.push(DeferredRequestHeaders.RESTART_ALL, '')
+    proxy.push_request(DeferredRequestHeaders.RESTART_ALL, '')
     time.sleep(1.0)
     assert not mocked_send.called
     assert mocked_exec.call_args_list == [call(DeferredRequestHeaders.RESTART_ALL, '')]
@@ -98,7 +101,8 @@ def test_proxy_check_instance(mocker, mocked_rpc, proxy):
     assert mocked_auth.call_args_list == [call('10.0.0.1')]
     assert not mocked_mode.called
     assert not mocked_info.called
-    assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_AUTH, ('10.0.0.1', False))]
+    expected = InternalEventHeaders.AUTHORIZATION.value, ('10.0.0.1', False)
+    assert mocked_send.call_args_list == [call((('10.0.0.1', 65000), expected))]
     mocker.resetall()
     # test with authorization
     mocked_auth.return_value = True
@@ -106,7 +110,8 @@ def test_proxy_check_instance(mocker, mocked_rpc, proxy):
     assert mocked_auth.call_args_list == [call('10.0.0.1')]
     assert mocked_mode.call_args_list == [call('10.0.0.1')]
     assert mocked_info.call_args_list == [call('10.0.0.1')]
-    assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_AUTH, ('10.0.0.1', True))]
+    expected = InternalEventHeaders.AUTHORIZATION.value, ('10.0.0.1', True)
+    assert mocked_send.call_args_list == [call((('10.0.0.1', 65000), expected))]
 
 
 def test_proxy_is_authorized(mocker, mocked_rpc, proxy):
@@ -167,7 +172,8 @@ def test_proxy_transfer_process_info(mocker, mocked_rpc, proxy):
     proxy._transfer_process_info('10.0.0.1')
     assert mocked_call.call_args_list == [call()]
     assert mocked_rpc.call_args_list == [call(proxy.srv_url.env)]
-    assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_INFO, ('10.0.0.1', proc_info))]
+    expected = InternalEventHeaders.ALL_INFO.value, ('10.0.0.1', proc_info)
+    assert mocked_send.call_args_list == [call((('10.0.0.1', 65000), expected))]
 
 
 def test_proxy_transfer_states_modes(mocker, mocked_rpc, proxy):
@@ -196,13 +202,11 @@ def test_proxy_transfer_states_modes(mocker, mocked_rpc, proxy):
     proxy._transfer_states_modes('10.0.0.1')
     assert mocked_call.call_args_list == [call('10.0.0.1')]
     assert mocked_rpc.call_args_list == [call(proxy.srv_url.env)]
-    assert mocked_send.call_args_list == [call(RemoteCommEvents.SUPVISORS_EVENT,
-                                               (('10.0.0.1', 65000),
-                                                (InternalEventHeaders.STATE.value,
-                                                 ('10.0.0.1', {'fsm_statecode': 6,
+    expected = InternalEventHeaders.STATE.value, ('10.0.0.1', {'fsm_statecode': 6,
                                                                'discovery_mode': True,
                                                                'master_identifier': '10.0.0.1',
-                                                               'starting_jobs': False, 'stopping_jobs': True}))))]
+                                                               'starting_jobs': False, 'stopping_jobs': True})
+    assert mocked_send.call_args_list == [call((('10.0.0.1', 65000), expected))]
 
 
 def test_proxy_start_process(mocker, mocked_rpc, proxy):
@@ -342,11 +346,11 @@ def test_proxy_comm_event(mocker, mocked_rpc, proxy):
     """ Test the SupervisorProxy function to send a comm event to the local Supervisor. """
     # test rpc error
     mocker.patch.object(proxy.proxy.supervisor, 'sendRemoteCommEvent', side_effect=RPCError(100))
-    proxy.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, 'event data')
+    proxy.send_remote_comm_event('event data')
     # test with a mocked rpc interface
     mocked_supervisor = mocker.patch.object(proxy.proxy.supervisor, 'sendRemoteCommEvent')
-    proxy.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, 'event data')
-    assert mocked_supervisor.call_args_list == [call('supv_auth', '"event data"')]
+    proxy.send_remote_comm_event('event data')
+    assert mocked_supervisor.call_args_list == [call('Supvisors', '"event data"')]
 
 
 def check_call(proxy, mocked_loop, method_name, request, args):
@@ -443,10 +447,9 @@ def test_mainloop_run(mocker, main_loop):
     mocked_proxy_start = mocker.patch.object(main_loop.proxy, 'start')
     mocked_proxy_stop = mocker.patch.object(main_loop.proxy, 'stop')
     # patch the get_coroutines method to return a subscriber on the local Supvisors instance
-    local_instance_id = main_loop.supvisors.supvisors_mapper.local_instance
     subscribers = main_loop.receiver.subscribers
     mocker.patch.object(subscribers, 'get_coroutines',
-                        return_value=[subscribers.create_coroutine(local_instance_id),
+                        return_value=[subscribers.create_coroutine(local_identifier),
                                       subscribers.check_stop()])
     # WARN: handle_puller is blocking as long as there is no RequestPusher active,
     #       so make sure it has been started before starting the main loop
@@ -459,35 +462,33 @@ def test_mainloop_run(mocker, main_loop):
         assert mocked_proxy_start.called
         # inject basic messages to test the queues
         main_loop.supvisors.internal_com.pusher.send_isolate_instances(['10.0.0.1'])
+        main_loop.supvisors.internal_com.pusher.send_connect_instance('10.0.0.1')
         main_loop.supvisors.internal_com.pusher.send_check_instance('10.0.0.1')
         main_loop.supvisors.internal_com.publisher.send_tick_event({'when': 1234})
-        main_loop.supvisors.internal_com.mc_sender.send_tick_event({'when': 4321})
+        main_loop.supvisors.internal_com.mc_sender.send_discovery_event({'when': 4321})
         # check results
         got_request, got_remote, got_discovery = False, False, False
         for _ in range(3):
             # first message may be long to come
-            event_type, message = main_loop.proxy.queue.get(timeout=5.0)
-            if event_type == RemoteCommEvents.SUPVISORS_EVENT:
-                event_address, (event_type, (event_identifier, event_data)) = message
-                # local IP address is mocked
-                assert event_address[0] == local_ip
-                assert event_address[1] == 65100
-                assert event_type == 1
-                assert event_identifier == local_identifier
-                assert event_data == {'when': 1234}
-                got_remote = True
-            elif event_type == RemoteCommEvents.SUPVISORS_DISCOVERY:
-                event_address, (event_type, (event_identifier, event_data)) = message
-                assert event_address[0] == local_ip
-                # port is variable
-                assert event_type == 1
-                assert event_identifier == local_identifier
-                assert event_data == {'when': 4321}
-                got_discovery = True
-            elif event_type in DeferredRequestHeaders:
-                assert event_type == DeferredRequestHeaders.CHECK_INSTANCE
+            msg_type, message = main_loop.proxy.queue.get(timeout=5.0)
+            if msg_type == DeferredRequestHeaders.CHECK_INSTANCE:
                 assert message == ['10.0.0.1']
                 got_request = True
+            else:
+                event_origin, (event_type, (event_identifier, event_data)) = message
+                if event_type == InternalEventHeaders.TICK.value:
+                    # local IP address is mocked
+                    assert event_origin[0] == local_ip
+                    assert event_origin[1] == 65100
+                    assert event_identifier == local_identifier
+                    assert event_data == {'when': 1234}
+                    got_remote = True
+                elif event_type == InternalEventHeaders.DISCOVERY.value:
+                    assert event_origin[0] == local_ip
+                    # port is variable
+                    assert event_identifier == local_identifier
+                    assert event_data == {'when': 4321}
+                    got_discovery = True
         assert got_request and got_remote and got_discovery
     finally:
         # close the main loop
