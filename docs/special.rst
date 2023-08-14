@@ -38,7 +38,7 @@ instance that the local |Supvisors| instance has to connect to publish its event
 .. note::
 
     Depending on the |Supvisors| configuration, only the TCP server host may be defined in the ``supvisors_list``,
-    in which case |Supvisors| will take the value of the ``internal_port```option as applicable port for all TCP servers.
+    in which case |Supvisors| will take the value of the ``internal_port`` option as applicable port for all TCP servers.
 
 UDP Multicast
 *************
