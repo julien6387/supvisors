@@ -105,11 +105,11 @@ class SupvisorsInternalReceiver:
         self.supvisors = supvisors
         # asyncio loop attributes
         self.loop: asyncio.AbstractEventLoop = async_loop
-        self.stop_event: asyncio.Event = asyncio.Event(loop=async_loop)
+        self.stop_event: asyncio.Event = asyncio.Event()
         # asyncio queues
-        self.requester_queue = asyncio.Queue(loop=async_loop)
-        self.subscriber_queue = asyncio.Queue(loop=async_loop)
-        self.discovery_queue = asyncio.Queue(loop=async_loop)
+        self.requester_queue = asyncio.Queue()
+        self.subscriber_queue = asyncio.Queue()
+        self.discovery_queue = asyncio.Queue()
         # asyncio tasks
         self.puller: RequestAsyncPuller = RequestAsyncPuller(self.requester_queue, self.stop_event, supvisors)
         self.subscribers: InternalAsyncSubscribers = InternalAsyncSubscribers(self.subscriber_queue,

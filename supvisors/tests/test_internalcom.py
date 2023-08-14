@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
-
 from socket import socket
 from threading import Timer
 
@@ -109,6 +108,8 @@ def receiver(supvisors, request) -> SupvisorsInternalReceiver:
     """ Fixture for the instance to test. """
     if request.param == 'discovery':
         supvisors.options.multicast_group = '239.0.0.1', 7777
+    # store a real unix socket in emitter
+    supvisors.internal_com.puller_sock, _ = socketpair()
     loop = asyncio.get_event_loop()
     internal_receiver = SupvisorsInternalReceiver(loop, supvisors)
     return internal_receiver
@@ -128,9 +129,14 @@ def test_receiver(supvisors, receiver):
     assert receiver.discovery_coro is None
     # test the number of tasks (one per Supvisors instance, local instance excepted, + stop, + puller)
     assert len(supvisors.supvisors_mapper.instances) == 7
-    tasks = receiver.get_tasks()
-    assert all(asyncio.iscoroutine(x) for x in tasks)
-    assert len(tasks) == len(supvisors.supvisors_mapper.instances) + 1
+    try:
+        tasks = receiver.get_tasks()
+        assert all(asyncio.iscoroutine(x) for x in tasks)
+        assert len(tasks) == len(supvisors.supvisors_mapper.instances) + 1
+    finally:
+        # avoid warnings about coroutines never awaited
+        receiver.stop_event.set()
+        asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
 
 
 @pytest.mark.parametrize('receiver', ['discovery'], indirect=True)
@@ -147,9 +153,14 @@ def test_receiver_discovery(supvisors, receiver):
     assert asyncio.iscoroutine(receiver.discovery_coro)
     # test the number of tasks (one per Supvisors instance, local instance excepted, + stop, + puller, + discovery)
     assert len(supvisors.supvisors_mapper.instances) == 7
-    tasks = receiver.get_tasks()
-    assert all(asyncio.iscoroutine(x) for x in tasks)
-    assert len(tasks) == len(supvisors.supvisors_mapper.instances) + 2
+    try:
+        tasks = receiver.get_tasks()
+        assert all(asyncio.iscoroutine(x) for x in tasks)
+        assert len(tasks) == len(supvisors.supvisors_mapper.instances) + 2
+    finally:
+        # avoid warnings about coroutines never awaited
+        receiver.stop_event.set()
+        asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
 
 
 @pytest.mark.parametrize('receiver', [''], indirect=True)

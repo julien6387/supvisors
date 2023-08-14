@@ -188,10 +188,11 @@ class PublisherServer(Thread):
         :param fd: the descriptor of the client socket
         :return: None
         """
-        self.poller.unregister(fd)
-        client = self.clients.pop(fd)
-        client.socket.close()
-        self.logger.debug(f'PublisherServer._remove_client: client={str(client)} closed')
+        if fd in self.clients:
+            self.poller.unregister(fd)
+            client = self.clients.pop(fd)
+            client.socket.close()
+            self.logger.debug(f'PublisherServer._remove_client: client={str(client)} closed')
 
     def _handle_events(self, events):
         """ Extract the messages from the readable sockets.
@@ -287,7 +288,7 @@ class PublisherServer(Thread):
         for client in list(self.clients.values()):
             try:
                 client.socket.sendall(buffer)
-            except error:
+            except OSError:
                 # upon message send exception, remove the client from the clients list
                 self._remove_client(client.fd)
 

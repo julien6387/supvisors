@@ -417,8 +417,7 @@ def test_mainloop_creation(supvisors, main_loop):
     """ Test the values set at construction. """
     assert isinstance(main_loop, threading.Thread)
     assert main_loop.supvisors is supvisors
-    assert main_loop.async_loop != asyncio.get_event_loop()
-    assert type(main_loop.receiver) is SupvisorsInternalReceiver
+    assert main_loop.receiver is None
     assert type(main_loop.proxy) is SupervisorProxy
     # start and stop
 
@@ -426,15 +425,15 @@ def test_mainloop_creation(supvisors, main_loop):
 def test_mainloop_stop(mocker, main_loop):
     """ Test the stopping of the main loop thread. """
     mocked_join = mocker.patch.object(main_loop, 'join')
-    mocked_recv = mocker.patch.object(main_loop.receiver, 'stop')
+    mocked_recv = mocker.patch.object(main_loop, 'receiver')
     # try to stop main loop before it is started
     main_loop.stop()
-    assert not mocked_recv.called
+    assert not mocked_recv.stop.called
     assert not mocked_join.called
     # stop main loop when alive
     mocker.patch.object(main_loop, 'is_alive', return_value=True)
     main_loop.stop()
-    assert mocked_recv.called
+    assert mocked_recv.stop.called
     assert mocked_join.called
 
 
@@ -446,11 +445,8 @@ def test_mainloop_run(mocker, main_loop):
     # disable the SupervisorProxy thread
     mocked_proxy_start = mocker.patch.object(main_loop.proxy, 'start')
     mocked_proxy_stop = mocker.patch.object(main_loop.proxy, 'stop')
-    # patch the get_coroutines method to return a subscriber on the local Supvisors instance
-    subscribers = main_loop.receiver.subscribers
-    mocker.patch.object(subscribers, 'get_coroutines',
-                        return_value=[subscribers.create_coroutine(local_identifier),
-                                      subscribers.check_stop()])
+    # add a Supvisors instance that has the same parameters as the local Supvisors instance, but with a different name
+    main_loop.supvisors.supvisors_mapper.instances['async_test'] = local_instance_id
     # WARN: handle_puller is blocking as long as there is no RequestPusher active,
     #       so make sure it has been started before starting the main loop
     assert main_loop.supvisors.internal_com.pusher is not None

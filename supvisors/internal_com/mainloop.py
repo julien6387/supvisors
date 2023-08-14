@@ -295,9 +295,8 @@ class SupvisorsMainLoop(threading.Thread):
         threading.Thread.__init__(self, daemon=True)
         # keep a reference to the Supvisors instance
         self.supvisors = supvisors
-        # create the asyncio object that will receive all events
-        self.async_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-        self.receiver = SupvisorsInternalReceiver(self.async_loop, supvisors)
+        # the asyncio object that will receive all events
+        self.receiver: Optional[SupvisorsInternalReceiver] = None
         # create an XML-RPC client to the local Supervisor instance
         self.proxy: SupervisorProxy = SupervisorProxy(supvisors)
 
@@ -322,8 +321,11 @@ class SupvisorsMainLoop(threading.Thread):
         """ The SupvisorsMainLoop thread runs an asynchronous event loop for all I/O operations. """
         self.logger.info('SupvisorsMainLoop.run: entering main loop')
         self.proxy.start()
-        # assign the asynchronous event loop to this thread
-        asyncio.set_event_loop(self.async_loop)
+        # assign a new asynchronous event loop to this thread
+        async_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        asyncio.set_event_loop(async_loop)
+        # create the asyncio object that will receive all events
+        self.receiver = SupvisorsInternalReceiver(async_loop, self.supvisors)
         # get the receiver tasks
         all_coro = self.receiver.get_tasks()
         # add the reception tasks for this class
@@ -332,7 +334,7 @@ class SupvisorsMainLoop(threading.Thread):
                          self.read_queue(self.receiver.discovery_queue, self.check_discovery_event)])
         all_tasks = asyncio.gather(*all_coro)
         # run the asynchronous event loop with the given tasks
-        self.async_loop.run_until_complete(all_tasks)
+        async_loop.run_until_complete(all_tasks)
         # exiting the main loop
         self.proxy.stop()
         self.logger.info('SupvisorsMainLoop.run: exiting main loop')
