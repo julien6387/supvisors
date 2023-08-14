@@ -945,7 +945,7 @@ class Commander:
             self.logger.debug(f'{self.class_name}.next: sequence={sequence_number}'
                               f' current_jobs={self.current_jobs}')
             # iterate on copy to avoid problems with key deletions
-            for application_name, application_job in self.current_jobs.items():
+            for application_name, application_job in self.current_jobs.copy().items():
                 self.logger.info(f'{self.class_name}.next: start processing {application_name}')
                 application_job.before()
                 application_job.next()

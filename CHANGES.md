@@ -13,6 +13,9 @@
 
 * Fix `flask-restx` dependency in setup according to Python version.
 
+* Fix uncaught exception the request to start a process is rejected due to a lack of resources.
+  The exception was dependent from the Python version (absent in 3.6 but raised in 3.9).
+
 * Monkeypatch fix of [Supervisor Issue #1596](https://github.com/Supervisor/supervisor/issues/1596).
   Shutdown of the asyncore socket before it is closed.
 
