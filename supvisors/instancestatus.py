@@ -66,6 +66,7 @@ class StateModes:
                     and self.master_identifier == other.master_identifier
                     and self.starting_jobs == other.starting_jobs
                     and self.stopping_jobs == other.stopping_jobs)
+        return False
 
     def apply(self, fsm_state: SupvisorsStates = None, master_identifier: str = None,
               starter: bool = None, stopper: bool = None):

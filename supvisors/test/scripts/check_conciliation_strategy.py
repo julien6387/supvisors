@@ -226,12 +226,11 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         self.assertEqual([], expected_events)
         # multiple CONCILIATION events will be raised with stopping mode on or off
         event = self._get_next_supvisors_event()
-        max_conciliation_events = 3
+        max_conciliation_events = 6
         while event['fsm_statename'] == 'CONCILIATION' and max_conciliation_events:
             event = self._get_next_supvisors_event()
             max_conciliation_events -= 1
         # check supvisors event: OPERATION state is expected
-        event = self._get_next_supvisors_event()
         self.assertEqual('OPERATION', event['fsm_statename'])
         # check that there is no conflict anymore
         self._check_no_conflict()

@@ -58,16 +58,16 @@ def test_abstract_state(mocker, supvisors_ctx):
     # test check_instances method
     # declare local and master address running
     supvisors_ctx.context.master_identifier = '10.0.0.3'
-    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.local_status._state = SupvisorsInstanceStates.RUNNING
     supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.CHECKED
     assert state.check_instances() is None
     # transition to INITIALIZATION state if the local address or master address is not RUNNING
-    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.local_status._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.local_status._state = SupvisorsInstanceStates.RUNNING
     supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.local_instance._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.local_status._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
     # test abort_jobs method
     state.abort_jobs()
@@ -256,7 +256,7 @@ def test_initialization_state_next(mocker, init_state):
     mocker.resetall()
     # set local as Master and RUNNING
     init_state.context.master_identifier = local_identifier
-    init_state.context.local_instance._state = SupvisorsInstanceStates.RUNNING
+    init_state.context.local_status._state = SupvisorsInstanceStates.RUNNING
     assert init_state.next() == SupvisorsStates.DEPLOYMENT
     assert mocked_checked.called
     assert not mocked_elect.called

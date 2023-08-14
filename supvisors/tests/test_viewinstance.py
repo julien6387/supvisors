@@ -132,7 +132,7 @@ def test_write_header(mocker, view):
     mocker.resetall()
     mocked_root.reset_all()
     # second call tests with master and both Starter and Stopper having jobs
-    view.sup_ctx.local_instance.state_modes.master_identifier = view.sup_ctx.local_identifier
+    view.sup_ctx.local_status.state_modes.master_identifier = view.sup_ctx.local_identifier
     mocked_status.state_modes.starting_jobs = True
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),

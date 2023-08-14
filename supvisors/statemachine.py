@@ -100,7 +100,7 @@ class AbstractState:
         if not self.supvisors.starter.in_progress():
             self.context.activate_checked()
         # check that the local Supvisors instance is still RUNNING
-        if self.context.local_instance.state != SupvisorsInstanceStates.RUNNING:
+        if self.context.local_status.state != SupvisorsInstanceStates.RUNNING:
             self.logger.critical('AbstractState.check_instances: local Supvisors instance not RUNNING')
             return SupvisorsStates.INITIALIZATION
         # check that the Master Supvisors instance is still RUNNING
@@ -586,7 +586,9 @@ class FiniteStateMachine:
                 if self.context.is_master:
                     for process in process_failures:
                         self.supvisors.failure_handler.add_default_job(process)
-                    self.supvisors.failure_handler.trigger_jobs()
+        # trigger remaining jobs in RunningFailureHandler
+        if self.context.is_master:
+            self.supvisors.failure_handler.trigger_jobs()
         # check if new isolating remotes and isolate them at main loop level
         identifiers = self.context.handle_isolation()
         if identifiers:

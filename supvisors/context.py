@@ -68,7 +68,7 @@ class Context:
 
         :return: None
         """
-        self.local_instance.state_modes.master_identifier = ''
+        self.local_status.state_modes.master_identifier = ''
         self.start_date = time.time()
         for status in self.instances.values():
             status.reset()
@@ -89,20 +89,20 @@ class Context:
         return self.supvisors.supvisors_mapper.local_identifier
 
     @property
-    def local_instance(self) -> SupvisorsInstanceStatus:
+    def local_status(self) -> SupvisorsInstanceStatus:
         """ Get local Supvisors instance structure. """
         return self.instances[self.local_identifier]
 
     @property
     def local_sequence_counter(self) -> int:
         """ Get last local TICK sequence counter, used for node invalidation. """
-        return self.local_instance.sequence_counter
+        return self.local_status.sequence_counter
 
     # Master operations
     @property
     def master_identifier(self) -> str:
         """ Get the identifier of the Supvisors Master instance. """
-        return self.local_instance.state_modes.master_identifier
+        return self.local_status.state_modes.master_identifier
 
     @master_identifier.setter
     def master_identifier(self, identifier: str) -> None:
@@ -149,15 +149,6 @@ class Context:
                 self.master_identifier = min(running_identifiers)
 
     # States and Modes
-    def is_valid(self, identifier: str, ip_address: str) -> bool:
-        """ Check the validity of the message emitter.
-        Validity is ok if the identifier is known with the correct IP address and not declared in isolation. """
-        if identifier in self.instances:
-            status = self.instances[identifier]
-            if not status.in_isolation() and status.supvisors_id.ip_address == ip_address:
-                return True
-        return False
-
     def publish_state_modes(self, event: Payload) -> None:
         """ Publish the Supvisors instance state and modes.
         This information is provided internally by the local Supvisors instance, and it will be published to all
@@ -168,10 +159,12 @@ class Context:
         """
         # keys are Starter, Stopper, fsm_state
         # internal update due to FSM state change or Starter / Stopper progress change
-        changed, state_modes = self.local_instance.apply_state_modes(event)
+        changed, state_modes = self.local_status.apply_state_modes(event)
         if changed:
             # on change, publish the local Supvisors state and modes to the other Supvisors instances
             self.supvisors.internal_com.publisher.send_state_event(state_modes.serial())
+            # publish SupvisorsInstanceStatus and SupvisorsStatus
+            self.export_status(self.local_status)
 
     def get_state_modes(self) -> Payload:
         """ Get the Supvisors state and modes, based on all connected Supvisors instances.
@@ -180,7 +173,7 @@ class Context:
 
         :return: the Supvisors state and the identifiers of the Supvisors instances having starting or stopping jobs
         """
-        payload = self.local_instance.state_modes.serial()
+        payload = self.local_status.state_modes.serial()
         # overwrite starting_jobs and starting_jobs based on a synthesis from all Supvisors instances
         starting, stopping = [], []
         for identifier, status in self.instances.items():
@@ -204,6 +197,22 @@ class Context:
         if self.last_state_modes != current_state_modes:
             self.last_state_modes = current_state_modes
             self.external_publisher.send_supvisors_status(current_state_modes)
+
+    def export_status(self, status: SupvisorsInstanceStatus) -> None:
+        """ Publish SupvisorsInstanceStatus and SupvisorsStatus to Supvisors listeners. """
+        if self.external_publisher:
+            self.external_publisher.send_instance_status(status.serial())
+            self._publish_state_mode()
+
+    # methods on nodes
+    def is_valid(self, identifier: str, ip_address: str) -> bool:
+        """ Check the validity of the message emitter.
+        Validity is ok if the identifier is known with the correct IP address and not declared in isolation. """
+        if identifier in self.instances:
+            status = self.instances[identifier]
+            if not status.in_isolation() and status.supvisors_id.ip_address == ip_address:
+                return True
+        return False
 
     def get_nodes_load(self) -> LoadMap:
         """ Get the Supvisors instances load grouped by node.
@@ -299,9 +308,7 @@ class Context:
         else:
             status.state = SupvisorsInstanceStates.SILENT
         # publish SupvisorsInstanceStatus and SupvisorsStatus
-        if self.external_publisher:
-            self.external_publisher.send_instance_status(status.serial())
-            self._publish_state_mode()
+        self.export_status(status)
 
     # methods on applications / processes
     def get_managed_applications(self) -> Dict[str, ApplicationStatus]:
@@ -484,9 +491,7 @@ class Context:
                     self.master_identifier = ''
                     self.elect_master(candidates)
             # publish the new Instance status and Supvisors synthesis
-            if self.external_publisher:
-                self.external_publisher.send_instance_status(status.serial())
-                self._publish_state_mode()
+            self.export_status(status)
 
     def on_authorization(self, identifier: str, authorized: Optional[bool]) -> bool:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
@@ -533,7 +538,7 @@ class Context:
         # check if local tick has been received yet
         # NOTE: it is needed because remote ticks are tagged against last local tick received
         if identifier != self.local_identifier:
-            if self.local_instance.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+            if self.local_status.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
                 self.logger.debug('Context.on_tick_event: waiting for local tick first')
                 return
         # ISOLATING / ISOLATED instances are not updated anymore
@@ -552,9 +557,7 @@ class Context:
                 status.state = SupvisorsInstanceStates.CHECKING
                 self.supvisors.internal_com.pusher.send_check_instance(status.identifier)
             # publish new Supvisors Instance status
-            if self.external_publisher:
-                self.external_publisher.send_instance_status(status.serial())
-                self._publish_state_mode()
+            self.export_status(status)
 
     def on_discovery_event(self, identifier: str, event: Payload) -> bool:
         """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
@@ -747,7 +750,7 @@ class Context:
                                       f' considered={updated}')
                     if updated:
                         # remove the 'forced' status before publication
-                        event['state'] = process.state
+                        event['state'] = process.displayed_state
                         del event['forced']
                         del event['identifier']
                 else:
@@ -779,7 +782,5 @@ class Context:
             status = self.instances[identifier]
             status.state = SupvisorsInstanceStates.ISOLATED
             # publish SupvisorsInstanceStatus and SupvisorsStatus events
-            if self.external_publisher:
-                self.external_publisher.send_instance_status(status.serial())
-                self._publish_state_mode()
+            self.export_status(status)
         return identifiers

@@ -59,7 +59,7 @@ class SupvisorsInstanceView(StatusView):
             identifier = f'{MASTER_SYMBOL} {identifier}'
         elt.content(identifier)
         # set Supvisors instance state
-        status: SupvisorsInstanceStatus = self.sup_ctx.local_instance
+        status: SupvisorsInstanceStatus = self.sup_ctx.local_status
         elt = root.findmeld('state_mid')
         elt.content(status.state.name)
         # set Supvisors instance load

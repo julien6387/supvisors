@@ -84,6 +84,8 @@ def test_state_modes():
                              'discovery_mode': True,
                              'master_identifier': '',
                              'starting_jobs': False, 'stopping_jobs': True}
+    # test comparison with wrong type
+    assert sm_1 != 4
 
 
 @pytest.fixture
