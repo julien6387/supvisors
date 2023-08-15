@@ -147,6 +147,19 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  Yes.
 
+``stereotypes``
+
+    A list of names, separated by commas, that can be used to reference a kind of |Supvisors| instance in the rules
+    files. The local |Supvisors| instance will be tagged using these names and will share this information with the
+    other |Supvisors| instances.
+    Although it has been designed to support the discovery mode, it is made available to the standard mode.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``rules_files``
 
     A space-separated sequence of file globs, in the same vein as
@@ -262,9 +275,10 @@ behavior may happen. The present section details where it is applicable.
 
 ``core_identifiers``
 
-    A subset of the names deduced from ``supvisors_list``, separated by commas. If the |Supvisors| instances of this
-    subset are all in a ``RUNNING`` state and the ``CORE`` value is set in the ``synchro_options`` option, this will
-    put an end to the synchronization phase in |Supvisors|.
+    A list of names, separated by commas. These names can taken from the names deduced from the ``supvisors_list``
+    option and / or from the union of all ``stereotypes`` shared within |Supvisors|.
+    If the |Supvisors| instances of this subset are all in a ``RUNNING`` state and the ``CORE`` value is set
+    in the ``synchro_options`` option, this will put an end to the synchronization phase in |Supvisors|.
     Independently from the ``CORE`` option being used, |Supvisors| will preferably take a member of this list when
     selecting a *Master* instance.
     This parameter must be identical to all |Supvisors| instances or unpredictable behavior may happen.
@@ -643,9 +657,12 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 ``identifiers``
 
     This element is only used when ``distribution`` is set to ``SINGLE_INSTANCE`` or ``SINGLE_NODE`` and gives the list
-    of |Supvisors| instances where the application programs can be started. The names are to be taken from the names
-    deduced from the ``supvisors_list`` parameter defined in `rpcinterface extension point`_ or from the declared
-    `Instance aliases`_, and separated by commas.
+    of |Supvisors| instances where the application programs can be started.
+
+    The names are to be taken either the names deduced from the ``supvisors_list`` option defined
+    in `rpcinterface extension point`_, and / or from the declared `Instance aliases`_, and / or or from a stereotype
+    as provided in the ``stereotypes`` option, and separated by commas.
+
     Special values can be used.
 
     The *wildcard symbol* ``*`` stands for all names deduced from ``supvisors_list``.
@@ -783,8 +800,11 @@ Here follows the definition of the attributes and rules applicable to this eleme
 ``identifiers``
 
     This element gives the list of |Supvisors| instances where the program can be started.
-    The names are to be taken from the names deduced from the ``supvisors_list`` parameter defined in the
-    `rpcinterface extension point`_ or from the declared `Instance aliases`_, and separated by commas.
+
+    The names are to be taken either the names deduced from the ``supvisors_list`` option defined in the
+    `rpcinterface extension point`_, and / or from the declared `Instance aliases`_, and / or or from a stereotype
+    as provided in the ``stereotypes`` option, and separated by commas.
+
     Special values can be applied.
 
     The *wildcard symbol* ``*`` stands for all names deduced from ``supvisors_list``.

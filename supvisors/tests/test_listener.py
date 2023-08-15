@@ -163,7 +163,7 @@ def test_on_tick(mocker, discovery_listener):
     # create patches
     mocker.patch('time.time', return_value=1234.56)
     host_stats = {'now': 8.5, 'cpu': [(25, 400)], 'mem': 76.1, 'io': {'lo': (500, 500)}}
-    mocked_tick = discovery_listener.supvisors.fsm.on_tick_event
+    mocked_tick = mocker.patch.object(discovery_listener.supvisors.context, 'on_local_tick_event')
     mocked_timer = discovery_listener.supvisors.fsm.on_timer_event
     mocker.patch.object(discovery_listener.supvisors, 'host_collector', return_value=host_stats)
     discovery_listener.supvisors.context.instances['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
@@ -175,8 +175,8 @@ def test_on_tick(mocker, discovery_listener):
     discovery_listener.on_tick(event)
     expected_tick = {'ip_address': discovery_listener.local_instance.host_name,
                      'server_port': discovery_listener.local_instance.http_port,
-                     'when': 1234.56, 'sequence_counter': 0}
-    assert mocked_tick.call_args_list == [call(discovery_listener.local_identifier, expected_tick)]
+                     'when': 1234.56, 'sequence_counter': 0, 'stereotypes': ['supvisors_test']}
+    assert mocked_tick.call_args_list == [call(expected_tick)]
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]
@@ -193,7 +193,7 @@ def test_on_tick(mocker, discovery_listener):
     event = Tick60Event(150, None)
     discovery_listener.on_tick(event)
     expected_tick['sequence_counter'] = 1
-    assert mocked_tick.call_args_list == [call(discovery_listener.local_identifier, expected_tick)]
+    assert mocked_tick.call_args_list == [call(expected_tick)]
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]
@@ -209,7 +209,7 @@ def test_on_tick(mocker, discovery_listener):
     event = Tick60Event(150, None)
     discovery_listener.on_tick(event)
     expected_tick['sequence_counter'] = 2
-    assert mocked_tick.call_args_list == [call(discovery_listener.local_identifier, expected_tick)]
+    assert mocked_tick.call_args_list == [call(expected_tick)]
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]
@@ -227,7 +227,7 @@ def test_on_tick(mocker, discovery_listener):
     discovery_listener.supvisors.process_collector = None
     discovery_listener.on_tick(event)
     expected_tick['sequence_counter'] = 3
-    assert mocked_tick.call_args_list == [call(discovery_listener.local_identifier, expected_tick)]
+    assert mocked_tick.call_args_list == [call(expected_tick)]
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]

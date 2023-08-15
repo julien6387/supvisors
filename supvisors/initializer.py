@@ -94,7 +94,9 @@ class Supvisors:
         # get declared Supvisors instances and check local identifier
         self.supvisors_mapper = SupvisorsMapper(self)
         try:
-            self.supvisors_mapper.configure(self.options.supvisors_list, self.options.core_identifiers)
+            self.supvisors_mapper.configure(self.options.supvisors_list,
+                                            self.options.stereotypes,
+                                            self.options.core_identifiers)
         except ValueError:
             self.logger.critical('Supvisors: Wrong Supvisors configuration (supvisors_list)')
             raise

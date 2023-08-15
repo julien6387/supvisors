@@ -55,6 +55,7 @@ class SupvisorsOptions:
 
     Attributes are:
         - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
+        - stereotype: the Supvisors instance stereotype, used as aliases in rules ;
         - multicast: UDP Multicast Group where Supvisors will exchange data ;
         - multicast_interface: UDP Multicast Group interface ;
         - multicast_ttl: UDP Multicast time-to-live ;
@@ -106,6 +107,9 @@ class SupvisorsOptions:
         # get expected Supvisors instances
         self.supvisors_list = self._get_value(config, 'supvisors_list', None,
                                               lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
+        # Supvisors instance generic type
+        self.stereotypes = self._get_value(config, 'stereotypes', set(),
+                                           lambda x: set(filter(None, list_of_strings(x))))
         # get multicast parameters for discovery mode
         self.multicast_group = self._get_value(config, 'multicast_group', None, self.to_multicast_group)
         self.multicast_interface = self._get_value(config, 'multicast_interface', None, self.to_ip_address)
@@ -150,6 +154,7 @@ class SupvisorsOptions:
         """ Contents as string. """
         mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}' if self.multicast_group else None
         return (f'supvisors_list={self.supvisors_list}'
+                f' stereotypes={self.stereotypes}'
                 f' multicast_group={mc_group}'
                 f' multicast_interface={self.multicast_interface}'
                 f' multicast_ttl={self.multicast_ttl}'

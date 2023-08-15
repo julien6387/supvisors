@@ -24,7 +24,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import NameList
+from supvisors.ttypes import NameList, NameSet
 
 
 def get_addresses(host_id: str, logger: Logger) -> Optional[Tuple[str, NameList, NameList]]:
@@ -52,7 +52,8 @@ class SupvisorsInstanceId:
         - internal_port: the port number used to publish local events to remote Supvisors instances ;
         - event_port: the port number used to publish all Supvisors events ;
         - host_name: the host name corresponding to the host id, as known by the local network configuration ;
-        - ip_address: the main ip_address of the host, as known by the local network configuration.
+        - ip_address: the main ip_address of the host, as known by the local network configuration ;
+        - stereotype: the stereotype (used for rules).
     """
 
     PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
@@ -71,6 +72,8 @@ class SupvisorsInstanceId:
         self.http_port = None
         self.internal_port = None
         self.event_port = None
+        # attributes set a posteriori
+        self.stereotypes: NameList = []
         # parse item to get the values
         self.parse_from_string(item)
         self.check_values()
@@ -174,7 +177,9 @@ class SupvisorsMapper:
         - _nodes: the list of Supvisors instances grouped by node names ;
         - _core_identifiers: the list of Supvisors core identifiers declared in the supvisors section of the Supervisor
           configuration file ;
-        - local_identifier: the local Supvisors identifier.
+        - local_identifier: the local Supvisors identifier ;
+        - initial_identifiers: the initial list of Supvisors instances (excluding the discovered ones) ;
+        - stereotypes: the Supvisors identifiers, sorted by stereotype.
     """
 
     # annotation types
@@ -194,6 +199,7 @@ class SupvisorsMapper:
         self._core_identifiers: NameList = []
         self.local_identifier = None
         self.initial_identifiers: NameList = []
+        self.stereotypes: Dict[str, NameList] = {}
 
     @property
     def local_instance(self) -> SupvisorsInstanceId:
@@ -244,12 +250,13 @@ class SupvisorsMapper:
         message = f'could not define a Supvisors identification from "{item}"'
         raise ValueError(message)
 
-    def configure(self, supvisors_list: NameList, core_list: NameList) -> None:
+    def configure(self, supvisors_list: NameList, stereotypes: NameSet, core_list: NameList) -> None:
         """ Store the identification of the Supvisors instances declared in the configuration file and determine
         the local Supvisors instance in this list.
 
-        :param supvisors_list: the Supvisors instances declared in the supvisors section of the configuration file
-        :param core_list: the minimum Supvisors identifiers to end the synchronization phase
+        :param supvisors_list: the Supvisors instances declared in the supvisors section of the configuration file.
+        :param stereotypes: the local Supvisors instance stereotypes.
+        :param core_list: the minimum Supvisors identifiers to end the synchronization phase.
         :return: None
         """
         if supvisors_list:
@@ -267,17 +274,18 @@ class SupvisorsMapper:
         self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')
         self.logger.info(f'SupvisorsMapper.configure: nodes={self.nodes}')
         # get local Supervisor identification from list
-        self.find_local_identifier()
+        self.find_local_identifier(stereotypes)
         # store core identifiers without filtering. it will be filtered on access because of discovery mode
         self._core_identifiers = core_list
         self.logger.info(f'SupvisorsMapper.configure: core_identifiers={core_list}')
 
-    def find_local_identifier(self):
+    def find_local_identifier(self, stereotypes: NameSet):
         """ Find the local Supvisors identification in the list declared in the configuration file.
         It can be either the local Supervisor identifier or a name built using the local host name or any of its known
         IP addresses.
 
-        :return: the identifier of the local Supvisors
+        :param stereotypes: the local Supvisors instance stereotypes.
+        :return: the identifier of the local Supvisors.
         """
         # get the must-match parameters
         local_host_name = getfqdn()
@@ -293,6 +301,8 @@ class SupvisorsMapper:
                 self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
                                  f' "{self.supvisors.supervisor_data.identifier}"'
                                  f' and local Supvisors in supvisors_list "{self.local_identifier}"')
+            # assign the generic Supvisors instance stereotype
+            self.assign_stereotypes(self.local_identifier, stereotypes)
         else:
             if len(matching_identifiers) > 1:
                 message = f'multiple candidates for the local Supvisors identifiers={matching_identifiers}'
@@ -302,6 +312,32 @@ class SupvisorsMapper:
             raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.find_local_identifier: local_identifier={self.local_identifier}')
 
+    def assign_stereotypes(self, identifier: str, stereotypes: NameSet) -> None:
+        """ Assign stereotypes to the Supvisors instance.
+
+        The method maintains a map of Supvisors instances per stereotype.
+        The list of Supvisors instances per stereotype is ordered the same way as the Supvisors instances themselves.
+
+        :param identifier: the identifier of the Supvisors instance
+        :param stereotypes: the stereotypes of the Supvisors instance
+        :return: None
+        """
+        # assign stereotypes on the first attempt only
+        sup_id: SupvisorsInstanceId = self.instances[identifier]
+        if stereotypes and not sup_id.stereotypes:
+            self.logger.info(f'SupvisorsMapper.assign_stereotype: identifier={identifier} stereotypes={stereotypes}')
+            # set stereotype in SupvisorsInstanceId
+            sup_id.stereotypes = list(stereotypes)
+            # update map
+            for stereotype in stereotypes:
+                if stereotype in self.stereotypes:
+                    # a new identifier has to be added to the list, keeping the same order as in self._instances
+                    identifiers = self.stereotypes[stereotype]
+                    identifiers.append(identifier)
+                    self.stereotypes[stereotype] = [x for x in self.instances.keys() if x in identifiers]
+                else:
+                    self.stereotypes[stereotype] = [identifier]
+
     def filter(self, identifier_list: NameList) -> NameList:
         """ Check the Supvisors identifiers against the list declared in the configuration file.
         If the identifier is not found, it is removed from the list.
@@ -310,11 +346,15 @@ class SupvisorsMapper:
         :param identifier_list: a list of Supvisors identifiers
         :return: the filtered list of Supvisors identifiers
         """
-        # filter unknown Supvisors identifiers
-        identifiers = [identifier for identifier in identifier_list if identifier in self._instances]
-        # log invalid identifiers to warn the user
+        identifiers = []
+        # filter unknown Supvisors identifiers and expand the stereotypes
         for identifier in identifier_list:
-            if identifier not in identifiers:
-                self.logger.warn(f'SupvisorsMapper.valid: identifier={identifier} invalid')
-        # remove duplicates keeping the same ordering
+            if identifier in self._instances:
+                identifiers.append(identifier)
+            elif identifier in self.stereotypes:
+                # identifier is a stereotype
+                identifiers.extend(self.stereotypes[identifier])
+            else:
+                self.logger.warn(f'SupvisorsMapper.filter: identifier={identifier} invalid')
+        # remove duplicates keeping the same order
         return list(OrderedDict.fromkeys(identifiers))

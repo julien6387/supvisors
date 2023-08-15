@@ -216,13 +216,14 @@ class SupervisorListener(object):
             payload = {'ip_address': self.local_instance.ip_address,
                        'server_port': self.local_instance.http_port,
                        'when': time.time(),
-                       'sequence_counter': self.counter}
+                       'sequence_counter': self.counter,
+                       'stereotypes': self.local_instance.stereotypes}
             self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
             # trigger the periodic check
             # NOTE: do not involve the Supvisors internal communications to that end
             #       because it is used to detect network failures
-            self.fsm.on_tick_event(self.local_identifier, payload)
+            self.supvisors.context.on_local_tick_event(payload)
             self.fsm.on_timer_event(payload)
             # publish the TICK to all Supvisors instances
             self.publisher.send_tick_event(payload)

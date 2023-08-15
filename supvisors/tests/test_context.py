@@ -511,7 +511,7 @@ def test_get_managed_applications(filled_context):
     # in this test, all applications are managed by default
     expected = ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
     assert sorted(filled_context.get_managed_applications().keys()) == expected
-    # unmanage a few ones
+    # de-manage a few ones
     filled_context.applications['firefox'].rules.managed = False
     filled_context.applications['sample_test_1'].rules.managed = False
     # re-test
@@ -877,7 +877,7 @@ def test_authorization_checking_normal(mocker, context):
     assert not mocked_invalid.called
 
 
-def test_on_tick_event_local(mocker, context):
+def test_on_local_tick_event(mocker, context):
     """ Test the handling of a TICK event on the local Supvisors instance. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
     mocked_check = context.supvisors.internal_com.pusher.send_check_instance
@@ -890,17 +890,6 @@ def test_on_tick_event_local(mocker, context):
     status.local_sequence_counter = 7
     assert status.remote_time == 0
     assert status.local_time == 0
-    # check no change with Supvisors instance in isolation (NOT meant to happen on a local Supvisors instance)
-    for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
-        status._state = state
-        context.on_tick_event(context.local_identifier, {'sequence_counter': 31, 'when': 1234})
-        assert status.state == state
-        assert status.sequence_counter == 7
-        assert status.local_sequence_counter == 7
-        assert status.remote_time == 0
-        assert status.local_time == 0
-        assert not mocked_check.called
-        assert not mocked_send.called
     # when a TICK is received from a SILENT or UNKNOWN state, check that:
     #   * Supvisors instance is CHECKING
     #   * time is updated using local time
@@ -908,7 +897,7 @@ def test_on_tick_event_local(mocker, context):
     #   * Supvisors instance status is sent
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
         status._state = state
-        context.on_tick_event(context.local_identifier, {'sequence_counter': 31, 'when': 1234})
+        context.on_local_tick_event({'sequence_counter': 31, 'when': 1234})
         assert status.state == SupvisorsInstanceStates.CHECKING
         assert status.sequence_counter == 31
         assert status.local_sequence_counter == 31  # same as sequence_counter
@@ -934,7 +923,7 @@ def test_on_tick_event_local(mocker, context):
     #   * Supvisors instance status is sent
     for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
         status._state = state
-        context.on_tick_event(context.local_identifier, {'sequence_counter': 57, 'when': 5678})
+        context.on_local_tick_event({'sequence_counter': 57, 'when': 5678})
         assert status.state == state
         assert status.sequence_counter == 57
         assert status.local_sequence_counter == 57  # same as sequence_counter
@@ -952,35 +941,12 @@ def test_on_tick_event_local(mocker, context):
                     'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
         mocked_send.reset_mock()
-    # check that the Supvisors instance local_sequence_counter is forced to 0 when its sequence_counter
-    #   is lower than expected (stealth restart)
-    for state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
-        status._state = state
-        status.sequence_counter = 57
-        status.local_sequence_counter = 57
-        context.on_tick_event(context.local_identifier, {'sequence_counter': 2, 'when': 6789})
-        assert status.state == state
-        assert status.sequence_counter == 2
-        assert status.local_sequence_counter == 0  # invalidated
-        assert status.remote_time == 6789
-        assert status.local_time == 6789
-        assert not mocked_check.called
-        expected = {'identifier': context.local_identifier,
-                    'node_name': context.local_status.supvisors_id.host_name,
-                    'port': 65000, 'sequence_counter': 2,
-                    'statecode': state.value, 'statename': state.name,
-                    'remote_time': 6789, 'local_time': 6789,
-                    'loading': 0, 'process_failure': False,
-                    'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                    'discovery_mode': False, 'master_identifier': '',
-                    'starting_jobs': False, 'stopping_jobs': False}
-        assert mocked_send.call_args_list == [call(expected)]
-        mocked_send.reset_mock()
 
 
-def test_on_tick_event_remote(mocker, context):
-    """ Test the handling of a timer event. """
+def test_on_tick_event(mocker, context):
+    """ Test the handling of a tick event from a remote Supvisors instance. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
+    mocked_stereotype = mocker.patch.object(context.supvisors.supvisors_mapper, 'assign_stereotypes')
     mocked_check = context.supvisors.internal_com.pusher.send_check_instance
     context.supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = context.supvisors.external_publisher.send_instance_status
@@ -996,7 +962,9 @@ def test_on_tick_event_remote(mocker, context):
     assert status.local_time == 0
     # check no processing as long as local Supvisors instance is not RUNNING
     assert context.local_status.state == SupvisorsInstanceStates.UNKNOWN
-    context.on_tick_event('10.0.0.1', {'sequence_counter': 31, 'when': 1234})
+    event = {'sequence_counter': 31, 'when': 1234, 'stereotypes': {'test'}}
+    context.on_tick_event('10.0.0.1', event)
+    assert not mocked_stereotype.called
     assert not mocked_check.called
     assert not mocked_send.called
     assert status.state == SupvisorsInstanceStates.UNKNOWN
@@ -1009,12 +977,13 @@ def test_on_tick_event_remote(mocker, context):
     # check no change with known Supvisors instance in isolation
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         status._state = state
-        context.on_tick_event('10.0.0.1', {'sequence_counter': 31, 'when': 1234})
+        context.on_tick_event('10.0.0.1', event)
         assert status.state == state
         assert status.sequence_counter == 0
         assert status.local_sequence_counter == 0
         assert status.remote_time == 0
         assert status.local_time == 0
+        assert not mocked_stereotype.called
         assert not mocked_check.called
         assert not mocked_send.called
     # when a TICK is received from a SILENT or UNKNOWN state on a remote Supvisors instance, check that:
@@ -1024,12 +993,13 @@ def test_on_tick_event_remote(mocker, context):
     #   * Supvisors instance status is sent
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
         status._state = state
-        context.on_tick_event('10.0.0.1', {'sequence_counter': 31, 'when': 1234})
+        context.on_tick_event('10.0.0.1', event)
         assert status.state == SupvisorsInstanceStates.CHECKING
         assert status.sequence_counter == 31
         assert status.local_sequence_counter == 7
         assert status.remote_time == 1234
         assert status.local_time == 3600
+        assert mocked_stereotype.call_args_list == [call('10.0.0.1', {'test'})]
         assert mocked_check.call_args_list == [call('10.0.0.1')]
         expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1',
                     'port': 65000, 'sequence_counter': 31,
@@ -1040,17 +1010,20 @@ def test_on_tick_event_remote(mocker, context):
                     'discovery_mode': False, 'master_identifier': '',
                     'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
+        mocked_stereotype.reset_mock()
         mocked_check.reset_mock()
         mocked_send.reset_mock()
     # check that node time is updated and node status is sent
+    event = {'sequence_counter': 57, 'when': 5678, 'stereotypes': {'test'}}
     for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
         status._state = state
-        context.on_tick_event('10.0.0.1', {'sequence_counter': 57, 'when': 5678})
+        context.on_tick_event('10.0.0.1', event)
         assert status.state == state
         assert status.sequence_counter == 57
         assert status.local_sequence_counter == 7
         assert status.remote_time == 5678
         assert status.local_time == 3600
+        assert mocked_stereotype.call_args_list == [call('10.0.0.1', {'test'})]
         assert not mocked_check.called
         expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'sequence_counter': 57,
                     'statecode': state.value, 'statename': state.name,
@@ -1060,16 +1033,19 @@ def test_on_tick_event_remote(mocker, context):
                     'discovery_mode': False, 'master_identifier': '',
                     'starting_jobs': False, 'stopping_jobs': False}
         assert mocked_send.call_args_list == [call(expected)]
+        mocked_stereotype.reset_mock()
         mocked_send.reset_mock()
     # check that the Supvisors instance local_sequence_counter is forced to 0 when its sequence_counter
     #   is lower than expected (stealth restart)
     status._state = SupvisorsInstanceStates.RUNNING
-    context.on_tick_event('10.0.0.1', {'sequence_counter': 2, 'when': 6789})
+    event = {'sequence_counter': 2, 'when': 6789, 'stereotypes': set()}
+    context.on_tick_event('10.0.0.1', event)
     assert status.state == SupvisorsInstanceStates.RUNNING
     assert status.sequence_counter == 2
     assert status.local_sequence_counter == 0  # invalidated
     assert status.remote_time == 6789
     assert status.local_time == 3600
+    assert mocked_stereotype.call_args_list == [call('10.0.0.1', set())]
     assert not mocked_check.called
     expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1',
                 'port': 65000, 'sequence_counter': 2,
@@ -1079,6 +1055,7 @@ def test_on_tick_event_remote(mocker, context):
                 'fsm_statecode': 0, 'fsm_statename': 'OFF',
                 'discovery_mode': False, 'master_identifier': '',
                 'starting_jobs': False, 'stopping_jobs': False}
+    mocked_stereotype.reset_mock()
     assert mocked_send.call_args_list == [call(expected)]
 
 
@@ -1627,8 +1604,8 @@ def test_on_timer_event(mocker, context):
     mocked_send = context.supvisors.external_publisher.send_instance_status
     # update context instances
     context.local_status.__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,
-                                            'sequence_counter': 31,
-                                            'local_sequence_counter': 31})
+                                          'sequence_counter': 31,
+                                          'local_sequence_counter': 31})
     context.instances['10.0.0.1'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,
                                                    'local_sequence_counter': 30})
     context.instances['10.0.0.2'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,

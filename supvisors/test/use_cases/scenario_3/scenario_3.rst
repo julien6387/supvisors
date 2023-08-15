@@ -454,4 +454,9 @@ Example
 
 The full example is available in `Supvisors Use Cases - Scenario 3 <https://github.com/julien6387/supvisors/tree/master/supvisors/test/use_cases/scenario_3>`_.
 
+Two versions are provided:
+
+    * one corresponding to the description above ;
+    * one based on the |Supvisors| discovery mode, using stereotypes rather than aliases.
+
 .. include:: common.rst

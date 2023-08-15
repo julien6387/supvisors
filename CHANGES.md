@@ -28,6 +28,10 @@
   `multicast_interface` and `multicast_ttl` added to that purpose).
   The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
 
+* Add a new option `stereotypes` to support the discovery mode. The `identifiers` of the Application and Program rules
+  can now reference a **Supvisors** stereotype in addition to identifiers and aliases.
+  By extension, it is made available to the non-discovery mode.
+
 * Add a new option `syncho_options` to enable the user to choose the conditions putting an end to the **Supvisors**
   synchronization phase.
   More particularly when using the new `USER` condition, the **Supvisors** Web UI provides a means to end the

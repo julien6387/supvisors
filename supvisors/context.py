@@ -524,6 +524,25 @@ class Context:
             return True
         return False
 
+    def on_local_tick_event(self, event: Payload) -> None:
+        """ Method called upon reception of a tick event from the local Supvisors instance.
+        The method updates the times of the corresponding SupvisorsInstanceStatus and its ProcessStatus.
+        Finally, the updated SupvisorsInstanceStatus is published.
+
+        :param event: the TICK event sent
+        :return: None
+        """
+        # for local Supvisors instance, use local data
+        counter = event['sequence_counter']
+        tick_time = event['when']
+        self.local_status.update_tick(counter, tick_time, counter, tick_time)
+        # trigger hand-shake on first TICK received
+        if self.local_status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
+            self.local_status.state = SupvisorsInstanceStates.CHECKING
+            self.supvisors.internal_com.pusher.send_check_instance(self.local_identifier)
+        # publish new Supvisors Instance status
+        self.export_status(self.local_status)
+
     def on_tick_event(self, identifier: str, event: Payload) -> None:
         """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
         Supvisors checks that the handling of the event is valid in case of auto fencing.
@@ -537,21 +556,16 @@ class Context:
         """
         # check if local tick has been received yet
         # NOTE: it is needed because remote ticks are tagged against last local tick received
-        if identifier != self.local_identifier:
-            if self.local_status.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
-                self.logger.debug('Context.on_tick_event: waiting for local tick first')
-                return
+        if self.local_status.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+            self.logger.debug('Context.on_tick_event: waiting for local tick first')
+            return
         # ISOLATING / ISOLATED instances are not updated anymore
         status = self.instances[identifier]
         if not status.in_isolation():
             # update the Supvisors instance with the TICK event
-            counter = event['sequence_counter']
-            tick_time = event['when']
-            # for local Supvisors instance, use local data
+            self.supvisors.supvisors_mapper.assign_stereotypes(identifier, event['stereotypes'])
             # for remote Supvisors instance, use local Supvisors instance data
-            local_counter = counter if identifier == self.local_identifier else self.local_sequence_counter
-            local_time = tick_time if identifier == self.local_identifier else time.time()
-            status.update_tick(counter, tick_time, local_counter, local_time)
+            status.update_tick(event['sequence_counter'], event['when'], self.local_sequence_counter, time.time())
             # trigger hand-shake on first TICK received
             if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
                 status.state = SupvisorsInstanceStates.CHECKING
@@ -570,8 +584,7 @@ class Context:
         ip_address, port = event['ip_address'], event['server_port']
         if identifier not in self.instances:
             item = f'<{identifier}>{ip_address}:{port}:'
-            self.logger.info(f'Context.check_discovery: adding instance={item}')
-            new_instance = self.supvisors.supvisors_mapper.add_instance(item)
+            new_instance = self.supvisors.supvisors_mapper.add_instance(item, True)
             self.instances[identifier] = SupvisorsInstanceStatus(new_instance, self.supvisors)
             return True
         return False

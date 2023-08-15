@@ -18,7 +18,7 @@
 
     <model name="disk_03">
         <reference>disk_01</reference>
-        <identifiers>supv-03</identifiers>
+        <identifiers>third</identifiers>
     </model>
 
     <model name="converter">

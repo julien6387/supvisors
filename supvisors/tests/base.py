@@ -54,7 +54,7 @@ class MockedSupvisors:
         fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
                        f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
-        self.supvisors_mapper.configure(identifiers, [])
+        self.supvisors_mapper.configure(identifiers, {'supvisors_test'}, [])
         self.server_options = Mock(process_indexes={'xclock': 2})
         # set real statistics collectors
         self.host_collector = instant_host_statistics

@@ -30,7 +30,7 @@ from .configurations import *
 
 @pytest.fixture
 def config():
-    return {'supvisors_list': 'cliche01,cliche03,cliche02',
+    return {'supvisors_list': 'cliche01,cliche03,cliche02', 'stereotypes': 'test',
             'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
             'internal_port': '60001',
@@ -139,7 +139,8 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == ('supvisors_list=None multicast_group=None multicast_interface=None multicast_ttl=1'
+    assert str(opt) == ('supvisors_list=None stereotypes=set()'
+                        ' multicast_group=None multicast_interface=None multicast_ttl=1'
                         ' rules_files=None internal_port=0'
                         ' event_link=NONE event_port=0'
                         " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
@@ -156,7 +157,8 @@ def test_filled_str(filled_opt):
     variable_core_2 = "{'cliche03', 'cliche01'}"
     result = str(filled_opt)
     print(result)
-    assert any(result == (f"supvisors_list=['cliche01', 'cliche03', 'cliche02']"
+    assert any(result == ("supvisors_list=['cliche01', 'cliche03', 'cliche02']"
+                          " stereotypes={'test'}"
                           ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
                           " rules_files=['my_movies.xml']"
                           ' internal_port=60001'
