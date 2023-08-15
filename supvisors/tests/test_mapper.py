@@ -260,6 +260,7 @@ def test_find_local_identifier_fqdn(mapper):
     # 2. move fqdn
     sup_id.host_name = 'dummy'
     sup_id.aliases = [fqdn]
+    sup_id.stereotypes = []
     # find self
     mapper.find_local_identifier({'test_2'})
     assert mapper.local_identifier == fqdn
