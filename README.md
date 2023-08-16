@@ -21,7 +21,7 @@ A set of application and program rules can be added to manage:
 * the starting sequence of the applications,
 * the stopping sequence of the applications,
 * the starting strategy of the processes,
-* the strategy to apply when a process crashes or when a node shut down,
+* the strategy to apply when a process crashes or when a node shuts down,
 * the strategy to apply when conflicts are detected.
 
 The Supervisor program `supervisorctl` has been extended to include the additional XML-RPC API.
