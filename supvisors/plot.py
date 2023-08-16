@@ -32,7 +32,7 @@ class StatisticsPlot(object):
     """ Class used to export statistics data into a PNG graph. """
 
     BACKGROUND_COLOR = '#052525'
-    LEGEND_COLOR = '#203535'  #'#053035'
+    LEGEND_COLOR = '#203535'  # '#053035'
     TEXT_COLOR = '#a0d5dd'
 
     def __init__(self, logger):

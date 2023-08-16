@@ -21,10 +21,10 @@ import os
 
 from supervisor.states import ProcessStates, RUNNING_STATES
 
-from .application import ApplicationStatus
-from .instancestatus import SupvisorsInstanceStatus
-from .statscompiler import ProcStatisticsInstance
-from .ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
+from supvisors.application import ApplicationStatus
+from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.statscompiler import ProcStatisticsInstance
+from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
 from .viewcontext import *
 from .viewinstance import SupvisorsInstanceView
 from .webutils import *
@@ -36,6 +36,8 @@ class ProcInstanceView(SupvisorsInstanceView):
     Note that StatusView inheritance has been patched dynamically in supvisors.plugin.make_supvisors_rpcinterface
     so that StatusView inherits from ViewHandler instead of MeldView.
     """
+
+    ProcessStats = Tuple[int, int, Optional[Tuple[ProcessCPUHistoryStats, ProcessMemHistoryStats]]]
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
@@ -163,7 +165,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         return payload
 
     @staticmethod
-    def sum_process_info(data: PayloadList) -> Tuple[int, int, Optional[Tuple[ProcessCPUHistoryStats, ProcessMemHistoryStats]]]:
+    def sum_process_info(data: PayloadList) -> ProcessStats:
         """ Get the total resources taken by the processes.
 
         :param data: the list of process payloads

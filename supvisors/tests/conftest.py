@@ -42,13 +42,22 @@ def create_application(application_name, supvisors):
     return ApplicationStatus(application_name, ApplicationRules(supvisors), supvisors)
 
 
+def to_simple_url(host: str, page: str, **actions):
+    """ Create a simple url based on the ViewContext.format_url parameters. """
+    url = f"http://{host}/{page}"
+    attributes = '&'.join([f'{key}={value}' for key, value in dict(actions).items()])
+    if attributes:
+        url += f'?{attributes}'
+    return url
+
+
 # fixture for common global structures
 @pytest.fixture
 def options():
     return {'internal_port': '65100',
             'event_link': 'none',
             'event_port': '65200',
-            'synchro_timeout': '15',
+            'synchro_timeout': '20',
             'inactivity_ticks': '2',
             'core_identifiers': '',
             'disabilities_file': 'disabilities.json',
@@ -73,7 +82,7 @@ def supervisor():
 
 @pytest.fixture
 def supvisors(mocker, supervisor, options):
-    mocker.patch('supvisors.supvisorsmapper.get_addresses', side_effect=lambda x, y: (x, [], [x]))
+    mocker.patch('supvisors.internal_com.mapper.get_addresses', side_effect=lambda x, y: (x, [x], [x]))
     return MockedSupvisors(supervisor, options)
 
 
@@ -169,4 +178,5 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.restart_sequence.return_value = True
     proxy.supvisors.restart.return_value = True
     proxy.supvisors.shutdown.return_value = True
+    proxy.supvisors.end_sync.return_value = True
     proxy.supvisors.change_log_level.return_value = True

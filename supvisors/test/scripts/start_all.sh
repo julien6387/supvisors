@@ -18,7 +18,7 @@ do
       ping -c 1 $host 2>&1 >/dev/null && ssh $host "cd $TEST_DIR
       export DISPLAY=:0
       export IDENTIFIER=supv-03
-      supervisord -i supv-03 -c etc/supervisord_alt.conf"
+      supervisord -c etc/supervisord_alt.conf"
     else
       echo "start Supervisor on $host"
       ping -c 1 $host 2>&1 >/dev/null && ssh $host "cd $TEST_DIR ; rm -rf log/*
@@ -30,4 +30,4 @@ done
 cd $TEST_DIR
 pwd
 sleep 1
-tail -f -n +1 log/sup*
+tail -f -n +1 log/supervisord.log

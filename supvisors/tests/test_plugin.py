@@ -20,6 +20,7 @@
 import re
 from unittest.mock import call
 
+from supervisor.loggers import BoundIO, LevelsByName, LogRecord, StreamHandler
 from supervisor.web import OKView, TailView
 
 from supvisors.plugin import *
@@ -35,22 +36,42 @@ def test_expand_faults():
     assert SupvisorsFaults.DISABLED.value == Faults.DISABLED
 
 
+def test_patch_logger(supvisors):
+    """ Test the patch_logger function. """
+    # check initial context
+    assert not hasattr(Handler, '_emit')
+    ref_emit = Handler.emit
+    # check monkeypatch
+    patch_logger()
+    assert Handler._emit is ref_emit
+    assert Handler.emit is not ref_emit
+    # check again monkeypatch to ensure that Supvisors patches do not override renamed Supervisor functions
+    patch_logger()
+    assert Handler._emit is ref_emit
+    assert Handler.emit is not ref_emit
+    # test log emission
+    io = BoundIO(1 << 10)
+    handler = StreamHandler(io)
+    handler.emit(LogRecord(LevelsByName.INFO, 'hello'))
+    assert io.getvalue() == b'hello'
+
+
 def test_patch_591():
     """ Test the patch_591 function. """
     # check initial context
     assert not hasattr(SupervisorNamespaceRPCInterface, '_startProcess')
     assert not hasattr(Subprocess, '_spawn')
-    ref_startProcess = SupervisorNamespaceRPCInterface.startProcess
+    ref_start_process = SupervisorNamespaceRPCInterface.startProcess
     ref_spawn = Subprocess.spawn
     # check monkeypatch
     patch_591()
-    assert SupervisorNamespaceRPCInterface._startProcess is ref_startProcess
+    assert SupervisorNamespaceRPCInterface._startProcess is ref_start_process
     assert Subprocess._spawn is ref_spawn
     assert SupervisorNamespaceRPCInterface.startProcess is startProcess
     assert Subprocess.spawn is spawn
     # check again monkeypatch to ensure that Supvisors patches do not override renamed Supervisor functions
     patch_591()
-    assert SupervisorNamespaceRPCInterface._startProcess is ref_startProcess
+    assert SupervisorNamespaceRPCInterface._startProcess is ref_start_process
     assert Subprocess._spawn is ref_spawn
     assert SupervisorNamespaceRPCInterface.startProcess is startProcess
     assert Subprocess.spawn is spawn
@@ -99,6 +120,7 @@ def test_update_views():
 def test_make_rpc(mocker):
     """ Test the make_supvisors_rpcinterface function. """
     mocked_expand = mocker.patch('supvisors.plugin.expand_faults')
+    mocked_logger = mocker.patch('supvisors.plugin.patch_logger')
     mocked_591 = mocker.patch('supvisors.plugin.patch_591')
     mocked_views = mocker.patch('supvisors.plugin.update_views')
     mocker.patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
@@ -112,6 +134,7 @@ def test_make_rpc(mocker):
     assert supervisord.supvisors == 'a Supvisors instance'
     assert mocked_expand.call_args_list == [call()]
     assert mocked_rpc.call_args_list == [call(supervisord.supvisors)]
+    assert mocked_logger.call_args_list == [call()]
     assert mocked_591.call_args_list == [call()]
     assert mocked_views.call_args_list == [call()]
     # test monkeypatch of Supervisor cleanup_fds

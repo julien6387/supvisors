@@ -47,7 +47,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getAPIVersion methods returns the version of the RPC API used by Supvisors.
+     * The getAPIVersion method returns the version of the RPC API used by Supvisors.
      *
      * @return String: The version.
      */
@@ -56,7 +56,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getSupvisorsState methods returns the status of Supvisors.
+     * The getSupvisorsState method returns the status of Supvisors.
      *
      * @return SupvisorsStatus: The state of Supvisors.
      */
@@ -66,7 +66,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getMasterIdentifier methods returns the identifier of the Supvisors Master.
+     * The getMasterIdentifier method returns the identifier of the Supvisors Master.
      *
      * @return String: The Supvisors instance identifier.
      */
@@ -75,7 +75,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getStrategies methods returns the strategies applied in Supvisors.
+     * The getStrategies method returns the strategies applied in Supvisors.
      *
      * @return SupvisorsStrategies: Information about the strategies.
      */
@@ -85,7 +85,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getAllInstancesInfo methods returns information about all Supvisors instances.
+     * The getAllInstancesInfo method returns information about all Supvisors instances.
      *
      * @return HashMap<String, SupvisorsInstanceInfo>: Information for all Supvisors instances, sorted by name.
      */
@@ -95,7 +95,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getInstanceInfo methods returns information about a Supvisors instance.
+     * The getInstanceInfo method returns information about a Supvisors instance.
      *
      * @param String identifier: The identifier of the Supvisors instance.
      * @return SupvisorsInstanceInfo: Information about the Supvisors instance.
@@ -108,7 +108,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getAllApplicationInfo methods returns information about the applications known in Supvisors.
+     * The getAllApplicationInfo method returns information about the applications known in Supvisors.
      *
      * @return HashMap<String, SupvisorsApplicationInfo>: Information for all applications, sorted by name.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is still in INITIALIZATION state,
@@ -119,7 +119,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getApplicationInfo methods returns information about an application known in Supvisors.
+     * The getApplicationInfo method returns information about an application known in Supvisors.
      *
      * @param String applicationName: The name of the application.
      * @return SupvisorsApplicationInfo: Information about the application.
@@ -133,7 +133,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getApplicationRules methods returns rules used to start/stop applications known in Supvisors.
+     * The getApplicationRules method returns rules used to start/stop applications known in Supvisors.
      *
      * @param String applicationName: The name of the application.
      * @return SupvisorsApplicationRules: The rules of the application.
@@ -147,7 +147,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getAllProcessInfo methods returns information about all processes known in Supvisors.
+     * The getAllProcessInfo method returns information about all processes known in Supvisors.
      * It just complements the supervisor.getAllProcessInfo by telling where the process is running.
      *
      * @return HashMap<String, SupvisorsProcessInfo>: Information about the processes, sorted by namespec.
@@ -159,7 +159,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getProcessInfo methods returns information about processes known in Supvisors.
+     * The getProcessInfo method returns information about processes known in Supvisors.
      * It just complements the supervisor.getProcessInfo by telling where the process is running.
      *
      * @param String namespec: The name of the process (or "applicationName:processName", or "applicationName:*").
@@ -174,7 +174,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getAllLocalProcessInfo methods returns information about all
+     * The getAllLocalProcessInfo method returns information about all
      * processes known to Supervisor, but as a subset of supervisor.getProcessInfo, including extra arguments.
      *
      * @return HashMap<String, SupvisorsProcessEvent>: Information about the processes, sorted by namespec.
@@ -185,7 +185,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getLocalProcessInfo methods returns information about a list of
+     * The getLocalProcessInfo method returns information about a list of
      * processes known to Supervisor, but as a subset of supervisor.getProcessInfo, including extra arguments.
      *
      * @param String namespec: The name of the process (or "applicationName:processName").
@@ -199,7 +199,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getProcessRules methods returns rules used to start/stop processes known in Supvisors.
+     * The getProcessRules method returns rules used to start/stop processes known in Supvisors.
      *
      * @param String namespec: The name of the process (or "applicationName:processName", or "applicationName:*").
      * @return HashMap<String, SupvisorsProcessRules>: The rules of the processes, sorted by namespec.
@@ -213,7 +213,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getConflicts methods returns the conflicting processes.
+     * The getConflicts method returns the conflicting processes.
      *
      * @return HashMap<String, SupvisorsProcessInfo>: The list of conflicting processes, sorted by namespec.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is still in INITIALIZATION state,
@@ -224,7 +224,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The startApplication methods starts the processes of the application, in accordance with the rules configured
+     * The startApplication method starts the processes of the application, in accordance with the rules configured
      * in the deployment file for the application and its processes.
      *
      * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
@@ -245,7 +245,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The stopApplication methods stops the processes of the application, in accordance with the rules configured
+     * The stopApplication method stops the processes of the application, in accordance with the rules configured
      * in the deployment file for the application and its processes.
      *
      * @param String applicationName: The name of the application to stop.
@@ -261,7 +261,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The restartApplication methods restarts the processes of the application, in accordance with the rules configured
+     * The restartApplication method restarts the processes of the application, in accordance with the rules configured
      * in the deployment file for the application and its processes.
      *
      * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
@@ -280,7 +280,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The startArgs methods starts a process in the local Supvisors instance.
+     * The startArgs method starts a process in the local Supvisors instance.
      * The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
      * instead of throwing an exception to the RPC client.
      * This method makes it also possible to pass extra arguments to the program command line.
@@ -302,7 +302,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The startProcess methods starts a process, in accordance with the rules ('wait_exit' excepted)
+     * The startProcess method starts a process, in accordance with the rules ('wait_exit' excepted)
      * configured in the deployment file for the application and its processes.
      * This method makes it also possible to pass extra arguments to the program command line.
      *
@@ -324,7 +324,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The startAnyProcess methods starts a process whose namespec shall match the regular expression,
+     * The startAnyProcess method starts a process whose namespec shall match the regular expression,
      * in accordance with the rules for the application and its processes.
      * This method makes it also possible to pass extra arguments to the program command line.
      *
@@ -346,7 +346,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The stopProcess methods stops a process where it is running.
+     * The stopProcess method stops a process where it is running.
      *
      * @param String namespec: The name of the process to start.
      * @param Boolean wait: If true, the RPC returns only when the process is fully stopped.
@@ -361,7 +361,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The restartProcess methods restarts a process, in accordance with the rules ('wait_exit' excepted)
+     * The restartProcess method restarts a process, in accordance with the rules ('wait_exit' excepted)
      * configured in the deployment file for the application and its processes.
      *
      * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
@@ -381,7 +381,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The updateNumprocs methods dynamically increases or decreases the number of processes in a homogeneous group.
+     * The updateNumprocs method dynamically increases or decreases the number of processes in a homogeneous group.
      *
      * @param String programName: The name of the program.
      * @param Integer numProcs: The new number of processes.
@@ -399,7 +399,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The enable methods allows the processes corresponding to the program to be started again.
+     * The enable method allows the processes corresponding to the program to be started again.
      *
      * @param String programName: The name of the program.
      * @param Boolean wait: If true, the RPC returns only when the processes are fully enabled.
@@ -413,7 +413,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The disable methods stops the processes corresponding to the program and prevents them to be started again.
+     * The disable method stops the processes corresponding to the program and prevents them to be started again.
      *
      * @param String programName: The name of the program.
      * @param Boolean wait: If true, the RPC returns only when the processes are fully stopped and disabled.
@@ -427,7 +427,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The conciliate methods conciliates process conflicts detected by Supvisors
+     * The conciliate method conciliates process conflicts detected by Supvisors
      * using the strategy in parameter.
      *
      * @param ConciliationStrategy strategy: The strategy used for conciliation.
@@ -441,7 +441,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The restart methods restarts Supvisors through all the Supervisor instances.
+     * The restart method restarts Supvisors through all the Supervisor instances.
      *
      * @return Boolean: Always True unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is still in INITIALIZATION state,
@@ -451,7 +451,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The shutdown methods shuts down Supvisors through all the Supervisor instances.
+     * The shutdown method shuts down Supvisors through all the Supervisor instances.
      *
      * @return Boolean: Always True unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is still in INITIALIZATION state,
@@ -460,6 +460,47 @@ public class SupvisorsXmlRpc {
         return client.rpcCall(Namespace + "shutdown", null, Boolean.class);
     }
 
+    /**
+     * The endSynchronization method allows the user to end the synchronization phase.
+     * The Master will be chosen by Supvisors.
+     *
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in INITIALIZATION state,
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if the synchronization is already ending.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if the synchro_options does not include USER.
+     */
+    public Boolean endSynchronization() throws XmlRpcException {
+        return client.rpcCall(Namespace + "end_synchro", null, Boolean.class);
+    }
+
+    /**
+     * The endSynchronization method allows the user to end the synchronization phase.
+     * The Master is chosen by the user.
+     *
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in INITIALIZATION state,
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if the synchronization is already ending.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if the synchro_options does not include USER.
+     * @throws XmlRpcException: with code BAD_NAME if master is an unknown Supvisors identifier.
+     * @throws XmlRpcException: with code NOT_RUNNING if the chosen Master Supvisors instance is not in state RUNNING.
+     */
+    public Boolean endSynchronization(final String master) throws XmlRpcException {
+        Object[] params = new Object[]{master};
+        return client.rpcCall(Namespace + "end_sync", params, Boolean.class);
+    }
+
+    /**
+     * The changeLogLevel method updates the logger level for the local Supvisors instance.
+     * If the Supvisors logger is configured as AUTO, this impacts the Supervisor logger too.
+     *
+     * @param ConciliationStrategy strategy: The strategy used for conciliation.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if level is unknown to Supervisor.
+     */
+    public Boolean changeLogLevel(final LoggerLevels level) throws XmlRpcException {
+        Object[] params = new Object[]{level.getLevelCode()};
+        return client.rpcCall(Namespace + "change_log_level", params, Boolean.class);
+    }
 
     /**
      * The main for Supvisors self-tests.
@@ -471,7 +512,11 @@ public class SupvisorsXmlRpc {
         SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
         SupvisorsXmlRpc supvisors = new SupvisorsXmlRpc(client);
 
-        // test supvisors status
+        // test Supvisors log level
+        System.out.println("### Testing supvisors.changeLogLevel(...) ###");
+        System.out.println(supvisors.changeLogLevel(LoggerLevels.DEBUG));
+
+        // test Supvisors status
         System.out.println("### Testing supvisors.getAPIVersion(...) ###");
         System.out.println(supvisors.getAPIVersion());
         System.out.println("### Testing supvisors.getSupvisorsState(...) ###");
@@ -573,6 +618,14 @@ public class SupvisorsXmlRpc {
         } catch (XmlRpcException e) {
             // expected to fail because there is no conflict
         }
+
+        System.out.println("### Testing supervisor.endSynchronization(...) ###");
+        try {
+            System.out.println(supvisors.endSynchronization());
+        } catch (XmlRpcException exception) {
+            // expected to fail because not in INITIALIZATION state
+        }
+
         System.out.println("### Testing supvisors.restart(...) ###");
         System.out.println(supvisors.restart());
         // let a little time to restart before shutdown
@@ -581,6 +634,7 @@ public class SupvisorsXmlRpc {
         } catch (InterruptedException e) {
             // no matter
         }
+
         System.out.println("### Testing supvisors.shutdown(...) ###");
         System.out.println(supvisors.shutdown());
     }

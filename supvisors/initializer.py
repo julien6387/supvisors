@@ -23,6 +23,7 @@ from supervisor import supervisord
 from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 
+from supvisors.internal_com.mapper import SupvisorsMapper
 from .commander import Starter, Stopper
 from .context import Context
 from .listener import SupervisorListener
@@ -32,7 +33,6 @@ from .statemachine import FiniteStateMachine
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .strategy import RunningFailureHandler
 from .supervisordata import SupervisorData
-from .supvisorsmapper import SupvisorsMapper
 from .ttypes import Payload
 
 
@@ -77,9 +77,9 @@ class Supvisors:
 
         :param supervisor: the Supervisor global structure
         """
-        # WARN: the Supvisors sockets cannot be created at this level
-        # Before running, Supervisor forks when daemonized and the sockets would be lost
-        self.sockets = None
+        # WARN: The Supvisors communication objects cannot be created at this level.
+        #       Before running, Supervisor forks when daemonized and the sockets would be lost.
+        self.internal_com = None
         self.external_publisher = None
         # create logger using option from config
         logger_config = get_logger_configuration(**config)
@@ -94,7 +94,9 @@ class Supvisors:
         # get declared Supvisors instances and check local identifier
         self.supvisors_mapper = SupvisorsMapper(self)
         try:
-            self.supvisors_mapper.configure(self.options.supvisors_list, self.options.core_identifiers)
+            self.supvisors_mapper.configure(self.options.supvisors_list,
+                                            self.options.stereotypes,
+                                            self.options.core_identifiers)
         except ValueError:
             self.logger.critical('Supvisors: Wrong Supvisors configuration (supvisors_list)')
             raise

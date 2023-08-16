@@ -20,8 +20,8 @@
 import zmq.asyncio
 from supervisor.loggers import Logger
 
-from supvisors.eventinterface import EventSubscriberInterface
-from supvisors.supvisorszmq import ZmqEventSubscriber
+from supvisors.external_com.eventinterface import EventSubscriberInterface
+from supvisors.external_com.supvisorszmq import ZmqEventSubscriber
 from supvisors.ttypes import Payload
 
 

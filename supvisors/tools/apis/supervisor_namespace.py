@@ -35,35 +35,40 @@ wait_parser.add_argument('wait', type=inputs.boolean, default=True,
 @api.route('/getAPIVersion', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getAPIVersion))
 class SupervisorApiVersion(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supervisor.getAPIVersion()
 
 
 @api.route('/getSupervisorVersion', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getSupervisorVersion))
 class SupervisorVersion(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supervisor.getSupervisorVersion()
 
 
 @api.route('/getIdentification', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getIdentification))
 class SupervisorIdentification(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supervisor.getIdentification()
 
 
 @api.route('/getState', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getState))
 class SupervisorState(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supervisor.getState()
 
 
 @api.route('/getPID', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getPID))
 class SupervisorPid(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return g.proxy.supervisor.getPID()
 
 
@@ -78,28 +83,32 @@ class SupervisorReadLog(Resource):
 @api.route('/clearLog', methods=('POST',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.clearLog))
 class SupervisorClearLog(Resource):
-    def post(self):
+    @staticmethod
+    def post():
         return g.proxy.supervisor.clearLog()
 
 
 @api.route('/shutdown', methods=('POST',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.shutdown))
 class SupervisorShutdown(Resource):
-    def post(self):
+    @staticmethod
+    def post():
         return g.proxy.supervisor.shutdown()
 
 
 @api.route('/restart', methods=('POST',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.restart))
 class SupervisorRestart(Resource):
-    def post(self):
+    @staticmethod
+    def post():
         return g.proxy.supervisor.restart()
 
 
 @api.route('/reloadConfig', methods=('POST',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.reloadConfig))
 class SupervisorReloadConfig(Resource):
-    def post(self):
+    @staticmethod
+    def post():
         return g.proxy.supervisor.reloadConfig()
 
 
@@ -206,7 +215,8 @@ class SupervisorSignalAllProcesses(Resource):
 @api.route('/getAllConfigInfo', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getAllConfigInfo))
 class SupervisorAllConfigInfo(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.supervisor.getAllConfigInfo())
 
 
@@ -221,7 +231,8 @@ class SupervisorAllConfigInfo(Resource):
 @api.route('/getAllProcessInfo', methods=('GET',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.getAllProcessInfo))
 class SupervisorAllProcessInfo(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.supervisor.getAllProcessInfo())
 
 
@@ -268,7 +279,8 @@ class SupervisorClearProcessLogs(Resource):
 @api.route('/clearAllProcessLogs', methods=('POST',))
 @api.doc(description=get_docstring_description(SupervisorNamespaceRPCInterface.clearAllProcessLogs))
 class SupervisorClearAllProcessLogs(Resource):
-    def post(self):
+    @staticmethod
+    def post():
         return g.proxy.supervisor.clearAllProcessLogs()
 
 

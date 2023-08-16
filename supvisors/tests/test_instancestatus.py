@@ -34,32 +34,58 @@ def test_state_modes():
     """ Test the values set at StateModes construction. """
     sm_1 = StateModes()
     assert sm_1.state == SupvisorsStates.OFF
+    assert not sm_1.discovery_mode
+    assert sm_1.master_identifier == ''
     assert not sm_1.starting_jobs
     assert not sm_1.stopping_jobs
     assert sm_1.serial() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                             'discovery_mode': False,
+                             'master_identifier': '',
                              'starting_jobs': False, 'stopping_jobs': False}
     sm_1.apply(fsm_state=SupvisorsStates.OPERATION)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'discovery_mode': False,
+                             'master_identifier': '',
+                             'starting_jobs': False, 'stopping_jobs': False}
+    sm_1.apply(master_identifier='10.0.0.1')
+    assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': False, 'stopping_jobs': False}
     sm_1.apply(starter=True)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': True, 'stopping_jobs': False}
     sm_1.apply(stopper=True)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': True, 'stopping_jobs': True}
     with pytest.raises(TypeError):
         sm_1.apply(Starter=True)
     assert sm_1.serial() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
+                             'discovery_mode': False,
+                             'master_identifier': '10.0.0.1',
                              'starting_jobs': True, 'stopping_jobs': True}
     sm_2 = copy(sm_1)
-    assert sm_1.state == SupvisorsStates.OPERATION
-    assert sm_1.starting_jobs
-    assert sm_1.stopping_jobs
+    assert sm_2.state == SupvisorsStates.OPERATION
+    assert not sm_2.discovery_mode
+    assert sm_2.master_identifier == '10.0.0.1'
+    assert sm_2.starting_jobs
+    assert sm_2.stopping_jobs
     assert sm_1 == sm_2
-    sm_2.update({'fsm_statecode': SupvisorsStates.SHUTTING_DOWN, 'starting_jobs': False, 'stopping_jobs': True})
+    sm_2.update({'fsm_statecode': SupvisorsStates.SHUTTING_DOWN,
+                 'discovery_mode': True,
+                 'master_identifier': '',
+                 'starting_jobs': False, 'stopping_jobs': True})
     assert sm_1 != sm_2
-    assert sm_2.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+    assert sm_2.serial() == {'fsm_statecode': 6, 'fsm_statename': 'SHUTTING_DOWN',
+                             'discovery_mode': True,
+                             'master_identifier': '',
                              'starting_jobs': False, 'stopping_jobs': True}
+    # test comparison with wrong type
+    assert sm_1 != 4
 
 
 @pytest.fixture
@@ -142,7 +168,8 @@ def test_reset(status):
         status.remote_time = 28.452
         status.local_time = 27.456
         status.reset()
-        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                     SupvisorsInstanceStates.RUNNING]:
             assert status.state == SupvisorsInstanceStates.UNKNOWN
         else:
             assert status.state == state
@@ -161,9 +188,12 @@ def test_serialization(status):
     # test to_json method
     serialized = status.serial()
     assert serialized == {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
-                          'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time': 60,
+                          'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
+                          'remote_time': 50, 'local_time': 60,
                           'sequence_counter': 28, 'process_failure': False,
-                          'fsm_statecode': 0, 'fsm_statename': 'OFF', 'starting_jobs': False, 'stopping_jobs': False}
+                          'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                          'master_identifier': '',
+                          'starting_jobs': False, 'stopping_jobs': False}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -200,8 +230,12 @@ def test_update_state_modes(status):
     """ Test the SupvisorsInstanceStatus.update_state_modes method. """
     assert status.state_modes == StateModes()
     status.update_state_modes({'fsm_statecode': SupvisorsStates.SHUTTING_DOWN,
+                               'discovery_mode': True,
+                               'master_identifier': '10.0.0.1',
                                'starting_jobs': False, 'stopping_jobs': True})
-    assert status.state_modes.serial() == {'fsm_statecode': 7, 'fsm_statename': 'SHUTTING_DOWN',
+    assert status.state_modes.serial() == {'fsm_statecode': 6, 'fsm_statename': 'SHUTTING_DOWN',
+                                           'discovery_mode': True,
+                                           'master_identifier': '10.0.0.1',
                                            'starting_jobs': False, 'stopping_jobs': True}
 
 
@@ -209,32 +243,49 @@ def test_apply_state_modes(status):
     """ Test the SupvisorsInstanceStatus.apply_state_modes method. """
     assert status.state_modes == StateModes()
     assert status.apply_state_modes({}) == (False, StateModes())
+    event = {'master_identifier': '10.0.0.1'}
+    assert status.apply_state_modes(event) == (True, StateModes(master_identifier='10.0.0.1'))
     event = {'starter': True}
-    assert status.apply_state_modes(event) == (True, StateModes(starting_jobs=True))
+    assert status.apply_state_modes(event) == (True, StateModes(starting_jobs=True, master_identifier='10.0.0.1'))
     event = {'stopper': False}
-    assert status.apply_state_modes(event) == (False, StateModes(starting_jobs=True))
+    assert status.apply_state_modes(event) == (False, StateModes(master_identifier='10.0.0.1', starting_jobs=True))
     event = {'fsm_state': SupvisorsStates.RESTARTING}
-    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.RESTARTING, True))
+    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.RESTARTING,
+                                                                False, '10.0.0.1', True))
     event = {'fsm_state': SupvisorsStates.INITIALIZATION, 'stopper': True}
-    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.INITIALIZATION, True, True))
-    assert status.apply_state_modes(event) == (False, StateModes(SupvisorsStates.INITIALIZATION, True, True))
+    assert status.apply_state_modes(event) == (True, StateModes(SupvisorsStates.INITIALIZATION,
+                                                                False, '10.0.0.1', True, True))
+    assert status.apply_state_modes(event) == (False, StateModes(SupvisorsStates.INITIALIZATION,
+                                                                 False, '10.0.0.1', True, True))
+
+
+def test_has_active_state(status):
+    """ Test the SupvisorsInstanceStatus.has_active_state method. """
+    for state in SupvisorsInstanceStates:
+        status._state = state
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                     SupvisorsInstanceStates.RUNNING]:
+            assert status.has_active_state()
+        else:
+            assert not status.has_active_state()
 
 
 def test_inactive(status):
-    """ Test the SupvisorsInstanceStatus.inactive method. """
+    """ Test the SupvisorsInstanceStatus.is_inactive method. """
     # test active
     status.local_sequence_counter = 8
     for state in SupvisorsInstanceStates:
         status._state = state
-        assert not status.inactive(10)
+        assert not status.is_inactive(10)
     # test not active
     status.local_sequence_counter = 7
     for state in SupvisorsInstanceStates:
         status._state = state
-        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
-            assert status.inactive(10)
+        if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                     SupvisorsInstanceStates.RUNNING]:
+            assert status.is_inactive(10)
         else:
-            assert not status.inactive(10)
+            assert not status.is_inactive(10)
 
 
 def test_isolation(status):
@@ -349,15 +400,16 @@ def test_add_process_stopped_collector(supvisors, local_status):
     assert data == (process.namespec, 0)
 
 
-def test_update_times(filled_status):
-    """ Test the SupvisorsInstanceStatus.update_times method. """
+def test_update_tick(filled_status):
+    """ Test the SupvisorsInstanceStatus.update_tick method. """
+    now = time.time()
     # get current process times
     ref_data = {process.namespec: (process.state, info['now'], info['uptime'])
                 for process in filled_status.processes.values()
                 for info in [process.info_map['supvisors']]}
-    # update times and check
-    now = time.time()
-    filled_status.update_times(28, now + 10, 27, now)
+    # update times and check with normal counter
+    filled_status.sequence_counter = 25
+    filled_status.update_tick(28, now + 10, 27, now)
     ref_start_time = now - 28 * TICK_PERIOD
     assert filled_status.sequence_counter == 28
     assert filled_status.local_sequence_counter == 27
@@ -377,12 +429,19 @@ def test_update_times(filled_status):
         else:
             assert new_info[2] == ref_info[2]
     # update times aa second time to check that start_time hasn't changed
-    filled_status.update_times(29, now + 15, 28, now + 5)
+    filled_status.update_tick(29, now + 15, 28, now + 5)
     assert filled_status.sequence_counter == 29
     assert filled_status.local_sequence_counter == 28
     assert filled_status.start_time == ref_start_time
     assert filled_status.remote_time == now + 15
     assert filled_status.local_time == now + 5
+    # test counter issue (going backwards)
+    filled_status.update_tick(28, now + 10, 27, now)
+    assert filled_status.sequence_counter == 28
+    assert filled_status.local_sequence_counter == 0
+    assert filled_status.start_time == ref_start_time
+    assert filled_status.remote_time == now + 10
+    assert filled_status.local_time == now
 
 
 def test_get_remote_time(filled_status):

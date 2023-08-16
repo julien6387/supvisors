@@ -518,6 +518,16 @@ def test_disabilities_serialization(mocker, source):
     handle = mocked_open()
     json_expected = '{"program_1": true, "program_2": false}'
     assert handle.write.call_args_list == [call(json_expected)]
+    handle.reset_mock()
+    # check when write is not forced and file does not exist
+    mocked_isfile = mocker.patch('os.path.isfile', return_value=False)
+    source.write_disabilities(False)
+    assert handle.write.call_args_list == [call(json_expected)]
+    handle.reset_mock()
+    # check when write is not forced and file exists
+    mocked_isfile.return_value = True
+    source.write_disabilities(False)
+    assert not handle.write.called
     # empty context and read
     mocked_open = mocker.patch('builtins.open', mocker.mock_open(read_data=json_expected))
     mocker.patch('os.path.isfile', return_value=True)

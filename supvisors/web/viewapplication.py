@@ -19,8 +19,8 @@
 
 from supervisor.states import ProcessStates
 
-from .application import ApplicationStatus
-from .ttypes import PayloadList
+from supvisors.application import ApplicationStatus
+from supvisors.ttypes import PayloadList
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -161,7 +161,7 @@ class ApplicationView(ViewHandler):
             data.append({'application_name': process.application_name, 'process_name': process.process_name,
                          'namespec': namespec, 'identifier': node_name,
                          'disabled': process.disabled(), 'startable': len(process.possible_identifiers()) > 0,
-                         'statename': process.state_string(), 'statecode': process.state,
+                         'statename': process.displayed_state_string(), 'statecode': process.displayed_state,
                          'gravity': 'FATAL' if unexpected_exit else process.state_string(),
                          'has_crashed': process.has_crashed(),
                          'running_identifiers': list(process.running_identifiers),

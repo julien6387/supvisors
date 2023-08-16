@@ -19,6 +19,7 @@
 
 import os
 from argparse import ArgumentParser
+from typing import Dict
 from urllib.parse import urlparse
 
 from supvisors.utils import parse_docstring
@@ -30,7 +31,7 @@ def get_docstring_description(func) -> str:
     return docstring[0][4]
 
 
-def get_docstring_parameters(func) -> str:
+def get_docstring_parameters(func) -> Dict:
     """ Extract the parameters from the docstring.
     Supervisor and Supvisors have different formats. """
     docstring = parse_docstring(func.__doc__)

@@ -22,7 +22,7 @@ from unittest.mock import call, Mock
 
 import pytest
 
-from supvisors.eventinterface import *
+from supvisors.external_com.eventinterface import *
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ def test_create_external_publisher_zmq_fail(zmq_import, zmq_fail_import, supviso
 
 def test_create_external_publisher_zmq(zmq_import, supvisors):
     """ Test the make_supvisors_rpcinterface function with zmq event link. """
-    from supvisors.supvisorszmq import ZmqEventPublisher
+    from supvisors.external_com.supvisorszmq import ZmqEventPublisher
     supvisors.options.event_link = EventLinks.ZMQ
     instance = create_external_publisher(supvisors)
     assert isinstance(instance, ZmqEventPublisher)
@@ -95,7 +95,7 @@ def test_create_external_publisher_ws_fail(ws_import, ws_fail_import, supvisors)
 
 def test_create_external_publisher_ws(ws_import, supvisors):
     """ Test the make_supvisors_rpcinterface function with websocket event link. """
-    from supvisors.supvisorswebsocket import WsEventPublisher
+    from supvisors.external_com.supvisorswebsocket import WsEventPublisher
     supvisors.options.event_link = EventLinks.WS
     instance = create_external_publisher(supvisors)
     try:

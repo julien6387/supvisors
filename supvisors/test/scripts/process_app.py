@@ -23,7 +23,7 @@ from tkinter import *
 
 class ProcessAppTk(Tk):
 
-    cpt=1
+    cpt = 1
 
     def __init__(self, namespec, description):
         """ Initialization of the attributes. """
@@ -32,24 +32,25 @@ class ProcessAppTk(Tk):
         self.title(u'Supvisors')
         self.grid()
         # create main form
-        formWindow = PanedWindow(self, orient=VERTICAL)
+        form_window = PanedWindow(self, orient=VERTICAL)
         # display namespec into a PanedWindow
-        mainWindow = PanedWindow(formWindow, orient=VERTICAL)
-        mainWindow.add(Label(mainWindow, text=u'Supvisors namespec: {}'.format(namespec)))
+        main_window = PanedWindow(form_window, orient=VERTICAL)
+        main_window.add(Label(main_window, text=u'Supvisors namespec: {}'.format(namespec)))
         if description:
-            mainWindow.add(Label(mainWindow, text=u'Supvisors description: {}'.format(description)))
+            main_window.add(Label(main_window, text=u'Supvisors description: {}'.format(description)))
         # talk action
-        mainWindow.add(Button(self, text=u"Talk", command=self.talk))
+        main_window.add(Button(self, text=u"Talk", command=self.talk))
         # add window to form and pack it
-        formWindow.add(mainWindow)
-        formWindow.pack()
+        form_window.add(main_window)
+        form_window.pack()
         # close action
         Button(self, text=u"Close", command=self.quit).pack(side=BOTTOM, padx=10, pady=2)
         # window properties
         self.grid_columnconfigure(0, weight=1)
         self.resizable(False, False)
 
-    def talk(self):
+    @staticmethod
+    def talk():
         print('Talking seq=%d' % ProcessAppTk.cpt, flush=True)
         print('Talking seq=%d' % ProcessAppTk.cpt, file=stderr, flush=True)
         ProcessAppTk.cpt = ProcessAppTk.cpt + 1

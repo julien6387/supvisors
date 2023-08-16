@@ -58,14 +58,13 @@ public class SupvisorsStatus {
     /** The Supvisors state. */
     private State fsm_statename;
 
-    /**
-     * The identifiers of where starting jobs are in progress.
-     */
+    /** The instance discovery mode. */
+    private Boolean discovery_mode;
+
+    /** The identifiers of where starting jobs are in progress. */
     private List starting_jobs;
 
-    /**
-     * The identifiers of where stopping jobs are in progress.
-     */
+    /** The identifiers of where stopping jobs are in progress. */
     private List stopping_jobs;
 
     /**
@@ -75,6 +74,7 @@ public class SupvisorsStatus {
      */
     public SupvisorsStatus(HashMap stateInfo)  {
         this.fsm_statename = State.valueOf((String) stateInfo.get("fsm_statename"));
+        this.discovery_mode = (Boolean) stateInfo.get("discovery_mode");
         Object[] startingJobs = (Object[]) stateInfo.get("starting_jobs");
         this.starting_jobs = Arrays.asList(startingJobs);
         Object[] stoppingJobs = (Object[]) stateInfo.get("stopping_jobs");
@@ -88,6 +88,15 @@ public class SupvisorsStatus {
      */
     public State getState() {
         return this.fsm_statename;
+    }
+
+    /**
+     * The inDiscoveryMode method returns True if the Supvisors instance is in discovery mode.
+     *
+     * @return Boolean: The discovery mode status.
+     */
+    public Boolean inDiscoveryMode() {
+        return this.discovery_mode;
     }
 
     /**
@@ -115,6 +124,7 @@ public class SupvisorsStatus {
      */
     public String toString() {
         return "SupvisorsStatus(state=" + this.fsm_statename
+            + " discoveryMode=" + this.discovery_mode
             + " startingJobs=" + this.starting_jobs
             + " stoppingJobs=" + this.stopping_jobs + ")";
     }

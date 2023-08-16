@@ -86,36 +86,46 @@
                 </div>
 
                 <div>
-                    <ul class="linear action">
-                        <li>
-                            <a href="#" meld:id="stopall_a_mid">
-                            <img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/></a>
-                        </li>
-                        <li>
-                            <a href="#" meld:id="restartsup_a_mid" class="on">
-                                <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#" meld:id="shutdownsup_a_mid" class="on">
-                                <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/>
-                            </a>
-                        </li>
-                    </ul>
-                    <ul class="linear">
-                        <li><a href="#" meld:id="refresh_a_mid" class="button on">
-                            <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a>
-                        </li>
-                        <li><a href="#" meld:id="autorefresh_a_mid" class="button on">
-                            <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/></a>
-                        </li>
-                    </ul>
+                    <table class="buttons">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <a href="#" meld:id="stopall_a_mid">
+                                        <img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="#" meld:id="restartsup_a_mid" class="on">
+                                        <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="#" meld:id="shutdownsup_a_mid" class="on">
+                                        <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td/>
+                                <td>
+                                    <a href="#" meld:id="refresh_a_mid" class="button on">
+                                        <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="#" meld:id="autorefresh_a_mid" class="button on">
+                                        <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </header>
 
             <div id="instance_contents" meld:id="stats_div_mid">
                 <div id="rsc_grid">
-                    <figure id="mem_fig">
+                    <figure id="mem_fig" meld:id="memimage_fig_mid">
                         <img src="host_mem.png" alt="Host Memory Graph"/>
                     </figure>
                     <div id="mem_stats">
@@ -140,7 +150,7 @@
                             </table>
                         </div>
                     </div>
-                    <figure id="cpu_fig">
+                    <figure id="cpu_fig" meld:id="cpuimage_fig_mid">
                         <img src="host_cpu.png" alt="Host CPU Graph"/>
                     </figure>
                     <div id="cpu_stats">
@@ -170,7 +180,7 @@
                         </table>
                         </div>
                     </div>
-                    <figure id="io_fig">
+                    <figure id="io_fig" meld:id="ioimage_fig_mid">
                         <img src="host_io.png" alt="Host Network Graph"/>
                     </figure>
                     <div id="io_stats">

@@ -33,7 +33,7 @@ from .ttypes import (DistributionRules, NameList, LoadMap, ProcessRequestResult,
                      StartingFailureStrategies)
 
 
-class ProcessCommand(object):
+class ProcessCommand:
     """ Wrapper of the ProcessStatus to manage start and stop requests.
 
     Attributes are:
@@ -65,7 +65,7 @@ class ProcessCommand(object):
         # the worst case is during a full restart with a minimal set of core identifiers
         # the DEPLOYMENT phase is in progress while there are still lots to Supvisors instances in CHECKING state
         self.minimum_ticks = max(ProcessCommand.DEFAULT_TICK_TIMEOUT,
-                                 len(process.supvisors.context.active_instances()) // 10)
+                                 len(process.supvisors.context.valid_instances()) // 10)
         self._wait_ticks: int = self.minimum_ticks
 
     def __str__(self) -> str:
@@ -244,15 +244,22 @@ class ProcessStartCommand(ProcessCommand):
         if process_state == ProcessStates.RUNNING:
             if self.process.rules.wait_exit and not self.ignore_wait_exit:
                 return ProcessStates.EXITED, ProcessRequestResult.IN_PROGRESS, process_state_date
-            # WARN: never happened but if the execution gets here, that would mean events have been missed
-            # the Starter will be blocked indefinitely - no further action unless this event is reported to occur
-            self.logger.critical(f'ProcessStartCommand.timed_out: {self.process.namespec} already RUNNING'
-                                 f' on {self.identifier}. Events have been missed')
+            # WARN: very seldom but seen once.
+            #       It happened in a context where a Supvisors instance was set to RUNNING during the start sequence
+            #       The Supvisors instance was then a possible candidate to start a process.
+            #       However, its process information was not received yet.
+            #       The new instance has been selected and the process information has been received just after.
+            #       The context.load_processes does NOT feed the sequencers.
+            self.logger.warn(f'ProcessStartCommand.timed_out: {self.process.namespec} already RUNNING'
+                             f' on {self.identifier}')
             return ProcessStates.RUNNING, ProcessRequestResult.SUCCESS, process_state_date
         # once STARTING, the RUNNING state is expected after startsecs seconds
         if process_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
             expected_state = ProcessStates.RUNNING
             max_tick_counter = self.request_sequence_counter + self.wait_ticks
+            self.logger.debug(f'ProcessStartCommand.timed_out: expect RUNNING for {self.process.namespec} with'
+                              f' max_tick_counter={max_tick_counter}'
+                              f' sequence_counter={self.instance_status.sequence_counter}')
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not RUNNING'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
@@ -263,6 +270,9 @@ class ProcessStartCommand(ProcessCommand):
             # (e.g. stop request while in STARTING state)
             expected_state = ProcessStates.STARTING
             max_tick_counter = self.request_sequence_counter + self.minimum_ticks
+            self.logger.debug(f'ProcessStartCommand.timed_out: expect STARTING for {self.process.namespec} with'
+                              f' max_tick_counter={max_tick_counter}'
+                              f' sequence_counter={self.instance_status.sequence_counter}')
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not STARTING'
                                   f' on {self.identifier} after {self.minimum_ticks} ticks so abort')
@@ -327,6 +337,12 @@ class ProcessStopCommand(ProcessCommand):
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPED'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
                 return expected_state, ProcessRequestResult.TIMED_OUT, process_state_time
+        elif process_state in STOPPED_STATES:
+            # WARN: very unlikely. never happened. if the present section is reached, something wrong happened.
+            #       It has to be dealt with anyway to avoid the sequencer to block.
+            self.logger.critical(f'ProcessStopCommand.timed_out: {self.process.namespec} already stopped'
+                                 f' on {self.identifier}. Events have been missed')
+            return process_state, ProcessRequestResult.SUCCESS, process_state_time
         else:
             # from RUNNING_STATES, STOPPING event is expected quite immediately
             expected_state = ProcessStates.STOPPING
@@ -516,7 +532,10 @@ class ApplicationJobs(object):
                                                             self.failure_state, reason)
                 # don't wait for event, abort the job right now
                 self.current_jobs.remove(command)
-            # FIXME: process result SUCCESS (events missed)
+            if result == ProcessRequestResult.SUCCESS:
+                # NOTE: the result has been reached outside the scope of the sequencer
+                #       the job MUST be removed of the sequencer will block
+                self.current_jobs.remove(command)
         # trigger jobs
         self.next()
 
@@ -753,17 +772,15 @@ class ApplicationStartJobs(ApplicationJobs):
                     command.update_identifier(identifier)
             if command.identifier:
                 # use asynchronous xml rpc to start program
-                self.supvisors.sockets.pusher.send_start_process(command.identifier, process.namespec,
-                                                                 command.extra_args)
+                self.supvisors.internal_com.pusher.send_start_process(command.identifier, process.namespec,
+                                                                      command.extra_args)
                 command.update_sequence_counter()
                 self.logger.info(f'ApplicationStartJobs.process_job: {process.namespec} requested to start'
                                  f' on {command.identifier}')
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.supvisors.listener.force_process_state(command.process,
-                                                            self.supvisors.supvisors_mapper.local_identifier,
-                                                            time.time(),
+                self.supvisors.listener.force_process_state(command.process, '', time.time(),
                                                             self.failure_state, 'no resource available')
                 self.process_failure(process)
         # return True when the job is queued
@@ -826,14 +843,14 @@ class ApplicationStopJobs(ApplicationJobs):
                           f' running_on({command.identifier})={running}')
         if running:
             # use asynchronous xml rpc to stop program
-            self.supvisors.sockets.pusher.send_stop_process(command.identifier, process.namespec)
+            self.supvisors.internal_com.pusher.send_stop_process(command.identifier, process.namespec)
             command.update_sequence_counter()
             self.logger.info(f'ApplicationStopJobs.process_job: {process.namespec} requested to stop'
                              f' on {command.identifier}')
             return True
 
 
-class Commander(object):
+class Commander:
     """ Base class handling the starting / stopping of processes and applications.
 
     Attributes are:
@@ -928,7 +945,7 @@ class Commander(object):
             self.logger.debug(f'{self.class_name}.next: sequence={sequence_number}'
                               f' current_jobs={self.current_jobs}')
             # iterate on copy to avoid problems with key deletions
-            for application_name, application_job in self.current_jobs.items():
+            for application_name, application_job in self.current_jobs.copy().items():
                 self.logger.info(f'{self.class_name}.next: start processing {application_name}')
                 application_job.before()
                 application_job.next()
@@ -1054,9 +1071,9 @@ class Starter(Commander):
                           trigger: bool = True) -> None:
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested.
 
-        :param strategy: the strategy to be used to start the application
-        :param application: the application to start
-        :param trigger: a status telling if the jobs have to be triggered directly or not
+        :param strategy: the strategy to be used to start the application.
+        :param application: the application to start.
+        :param trigger: a status telling if the jobs have to be triggered directly or not.
         :return: None
         """
         self.logger.debug(f'Starter.start_application: application={application.application_name}')
@@ -1076,9 +1093,9 @@ class Starter(Commander):
         i.e. their start_sequence is > 0.
         When the strategy is not provided, the application default starting strategy is used.
 
-        :param application: the application to start
-        :param strategy: the strategy to be used to choose the Supvisors instances where processes may be started
-        :return: True if application start sequence added to planned_jobs
+        :param application: the application to start.
+        :param strategy: the strategy to be used to choose the Supvisors instances where processes may be started.
+        :return: True if application start sequence added to planned_jobs.
         """
         # use application default starting strategy (application rules) if not provided as parameter
         if strategy is None:
@@ -1096,6 +1113,8 @@ class Starter(Commander):
             sequence[application.application_name] = job
             self.logger.debug(f'Starter.store_application: starting of {application.application_name}'
                               f' planned using strategy {strategy.name} with priority={priority}')
+            # resolve hash rules if necessary
+            application.resolve_rules()
             return True
         self.logger.warn(f'Starter.store_application: {application.application_name} has no valid start_sequence')
 

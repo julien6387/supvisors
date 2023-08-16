@@ -23,9 +23,9 @@ import zmq
 import zmq.asyncio
 from supervisor.loggers import Logger
 
-from .eventinterface import EventPublisherInterface, EventSubscriber, EventSubscriberInterface
-from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import Payload, EventHeaders
+from supvisors.external_com.eventinterface import EventPublisherInterface, EventSubscriber, EventSubscriberInterface
+from supvisors.internal_com.mapper import SupvisorsInstanceId
+from supvisors.ttypes import Payload, EventHeaders
 
 # Constant for Zmq sockets
 ZMQ_LINGER = 0

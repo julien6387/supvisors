@@ -23,8 +23,8 @@ from typing import Any, Callable, Optional, Set
 
 from supervisor.loggers import Logger
 
-from .supvisorsmapper import SupvisorsInstanceId
-from .ttypes import EventHeaders, EventLinks, Payload
+from supvisors.internal_com.mapper import SupvisorsInstanceId
+from supvisors.ttypes import EventHeaders, EventLinks, Payload
 
 
 class EventPublisherInterface:
@@ -107,7 +107,7 @@ def create_external_publisher(supvisors: Any) -> EventPublisherInterface:
         # get a PyZMQ publisher factory
         try:
             import zmq
-            from supvisors.supvisorszmq import ZmqEventPublisher
+            from supvisors.external_com.supvisorszmq import ZmqEventPublisher
             publisher_class = ZmqEventPublisher
         except (ImportError, ModuleNotFoundError):
             supvisors.logger.error('create_external_publisher: failed to import PyZmq')
@@ -115,7 +115,7 @@ def create_external_publisher(supvisors: Any) -> EventPublisherInterface:
         # get a Websocket publisher factory
         try:
             import websockets
-            from supvisors.supvisorswebsocket import WsEventPublisher
+            from supvisors.external_com.supvisorswebsocket import WsEventPublisher
             publisher_class = WsEventPublisher
         except (ImportError, ModuleNotFoundError):
             supvisors.logger.error('create_external_publisher: failed to import websockets')

@@ -30,7 +30,8 @@ api = Namespace('system', description='System operations')
 @api.route('/listMethods', methods=('GET',))
 @api.doc(description=get_docstring_description(SystemNamespaceRPCInterface.listMethods))
 class SystemListMethods(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         return jsonify(g.proxy.system.listMethods())
 
 

@@ -26,14 +26,14 @@ from supvisors.ttypes import *
 
 def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
-    expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
+    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
     assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
 def test_supvisors_states():
     """ Test the SupvisorsStates enumeration. """
-    expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING', 'RESTART',
-                'SHUTTING_DOWN', 'SHUTDOWN']
+    expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING',
+                'SHUTTING_DOWN', 'FINAL']
     assert [x.name for x in SupvisorsStates] == expected
 
 
@@ -91,24 +91,17 @@ def test_statistics_types():
     assert [x.name for x in StatisticsTypes] == expected
 
 
+def test_synchronization_options():
+    """ Test the SynchronizationOptions enumeration. """
+    expected = ['STRICT', 'LIST', 'TIMEOUT', 'CORE', 'USER']
+    assert [x.name for x in SynchronizationOptions] == expected
+
+
 def test_internal_event_headers():
     """ Test the InternalEventHeaders enumeration. """
-    expected = ['HEARTBEAT', 'TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED', 'PROCESS_DISABILITY',
-                'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE']
+    expected = ['HEARTBEAT', 'TICK', 'AUTHORIZATION', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED',
+                'PROCESS_DISABILITY', 'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE', 'ALL_INFO', 'DISCOVERY']
     assert [x.name for x in InternalEventHeaders] == expected
-
-
-def test_deferred_request_headers():
-    """ Test the DeferredRequestHeaders enumeration. """
-    expected = ['CHECK_INSTANCE', 'ISOLATE_INSTANCES', 'START_PROCESS', 'STOP_PROCESS', 'RESTART', 'SHUTDOWN',
-                'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
-    assert [x.name for x in DeferredRequestHeaders] == expected
-
-
-def test_remote_comm_events():
-    """ Test the RemoteCommEvents enumeration. """
-    expected = ['SUPVISORS_AUTH', 'SUPVISORS_EVENT', 'SUPVISORS_INFO']
-    assert [x.name for x in RemoteCommEvents] == expected
 
 
 def test_event_headers():

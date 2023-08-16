@@ -18,8 +18,10 @@
 # ======================================================================
 
 import os
+from threading import RLock
 
 from supervisor import xmlrpc
+from supervisor.loggers import Handler
 from supervisor.options import ServerOptions
 from supervisor.process import Subprocess
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
@@ -27,18 +29,18 @@ from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
 from supervisor.xmlrpc import Faults
 
+from supvisors.web.viewapplication import ApplicationView
+from supvisors.web.viewhandler import ViewHandler
+from supvisors.web.viewhostinstance import HostInstanceView
+from supvisors.web.viewimage import *
+from supvisors.web.viewmaintail import MainTailView
+from supvisors.web.viewprocinstance import ProcInstanceView
+from supvisors.web.viewsupvisors import SupvisorsView
 from .initializer import Supvisors
 from .rpcinterface import RPCInterface, startProcess
 from .supervisordata import spawn
 from .ttypes import SupvisorsFaults
 from .utils import parse_docstring
-from .viewapplication import ApplicationView
-from .viewhandler import ViewHandler
-from .viewhostinstance import HostInstanceView
-from .viewimage import *
-from .viewmaintail import MainTailView
-from .viewprocinstance import ProcInstanceView
-from .viewsupvisors import SupvisorsView
 
 
 def expand_faults():
@@ -61,6 +63,20 @@ def cleanup_fds(self) -> None:
 
     :return: None
     """
+
+
+def patch_logger():
+    """ Make Supervisor logger thread-safe. """
+    # create global lock for all calls
+    logger_mutex = RLock()
+
+    # use an emit method that uses the global lock
+    def emit(self, record):
+        with logger_mutex:
+            self._emit(record)
+    # update the Handler class
+    if not hasattr(Handler, '_emit'):
+        Handler._emit, Handler.emit = Handler.emit, emit
 
 
 def patch_591() -> None:
@@ -107,6 +123,8 @@ def apply_patches():
     expand_faults()
     # patch the Supervisor ServerOptions.cleanup_fds
     ServerOptions.cleanup_fds = cleanup_fds
+    # patch the Supervisor logger so that it is thread-safe
+    patch_logger()
     # apply patch for Supervisor issue #591
     patch_591()
     # replace Supervisor http web pages

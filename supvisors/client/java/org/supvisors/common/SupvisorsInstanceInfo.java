@@ -40,6 +40,9 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /** The instance state. */
     private SupvisorsInstanceState statename;
 
+    /** The instance discovery mode. */
+    private Boolean discovery_mode;
+
     /** The date of the last heartbeat message, as received. */
     private Integer remote_time;
 
@@ -68,6 +71,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.node_name = (String) instanceInfo.get("node_name");
         this.port = (Integer) instanceInfo.get("port");
         this.statename = SupvisorsInstanceState.valueOf((String) instanceInfo.get("statename"));
+        this.discovery_mode = (Boolean) instanceInfo.get("discovery_mode");
         this.remote_time = (Integer) instanceInfo.get("remote_time");
         this.local_time = (Integer) instanceInfo.get("local_time");
         this.sequence_counter = (Integer) instanceInfo.get("sequence_counter");
@@ -121,6 +125,15 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
+     * The inDiscoveryMode method returns True if the Supvisors instance is in discovery mode.
+     *
+     * @return Boolean: The discovery mode status.
+     */
+    public Boolean inDiscoveryMode() {
+        return this.discovery_mode;
+    }
+
+    /**
      * The getRemoteTime method returns the date of the last heartbeat message,
      * in the reference time of the remote node.
      *
@@ -154,16 +167,16 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /**
      * The getLoading method returns the loading of the node.
      *
-     * @return State: The loading in percent.
+     * @return Integer: The loading in percent.
      */
     public Integer getLoading() {
         return this.loading;
     }
 
     /**
-     * The hasProcessFailure method returns True .
+     * The hasProcessFailure method returns True if any process is in FATAL or unexpected EXITED state.
      *
-     * @return State: The loading in percent.
+     * @return Boolean: The process failure status.
      */
     public Boolean hasProcessFailure() {
         return this.process_failure;
@@ -177,9 +190,10 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     public String toString() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsInstanceInfo(identifier=" + this.identifier
-            + " node_name=" + this.node_name
+            + " nodeName=" + this.node_name
             + " port=" + this.port
             + " state=" + this.statename
+            + " discoveryMode=" + this.discovery_mode
             + " sequenceCounter=" + this.sequence_counter
             + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""

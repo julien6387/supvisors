@@ -23,23 +23,26 @@ from typing import Any, Dict, Tuple
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
+from .internal_com.mapper import SupvisorsInstanceId
 from .process import ProcessStatus
-from .supvisorsmapper import SupvisorsInstanceId
 from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition, Payload
 from .utils import TICK_PERIOD
 
 
 class StateModes:
 
-    def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, starting_jobs: bool = False,
-                 stopping_jobs: bool = False):
+    def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, discovery_mode: bool = False,
+                 master_identifier: str = '', starting_jobs: bool = False, stopping_jobs: bool = False):
         """ Initialization of the attributes.
 
-        :param state: the FSM state
-        :param starting_jobs: the Starter progress
-        :param stopping_jobs: the Stopper progress
+        :param state: the FSM state.
+        :param master_identifier: the identifier of the Supvisors Master instance.
+        :param starting_jobs: the Starter progress.
+        :param stopping_jobs: the Stopper progress.
         """
         self.state: SupvisorsStates = state
+        self.discovery_mode: bool = discovery_mode
+        self.master_identifier: str = master_identifier
         self.starting_jobs: bool = starting_jobs
         self.stopping_jobs: bool = stopping_jobs
 
@@ -48,7 +51,8 @@ class StateModes:
 
         :return: a copy of this StateModes object
         """
-        return type(self)(self.state, self.starting_jobs, self.stopping_jobs)
+        return type(self)(self.state, self.discovery_mode, self.master_identifier,
+                          self.starting_jobs, self.stopping_jobs)
 
     def __eq__(self, other) -> bool:
         """ Check if the other object is equivalent.
@@ -58,19 +62,26 @@ class StateModes:
         """
         if isinstance(other, StateModes):
             return (self.state == other.state
+                    and self.discovery_mode == other.discovery_mode
+                    and self.master_identifier == other.master_identifier
                     and self.starting_jobs == other.starting_jobs
                     and self.stopping_jobs == other.stopping_jobs)
+        return False
 
-    def apply(self, fsm_state: SupvisorsStates = None, starter: bool = None, stopper: bool = None):
+    def apply(self, fsm_state: SupvisorsStates = None, master_identifier: str = None,
+              starter: bool = None, stopper: bool = None):
         """ Get the Supvisors instance state and modes with changes applied.
 
-        :param fsm_state: the new FSM state
-        :param starter: the Starter progress
-        :param stopper: the Stopper progress
-        :return: True if state and modes have changed, and the changed state and modes
+        :param fsm_state: the new FSM state.
+        :param master_identifier: the identifier of the Master Supvisors instance.
+        :param starter: the Starter progress.
+        :param stopper: the Stopper progress.
+        :return: True if state and modes have changed, and the changed state and modes.
         """
         if fsm_state is not None:
             self.state = fsm_state
+        if master_identifier is not None:
+            self.master_identifier = master_identifier
         if starter is not None:
             self.starting_jobs = starter
         if stopper is not None:
@@ -83,12 +94,18 @@ class StateModes:
         :return: None
         """
         self.state = SupvisorsStates(payload['fsm_statecode'])
+        self.discovery_mode = payload['discovery_mode']
+        self.master_identifier = payload['master_identifier']
         self.starting_jobs = payload['starting_jobs']
         self.stopping_jobs = payload['stopping_jobs']
 
     def serial(self):
+        """ Return a serializable form of the StatesModes. """
         return {'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
-                'starting_jobs': self.starting_jobs, 'stopping_jobs': self.stopping_jobs}
+                'discovery_mode': self.discovery_mode,
+                'master_identifier': self.master_identifier,
+                'starting_jobs': self.starting_jobs,
+                'stopping_jobs': self.stopping_jobs}
 
 
 class SupvisorsInstanceStatus:
@@ -123,8 +140,12 @@ class SupvisorsInstanceStatus:
         # the local instance may use the process statistics collector
         self.process_collector = None
         is_local = supvisors.supvisors_mapper.local_identifier == self.identifier
-        if is_local and supvisors.options.process_stats_enabled:
-            self.process_collector = supvisors.process_collector
+        if is_local:
+            # use the condition to set the local discovery mode in states / modes object
+            self.state_modes.discovery_mode = supvisors.options.discovery_mode
+            # copy the process collector reference
+            if supvisors.options.process_stats_enabled:
+                self.process_collector = supvisors.process_collector
 
     def reset(self):
         """ Reset the contextual part of the Supvisors instance.
@@ -132,9 +153,10 @@ class SupvisorsInstanceStatus:
 
         :return: None
         """
-        if self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
+        if self.has_active_state():
             # do NOT use state setter as transition may be rejected
             self._state = SupvisorsInstanceStates.UNKNOWN
+        self.sequence_counter = 0
         self.local_sequence_counter = 0
         self.remote_time = 0.0
         self.local_time = 0.0
@@ -155,7 +177,7 @@ class SupvisorsInstanceStatus:
         if self._state != new_state:
             if self.check_transition(new_state):
                 self._state = new_state
-                self.logger.info(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
+                self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
                 if new_state in [SupvisorsInstanceStates.SILENT,
                                  SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
                     self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.identifier}')
@@ -198,36 +220,59 @@ class SupvisorsInstanceStatus:
         self.state_modes.apply(**event)
         return ref_state_modes != self.state_modes, self.state_modes
 
-    def inactive(self, local_sequence_counter: int):
+    def has_active_state(self) -> bool:
+        """ Return True if the instance status is in an active state.
+
+        :return: the activity status
+        """
+        return self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                              SupvisorsInstanceStates.RUNNING]
+
+    def is_inactive(self, local_sequence_counter: int) -> bool:
         """ Return True if the latest update was received more than INACTIVITY_TICKS ago.
 
         :param local_sequence_counter: the current local sequence counter
         :return: the inactivity status
         """
-        return (self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]
+        # NOTE: by design, there will be always a gap of 1 (hopefully not much) between the local_sequence_counter
+        #       and the self.local_sequence_counter on the local Supvisors instance
+        #       because the periodic check is performed on the new TICK that has not been published yet
+        return (self.has_active_state()
                 and (local_sequence_counter - self.local_sequence_counter) > self.supvisors.options.inactivity_ticks)
 
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """
         return self.state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
 
-    def update_times(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
+    def update_tick(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
         """ Update the time attributes of the current object, including the time attributes of all its processes.
 
         :param sequence_counter: the TICK counter
         :param remote_time: the timestamp received from the Supvisors instance
         :param local_sequence_counter: the last TICK counter received from the local Supvisors instance
-        :param local_time: the timestamp received from the Supvisors instance, in the local reference time
+        :param local_time: the timestamp of the local Supvisors instance
         :return:
         """
+        self.logger.debug(f'SupvisorsInstanceStatus.update_tick: update Supvisors={self.identifier}'
+                          f' with sequence_counter={sequence_counter} remote_time={remote_time}'
+                          f' local_sequence_counter={local_sequence_counter}')
+        # check sequence counter to identify rapid supervisor restart
+        if sequence_counter < self.sequence_counter:
+            self.logger.warn(f'SupvisorsInstanceStatus.update_tick: stealth restart of Supvisors={self.identifier}')
+            # it's not enough to change the instance status as some handling may be required on running processes
+            #   so force Supvisors inactivity by resetting its local_sequence_counter
+            # the Supvisors periodical check will handle the node invalidation
+            local_sequence_counter = 0
+        # update internal times
         if not self.start_time:
-            # deduce start time from sequence_counter and TICK_PERIOD
+            # deduce raw start time from sequence_counter and TICK_PERIOD
             # approximation is good enough as it is just for Web UI display
             self.start_time = local_time - TICK_PERIOD * sequence_counter
         self.sequence_counter = sequence_counter
         self.local_sequence_counter = local_sequence_counter
         self.remote_time = remote_time
         self.local_time = local_time
+        # update all process times
         for process in self.processes.values():
             process.update_times(self.identifier, remote_time)
 
@@ -307,9 +352,13 @@ class SupvisorsInstanceStatus:
     _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,
                                                       SupvisorsInstanceStates.ISOLATING,
                                                       SupvisorsInstanceStates.SILENT),
-                    SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.RUNNING,
+                    SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.UNKNOWN,
+                                                       SupvisorsInstanceStates.CHECKED,
                                                        SupvisorsInstanceStates.ISOLATING,
                                                        SupvisorsInstanceStates.SILENT),
+                    SupvisorsInstanceStates.CHECKED: (SupvisorsInstanceStates.RUNNING,
+                                                      SupvisorsInstanceStates.ISOLATING,
+                                                      SupvisorsInstanceStates.SILENT),
                     SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.SILENT,
                                                       SupvisorsInstanceStates.ISOLATING,
                                                       SupvisorsInstanceStates.CHECKING),

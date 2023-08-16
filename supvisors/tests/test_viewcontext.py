@@ -22,7 +22,7 @@ from unittest.mock import call, Mock
 
 import pytest
 
-from supvisors.viewcontext import *
+from supvisors.web.viewcontext import *
 from .base import DummyHttpContext
 
 url_attr_template = r'(.+=.+)'
@@ -274,7 +274,7 @@ def test_update_boolean(ctx):
 
 def test_update_period(mocker, ctx):
     """ Test the ViewContext.update_period method. """
-    mocked_update = mocker.patch('supvisors.viewcontext.ViewContext._update_float')
+    mocked_update = mocker.patch('supvisors.web.viewcontext.ViewContext._update_float')
     # test method with statistics enabled
     ctx.update_period()
     assert mocked_update.call_args_list == [call(PERIOD, ctx.supvisors.options.stats_periods,
@@ -383,8 +383,8 @@ def test_update_namespec(mocker, ctx):
 
 def test_update_cpu_id(mocker, ctx):
     """ Test the ViewContext.update_cpu_id method. """
-    mocker.patch('supvisors.viewcontext.ViewContext.get_nb_cores', return_value=2)
-    mocked_update = mocker.patch('supvisors.viewcontext.ViewContext._update_integer')
+    mocker.patch('supvisors.web.viewcontext.ViewContext.get_nb_cores', return_value=2)
+    mocked_update = mocker.patch('supvisors.web.viewcontext.ViewContext._update_integer')
     # test call
     ctx.update_cpu_id()
     assert mocked_update.call_args_list == [call(CPU, [0, 1, 2])]
@@ -392,7 +392,7 @@ def test_update_cpu_id(mocker, ctx):
 
 def test_update_interface_name(mocker, ctx):
     """ Test the ViewContext.update_interface_name method. """
-    mocked_stats = mocker.patch('supvisors.viewcontext.ViewContext.get_instance_stats', return_value=None)
+    mocked_stats = mocker.patch('supvisors.web.viewcontext.ViewContext.get_instance_stats', return_value=None)
     ctx = ViewContext(ctx.http_context)
     # reset parameter because called in constructor
     del ctx.parameters[INTF]
@@ -478,7 +478,7 @@ def test_get_node_stats(supvisors, ctx):
 
 def test_get_process_stats(mocker, supvisors, ctx):
     """ Test the ViewContext.get_process_stats method. """
-    mocked_core = mocker.patch('supvisors.viewcontext.ViewContext.get_nb_cores', return_value=4)
+    mocked_core = mocker.patch('supvisors.web.viewcontext.ViewContext.get_nb_cores', return_value=4)
     # test no result as no data stored
     assert ctx.get_process_stats('dummy_proc') == (4, None)
     mocked_core.reset_mock()

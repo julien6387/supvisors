@@ -215,7 +215,7 @@ class SupervisorData(object):
         # WARN: this is also triggered by adding groups in Supervisor, however the initial group added events
         # are sent before the Supvisors RPC interface is created
         self.update_internal_data()
-
+    
     def update_internal_data(self, group_name: str = None) -> None:
         """ Add extra attributes to Supervisor internal data.
 
@@ -276,6 +276,12 @@ class SupervisorData(object):
         """ Call the close_httpservers of Supervisor.
         This is called when receiving the Supervisor stopping event in order to force the termination
         of any asynchronous job. """
+        # Supervisor issue #1596:
+        #     In the event of a reload, the HTTP socket will be re-opened very quickly.
+        #     Despite the REUSEADDR is set, there may still be a handle somewhere on the socket that makes it
+        #     NOT deallocated, although it has been closed.
+        #     To avoid issues, it is better to shut the socket down before closing it.
+        self.http_server.socket.shutdown(socket.SHUT_RDWR)
         self.supervisord.options.close_httpservers()
         self.supervisord.options.httpservers = ()
 
@@ -377,7 +383,7 @@ class SupervisorData(object):
             # add the new processes into Supervisor
             return self._add_processes(program_name, numprocs, current_numprocs, list(program_groups.keys())), []
         # else equal / no change
-        return None, None
+        return [], []
 
     def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> NameList:
         """ Add new processes to all Supervisor groups already including it.
@@ -492,22 +498,26 @@ class SupervisorData(object):
         else:
             self.logger.warn('SupervisorData.read_disabilities: no persistence for program disabilities')
 
-    def write_disabilities(self) -> None:
+    def write_disabilities(self, force: bool = True) -> None:
         """ Write disabilities file from Supervisor processes.
+        If forced (default), the file will be written with the current status.
+        If not forced, the file will be written if it does not exist.
 
+        :param force: if True, overwrite the existing file.
         :return: None
         """
         disabilities_file = self.supvisors.options.disabilities_file
         if disabilities_file:
-            # serialize to the file defined in options
-            with open(disabilities_file, 'w+') as out_file:
-                out_file.write(json.dumps(self.disabilities))
+            if force or not os.path.isfile(disabilities_file):
+                # serialize to the file defined in options
+                with open(disabilities_file, 'w+') as out_file:
+                    out_file.write(json.dumps(self.disabilities))
 
     def get_subprocesses(self, program_name) -> NameList:
         """ Find all processes related to the program definition.
 
-        :param program_name: the name of the program, as declared in the configuration files
-        :return: the Subprocess instances corresponding to the program
+        :param program_name: the name of the program, as declared in the configuration files.
+        :return: the Subprocess instances corresponding to the program.
         """
         program_groups = self.supvisors.server_options.program_processes[program_name]
         return [make_namespec(group_name, process_config.name)

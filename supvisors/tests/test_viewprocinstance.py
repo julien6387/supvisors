@@ -24,9 +24,9 @@ import pytest
 from supervisor.web import MeldView, StatusView
 
 from supvisors.ttypes import ApplicationStates
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewprocinstance import *
-from supvisors.webutils import PROC_INSTANCE_PAGE
+from supvisors.web.viewhandler import ViewHandler
+from supvisors.web.viewprocinstance import *
+from supvisors.web.webutils import PROC_INSTANCE_PAGE
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
 from .conftest import create_application, create_process, create_element
 
@@ -415,7 +415,7 @@ def test_write_global_shex(view):
 def test_write_application_status(mocker, view):
     """ Test the ProcInstanceView.write_application_status method. """
     mocked_common = mocker.patch.object(view, 'write_common_statistics')
-    mocked_button = mocker.patch.object(view, '_write_process_button')
+    mocker.patch.object(view, '_write_process_button')
     # patch the context
     view.view_ctx = Mock(**{'get_application_shex.side_effect': [(False, '010'), (True, '101')],
                             'format_url.return_value': 'an url'})
@@ -487,7 +487,7 @@ def test_write_supervisord_status(mocker, view):
     tr_elt = create_element({'shex_td_mid': shex_elt, 'name_a_mid': name_elt, 'start_a_mid': start_elt,
                              'tailerr_a_mid': tailerr_elt})
     # test call while not Master
-    view.sup_ctx._is_master = False
+    assert not view.sup_ctx.is_master
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_state.call_args_list == [call(tr_elt, info)]
@@ -506,7 +506,8 @@ def test_write_supervisord_status(mocker, view):
     tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
     # test call while Master
-    view.sup_ctx._is_master = True
+    view.sup_ctx.master_identifier = view.sup_ctx.local_identifier
+    assert view.sup_ctx.is_master
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_state.call_args_list == [call(tr_elt, info)]
@@ -625,12 +626,13 @@ def test_write_total_status(mocker, view):
 
 def test_make_callback(mocker, view):
     """ Test the ProcInstanceView.make_callback method. """
-    mocker.patch('supvisors.webutils.ctime', return_value='19:10:20')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='19:10:20')
     mocked_start = mocker.patch.object(view, 'start_group_action', return_value='started')
     mocked_stop = mocker.patch.object(view, 'stop_group_action', return_value='stopped')
     mocked_restart = mocker.patch.object(view, 'restart_group_action', return_value='restarted')
     mocked_clear = mocker.patch.object(view, 'clear_log_action', return_value='cleared')
-    mocked_parent = mocker.patch('supvisors.viewinstance.SupvisorsInstanceView.make_callback', return_value='default')
+    mocked_parent = mocker.patch('supvisors.web.viewinstance.SupvisorsInstanceView.make_callback',
+                                 return_value='default')
     # test startgroup
     assert view.make_callback('namespec', 'startgroup') == 'started'
     assert mocked_start.call_args_list == [call('namespec')]

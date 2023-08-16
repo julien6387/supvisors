@@ -275,10 +275,11 @@ def test_supvisors(controller, plugin):
 def test_get_running_instances(controller, plugin, mocked_check):
     """ Test the get_running_instances request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
-    mocked_rpc.return_value = [{'identifier': 'first', 'node_name': '10.0.0.1', 'port': 30000, 'statecode': 2},
+    mocked_rpc.return_value = [{'identifier': 'third', 'node_name': '10.0.0.3', 'port': 30000, 'statecode': 3},
+                               {'identifier': 'first', 'node_name': '10.0.0.1', 'port': 30000, 'statecode': 2},
                                {'identifier': 'second', 'node_name': '10.0.0.2', 'port': 60000, 'statecode': 0}]
     # test request
-    assert plugin.get_running_instances() == {'first': 'http://10.0.0.1:30000'}
+    assert plugin.get_running_instances() == {'first': 'http://10.0.0.1:30000', 'third': 'http://10.0.0.3:30000'}
     # test output (with no error)
     assert not controller.output.called
     # test request error
@@ -312,6 +313,7 @@ def test_sstate(controller, plugin, mocked_check):
     """ Test the sstate request. """
     mocked_rpc = plugin.supvisors().get_supvisors_state
     mocked_rpc.return_value = {'fsm_statecode': 10, 'fsm_statename': 'running',
+                               'discovery_mode': True, 'master_identifier': '10.0.0.1',
                                'starting_jobs': [], 'stopping_jobs': ['10.0.0.1', 'test']}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstate, plugin.do_sstate, '', [call()])
 
@@ -320,13 +322,17 @@ def test_instance_status(controller, plugin, mocked_check):
     """ Test the instance_status request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
     mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 60000,
-                                'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12,
+                                'statename': 'running', 'discovery_mode': True,
+                                'loading': 10, 'local_time': 1500, 'sequence_counter': 12,
                                 'process_failure': False,
-                                'fsm_statename': 'OPERATION', 'starting_jobs': True, 'stopping_jobs': False},
+                                'fsm_statename': 'OPERATION', 'discovery_mode': False, 'master_identifier': '10.0.0.1',
+                                'starting_jobs': True, 'stopping_jobs': False},
                                {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 60000,
-                                'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15,
+                                'statename': 'stopped', 'discovery_mode': False,
+                                'loading': 0, 'local_time': 100, 'sequence_counter': 15,
                                 'process_failure': True,
-                                'fsm_statename': 'CONCILATION', 'starting_jobs': False, 'stopping_jobs': True}]
+                                'fsm_statename': 'CONCILATION', 'discovery_mode': True, 'master_identifier': 'hostname',
+                                'starting_jobs': False, 'stopping_jobs': True}]
     _check_call(controller, mocked_check, mocked_rpc,  plugin.help_instance_status, plugin.do_instance_status,
                 '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_instance_status, plugin.do_instance_status,
@@ -774,6 +780,19 @@ def test_sshutdown(controller, plugin, mocked_check):
     """ Test the sshutdown request. """
     mocked_rpc = plugin.supvisors().shutdown
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sshutdown, plugin.do_sshutdown, '', [call()])
+
+
+def test_end_sync(controller, plugin, mocked_check):
+    """ Test the end_sync request. """
+    mocked_rpc = plugin.supvisors().end_sync
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_end_sync, plugin.do_end_sync,
+                '', [call('')])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_end_sync, plugin.do_end_sync,
+                '10.0.0.1', [call('10.0.0.1')])
+    # test error
+    plugin.do_end_sync('10.0.0.1 10.0.0.2')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
 
 
 def test_loglevel(controller, plugin, mocked_check):

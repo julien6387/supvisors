@@ -325,6 +325,22 @@ class SupvisorsShutdown(Resource):
         return g.proxy.supvisors.shutdown()
 
 
+@api.route(f'/end_sync', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.end_sync))
+class SupvisorsEndSync(Resource):
+    @staticmethod
+    def post():
+        return g.proxy.supvisors.end_sync()
+
+
+@api.route(f'/end_sync/<string:identifier>', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.end_sync))
+class SupvisorsEndSyncMaster(Resource):
+    @staticmethod
+    def post(identifier: str):
+        return g.proxy.supvisors.end_sync(identifier)
+
+
 @api.route(f'/change_log_level/<any({LoggerLevelsParam}):log_level>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.change_log_level))
 class SupvisorsChangeLogLevel(Resource):

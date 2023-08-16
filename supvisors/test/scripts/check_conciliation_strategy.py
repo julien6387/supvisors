@@ -20,6 +20,7 @@
 import sys
 import time
 import unittest
+from typing import Dict, List
 
 from supervisor.compat import xmlrpclib
 from supervisor.states import ProcessStates
@@ -53,7 +54,7 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         print('### [INFO] clean-up')
         try:
             self.local_supvisors.restart_application(StartingStrategies.CONFIG.value, 'database')
-        except:
+        except Exception:
             print('### [ERROR] failed to restart database application')
         RunningIdentifiersTest.tearDown(self)
 
@@ -209,8 +210,8 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         self.local_supvisors.conciliate(ConciliationStrategies.RUNNING_FAILURE.value)
         # the my_movies application is expected to restart
         # => 3 manager + 1 hmi to stop
-        expected_events = [{'name': 'manager', 'state': 0, 'identifier': identifier}
-                           for identifier in self.running_identifiers]
+        expected_events: List[Dict] = [{'name': 'manager', 'state': 0, 'identifier': identifier}
+                                       for identifier in self.running_identifiers]
         expected_events.append({'name': 'hmi', 'state': 0})
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(4, len(received_events))
@@ -225,12 +226,11 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         self.assertEqual([], expected_events)
         # multiple CONCILIATION events will be raised with stopping mode on or off
         event = self._get_next_supvisors_event()
-        max_conciliation_events = 3
+        max_conciliation_events = 6
         while event['fsm_statename'] == 'CONCILIATION' and max_conciliation_events:
             event = self._get_next_supvisors_event()
             max_conciliation_events -= 1
         # check supvisors event: OPERATION state is expected
-        event = self._get_next_supvisors_event()
         self.assertEqual('OPERATION', event['fsm_statename'])
         # check that there is no conflict anymore
         self._check_no_conflict()

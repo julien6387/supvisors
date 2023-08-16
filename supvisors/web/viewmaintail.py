@@ -17,11 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
+from urllib.parse import quote
+
 from supervisor.compat import as_string
 from supervisor.web import MeldView
 from supervisor.xmlrpc import Faults, RPCError
-
-from urllib.parse import quote
 
 
 class MainTailView(MeldView):

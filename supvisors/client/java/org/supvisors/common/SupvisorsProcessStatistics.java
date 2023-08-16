@@ -56,7 +56,7 @@ public class SupvisorsProcessStatistics {
         this.target_period = (Float) statsInfo.get("target_period");
         this.period = DataConversion.arrayToFloatList((Object[]) statsInfo.get("period"));
         this.cpu = (Float) statsInfo.get("cpu");
-        this.mem = (Float) statsInfo.get("memory");
+        this.mem = (Float) statsInfo.get("mem");
     }
 
     /**

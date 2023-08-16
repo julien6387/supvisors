@@ -9,6 +9,7 @@ pushd .
 cd $TEST_DIR
 
 # stop all instances
+# multicast version not needed as supervisorctl is independent from that
 for host in ${@:-rocky51 rocky52}
 do
 	echo "stop Supervisor on host" $host

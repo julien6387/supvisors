@@ -23,4 +23,4 @@ do
 done
 
 # start firefox to get the Web UI
-firefox http://localhost:61000 &
+firefox http://localhost:61000?auto=True &

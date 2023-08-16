@@ -17,8 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from .statscompiler import HostStatisticsInstance
-from .utils import get_stats
+from supvisors.statscompiler import HostStatisticsInstance
+from supvisors.utils import get_stats
 from .viewcontext import *
 from .viewimage import host_cpu_img, host_mem_img, host_io_img
 from .viewinstance import SupvisorsInstanceView
@@ -50,8 +50,10 @@ class HostInstanceView(SupvisorsInstanceView):
                 self._write_mem_image(stats_instance.mem, stats_instance.times)
                 self._write_io_image(stats_instance.io, stats_instance.times)
             except ImportError:
-                # matplotlib not installed
-                pass
+                # matplotlib not installed: remove figure elements
+                stats_elt = root.findmeld('stats_div_mid')
+                for mid in ['cpuimage_fig_mid', 'memimage_fig_mid', 'ioimage_fig_mid']:
+                    stats_elt.findmeld(mid).replace('')
 
     def _write_processor_single_title(self, tr_elt, selected_cpu_id, cpu_id):
         """ Rendering of the title of a single core. """

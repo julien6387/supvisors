@@ -30,12 +30,11 @@ from supervisor.states import STOPPED_STATES, SupervisorStates
 import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
+from supvisors.internal_com import SupvisorsMapper
 from supvisors.rpcinterface import RPCInterface
 from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
-from supvisors.supvisorsmapper import SupvisorsMapper
-from supvisors.supvisorssocket import SupvisorsSockets
 from supvisors.utils import extract_process_info
 
 
@@ -55,8 +54,8 @@ class MockedSupvisors:
         fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
                        f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
-        self.supvisors_mapper.configure(identifiers, [])
-        self.server_options = Mock(procnumbers={'xclock': 2})
+        self.supvisors_mapper.configure(identifiers, {'supvisors_test'}, [])
+        self.server_options = Mock(process_indexes={'xclock': 2})
         # set real statistics collectors
         self.host_collector = instant_host_statistics
         self.process_collector = ProcessStatisticsCollector(self.logger)
@@ -70,15 +69,16 @@ class MockedSupvisors:
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.listener import SupervisorListener
         from supvisors.sparser import Parser
+        from supvisors.internal_com import SupvisorsInternalEmitter
         self.starter = Mock(spec=Starter)
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
-        self.fsm = Mock(spec=FiniteStateMachine)
-        self.listener = Mock(spec=SupervisorListener, collector=Mock())
+        self.fsm = Mock(spec=FiniteStateMachine, redeploy_mark=False)
+        self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
         # should be set in listener
-        self.sockets = Mock(spec=SupvisorsSockets)
-        self.sockets.__init__()
+        self.internal_com = Mock(spec=SupvisorsInternalEmitter)
+        self.internal_com.__init__()
         self.external_publisher = None
 
 
@@ -103,6 +103,7 @@ class DummyHttpServer:
     """ Simple supervisord RPC handler with dummy attributes. """
 
     def __init__(self):
+        self.socket = Mock()
         self.handlers = [DummyRpcHandler(),
                          Mock(handler_name='tail_handler'),
                          Mock(handler_name='main_tail_handler'),
@@ -253,6 +254,11 @@ def extract_and_complete(info):
     """ Provide payload as processed by Supvisors. """
     extracted_info = extract_process_info(info)
     extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': '', 'disabled': False})
+    if info['name'].startswith('yeux'):
+        program_name, process_index = info['name'].split('_')
+        extracted_info.update({'program_name': program_name, 'process_index': int(process_index)})
+    else:
+        extracted_info.update({'program_name': info['name'], 'process_index': 0})
     return extracted_info
 
 

@@ -22,11 +22,11 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.web import StatusView
 
-from supvisors.viewcontext import CPU, INTF, ViewContext
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewhostinstance import HostInstanceView
-from supvisors.viewimage import host_cpu_img, host_io_img, host_mem_img
-from supvisors.webutils import HOST_INSTANCE_PAGE
+from supvisors.web.viewcontext import CPU, INTF, ViewContext
+from supvisors.web.viewhandler import ViewHandler
+from supvisors.web.viewhostinstance import HostInstanceView
+from supvisors.web.viewimage import host_cpu_img, host_io_img, host_mem_img
+from supvisors.web.webutils import HOST_INSTANCE_PAGE
 from .base import DummyHttpContext
 
 
@@ -268,7 +268,7 @@ def test_write_network_statistics(mocker, view):
 def test_write_common_statistics(mocker, view):
     """ Test the _write_common_statistics method. """
     mocked_class = mocker.patch.object(view, 'set_slope_class')
-    mocked_stats = mocker.patch('supvisors.viewhostinstance.get_stats',
+    mocked_stats = mocker.patch('supvisors.web.viewhostinstance.get_stats',
                                 side_effect=[(10.231, None, (None, 2), None), (8.999, 2, (-1.1, 4), 5.72)])
     # replace root structure
     mocked_val_mid = Mock()

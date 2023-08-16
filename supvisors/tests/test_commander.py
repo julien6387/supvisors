@@ -299,8 +299,15 @@ def test_stop_command_timed_out(stop_command):
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.IN_PROGRESS, 1234)
     stop_command.instance_status.sequence_counter = 15
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.TIMED_OUT, 1234)
+    # check call for all stopped states
+    for state in STOPPED_STATES:
+        process_info['state'] = state
+        stop_command.instance_status.sequence_counter = 12
+        assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
+        stop_command.instance_status.sequence_counter = 13
+        assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
     # check call for all other states
-    for state in list(RUNNING_STATES) + list(STOPPED_STATES):
+    for state in RUNNING_STATES:
         process_info['state'] = state
         stop_command.instance_status.sequence_counter = 12
         assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.IN_PROGRESS, 1234)
@@ -383,7 +390,7 @@ def test_application_job_print(application_job_1):
 def test_application_job_get_command(sample_test_1):
     """ Test the ApplicationJobs.get_command method. """
     # initial ProcessCommands have no identifiers set
-    # test with non existing process
+    # test with non-existing process
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes')
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes', '10.0.0.1')
     # test with existing process
@@ -392,7 +399,7 @@ def test_application_job_get_command(sample_test_1):
     # set identifiers
     for command in sample_test_1:
         command.identifier = '10.0.0.1'
-    # test with non existing process
+    # test with non-existing process
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes')
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes', '10.0.0.1')
     # test with existing process
@@ -539,7 +546,15 @@ def test_application_job_check(mocker, application_job_1, sample_test_1):
     assert mocked_timeout.call_args_list == [call(), call()]
     assert mocked_force.call_args_list == [call(sample_test_1[0].process, '10.0.0.1', 1234, ProcessStates.UNKNOWN,
                                                 'process RUNNING event not received in time')]
-    assert mocked_next.called
+    assert mocked_next.called1
+    mocker.resetall()
+    # trigger unexpected success on remaining element of current_jobs
+    mocked_timeout.side_effect = None
+    mocked_timeout.return_value = (ProcessStates.RUNNING, ProcessRequestResult.SUCCESS, 1234)
+    application_job_1.check()
+    assert application_job_1.current_jobs == []
+    assert mocked_timeout.call_args_list == [call()]
+    assert not mocked_force.called
 
 
 def test_application_job_on_event(mocker, application_job_1, sample_test_1):
@@ -835,7 +850,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     mocker.patch('time.time', return_value=1234.56)
     mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors.listener.force_process_state
-    mocked_pusher = supvisors.sockets.pusher.send_start_process
+    mocked_pusher = supvisors.internal_com.pusher.send_start_process
     mocked_failure = mocker.patch.object(application_start_job_1, 'process_failure')
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1'
@@ -856,7 +871,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
     local_identifier = supvisors.supvisors_mapper.local_identifier
-    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234.56,
+    assert mocked_force.call_args_list == [call(command.process, '', 1234.56,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
     mocked_force.reset_mock()
@@ -889,7 +904,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     command.identifier = None
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 20)]
     assert not mocked_pusher.called
-    assert mocked_force.call_args_list == [call(command.process, local_identifier, 1234.56,
+    assert mocked_force.call_args_list == [call(command.process, '', 1234.56,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
 
@@ -993,7 +1008,7 @@ def test_application_stop_job_creation(supvisors, application_stop_job_1, stop_s
 
 def test_application_stop_job_process_job(application_stop_job_1, stop_sample_test_1):
     """ Test the ApplicationStopJobs.process_job method. """
-    mocked_pusher = application_stop_job_1.supvisors.sockets.pusher.send_stop_process
+    mocked_pusher = application_stop_job_1.supvisors.internal_com.pusher.send_stop_process
     # set context
     application_stop_job_1.supvisors.context.instances['10.0.0.1'].sequence_counter = 14
     # test with stopped process
@@ -1128,7 +1143,7 @@ def test_commander_next(mocker, commander, application_job_1, application_job_2)
     assert not mocked_job2_next.called
     assert not mocked_job2_progress.called
     assert not mocked_after.called
-    assert commander.supvisors.context.local_instance.state_modes.starting_jobs
+    assert commander.supvisors.context.local_status.state_modes.starting_jobs
     mocker.resetall()
     # set application_job_1 not in progress anymore
     # will be removed from current_jobs and application_job_2
@@ -1144,7 +1159,7 @@ def test_commander_next(mocker, commander, application_job_1, application_job_2)
     assert mocked_job2_next.called
     assert mocked_job2_progress.called
     assert mocked_after.call_args_list == [call(application_job_1), call(application_job_2)]
-    assert not commander.supvisors.context.local_instance.state_modes.starting_jobs
+    assert not commander.supvisors.context.local_status.state_modes.starting_jobs
 
 
 def test_commander_check(mocker, commander, application_job_1, application_job_2):
@@ -1245,8 +1260,10 @@ def test_starter_store_application_separate(starter, sample_test_1, sample_test_
     assert starter.planned_jobs == {}
     # add a start sequence in applications
     for command in sample_test_1:
+        appli1.add_process(command.process)
         appli1.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     for command in sample_test_2:
+        appli2.add_process(command.process)
         appli2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     # call method and check result
     starter.store_application(appli1)
@@ -1292,11 +1309,13 @@ def test_starter_store_application_mixed(starter, sample_test_1, sample_test_2):
     appli1.rules.start_sequence = 2
     appli1.rules.starting_strategy = StartingStrategies.LESS_LOADED
     for command in sample_test_1:
+        appli1.add_process(command.process)
         appli1.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     appli2 = create_application('sample_test_2', starter.supvisors)
     appli2.rules.start_sequence = 2
     appli2.rules.starting_strategy = StartingStrategies.MOST_LOADED
     for command in sample_test_2:
+        appli2.add_process(command.process)
         appli2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     # call method and check result
     starter.store_application(appli1)

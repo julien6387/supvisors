@@ -21,7 +21,7 @@ import os
 from typing import Callable, Type, Union
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription
+from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
 from supervisor.options import make_namespec, split_namespec, VERSION
 from supervisor.xmlrpc import Faults, RPCError
 
@@ -759,7 +759,8 @@ class RPCInterface(object):
         :param str program_name: the program name, as found in the section of the Supervisor configuration files.
             Programs, FastCGI programs and event listeners are supported.
         :param int numprocs: the new numprocs value (must be strictly positive).
-        :param bool wait: if ``True``, wait for the confirmation that processes have been added or removed into Supvisors.
+        :param bool wait: if ``True``, wait for the confirmation that processes have been added
+            or removed into Supvisors.
         :return: always ``True`` unless error.
         :rtype: bool
         :raises RPCError: with code:
@@ -951,8 +952,8 @@ class RPCInterface(object):
 
         :return: always ``True`` unless error.
         :rtype: bool
-        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-            ``INITIALIZATION`` state.
+        :raises RPCError: with code ```SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still
+            in state ``INITIALIZATION`` or has no Master instance to perform the request.
         """
         self._check_from_deployment()
         self.supvisors.fsm.on_restart()
@@ -963,15 +964,43 @@ class RPCInterface(object):
 
         :return: always ``True`` unless error.
         :rtype: bool
-        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-            ``INITIALIZATION`` state.
+        :raises RPCError: with code ```SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still
+            in state ``INITIALIZATION`` or has no Master instance to perform the request.
         """
         self._check_from_deployment()
         self.supvisors.fsm.on_shutdown()
         return True
 
+    def end_sync(self, master: str = '') -> bool:
+        """ Ends the synchronization phase on the basis of the known situation.
+
+        :return: always ``True`` unless error.
+        :rtype: bool
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``INITIALIZATION`` ;
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if the synchronization is ending ;
+            ``Faults.INCORRECT_PARAMETERS`` if the synchro_options does not include ``USER`` ;
+            ``Faults.BAD_NAME`` if master is an unknown Supvisors identifier ;
+            ``Faults.NOT_RUNNING`` if the selected Master Supvisors instance is not in state ``RUNNING``.
+        """
+        self._check_state([SupvisorsStates.INITIALIZATION])
+        if self.supvisors.context.master_identifier:
+            raise RPCError(SupvisorsFaults.BAD_SUPVISORS_STATE, 'Supvisors synchronization ending')
+        if SynchronizationOptions.USER not in self.supvisors.options.synchro_options:
+            raise RPCError(Faults.INCORRECT_PARAMETERS, 'USER expected in synchro_options')
+        if master:
+            if master not in self.supvisors.context.instances:
+                raise RPCError(Faults.BAD_NAME, f'unknown Supvisors identifier: {master}')
+            status = self.supvisors.context.instances[master]
+            if status.state != SupvisorsInstanceStates.RUNNING:
+                raise RPCError(Faults.NOT_RUNNING, f'Supvisors instance={master} is not RUNNING ({status.state.name})')
+        # checks passed so trigger the request
+        self.supvisors.fsm.on_end_sync(master)
+        # decision is made NOT to implement a wait loop for DEPLOYMENT state
+        return True
+
     def change_log_level(self, level_param: EnumParameterType) -> bool:
-        """ Change the logger level for the local **Supvisors**.
+        """ Change the logger level for the local **Supvisors** instance.
         If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.
 
         :param Union[str, int] level_param: the new logger level, as a string or as a value.
@@ -980,6 +1009,7 @@ class RPCInterface(object):
         :raises RPCError: with code ``Faults.INCORRECT_PARAMETERS`` if ``level_param`` is unknown to **Supervisor**.
         """
         level = self._get_logger_level(level_param)
+        self.logger.warn(f'RPCInterface.change_log_level: {LOG_LEVELS_BY_NUM[level]}')
         self.logger.level = level
         for handler in self.logger.handlers:
             handler.level = level
@@ -1022,18 +1052,20 @@ class RPCInterface(object):
 
         :return: the Supervisor Logger levels
         """
-        return {level: desc for desc, level in LevelsByDescription.__dict__.items() if not desc.startswith('_')}
+        return {level: desc
+                for desc, level in LevelsByDescription.__dict__.items()
+                if not desc.startswith('_')}
 
     def _get_logger_level(self, level_param: EnumParameterType) -> int:
         """ Check if the logger level fits to Supervisor Logger levels.
         The function returns a Logger level as defined in the LevelsByName class of the module ``supervisor.loggers``.
 
-        :param level_param: the logger level to be checked, as string or integer
-        :return: the checked logger level as integer
+        :param level_param: the logger level to be checked, as string or integer.
+        :return: the checked logger level as integer.
         """
         # check by string
         if type(level_param) is str:
-            level = getLevelNumByDescription(level_param)
+            level = getLevelNumByDescription(level_param.lower())
             if level is None:
                 self.logger.error(f'RPCInterface._get_logger_level: invalid string for logger level={level_param}')
                 values = list(RPCInterface.get_logger_levels().values())
@@ -1118,9 +1150,15 @@ class RPCInterface(object):
         sub_info = extract_process_info(info)
         # transform now from int to float
         sub_info['now'] *= 1.0
-        # add startsecs, stopwaitsecs and extra_args values
-        namespec = make_namespec(info['group'], info['name'])
+        # add program-related information for internal purpose
+        # add startsecs, stopwaitsecs and extra_args values taken from Supervisor internal model
+        process_name = info['name']
+        namespec = make_namespec(info['group'], process_name)
         option_names = 'startsecs', 'stopwaitsecs', 'extra_args', 'disabled'
         options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
         sub_info.update(options)
+        # add program and process_index taken from SupvisorsServerOptions
+        srv_options = self.supvisors.server_options
+        sub_info['program_name'] = srv_options.processes_program[process_name]
+        sub_info['process_index'] = srv_options.process_indexes[process_name]
         return sub_info

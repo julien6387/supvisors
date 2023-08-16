@@ -104,9 +104,14 @@ Main Page Header
 
 The |Supvisors| state is displayed on the left side of the header:
 
+``OFF``
+
+    This is the |Supvisors| starting phase. It is very transient and corresponds to the phase between the moment when
+    |Supervisor| is started and the moment when it sends the running event to its listeners.
+
 ``INITIALIZATION``
     
-    This is the |Supvisors| starting phase, waiting for all |Supvisors| instances to connect themselves.
+    In this state, |Supvisors| waits for all |Supvisors| instances to connect themselves.
     Refer to the :ref:`synchronizing` section for more details.
 
     In this state, the |Supvisors| :ref:`xml_rpc` is restricted so that only version, master and |Supvisors| instance
@@ -157,10 +162,10 @@ The |Supvisors| state is displayed on the left side of the header:
 
     The |Supvisors| :ref:`xml_rpc` is NOT available in this state.
 
-``SHUTDOWN``
+``FINAL``
 
     This is the final state of |Supvisors|, in which it remains inactive and waits for the |Supervisor| stopping event.
-    This state is unlikely to be displayed.
+    This state is very transient too.
 
     The |Supvisors| :ref:`xml_rpc` is NOT available in this state.
 
@@ -174,8 +179,10 @@ The |Supvisors| modes are displayed alongside the state if activated:
 
     This mode is visible and blinking when the ``Stopper`` of any of the |Supvisors| instances has jobs in progress.
 
-On the right side, 3 buttons are available:
+On the right side, 5 buttons are available:
 
+    * |start| ends the |Supvisors| synchronization phase (only when |Supvisors| is in ``INITIALIZATION`` state
+      and ``USER`` is set in the ``synchro_options`` option) ;
     * |restart| restarts |Supvisors| through all |Supvisors| instances ;
     * |shutdown| shuts down |Supvisors| through all |Supvisors| instances ;
     * |refresh| refreshes the current page ;
@@ -187,6 +194,9 @@ Main Page Contents
 For every |Supvisors| instances, a box is displayed in the contents of the |Supvisors| Main Page.
 Each box contains:
 
+    * (on condition) a |star| star button allowing the user to ends the |Supvisors| synchronization phase and forcing
+      the corresponding |Supvisors| instance as *Master* (only when |Supvisors| is in ``INITIALIZATION`` state
+      and ``USER`` is set in the ``synchro_options`` option);
     * the |Supvisors| instance deduced name, which is a hyperlink to the corresponding `Supervisor Page`_
       if the |Supvisors| instance is in the ``RUNNING`` state ;
     * the |Supvisors| instance state, colored with the same rules used in the `Common Menu`_ ;
@@ -194,6 +204,9 @@ Each box contains:
     * the list of all processes that are running in this |Supvisors| instance, whatever they belong to a *Managed*
       application or not.
 
+.. image:: images/supvisors_main_page_user_sync.png
+    :alt: Supvisors Main page with USER sync
+    :align: center
 
 Conciliation Page
 -----------------

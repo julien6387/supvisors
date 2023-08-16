@@ -26,6 +26,13 @@
 .. |autorefresh| image:: images/autorefresh_button.png
     :alt: Refresh button
 
+.. |star| image:: images/star_button.png
+    :alt: Star button
+
+.. |br| raw:: html
+
+  <br/>
+
 .. _Supervisor: http://supervisord.org
 .. _psutil: https://pypi.python.org/pypi/psutil
 .. _matplotlib: https://matplotlib.org

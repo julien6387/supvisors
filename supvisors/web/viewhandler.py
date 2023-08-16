@@ -24,10 +24,11 @@ from supervisor.compat import as_bytes, as_string
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
-from .rpcinterface import API_VERSION
-from .statscompiler import ProcStatisticsInstance
-from .ttypes import (SupvisorsInstanceStates, SupvisorsStates, Payload, PayloadList)
-from .utils import get_stats
+from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.rpcinterface import API_VERSION
+from supvisors.statscompiler import ProcStatisticsInstance
+from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
+from supvisors.utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
 from .webutils import *
@@ -136,9 +137,13 @@ class ViewHandler(MeldView):
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('instance_li_mid')
         identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
+        # so let's sort them by name
+        if self.supvisors.options.discovery_mode:
+            identifiers = sorted(identifiers)
         for li_elt, item in mid_elt.repeat(identifiers):
             try:
-                status = self.sup_ctx.instances[item]
+                status: SupvisorsInstanceStatus = self.sup_ctx.instances[item]
             except KeyError:
                 self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:
@@ -150,7 +155,7 @@ class ViewHandler(MeldView):
                 elt = li_elt.findmeld('instance_a_mid')
                 if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
                     update_attrib(elt, 'class', 'blink')
-                if status.state == SupvisorsInstanceStates.RUNNING:
+                if status.has_active_state():
                     # go to web page located on the Supvisors instance to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
                     elt.attributes(href=url)
@@ -470,7 +475,7 @@ class ViewHandler(MeldView):
                 elt.content(f'{dev:.2f}')
             return True
 
-    def write_process_plots(self, proc_stats: ProcStatisticsInstance, nb_cores: int) -> None:
+    def write_process_plots(self, proc_stats: ProcStatisticsInstance, nb_cores: int) -> bool:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
             from supvisors.plot import StatisticsPlot
@@ -488,9 +493,10 @@ class ViewHandler(MeldView):
             mem_img.add_timeline(proc_stats.times)
             mem_img.add_plot('MEM', '%', proc_stats.mem)
             mem_img.export_image(process_mem_img)
+            return True
         except ImportError:
             # matplotlib not installed
-            pass
+            return False
 
     def write_process_statistics(self, root, info: Payload) -> None:
         """ Display detailed statistics about the selected process. """
@@ -511,7 +517,10 @@ class ViewHandler(MeldView):
                 if elt is not None:
                     elt.content(info['identifier'])
                 # write CPU / Memory plots
-                self.write_process_plots(proc_stats, info['nb_cores'])
+                if not self.write_process_plots(proc_stats, info['nb_cores']):
+                    # matplolib not installed: remove figure elements
+                    for mid in ['cpuimage_fig_mid', 'memimage_fig_mid']:
+                        stats_elt.findmeld(mid).replace('')
         else:
             # remove stats part if empty
             stats_elt.replace('')

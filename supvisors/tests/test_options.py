@@ -30,11 +30,13 @@ from .configurations import *
 
 @pytest.fixture
 def config():
-    return {'supvisors_list': 'cliche01,cliche03,cliche02',
+    return {'supvisors_list': 'cliche01,cliche03,cliche02', 'stereotypes': 'test',
+            'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
             'internal_port': '60001',
             'event_link': 'zmq', 'event_port': '60002',
-            'synchro_timeout': '20', 'inactivity_ticks': '9',
+            'synchro_options': 'LIST,USER', 'synchro_timeout': '20',
+            'inactivity_ticks': '9',
             'core_identifiers': 'cliche01,cliche03',
             'disabilities_file': '/tmp/disabilities.json',
             'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
@@ -83,7 +85,10 @@ def test_filled_logger_configuration(config):
 
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
-    assert opt.supvisors_list == [gethostname()]
+    assert opt.supvisors_list is None
+    assert opt.multicast_group is None
+    assert opt.multicast_interface is None
+    assert opt.multicast_ttl == 1
     assert opt.rules_files is None
     assert opt.internal_port == 0
     assert opt.event_link == EventLinks.NONE
@@ -108,6 +113,9 @@ def test_options_creation(opt):
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
+    assert filled_opt.multicast_group == ('239.0.0.1', 7777)
+    assert filled_opt.multicast_interface == '192.168.1.1'
+    assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
     assert filled_opt.event_link == EventLinks.ZMQ
@@ -131,21 +139,74 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0'
+    assert str(opt) == ('supvisors_list=None stereotypes=set()'
+                        ' multicast_group=None multicast_interface=None multicast_ttl=1'
+                        ' rules_files=None internal_port=0'
                         ' event_link=NONE event_port=0'
-                        ' auto_fence=False synchro_timeout=15 inactivity_ticks=2 core_identifiers=set()'
+                        " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
+                        ' inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
                         ' host_stats_enabled=True process_stats_enabled=True'
                         ' collecting_period=5 stats_periods=[10] stats_histo=200'
                         ' stats_irix_mode=False tail_limit=1024 tailf_limit=1024')
 
 
+def test_filled_str(filled_opt):
+    """ Test the string output. """
+    variable_core_1 = "{'cliche01', 'cliche03'}"
+    variable_core_2 = "{'cliche03', 'cliche01'}"
+    result = str(filled_opt)
+    print(result)
+    assert any(result == ("supvisors_list=['cliche01', 'cliche03', 'cliche02']"
+                          " stereotypes={'test'}"
+                          ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
+                          " rules_files=['my_movies.xml']"
+                          ' internal_port=60001'
+                          ' event_link=ZMQ event_port=60002'
+                          ' auto_fence=True'
+                          " synchro_options=['LIST', 'USER'] synchro_timeout=20"
+                          ' inactivity_ticks=9'
+                          f' core_identifiers={var}'
+                          ' disabilities_file=/tmp/disabilities.json'
+                          ' conciliation_strategy=SENICIDE starting_strategy=MOST_LOADED'
+                          ' host_stats_enabled=False process_stats_enabled=True'
+                          ' collecting_period=2.0 stats_periods=[5.0, 50.0, 77.7] stats_histo=100'
+                          ' stats_irix_mode=True tail_limit=1048576 tailf_limit=512')
+               for var in [variable_core_1, variable_core_2])
+
+
 def test_get_value(opt, config):
-    """ Test the get_value method. """
+    """ Test the SupvisorsOptions.get_value method. """
     assert opt._get_value(config, 'dummy', 'anything') == 'anything'
     assert opt._get_value(config, 'event_port', 'anything') == '60002'
     assert opt._get_value(config, 'event_port', 'anything', int) == 60002
     assert opt._get_value(config, 'rules_files', 'anything', int) == 'anything'
+
+
+def test_check_synchro_options(opt, config):
+    """ Test the SupvisorsOptions.check_synchro_options method. """
+    opt.synchro_options = [SynchronizationOptions.STRICT, SynchronizationOptions.CORE]
+    assert not opt.supvisors_list
+    assert not opt.core_identifiers
+    # call to check_synchro_options will empty synchro_options
+    with pytest.raises(ValueError):
+        opt.check_synchro_options()
+    # call check_synchro_options with USER and TIMEOUT
+    for option in [SynchronizationOptions.USER, SynchronizationOptions.TIMEOUT]:
+        opt.synchro_options = [option]
+        opt.check_synchro_options()
+        assert opt.synchro_options == [option]
+
+
+def test_check_dirpath(opt):
+    """ Minimal test of check_dirpath because mostly tested in Supervisor's existing_dirpath. """
+    # existing folder
+    assert opt.check_dirpath('/tmp/disabilities.json') == '/tmp/disabilities.json'
+    # existing folder that can be created
+    assert opt.check_dirpath('/tmp/dummy/disabilities.json') == '/tmp/dummy/disabilities.json'
+    # existing folder that cannot be created
+    with pytest.raises(ValueError):
+        assert opt.check_dirpath('/usr/dummy/disabilities.json')
 
 
 def test_to_filepaths(opt):
@@ -163,6 +224,81 @@ def test_to_filepaths(opt):
 common_error_message = r'invalid value for {}'
 
 
+def test_check_multicast_address():
+    """ Test the checking of a multicast address. """
+    error_message = common_error_message.format('multicast address')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('127.0.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('192.168.12.4')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('10.0.0.4')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('240.256.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('240..0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions._check_multicast_address('240.0.1')
+    # test reserved addresses
+    for addr in SupvisorsOptions.RESERVED_MULTICAST_ADDRESSES:
+        with pytest.raises(ValueError, match='reserved multicast address'):
+            SupvisorsOptions._check_multicast_address(addr)
+    # test valid values
+    SupvisorsOptions._check_multicast_address('224.0.0.1')
+    SupvisorsOptions._check_multicast_address('239.255.255.255')
+    SupvisorsOptions._check_multicast_address('239.0.0.1')
+
+
+def test_ip_address():
+    """ Test the validity of an IP address. """
+    error_message = common_error_message.format('IP address')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('7777')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('240.256.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('240..0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ip_address('240.0.1')
+    # test valid values
+    assert SupvisorsOptions.to_ip_address('ANY') is None
+    assert SupvisorsOptions.to_ip_address('INADDR_ANY') is None
+    assert SupvisorsOptions.to_ip_address('10.0.0.1') == '10.0.0.1'
+    assert SupvisorsOptions.to_ip_address('192.168.10.5') == '192.168.10.5'
+
+
+def test_multicast_group():
+    """ Test the conversion into to a valid multicast group. """
+    error_message = common_error_message.format('multicast_group')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_multicast_group('239.0.0.1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_multicast_group('7777')
+    # test valid values
+    assert SupvisorsOptions.to_multicast_group('239.0.0.1:7777') == ('239.0.0.1', 7777)
+
+
+def test_ttl():
+    """ Test the conversion into to a TTL number. """
+    error_message = common_error_message.format('multicast_ttl')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ttl('-1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_ttl('256')
+    # test valid values
+    assert SupvisorsOptions.to_ttl('0') == 0
+    assert SupvisorsOptions.to_ttl('1') == 1
+    assert SupvisorsOptions.to_ttl('255') == 255
+
+
 def test_port_num():
     """ Test the conversion into to a port number. """
     error_message = common_error_message.format('port')
@@ -176,6 +312,23 @@ def test_port_num():
     # test valid values
     assert SupvisorsOptions.to_port_num('1') == 1
     assert SupvisorsOptions.to_port_num('65535') == 65535
+
+
+def test_to_synchro_options():
+    """ Test the conversion of a string to a list of SynchronizationOptions. """
+    error_message = common_error_message.format('synchro_options')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_synchro_options('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_synchro_options('time,TIMEOUT')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_synchro_options('user-core')
+    # test valid values
+    assert SupvisorsOptions.to_synchro_options('strict,list,timeout,core,user') == [x for x in SynchronizationOptions]
+    assert SupvisorsOptions.to_synchro_options('  user, , liST,  USER,') == [SynchronizationOptions.USER,
+                                                                             SynchronizationOptions.LIST]
+    assert SupvisorsOptions.to_synchro_options('CoRe') == [SynchronizationOptions.CORE]
 
 
 def test_timeout():
@@ -363,14 +516,14 @@ def test_server_options(mocker, server_opt):
     assert server_opt.program_class == {}
     assert server_opt.program_processes == {}
     assert server_opt.processes_program == {}
-    assert server_opt.procnumbers == {}
+    assert server_opt.process_indexes == {}
     # call realize
     server = create_server(mocker, server_opt, ProgramConfiguration)
     assert server_opt.processes_program == {'dumber_10': 'dumber', 'dumber_11': 'dumber', 'dummy': 'dummy',
                                             'dummy_0': 'dummies', 'dummy_1': 'dummies', 'dummy_2': 'dummies',
                                             'dummy_ears_20': 'dummy_ears', 'dummy_ears_21': 'dummy_ears'}
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1,
-                                  'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0,
+                                      'dumber_11': 1, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
     expected_printable = {program_name: {group_name: [process.name for process in processes]}
                           for program_name, program_configs in server.program_processes.items()
                           for group_name, processes in program_configs.items()}
@@ -389,8 +542,8 @@ def test_server_options(mocker, server_opt):
     result = server.reload_processes_from_section('program:dummies', 'dummy_group')
     expected_printable = [process.name for process in result]
     assert expected_printable == ['dummy_0']
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1,
-                                  'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1,
+                                      'dummy_ears_20': 0, 'dummy_ears_21': 1}
     # udpate procnums of a FastCGI program
     assert server.update_numprocs('dumber', 1) == 'fcgi-program:dumber'
     assert server.parser['fcgi-program:dumber']['numprocs'] == '1'
@@ -398,7 +551,7 @@ def test_server_options(mocker, server_opt):
     result = server.reload_processes_from_section('fcgi-program:dumber', 'dumber')
     expected_printable = [process.name for process in result]
     assert expected_printable == ['dumber_10']
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
     # udpate procnums of an event listener
     assert server.update_numprocs('dummy_ears', 3) == 'eventlistener:dummy_ears'
     assert server.parser['eventlistener:dummy_ears']['numprocs'] == '3'
@@ -406,5 +559,5 @@ def test_server_options(mocker, server_opt):
     result = server.reload_processes_from_section('eventlistener:dummy_ears', 'dummy_ears')
     expected_printable = [process.name for process in result]
     assert expected_printable == ['dummy_ears_20', 'dummy_ears_21', 'dummy_ears_22']
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0,
-                                  'dummy_ears_20': 0, 'dummy_ears_21': 1, 'dummy_ears_22': 2}
+    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0,
+                                      'dummy_ears_20': 0, 'dummy_ears_21': 1, 'dummy_ears_22': 2}

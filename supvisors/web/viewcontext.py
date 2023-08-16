@@ -22,9 +22,9 @@ from distutils.util import strtobool
 from typing import Optional, Tuple
 from urllib.parse import quote
 
-from .process import ProcessStatus
-from .ttypes import StartingStrategies, NameList
-from .utils import get_bit, set_bit
+from supvisors.process import ProcessStatus
+from supvisors.ttypes import StartingStrategies, NameList
+from supvisors.utils import get_bit, set_bit
 from .webutils import SUPVISORS_PAGE, error_message
 
 # form parameters

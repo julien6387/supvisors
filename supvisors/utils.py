@@ -20,7 +20,7 @@
 import re
 from math import sqrt
 from time import gmtime, localtime, strftime, time
-from typing import Tuple
+from typing import Dict, List
 from urllib.parse import urlparse
 
 from .ttypes import Payload
@@ -29,8 +29,10 @@ from .ttypes import Payload
 # TICK period in seconds for internal Supvisors heartbeat
 TICK_PERIOD = 5
 
-# a Supervisor TICK is expected every 5 seconds
-SUPERVISOR_ALERT_TIMEOUT = 10
+# special characters used in rules
+WILDCARD = '*'
+HASHTAG = '#'
+ATSIGN = '@'
 
 
 def simple_localtime(now=None):
@@ -63,9 +65,9 @@ def extract_process_info(info: Payload) -> Payload:
 class SupervisorServerUrl:
     """ Store and update the environment for RPC interfaces. """
 
-    def __init__(self, env):
+    def __init__(self, env: Dict):
         """ Parse the Supervisor server URL for later modification. """
-        self.env = env.copy()
+        self.env: Dict = env.copy()
         # get the possible authentication part
         parsed_url = urlparse(env['SUPERVISOR_SERVER_URL'])
         self.authentication = ''
@@ -159,7 +161,7 @@ SUPVISORS_RTYPE_FORMAT = re.compile(rf'^:rtype:\s+{TYPE_FORMAT}$')
 SUPVISORS_RAISE_FORMAT = re.compile(r'^:raises\s+(?P<exc>\w+):\s+(?P<desc>.*)$')
 
 
-def parse_docstring(comment: str) -> Tuple:
+def parse_docstring(comment: str) -> List:
     """ Extract information from the docstring.
     Return the same structure as supervisor.xmlrpc.gettags. """
     description = [0, None, None, None, []]

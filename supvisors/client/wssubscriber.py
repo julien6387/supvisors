@@ -19,8 +19,8 @@
 
 from supervisor.loggers import Logger
 
-from supvisors.eventinterface import EventSubscriberInterface
-from supvisors.supvisorswebsocket import WsEventSubscriber
+from supvisors.external_com.eventinterface import EventSubscriberInterface
+from supvisors.external_com.supvisorswebsocket import WsEventSubscriber
 from supvisors.ttypes import Payload
 
 

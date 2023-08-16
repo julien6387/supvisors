@@ -1,5 +1,78 @@
 # Change Log
 
+## 0.17 (2023-08-17)
+
+* Fix [Issue #112](https://github.com/julien6387/supvisors/issues/112).
+  Write the disabilities file even if no call to `disable` and `enable` XML-RPCs have been done.
+  Try to create the folder at startup if it does not exist.
+
+* Fix a case where the `Starter` would block if the process reaches the expected state without reception
+  of the corresponding event.
+
+* Fix typo for `zmq` requirement when installing **Supvisors** from `pypi`.
+
+* Fix `flask-restx` dependency in setup according to Python version.
+
+* Fix uncaught exception the request to start a process is rejected due to a lack of resources.
+  The exception was dependent from the Python version (absent in 3.6 but raised in 3.9).
+
+* Monkeypatch fix of [Supervisor Issue #1596](https://github.com/Supervisor/supervisor/issues/1596).
+  Shutdown of the asyncore socket before it is closed.
+
+* Improve robustness against network failures. All Supervisor events are applied to the local **Supvisors** instance
+  before they are published, so that it remains functional despite a network failure.
+  The internal TCP sockets are rebound when a network interface becomes up (requires `psutil`).
+
+* Provide a discovery mode where the **Supvisors** instances are added on-the-fly without declaring them in
+  the `supvisors_list` option. The function relies on a Multicast Group definition (options `multicast_group`,
+  `multicast_interface` and `multicast_ttl` added to that purpose).
+  The attribute `discovery_mode` is added to the `get_state` and `get_instance_info` XML-RPCs.
+
+* Add a new option `stereotypes` to support the discovery mode. The `identifiers` of the Application and Program rules
+  can now reference a **Supvisors** stereotype in addition to identifiers and aliases.
+  By extension, it is made available to the non-discovery mode.
+
+* Add a new option `syncho_options` to enable the user to choose the conditions putting an end to the **Supvisors**
+  synchronization phase.
+  More particularly when using the new `USER` condition, the **Supvisors** Web UI provides a means to end the
+  `INITIALIZATION` state, with optional *Master* selection. The command is also available as an XML-RPC `end_synchro`
+  and has been added to `supervisorctl`.
+
+* The new item `@` in the `identifiers` of the Program rules takes the behavior of the item `#` as it was
+  before **Supvisors** version 0.13, i.e. the assignment is strictly limited by the length of the `identifiers` list,
+  without roll-over.
+  NOTE: This is not available for Application rules.
+
+* Use host aliases when looking for the local **Supvisors** instance.
+
+* Use IP address rather than host identification when dealing with `SINGLE_NODE` starting strategy. 
+
+* To prevent the situation that led the `Starter` to block, a new state `CHECKED` is added to `SupvisorsInstanceStates`,
+  which is actually a pre-`RUNNING` state.
+  Such a **Supvisors** instance is considered active and is updated with received events but cannot be part of any
+  starting sequence until all starting jobs in progress are completed.
+
+* Limit the consideration of the process forced state to display in the Application page of the **Supvisors** Web UI,
+  so that it does not interfere with the real process state.
+
+* Add `master_identifier` to the output of the XML-RPCs `get_supvisors_state` and `get_instances_info`.
+  The `supervisorctl` commands `sstate` and `instance_status` have also been updated.
+
+* Monkeypatch **Supervisor** on-the-fly so that its logger is thread-safe and add log traces in **Supvisors** threads.
+
+* Simplify the **Supvisors** state machine and replace the states `RESTART` and `SHUTDOWN` by a single state `FINAL`.
+
+* Highlight the process line hovered by the cursor in the **Supvisors** Web UI.
+
+* Remove the figures from the **Supvisors** Web UI when `matplotlib` is not installed.
+
+* Add RPC `changeLogLevel` to the JAVA client.
+
+* Do not catch XmlRpc exceptions in the JAVA client.
+
+* Refactoring of the **Supvisors** internal communications.
+
+
 ## 0.16 (2023-03-12)
 
 * Add `websockets` as an option to the **Supvisors** event listener (Python 3.7+ only).
@@ -22,10 +95,10 @@
 
 * Fix Solaris mode not taken into account for the process mean CPU value in the **Supvisors** Web UI.
 
+* Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
+
 * Only one **Supvisors** instance is running when both `unix_http_server` and `inet_http_server` sections are defined
   in the supervisor configuration file.
-
-* Fix Flask `start_args` to pass the extra arguments in the URL attributes rather than in the route.
 
 * The local **Supvisors** instance is identified as the item having the same fully qualified domain name
   (as returned by `socket.gethostaddr` and `socket.getfqdn`) among the items of the `supvisors_list` option. 
@@ -128,7 +201,7 @@
   points out the **Supvisors** instances where the modes are activated, and the applications involved in its own
   `Starter` or `Stopper`.
 
-* When using `#` in the `identifiers` of the Application or Program rules and with a number of candidate
+* When using the item `#` in the `identifiers` of the Application or Program rules and with a number of candidate
   applications or processes greater than the candidate `identifiers`, the assignment is performed by rolling over
   the `identifiers` list. 
 

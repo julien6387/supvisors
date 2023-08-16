@@ -202,15 +202,28 @@ If |Supervisor| is started from the hosts ``rocky51`` or ``rocky52``, the follow
     Error: Could not make supvisors rpc interface
     For help, use /usr/local/bin/supervisord -h
 
-In the event where the host name or IP address seems legit to the user, it has to be noted that |Supvisors| accepts only
-the host name, aliases and IP addresses as returned by the ``gethostbyaddr`` function.
+In the event where the host name or IP address seems legit to the user, here are a few explanations about how |Supvisors|
+identifies the local |Supervisor| instance among the ``supvisors_list`` elements:
+
+    - |Supvisors| extracts the ``host_name`` from the ``<identifier>host_name:http_port:internal_port`` element
+      and stores the host name and aliases returned by the ``socket.gethostbyaddr`` function.
+    - |Supvisors| considers that the local |Supervisor| instance is the element whose fully-qualified domain name,
+      as returned by the ``socket.getfqdn`` function, belongs to the list of host name and aliases.
+
+From the example below, the values ``rocky51.cliche.bzh``, ``rocky51`` and ``192.168.1.65`` are valid ``host_name``
+elements to be used in ``supvisors_list``.
 
 .. code-block:: python
 
-    >>> from socket import gethostbyaddr
-    >>> gethostbyaddr('rocky52')
-    ('rocky52', [], ['192.168.1.65'])
-    >>>
+    >>> from socket import gethostbyaddr, getfqdn
+    >>> gethostbyaddr('rocky51.cliche.bzh')
+    ('rocky51.cliche.bzh', ['rocky51'], ['192.168.1.65'])
+    >>> gethostbyaddr('rocky51')
+    ('rocky51.cliche.bzh', ['rocky51'], ['192.168.1.65'])
+    >>> gethostbyaddr('192.168.1.65')
+    ('rocky51.cliche.bzh', ['rocky51'], ['192.168.1.65'])
+    >>> getfqdn()
+    'rocky51.cliche.bzh'
 
 
 Local Supvisors not found

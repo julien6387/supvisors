@@ -184,7 +184,7 @@ InvalidXmlTest = b'''\
     
             <program name="dummy_program_C4">
                 <reference>dummy_model_03</reference>
-                <identifiers>#</identifiers>
+                <identifiers>#,@</identifiers>
                 <start_sequence>3</start_sequence>
                 <required>true</required>
                 <wait_exit>false</wait_exit>
@@ -278,7 +278,7 @@ XmlTest = b'''\
             <program name="dummy_program_B0"/>
     
             <program name="dummy_program_B1">
-                <identifiers>#</identifiers>
+                <identifiers>@</identifiers>
                 <start_sequence>3</start_sequence>
                 <stop_sequence>50</stop_sequence>
                 <required>true</required>

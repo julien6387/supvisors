@@ -22,16 +22,19 @@ from typing import Any, Dict, List, Set, Tuple, TypeVar
 
 from supervisor.events import Event
 
+# Supvisors name
+SUPVISORS = 'Supvisors'
+
 
 # all enumerations
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, RUNNING, SILENT, ISOLATING, ISOLATED = range(6)
+    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATING, ISOLATED = range(7)
 
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    OFF, INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, RESTART, SHUTTING_DOWN, SHUTDOWN = range(9)
+    OFF, INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(8)
 
 
 class ApplicationStates(Enum):
@@ -80,26 +83,16 @@ class StatisticsTypes(Enum):
     OFF, HOST, PROCESS, ALL = range(4)
 
 
+class SynchronizationOptions(Enum):
+    """ Options to stop the synchronization phase. """
+    STRICT, LIST, TIMEOUT, CORE, USER = range(5)
+
+
 # for internal publish / subscribe
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    (HEARTBEAT, TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
-     HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(9)
-
-
-# for deferred XML-RPC requests
-class DeferredRequestHeaders(Enum):
-    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
-    (CHECK_INSTANCE, ISOLATE_INSTANCES,
-     START_PROCESS, STOP_PROCESS,
-     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(9)
-
-
-class RemoteCommEvents(Enum):
-    """ Strings used for remote communication between the Supvisors main loop and the listener. """
-    SUPVISORS_AUTH = u'auth'
-    SUPVISORS_EVENT = u'event'
-    SUPVISORS_INFO = u'info'
+    (HEARTBEAT, TICK, AUTHORIZATION, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
+     HOST_STATISTICS, PROCESS_STATISTICS, STATE, ALL_INFO, DISCOVERY) = range(12)
 
 
 class EventHeaders(Enum):
@@ -115,8 +108,8 @@ class EventHeaders(Enum):
 
 # State lists commonly used
 ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
-CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
-                  SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
+WORKING_STATES = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
+CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.FINAL]
 
 
 # Exceptions
@@ -170,6 +163,7 @@ class ProcessDisabledEvent(ProcessEvent):
 # Annotation types
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
+Ipv4Address = Tuple[str, int]
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]

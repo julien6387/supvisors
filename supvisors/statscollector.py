@@ -20,7 +20,7 @@
 import multiprocessing as mp
 import os
 from time import sleep, time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import psutil
 
@@ -29,6 +29,7 @@ from .utils import mean
 
 # Default sleep time when nothing to do
 SLEEP_TIME = 0.2
+
 
 # CPU statistics
 def instant_cpu_statistics() -> Jiffies:
@@ -71,26 +72,35 @@ def instant_memory_statistics() -> float:
 def instant_io_statistics() -> InterfaceInstantStats:
     """ Return the instant values of receive / sent bytes per network interface. """
     result: InterfaceInstantStats = {}
-    # IO details
+    # get active interfaces
+    active_nics = [key for key, value in psutil.net_if_stats().items() if value.isup]
+    # IO details (only if active)
     io_stats = psutil.net_io_counters(pernic=True)
-    for intf, io_stat in io_stats.items():
-        result[intf] = io_stat.bytes_recv, io_stat.bytes_sent
+    for nic, io_stat in io_stats.items():
+        if nic in active_nics:
+            result[nic] = io_stat.bytes_recv, io_stat.bytes_sent
     return result
 
 
 # Host statistics
-def instant_host_statistics():
+def instant_host_statistics() -> Dict:
     """ Get a snapshot of some host resources. """
-    return {'now': time(),
-            'cpu': instant_all_cpu_statistics(),
-            'mem': instant_memory_statistics(),
-            'io': instant_io_statistics()}
+    try:
+        return {'now': time(),
+                'cpu': instant_all_cpu_statistics(),
+                'mem': instant_memory_statistics(),
+                'io': instant_io_statistics()}
+    except OSError:
+        # possibly Too many open files: '/proc/stat'
+        # still unclear why it happens
+        return {}
 
 
 # Process statistics
 process_attributes = ['cpu_times', 'memory_percent']
 
-def instant_process_statistics(proc: psutil.Process, get_children=True) -> ProcessStats:
+
+def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optional[ProcessStats]:
     """ Return the instant jiffies and memory values for the process identified by pid. """
     try:
         # get main process statistics
@@ -106,13 +116,17 @@ def instant_process_statistics(proc: psutil.Process, get_children=True) -> Proce
                     work += sum(p_stats['cpu_times'][:2])
                     memory += p_stats['memory_percent']
                 except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
-                    # process may have disappeared in the interval
+                    # child process may have disappeared in the interval
                     pass
         # take into account the number of processes for the process work
         return work, memory
     except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
         # process may have disappeared in the interval
         return None
+    except OSError:
+        # possibly Too many open files: '/proc/stat'
+        # still unclear why it happens
+        return ()
 
 
 class CollectedProcesses:
@@ -157,6 +171,10 @@ class CollectedProcesses:
                 # process has been stopped in the gap
                 # no need to post the termination as the process died before anything has been sent
                 pass
+            except OSError:
+                # possibly Too many open files: '/proc/stat'
+                # still unclear why it happens
+                pass
 
     def collect_supervisor(self):
         """ Collect supervisor and collector statistics, without considering any other supervisor children. """
@@ -167,7 +185,7 @@ class CollectedProcesses:
             sup_stats = instant_process_statistics(supervisor, False)
             collector = self.supervisor_process['collector']
             col_stats = instant_process_statistics(collector, False)
-            if sup_stats and col_stats:  # the contrary is really not meant to happen
+            if sup_stats and col_stats:
                 # push the results into the stats_queue
                 self.stats_queue.put({'namespec': 'supervisord',
                                       'pid': supervisor.pid,
@@ -177,6 +195,10 @@ class CollectedProcesses:
                                       'proc_work': sup_stats[0] + col_stats[0],
                                       'proc_memory': sup_stats[1] + col_stats[1]})
                 # re-insert the process in front of the list
+                self.supervisor_process['last'] = current_time
+            else:
+                # failure probably due to Too many open files: '/proc/stat'
+                # re-insert the process in front of the list to avoid 100% CPU
                 self.supervisor_process['last'] = current_time
 
     def collect_recent_process(self) -> bool:
@@ -189,23 +211,24 @@ class CollectedProcesses:
                 proc_data = self.processes.pop()
                 proc = proc_data['process']
                 proc_stats = instant_process_statistics(proc)
-                if proc_stats:
-                    # push the results into the stats_queue
-                    self.stats_queue.put({'namespec': proc_data['namespec'],
-                                          'pid': proc.pid,
-                                          'now': current_time,
-                                          'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
-                                          'proc_work': proc_stats[0],
-                                          'proc_memory': proc_stats[1]})
-                    # update date and re-insert the process in front of the list
-                    proc_data['last'] = current_time
-                    self.processes.insert(0, proc_data)
-                else:
+                if proc_stats is None:
                     # warn the subscribers that the process has been stopped
                     self.stats_queue.put({'namespec': proc_data['namespec'],
                                           'pid': 0,
                                           'now': current_time})
                     # not to be re-inserted in the list
+                else:
+                    if proc_stats:  # proc_stats is an empty tuple in case of OSError
+                        # push the results into the stats_queue
+                        self.stats_queue.put({'namespec': proc_data['namespec'],
+                                              'pid': proc.pid,
+                                              'now': current_time,
+                                              'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
+                                              'proc_work': proc_stats[0],
+                                              'proc_memory': proc_stats[1]})
+                    # whatever it has succeeded or not, update date and re-insert the process in front of the list
+                    proc_data['last'] = current_time
+                    self.processes.insert(0, proc_data)
                 # no need to wait. ready to process another process
                 return True
         # most ready process is not ready enough. wait

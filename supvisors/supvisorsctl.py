@@ -85,7 +85,7 @@ class ControllerPlugin(ControllerPluginBase):
             info_list = []
         return {info['identifier']: 'http://%s:%d' % (info['node_name'], info['port'])
                 for info in info_list
-                if info['statecode'] == SupvisorsInstanceStates.RUNNING.value}
+                if info['statecode'] in [SupvisorsInstanceStates.CHECKED.value, SupvisorsInstanceStates.RUNNING.value]}
 
     def do_sversion(self, _):
         """ Command to get the Supvisors API version. """
@@ -111,14 +111,19 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
+                max_master = ControllerPlugin.max_template([state_modes], 'master_identifier', 'Master')
                 max_starting = ControllerPlugin.max_template([state_modes], 'starting_jobs', 'Starting')
                 max_stopping = ControllerPlugin.max_template([state_modes], 'stopping_jobs', 'Stopping')
-                template = f'%(state)-16s%(starting)-{max_starting}s%(stopping)-{max_stopping}s'
+                template = (f'%(state)-16s%(discovery)-11s%(master)-{max_master}s%(starting)-{max_starting}s'
+                            f'%(stopping)-{max_stopping}s')
                 # print title
-                payload = {'state': 'State', 'starting': 'Starting', 'stopping': 'Stopping'}
+                payload = {'state': 'State', 'discovery': 'Discovery', 'master': 'Master',
+                           'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # print data
                 line = template % {'state': state_modes['fsm_statename'],
+                                   'discovery': state_modes['discovery_mode'],
+                                   'master': state_modes['master_identifier'],
                                    'starting': state_modes['starting_jobs'],
                                    'stopping': state_modes['stopping_jobs']}
                 self.ctl.output(line)
@@ -173,12 +178,15 @@ class ControllerPlugin(ControllerPluginBase):
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
                 max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
                 template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s'
-                            '%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s%(failure)-9s'
-                            '%(fsm_state)-16s%(starting)-10s%(stopping)-10s')
+                            '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s%(failure)-9s'
+                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_node_names}s'
+                            '%(starting)-10s%(stopping)-10s')
                 # print title
-                payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port', 'state': 'State',
+                payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port',
+                           'state': 'State', 'discovery': 'Discovery',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter', 'failure': 'Failure',
-                           'fsm_state': 'FSM', 'starting': 'Starting', 'stopping': 'Stopping'}
+                           'fsm_state': 'FSM', 'master': 'Master', 'discovery': 'Discovery',
+                           'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
@@ -189,11 +197,14 @@ class ControllerPlugin(ControllerPluginBase):
                         payload = {'identifier': info['identifier'],
                                    'node_name': info['node_name'], 'port': info['port'],
                                    'state': info['statename'],
+                                   'discovery': info['discovery_mode'],
                                    'load': f"{info['loading']}%",
                                    'ltime': simple_localtime(info['local_time']),
                                    'counter': info['sequence_counter'],
                                    'failure': info['process_failure'],
                                    'fsm_state': info['fsm_statename'],
+                                   'discovery': info['discovery_mode'],
+                                   'master': info['master_identifier'],
                                    'starting': info['starting_jobs'],
                                    'stopping': info['stopping_jobs']}
                         self.ctl.output(template % payload)
@@ -395,7 +406,7 @@ class ControllerPlugin(ControllerPluginBase):
                 payload = {'appli': 'Application', 'proc': 'Process', 'disabled': 'Disabled', 'state': 'State',
                            'start': 'Start', 'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
                 self.ctl.output(template % payload)
-                # print filtered payloads
+                # print filtered payloads (some attributes serve only Supvisors internal purpose)
                 for info in match_list:
                     start_time = simple_localtime(info['start']) if info['start'] else 0
                     now_time = simple_localtime(info['now']) if info['now'] else 0
@@ -1087,6 +1098,31 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the sshutdown command."""
         self.ctl.output('sshutdown\t\t\t\tShutdown Supvisors on all instances')
 
+    def do_end_sync(self, arg):
+        """ Command to end the Supvisors synchronization phase. """
+        if self._upcheck():
+            # check request args
+            args = arg.split()
+            if len(args) > 1:
+                self.ctl.output('ERROR: end_sync optionally takes one single Supvisors identifier')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_end_sync()
+                return
+            master = args[0] if args else ''
+            try:
+                result = self.supvisors().end_sync(master)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'End of Synchronization phase requested: {result}')
+
+    def help_end_sync(self):
+        """ Print the help of the end_sync command."""
+        self.ctl.output('end_sync\t\t\t\tEnd the Supvisors synchronization phase')
+        self.ctl.output('end_sync master_identifier\t\tEnd the Supvisors synchronization phase'
+                        ' and select this identifier as Supvisors Master instance ')
+
     def do_loglevel(self, arg):
         """ Command to change the level of the local Supvisors. """
         if self._upcheck():
@@ -1113,7 +1149,7 @@ class ControllerPlugin(ControllerPluginBase):
     def help_loglevel(self):
         """ Print the help of the loglevel command."""
         self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
-        values = self.supvisors().get_logger_levels().values()
+        values = RPCInterface.get_logger_levels().values()
         self.ctl.output(f'\t\t\t\t\tApplicable values are: {values}.')
 
     def _upcheck(self):

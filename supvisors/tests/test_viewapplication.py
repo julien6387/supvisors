@@ -20,13 +20,14 @@
 from unittest.mock import call, Mock
 
 import pytest
+from supervisor.states import ProcessStates
 from supervisor.web import MeldView
 
 from supvisors.ttypes import ApplicationStates, StartingStrategies
-from supvisors.viewapplication import ApplicationView
-from supvisors.viewcontext import APPLI, AUTO, PROCESS, STRATEGY
-from supvisors.viewhandler import ViewHandler
-from supvisors.webutils import APPLICATION_PAGE
+from supvisors.web.viewapplication import ApplicationView
+from supvisors.web.viewcontext import APPLI, AUTO, PROCESS, STRATEGY
+from supvisors.web.viewhandler import ViewHandler
+from supvisors.web.webutils import APPLICATION_PAGE
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -52,8 +53,8 @@ def test_init(view):
 
 def test_handle_parameters(mocker, view):
     """ Test the handle_parameters method. """
-    mocker.patch('supvisors.viewapplication.error_message', return_value='an error')
-    mocked_handle = mocker.patch('supvisors.viewhandler.ViewHandler.handle_parameters')
+    mocker.patch('supvisors.web.viewapplication.error_message', return_value='an error')
+    mocked_handle = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_parameters')
     # patch context
     view.view_ctx.parameters[APPLI] = None
     # test with no application selected
@@ -75,7 +76,7 @@ def test_handle_parameters(mocker, view):
 
 def test_write_navigation(mocker, view):
     """ Test the write_navigation method. """
-    mocked_handle = mocker.patch('supvisors.viewhandler.ViewHandler.write_nav')
+    mocked_handle = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_nav')
     view.application_name = 'dummy_appli'
     # test with no application selected
     view.write_navigation('root')
@@ -84,9 +85,9 @@ def test_write_navigation(mocker, view):
 
 def test_write_header(mocker, view):
     """ Test the write_header method. """
-    mocked_action = mocker.patch('supvisors.viewapplication.ApplicationView.write_application_actions')
-    mocked_period = mocker.patch('supvisors.viewapplication.ApplicationView.write_periods')
-    mocked_strategy = mocker.patch('supvisors.viewapplication.ApplicationView.write_starting_strategy')
+    mocked_action = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_application_actions')
+    mocked_period = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_periods')
+    mocked_strategy = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_starting_strategy')
     view.application_name = 'dummy_appli'
     view.application = Mock(state=ApplicationStates.STOPPED, major_failure=False, minor_failure=False,
                             **{'running.return_value': False})
@@ -141,7 +142,7 @@ def test_write_header(mocker, view):
 
 def test_write_periods(mocker, view):
     """ Test the ApplicationView.write_periods method. """
-    mocked_period = mocker.patch('supvisors.viewhandler.ViewHandler.write_periods_availability')
+    mocked_period = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_periods_availability')
     mocked_root = Mock()
     # test with process statistics to be displayed
     view.write_periods(mocked_root)
@@ -198,9 +199,9 @@ def test_write_application_actions(view):
 
 def test_write_contents(mocker, view):
     """ Test the write_contents method. """
-    mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_statistics')
-    mocked_table = mocker.patch('supvisors.viewapplication.ApplicationView.write_process_table')
-    mocked_data = mocker.patch('supvisors.viewapplication.ApplicationView.get_process_data',
+    mocked_stats = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_statistics')
+    mocked_table = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_process_table')
+    mocked_data = mocker.patch('supvisors.web.viewapplication.ApplicationView.get_process_data',
                                side_effect=([{'namespec': 'dummy'}], [{'namespec': 'dummy'}],
                                             [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}],
                                             [{'namespec': 'dummy_proc'}]))
@@ -275,14 +276,22 @@ def test_get_process_data(mocker, view):
     """ Test the ViewApplication.get_process_data method. """
     # patch the selected application
     process_1 = Mock(application_name='appli_1', process_name='process_1', namespec='namespec_1',
-                     running_identifiers=set(), state='stopped', rules=Mock(expected_load=20),
-                     **{'state_string.return_value': 'stopped', 'has_crashed.return_value': False,
-                        'disabled.return_value': True, 'possible_identifiers.return_value': []})
+                     state=ProcessStates.EXITED, displayed_state=ProcessStates.STOPPED, expected_exit=False,
+                     running_identifiers=set(), rules=Mock(expected_load=20),
+                     **{'state_string.return_value': 'STOPPED',
+                        'displayed_state_string.return_value': 'STOPPED',
+                        'has_crashed.return_value': False,
+                        'disabled.return_value': True,
+                        'possible_identifiers.return_value': []})
     process_2 = Mock(application_name='appli_2', process_name='process_2', namespec='namespec_2',
-                     running_identifiers=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
-                     state='running', rules=Mock(expected_load=1),
-                     **{'state_string.return_value': 'running', 'has_crashed.return_value': True,
-                        'disabled.return_value': False, 'possible_identifiers.return_value': ['10.0.0.1']})
+                     running_identifiers=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterward
+                     state=ProcessStates.RUNNING, displayed_state=ProcessStates.RUNNING, expected_exit=True,
+                     rules=Mock(expected_load=1),
+                     **{'state_string.return_value': 'RUNNING',
+                        'displayed_state_string.return_value': 'RUNNING',
+                        'has_crashed.return_value': True,
+                        'disabled.return_value': False,
+                        'possible_identifiers.return_value': ['10.0.0.1']})
     view.application = Mock(processes={process_1.process_name: process_1, process_2.process_name: process_2})
     # patch context
     mocked_stats = Mock()
@@ -290,13 +299,13 @@ def test_get_process_data(mocker, view):
     mocker.patch.object(view, 'get_process_last_desc', return_value=('10.0.0.1', 'something'))
     # test call
     data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1',
-             'disabled': True, 'startable': False,
-             'identifier': '10.0.0.1', 'statename': 'stopped', 'statecode': 'stopped', 'gravity': 'stopped',
+             'disabled': True, 'startable': False, 'identifier': '10.0.0.1',
+             'statename': 'STOPPED', 'statecode': ProcessStates.STOPPED, 'gravity': 'FATAL',
              'has_crashed': False, 'running_identifiers': [], 'description': 'something',
              'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats}
     data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
-             'disabled': False, 'startable': True,
-             'identifier': '10.0.0.1', 'statename': 'running', 'statecode': 'running', 'gravity': 'running',
+             'disabled': False, 'startable': True, 'identifier': '10.0.0.1',
+             'statename': 'RUNNING', 'statecode': ProcessStates.RUNNING, 'gravity': 'RUNNING',
              'has_crashed': True, 'running_identifiers': ['10.0.0.1', '10.0.0.3'], 'description': 'something',
              'expected_load': 1, 'nb_cores': 4, 'proc_stats': mocked_stats}
     assert view.get_process_data() == [data1, data2]
@@ -336,8 +345,8 @@ def test_write_process(view):
 
 def test_write_process_table(mocker, view):
     """ Test the write_process_table method. """
-    mocked_process = mocker.patch('supvisors.viewapplication.ApplicationView.write_process')
-    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_status',
+    mocked_process = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_process')
+    mocked_common = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_common_process_status',
                                  side_effect=[True, False, False])
     # patch the meld elements
     table_mid = Mock()
@@ -369,7 +378,7 @@ def test_write_process_table(mocker, view):
 
 def test_make_callback(mocker, view):
     """ Test the make_callback method. """
-    mocker.patch('supvisors.viewapplication.delayed_error', return_value='Delayed')
+    mocker.patch('supvisors.web.viewapplication.delayed_error', return_value='Delayed')
     mocked_clear_proc = mocker.patch.object(view, 'clearlog_process_action', return_value='Clear process logs')
     mocked_restart_proc = mocker.patch.object(view, 'restart_process_action', return_value='Restart process')
     mocked_stop_proc = mocker.patch.object(view, 'stop_process_action', return_value='Stop process')

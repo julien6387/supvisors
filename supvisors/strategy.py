@@ -19,9 +19,9 @@
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from supvisors.internal_com.mapper import SupvisorsMapper
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .supvisorsmapper import SupvisorsMapper
 from .ttypes import NameList, NameSet, LoadMap, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
 # annotation types
@@ -330,15 +330,15 @@ def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList
     :param strategy: the strategy used to choose a Supvisors instance
     :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective)
     :param expected_load: the load of the program to be started
-    :return: the name of the node that can support the additional load
+    :return: the IP address of the node that can support the additional load
     """
     # Note: the node load is the sum of the load of its instances
     # the selection of an instance is conditioned to the fact that the node can support the additional load
     # if the node can support, there must be one of its instance that can support
     identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load)
-    # get the corresponding host name
+    # get the corresponding IP address
     if identifier:
-        return supvisors.supvisors_mapper.instances[identifier].host_id
+        return supvisors.supvisors_mapper.instances[identifier].ip_address
 
 
 # Strategy management for Conciliation

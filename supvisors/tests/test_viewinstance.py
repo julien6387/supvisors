@@ -22,9 +22,10 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.web import MeldView
 
+from supvisors.instancestatus import StateModes
 from supvisors.ttypes import SupvisorsInstanceStates
-from supvisors.viewinstance import *
-from supvisors.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
+from supvisors.web.viewinstance import *
+from supvisors.web.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -82,7 +83,7 @@ def test_init_no_stats(view_no_stats):
 
 def test_render(mocker, view):
     """ Test the render method. """
-    mocked_render = mocker.patch('supvisors.viewhandler.ViewHandler.render', return_value='default')
+    mocked_render = mocker.patch('supvisors.web.viewhandler.ViewHandler.render', return_value='default')
     assert view.render() == 'default'
     assert mocked_render.call_args_list == [call(view)]
 
@@ -110,10 +111,10 @@ def test_write_header(mocker, view):
                                   'starting_mid': starting_mid, 'stopping_mid': stopping_mid})
     # first call tests with not master
     mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING,
-                         state_modes=Mock(starting_jobs=False, stopping_jobs=True),
+                         state_modes=StateModes(stopping_jobs=True),
                          **{'get_load.return_value': 12})
-    local_identifier = view.supvisors.supvisors_mapper.local_identifier
-    view.sup_ctx._is_master = False
+    local_identifier = view.sup_ctx.local_identifier
+    assert not view.sup_ctx.is_master
     view.sup_ctx.instances[local_identifier] = mocked_status
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),
@@ -131,7 +132,7 @@ def test_write_header(mocker, view):
     mocker.resetall()
     mocked_root.reset_all()
     # second call tests with master and both Starter and Stopper having jobs
-    view.sup_ctx._is_master = True
+    view.sup_ctx.local_status.state_modes.master_identifier = view.sup_ctx.local_identifier
     mocked_status.state_modes.starting_jobs = True
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),
@@ -149,7 +150,7 @@ def test_write_header(mocker, view):
 
 def test_write_instance_actions(mocker, view):
     """ Test the SupvisorsInstanceView.write_instance_actions method. """
-    mocked_switch = mocker.patch.object(view, 'write_view_switch')
+    mocker.patch.object(view, 'write_view_switch')
     # set context (meant to be set through render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # set instance context
@@ -241,8 +242,8 @@ def test_make_callback(mocker, view):
 
 def test_restart_sup_action(mocker, view):
     """ Test the restart_sup_action method. """
-    mocker.patch('supvisors.viewinstance.delayed_warn', return_value='delayed warn')
-    mocked_pusher = mocker.patch.object(view.supvisors.sockets.pusher, 'send_restart')
+    mocker.patch('supvisors.web.viewinstance.delayed_warn', return_value='delayed warn')
+    mocked_pusher = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_restart')
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.restart_sup_action() == 'delayed warn'
     assert mocked_pusher.call_args_list == [call(local_identifier)]
@@ -250,8 +251,8 @@ def test_restart_sup_action(mocker, view):
 
 def test_shutdown_sup_action(mocker, view):
     """ Test the shutdown_sup_action method. """
-    mocker.patch('supvisors.viewinstance.delayed_warn', return_value='delayed warn')
-    mocked_pusher = mocker.patch.object(view.supvisors.sockets.pusher, 'send_shutdown')
+    mocker.patch('supvisors.web.viewinstance.delayed_warn', return_value='delayed warn')
+    mocked_pusher = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_shutdown')
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.shutdown_sup_action() == 'delayed warn'
     assert mocked_pusher.call_args_list == [call(local_identifier)]
