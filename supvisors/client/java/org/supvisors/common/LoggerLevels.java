@@ -22,12 +22,12 @@ package org.supvisors.common;
  */
 public enum LoggerLevels {
     BLATHER(3),
-    TRACE(1),
-    DEBUG(2),
-    INFO(3),
-    WARN(4),
-    ERROR(5),
-    CRITICAL(5);
+    TRACE(5),
+    DEBUG(10),
+    INFO(20),
+    WARN(30),
+    ERROR(40),
+    CRITICAL(50);
 
     /** The level code. */
     private int levelCode;
