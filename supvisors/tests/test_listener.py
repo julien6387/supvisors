@@ -166,6 +166,8 @@ def test_on_tick(mocker, discovery_listener):
     mocked_tick = mocker.patch.object(discovery_listener.supvisors.context, 'on_local_tick_event')
     mocked_timer = discovery_listener.supvisors.fsm.on_timer_event
     mocker.patch.object(discovery_listener.supvisors, 'host_collector', return_value=host_stats)
+    mocked_host = mocker.patch.object(discovery_listener, 'on_host_statistics')
+    mocked_proc = mocker.patch.object(discovery_listener, 'on_process_statistics')
     discovery_listener.supvisors.context.instances['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
     # add some data to the process collector
     discovery_listener.supvisors.process_collector.stats_queue.put({'namespec': 'dummy_1'})
@@ -180,6 +182,9 @@ def test_on_tick(mocker, discovery_listener):
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]
+    assert mocked_host.call_args_list == [call(discovery_listener.local_identifier, host_stats)]
+    assert mocked_proc.call_args_list == [call(discovery_listener.local_identifier, {'namespec': 'dummy_1'}),
+                                          call(discovery_listener.local_identifier, {'namespec': 'dummy_2'})]
     assert discovery_listener.publisher.send_host_statistics.call_args_list == [call(host_stats)]
     assert discovery_listener.publisher.send_process_statistics.call_args_list == [call({'namespec': 'dummy_1'}),
                                                                                    call({'namespec': 'dummy_2'})]
@@ -187,7 +192,7 @@ def test_on_tick(mocker, discovery_listener):
     discovery_listener.mc_sender.reset_mock()
     discovery_listener.publisher.reset_mock()
     mocker.resetall()
-    # test tick event when host collector is not available
+    # test tick event when host collector is not available (process collector has no data to provide)
     ref_host_collector = discovery_listener.host_collector
     discovery_listener.supvisors.host_collector = None
     event = Tick60Event(150, None)
@@ -197,6 +202,8 @@ def test_on_tick(mocker, discovery_listener):
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]
+    assert not mocked_host.called
+    assert not mocked_proc.called
     assert not discovery_listener.publisher.send_host_statistics.called
     assert not discovery_listener.publisher.send_process_statistics.called
     discovery_listener.supvisors.fsm.reset_mock()
@@ -213,6 +220,8 @@ def test_on_tick(mocker, discovery_listener):
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]
+    assert not mocked_host.called
+    assert not mocked_proc.called
     assert not discovery_listener.publisher.send_host_statistics.called
     assert not discovery_listener.publisher.send_process_statistics.called
     discovery_listener.supvisors.fsm.reset_mock()
@@ -231,6 +240,8 @@ def test_on_tick(mocker, discovery_listener):
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
     assert discovery_listener.publisher.send_tick_event.call_args_list == [call(expected_tick)]
+    assert not mocked_host.called
+    assert not mocked_proc.called
     assert not discovery_listener.publisher.send_host_statistics.called
     assert not discovery_listener.publisher.send_process_statistics.called
 

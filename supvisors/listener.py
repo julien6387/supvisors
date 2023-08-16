@@ -233,6 +233,8 @@ class SupervisorListener(object):
             if self.host_collector:
                 stats = self.host_collector()
                 if stats:
+                    # send to local host compiler
+                    self.on_host_statistics(self.local_identifier, stats)
                     # publish host statistics to other Supvisors instances
                     self.publisher.send_host_statistics(stats)
                     # check if network interfaces have changed
@@ -244,6 +246,9 @@ class SupervisorListener(object):
             if self.process_collector:
                 while not self.process_collector.stats_queue.empty():
                     stats = self.process_collector.stats_queue.get()
+                    # send to local process compiler
+                    self.on_process_statistics(self.local_identifier, stats)
+                    # publish host statistics to other Supvisors instances
                     self.publisher.send_process_statistics(stats)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
@@ -456,18 +461,12 @@ class SupervisorListener(object):
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
                               f' {event_data}')
-            integrated_stats_list = self.host_compiler.push_statistics(event_identifier, event_data)
-            if integrated_stats_list and self.external_publisher:
-                for integrated_stats in integrated_stats_list:
-                    self.external_publisher.send_host_statistics(integrated_stats)
+            self.on_host_statistics(event_identifier, event_data)
         elif header == InternalEventHeaders.PROCESS_STATISTICS:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_STATISTICS from {event_identifier}:'
                               f' {event_data}')
-            integrated_stats_list = self.process_compiler.push_statistics(event_identifier, event_data)
-            if integrated_stats_list and self.external_publisher:
-                for integrated_stats in integrated_stats_list:
-                    self.external_publisher.send_process_statistics(integrated_stats)
+            self.on_process_statistics(event_identifier, event_data)
         elif header == InternalEventHeaders.STATE:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}:'
                               f' {event_data}')
@@ -476,6 +475,30 @@ class SupervisorListener(object):
             self.logger.trace(f'SupervisorListener.unstack_event: got ALL_INFO from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_info(event_identifier, event_data)
+
+    def on_host_statistics(self, identifier: str, event_data: Payload) -> None:
+        """ Compile the host statistics received from the Supvisors instance.
+
+        :param identifier: the identifier of the Supvisors instance that sent host statistics.
+        :param event_data: the latest host statistics from the Supvisors instance.
+        :return: None.
+        """
+        integrated_stats_list = self.host_compiler.push_statistics(identifier, event_data)
+        if integrated_stats_list and self.external_publisher:
+            for integrated_stats in integrated_stats_list:
+                self.external_publisher.send_host_statistics(integrated_stats)
+
+    def on_process_statistics(self, identifier: str, event_data: Payload):
+        """ Compile the process statistics received from the Supvisors instance.
+
+        :param identifier: the identifier of the Supvisors instance that sent process statistics.
+        :param event_data: the latest process statistics from the Supvisors instance.
+        :return: None.
+        """
+        integrated_stats_list = self.process_compiler.push_statistics(identifier, event_data)
+        if integrated_stats_list and self.external_publisher:
+            for integrated_stats in integrated_stats_list:
+                self.external_publisher.send_process_statistics(integrated_stats)
 
     def force_process_state(self, process: ProcessStatus, identifier: str, event_date: float,
                             forced_state: ProcessStates, reason: str) -> None:
