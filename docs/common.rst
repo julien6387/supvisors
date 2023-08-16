@@ -26,6 +26,9 @@
 .. |autorefresh| image:: images/autorefresh_button.png
     :alt: Refresh button
 
+.. |star| image:: images/star_button.png
+    :alt: Star button
+
 .. |br| raw:: html
 
   <br/>

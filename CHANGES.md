@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.17 (2023-xx-xx)
+## 0.17 (2023-08-16)
 
 * Fix [Issue #112](https://github.com/julien6387/supvisors/issues/112).
   Write the disabilities file even if no call to `disable` and `enable` XML-RPCs have been done.
