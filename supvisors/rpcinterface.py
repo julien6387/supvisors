@@ -21,7 +21,7 @@ import os
 from typing import Callable, Type, Union
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription
+from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
 from supervisor.options import make_namespec, split_namespec, VERSION
 from supervisor.xmlrpc import Faults, RPCError
 
@@ -1009,6 +1009,7 @@ class RPCInterface(object):
         :raises RPCError: with code ``Faults.INCORRECT_PARAMETERS`` if ``level_param`` is unknown to **Supervisor**.
         """
         level = self._get_logger_level(level_param)
+        self.logger.warn(f'RPCInterface.change_log_level: {LOG_LEVELS_BY_NUM[level]}')
         self.logger.level = level
         for handler in self.logger.handlers:
             handler.level = level

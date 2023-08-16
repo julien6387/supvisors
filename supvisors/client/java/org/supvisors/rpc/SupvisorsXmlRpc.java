@@ -498,7 +498,7 @@ public class SupvisorsXmlRpc {
      * @throws XmlRpcException: with code INCORRECT_PARAMETERS if level is unknown to Supervisor.
      */
     public Boolean changeLogLevel(final LoggerLevels level) throws XmlRpcException {
-        Object[] params = new Object[]{level.ordinal()};
+        Object[] params = new Object[]{level.getLevelCode()};
         return client.rpcCall(Namespace + "change_log_level", params, Boolean.class);
     }
 

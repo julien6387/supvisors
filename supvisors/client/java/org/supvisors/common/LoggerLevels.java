@@ -36,4 +36,13 @@ public enum LoggerLevels {
     private LoggerLevels(final int levelCode) {
         this.levelCode = levelCode;
     }
+
+    /**
+     * The getLevelCode method returns the value of the logger level.
+     *
+     * @return String: The value of the logger level.
+     */
+     public int getLevelCode() {
+        return this.levelCode;
+    }
 }
