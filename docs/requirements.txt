@@ -1,3 +1,6 @@
 sphinx==4.1.2
 renku-sphinx-theme==0.2.2
 myst-parser==0.15.2
+supervisor==4.2.5
+websockets==10.2
+pyzmq==20.0.0
