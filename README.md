@@ -126,5 +126,5 @@ Not opened yet.
 [docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=master
 [docs-url]: https://supvisors.readthedocs.io/en/master
 
-[downloads-image]: https://pepy.tech/badge/supvisors/month
+[downloads-image]: https://static.pepy.tech/badge/supvisors/month
 [downloads-url]: https://pepy.tech/project/supvisors
