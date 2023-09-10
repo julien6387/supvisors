@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.18 (2023-xx-x)
+
+* Use an asynchronous server in the **Supvisors** internal communications.
+
+
 ## 0.17 (2023-08-17)
 
 * Fix [Issue #112](https://github.com/julien6387/supvisors/issues/112).

@@ -120,57 +120,67 @@ def test_global_normal(supvisors, publisher, subscriber):
 
 
 # testing exception cases (by line number)
-def test_publisher_bind_exception(supvisors):
-    """ Test the bind exception of the PublisherServer.
-    The aim is to hit the lines 114-116 in PublisherServer._bind.
+def test_publisher_heartbeat_timeout(mocker, publisher, subscriber):
+    """ Test the exception management in PublisherServer when heartbeat missing from a client.
+    The aim is to hit the lines:
+        * 88-90 in SubscriberClient.manage_heartbeat ;
+        * 205 in PublisherServer.handle_supvisors_client.
     Checked ok with debugger.
     """
-    local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
-    # start a first publisher server
-    server1 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)
-    assert server1.server is not None
-    # wait for publisher server to be alive
-    server1.start()
-    time.sleep(1)
-    assert server1.is_alive()
-    # start a second publisher server on the same port
-    server2 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)
-    assert server2.server is None
-    # the publisher server thread will stop immediately
-    server2.start()
-    time.sleep(1)
-    assert not server2.is_alive()
-    # close all
-    server1.stop()
-    server2.stop()
-
-
-def test_publisher_accept_exception(mocker, supvisors, publisher, subscriber):
-    """ Test the accept exception of the PublisherServer.
-    The aim is to hit the line 212-214 in PublisherServer._handle_events.
-    Checked ok with debugger.
-    """
-    # socket.accept is read-only and cannot be mocked, so mock _add_client
-    mocker.patch.object(publisher, '_add_client', side_effect=OSError)
+    # mock the send_heartbeat coroutine so that it doesn't send heartbeat messages
+    class SendHeartbeat(MagicMock):
+        async def __call__(self, writer: asyncio.StreamWriter):
+            pass
+    mocker.patch('supvisors.internal_com.pubsub.InternalAsyncSubscriber.send_heartbeat', new_callable=SendHeartbeat)
 
     async def publisher_task():
         # wait for publisher server to be alive
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(2.0)
         assert publisher.is_alive()
-        # no subscriber could connect the local publisher instance
-        assert len(publisher.clients) == 0
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # let missing heartbeat have its consequences
+        await asyncio.sleep(10.0)
+        assert publisher.clients == []
         # full close
         subscriber.global_stop_event.set()
 
     # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
-    all_coro = [asyncio.wait_for(coro, 5.0) for coro in subscriber.get_coroutines()]
+    all_coro = [asyncio.wait_for(coro, 15.0) for coro in subscriber.get_coroutines()]
     all_tasks = asyncio.gather(publisher_task(), *all_coro)
     asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
 def test_publisher_forward_empty_message(supvisors, publisher, subscriber):
     """ Test the robustness when the publisher forwards an empty message.
-    The aim is to hit the lines 233-234 in PublisherServer._forward_message.
+    The aim is to hit the lines 166-167 in PublisherServer.handle_publications.
+    Checked ok with debugger.
+    """
+    async def publisher_task():
+        # wait for publisher server to be alive
+        await asyncio.sleep(2.0)
+        assert publisher.is_alive()
+        # the local subscriber has connected the local publisher instance
+        assert len(publisher.clients) == 1
+        # send a 0-sized message to the subscriber interface
+        buffer = int.to_bytes(0, 4, 'big')
+        publisher.put_sock.sendall(buffer)
+        # wait for publisher server to die
+        await asyncio.sleep(2.0)
+        assert not publisher.is_alive()
+        # full close
+        subscriber.global_stop_event.set()
+
+    # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
+    all_coro = [asyncio.wait_for(coro, 8.0) for coro in subscriber.get_coroutines()]
+    all_tasks = asyncio.gather(publisher_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
+    print('All tasks completed')
+
+
+def test_publisher_publish_message_exception(mocker, publisher, subscriber):
+    """ Test the publish exception management in PublisherServer when the client is closed.
+    The aim is to hit the line 175-177 in PublisherServer.handle_publications.
     Checked ok with debugger.
     """
     async def publisher_task():
@@ -179,12 +189,15 @@ def test_publisher_forward_empty_message(supvisors, publisher, subscriber):
         assert publisher.is_alive()
         # the local subscriber has connected the local publisher instance
         assert len(publisher.clients) == 1
-        # send a 0-sized message to the subscriber interface
-        buffer = int.to_bytes(0, 4, 'big')
-        publisher.put_sock.sendall(buffer)
-        # wait for publisher server to die
+        # close the client and send a message
+        client = publisher.clients[0]
+        client.last_sent_heartbeat_time = time.time() + 10
+        mocker.patch.object(client.writer, 'write', side_effect=OSError)
+        # publish a message
+        publisher.send_tick_event({'when': 1234})
+        # check that the client is removed
         await asyncio.sleep(1.0)
-        assert not publisher.is_alive()
+        assert publisher.clients == []
         # full close
         subscriber.global_stop_event.set()
 
@@ -195,8 +208,8 @@ def test_publisher_forward_empty_message(supvisors, publisher, subscriber):
 
 
 def test_publisher_receive_empty_message(mocker, publisher, subscriber):
-    """ Test the robustness when the publisher receives an empty message.
-    The aim is to hit the lines 249-250 in PublisherServer._receive_client_heartbeat.
+    """ Test the robustness when the publisher receives an empty message from a subscriber.
+    The aim is to hit the lines 193-195 in PublisherServer.handle_supvisors_client.
     Checked ok with debugger.
     """
     # mock the send_heartbeat coroutine so that it sends 0-sized heartbeat messages
@@ -214,7 +227,7 @@ def test_publisher_receive_empty_message(mocker, publisher, subscriber):
         assert len(publisher.clients) == 1
         # reconnection will not have time to happen
         await asyncio.sleep(1.0)
-        assert publisher.clients == {}
+        assert publisher.clients == []
         # full close
         subscriber.global_stop_event.set()
 
@@ -224,65 +237,36 @@ def test_publisher_receive_empty_message(mocker, publisher, subscriber):
     asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_publisher_heartbeat_timeout(mocker, publisher, subscriber):
-    """ Test the exception management in PublisherServer when heartbeat missing from a client.
-    The aim is to hit the lines 278-280 in PublisherServer._manage_heartbeats.
+def test_publisher_bind_exception(supvisors):
+    """ Test the bind exception of the PublisherServer.
+    The aim is to hit the lines 219-224 in PublisherServer.open_supvisors_server.
     Checked ok with debugger.
     """
-    # mock the send_heartbeat coroutine so that it doesn't send heartbeat messages
-    class SendHeartbeat(MagicMock):
-        async def __call__(self, writer: asyncio.StreamWriter):
-            pass
-    mocker.patch('supvisors.internal_com.pubsub.InternalAsyncSubscriber.send_heartbeat', new_callable=SendHeartbeat)
-
-    async def publisher_task():
-        # wait for publisher server to be alive
-        await asyncio.sleep(1.0)
-        assert publisher.is_alive()
-        # the local subscriber has connected the local publisher instance
-        assert len(publisher.clients) == 1
-        # let missing heartbeat have its consequences
-        await asyncio.sleep(10.0)
-        assert publisher.clients == {}
-        # full close
-        subscriber.global_stop_event.set()
-
-    # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
-    all_coro = [asyncio.wait_for(coro, 15.0) for coro in subscriber.get_coroutines()]
-    all_tasks = asyncio.gather(publisher_task(), *all_coro)
-    asyncio.get_event_loop().run_until_complete(all_tasks)
-
-
-def test_publisher_publish_message_exception(publisher, subscriber):
-    """ Test the publish exception management in PublisherServer when the client is closed.
-    The aim is to hit the line 294-296 in PublisherServer._publish_message.
-    Checked ok with debugger.
-    """
-    async def publisher_task():
-        # wait for publisher server to be alive
-        await asyncio.sleep(1.0)
-        assert publisher.is_alive()
-        # the local subscriber has connected the local publisher instance
-        assert len(publisher.clients) == 1
-        # close the client and send a message
-        client = next(x for x in publisher.clients.values())
-        client.socket.shutdown(SHUT_RDWR)
-        # publish a message
-        publisher._publish_message(b'hello')
-        # check that the client is removed
-        assert publisher.clients == {}
-        # full close
-        subscriber.global_stop_event.set()
-
-    # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
-    all_coro = [asyncio.wait_for(coro, 5.0) for coro in subscriber.get_coroutines()]
-    all_tasks = asyncio.gather(publisher_task(), *all_coro)
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+    # start a first publisher server
+    server1 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)
+    # wait for publisher server to be alive
+    server1.start()
+    time.sleep(1)
+    assert server1.is_alive()
+    # the publisher server is set
+    assert server1.server is not None
+    # start a second publisher server on the same port
+    server2 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)
+    # the publisher server thread will stop immediately
+    server2.start()
+    time.sleep(1)
+    assert server2.is_alive()
+    # the publisher server is not set
+    assert server2.server is None
+    # close all
+    server1.stop()
+    server2.stop()
 
 
 def test_publisher_emit_message_exception(publisher):
     """ Test the sendall exception of the InternalPublisher.
-    The aim is to hit the lines 324-327 in InternalPublisher.emit_message.
+    The aim is to hit the lines 270-273 in InternalPublisher.emit_message.
     Checked ok with debugger.
     """
     # wait for publisher server to be alive
@@ -299,7 +283,7 @@ def test_publisher_emit_message_exception(publisher):
 
 def test_subscriber_read_error(publisher, subscriber):
     """ Test the exception management in subscriber when a message cannot be read completely.
-    The aim is to hit the lines 395-397 in InternalAsyncSubscriber.handle_subscriber.
+    The aim is to hit the lines 340-342 in InternalAsyncSubscriber.handle_subscriber.
     Checked ok with debugger.
     """
     async def publisher_task():
@@ -308,13 +292,16 @@ def test_subscriber_read_error(publisher, subscriber):
         assert publisher.is_alive()
         # the local subscriber has connected the local publisher instance
         assert len(publisher.clients) == 1
-        # publish an incomplete message
-        client = next(x for x in publisher.clients.values())
-        client.socket.sendall(int.to_bytes(6, 4, 'big') + b'hello')
+        # publish an incomplete message (make sure that heartbeat will not interfere)
+        client = publisher.clients[0]
+        client.last_sent_heartbeat_time = time.time() + 5
+        client.writer.write(int.to_bytes(6, 4, 'big'))
+        client.writer.write(b'hello')
+        await client.writer.drain()
         # sleep a bit so that reconnection takes place
         await asyncio.sleep(4.0)
         assert len(publisher.clients) == 1
-        new_client = next(x for x in publisher.clients.values())
+        new_client = publisher.clients[0]
         assert new_client is not client
         # full close
         subscriber.global_stop_event.set()
@@ -325,27 +312,26 @@ def test_subscriber_read_error(publisher, subscriber):
     asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_subscriber_recv_heartbeat_exception(mocker, publisher, subscriber):
+def test_subscriber_recv_heartbeat_exception(publisher, subscriber):
     """ Test the exception management when sending heartbeat to a socket that has been closed.
-    The aim is to hit the lines 420-422 in InternalSubscriber.handle_subscriber.
+    The aim is to hit the lines 367-369 in InternalSubscriber.handle_subscriber.
     Checked ok with debugger.
     """
-    # mock publisher so that it does not publish heartbeat messages
-    mocker.patch.object(publisher, '_manage_heartbeats')
-
     async def publisher_task():
         # wait for publisher server to be alive
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(2.0)
         assert publisher.is_alive()
         # the local subscriber has connected the local publisher instance
         assert len(publisher.clients) == 1
-        ref_client = next(x for x in publisher.clients.values())
+        ref_client = publisher.clients[0]
+        # ensure publisher client will not publish heartbeat messages
+        ref_client.last_sent_heartbeat_time = time.time() + 20
         # NOTE: it takes 10 seconds for the subscriber to detect the failure and reconnect
         #       and a few seconds for the publisher to detect the subscriber absence
         #       then a new subscriber connects
         await asyncio.sleep(15.0)
         assert len(publisher.clients) == 1
-        new_client = next(x for x in publisher.clients.values())
+        new_client = publisher.clients[0]
         assert new_client is not ref_client
         # full close
         subscriber.global_stop_event.set()
@@ -356,26 +342,9 @@ def test_subscriber_recv_heartbeat_exception(mocker, publisher, subscriber):
     asyncio.get_event_loop().run_until_complete(all_tasks)
 
 
-def test_subscriber_connection_refused(publisher, subscriber):
-    """ Test the exception management when connecting the publisher.
-    The aim is to hit the lines 431-432 in InternalSubscriber.auto_connect.
-    Checked ok with debugger.
-    """
-    publisher.close()
-
-    async def stop_task():
-        await asyncio.sleep(1.0)
-        subscriber.global_stop_event.set()
-
-    # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
-    all_coro = [asyncio.wait_for(coro, 5.0) for coro in subscriber.get_coroutines()]
-    all_tasks = asyncio.gather(stop_task(), *all_coro)
-    asyncio.get_event_loop().run_until_complete(all_tasks)
-
-
 def test_subscriber_connection_timeout(mocker, publisher, subscriber):
     """ Test the exception management when connecting the publisher.
-    The aim is to hit the lines 433-434 in InternalSubscriber.auto_connect.
+    The aim is to hit the lines 378-379 in InternalSubscriber.auto_connect.
     Checked ok with debugger.
     """
     # set the ASYNC_TIMEOUT to 0, so that the connection times out
@@ -393,7 +362,7 @@ def test_subscriber_connection_timeout(mocker, publisher, subscriber):
 
 def test_subscriber_connection_reset(mocker, publisher, subscriber):
     """ Test the exception management when connecting the publisher.
-    The aim is to hit the lines 435-436 in InternalSubscriber.auto_connect.
+    The aim is to hit the lines 380-381 in InternalSubscriber.auto_connect.
     Checked ok with debugger.
     """
     # this one is tricky to raise from within handle_subscriber
@@ -403,6 +372,23 @@ def test_subscriber_connection_reset(mocker, publisher, subscriber):
             raise ConnectionResetError
     mocker.patch('supvisors.internal_com.pubsub.InternalAsyncSubscriber.handle_subscriber',
                  new_callable=HandleSubscriber)
+
+    async def stop_task():
+        await asyncio.sleep(1.0)
+        subscriber.global_stop_event.set()
+
+    # auto_connect and check_stop can loop forever, so add a wait_for just in case something goes wrong
+    all_coro = [asyncio.wait_for(coro, 5.0) for coro in subscriber.get_coroutines()]
+    all_tasks = asyncio.gather(stop_task(), *all_coro)
+    asyncio.get_event_loop().run_until_complete(all_tasks)
+
+
+def test_subscriber_connection_refused(publisher, subscriber):
+    """ Test the exception management when connecting the publisher.
+    The aim is to hit the lines 382-384 in InternalSubscriber.auto_connect.
+    Checked ok with debugger.
+    """
+    publisher.close()
 
     async def stop_task():
         await asyncio.sleep(1.0)

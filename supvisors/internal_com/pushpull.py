@@ -24,7 +24,7 @@ from socket import socket
 from supervisor.loggers import Logger
 
 from supvisors.ttypes import NameList
-from .internalinterface import payload_to_bytes, read_stream
+from .internalinterface import bytes_to_payload, payload_to_bytes, read_stream
 
 
 # Enumeration for deferred XML-RPC requests
@@ -177,15 +177,15 @@ class RequestAsyncPuller:
         # loop until requested to stop, publisher closed or error happened
         while not self.stop_event.is_set() and not reader.at_eof():
             # read the message
-            message = await read_stream(reader)
-            if message is None:
+            msg_as_bytes = await read_stream(reader)
+            if msg_as_bytes is None:
                 self.logger.info(f'RequestAsyncPuller.handle_puller: failed to read the message from RequestPusher')
                 break
-            elif not message:
+            elif not msg_as_bytes:
                 self.logger.blather(f'RequestAsyncPuller.handle_puller: nothing to read from RequestPusher')
             else:
-                # push the message to queue
-                await self.queue.put(message)
+                # push the decoded message to queue
+                await self.queue.put(bytes_to_payload(msg_as_bytes))
         # close the stream writer
         writer.close()
         self.logger.debug(f'RequestAsyncPuller.handle_puller: exit RequestPusher')

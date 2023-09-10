@@ -84,7 +84,6 @@ class SupvisorsInternalEmitter:
 
     def _create_publisher(self) -> InternalPublisher:
         """ Start the Publisher thread. """
-        # TODO: make it async too ?
         local_instance: SupvisorsInstanceId = self.supvisors.supvisors_mapper.local_instance
         publisher = InternalPublisher(local_instance.identifier, local_instance.internal_port, self.supvisors.logger)
         publisher.start()

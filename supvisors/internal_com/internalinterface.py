@@ -20,19 +20,12 @@
 import asyncio
 import json
 from enum import Enum
-from socket import socket
 from typing import List, Optional, Tuple
 
 from supvisors.ttypes import InternalEventHeaders, Payload
 
-# timeout for polling, in milliseconds
-POLL_TIMEOUT = 100
-
 # timeout for async operations, in seconds
 ASYNC_TIMEOUT = 1.0
-
-# Chunk size to read a socket
-BUFFER_SIZE = 4096
 
 
 # Common functions
@@ -55,47 +48,45 @@ def bytes_to_payload(message: bytes) -> List:
     return json.loads(message.decode('utf-8'))
 
 
-def read_from_socket(sock: socket, msg_size: int) -> bytes:
-    """ Receive a message from a TPC or UNIX socket.
-
-    :param sock: the TCP or UNIX socket
-    :param msg_size: the message size
-    :return: the message, as bytes
-    """
-    message_parts = []
-    to_read = msg_size
-    while to_read > 0:
-        buffer = sock.recv(min(BUFFER_SIZE, to_read))
-        message_parts.append(buffer)
-        to_read -= len(buffer)
-    return b''.join(message_parts)
-
-
-async def read_stream(reader: asyncio.StreamReader) -> Optional[List]:
+async def read_stream(reader: asyncio.StreamReader) -> Optional[bytes]:
     """ Read a message from an asyncio StreamReader.
 
-    :param reader: the type of the event to send
-    :return: None if reader is closed, empty list if nothing to read, or the 2-parts message
+    :param reader: the asyncio StreamReader.
+    :return: None if reader is closed, empty bytes if nothing to read, or the message as bytes.
     """
     try:
         # read the message size
         msg_size_as_bytes = await asyncio.wait_for(reader.readexactly(4), 1.0)
     except asyncio.TimeoutError:
         # nothing to read
-        return []
+        return b''
     except asyncio.IncompleteReadError:
         # socket closed during read operation read interruption
         return None
     # decode the message size
     msg_size = int.from_bytes(msg_size_as_bytes, byteorder='big')
+    if msg_size == 0:
+        return None
     try:
         # read the message itself
         msg_as_bytes = await asyncio.wait_for(reader.readexactly(msg_size), 1.0)
     except (asyncio.TimeoutError, asyncio.IncompleteReadError):
         # unexpected message without body or socket closed during read operation
         return None
-    # return the decoded message
-    return bytes_to_payload(msg_as_bytes)
+    # return the non-decoded message
+    return msg_as_bytes
+
+
+async def write_stream(writer: asyncio.StreamWriter, msg_as_bytes: bytes) -> None:
+    """ Write a message to an asyncio StreamWriter.
+
+    :param writer: the asyncio StreamReader.
+    :param msg_as_bytes: the message as bytes.
+    :return: None.
+    """
+    buffer = len(msg_as_bytes).to_bytes(4, 'big') + msg_as_bytes
+    writer.write(buffer)
+    await writer.drain()
 
 
 class InternalCommEmitter:

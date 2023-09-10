@@ -35,26 +35,6 @@ def test_payload_to_bytes_to_payload(supvisors):
     assert bytes_to_payload(msg_bytes) == [1, ['a message source', {'body': 'a message body'}]]
 
 
-def test_read_from_socket():
-    """ Test the read_from_socket function. """
-    pusher_sock, puller_sock = socketpair()
-    # test with message lower than BUFFER_SIZE
-    msg = b'1234567890'
-    pusher_sock.send(msg)
-    assert read_from_socket(puller_sock, 4) == b'1234'
-    assert read_from_socket(puller_sock, 6) == b'567890'
-    # test with message equal to BUFFER_SIZE
-    msg = bytearray([i % 10 for i in range(BUFFER_SIZE)])
-    pusher_sock.send(msg)
-    recv = read_from_socket(puller_sock, BUFFER_SIZE)
-    assert recv == msg
-    # test with message greater than BUFFER_SIZE
-    msg = bytearray([i % 10 for i in range(BUFFER_SIZE + 100)])
-    pusher_sock.send(msg)
-    recv = read_from_socket(puller_sock, BUFFER_SIZE + 100)
-    assert recv == msg
-
-
 def test_internal_comm_emitter():
     """ Test the InternalCommEmitter abstract class. """
     abstract_emitter = InternalCommEmitter()
@@ -88,7 +68,7 @@ def test_read_stream_header_timeout(push_pull):
     """ Test the read_stream coroutine / timeout when reading header. """
     async def read_test():
         reader, _ = await asyncio.open_unix_connection(sock=push_pull[0])
-        assert await read_stream(reader) == []
+        assert await read_stream(reader) == b''
 
     async def write_test():
         await asyncio.open_unix_connection(sock=push_pull[1])
@@ -151,14 +131,12 @@ def test_read_stream_correct(push_pull):
     """ Test the read_stream coroutine / correct message. """
     async def read_test():
         reader, _ = await asyncio.open_unix_connection(sock=push_pull[0])
-        assert await read_stream(reader) == 'dummy'
+        assert await read_stream(reader) == b'"dummy"'
 
     async def write_test():
         _, writer = await asyncio.open_unix_connection(sock=push_pull[1])
         message = json.dumps('dummy').encode('utf-8')
-        writer.write(len(message).to_bytes(4, byteorder='big'))
-        writer.write(message)
-        await writer.drain()
+        await write_stream(writer, message)
         writer.close()
 
     all_tasks = asyncio.gather(read_test(), write_test())
