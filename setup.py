@@ -21,7 +21,7 @@ import os
 
 from setuptools import setup, find_packages
 
-requires = ['supervisor >= 4.2.4, < 5']
+requires = ['supervisor >= 4.2.4, < 4.3']
 
 statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib >= 3.3.3']
 xml_valid_require = ['lxml >= 4.6.2']
