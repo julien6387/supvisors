@@ -180,33 +180,37 @@ class PublisherServer(threading.Thread):
 
     async def handle_supvisors_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """ Manage the Subscriber TCP client connection. """
-        # push writer to clients list
-        client = SubscriberClient(writer, self.heartbeat_message, self.logger)
-        self.logger.info(f'PublisherServer.handle_supvisors_client: new client={str(client)}')
-        self.clients.append(client)
-        # loop until subscriber closed or stop event set
-        while not self.stop_event.is_set() and not reader.at_eof():
-            # read the message
-            msg_as_bytes = await read_stream(reader)
-            if msg_as_bytes is None:
-                self.logger.error('PublisherServer.handle_supvisors_client: failed to read the message'
-                                  f' from {self.identifier}')
-                break
-            elif not msg_as_bytes:
-                self.logger.trace(f'PublisherServer.handle_supvisors_client: nothing to read from {self.identifier}')
-            else:
-                # a heartbeat message has been received
-                client.process_heartbeat(msg_as_bytes)
-            # send heartbeat if enough time has passed
-            heartbeat_ok = await client.manage_heartbeat()
-            if not heartbeat_ok:
-                # exit the loop if heartbeat messages are not received anymore
-                break
-        # remove writer from clients list (if not already done by handle_publications)
-        if client in self.clients:
-            self.clients.remove(client)
-            writer.close()
-        self.logger.info(f'PublisherServer.handle_supvisors_client: done with client={str(client)}')
+        try:
+            # push writer to clients list
+            client = SubscriberClient(writer, self.heartbeat_message, self.logger)
+            self.logger.info(f'PublisherServer.handle_supvisors_client: new client={str(client)}')
+            self.clients.append(client)
+            # loop until subscriber closed or stop event set
+            while not self.stop_event.is_set() and not reader.at_eof():
+                # read the message
+                msg_as_bytes = await read_stream(reader)
+                if msg_as_bytes is None:
+                    self.logger.error('PublisherServer.handle_supvisors_client: failed to read the message'
+                                      f' from {self.identifier}')
+                    break
+                elif not msg_as_bytes:
+                    self.logger.trace(f'PublisherServer.handle_supvisors_client: nothing to read from {self.identifier}')
+                else:
+                    # a heartbeat message has been received
+                    client.process_heartbeat(msg_as_bytes)
+                # send heartbeat if enough time has passed
+                heartbeat_ok = await client.manage_heartbeat()
+                if not heartbeat_ok:
+                    # exit the loop if heartbeat messages are not received anymore
+                    break
+            # remove writer from clients list (if not already done by handle_publications)
+            if client in self.clients:
+                self.clients.remove(client)
+                writer.close()
+            self.logger.info(f'PublisherServer.handle_supvisors_client: done with client={str(client)}')
+        except:
+            # FIXME: temporary to check that all common exceptions are caught
+            print(f'{traceback.format_exc()}')
 
     async def open_supvisors_server(self):
         """ Start the TCP server for internal messages publication. """

@@ -49,6 +49,7 @@ def emitter(supvisors, request) -> SupvisorsInternalEmitter:
 @pytest.mark.parametrize('emitter', [''], indirect=True)
 def test_emitter(supvisors, emitter):
     """ Test the SupvisorsInternalEmitter with no discovery mode. """
+    # FIXME: still blocking
     assert emitter.supvisors is supvisors
     ref_pusher = emitter.pusher_sock
     ref_puller = emitter.puller_sock
@@ -105,6 +106,7 @@ def test_emitter_discovery(supvisors, emitter):
     assert ref_mc_sender is emitter.mc_sender
     # add interfaces again and check no change on MulticastSender
     emitter.check_intf(['lo', 'eth0'])
+    assert wait_alive(emitter.publisher)
     assert emitter.intf_names == ['lo', 'eth0']
     assert ref_mc_sender is emitter.mc_sender
     # remove interfaces and test no change on structures
