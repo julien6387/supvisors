@@ -37,7 +37,8 @@ def push_pull():
     return socketpair()
 
 
-def test_push_pull_end_event(supvisors, push_pull):
+@pytest.mark.asyncio
+async def test_push_pull_end_event(supvisors, push_pull):
     """ Test the Push / Pull communication.
     Termination on event. """
     queue = asyncio.Queue()
@@ -108,13 +109,13 @@ def test_push_pull_end_event(supvisors, push_pull):
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
 
     # handle_puller can loop forever, so add a wait_for just in case something goes wrong
-    all_tasks = asyncio.gather(pusher_task(),
-                               asyncio.wait_for(puller.handle_puller(), 5.0),
-                               check_output())
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(pusher_task(),
+                         asyncio.wait_for(puller.handle_puller(), 5.0),
+                         check_output())
 
 
-def test_push_pull_end_eof(supvisors, push_pull):
+@pytest.mark.asyncio
+async def test_push_pull_end_eof(supvisors, push_pull):
     """ Test the Push / Pull communication.
     Termination on EOF. """
     queue = asyncio.Queue()
@@ -132,12 +133,12 @@ def test_push_pull_end_eof(supvisors, push_pull):
         push_pull[0].close()
 
     # handle_puller can loop forever, so add a wait_for just in case something goes wrong
-    all_tasks = asyncio.gather(pusher_task(),
-                               asyncio.wait_for(puller.handle_puller(), 2.0))
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(pusher_task(),
+                         asyncio.wait_for(puller.handle_puller(), 2.0))
 
 
-def test_push_pull_end_error(supvisors, push_pull):
+@pytest.mark.asyncio
+async def test_push_pull_end_error(supvisors, push_pull):
     """ Test the Push / Pull communication.
     Termination on reading error. """
     queue = asyncio.Queue()
@@ -153,9 +154,8 @@ def test_push_pull_end_error(supvisors, push_pull):
         push_pull[0].sendall(b'foo')
 
     # handle_puller can loop forever, so add a wait_for just in case something goes wrong
-    all_tasks = asyncio.gather(pusher_task(),
-                               asyncio.wait_for(puller.handle_puller(), 5.0))
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(pusher_task(),
+                         asyncio.wait_for(puller.handle_puller(), 5.0))
 
 
 def test_push_error(supvisors, push_pull):

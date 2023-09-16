@@ -30,7 +30,7 @@ flask_require = ['flask-restx >= 1.1.0']
 zmq_require = ['pyzmq >= 20.0.0']
 websockets_require = ['websockets >= 10.2']
 
-testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
+testing_extras = ['pytest >= 2.5.2', 'pytest-cov', 'pytest-mock', 'pytest-asyncio']
 
 here = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.md')).read()

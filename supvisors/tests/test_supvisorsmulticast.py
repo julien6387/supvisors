@@ -30,7 +30,8 @@ def mc_sender(supvisors):
     sender.close()
 
 
-def test_multicast(supvisors, mc_sender):
+@pytest.mark.asyncio
+async def test_multicast(supvisors, mc_sender):
     """ Test the Supvisors Multicast in one single test. """
     queue = asyncio.Queue()
     stop_event = asyncio.Event()
@@ -51,10 +52,9 @@ def test_multicast(supvisors, mc_sender):
         assert message[1] == expected
 
     # handle_puller can loop forever, so add a wait_for just in case something goes wrong
-    all_tasks = asyncio.gather(sender_task(),
-                               asyncio.wait_for(handle_mc_receiver(queue, stop_event, supvisors), 4.0),
-                               check_output())
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(sender_task(),
+                         asyncio.wait_for(handle_mc_receiver(queue, stop_event, supvisors), 4.0),
+                         check_output())
 
 
 # testing exception cases (by line number)
@@ -67,7 +67,8 @@ def test_emitter_send_exception(mc_sender):
     mc_sender.send_tick_event({})
 
 
-def test_receiver_bind_exception(supvisors):
+@pytest.mark.asyncio
+async def test_receiver_bind_exception(supvisors):
     """ Test the bind exception of the MulticastReceiver (use wrong IP).
     The aim is to hit the lines 100-101 in handle_mc_receiver.
     Checked ok with debugger.
@@ -76,11 +77,11 @@ def test_receiver_bind_exception(supvisors):
     stop_event = asyncio.Event()
     supvisors.options.multicast_group = 'localhost', -1
 
-    coro = asyncio.wait_for(handle_mc_receiver(queue, stop_event, supvisors), 2.0)
-    asyncio.get_event_loop().run_until_complete(coro)
+    await asyncio.wait_for(handle_mc_receiver(queue, stop_event, supvisors), 2.0)
 
 
-def test_receiver_membership_exception(supvisors):
+@pytest.mark.asyncio
+async def test_receiver_membership_exception(supvisors):
     """ Test the bind exception of the MulticastReceiver (use wrong IP).
     The aim is to hit the lines 111-113 in handle_mc_receiver.
     Checked ok with debugger.
@@ -90,5 +91,4 @@ def test_receiver_membership_exception(supvisors):
     supvisors.options.multicast_group = '239.0.0.1', 7777
     supvisors.options.multicast_interface = '10.0.0'
 
-    coro = asyncio.wait_for(handle_mc_receiver(queue, stop_event, supvisors), 2.0)
-    asyncio.get_event_loop().run_until_complete(coro)
+    await asyncio.wait_for(handle_mc_receiver(queue, stop_event, supvisors), 2.0)

@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-import threading
+import socket
 import time
 from unittest.mock import call
 
@@ -63,7 +63,7 @@ hstats_payload = {'identifier': '10.0.0.1', 'period': 5.2, 'uptime': 1230, 'cpu'
 pstats_payload = {'identifier': '10.0.0.1', 'namespec': 'dummy_proc', 'period': 5.2, 'uptime': 1230, 'cpu': [28.3]}
 
 
-def publish_all(publisher, close=False):
+def publish_all(publisher):
     """ Send all kind of expected messages. """
     publisher.send_supvisors_status(supvisors_payload)
     publisher.send_instance_status(instance_payload)
@@ -72,23 +72,18 @@ def publish_all(publisher, close=False):
     publisher.send_process_status(process_payload)
     publisher.send_host_statistics(hstats_payload)
     publisher.send_process_statistics(pstats_payload)
-    if close:
-        publisher.close()
 
 
-def wait_thread_alive(thr: threading.Thread) -> bool:
-    """ Wait for thread to be alive (5 seconds max). """
-    cpt = 10
-    while cpt > 0:
+def wait_thread_alive(thr: AsyncEventThread, max_time: int = 5) -> bool:
+    """ Wait for publisher to be alive and connected to one client (5 seconds max by default). """
+    nb_tries = max_time * 2
+    while nb_tries > 0 and not (thr.loop and thr.loop.is_running()):
         time.sleep(0.5)
-        cpt -= 1
-        if thr.is_alive():
-            break
-    time.sleep(0.5)
-    return thr.is_alive()
+        nb_tries -= 1
+    return thr.loop and thr.loop.is_running()
 
 
-def check_subscription(subscriber, publisher,
+def check_subscription(subscriber: SupvisorsWsEventInterface, publisher: WsEventPublisher,
                        supvisors_subscribed=False, instance_subscribed=False,
                        application_subscribed=False, event_subscribed=False, process_subscribed=False,
                        hstats_subscribed=False, pstats_subscribed=False):
@@ -98,6 +93,7 @@ def check_subscription(subscriber, publisher,
     assert wait_thread_alive(publisher.thread)
     assert wait_thread_alive(subscriber.thread)
     # publish and receive
+    time.sleep(1)
     publish_all(publisher)
     # give time to the subscriber to receive data
     time.sleep(2)
@@ -136,22 +132,22 @@ def test_external_publish_subscribe(supvisors):
     subscriber.start()
     assert wait_thread_alive(publisher.thread)
     assert wait_thread_alive(subscriber.thread)
-    # check the Server side
-    assert publisher.thread.loop.is_running()
     # sleep a bit to give time to hit the reception timeout
-    time.sleep(WsEventSubscriber.RecvTimeout)
-    # check the Client side
+    time.sleep(ASYNC_TIMEOUT)
+    # check the server side
+    assert websocket_clients
+    # check the client side
     assert subscriber.headers == set()
-    assert subscriber.thread.loop.is_running()
-    # close the sockets
+    # close the server
     publisher.close()
-    subscriber.stop()
-    # check the Server side
+    # check the server side
     assert not publisher.thread.is_alive()
-    assert not publisher.thread.loop.is_running()
-    # check the Client side
+    assert not publisher.thread.loop
+    # stop the client
+    subscriber.stop()
+    # check the client side
     assert not subscriber.thread.is_alive()
-    assert not subscriber.thread.loop.is_running()
+    assert not subscriber.thread.loop
 
 
 def test_no_subscription(publisher, subscriber):
@@ -275,8 +271,56 @@ def test_subscription_multiple_status(publisher, subscriber):
     check_subscription(subscriber, publisher)
 
 
+# testing exception cases and lines hard to hit (by line number)
+@pytest.mark.asyncio
+async def test_serve_failed():
+    """ Test the reception of a message with unknown header.
+    The aim is to hit the lines 63-65 in ws_server.
+    Checked ok with debugger.
+    """
+    # bind a socket to port 65100
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(('', 65100))
+    # create stop event
+    stop_event = asyncio.Event()
+
+    async def test_task():
+        await asyncio.sleep(2.0)
+        # the websockets server creation should have failed at least once
+        # set the stop event
+        stop_event.set()
+
+    # start the websockets server using a port already bound
+    await asyncio.gather(ws_server(stop_event, '', 65100), test_task())
+    # close the socket on exit
+    sock.close()
+
+
+@pytest.mark.asyncio
+async def test_wait_tasks():
+    """ Test the reception of a message with unknown header.
+    The aim is to hit the line 78 in ws_server.
+    Checked ok with debugger.
+    """
+    # create stop event
+    stop_event = asyncio.Event()
+
+    async def stop_task():
+        await asyncio.sleep(2.0)
+        # the websockets server should be created
+        # set the stop event
+        stop_event.set()
+        # pause this task to force ws_server to wait for it
+        await asyncio.sleep(2.0)
+
+    await asyncio.gather(ws_server(stop_event, '', 65100), stop_task())
+
+
 def test_unknown_message(mocker, publisher, real_subscriber):
-    """ Test the reception of a message with unknown header. """
+    """ Test the reception of a message with unknown header.
+    The aim is to hit the lines 223-224 in WsEventSubscriber.mainloop.
+    Checked ok with debugger.
+    """
     # give time to the websocket client to connect the server
     real_subscriber.start()
     assert wait_thread_alive(real_subscriber.thread)
@@ -286,6 +330,7 @@ def test_unknown_message(mocker, publisher, real_subscriber):
                                       'on_process_event', 'on_process_status',
                                       'on_host_statistics', 'on_process_statistics']]
     # publish a message of each type
+    time.sleep(1)
     publish_all(publisher)
     time.sleep(2)
     # check that no NotImplementedError exception is raised and all on_xxx called
@@ -300,12 +345,16 @@ def test_unknown_message(mocker, publisher, real_subscriber):
 
 
 def test_close_server(real_subscriber, publisher):
-    """ Test the server closure while a client is connected. """
+    """ Test the server closure while a client is connected.
+    The aim is to hit the lines 226-227 in WsEventSubscriber.mainloop.
+    Checked ok with debugger.
+    """
     # give time to the websocket client to connect the server
     real_subscriber.start()
     assert wait_thread_alive(real_subscriber.thread)
     # the publisher will be stopped just after all the publications
     # default websocket ping is 20 seconds
-    publish_all(publisher, True)
+    publish_all(publisher)
+    publisher.close()
     time.sleep(30)
     # the ConnectionClosed handling should have been hit

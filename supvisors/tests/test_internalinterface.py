@@ -64,7 +64,8 @@ def push_pull():
     return socketpair()
 
 
-def test_read_stream_header_timeout(push_pull):
+@pytest.mark.asyncio
+async def test_read_stream_header_timeout(push_pull):
     """ Test the read_stream coroutine / timeout when reading header. """
     async def read_test():
         reader, _ = await asyncio.open_unix_connection(sock=push_pull[0])
@@ -74,11 +75,11 @@ def test_read_stream_header_timeout(push_pull):
         await asyncio.open_unix_connection(sock=push_pull[1])
         await asyncio.sleep(1.5)
 
-    all_tasks = asyncio.gather(read_test(), write_test())
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(read_test(), write_test())
 
 
-def test_read_stream_incomplete_header(push_pull):
+@pytest.mark.asyncio
+async def test_read_stream_incomplete_header(push_pull):
     """ Test the read_stream coroutine / incomplete header. """
     async def read_test():
         reader, _ = await asyncio.open_unix_connection(sock=push_pull[0])
@@ -90,11 +91,11 @@ def test_read_stream_incomplete_header(push_pull):
         await writer.drain()
         writer.close()
 
-    all_tasks = asyncio.gather(read_test(), write_test())
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(read_test(), write_test())
 
 
-def test_read_stream_body_timeout(push_pull):
+@pytest.mark.asyncio
+async def test_read_stream_body_timeout(push_pull):
     """ Test the read_stream coroutine / timeout when reading body. """
     async def read_test():
         reader, _ = await asyncio.open_unix_connection(sock=push_pull[0])
@@ -106,11 +107,11 @@ def test_read_stream_body_timeout(push_pull):
         await writer.drain()
         await asyncio.sleep(1.5)
 
-    all_tasks = asyncio.gather(read_test(), write_test())
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(read_test(), write_test())
 
 
-def test_read_stream_incomplete_body(push_pull):
+@pytest.mark.asyncio
+async def test_read_stream_incomplete_body(push_pull):
     """ Test the read_stream coroutine / incomplete body. """
     async def read_test():
         reader, _ = await asyncio.open_unix_connection(sock=push_pull[0])
@@ -123,11 +124,11 @@ def test_read_stream_incomplete_body(push_pull):
         await writer.drain()
         writer.close()
 
-    all_tasks = asyncio.gather(read_test(), write_test())
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(read_test(), write_test())
 
 
-def test_read_stream_correct(push_pull):
+@pytest.mark.asyncio
+async def test_read_stream_correct(push_pull):
     """ Test the read_stream coroutine / correct message. """
     async def read_test():
         reader, _ = await asyncio.open_unix_connection(sock=push_pull[0])
@@ -136,8 +137,9 @@ def test_read_stream_correct(push_pull):
     async def write_test():
         _, writer = await asyncio.open_unix_connection(sock=push_pull[1])
         message = json.dumps('dummy').encode('utf-8')
-        await write_stream(writer, message)
+        assert await write_stream(writer, message)
         writer.close()
+        # hit ConnectionResetError
+        assert not await write_stream(writer, message)
 
-    all_tasks = asyncio.gather(read_test(), write_test())
-    asyncio.get_event_loop().run_until_complete(all_tasks)
+    await asyncio.gather(read_test(), write_test())

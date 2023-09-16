@@ -21,11 +21,11 @@ import pytest
 pytest.importorskip('zmq', reason='cannot test as optional pyzmq is not installed')
 
 import time
-import threading
 
 from unittest.mock import call
 
 from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
+from supvisors.external_com.eventinterface import AsyncEventThread
 from supvisors.external_com.supvisorszmq import *
 
 
@@ -58,16 +58,13 @@ def real_subscriber(supvisors):
     test_subscriber.stop()
 
 
-def wait_thread_alive(thr: threading.Thread) -> bool:
-    """ Wait for thread to be alive (5 seconds max). """
-    cpt = 10
-    while cpt > 0:
+def wait_thread_alive(thr: AsyncEventThread, max_time: int = 5) -> bool:
+    """ Wait for publisher to be alive and connected to one client (5 seconds max by default). """
+    nb_tries = max_time * 2
+    while nb_tries > 0 and not (thr.loop and thr.loop.is_running()):
         time.sleep(0.5)
-        cpt -= 1
-        if thr.is_alive():
-            break
-    time.sleep(0.5)
-    return thr.is_alive()
+        nb_tries -= 1
+    return thr.loop and thr.loop.is_running()
 
 
 def test_external_publish_subscribe(supvisors):
@@ -90,7 +87,7 @@ def test_external_publish_subscribe(supvisors):
     assert publisher.socket.closed
     # check the Client side
     assert not subscriber.thread.is_alive()
-    assert not subscriber.thread.loop.is_running()
+    assert not subscriber.thread.loop
 
 
 supvisors_payload = {'state': 'running', 'version': '1.0'}
@@ -121,6 +118,7 @@ def check_subscription(subscriber, publisher, supvisors_subscribed=False, instan
     # give time to the websocket client to connect the server
     assert wait_thread_alive(subscriber.thread)
     # publish and receive
+    time.sleep(1)
     publish_all(publisher)
     # give time to the subscriber to receive data
     time.sleep(2)
@@ -276,6 +274,7 @@ def test_unknown_message(mocker, publisher, real_subscriber):
                                       'on_process_event', 'on_process_status',
                                       'on_host_statistics', 'on_process_statistics']]
     # publish a message of each type
+    time.sleep(1)
     publish_all(publisher)
     time.sleep(2)
     # check that no NotImplementedError exception is raised and all on_xxx called

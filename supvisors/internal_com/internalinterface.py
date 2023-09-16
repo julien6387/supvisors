@@ -60,7 +60,7 @@ async def read_stream(reader: asyncio.StreamReader) -> Optional[bytes]:
     except asyncio.TimeoutError:
         # nothing to read
         return b''
-    except asyncio.IncompleteReadError:
+    except (asyncio.IncompleteReadError, ConnectionResetError):
         # socket closed during read operation read interruption
         return None
     # decode the message size
@@ -70,23 +70,27 @@ async def read_stream(reader: asyncio.StreamReader) -> Optional[bytes]:
     try:
         # read the message itself
         msg_as_bytes = await asyncio.wait_for(reader.readexactly(msg_size), 1.0)
-    except (asyncio.TimeoutError, asyncio.IncompleteReadError):
+    except (asyncio.TimeoutError, asyncio.IncompleteReadError, ConnectionResetError):
         # unexpected message without body or socket closed during read operation
         return None
     # return the non-decoded message
     return msg_as_bytes
 
 
-async def write_stream(writer: asyncio.StreamWriter, msg_as_bytes: bytes) -> None:
+async def write_stream(writer: asyncio.StreamWriter, msg_as_bytes: bytes) -> bool:
     """ Write a message to an asyncio StreamWriter.
 
     :param writer: the asyncio StreamReader.
     :param msg_as_bytes: the message as bytes.
-    :return: None.
+    :return: True if no exception.
     """
     buffer = len(msg_as_bytes).to_bytes(4, 'big') + msg_as_bytes
-    writer.write(buffer)
-    await writer.drain()
+    try:
+        writer.write(buffer)
+        await writer.drain()
+    except ConnectionResetError:
+        return False
+    return True
 
 
 class InternalCommEmitter:

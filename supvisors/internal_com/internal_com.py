@@ -122,11 +122,12 @@ class SupvisorsInternalReceiver:
         """ The stop method is meant to be called from outside the async loop.
         This will stop all asynchronous tasks.
         """
-        asyncio.run_coroutine_threadsafe(self.set_stop(), self.loop).result()
-
-    async def set_stop(self) -> None:
-        """ Set the Future stop_event to stop all asynchronous tasks. """
-        self.stop_event.set()
+        if self.loop and self.loop.is_running() and self.stop_event and not self.stop_event.is_set():
+            # fire the event within the event loop
+            async def stop_it() -> None:
+                """ Set the Future stop_event to stop all asynchronous tasks. """
+                self.stop_event.set()
+            asyncio.run_coroutine_threadsafe(stop_it(), self.loop).result()
 
     def get_tasks(self) -> List:
         """ Return the tasks necessary to receive:

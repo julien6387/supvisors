@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+
+import time
 from socket import socket
 from threading import Timer
 
@@ -23,14 +25,25 @@ import pytest
 from supvisors.internal_com.internal_com import *
 
 
+def wait_alive(publisher: InternalPublisher, max_time: int = 10) -> bool:
+    """ Wait for publisher to be alive. """
+    nb_tries = max_time
+    while nb_tries > 0 and publisher.stop_event is None:
+        time.sleep(1.0)
+        nb_tries -= 1
+    return publisher.stop_event is not None
+
+
 @pytest.fixture
-def emitter(supvisors, request) -> SupvisorsInternalReceiver:
+def emitter(supvisors, request) -> SupvisorsInternalEmitter:
     """ Fixture for the instance to test. """
     if request.param == 'discovery':
         supvisors.options.multicast_group = '239.0.0.1', 7777
-    internal_emitter = SupvisorsInternalEmitter(supvisors)
-    yield internal_emitter
-    internal_emitter.stop()
+    emitter_test = SupvisorsInternalEmitter(supvisors)
+    # wait for the publisher to be alive to avoid stop issues
+    assert wait_alive(emitter_test.publisher)
+    yield emitter_test
+    emitter_test.stop()
 
 
 @pytest.mark.parametrize('emitter', [''], indirect=True)
@@ -57,6 +70,7 @@ def test_emitter(supvisors, emitter):
     assert ref_publisher is emitter.publisher
     # add interfaces again and check publisher restart
     emitter.check_intf(['lo', 'eth0'])
+    assert wait_alive(emitter.publisher)
     assert emitter.intf_names == ['lo', 'eth0']
     assert ref_pusher is emitter.pusher_sock
     assert ref_puller is emitter.puller_sock
@@ -70,8 +84,6 @@ def test_emitter(supvisors, emitter):
     assert ref_puller is emitter.puller_sock
     assert ref_request is emitter.pusher
     assert ref_publisher is emitter.publisher
-    # test close
-    emitter.stop()
 
 
 @pytest.mark.parametrize('emitter', ['discovery'], indirect=True)
@@ -115,8 +127,9 @@ def receiver(supvisors, request) -> SupvisorsInternalReceiver:
     return internal_receiver
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize('receiver', [''], indirect=True)
-def test_receiver(supvisors, receiver):
+async def test_receiver(supvisors, receiver):
     """ Test the SupvisorsInternalReceiver with no discovery mode. """
     assert receiver.supvisors is supvisors
     assert receiver.loop is asyncio.get_event_loop()
@@ -129,18 +142,19 @@ def test_receiver(supvisors, receiver):
     assert receiver.discovery_coro is None
     # test the number of tasks (one per Supvisors instance, local instance excepted, + stop, + puller)
     assert len(supvisors.supvisors_mapper.instances) == 7
+    tasks = receiver.get_tasks()
     try:
-        tasks = receiver.get_tasks()
         assert all(asyncio.iscoroutine(x) for x in tasks)
         assert len(tasks) == len(supvisors.supvisors_mapper.instances) + 1
     finally:
         # avoid warnings about coroutines never awaited
         receiver.stop_event.set()
-        asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
+        await asyncio.gather(*tasks)
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize('receiver', ['discovery'], indirect=True)
-def test_receiver_discovery(supvisors, receiver):
+async def test_receiver_discovery(supvisors, receiver):
     """ Test the SupvisorsInternalReceiver with discovery mode. """
     assert receiver.supvisors is supvisors
     assert receiver.loop is asyncio.get_event_loop()
@@ -153,22 +167,22 @@ def test_receiver_discovery(supvisors, receiver):
     assert asyncio.iscoroutine(receiver.discovery_coro)
     # test the number of tasks (one per Supvisors instance, local instance excepted, + stop, + puller, + discovery)
     assert len(supvisors.supvisors_mapper.instances) == 7
+    tasks = receiver.get_tasks()
     try:
-        tasks = receiver.get_tasks()
         assert all(asyncio.iscoroutine(x) for x in tasks)
         assert len(tasks) == len(supvisors.supvisors_mapper.instances) + 2
     finally:
         # avoid warnings about coroutines never awaited
         receiver.stop_event.set()
-        asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
+        await asyncio.gather(*tasks)
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize('receiver', [''], indirect=True)
-def test_receiver_stop(supvisors, receiver):
+async def test_receiver_stop(supvisors, receiver):
     """ Test the SupvisorsInternalReceiver stop method. """
     # trigger the SupvisorsInternalReceiver stop in one second
     Timer(1.0, receiver.stop).start()
     # stop_event can hang on forever, so add a wait_for just in case something goes wrong
-    task = asyncio.wait_for(receiver.stop_event.wait(), 5.0)
-    asyncio.get_event_loop().run_until_complete(task)
+    await asyncio.wait_for(receiver.stop_event.wait(), 5.0)
     assert receiver.stop_event.is_set()

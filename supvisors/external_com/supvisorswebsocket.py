@@ -19,12 +19,13 @@
 
 import asyncio
 import json
-from typing import Dict, Set
+from typing import Dict, Optional, Set
 
 import websockets
 from supervisor.loggers import Logger
 
-from supvisors.external_com.eventinterface import EventPublisherInterface, EventSubscriber, AsyncEventThread
+from supvisors.external_com.eventinterface import (EventPublisherInterface, EventSubscriber, AsyncEventThread,
+                                                   ASYNC_TIMEOUT)
 from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.ttypes import Payload, EventHeaders
 
@@ -51,11 +52,23 @@ async def ws_handler(websocket: websockets.WebSocketServerProtocol):
     del websocket_clients[websocket]
 
 
-async def ws_server(stop_evt: asyncio.Event, node_name: str, event_port: int):
+async def ws_server(stop_event: asyncio.Event, node_name: str, event_port: int):
     """ Run the websocket service until a stop event is received. """
-    async with websockets.serve(ws_handler, node_name, event_port, reuse_address=True) as server:
-        await stop_evt.wait()
-    await server.wait_closed()
+    # bind the TCP server and give a chance to retry
+    server: Optional[asyncio.Server] = None
+    while not server and not stop_event.is_set():
+        try:
+            server = await websockets.serve(ws_handler, node_name, event_port, reuse_address=True)
+        except OSError:
+            # bind failed: retry
+            await asyncio.sleep(ASYNC_TIMEOUT)
+    # either server has bound or stop event has been set
+    if not stop_event.is_set():
+        # wait until stop event is set
+        async with server:
+            await stop_event.wait()
+        # wait until the server is really closed
+        await server.wait_closed()
 
 
 class WsEventPublisher(EventPublisherInterface):
@@ -78,8 +91,10 @@ class WsEventPublisher(EventPublisherInterface):
 
         :return: None
         """
-        self.thread.stop()
-        self.thread.join()
+        self.logger.info(f'WsEventPublisher.close: alive={self.thread.is_alive()}')
+        if self.thread.is_alive():
+            self.thread.stop()
+            self.thread.join()
 
     def send_supvisors_status(self, status: Payload) -> None:
         """ Send a JSON-serialized supvisors status through the socket.
@@ -173,9 +188,6 @@ class WsEventSubscriber(EventSubscriber):
         - a logger.
     """
 
-    # timeout to avoid blocking receptions
-    RecvTimeout = 0.5
-
     async def mainloop(self, stop_evt: asyncio.Event, node_name: str, event_port: int) -> None:
         """ Infinite loop as a websocket client.
 
@@ -186,26 +198,30 @@ class WsEventSubscriber(EventSubscriber):
         while not stop_evt.is_set():
             # open the websocket connection
             self.logger.debug(f'WsEventSubscriber: connecting {uri}')
-            async with websockets.connect(uri) as ws:
-                self.logger.info(f'WsEventSubscriber.mainloop: Websocket connected on {uri}')
-                try:
-                    while not stop_evt.is_set():
-                        try:
-                            # recv in wait_for so that stop_event can be checked periodically
-                            message = await asyncio.wait_for(ws.recv(), timeout=WsEventSubscriber.RecvTimeout)
-                        except asyncio.TimeoutError:
-                            self.logger.trace(f'WsEventSubscriber.mainloop: receive timeout on {uri}')
-                            continue
-                        # a message has been received
-                        header, body = json.loads(message)
-                        try:
-                            self.on_receive(header, body)
-                        except ValueError:
-                            self.logger.error(f'WsEventSubscriber.mainloop: unexpected header={header}')
-                    self.logger.debug(f'WsEventSubscriber.mainloop: exiting Websocket connection on {uri}')
-                except websockets.ConnectionClosed:
-                    self.logger.warn(f'WsEventSubscriber.mainloop: Websocket server connection closed from {uri}')
-                # close the websocket connection
-                self.logger.debug(f'WsEventSubscriber.mainloop: close Websocket connection on {uri}')
-                await ws.close()
-        self.logger.debug('WsEventSubscriber.mainloop: exiting Websocket connection loop')
+            try:
+                async with websockets.connect(uri, open_timeout=ASYNC_TIMEOUT) as ws:
+                    self.logger.info(f'WsEventSubscriber: Websocket connected on {uri}')
+                    try:
+                        while not stop_evt.is_set():
+                            try:
+                                # recv in wait_for so that stop_event can be checked periodically
+                                message = await asyncio.wait_for(ws.recv(), timeout=ASYNC_TIMEOUT)
+                            except asyncio.TimeoutError:
+                                self.logger.trace(f'WsEventSubscriber: receive timeout on {uri}')
+                                continue
+                            # a message has been received
+                            header, body = json.loads(message)
+                            try:
+                                self.on_receive(header, body)
+                            except ValueError:
+                                self.logger.error(f'WsEventSubscriber: unexpected header={header}')
+                        self.logger.debug(f'WsEventSubscriber: exiting Websocket connection on {uri}')
+                    except websockets.ConnectionClosed:
+                        self.logger.warn(f'WsEventSubscriber: Websocket server connection closed from {uri}')
+                    # close the websocket connection
+                    self.logger.debug(f'WsEventSubscriber: close Websocket connection on {uri}')
+                    await ws.close()
+            except (asyncio.TimeoutError, OSError):
+                # connection failed: retry
+                self.logger.debug('WsEventSubscriber: failed to connect')
+        self.logger.debug('WsEventSubscriber: exiting Websocket connection loop')

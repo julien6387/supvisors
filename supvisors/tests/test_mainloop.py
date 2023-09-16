@@ -413,6 +413,15 @@ def main_loop(supvisors):
     supvisors.internal_com.stop()
 
 
+def wait_alive(main_loop: SupvisorsMainLoop, max_time: int = 10) -> bool:
+    """ Wait for publisher to be alive. """
+    nb_tries = max_time
+    while nb_tries > 0 and not (main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients)):
+        time.sleep(1.0)
+        nb_tries -= 1
+    return main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients) == 1
+
+
 def test_mainloop_creation(supvisors, main_loop):
     """ Test the values set at construction. """
     assert isinstance(main_loop, threading.Thread)
@@ -451,10 +460,8 @@ def test_mainloop_run(mocker, main_loop):
     #       so make sure it has been started before starting the main loop
     assert main_loop.supvisors.internal_com.pusher is not None
     main_loop.start()
-    time.sleep(3)
     try:
-        assert main_loop.is_alive()
-        assert len(main_loop.supvisors.internal_com.publisher.clients) == 1
+        assert wait_alive(main_loop)
         assert mocked_proxy_start.called
         # inject basic messages to test the queues
         main_loop.supvisors.internal_com.pusher.send_isolate_instances(['10.0.0.1'])

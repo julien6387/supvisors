@@ -20,6 +20,7 @@
 import asyncio
 import threading
 import time
+import traceback
 from enum import Enum
 from socket import error, socketpair
 from typing import Any, Dict, Optional, List
@@ -79,7 +80,8 @@ class SubscriberClient:
         current_time: float = time.time()
         # check heartbeat emission
         if current_time - self.last_sent_heartbeat_time > HEARTBEAT_PERIOD:
-            await write_stream(self.writer, self.heartbeat_message)
+            if not await write_stream(self.writer, self.heartbeat_message):
+                return False
             self.last_sent_heartbeat_time = current_time
             self.logger.trace(f'SubscriberClient.manage_heartbeat: heartbeat emitted at {current_time} to {str(self)}')
         # check heartbeat reception
@@ -104,9 +106,8 @@ class PublisherServer(threading.Thread):
         self.logger: Logger = logger
         # publication FIFO using UNIX sockets
         self.put_sock, self.get_sock = socketpair()
-        # the TCP server port
+        # the TCP server port and instance
         self.port: int = port
-        # the asyncio TCP server
         self.server: Optional[asyncio.Server] = None
         # the list of TCP clients
         self.clients: List[SubscriberClient] = []
@@ -122,15 +123,14 @@ class PublisherServer(threading.Thread):
 
         :return: None
         """
-        if self.loop:
-            self.logger.debug('PublisherServer.stop: requesting publisher server to stop')
-            asyncio.run_coroutine_threadsafe(self.set_stop(), self.loop).result()
-            self.join()
-            self.logger.debug('PublisherServer.stop: publisher server stopped')
-
-    async def set_stop(self) -> None:
-        """ Set the Future stop_event to stop all asynchronous tasks. """
-        self.stop_event.set()
+        self.logger.debug(f'PublisherServer.stop: loop={self.loop} event={self.stop_event}')
+        if self.loop and self.stop_event:
+            # fire the event within the event loop
+            async def stop_it() -> None:
+                """ Set the Future stop_event to stop all asynchronous tasks. """
+                self.stop_event.set()
+                self.logger.debug('PublisherServer.stop: stop event set')
+            asyncio.run_coroutine_threadsafe(stop_it(), self.loop).result()
 
     def run(self) -> None:
         """ Main loop to accept TCP clients.
@@ -143,8 +143,7 @@ class PublisherServer(threading.Thread):
         self.stop_event = asyncio.Event()
         # define the tasks
         all_coro = ([self.open_supvisors_server(),
-                     self.handle_publications(),
-                     self.close_supvisors_server()])
+                     self.handle_publications()])
         all_tasks = asyncio.gather(*all_coro)
         # run the asynchronous event loop with the given tasks
         self.loop.run_until_complete(all_tasks)
@@ -207,11 +206,13 @@ class PublisherServer(threading.Thread):
         if client in self.clients:
             self.clients.remove(client)
             writer.close()
+        self.logger.info(f'PublisherServer.handle_supvisors_client: done with client={str(client)}')
 
     async def open_supvisors_server(self):
         """ Start the TCP server for internal messages publication. """
         # bind the TCP server and give a chance to retry
-        first_log = True
+        first_log: bool = True
+        self.logger.info(f'PublisherServer.open_supvisors_server: {self.server} {self.stop_event} {self.port}')
         while not self.server and not self.stop_event.is_set():
             try:
                 self.server = await asyncio.start_server(self.handle_supvisors_client, '', self.port)
@@ -219,26 +220,26 @@ class PublisherServer(threading.Thread):
             except OSError:
                 if first_log:
                     self.logger.critical('PublisherServer.open_supvisors_server: failed to bind local Supvisors server'
-                                         f' to {self.port}')
+                                         f' to {self.port} (will retry)')
+                    self.logger.debug(f'PublisherServer.open_supvisors_server: {traceback.format_exc()}')
                     first_log = False
                 await asyncio.sleep(ASYNC_TIMEOUT)
         # either server has bound or stop event has been set
         if not self.stop_event.is_set():
-            async with self.server:
-                try:
-                    await self.server.serve_forever()
-                except asyncio.exceptions.CancelledError:
-                    self.logger.info('PublisherServer.open_supvisors_server: closing local Supvisors server')
-            await self.server.wait_closed()
-
-    async def close_supvisors_server(self):
-        """ Trick to break the serve_forever above. """
-        while not self.stop_event.is_set():
-            await asyncio.sleep(1.0)
-        # TCP server may not have bound
-        if self.server:
-            self.logger.info('PublisherServer.close_supvisors_server: closing server')
+            self.logger.debug('PublisherServer.open_supvisors_server: waiting for stop event')
+            # wait until stop event is set
+            await self.stop_event.wait()
+            # wait until the server is really closed
+            self.logger.debug('PublisherServer.open_supvisors_server: closing server')
             self.server.close()
+            await self.server.wait_closed()
+            # handle_supvisors_client tasks are not known by global run_until_complete
+            # so wait here until these tasks exit
+            self.logger.debug('PublisherServer.open_supvisors_server: waiting for client tasks to end')
+            # NOTE: cannot use asyncio.wait(asyncio.all_tasks()) as not available in Python 3.6
+            while self.clients:
+                await asyncio.sleep(ASYNC_TIMEOUT)
+        self.logger.debug('PublisherServer.open_supvisors_server: exiting')
 
 
 class InternalPublisher(PublisherServer, InternalCommEmitter):
@@ -251,7 +252,11 @@ class InternalPublisher(PublisherServer, InternalCommEmitter):
 
         :return: None
         """
-        self.stop()
+        if self.is_alive():
+            self.logger.debug('InternalPublisher.close: requesting publisher server to stop')
+            self.stop()
+            self.join()
+            self.logger.debug('InternalPublisher.close: publisher server stopped')
 
     def emit_message(self, event_type: Enum, event_body: Payload) -> None:
         """ Encode and forward the event to the Publisher thread using the FIFO.
