@@ -46,7 +46,6 @@ def publisher(supvisors):
 @pytest.fixture
 def subscriber(stop_event, supvisors):
     """ Create the InternalPublisher instance to test. """
-    supvisors.logger.error = print
     queue = asyncio.Queue()
     test_subscriber = InternalAsyncSubscribers(queue, stop_event, supvisors)
     # WARN: local instance has been removed from the subscribers, but it's actually the only instance
