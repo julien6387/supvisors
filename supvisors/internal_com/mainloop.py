@@ -376,7 +376,8 @@ class SupvisorsMainLoop(threading.Thread):
             for identifier in body:
                 self.logger.info(f'SupvisorsMainLoop.check_requests: add subscriber to {identifier}')
                 coro = self.receiver.subscribers.create_coroutine(identifier)
-                self.receiver.loop.create_task(coro)
+                if coro:
+                    self.receiver.loop.create_task(coro)
         else:
             # XML-RPC requests
             self.proxy.push_request(deferred_request, body)

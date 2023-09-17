@@ -52,9 +52,10 @@ def subscriber(stop_event, supvisors):
     #       that can be tested here
     #       so add a Supvisors instance that has the same parameters as the local Supvisors instance,
     #       but with a different name
-    local_instance_id: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
-    supvisors.supvisors_mapper._instances = {'async_test': local_instance_id,
-                                             supvisors.supvisors_mapper.local_identifier: local_instance_id}
+    mapper = supvisors.supvisors_mapper
+    local_instance_id: SupvisorsInstanceId = mapper.local_instance
+    mapper._instances = {'async_test': local_instance_id,
+                         mapper.local_identifier: local_instance_id}
     return test_subscriber
 
 

@@ -216,7 +216,6 @@ class PublisherServer(threading.Thread):
         """ Start the TCP server for internal messages publication. """
         # bind the TCP server and give a chance to retry
         first_log: bool = True
-        self.logger.info(f'PublisherServer.open_supvisors_server: {self.server} {self.stop_event} {self.port}')
         while not self.server and not self.stop_event.is_set():
             try:
                 self.server = await asyncio.start_server(self.handle_supvisors_client, '', self.port)
@@ -428,10 +427,11 @@ class InternalAsyncSubscribers:
         :param identifier: the identifier structure of the remote Supvisors instance.
         :return:
         """
-        instance_id = self.supvisors.supvisors_mapper.instances[identifier]
-        self.stop_events[identifier] = stop_event = asyncio.Event()
-        subscriber = InternalAsyncSubscriber(instance_id, self.queue, stop_event, self.supvisors.logger)
-        return subscriber.auto_connect()
+        instance_id = self.supvisors.supvisors_mapper.instances.get(identifier)
+        if instance_id:
+            self.stop_events[identifier] = stop_event = asyncio.Event()
+            subscriber = InternalAsyncSubscriber(instance_id, self.queue, stop_event, self.supvisors.logger)
+            return subscriber.auto_connect()
 
     async def check_stop(self):
         """ Task that waits for the general event to be set and that forwards it to all the subscriber tasks. """

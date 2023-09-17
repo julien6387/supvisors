@@ -73,7 +73,6 @@ def test_proxy_run(mocker, proxy):
     assert not mocked_exec.called
     mocked_send.reset_mock()
     # send a discovery event
-    proxy.supvisors.logger.debug = print
     message = ('10.0.0.2', 51243), (InternalEventHeaders.DISCOVERY.value, ('10.0.0.2', {'when': 4321}))
     proxy.push_event(message)
     time.sleep(1.0)
@@ -403,8 +402,18 @@ def test_proxy_execute(mocker, proxy):
 
 @pytest.fixture
 def main_loop(supvisors):
+    """ Create the SupvisorsMainLoop instance to test. """
     # activate discovery mode
     supvisors.options.multicast_group = '239.0.0.1', 7777
+    # WARN: local instance has been removed from the subscribers, but it's actually the only instance
+    #       that can be tested here
+    #       so add a Supvisors instance that has the same parameters as the local Supvisors instance,
+    #       but with a different name
+    mapper = supvisors.supvisors_mapper
+    local_instance_id: SupvisorsInstanceId = mapper.local_instance
+    mapper._instances = {'10.0.0.1': mapper.instances['10.0.0.1'],
+                         'async_test': local_instance_id,
+                         mapper.local_identifier: local_instance_id}
     # WARN: a real SupvisorsInternalEmitter must have been created before
     supvisors.internal_com = SupvisorsInternalEmitter(supvisors)
     loop = SupvisorsMainLoop(supvisors)
@@ -466,7 +475,7 @@ def test_mainloop_run(mocker, main_loop):
         # inject basic messages to test the queues
         main_loop.supvisors.internal_com.pusher.send_isolate_instances(['10.0.0.1'])
         main_loop.supvisors.internal_com.pusher.send_connect_instance('10.0.0.1')
-        main_loop.supvisors.internal_com.pusher.send_check_instance('10.0.0.1')
+        main_loop.supvisors.internal_com.pusher.send_check_instance('10.0.0.3')
         main_loop.supvisors.internal_com.publisher.send_tick_event({'when': 1234})
         main_loop.supvisors.internal_com.mc_sender.send_discovery_event({'when': 4321})
         # check results
@@ -475,7 +484,7 @@ def test_mainloop_run(mocker, main_loop):
             # first message may be long to come
             msg_type, message = main_loop.proxy.queue.get(timeout=5.0)
             if msg_type == DeferredRequestHeaders.CHECK_INSTANCE:
-                assert message == ['10.0.0.1']
+                assert message == ['10.0.0.3']
                 got_request = True
             else:
                 event_origin, (event_type, (event_identifier, event_data)) = message
