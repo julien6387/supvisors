@@ -232,6 +232,8 @@ class PublisherServer(threading.Thread):
             self.logger.debug('PublisherServer.open_supvisors_server: waiting for stop event')
             # wait until stop event is set
             await self.stop_event.wait()
+        # close the server if it has been created
+        if self.server:
             # wait until the server is really closed
             self.logger.debug('PublisherServer.open_supvisors_server: closing server')
             self.server.close()

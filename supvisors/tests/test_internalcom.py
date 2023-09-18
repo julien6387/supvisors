@@ -16,22 +16,13 @@
 # limitations under the License.
 # ======================================================================
 
-import time
 from socket import socket
 from threading import Timer
 
 import pytest
 
 from supvisors.internal_com.internal_com import *
-
-
-def wait_alive(publisher: InternalPublisher, max_time: int = 10) -> bool:
-    """ Wait for publisher to be alive. """
-    nb_tries = max_time
-    while nb_tries > 0 and publisher.stop_event is None:
-        time.sleep(1.0)
-        nb_tries -= 1
-    return publisher.stop_event is not None
+from .conftest import wait_internal_publisher
 
 
 @pytest.fixture
@@ -41,7 +32,7 @@ def emitter(supvisors, request) -> SupvisorsInternalEmitter:
         supvisors.options.multicast_group = '239.0.0.1', 7777
     emitter_test = SupvisorsInternalEmitter(supvisors)
     # wait for the publisher to be alive to avoid stop issues
-    assert wait_alive(emitter_test.publisher)
+    assert wait_internal_publisher(emitter_test.publisher)
     yield emitter_test
     emitter_test.stop()
 
@@ -49,7 +40,6 @@ def emitter(supvisors, request) -> SupvisorsInternalEmitter:
 @pytest.mark.parametrize('emitter', [''], indirect=True)
 def test_emitter(supvisors, emitter):
     """ Test the SupvisorsInternalEmitter with no discovery mode. """
-    # FIXME: still blocking
     assert emitter.supvisors is supvisors
     ref_pusher = emitter.pusher_sock
     ref_puller = emitter.puller_sock

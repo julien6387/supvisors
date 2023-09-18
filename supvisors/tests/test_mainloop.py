@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -28,6 +27,7 @@ from supvisors.internal_com.mainloop import *
 from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.ttypes import SupvisorsInstanceStates
 from .base import DummyRpcInterface
+from .conftest import wait_internal_publisher
 
 
 @pytest.fixture
@@ -400,9 +400,23 @@ def test_proxy_execute(mocker, proxy):
                DeferredRequestHeaders.SHUTDOWN_ALL, ('10.0.0.2',))
 
 
+def wait_loop_connected(main_loop: SupvisorsMainLoop, max_time: int = 10) -> bool:
+    """ Wait for publisher to be alive. """
+    nb_tries = max_time
+    while nb_tries > 0 and not (main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients)):
+        time.sleep(1.0)
+        nb_tries -= 1
+    return main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients) == 1
+
+
 @pytest.fixture
 def main_loop(supvisors):
     """ Create the SupvisorsMainLoop instance to test. """
+    supvisors.logger.debug = print
+    supvisors.logger.info = print
+    supvisors.logger.warn = print
+    supvisors.logger.error = print
+    supvisors.logger.critical = print
     # activate discovery mode
     supvisors.options.multicast_group = '239.0.0.1', 7777
     # WARN: local instance has been removed from the subscribers, but it's actually the only instance
@@ -416,19 +430,13 @@ def main_loop(supvisors):
                          mapper.local_identifier: local_instance_id}
     # WARN: a real SupvisorsInternalEmitter must have been created before
     supvisors.internal_com = SupvisorsInternalEmitter(supvisors)
+    # wait for the publisher to be alive to avoid stop issues
+    wait_internal_publisher(supvisors.internal_com.publisher)
+    # create the main loop
     loop = SupvisorsMainLoop(supvisors)
     yield loop
     # close the SupvisorsInternalEmitter at the end of the test
     supvisors.internal_com.stop()
-
-
-def wait_alive(main_loop: SupvisorsMainLoop, max_time: int = 10) -> bool:
-    """ Wait for publisher to be alive. """
-    nb_tries = max_time
-    while nb_tries > 0 and not (main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients)):
-        time.sleep(1.0)
-        nb_tries -= 1
-    return main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients) == 1
 
 
 def test_mainloop_creation(supvisors, main_loop):
@@ -437,7 +445,6 @@ def test_mainloop_creation(supvisors, main_loop):
     assert main_loop.supvisors is supvisors
     assert main_loop.receiver is None
     assert type(main_loop.proxy) is SupervisorProxy
-    # start and stop
 
 
 def test_mainloop_stop(mocker, main_loop):
@@ -468,9 +475,16 @@ def test_mainloop_run(mocker, main_loop):
     # WARN: handle_puller is blocking as long as there is no RequestPusher active,
     #       so make sure it has been started before starting the main loop
     assert main_loop.supvisors.internal_com.pusher is not None
+    # FIXME: temporary print to get a chance to understand why the thread does not start
+    print(f'before: {threading.active_count()}')
     main_loop.start()
+    print(f'after: {threading.active_count()}')
     try:
-        assert wait_alive(main_loop)
+        # FIXME: despite call to start, did not run
+        #assert wait_loop_connected(main_loop)
+        if not wait_loop_connected(main_loop):
+            print(f'fail connect: {threading.active_count()}')
+            assert False
         assert mocked_proxy_start.called
         # inject basic messages to test the queues
         main_loop.supvisors.internal_com.pusher.send_isolate_instances(['10.0.0.1'])

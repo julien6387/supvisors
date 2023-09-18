@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import time
 from unittest.mock import Mock
 
 import pytest
@@ -42,6 +43,7 @@ def create_application(application_name, supvisors):
     return ApplicationStatus(application_name, ApplicationRules(supvisors), supvisors)
 
 
+# Common function for URLs
 def to_simple_url(host: str, page: str, **actions):
     """ Create a simple url based on the ViewContext.format_url parameters. """
     url = f"http://{host}/{page}"
@@ -180,3 +182,13 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.shutdown.return_value = True
     proxy.supvisors.end_sync.return_value = True
     proxy.supvisors.change_log_level.return_value = True
+
+
+# Wait / sync functions
+def wait_internal_publisher(publisher, max_time: int = 10) -> bool:
+    """ Wait for the InternalPublisher to be alive. """
+    nb_tries = max_time
+    while nb_tries > 0 and publisher.stop_event is None:
+        time.sleep(1.0)
+        nb_tries -= 1
+    return publisher.stop_event is not None
