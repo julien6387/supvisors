@@ -61,7 +61,7 @@ def test_emitter(supvisors, emitter):
     assert ref_publisher is emitter.publisher
     # add interfaces again and check publisher restart
     emitter.check_intf(['lo', 'eth0'])
-    assert wait_alive(emitter.publisher)
+    assert wait_internal_publisher(emitter.publisher)
     assert emitter.intf_names == ['lo', 'eth0']
     assert ref_pusher is emitter.pusher_sock
     assert ref_puller is emitter.puller_sock
@@ -96,7 +96,7 @@ def test_emitter_discovery(supvisors, emitter):
     assert ref_mc_sender is emitter.mc_sender
     # add interfaces again and check no change on MulticastSender
     emitter.check_intf(['lo', 'eth0'])
-    assert wait_alive(emitter.publisher)
+    assert wait_internal_publisher(emitter.publisher)
     assert emitter.intf_names == ['lo', 'eth0']
     assert ref_mc_sender is emitter.mc_sender
     # remove interfaces and test no change on structures
