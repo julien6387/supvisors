@@ -4,6 +4,8 @@
 
 * Use an asynchronous server in the **Supvisors** internal communications.
 
+* Restore the `action` class in the HTML of the **Supvisors** Web UI.
+
 
 ## 0.17 (2023-08-17)
 
