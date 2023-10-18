@@ -77,6 +77,7 @@ public class SupvisorsHostStatistics {
      *
      * @param HashMap statsInfo: The untyped structure got from the XML-RPC.
      */
+    @SuppressWarnings({"unchecked"})
     public SupvisorsHostStatistics(HashMap statsInfo)  {
         this.identifier = (String) statsInfo.get("identifier");
         this.target_period = (Float) statsInfo.get("target_period");
