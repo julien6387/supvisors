@@ -25,8 +25,8 @@ requires = ['supervisor >= 4.2.4, < 4.3']
 
 statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib >= 3.3.3']
 xml_valid_require = ['lxml >= 4.6.2']
-flask_require_36 = ['flask-restx == 0.5.1', 'Werkzeug == 2.0.3']
-flask_require = ['flask-restx >= 1.1.0']
+flask_require_36 = ['flask-restx == 0.5.1', 'Flask < 3', 'Werkzeug == 2.0.3']
+flask_require = ['flask-restx >= 1.1.0', 'Flask < 3']
 zmq_require = ['pyzmq >= 20.0.0']
 websockets_require = ['websockets >= 10.2']
 
