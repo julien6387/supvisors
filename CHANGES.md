@@ -2,7 +2,10 @@
 
 ## 0.18 (2023-xx-x)
 
+* Fix rare I/O exception by joining the `SupervisorsProxy` thread before exiting the `SupvisorsMainLoop`.
+
 * Use an asynchronous server in the **Supvisors** internal communications.
+  The refactoring fixes an issue with the TCP server that sometimes wouldn't bind despite the `SO_REUSEADDR` set.
 
 * Restore the `action` class in the HTML of the **Supvisors** Web UI.
 

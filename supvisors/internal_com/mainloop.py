@@ -337,6 +337,7 @@ class SupvisorsMainLoop(threading.Thread):
         async_loop.run_until_complete(all_tasks)
         # exiting the main loop
         self.proxy.stop()
+        self.proxy.join()
         self.logger.info('SupvisorsMainLoop.run: exiting main loop')
 
     async def read_queue(self, async_queue: asyncio.Queue, callback):
