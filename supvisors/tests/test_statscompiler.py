@@ -148,20 +148,24 @@ def test_host_statistics_instance_push_io(host_statistics_instance):
     """ Test the storage of the IO instant statistics. """
     io_stats = {'eth0': (1024, 2000), 'lo': (500, 500)}
     # first time: structures are created
-    host_statistics_instance._push_io_stats(io_stats)
-    assert host_statistics_instance.io == {'eth0': ([1024], [2000]), 'lo': ([500], [500])}
+    host_statistics_instance._push_io_stats(io_stats, 5)
+    assert host_statistics_instance.io == {'eth0': ([5], [1024], [2000]),
+                                           'lo': ([5], [500], [500])}
     # again: list increases
     io_stats = {'eth0': (1250, 2200), 'lo': (620, 620)}
-    host_statistics_instance._push_io_stats(io_stats)
-    assert host_statistics_instance.io == {'eth0': ([1024, 1250], [2000, 2200]), 'lo': ([500, 620], [500, 620])}
+    host_statistics_instance._push_io_stats(io_stats, 10)
+    assert host_statistics_instance.io == {'eth0': ([5, 10], [1024, 1250], [2000, 2200]),
+                                           'lo': ([5, 10], [500, 620], [500, 620])}
     # again: list rotates due to history depth at 2
     io_stats = {'eth0': (2048, 2512), 'lo': (756, 756)}
-    host_statistics_instance._push_io_stats(io_stats)
-    assert host_statistics_instance.io == {'eth0': ([1250, 2048], [2200, 2512]), 'lo': ([620, 756], [620, 756])}
+    host_statistics_instance._push_io_stats(io_stats, 15)
+    assert host_statistics_instance.io == {'eth0': ([10, 15], [1250, 2048], [2200, 2512]),
+                                           'lo': ([10, 15], [620, 756], [620, 756])}
     # test obsolete and new interface
     io_stats = {'eth1': (3072, 2768), 'lo': (1780, 1780)}
-    host_statistics_instance._push_io_stats(io_stats)
-    assert host_statistics_instance.io == {'eth1': ([3072], [2768]), 'lo': ([756, 1780], [756, 1780])}
+    host_statistics_instance._push_io_stats(io_stats, 20)
+    assert host_statistics_instance.io == {'eth1': ([20], [3072], [2768]),
+                                           'lo': ([15, 20], [756, 1780], [756, 1780])}
 
 
 def test_host_statistics_instance_integrate(host_statistics_instance):
@@ -241,7 +245,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     assert mocked_times.call_args_list == [call(12.2)]
     assert mocked_cpu.call_args_list == [call(['cpu_stats 3'])]
     assert mocked_mem.call_args_list == [call(76.1)]
-    assert mocked_io.call_args_list == [call({'io_stats 3': ()})]
+    assert mocked_io.call_args_list == [call({'io_stats 3': ()}, 12.2)]
     mocker.resetall()
     # push fourth set of measures (reuse stats2)
     result = host_statistics_instance.push_statistics(stats2)
@@ -272,7 +276,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     assert mocked_times.call_args_list == [call(38.5)]
     assert mocked_cpu.call_args_list == [call(['cpu_stats 5'])]
     assert mocked_mem.call_args_list == [call(75.9)]
-    assert mocked_io.call_args_list == [call({'io_stats 5': ()})]
+    assert mocked_io.call_args_list == [call({'io_stats 5': ()}, 38.5)]
 
 
 @pytest.fixture
