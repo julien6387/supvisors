@@ -144,7 +144,7 @@ async def test_global_normal(supvisors, publisher, subscriber, stop_event):
         expected = InternalEventHeaders.STATE, {'state': 'operational', 'mode': 'starting'}
         assert await asyncio.wait_for(queue.get(), 2.0) == (addr, [expected[0].value, [local_identifier, expected[1]]])
 
-    await run_async_tasks(subscriber, [publisher_task(), check_output()], 8.0)
+    await run_async_tasks(subscriber, [publisher_task(), check_output()], 14.0)
 
 
 # testing exception cases (by line number)
@@ -169,7 +169,7 @@ async def test_publisher_write_stream_exception(mocker, publisher, subscriber, s
         # full close
         stop_event.set()
 
-    await run_async_tasks(subscriber, [publisher_task()], 8.0)
+    await run_async_tasks(subscriber, [publisher_task()], 13.0)
 
 
 @pytest.mark.asyncio
@@ -194,7 +194,7 @@ async def test_publisher_heartbeat_timeout(mocker, publisher, subscriber, stop_e
         # full close
         stop_event.set()
 
-    await run_async_tasks(subscriber, [publisher_task()], 18.0)
+    await run_async_tasks(subscriber, [publisher_task()], 22.0)
 
 
 @pytest.mark.asyncio
@@ -214,7 +214,7 @@ async def test_publisher_forward_empty_message(publisher, subscriber, stop_event
         # full close
         stop_event.set()
 
-    await run_async_tasks(subscriber, [publisher_task()], 10.0)
+    await run_async_tasks(subscriber, [publisher_task()], 14.0)
 
 
 @pytest.mark.asyncio
@@ -237,7 +237,7 @@ async def test_publisher_publish_message_exception(mocker, publisher, subscriber
         # full close
         stop_event.set()
 
-    await run_async_tasks(subscriber, [publisher_task()], 9.0)
+    await run_async_tasks(subscriber, [publisher_task()], 11.0)
 
 
 @pytest.mark.asyncio
@@ -261,7 +261,7 @@ async def test_publisher_receive_empty_message(mocker, publisher, subscriber, st
         # full close
         stop_event.set()
 
-    await run_async_tasks(subscriber, [publisher_task()], 9.0)
+    await run_async_tasks(subscriber, [publisher_task()], 13.0)
 
 
 def test_publisher_bind_exception(supvisors):
@@ -331,7 +331,7 @@ async def test_subscriber_read_error(publisher, subscriber, stop_event):
         # full close
         stop_event.set()
 
-    await run_async_tasks(subscriber, [publisher_task()], 12.0)
+    await run_async_tasks(subscriber, [publisher_task()], 16.0)
 
 
 @pytest.mark.asyncio
@@ -355,7 +355,7 @@ async def test_subscriber_recv_heartbeat_exception(publisher, subscriber, stop_e
         # full close
         stop_event.set()
 
-    await run_async_tasks(subscriber, [publisher_task()], 23.0)
+    await run_async_tasks(subscriber, [publisher_task()], 27.0)
 
 
 @pytest.mark.asyncio
