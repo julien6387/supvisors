@@ -549,8 +549,8 @@ class ApplicationStatus:
             actual_identifiers = actual_identifiers[0].intersection(*actual_identifiers)
         # intersect with rules
         return [identifier
-                for identifier in actual_identifiers
-                if identifier in filtered_identifiers]
+                for identifier in filtered_identifiers
+                if identifier in actual_identifiers]
 
     def possible_node_identifiers(self) -> NameList:
         """ Same principle as possible_identifiers, excepted that the possibilities are built from the nodes

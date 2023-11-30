@@ -648,13 +648,13 @@ def test_application_possible_identifiers(supvisors):
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
     process1 = create_process(info, supvisors)
-    for node_name in ['10.0.0.2', '10.0.0.3', '10.0.0.4']:
+    for node_name in ['10.0.0.4', '10.0.0.3', '10.0.0.2']:
         process1.add_info(node_name, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
     process2 = create_process(info, supvisors)
-    for node_name in ['10.0.0.1', '10.0.0.4']:
+    for node_name in ['10.0.0.4', '10.0.0.1']:
         process2.add_info(node_name, info.copy())
     application.add_process(process2)
     # default identifiers is '*' in process rules
