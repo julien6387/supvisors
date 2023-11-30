@@ -7,6 +7,8 @@
 * Fix rare exception when host network statistics are prepared for display in the **Supvisors** Web UI in the event
   where network interfaces have different history sizes.
 
+* Improve the node selection when using the distribution rule `SINGLE_NODE`.
+
 * Use an asynchronous server in the **Supvisors** internal communications.
   The refactoring fixes an issue with the TCP server that sometimes wouldn't bind despite the `SO_REUSEADDR` set.
 

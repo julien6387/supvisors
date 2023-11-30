@@ -691,7 +691,7 @@ class ApplicationStartJobs(ApplicationJobs):
         commands = [process for sequence in self.planned_jobs.values() for process in sequence]
         # find the applicable Supvisors instances iaw strategy
         application_load = self.application.get_start_sequence_expected_load()
-        identifiers = self.application.possible_identifiers()
+        identifiers = self.application.possible_node_identifiers()
         # choose the node that can support the application load
         node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load)
         # intersect the identifiers running on the node and the application possible identifiers

@@ -524,13 +524,14 @@ class ApplicationStatus:
             self.process_groups[program].resolve_rules()
 
     def possible_identifiers(self) -> NameList:
-        """ Return the list of Supervisor identifiers where the application could be started.
+        """ Return the list of Supervisor identifiers where the application could be started, assuming that its
+        processes cannot be distributed over multiple Supvisors instances.
         To achieve that, three conditions:
-            - the Supervisor must know all the application programs ;
-            - the Supervisor identifier must be declared in the rules file ;
+            - the Supervisor shall know all the application programs (real-time configuration) ;
+            - the Supervisor identifier shall be allowed (explicitly or implicitly) in the rules file ;
             - the programs shall not be disabled.
 
-        :return: the list of identifiers where the program could be started
+        :return: the list of identifiers where the program could be started.
         """
         rules_identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
@@ -544,10 +545,48 @@ class ApplicationStatus:
                                if not info['disabled']}
                               for process in self.processes.values()]
         if actual_identifiers:
+            # the common list is the intersection of all subsets
             actual_identifiers = actual_identifiers[0].intersection(*actual_identifiers)
         # intersect with rules
         return [identifier
                 for identifier in actual_identifiers
+                if identifier in filtered_identifiers]
+
+    def possible_node_identifiers(self) -> NameList:
+        """ Same principle as possible_identifiers, excepted that the possibilities are built from the nodes
+        rather than from the strict identifiers.
+
+        Note: Some elements in the returned list of identifiers may not fit to the possibilities got from the
+              intermediate actual_identifiers, that is based on the real-time configurations.
+
+        :return: the list of identifiers where the program could be started.
+        """
+        rules_identifiers = self.rules.identifiers
+        if '*' in self.rules.identifiers:
+            filtered_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        else:
+            # filter the unknown identifiers (due to Supvisors discovery mode, any identifier may be lately known)
+            filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
+        # get the corresponding nodes, keeping the same order
+        filtered_nodes = self.supvisors.supvisors_mapper.get_nodes(filtered_identifiers)
+        # get the nodes common to all application processes
+        actual_identifiers: List[NameList] = [[identifier
+                                               for identifier, info in process.info_map.items()
+                                               if not info['disabled']]
+                                              for process in self.processes.values()]
+        # get the nodes corresponding to every identifiers subset
+        actual_nodes = [{set(self.supvisors.supvisors_mapper.get_nodes(proc_identifiers))}
+                        for proc_identifiers in actual_identifiers]
+        if actual_nodes:
+            # common nodes are the intersection of all subsets
+            actual_nodes = actual_nodes[0].intersection(*actual_nodes)
+        # intersect with rules
+        ruled_nodes = [node for node in actual_nodes if node in filtered_nodes]
+        # return the node identifiers that are present in rules
+        # Note: as explained in the method documentation, actual_identifiers are not used here to filter more
+        return [identifier
+                for node in ruled_nodes
+                for identifier in self.supvisors.supvisors_mapper.nodes[node]
                 if identifier in filtered_identifiers]
 
     def get_instance_processes(self, identifier: str) -> ProcessList:

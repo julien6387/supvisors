@@ -310,7 +310,7 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
         return None
     # create the relevant strategy to choose a Supvisors instance among the candidates
     instance = create_strategy(supvisors, strategy)
-    # consider all pending requests into global load
+    # consider all pending starting requests into global load
     load_request_map = supvisors.starter.get_load_requests()
     supvisors.logger.debug(f'get_supvisors_instance: load_request_map={load_request_map}')
     node_load_request_map = get_node_load_request_map(supvisors.supvisors_mapper, load_request_map)
