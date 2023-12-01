@@ -365,9 +365,26 @@ def test_instances_by_states(context):
     assert context.instances_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5', 'test']
 
 
+def test_running_core_identifiers_empty(supvisors):
+    """ Test if the core instances are in a RUNNING state. """
+    supvisors.supvisors_mapper._core_identifiers = []
+    assert supvisors.supvisors_mapper.core_identifiers == []
+    context = Context(supvisors)
+    assert not context.running_core_identifiers()
+
+
+def test_running_core_identifiers_invalid(supvisors):
+    """ Test if the core instances are in a RUNNING state. """
+    supvisors.supvisors_mapper._core_identifiers = ['dummy']
+    assert supvisors.supvisors_mapper.core_identifiers == []
+    context = Context(supvisors)
+    assert not context.running_core_identifiers()
+
+
 def test_running_core_identifiers(supvisors):
     """ Test if the core instances are in a RUNNING state. """
-    supvisors.supvisors_mapper._core_identifiers = ['10.0.0.1', '10.0.0.4']
+    supvisors.supvisors_mapper._core_identifiers = ['10.0.0.1', '10.0.0.4', '<10.0.0.1>10.0.0.1']
+    assert supvisors.supvisors_mapper.core_identifiers == ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
     assert not context.all_running()

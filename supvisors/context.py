@@ -244,10 +244,11 @@ class Context:
 
         :return: True if all core SupvisorsInstanceStatus are in RUNNING state
         """
-        if self.supvisors.supvisors_mapper.core_identifiers:
+        core_identifiers = self.supvisors.supvisors_mapper.core_identifiers
+        if core_identifiers:
             return all(status.state == SupvisorsInstanceStates.RUNNING
                        for identifier, status in self.instances.items()
-                       if identifier in self.supvisors.supvisors_mapper.core_identifiers)
+                       if identifier in core_identifiers)
         return False
 
     def isolating_instances(self) -> NameList:
