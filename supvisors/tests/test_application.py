@@ -648,13 +648,13 @@ def test_application_possible_identifiers(supvisors):
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
     process1 = create_process(info, supvisors)
-    for node_name in ['10.0.0.4', '10.0.0.3', '10.0.0.2']:
+    for node_name in ['10.0.0.2', '10.0.0.3', '10.0.0.4']:
         process1.add_info(node_name, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
     process2 = create_process(info, supvisors)
-    for node_name in ['10.0.0.4', '10.0.0.1']:
+    for node_name in ['10.0.0.1', '10.0.0.4']:
         process2.add_info(node_name, info.copy())
     application.add_process(process2)
     # default identifiers is '*' in process rules
@@ -678,8 +678,8 @@ def test_application_possible_identifiers(supvisors):
         process2.add_info(node_name, info.copy())
     assert sorted(application.possible_identifiers()) == sorted(supvisors.supvisors_mapper.instances.keys())
     # restrict again instances in rules
-    application.rules.identifiers = ['10.0.0.5']
-    assert application.possible_identifiers() == ['10.0.0.5']
+    application.rules.identifiers = ['10.0.0.2', '10.0.0.5']
+    assert application.possible_identifiers() == ['10.0.0.2', '10.0.0.5']
 
 
 def test_application_get_instance_processes(supvisors):
