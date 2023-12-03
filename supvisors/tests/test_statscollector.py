@@ -403,4 +403,4 @@ def test_process_statistics_collector(mocker, supvisors):
     # test thread stopping
     collector.stop()
     assert collector.pid_queue.get(timeout=1.0) == (StatsMsgType.STOP, None)
-    assert mocked_process.kill.call_args_list == [call()]
+    assert mocked_process.terminate.call_args_list == [call()]
