@@ -18,6 +18,8 @@
 
 * Restore the `action` class in the HTML of the **Supvisors** Web UI.
 
+* CI targets added for Python 3.11 and 3.12.
+
 
 ## 0.17 (2023-08-17)
 
