@@ -110,7 +110,7 @@ class Supvisors:
                 self.host_collector = instant_host_statistics
             if self.options.process_stats_enabled:
                 from .statscollector import ProcessStatisticsCollector
-                self.process_collector = ProcessStatisticsCollector(self.options.collecting_period)
+                self.process_collector = ProcessStatisticsCollector(self.options.collecting_period, self.logger)
         except (ImportError, ModuleNotFoundError):
             self.logger.info('Supvisors: psutil not installed')
             self.logger.warn('Supvisors: this Supvisors instance cannot not collect statistics')

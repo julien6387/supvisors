@@ -183,7 +183,7 @@ class HostStatisticsInstance:
             self.ref_start_time = stats['now']
             # init some data structures
             self.cpu = [[] for _ in stats['cpu']]
-            self.io = {intf: ([], []) for intf in stats['io']}
+            self.io = {intf: ([], [], []) for intf in stats['io']}
         return result
 
 

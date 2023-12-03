@@ -19,16 +19,33 @@
 
 import multiprocessing as mp
 import os
+import signal
+from enum import Enum
 from time import sleep, time
 from typing import Dict, List, Optional
 
 import psutil
+from supervisor.loggers import Logger
 
-from .ttypes import Jiffies, JiffiesList, InterfaceInstantStats, ProcessStats
+from .ttypes import Jiffies, JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
 from .utils import mean
 
 # Default sleep time when nothing to do
 SLEEP_TIME = 0.2
+
+# Maximum time to put data into the statistics queue
+# Although daemonized, the collect_process_statistics does not end when supervisord is killed
+# so if the put fails because the other end is terminated, the TimeoutException will end the process
+QUEUE_TIMEOUT = 10
+
+# a heartbeat is expected every 5 seconds from the main process
+# after 15 seconds without heartbeat received, it is considered that the main process has been killed
+HEARTBEAT_TIMEOUT = 15
+
+
+class StatsMsgType(Enum):
+    """ Message types used for PID queue. """
+    ALIVE, PID, STOP = range(3)
 
 
 # CPU statistics
@@ -158,7 +175,8 @@ class CollectedProcesses:
                 # publish the information that it has been stopped
                 self.stats_queue.put({'namespec': namespec,
                                       'pid': 0,
-                                      'now': time()})
+                                      'now': time()},
+                                     timeout=QUEUE_TIMEOUT)
                 if pid > 0:
                     # new process running. mark as not found so that it is re-inserted
                     found = False
@@ -193,7 +211,8 @@ class CollectedProcesses:
                                       'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
                                       'nb_cores': self.nb_cores,  # needed for Solaris mode
                                       'proc_work': sup_stats[0] + col_stats[0],
-                                      'proc_memory': sup_stats[1] + col_stats[1]})
+                                      'proc_memory': sup_stats[1] + col_stats[1]},
+                                     timeout=QUEUE_TIMEOUT)
                 # re-insert the process in front of the list
                 self.supervisor_process['last'] = current_time
             else:
@@ -215,7 +234,8 @@ class CollectedProcesses:
                     # warn the subscribers that the process has been stopped
                     self.stats_queue.put({'namespec': proc_data['namespec'],
                                           'pid': 0,
-                                          'now': current_time})
+                                          'now': current_time},
+                                         timeout=QUEUE_TIMEOUT)
                     # not to be re-inserted in the list
                 else:
                     if proc_stats:  # proc_stats is an empty tuple in case of OSError
@@ -225,7 +245,8 @@ class CollectedProcesses:
                                               'now': current_time,
                                               'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
                                               'proc_work': proc_stats[0],
-                                              'proc_memory': proc_stats[1]})
+                                              'proc_memory': proc_stats[1]},
+                                             timeout=QUEUE_TIMEOUT)
                     # whatever it has succeeded or not, update date and re-insert the process in front of the list
                     proc_data['last'] = current_time
                     self.processes.insert(0, proc_data)
@@ -238,16 +259,24 @@ class CollectedProcesses:
 def collect_process_statistics(pid_queue: mp.Queue, stats_queue: mp.Queue, period: int, supervisor_pid: int):
     """ Collector main loop. """
     collector = CollectedProcesses(stats_queue, period, supervisor_pid)
-    # loop forever
+    # loop until a stop request is received
+    last_heartbeat_received = time()
     stopped = False
     while not stopped:
         # get new pids to collect statistics from
         while not pid_queue.empty():
-            message = pid_queue.get()
-            if message is None:
+            msg_type, msg_body = pid_queue.get()
+            if msg_type == StatsMsgType.STOP:
                 stopped = True
-            else:
-                collector.update_process_list(*message)
+            elif msg_type == StatsMsgType.ALIVE:
+                last_heartbeat_received = time()
+            elif msg_type == StatsMsgType.PID:
+                collector.update_process_list(*msg_body)
+        # test heartbeat
+        if not stopped:
+            if time() - last_heartbeat_received > HEARTBEAT_TIMEOUT:
+                stopped = True
+        # collect process statistics
         if not stopped:
             # test if supervisord is ready to be collected
             collector.collect_supervisor()
@@ -262,14 +291,17 @@ class ProcessStatisticsCollector:
     """ Collector of instant process statistics.
     The psutil processes are cached to speed up. """
 
-    def __init__(self, period: int):
-        # store the period
+    STOP_TIMEOUT = 2.0
+
+    def __init__(self, period: int, logger: Logger):
+        # store the attributes
         self.period = period
+        self.logger: Logger = logger
         # create communication queues
-        self.pid_queue = mp.SimpleQueue()  # used to receive pids and program names
-        self.stats_queue = mp.SimpleQueue()  # used to send process statistics
+        self.pid_queue = mp.Queue()  # used to receive pids and program names
+        self.stats_queue = mp.Queue()  # used to send process statistics
         # the process attribute
-        self.process = None
+        self.process: Optional[mp.Process] = None
 
     def start(self):
         """ Create and start the collector process.
@@ -279,3 +311,34 @@ class ProcessStatisticsCollector:
                                   args=(self.pid_queue, self.stats_queue, self.period, os.getpid()),
                                   daemon=True)
         self.process.start()
+
+    def alive(self):
+        """ Send a heartbeat to the collector process.
+        This is needed so that the thread ends itself if the main process gets killed. """
+        self.pid_queue.put((StatsMsgType.ALIVE, None))
+
+    def send_pid(self, namespec: str, pid: int):
+        """ Send a process name and PID to the collector process. """
+        self.pid_queue.put((StatsMsgType.PID, (namespec, pid)))
+
+    def get_process_stats(self) -> PayloadList:
+        """ Get all process statistics available. """
+        proc_stats = []
+        while not self.stats_queue.empty():
+            proc_stats.append(self.stats_queue.get())
+        return proc_stats
+
+    def stop(self):
+        """ Stop the collector process. """
+        # send a stop message
+        self.pid_queue.put((StatsMsgType.STOP, None))
+        self.process.join(timeout=self.STOP_TIMEOUT)
+        self.logger.debug(f'ProcessStatisticsCollector.stop: msg exitcode={self.process.exitcode}')
+        if self.process.exitcode != 0:
+            # the process did not end by itself, use hard termination
+            self.logger.error('ProcessStatisticsCollector.stop: exit failed')
+            self.process.kill()
+            self.process.join(timeout=self.STOP_TIMEOUT)
+            self.logger.debug(f'ProcessStatisticsCollector.stop: kill exitcode={self.process.exitcode}')
+            if self.process.exitcode != signal.SIGKILL:
+                self.logger.critical(f'ProcessStatisticsCollector.stop: kill failed exitcode={self.process.exitcode}')

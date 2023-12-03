@@ -174,8 +174,8 @@ class SupervisorListener(object):
         self.logger.warn('SupervisorListener.on_stopping: local supervisord is STOPPING')
         try:
             # Stop the process statistics collector
-            if self.supvisors.process_collector:
-                self.supvisors.process_collector.pid_queue.put(None)
+            if self.process_collector:
+                self.process_collector.stop()
             # close pusher and publication sockets
             self.logger.debug('SupervisorListener.on_stopping: stopping internal com')
             self.supvisors.internal_com.stop()
@@ -244,8 +244,9 @@ class SupervisorListener(object):
                     self.logger.error(f'SupervisorListener.on_tick: failed to get host statistics')
             # get and publish the process statistics collected from the last tick (optional)
             if self.process_collector:
-                while not self.process_collector.stats_queue.empty():
-                    stats = self.process_collector.stats_queue.get()
+                self.process_collector.alive()
+                # process all stats available
+                for stats in self.process_collector.get_process_stats():
                     # send to local process compiler
                     self.on_process_statistics(self.local_identifier, stats)
                     # publish host statistics to other Supvisors instances

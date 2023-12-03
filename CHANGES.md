@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.18 (2023-xx-x)
+## 0.17.2 (2023-xx-x)
 
 * Fix rare I/O exception by joining the `SupervisorsProxy` thread before exiting the `SupvisorsMainLoop`.
 
@@ -8,6 +8,8 @@
   where network interfaces have different history sizes.
 
 * Fix the Supvisors identifier possibilities when using the distribution rule `SINGLE_INSTANCE`.
+
+* Update the process statistics collector thread so that it exits by itself when `supervisord` is killed.
 
 * Improve the node selection when using the distribution rule `SINGLE_NODE`.
 

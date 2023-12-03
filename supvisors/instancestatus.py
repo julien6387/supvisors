@@ -300,7 +300,7 @@ class SupvisorsInstanceStatus:
         if self.process_collector:
             pid = process.get_pid(self.identifier)
             if pid > 0:
-                self.process_collector.pid_queue.put((process.namespec, pid))
+                self.process_collector.send_pid(process.namespec, pid)
 
     def update_process(self, process: ProcessStatus) -> None:
         """ Upon a process state change, check if a pid is available to update the collector.
@@ -310,7 +310,7 @@ class SupvisorsInstanceStatus:
         """
         if self.process_collector:
             pid = process.get_pid(self.identifier)
-            self.process_collector.pid_queue.put((process.namespec, pid))
+            self.process_collector.send_pid(process.namespec, pid)
 
     def remove_process(self, process: ProcessStatus) -> None:
         """ Remove a process from the process list.
@@ -321,7 +321,7 @@ class SupvisorsInstanceStatus:
         del self.processes[process.namespec]
         # update the collector
         if self.process_collector:
-            self.process_collector.pid_queue.put((process.namespec, 0))
+            self.process_collector.send_pid(process.namespec, 0)
 
     def running_processes(self):
         """ Return the process running on the Supvisors instance.

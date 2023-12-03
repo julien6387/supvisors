@@ -58,7 +58,7 @@ class MockedSupvisors:
         self.server_options = Mock(process_indexes={'xclock': 2})
         # set real statistics collectors
         self.host_collector = instant_host_statistics
-        self.process_collector = ProcessStatisticsCollector(self.logger)
+        self.process_collector = ProcessStatisticsCollector(5, self.logger)
         self.host_compiler = HostStatisticsCompiler(self)
         self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
         # build context from node mapper
