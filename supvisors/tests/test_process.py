@@ -355,9 +355,9 @@ def test_process_possible_identifiers(supvisors):
     assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
     # test with full status and all instances in rules + re-enable on '10.0.0.3'
     process.update_disability('10.0.0.3', False)
-    for identifier in supvisors.supvisors_mapper.instances:
+    for identifier in supvisors.mapper.instances:
         process.add_info(identifier, info.copy())
-    assert process.possible_identifiers() == list(supvisors.supvisors_mapper.instances.keys())
+    assert process.possible_identifiers() == list(supvisors.mapper.instances.keys())
     # restrict again instances in rules
     process.rules.identifiers = ['10.0.0.5']
     assert process.possible_identifiers() == ['10.0.0.5']

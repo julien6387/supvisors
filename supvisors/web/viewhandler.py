@@ -48,7 +48,7 @@ class ViewHandler(MeldView):
         # cannot store context as it is named, or it would crush the http context
         self.sup_ctx = self.supvisors.context
         # keep reference to the local node name
-        self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        self.local_identifier = self.supvisors.mapper.local_identifier
         # even if there is no local collector, statistics can be available from other Supvisors instances
         # where a collector is available
         self.has_host_statistics = True
@@ -136,7 +136,7 @@ class ViewHandler(MeldView):
     def write_nav_instances(self, root, identifier):
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('instance_li_mid')
-        identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        identifiers = list(self.supvisors.mapper.instances.keys())
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
         # so let's sort them by name
         if self.supvisors.options.discovery_mode:

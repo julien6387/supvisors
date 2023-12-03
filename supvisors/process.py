@@ -526,10 +526,10 @@ class ProcessStatus:
         rules_identifiers = self.rules.identifiers
         self.logger.debug(f'ProcessStatus.possible_identifiers: rules_identifiers={rules_identifiers}')
         if WILDCARD in self.rules.identifiers:
-            filtered_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+            filtered_identifiers = list(self.supvisors.mapper.instances.keys())
         else:
             # filter identifiers based on currently known list (may change due to discovery mode)
-            filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
+            filtered_identifiers = self.supvisors.mapper.filter(rules_identifiers)
         self.logger.debug(f'ProcessStatus.possible_identifiers: filtered={filtered_identifiers}')
         self.logger.debug(f'ProcessStatus.possible_identifiers: info_map={list(self.info_map.keys())}')
         return [identifier

@@ -246,7 +246,7 @@ class LocalStrategy(AbstractStartingStrategy):
         :param load_details: the load details per identifier and node
         :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        local_identifier = self.supvisors.mapper.local_identifier
         self.logger.trace(f'LocalStrategy.get_supvisors_instance: identifiers={identifiers}'
                           f' local_identifier={local_identifier} expected_load={expected_load}'
                           f' load_details={load_details}')
@@ -258,16 +258,16 @@ class LocalStrategy(AbstractStartingStrategy):
         return local_identifier if validity else None
 
 
-def get_node_load_request_map(supvisors_mapper: SupvisorsMapper, load_request_map: LoadMap):
+def get_node_load_request_map(mapper: SupvisorsMapper, load_request_map: LoadMap):
     """ Sum the load_request_map per identifier by node.
 
-    :param supvisors_mapper: the Supvisors instances mapper
+    :param mapper: the Supvisors instances mapper
     :param load_request_map: the unconsidered loads per identifier
     :return: the request load per node
     """
-    node_load_request_map = {node_name: 0 for node_name in supvisors_mapper.nodes}
+    node_load_request_map = {node_name: 0 for node_name in mapper.nodes}
     for identifier, load in load_request_map.items():
-        ip_address = supvisors_mapper.instances[identifier].ip_address
+        ip_address = mapper.instances[identifier].ip_address
         node_load_request_map[ip_address] += load
     return node_load_request_map
 
@@ -313,7 +313,7 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
     # consider all pending starting requests into global load
     load_request_map = supvisors.starter.get_load_requests()
     supvisors.logger.debug(f'get_supvisors_instance: load_request_map={load_request_map}')
-    node_load_request_map = get_node_load_request_map(supvisors.supvisors_mapper, load_request_map)
+    node_load_request_map = get_node_load_request_map(supvisors.mapper, load_request_map)
     supvisors.logger.debug(f'get_supvisors_instance: node_load_request_map={node_load_request_map}')
     # get nodes load
     node_load_map = supvisors.context.get_nodes_load()
@@ -338,7 +338,7 @@ def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList
     identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load)
     # get the corresponding IP address
     if identifier:
-        return supvisors.supvisors_mapper.instances[identifier].ip_address
+        return supvisors.mapper.instances[identifier].ip_address
 
 
 # Strategy management for Conciliation

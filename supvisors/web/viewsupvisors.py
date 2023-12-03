@@ -195,7 +195,7 @@ class SupvisorsView(ViewHandler):
                      and self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION
                      and not self.sup_ctx.master_identifier)
         # create a box for every Supvisors instances
-        identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        identifiers = list(self.supvisors.mapper.instances.keys())
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
         # so let's sort them by name
         if self.supvisors.options.discovery_mode:

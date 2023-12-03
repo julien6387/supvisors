@@ -675,7 +675,7 @@ class RPCInterface(object):
         if wait:
             # if the value is lower than the current one, processes must be stopped before they are deleted
             self.logger.debug(f'RPCInterface._increase_numprocs: new processes={process_namespecs}')
-            local_identifier = self.supvisors.supvisors_mapper.local_identifier
+            local_identifier = self.supvisors.mapper.local_identifier
 
             # mandatory wait until processes are added to Supvisors
             def onwait() -> RPCInterface.OnWaitReturnType:
@@ -704,7 +704,7 @@ class RPCInterface(object):
         """
         # if the value is lower than the current one, processes must be stopped before they are deleted
         self.logger.debug(f'RPCInterface._decrease_numprocs: obsolete processes={process_namespecs}')
-        local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        local_identifier = self.supvisors.mapper.local_identifier
         processes_to_stop = list(filter(lambda x: x.running_on(local_identifier),
                                         [self.supvisors.context.get_process(del_namespec)
                                          for del_namespec in process_namespecs]))
@@ -819,7 +819,7 @@ class RPCInterface(object):
         if wait:
             # get corresponding subprocesses
             subprocesses = self.supvisors.supervisor_data.get_subprocesses(program_name)
-            local_identifier = self.supvisors.supvisors_mapper.local_identifier
+            local_identifier = self.supvisors.mapper.local_identifier
 
             # wait until processes are removed from Supvisors
             def onwait() -> RPCInterface.OnWaitReturnType:
@@ -859,7 +859,7 @@ class RPCInterface(object):
         subprocesses = self.supvisors.supervisor_data.get_subprocesses(program_name)
         # stop all running processes related to the program
         self.logger.debug(f'RPCInterface.disable: {program_name} - processes={subprocesses}')
-        local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        local_identifier = self.supvisors.mapper.local_identifier
         processes_to_stop = list(filter(lambda x: x.running_on(local_identifier),
                                         [self._get_application_process(namespec)[1]
                                          for namespec in subprocesses]))

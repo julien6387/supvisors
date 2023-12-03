@@ -31,7 +31,7 @@ from supvisors.external_com.supvisorszmq import *
 
 @pytest.fixture
 def publisher(supvisors):
-    test_publisher = ZmqEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+    test_publisher = ZmqEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
     yield test_publisher
     test_publisher.close()
     time.sleep(0.5)
@@ -70,7 +70,7 @@ def wait_thread_alive(thr: AsyncEventThread, max_time: int = 5) -> bool:
 def test_external_publish_subscribe(supvisors):
     """ Test the ZeroMQ publish-subscribe sockets used in the event interface of Supvisors. """
     # create publisher and subscriber
-    publisher = ZmqEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+    publisher = ZmqEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
     subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', supvisors.options.event_port,
                                             supvisors.logger)
     subscriber.start()

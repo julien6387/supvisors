@@ -124,7 +124,7 @@ def create_external_publisher(supvisors: Any) -> EventPublisherInterface:
             supvisors.logger.error('create_external_publisher: failed to import websockets')
     # create the publisher instance
     if publisher_class:
-        local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+        local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
         publisher_instance = publisher_class(local_instance, supvisors.logger)
     return publisher_instance
 

@@ -62,7 +62,7 @@ def test_init(http_context, handler):
     assert current_time - 1 < handler.current_time < current_time
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
-    assert handler.local_identifier == handler.supvisors.supvisors_mapper.local_identifier
+    assert handler.local_identifier == handler.supvisors.mapper.local_identifier
     assert handler.has_host_statistics
     assert handler.has_process_statistics
     assert handler.view_ctx is None
@@ -225,7 +225,7 @@ def test_write_nav_instances_identifier_error(handler):
     # test call with no address status in context
     handler.write_nav_instances(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(sorted(handler.supvisors.supvisors_mapper.instances.keys()))]
+    assert mocked_mid.repeat.call_args_list == [call(sorted(handler.supvisors.mapper.instances.keys()))]
     assert address_elt.findmeld.call_args_list == []
 
 
@@ -240,7 +240,7 @@ def test_write_nav_instances_silent_instance(handler):
     handler.sup_ctx.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     handler.write_nav_instances(mocked_root, '10.0.0.2')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(list(handler.supvisors.supvisors_mapper.instances.keys()))]
+    assert mocked_mid.repeat.call_args_list == [call(list(handler.supvisors.mapper.instances.keys()))]
     assert address_elt.attrib['class'] == 'SILENT'
     assert address_elt.findmeld.call_args_list == [call('instance_a_mid')]
     assert href_elt.attrib['class'] == 'off'
@@ -252,7 +252,7 @@ def test_write_nav_instances_silent_instance(handler):
     # test call with address status set in context, SILENT and identical to parameter
     handler.write_nav_instances(mocked_root, '10.0.0.1')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(list(handler.supvisors.supvisors_mapper.instances.keys()))]
+    assert mocked_mid.repeat.call_args_list == [call(list(handler.supvisors.mapper.instances.keys()))]
     assert address_elt.attrib['class'] == 'SILENT active'
     assert address_elt.findmeld.call_args_list == [call('instance_a_mid')]
     assert href_elt.attrib['class'] == 'off'
@@ -270,7 +270,7 @@ def test_write_nav_instances_running_instance(handler):
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # loop on active states
     status = handler.sup_ctx.instances['10.0.0.1']
-    all_identifiers = list(handler.supvisors.supvisors_mapper.instances.keys())
+    all_identifiers = list(handler.supvisors.mapper.instances.keys())
     for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
         # set context
         status._state = state

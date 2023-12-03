@@ -180,37 +180,33 @@ class PublisherServer(threading.Thread):
 
     async def handle_supvisors_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """ Manage the Subscriber TCP client connection. """
-        try:
-            # push writer to clients list
-            client = SubscriberClient(writer, self.heartbeat_message, self.logger)
-            self.logger.info(f'PublisherServer.handle_supvisors_client: new client={str(client)}')
-            self.clients.append(client)
-            # loop until subscriber closed or stop event set
-            while not self.stop_event.is_set() and not reader.at_eof():
-                # read the message
-                msg_as_bytes = await read_stream(reader)
-                if msg_as_bytes is None:
-                    self.logger.error('PublisherServer.handle_supvisors_client: failed to read the message'
-                                      f' from {self.identifier}')
-                    break
-                elif not msg_as_bytes:
-                    self.logger.trace(f'PublisherServer.handle_supvisors_client: nothing to read from {self.identifier}')
-                else:
-                    # a heartbeat message has been received
-                    client.process_heartbeat(msg_as_bytes)
-                # send heartbeat if enough time has passed
-                heartbeat_ok = await client.manage_heartbeat()
-                if not heartbeat_ok:
-                    # exit the loop if heartbeat messages are not received anymore
-                    break
-            # remove writer from clients list (if not already done by handle_publications)
-            if client in self.clients:
-                self.clients.remove(client)
-                writer.close()
-            self.logger.info(f'PublisherServer.handle_supvisors_client: done with client={str(client)}')
-        except:
-            # FIXME: temporary to check that all common exceptions are caught
-            print(f'{traceback.format_exc()}')
+        # push writer to clients list
+        client = SubscriberClient(writer, self.heartbeat_message, self.logger)
+        self.logger.info(f'PublisherServer.handle_supvisors_client: new client={str(client)}')
+        self.clients.append(client)
+        # loop until subscriber closed or stop event set
+        while not self.stop_event.is_set() and not reader.at_eof():
+            # read the message
+            msg_as_bytes = await read_stream(reader)
+            if msg_as_bytes is None:
+                self.logger.error('PublisherServer.handle_supvisors_client: failed to read the message'
+                                  f' from {self.identifier}')
+                break
+            elif not msg_as_bytes:
+                self.logger.trace(f'PublisherServer.handle_supvisors_client: nothing to read from {self.identifier}')
+            else:
+                # a heartbeat message has been received
+                client.process_heartbeat(msg_as_bytes)
+            # send heartbeat if enough time has passed
+            heartbeat_ok = await client.manage_heartbeat()
+            if not heartbeat_ok:
+                # exit the loop if heartbeat messages are not received anymore
+                break
+        # remove writer from clients list (if not already done by handle_publications)
+        if client in self.clients:
+            self.clients.remove(client)
+            writer.close()
+        self.logger.info(f'PublisherServer.handle_supvisors_client: done with client={str(client)}')
 
     async def open_supvisors_server(self):
         """ Start the TCP server for internal messages publication. """
@@ -417,9 +413,9 @@ class InternalAsyncSubscribers:
 
         NOTE: the local Supvisors instance is not considered.
         """
-        identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        identifiers = list(self.supvisors.mapper.instances.keys())
         # remove the local Supvisors instance from the list as it will receive events directly
-        identifiers.remove(self.supvisors.supvisors_mapper.local_identifier)
+        identifiers.remove(self.supvisors.mapper.local_identifier)
         # return the coroutines
         return [self.create_coroutine(identifier) for identifier in identifiers] + [self.check_stop()]
 
@@ -429,7 +425,7 @@ class InternalAsyncSubscribers:
         :param identifier: the identifier structure of the remote Supvisors instance.
         :return:
         """
-        instance_id = self.supvisors.supvisors_mapper.instances.get(identifier)
+        instance_id = self.supvisors.mapper.instances.get(identifier)
         if instance_id:
             self.stop_events[identifier] = stop_event = asyncio.Event()
             subscriber = InternalAsyncSubscriber(instance_id, self.queue, stop_event, self.supvisors.logger)

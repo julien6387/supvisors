@@ -47,7 +47,7 @@ class SupvisorsInternalEmitter:
         # create the Multicast message emitter if the discovery mode is enabled
         self.mc_sender: Optional[MulticastSender] = None
         if self.supvisors.options.discovery_mode:
-            local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+            local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
             self.mc_sender = MulticastSender(local_instance.identifier,
                                              supvisors.options.multicast_group,
                                              supvisors.options.multicast_ttl,
@@ -84,7 +84,7 @@ class SupvisorsInternalEmitter:
 
     def _create_publisher(self) -> InternalPublisher:
         """ Start the Publisher thread. """
-        local_instance: SupvisorsInstanceId = self.supvisors.supvisors_mapper.local_instance
+        local_instance: SupvisorsInstanceId = self.supvisors.mapper.local_instance
         publisher = InternalPublisher(local_instance.identifier, local_instance.internal_port, self.supvisors.logger)
         publisher.start()
         return publisher

@@ -98,7 +98,7 @@ def supvisors_id(supvisors):
 @pytest.fixture
 def local_supvisors_id(supvisors):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId(f'<{supvisors.supvisors_mapper.local_identifier}>10.0.0.1:65000:65001', supvisors)
+    return SupvisorsInstanceId(f'<{supvisors.mapper.local_identifier}>10.0.0.1:65000:65001', supvisors)
 
 
 @pytest.fixture
@@ -146,7 +146,7 @@ def test_create_collector(supvisors, local_supvisors_id, local_status):
     assert local_status.supvisors is supvisors
     assert local_status.logger is supvisors.logger
     assert local_status.supvisors_id is local_supvisors_id
-    assert local_status.identifier == supvisors.supvisors_mapper.local_identifier
+    assert local_status.identifier == supvisors.mapper.local_identifier
     assert local_status.state == SupvisorsInstanceStates.UNKNOWN
     assert local_status.sequence_counter == 0
     assert local_status.local_sequence_counter == 0

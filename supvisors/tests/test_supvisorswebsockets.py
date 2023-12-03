@@ -32,7 +32,7 @@ from supvisors.ttypes import EventHeaders
 
 @pytest.fixture
 def publisher(supvisors):
-    test_publisher = WsEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+    test_publisher = WsEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
     yield test_publisher
     test_publisher.close()
 
@@ -127,7 +127,7 @@ def test_external_publish_subscribe(supvisors):
     # get event port
     port = supvisors.options.event_port
     # create publisher and subscriber
-    publisher = WsEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+    publisher = WsEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
     subscriber = SupvisorsWsEventInterface('localhost', port, supvisors.logger)
     subscriber.start()
     assert wait_thread_alive(publisher.thread)

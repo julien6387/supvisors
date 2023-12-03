@@ -49,12 +49,12 @@ class MockedSupvisors:
         self.options.rules_files = [config['rules_files']]
         # mock the supervisord source
         self.supervisor_data = SupervisorData(self, supervisord)
-        self.supvisors_mapper = SupvisorsMapper(self)
+        self.mapper = SupvisorsMapper(self)
         host_name = gethostname()
         fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
                        f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
-        self.supvisors_mapper.configure(identifiers, {'supvisors_test'}, [])
+        self.mapper.configure(identifiers, {'supvisors_test'}, [])
         self.server_options = Mock(process_indexes={'xclock': 2})
         # set real statistics collectors
         self.host_collector = instant_host_statistics

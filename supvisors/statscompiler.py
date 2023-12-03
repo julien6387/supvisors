@@ -207,7 +207,7 @@ class HostStatisticsCompiler:
             identifier: {period: HostStatisticsInstance(identifier, period, supvisors.options.stats_histo,
                                                         supvisors.logger)
                          for period in supvisors.options.stats_periods}
-            for identifier in supvisors.supvisors_mapper.instances}
+            for identifier in supvisors.mapper.instances}
         self.nb_cores: Dict[str, int] = {}
 
     def get_stats(self, identifier: str, period: int) -> HostStatisticsInstance:

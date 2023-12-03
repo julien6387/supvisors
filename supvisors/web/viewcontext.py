@@ -68,7 +68,7 @@ class ViewContext:
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
         # keep reference to the local identifier
-        self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        self.local_identifier = self.supvisors.mapper.local_identifier
         # initialize parameters
         self.parameters = {}
         self.store_message = None
@@ -119,7 +119,7 @@ class ViewContext:
     def update_identifier(self) -> None:
         """ Extract identifier from context. """
         # assign value found or default
-        self._update_string(IDENTIFIER, self.supvisors.supvisors_mapper.instances, self.local_identifier)
+        self._update_string(IDENTIFIER, self.supvisors.mapper.instances, self.local_identifier)
 
     def update_application_name(self) -> None:
         """ Extract application name from context. """
@@ -204,7 +204,7 @@ class ViewContext:
         netloc = ''
         # build network location if identifier is provided
         if identifier:
-            instance = self.supvisors.supvisors_mapper.instances[identifier]
+            instance = self.supvisors.mapper.instances[identifier]
             netloc = f'http://{quote(instance.host_id)}:{instance.http_port}/'
         # shex must be reset if the Supvisors instance changes
         local_identifier = not identifier or identifier == self.local_identifier

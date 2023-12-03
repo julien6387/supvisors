@@ -55,7 +55,7 @@ class Context:
         # the Supvisors instances declared statically
         self.instances: Context.InstancesMap = {
             identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
-            for identifier, supvisors_id in self.supvisors.supvisors_mapper.instances.items()}
+            for identifier, supvisors_id in self.supvisors.mapper.instances.items()}
         # the applications known to Supvisors
         self.applications: Context.ApplicationsMap = {}
         # start time to manage end of synchronization phase
@@ -86,7 +86,7 @@ class Context:
     @property
     def local_identifier(self) -> str:
         """ Get last local TICK sequence counter, used for node invalidation. """
-        return self.supvisors.supvisors_mapper.local_identifier
+        return self.supvisors.mapper.local_identifier
 
     @property
     def local_status(self) -> SupvisorsInstanceStatus:
@@ -139,7 +139,7 @@ class Context:
             if not self.master_identifier or self.master_identifier not in running_identifiers:
                 # choose Master among the core instances because they are expected to be more stable
                 #   this logic is kept independently of CORE being selected as synchro_options
-                core_identifiers = self.supvisors.supvisors_mapper.core_identifiers
+                core_identifiers = self.supvisors.mapper.core_identifiers
                 self.logger.debug(f'Context.elect_master: core_identifiers={core_identifiers}')
                 if core_identifiers:
                     running_core_identifiers = set(running_identifiers).intersection(core_identifiers)
@@ -221,14 +221,14 @@ class Context:
         """
         return {ip_address: sum(self.instances[identifier].get_load()
                                 for identifier in identifiers)
-                for ip_address, identifiers in self.supvisors.supvisors_mapper.nodes.items()}
+                for ip_address, identifiers in self.supvisors.mapper.nodes.items()}
 
     # methods on instances
     def initial_running(self) -> bool:
         """ Return True if all Supervisor instances are in RUNNING state. """
         return all(status.state == SupvisorsInstanceStates.RUNNING
                    for identifier, status in self.instances.items()
-                   if identifier in self.supvisors.supvisors_mapper.initial_identifiers)
+                   if identifier in self.supvisors.mapper.initial_identifiers)
 
     def all_running(self) -> bool:
         """ Return True if all Supervisor instances are in RUNNING state. """
@@ -244,7 +244,7 @@ class Context:
 
         :return: True if all core SupvisorsInstanceStatus are in RUNNING state
         """
-        core_identifiers = self.supvisors.supvisors_mapper.core_identifiers
+        core_identifiers = self.supvisors.mapper.core_identifiers
         if core_identifiers:
             return all(status.state == SupvisorsInstanceStates.RUNNING
                        for identifier, status in self.instances.items()
@@ -564,7 +564,7 @@ class Context:
         status = self.instances[identifier]
         if not status.in_isolation():
             # update the Supvisors instance with the TICK event
-            self.supvisors.supvisors_mapper.assign_stereotypes(identifier, event['stereotypes'])
+            self.supvisors.mapper.assign_stereotypes(identifier, event['stereotypes'])
             # for remote Supvisors instance, use local Supvisors instance data
             status.update_tick(event['sequence_counter'], event['when'], self.local_sequence_counter, time.time())
             # trigger hand-shake on first TICK received
@@ -585,7 +585,7 @@ class Context:
         ip_address, port = event['ip_address'], event['server_port']
         if identifier not in self.instances:
             item = f'<{identifier}>{ip_address}:{port}:'
-            new_instance = self.supvisors.supvisors_mapper.add_instance(item, True)
+            new_instance = self.supvisors.mapper.add_instance(item, True)
             self.instances[identifier] = SupvisorsInstanceStatus(new_instance, self.supvisors)
             return True
         return False

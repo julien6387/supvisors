@@ -18,6 +18,7 @@
 # ======================================================================
 
 import random
+from socket import getfqdn, gethostname
 from unittest.mock import call
 
 import pytest
@@ -284,7 +285,7 @@ def test_homogeneous_group_resolve_at_wildcard(homogeneous_group):
 def test_homogeneous_group_resolve_at_list(homogeneous_group):
     """ Test the HomogeneousGroup.assign_at_identifiers method. """
     # patch list of instances so that it is smaller than the list of processes
-    mapper = homogeneous_group.supvisors.supvisors_mapper
+    mapper = homogeneous_group.supvisors.mapper
     ref_instances = mapper.instances.copy()
     mapper._instances = {'10.0.0.1': ref_instances['10.0.0.1']}
     # force at-* rules in processes and group
@@ -323,7 +324,7 @@ def test_homogeneous_group_resolve_at_list(homogeneous_group):
 def test_homogeneous_group_resolve_hash_wildcard(homogeneous_group):
     """ Test the HomogeneousGroup.assign_at_identifiers method with wildcard rules and no discovery mode. """
     # patch list of instances so that it is smaller than the list of processes
-    mapper = homogeneous_group.supvisors.supvisors_mapper
+    mapper = homogeneous_group.supvisors.mapper
     ref_instances = mapper.instances.copy()
     mapper._instances = {'10.0.0.1': ref_instances['10.0.0.1'],
                          '10.0.0.2': ref_instances['10.0.0.2']}
@@ -370,7 +371,7 @@ def test_homogeneous_group_resolve_hash_wildcard(homogeneous_group):
 def test_homogeneous_group_resolve_hash_list(homogeneous_group):
     """ Test the HomogeneousGroup.assign_at_identifiers method. """
     # patch list of instances so that it is smaller than the list of processes
-    mapper = homogeneous_group.supvisors.supvisors_mapper
+    mapper = homogeneous_group.supvisors.mapper
     ref_instances = mapper.instances.copy()
     mapper._instances = {'10.0.0.1': ref_instances['10.0.0.1'],
                          '10.0.0.2': ref_instances['10.0.0.2']}
@@ -673,13 +674,59 @@ def test_application_possible_identifiers(supvisors):
     assert application.possible_identifiers() == ['10.0.0.4']
     # test with full status and all instances in rules + re-enable on '10.0.0.1'
     process2.update_disability('10.0.0.1', False)
-    for node_name in supvisors.supvisors_mapper.instances:
+    for node_name in supvisors.mapper.instances:
         process1.add_info(node_name, info.copy())
         process2.add_info(node_name, info.copy())
-    assert sorted(application.possible_identifiers()) == sorted(supvisors.supvisors_mapper.instances.keys())
+    assert sorted(application.possible_identifiers()) == sorted(supvisors.mapper.instances.keys())
     # restrict again instances in rules
     application.rules.identifiers = ['10.0.0.2', '10.0.0.5']
     assert application.possible_identifiers() == ['10.0.0.2', '10.0.0.5']
+
+
+def test_application_possible_node_identifiers(supvisors):
+    """ Test the ApplicationStatus.possible_node_identifiers method.
+    Same test logic as above but update the node mapping before. """
+    # update the node mapping
+    supvisors.mapper._nodes = {'10.0.0.1': ['10.0.0.1', '10.0.0.3', '10.0.0.5'],
+                               '10.0.0.2': ['10.0.0.2', '10.0.0.4'],
+                               getfqdn(): [gethostname(), 'test']}
+    # create the test application
+    application = create_application('ApplicationTest', supvisors)
+    # add a process to the application
+    info = any_process_info_by_state(ProcessStates.STARTING)
+    process1 = create_process(info, supvisors)
+    for node_name in ['10.0.0.2', '10.0.0.3', '10.0.0.4']:
+        process1.add_info(node_name, info.copy())
+    application.add_process(process1)
+    # add another process to the application
+    info = any_stopped_process_info()
+    process2 = create_process(info, supvisors)
+    for node_name in ['10.0.0.1', '10.0.0.4']:
+        process2.add_info(node_name, info.copy())
+    application.add_process(process2)
+    # default identifiers is '*' in process rules
+    assert application.possible_node_identifiers() == ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
+    # set a subset of identifiers in process rules so that there's no intersection with received status
+    application.rules.identifiers = ['10.0.0.1', '10.0.0.2']
+    assert application.possible_node_identifiers() == []
+    # increase received status
+    process1.add_info('10.0.0.1', info.copy())
+    assert application.possible_node_identifiers() == ['10.0.0.1']
+    # disable program on 10.0.0.1
+    process2.update_disability('10.0.0.1', True)
+    assert application.possible_node_identifiers() == []
+    # reset rules
+    application.rules.identifiers = ['*']
+    assert application.possible_node_identifiers() == ['10.0.0.2', '10.0.0.4']
+    # test with full status and all instances in rules + re-enable on '10.0.0.1'
+    process2.update_disability('10.0.0.1', False)
+    for node_name in supvisors.mapper.instances:
+        process1.add_info(node_name, info.copy())
+        process2.add_info(node_name, info.copy())
+    assert sorted(application.possible_node_identifiers()) == sorted(supvisors.mapper.instances.keys())
+    # restrict again instances in rules
+    application.rules.identifiers = ['10.0.0.2', '10.0.0.5']
+    assert application.possible_node_identifiers() == ['10.0.0.2', '10.0.0.5']
 
 
 def test_application_get_instance_processes(supvisors):

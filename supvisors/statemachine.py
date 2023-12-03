@@ -49,7 +49,7 @@ class AbstractState:
         :param supvisors: the global Supvisors structure
         """
         self.supvisors = supvisors
-        self.local_identifier = supvisors.supvisors_mapper.local_identifier
+        self.local_identifier = supvisors.mapper.local_identifier
 
     @property
     def context(self) -> Context:

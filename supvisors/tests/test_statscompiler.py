@@ -288,7 +288,7 @@ def test_host_statistics_compiler_creation(supvisors, host_statistics_compiler):
     """ Test the creation of HostStatisticsCompiler. """
     assert host_statistics_compiler.nb_cores == {}
     identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                   supvisors.supvisors_mapper.local_identifier, 'test']
+                   supvisors.mapper.local_identifier, 'test']
     assert sorted(host_statistics_compiler.instance_map.keys()) == identifiers
     for period_map in host_statistics_compiler.instance_map.values():
         assert sorted(period_map.keys()) == [5.0, 15.0, 60.0]

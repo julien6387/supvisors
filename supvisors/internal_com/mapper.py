@@ -358,17 +358,3 @@ class SupvisorsMapper:
                 self.logger.warn(f'SupvisorsMapper.filter: identifier={identifier} invalid')
         # remove duplicates keeping the same order
         return list(OrderedDict.fromkeys(identifiers))
-
-    def get_nodes(self, identifier_list: NameList) -> NameList:
-        """ Get the IP addresses corresponding to the identifiers.
-        It is expected that the identifier list has been checked before (no exception handling here).
-
-        :param identifier_list: a list of Supvisors identifiers.
-        :return: the corresponding IP addresses.
-        """
-        nodes = []
-        for identifier in identifier_list:
-            node = next(x for x, id_lst in self.nodes.items() if identifier in id_lst)
-            nodes.append(node)
-        # remove duplicates keeping the same order
-        return list(OrderedDict.fromkeys(nodes))

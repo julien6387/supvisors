@@ -94,7 +94,7 @@ class SupervisorListener(object):
     @property
     def local_instance(self) -> SupvisorsInstanceId:
         """ Get the Supvisors logger. """
-        return self.supvisors.supvisors_mapper.local_instance
+        return self.supvisors.mapper.local_instance
 
     @property
     def local_identifier(self) -> str:

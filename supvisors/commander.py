@@ -696,7 +696,7 @@ class ApplicationStartJobs(ApplicationJobs):
         node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load)
         # intersect the identifiers running on the node and the application possible identifiers
         # comprehension based on iteration over application possible identifiers to keep the CONFIG order
-        node_identifiers = list(self.supvisors.supvisors_mapper.nodes.get(node_name, []))
+        node_identifiers = list(self.supvisors.mapper.nodes.get(node_name, []))
         self.identifiers = [identifier for identifier in identifiers if identifier in node_identifiers]
         if self.identifiers:
             self.logger.trace(f'ApplicationStartJobs.distribute_to_single_node: Supvisors={self.identifiers}'

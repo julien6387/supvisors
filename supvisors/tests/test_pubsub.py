@@ -34,7 +34,7 @@ def stop_event():
 @pytest.fixture
 def publisher(supvisors):
     """ Create the InternalPublisher instance to test. """
-    local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+    local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
     emitter = InternalPublisher(local_instance.identifier,
                                 local_instance.internal_port,
                                 supvisors.logger)
@@ -52,7 +52,7 @@ def subscriber(stop_event, supvisors):
     #       that can be tested here
     #       so add a Supvisors instance that has the same parameters as the local Supvisors instance,
     #       but with a different name
-    mapper = supvisors.supvisors_mapper
+    mapper = supvisors.mapper
     local_instance_id: SupvisorsInstanceId = mapper.local_instance
     mapper._instances = {'async_test': local_instance_id,
                          mapper.local_identifier: local_instance_id}
@@ -88,7 +88,7 @@ async def run_async_tasks(subscriber, coroutines, timeout: float):
 @pytest.mark.asyncio
 async def test_global_normal(supvisors, publisher, subscriber, stop_event):
     """ Test the Supvisors TCP publish / subscribe in one single test. """
-    local_identifier = supvisors.supvisors_mapper.local_identifier
+    local_identifier = supvisors.mapper.local_identifier
 
     async def publisher_task():
         # wait for publisher server to be alive
@@ -269,7 +269,7 @@ def test_publisher_bind_exception(supvisors):
     The aim is to hit the lines 220-226 in PublisherServer.open_supvisors_server.
     Checked ok with debugger.
     """
-    local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+    local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
     # create 2 publisher servers
     server1 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)
     server2 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)

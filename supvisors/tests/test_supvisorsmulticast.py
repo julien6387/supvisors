@@ -25,7 +25,7 @@ from supvisors.ttypes import InternalEventHeaders
 @pytest.fixture
 def mc_sender(supvisors):
     """ Create the MulticastSender instance. """
-    sender = MulticastSender(supvisors.supvisors_mapper.local_identifier, ('239.0.0.1', 7777), 0, supvisors.logger)
+    sender = MulticastSender(supvisors.mapper.local_identifier, ('239.0.0.1', 7777), 0, supvisors.logger)
     yield sender
     sender.close()
 
@@ -46,7 +46,7 @@ async def test_multicast(supvisors, mc_sender):
 
     async def check_output():
         """ test of the receiver output """
-        expected = [InternalEventHeaders.TICK.value, [supvisors.supvisors_mapper.local_identifier, {'when': 1234}]]
+        expected = [InternalEventHeaders.TICK.value, [supvisors.mapper.local_identifier, {'when': 1234}]]
         message = await asyncio.wait_for(queue.get(), 2.0)
         # first part of the message is platform-dependent, so avoid to test it
         assert message[1] == expected

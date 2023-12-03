@@ -46,7 +46,7 @@ def test_init(http_context, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
-    assert ctx.local_identifier == ctx.supvisors.supvisors_mapper.local_identifier
+    assert ctx.local_identifier == ctx.supvisors.mapper.local_identifier
     assert ctx.parameters == {'ident': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
@@ -418,7 +418,7 @@ def test_format_url(ctx):
     # test without node and arguments
     assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4&period=5.0&strategy=CONFIG'
     # test with local node and arguments
-    local_instance = ctx.supvisors.supvisors_mapper.local_instance
+    local_instance = ctx.supvisors.mapper.local_instance
     base_address = f'http://{local_instance.host_id}:65000/index.html?'
     url = ctx.format_url(ctx.local_identifier, 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
@@ -463,7 +463,7 @@ def test_get_node_stats(supvisors, ctx):
     """ Test the ViewContext.get_instance_stats method. """
     # test with default address
     instance_stats = ctx.get_instance_stats()
-    assert instance_stats.identifier == supvisors.supvisors_mapper.local_identifier
+    assert instance_stats.identifier == supvisors.mapper.local_identifier
     assert instance_stats.period == 5.0
     # test with unknown identifier
     assert ctx.get_instance_stats('10.0.0.0') is None

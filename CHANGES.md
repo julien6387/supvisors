@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.17.2 (2023-xx-x)
+## 0.17.2 (2023-12-04)
 
 * Fix rare I/O exception by joining the `SupervisorsProxy` thread before exiting the `SupvisorsMainLoop`.
 

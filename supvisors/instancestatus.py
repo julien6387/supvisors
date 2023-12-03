@@ -139,7 +139,7 @@ class SupvisorsInstanceStatus:
         self.state_modes = StateModes()
         # the local instance may use the process statistics collector
         self.process_collector = None
-        is_local = supvisors.supvisors_mapper.local_identifier == self.identifier
+        is_local = supvisors.mapper.local_identifier == self.identifier
         if is_local:
             # use the condition to set the local discovery mode in states / modes object
             self.state_modes.discovery_mode = supvisors.options.discovery_mode

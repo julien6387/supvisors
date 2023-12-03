@@ -45,7 +45,7 @@ def test_creation_no_collector(mocker, supvisors):
     listener = SupervisorListener(supvisors)
     # check attributes
     assert listener.supvisors == supvisors
-    assert listener.local_instance == supvisors.supvisors_mapper.local_instance
+    assert listener.local_instance == supvisors.mapper.local_instance
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
     assert (SupervisorRunningEvent, listener.on_running) in callbacks
@@ -65,7 +65,7 @@ def test_creation(supvisors, listener):
     """ Test the values set at construction. """
     # check attributes
     assert listener.supvisors is supvisors
-    assert listener.local_instance == supvisors.supvisors_mapper.local_instance
+    assert listener.local_instance == supvisors.mapper.local_instance
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
     assert (SupervisorRunningEvent, listener.on_running) in callbacks
