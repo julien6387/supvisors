@@ -337,8 +337,10 @@ class ProcessStatisticsCollector:
         if self.process.exitcode != 0:
             # the process did not end by itself, use hard termination
             self.logger.error('ProcessStatisticsCollector.stop: exit failed')
-            self.process.kill()
+            # NOTE: kill introduced from Python 3.7
+            self.process.terminate()
             self.process.join(timeout=self.STOP_TIMEOUT)
-            self.logger.debug(f'ProcessStatisticsCollector.stop: kill exitcode={self.process.exitcode}')
-            if self.process.exitcode != signal.SIGKILL:
-                self.logger.critical(f'ProcessStatisticsCollector.stop: kill failed exitcode={self.process.exitcode}')
+            self.logger.debug(f'ProcessStatisticsCollector.stop: terminate exitcode={self.process.exitcode}')
+            if self.process.exitcode != signal.SIGTERM:
+                self.logger.critical('ProcessStatisticsCollector.stop: terminate failed'
+                                     f' exitcode={self.process.exitcode}')
