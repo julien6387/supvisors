@@ -72,7 +72,7 @@ async def test_read_stream_header_timeout(push_pull):
         assert await read_stream(reader) == b''
 
     async def write_test():
-        await asyncio.open_unix_connection(sock=push_pull[1])
+        _, writer = await asyncio.open_unix_connection(sock=push_pull[1])
         await asyncio.sleep(1.5)
 
     await asyncio.gather(read_test(), write_test())
