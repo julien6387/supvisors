@@ -757,8 +757,9 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
     """ Test the ApplicationStartJobs.distribute_to_single_node method. """
     mocked_get_node = mocker.patch('supvisors.commander.get_node')
     mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
-    possible_identifiers = ['10.0.0.1', '10.0.0.2', supvisors.supvisors_mapper.local_identifier, 'test']
-    mocker.patch.object(application_start_job_1.application, 'possible_identifiers', return_value=possible_identifiers)
+    possible_identifiers = ['10.0.0.1', '10.0.0.2', supvisors.mapper.local_identifier, 'test']
+    mocker.patch.object(application_start_job_1.application, 'possible_node_identifiers',
+                        return_value=possible_identifiers)
     mocker.patch.object(application_start_job_1.application, 'get_start_sequence_expected_load', return_value=27)
     # set context
     application_start_job_1.distribution = DistributionRules.SINGLE_NODE
@@ -774,10 +775,10 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
                for command in sequence)
     mocker.resetall()
     # test resource found
-    mocked_get_node.return_value = supvisors.supvisors_mapper.instances['test'].host_id
+    mocked_get_node.return_value = supvisors.mapper.instances['test'].host_id
     mocked_get_instance.return_value = '10.0.0.1'
     application_start_job_1.distribute_to_single_node()
-    expected_identifiers = [supvisors.supvisors_mapper.local_identifier, 'test']
+    expected_identifiers = [supvisors.mapper.local_identifier, 'test']
     assert application_start_job_1.identifiers == expected_identifiers
     assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
     expected = [call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 10),
@@ -870,7 +871,6 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not application_start_job_1.process_job(command)
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
-    local_identifier = supvisors.supvisors_mapper.local_identifier
     assert mocked_force.call_args_list == [call(command.process, '', 1234.56,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]

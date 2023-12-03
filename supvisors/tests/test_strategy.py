@@ -35,7 +35,7 @@ def mock_instance(mocker, status: SupvisorsInstanceStatus, node_state: Supvisors
 
 @pytest.fixture
 def filled_instances(mocker, supvisors):
-    local_identifier = supvisors.supvisors_mapper.local_identifier
+    local_identifier = supvisors.mapper.local_identifier
     instances = supvisors.context.instances
     mock_instance(mocker, instances[local_identifier], SupvisorsInstanceStates.RUNNING, 50)
     mock_instance(mocker, instances['10.0.0.1'], SupvisorsInstanceStates.SILENT, 0)
@@ -49,8 +49,8 @@ def filled_instances(mocker, supvisors):
 
 @pytest.fixture
 def load_details(supvisors):
-    local_identifier = supvisors.supvisors_mapper.local_identifier
-    local_node_name = supvisors.supvisors_mapper.instances[local_identifier].host_id
+    local_identifier = supvisors.mapper.local_identifier
+    local_node_name = supvisors.mapper.instances[local_identifier].host_id
     return ({local_identifier: 0, '10.0.0.3': 10, '10.0.0.5': 20, 'test': 10},
             {local_node_name: 50, '10.0.0.3': 20, '10.0.0.5': 80},
             {local_node_name: 10, '10.0.0.3': 10, '10.0.0.5': 20})
@@ -64,7 +64,7 @@ def starting_strategy(filled_instances):
 
 def test_is_loading_valid(starting_strategy, load_details):
     """ Test the validity of an address with an additional loading. """
-    local_identifier = starting_strategy.supvisors.supvisors_mapper.local_identifier
+    local_identifier = starting_strategy.supvisors.mapper.local_identifier
     # test loaded RUNNING instances
     assert starting_strategy.is_loading_valid(local_identifier, 55, load_details) == (False, 60, 50)
     assert starting_strategy.is_loading_valid('10.0.0.3', 85, load_details) == (False, 30, 30)
@@ -78,7 +78,7 @@ def test_is_loading_valid(starting_strategy, load_details):
 def test_get_loading_and_validity(starting_strategy, load_details):
     """ Test the determination of the valid addresses with an additional loading. """
     # test valid addresses with different additional loadings
-    local_identifier = starting_strategy.supvisors.supvisors_mapper.local_identifier
+    local_identifier = starting_strategy.supvisors.mapper.local_identifier
     identifiers = list(load_details[0].keys())
     # first test
     expected = {local_identifier: (True, 60, 50), '10.0.0.3': (True, 30, 30), '10.0.0.5': (False, 100, 100),
@@ -115,7 +115,7 @@ def test_sort_valid_by_instance_load(starting_strategy):
 
 def test_abstract_get_node(starting_strategy):
     """ Test that the AbstractStartingStrategy.get_supvisors_instance method is not implemented. """
-    instances = starting_strategy.supvisors.supvisors_mapper.instances
+    instances = starting_strategy.supvisors.mapper.instances
     with pytest.raises(NotImplementedError):
         starting_strategy.get_supvisors_instance(instances, 0, {})
 
@@ -124,7 +124,7 @@ def test_config_strategy(filled_instances, load_details):
     """ Test the choice of an identifier according to the CONFIG strategy. """
     strategy = ConfigStrategy(filled_instances)
     # test CONFIG strategy with different values
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     assert strategy.get_supvisors_instance(instances, 0, load_details) == local_identifier
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
@@ -137,7 +137,7 @@ def test_less_loaded_strategy(filled_instances, load_details):
     """ Test the choice of an identifier according to the LESS_LOADED strategy. """
     strategy = LessLoadedStrategy(filled_instances)
     # test LESS_LOADED strategy with different values
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     assert strategy.get_supvisors_instance(instances, 0, load_details) == 'test'
     assert strategy.get_supvisors_instance(instances, 15, load_details) == 'test'
@@ -150,7 +150,7 @@ def test_less_loaded_node_strategy(filled_instances, load_details):
     """ Test the choice of an identifier according to the LESS_LOADED_NODE strategy. """
     strategy = LessLoadedNodeStrategy(filled_instances)
     # test LESS_LOADED strategy with different values
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.3'
     assert strategy.get_supvisors_instance(instances, 15, load_details) == '10.0.0.3'
@@ -163,7 +163,7 @@ def test_most_loaded_strategy(filled_instances, load_details):
     """ Test the choice of an identifier according to the MOST_LOADED strategy. """
     strategy = MostLoadedStrategy(filled_instances)
     # test MOST_LOADED strategy with different values
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5'
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
@@ -176,7 +176,7 @@ def test_most_loaded_node_strategy(filled_instances, load_details):
     """ Test the choice of an identifier according to the MOST_LOADED_NODE strategy. """
     strategy = MostLoadedNodeStrategy(filled_instances)
     # test MOST_LOADED strategy with different values
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5'
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
@@ -189,9 +189,9 @@ def test_local_strategy(filled_instances, load_details):
     """ Test the choice of an address according to the LOCAL strategy. """
     strategy = LocalStrategy(filled_instances)
     # test LOCAL strategy with different values
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
-    assert strategy.supvisors.supvisors_mapper.local_identifier == local_identifier
+    assert strategy.supvisors.mapper.local_identifier == local_identifier
     assert strategy.get_supvisors_instance(instances, 0, load_details) == local_identifier
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
     assert strategy.get_supvisors_instance(instances, 45, load_details) is None
@@ -202,7 +202,7 @@ def test_local_strategy(filled_instances, load_details):
 
 def test_get_supvisors_instance_no_candidate(supvisors):
     """ Test the choice of a Supvisors instance according to a strategy when no candidate is available. """
-    local_identifier = supvisors.supvisors_mapper.local_identifier
+    local_identifier = supvisors.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     assert get_supvisors_instance(supvisors, StartingStrategies.CONFIG, instances, 0) is None
     assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED, instances, 0) is None
@@ -216,7 +216,7 @@ def test_get_supvisors_instance(filled_instances, load_details):
     """ Test the choice of a Supvisors instance according to a strategy. """
     filled_instances.starter.get_load_requests.return_value = load_details[0]
     # context
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     # test CONFIG strategy
     strategy = StartingStrategies.CONFIG
@@ -248,7 +248,7 @@ def test_get_node(mocker, filled_instances):
     """ Test the choice of a node according to a strategy. """
     mocked_get_instance = mocker.patch('supvisors.strategy.get_supvisors_instance', return_value=None)
     # context
-    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     # test with no instance found
     strategy = StartingStrategies.CONFIG
@@ -256,7 +256,7 @@ def test_get_node(mocker, filled_instances):
     # test with no instance found
     mocked_get_instance.return_value = 'test'
     strategy = StartingStrategies.CONFIG
-    local_instance = filled_instances.supvisors_mapper.instances[local_identifier]
+    local_instance = filled_instances.mapper.instances[local_identifier]
     assert get_node(filled_instances, strategy, instances, 27) == local_instance.host_id
 
 

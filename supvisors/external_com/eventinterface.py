@@ -26,6 +26,9 @@ from supervisor.loggers import Logger
 from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.ttypes import EventHeaders, EventLinks, Payload
 
+# timeout for async operations, in seconds
+ASYNC_TIMEOUT = 1.0
+
 
 class EventPublisherInterface:
     """ Interface for the publication of Supvisors events. """
@@ -121,7 +124,7 @@ def create_external_publisher(supvisors: Any) -> EventPublisherInterface:
             supvisors.logger.error('create_external_publisher: failed to import websockets')
     # create the publisher instance
     if publisher_class:
-        local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+        local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
         publisher_instance = publisher_class(local_instance, supvisors.logger)
     return publisher_instance
 
@@ -389,11 +392,12 @@ class AsyncEventThread(Thread):
         # start the task and wait for its termination
         self.loop.run_until_complete(self.coro(self.stop_event, self.node_name, self.event_port))
         self.loop.close()
+        self.loop = None
 
     def stop(self):
         """ Stop the websocket service or client. """
         if self.loop and self.loop.is_running() and self.stop_event and not self.stop_event.is_set():
             # fire the event within the event loop
-            async def stopit():
+            async def stop_it():
                 self.stop_event.set()
-            asyncio.run_coroutine_threadsafe(stopit(), self.loop).result()
+            asyncio.run_coroutine_threadsafe(stop_it(), self.loop).result()

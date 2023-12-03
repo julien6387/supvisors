@@ -31,7 +31,7 @@ from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, Su
 @pytest.fixture
 def supvisors_ctx(supvisors):
     """ Create a Supvisors-like structure filled with some instances. """
-    local_identifier = supvisors.supvisors_mapper.local_identifier
+    local_identifier = supvisors.mapper.local_identifier
     nodes = supvisors.context.instances
     nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
@@ -50,7 +50,7 @@ def test_abstract_state(mocker, supvisors_ctx):
     mocker.patch.object(supvisors_ctx.starter, 'in_progress', return_value=False)
     # check attributes at creation
     assert state.supvisors is supvisors_ctx
-    assert state.local_identifier == supvisors_ctx.supvisors_mapper.local_identifier
+    assert state.local_identifier == supvisors_ctx.mapper.local_identifier
     # call empty methods
     state.enter()
     state.next()
@@ -118,7 +118,7 @@ def test_initialization_state_enter(mocker, init_state):
 
 def test_initialization_state_check_end_sync_strict(init_state):
     """ Test the Initialization state of the FSM / _check_end_sync_strict method. """
-    init_state.supvisors.supvisors_mapper.initial_identifiers = ['10.0.0.1', '10.0.0.2']
+    init_state.supvisors.mapper.initial_identifiers = ['10.0.0.1', '10.0.0.2']
     assert init_state.context.instances['10.0.0.1']._state == SupvisorsInstanceStates.SILENT
     assert init_state.context.instances['10.0.0.2']._state == SupvisorsInstanceStates.RUNNING
     # test with option STRICT not set
@@ -339,7 +339,7 @@ def test_master_operation_state(mocker, supvisors_ctx):
     assert result == SupvisorsStates.OPERATION
     mocked_stop.return_value = False
     # create instance context
-    for instance_id in supvisors_ctx.supvisors_mapper.instances.values():
+    for instance_id in supvisors_ctx.mapper.instances.values():
         status = SupvisorsInstanceStatus(instance_id, supvisors_ctx)
         supvisors_ctx.context.instances[instance_id.identifier] = status
     # no starting or stopping is in progress
@@ -808,8 +808,8 @@ def test_tick_event(mocker, fsm):
     assert mocked_evt.call_args_list == [call('10.0.0.1', event)]
     mocker.resetall()
     # test when tick comes from local node
-    local_identifier = fsm.supvisors.supvisors_mapper.local_identifier
-    event['ip_address'] = fsm.supvisors.supvisors_mapper.local_instance.ip_address
+    local_identifier = fsm.supvisors.mapper.local_identifier
+    event['ip_address'] = fsm.supvisors.mapper.local_instance.ip_address
     fsm.on_tick_event(local_identifier, event)
     assert mocked_evt.call_args_list == [call(local_identifier, event)]
 
@@ -1121,7 +1121,7 @@ def test_on_state_event(mocker, fsm):
     assert not mocked_set.called
     assert not mocked_next.called
     # test change in the Master identifier and local Supvisors instance is involved
-    fsm.supvisors.supvisors_mapper.local_identifier = '10.0.0.2'
+    fsm.supvisors.mapper.local_identifier = '10.0.0.2'
     fsm.context.master_identifier = '10.0.0.2'
     fsm.context.master_instance._state = SupvisorsInstanceStates.RUNNING
     fsm.context.master_instance.state_modes.state = SupvisorsStates.OPERATION

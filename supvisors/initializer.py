@@ -92,11 +92,11 @@ class Supvisors:
         # configure supervisor data wrapper
         self.supervisor_data = SupervisorData(self, supervisor)
         # get declared Supvisors instances and check local identifier
-        self.supvisors_mapper = SupvisorsMapper(self)
+        self.mapper = SupvisorsMapper(self)
         try:
-            self.supvisors_mapper.configure(self.options.supvisors_list,
-                                            self.options.stereotypes,
-                                            self.options.core_identifiers)
+            self.mapper.configure(self.options.supvisors_list,
+                                  self.options.stereotypes,
+                                  self.options.core_identifiers)
         except ValueError:
             self.logger.critical('Supvisors: Wrong Supvisors configuration (supvisors_list)')
             raise
@@ -110,7 +110,7 @@ class Supvisors:
                 self.host_collector = instant_host_statistics
             if self.options.process_stats_enabled:
                 from .statscollector import ProcessStatisticsCollector
-                self.process_collector = ProcessStatisticsCollector(self.options.collecting_period)
+                self.process_collector = ProcessStatisticsCollector(self.options.collecting_period, self.logger)
         except (ImportError, ModuleNotFoundError):
             self.logger.info('Supvisors: psutil not installed')
             self.logger.warn('Supvisors: this Supvisors instance cannot not collect statistics')

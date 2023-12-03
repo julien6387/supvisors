@@ -113,21 +113,25 @@ class HostStatisticsInstance:
         self.mem.append(mem_value)
         trunc_depth(self.mem, self.depth)
 
-    def _push_io_stats(self, io_stats: InterfaceIntegratedStats) -> None:
-        """ Add new IO statistics. """
+    def _push_io_stats(self, io_stats: InterfaceIntegratedStats, uptime: float) -> None:
+        """ Add new IO statistics.
+        Unlike CPU and Mem, IO may be variable in time, depending on the actions on the network configuration.
+        So the time_value must be associated with the IO values. """
         # on certain node configurations, interface list may be dynamic
         # unlike processes, it is interesting to log when it happens
         destroy_list = []
-        for intf, (recv_stats, sent_stats) in self.io.items():
+        for intf, (uptimes, recv_stats, sent_stats) in self.io.items():
             new_bytes = io_stats.pop(intf, None)
             if new_bytes is None:
                 # element is obsolete
                 destroy_list.append(intf)
             else:
                 recv_bytes, sent_bytes = new_bytes
+                uptimes.append(uptime)
                 recv_stats.append(recv_bytes)
                 sent_stats.append(sent_bytes)
                 # remove too old values when max depth is reached
+                trunc_depth(uptimes, self.depth)
                 trunc_depth(recv_stats, self.depth)
                 trunc_depth(sent_stats, self.depth)
         # destroy obsolete elements
@@ -139,7 +143,7 @@ class HostStatisticsInstance:
         for intf, (recv_bytes, sent_bytes) in io_stats.items():
             self.logger.warn(f'StatisticsInstance.push_io_stats: new interface={intf} on {self.identifier}'
                              f' (period={self.period})')
-            self.io[intf] = [recv_bytes], [sent_bytes]
+            self.io[intf] = [uptime], [recv_bytes], [sent_bytes]
 
     def integrate(self, last: Payload) -> IntegratedHostStatistics:
         """ Return resources' statistics from two series of measures. """
@@ -170,7 +174,7 @@ class HostStatisticsInstance:
                 self._push_times_stats(uptime)
                 self._push_cpu_stats(cpu)
                 self._push_mem_stats(mem)
-                self._push_io_stats(io)
+                self._push_io_stats(io, uptime)
                 # new stats become the reference stats for next integration
                 self.ref_stats = stats
         else:
@@ -179,7 +183,7 @@ class HostStatisticsInstance:
             self.ref_start_time = stats['now']
             # init some data structures
             self.cpu = [[] for _ in stats['cpu']]
-            self.io = {intf: ([], []) for intf in stats['io']}
+            self.io = {intf: ([], [], []) for intf in stats['io']}
         return result
 
 
@@ -203,7 +207,7 @@ class HostStatisticsCompiler:
             identifier: {period: HostStatisticsInstance(identifier, period, supvisors.options.stats_histo,
                                                         supvisors.logger)
                          for period in supvisors.options.stats_periods}
-            for identifier in supvisors.supvisors_mapper.instances}
+            for identifier in supvisors.mapper.instances}
         self.nb_cores: Dict[str, int] = {}
 
     def get_stats(self, identifier: str, period: int) -> HostStatisticsInstance:

@@ -20,7 +20,6 @@
 from unittest.mock import call, Mock
 
 import pytest
-from supervisor.loggers import LOG_LEVELS_BY_NUM
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 
 from supvisors.instancestatus import StateModes
@@ -1130,7 +1129,7 @@ def test_update_numprocs_increase(mocker, rpc):
 def test_increase_numprocs(mocker, rpc):
     """ Test the RPCInterface._increase_numprocs method. """
     # get patches
-    local_identifier = rpc.supvisors.supvisors_mapper.local_identifier
+    local_identifier = rpc.supvisors.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={}, **{'running_on.return_value': False})
     process_2 = Mock(namespec='process_2', info_map={}, **{'running_on.return_value': False})
     process_3 = Mock(namespec='process_3', info_map={}, **{'running_on.return_value': False})
@@ -1181,7 +1180,7 @@ def test_decrease_numprocs_no_stop(mocker, rpc):
     mocked_stop = rpc.supvisors.stopper.stop_process
     mocked_next = rpc.supvisors.stopper.next
     mocked_progress = rpc.supvisors.stopper.in_progress
-    local_identifier = rpc.supvisors.supvisors_mapper.local_identifier
+    local_identifier = rpc.supvisors.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     process_3 = Mock(namespec='process_3', info_map={local_identifier: {}}, **{'running_on.return_value': False})
@@ -1228,7 +1227,7 @@ def test_decrease_numprocs_stop(mocker, rpc):
     mocked_stop = rpc.supvisors.stopper.stop_process
     mocked_next = rpc.supvisors.stopper.next
     mocked_progress = rpc.supvisors.stopper.in_progress
-    local_identifier = rpc.supvisors.supvisors_mapper.local_identifier
+    local_identifier = rpc.supvisors.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}}, **{'running_on.return_value': True})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}}, **{'running_on.return_value': True})
     process_3 = Mock(namespec='process_3', info_map={local_identifier: {}}, **{'running_on.return_value': False})
@@ -1356,7 +1355,7 @@ def test_disable_no_stop(mocker, rpc):
     mocked_get.side_effect = lambda x: (None, get_map[x])
     mocked_progress.return_value = True
     # test RPC call with known program
-    local_identifier = rpc.supvisors.supvisors_mapper.local_identifier
+    local_identifier = rpc.supvisors.mapper.local_identifier
     rpc.supvisors.server_options.program_processes = {'dummy_program': {}}
     assert rpc.disable('dummy_program')
     assert mocked_check.call_args_list == [call()]
@@ -1388,7 +1387,7 @@ def test_disable_stop_no_wait(mocker, rpc):
     mocked_get.side_effect = lambda x: (None, get_map[x])
     mocked_progress.return_value = True
     # test RPC call with known program
-    local_identifier = rpc.supvisors.supvisors_mapper.local_identifier
+    local_identifier = rpc.supvisors.mapper.local_identifier
     rpc.supvisors.server_options.program_processes = {'dummy_program': {}}
     assert rpc.disable('dummy_program', False) is True
     assert mocked_check.call_args_list == [call()]
@@ -1420,7 +1419,7 @@ def test_disable_stop_wait(mocker, rpc):
     mocked_get.side_effect = lambda x: (None, get_map[x])
     mocked_progress.return_value = True
     # test RPC call with known program
-    local_identifier = rpc.supvisors.supvisors_mapper.local_identifier
+    local_identifier = rpc.supvisors.mapper.local_identifier
     rpc.supvisors.server_options.program_processes = {'dummy_program': {}}
     deferred = rpc.disable('dummy_program', True)
     assert callable(deferred)

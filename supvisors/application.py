@@ -24,7 +24,7 @@ from supervisor.loggers import Logger
 from supervisor.states import ProcessStates
 
 from .process import ProcessStatus
-from .ttypes import (ApplicationStates, DistributionRules, NameList, Payload, StartingStrategies,
+from .ttypes import (ApplicationStates, DistributionRules, NameList, NameSet, Payload, StartingStrategies,
                      StartingFailureStrategies, RunningFailureStrategies)
 from .utils import WILDCARD
 
@@ -110,7 +110,7 @@ class ApplicationRules:
                                   f' application_number={application_number}')
                 if '*' in self.hash_identifiers:
                     # all identifiers defined in the supvisors section of the supervisor configuration are applicable
-                    ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+                    ref_identifiers = list(self.supvisors.mapper.instances.keys())
                 else:
                     # the subset of applicable identifiers is the hash_identifiers
                     ref_identifiers = self.hash_identifiers
@@ -272,11 +272,11 @@ class HomogeneousGroup:
             # get instances
             if WILDCARD in self.at_identifiers:
                 # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
-                ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+                ref_identifiers = list(self.supvisors.mapper.instances.keys())
             else:
                 # the subset of applicable identifiers is the second element of rule 'identifiers'
                 # filter the unknown identifiers (or remaining aliases)
-                ref_identifiers = self.supvisors.supvisors_mapper.filter(self.at_identifiers)
+                ref_identifiers = self.supvisors.mapper.filter(self.at_identifiers)
             self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
                               f' ref_identifiers={ref_identifiers}')
             # the aim of at_identifiers is to distribute the processes over a list of Supvisors instances,
@@ -318,11 +318,11 @@ class HomogeneousGroup:
             # get instances
             if WILDCARD in self.hash_identifiers:
                 # all identifiers defined in the supvisors section of the supervisor configuration file are applicable
-                ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+                ref_identifiers = list(self.supvisors.mapper.instances.keys())
             else:
                 # the subset of applicable identifiers is the second element of rule 'identifiers'
                 # filter the unknown identifiers (or remaining aliases)
-                ref_identifiers = self.supvisors.supvisors_mapper.filter(self.hash_identifiers)
+                ref_identifiers = self.supvisors.mapper.filter(self.hash_identifiers)
             self.logger.debug(f'ProcessRules.assign_hash_identifiers: program={self.program_name}'
                               f' ref_identifiers={ref_identifiers}')
             # the aim of hash_identifiers is to distribute the processes over a list of Supvisors instances, so
@@ -524,31 +524,87 @@ class ApplicationStatus:
             self.process_groups[program].resolve_rules()
 
     def possible_identifiers(self) -> NameList:
-        """ Return the list of Supervisor identifiers where the application could be started.
+        """ Return the list of Supervisor identifiers where the application could be started, assuming that its
+        processes cannot be distributed over multiple Supvisors instances.
         To achieve that, three conditions:
-            - the Supervisor must know all the application programs ;
-            - the Supervisor identifier must be declared in the rules file ;
+            - the Supervisor shall know all the application programs (real-time configuration) ;
+            - the Supervisor identifier shall be allowed (explicitly or implicitly) in the rules file ;
             - the programs shall not be disabled.
 
-        :return: the list of identifiers where the program could be started
+        :return: the list of identifiers where the program could be started.
         """
         rules_identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
-            filtered_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+            filtered_identifiers = list(self.supvisors.mapper.instances.keys())
         else:
             # filter the unknown identifiers (due to Supvisors discovery mode, any identifier may be lately known)
-            filtered_identifiers = self.supvisors.supvisors_mapper.filter(rules_identifiers)
-        # get the identifiers common to all application processes
-        actual_identifiers = [{identifier
-                               for identifier, info in process.info_map.items()
-                               if not info['disabled']}
-                              for process in self.processes.values()]
+            filtered_identifiers = self.supvisors.mapper.filter(rules_identifiers)
+        # get the identifiers of all application processes
+        actual_identifiers: List[NameSet] = [{identifier
+                                              for identifier, info in process.info_map.items()
+                                              if not info['disabled']}
+                                             for process in self.processes.values()]
         if actual_identifiers:
+            # the common list is the intersection of all subsets
             actual_identifiers = actual_identifiers[0].intersection(*actual_identifiers)
+        self.logger.debug(f'ApplicationStatus.possible_identifiers: application_name={self.application_name}'
+                          f' actual_identifiers={actual_identifiers}')
         # intersect with rules
         return [identifier
-                for identifier in actual_identifiers
-                if identifier in filtered_identifiers]
+                for identifier in filtered_identifiers
+                if identifier in actual_identifiers]
+
+    def possible_node_identifiers(self) -> NameList:
+        """ Same principle as possible_identifiers, excepted that the possibilities are built from the nodes
+        rather than from the strict identifiers.
+
+        Note: Some elements in the returned list of identifiers may not fit to the possibilities got from the
+              intermediate actual_identifiers, that is based on the real-time configurations.
+
+        :return: the list of identifiers where the program could be started.
+        """
+        rules_identifiers = self.rules.identifiers
+        if '*' in self.rules.identifiers:
+            filtered_identifiers = list(self.supvisors.mapper.instances.keys())
+        else:
+            # filter the unknown identifiers (due to Supvisors discovery mode, any identifier may be lately known)
+            filtered_identifiers = self.supvisors.mapper.filter(rules_identifiers)
+        # get the identifiers of all application processes
+        actual_identifiers: List[NameSet] = [{identifier
+                                              for identifier, info in process.info_map.items()
+                                              if not info['disabled']}
+                                             for process in self.processes.values()]
+        self.logger.trace(f'ApplicationStatus.possible_node_identifiers: application_name={self.application_name}'
+                          f' actual_identifiers={actual_identifiers}')
+        # test nodes individually
+        all_node_identifiers = set()
+        for node, identifiers_list in self.supvisors.mapper.nodes.items():
+            # from all node identifiers, intersect with rules identifiers
+            filtered_node_identifiers = {x for x in identifiers_list if x in filtered_identifiers}
+            self.logger.trace(f'ApplicationStatus.possible_node_identifiers: application_name={self.application_name}'
+                              f' node={node} filtered_node_identifiers={filtered_node_identifiers}')
+            # check that every process has a solution on the node
+            config_identifiers = set()
+            for process_identifiers in actual_identifiers:
+                process_node_identifiers = filtered_node_identifiers & set(process_identifiers)
+                if not process_node_identifiers:
+                    self.logger.debug('ApplicationStatus.possible_node_identifiers:'
+                                      f' application_name={self.application_name} has no solution on node={node}')
+                    break
+                # add remaining identifiers to the intersections union
+                config_identifiers.update(process_node_identifiers)
+            else:
+                self.logger.debug('ApplicationStatus.possible_node_identifiers:'
+                                  f' application_name={self.application_name} node={node}'
+                                  f' solution={config_identifiers}')
+                # add the node solution to the application solutions
+                all_node_identifiers.update(config_identifiers)
+        self.logger.debug(f'ApplicationStatus.possible_node_identifiers: application_name={self.application_name}'
+                          f' all_node_identifiers={all_node_identifiers}')
+        # return the node identifiers keeping the ordering defined in rules
+        return [identifier
+                for identifier in filtered_identifiers
+                if identifier in all_node_identifiers]
 
     def get_instance_processes(self, identifier: str) -> ProcessList:
         """ Return the list of application processes configured in the Supervisor instance.

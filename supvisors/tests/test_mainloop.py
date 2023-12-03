@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -28,6 +27,7 @@ from supvisors.internal_com.mainloop import *
 from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.ttypes import SupvisorsInstanceStates
 from .base import DummyRpcInterface
+from .conftest import wait_internal_publisher
 
 
 @pytest.fixture
@@ -73,7 +73,6 @@ def test_proxy_run(mocker, proxy):
     assert not mocked_exec.called
     mocked_send.reset_mock()
     # send a discovery event
-    proxy.supvisors.logger.debug = print
     message = ('10.0.0.2', 51243), (InternalEventHeaders.DISCOVERY.value, ('10.0.0.2', {'when': 4321}))
     proxy.push_event(message)
     time.sleep(1.0)
@@ -401,12 +400,34 @@ def test_proxy_execute(mocker, proxy):
                DeferredRequestHeaders.SHUTDOWN_ALL, ('10.0.0.2',))
 
 
+def wait_loop_connected(main_loop: SupvisorsMainLoop, max_time: int = 10) -> bool:
+    """ Wait for publisher to be alive. """
+    nb_tries = max_time
+    while nb_tries > 0 and not (main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients)):
+        time.sleep(1.0)
+        nb_tries -= 1
+    return main_loop.is_alive() and len(main_loop.supvisors.internal_com.publisher.clients) == 1
+
+
 @pytest.fixture
 def main_loop(supvisors):
+    """ Create the SupvisorsMainLoop instance to test. """
     # activate discovery mode
     supvisors.options.multicast_group = '239.0.0.1', 7777
+    # WARN: local instance has been removed from the subscribers, but it's actually the only instance
+    #       that can be tested here
+    #       so add a Supvisors instance that has the same parameters as the local Supvisors instance,
+    #       but with a different name
+    mapper = supvisors.mapper
+    local_instance_id: SupvisorsInstanceId = mapper.local_instance
+    mapper._instances = {'10.0.0.1': mapper.instances['10.0.0.1'],
+                         'async_test': local_instance_id,
+                         mapper.local_identifier: local_instance_id}
     # WARN: a real SupvisorsInternalEmitter must have been created before
     supvisors.internal_com = SupvisorsInternalEmitter(supvisors)
+    # wait for the publisher to be alive to avoid stop issues
+    wait_internal_publisher(supvisors.internal_com.publisher)
+    # create the main loop
     loop = SupvisorsMainLoop(supvisors)
     yield loop
     # close the SupvisorsInternalEmitter at the end of the test
@@ -419,7 +440,6 @@ def test_mainloop_creation(supvisors, main_loop):
     assert main_loop.supvisors is supvisors
     assert main_loop.receiver is None
     assert type(main_loop.proxy) is SupervisorProxy
-    # start and stop
 
 
 def test_mainloop_stop(mocker, main_loop):
@@ -439,27 +459,27 @@ def test_mainloop_stop(mocker, main_loop):
 
 def test_mainloop_run(mocker, main_loop):
     """ Test the running of the main loop thread. """
-    local_instance_id: SupvisorsInstanceId = main_loop.supvisors.supvisors_mapper.local_instance
+    main_loop.supvisors.logger.info = print
+    local_instance_id: SupvisorsInstanceId = main_loop.supvisors.mapper.local_instance
     local_identifier = local_instance_id.identifier
     local_ip = gethostbyname(gethostname())
     # disable the SupervisorProxy thread
     mocked_proxy_start = mocker.patch.object(main_loop.proxy, 'start')
     mocked_proxy_stop = mocker.patch.object(main_loop.proxy, 'stop')
+    mocked_proxy_join = mocker.patch.object(main_loop.proxy, 'join')
     # add a Supvisors instance that has the same parameters as the local Supvisors instance, but with a different name
-    main_loop.supvisors.supvisors_mapper.instances['async_test'] = local_instance_id
+    main_loop.supvisors.mapper.instances['async_test'] = local_instance_id
     # WARN: handle_puller is blocking as long as there is no RequestPusher active,
     #       so make sure it has been started before starting the main loop
     assert main_loop.supvisors.internal_com.pusher is not None
     main_loop.start()
-    time.sleep(3)
     try:
-        assert main_loop.is_alive()
-        assert len(main_loop.supvisors.internal_com.publisher.clients) == 1
+        assert wait_loop_connected(main_loop)
         assert mocked_proxy_start.called
         # inject basic messages to test the queues
         main_loop.supvisors.internal_com.pusher.send_isolate_instances(['10.0.0.1'])
         main_loop.supvisors.internal_com.pusher.send_connect_instance('10.0.0.1')
-        main_loop.supvisors.internal_com.pusher.send_check_instance('10.0.0.1')
+        main_loop.supvisors.internal_com.pusher.send_check_instance('10.0.0.3')
         main_loop.supvisors.internal_com.publisher.send_tick_event({'when': 1234})
         main_loop.supvisors.internal_com.mc_sender.send_discovery_event({'when': 4321})
         # check results
@@ -468,7 +488,7 @@ def test_mainloop_run(mocker, main_loop):
             # first message may be long to come
             msg_type, message = main_loop.proxy.queue.get(timeout=5.0)
             if msg_type == DeferredRequestHeaders.CHECK_INSTANCE:
-                assert message == ['10.0.0.1']
+                assert message == ['10.0.0.3']
                 got_request = True
             else:
                 event_origin, (event_type, (event_identifier, event_data)) = message
@@ -490,3 +510,4 @@ def test_mainloop_run(mocker, main_loop):
         # close the main loop
         main_loop.stop()
         assert mocked_proxy_stop.called
+        assert mocked_proxy_join.called

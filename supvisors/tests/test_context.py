@@ -61,7 +61,7 @@ def test_create(supvisors, context):
     """ Test the values set at construction of Context. """
     assert supvisors is context.supvisors
     assert supvisors.logger is context.logger
-    assert set(supvisors.supvisors_mapper.instances.keys()), set(context.instances.keys())
+    assert set(supvisors.mapper.instances.keys()), set(context.instances.keys())
     for identifier, instance_status in context.instances.items():
         assert instance_status.identifier == identifier
         assert isinstance(instance_status, SupvisorsInstanceStatus)
@@ -78,7 +78,7 @@ def test_reset(mocker, context):
     """ Test the reset of Context values. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
     # change master definition
-    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    local_identifier = context.supvisors.mapper.local_identifier
     context.master_identifier = local_identifier
     assert context.is_master
     # change node states
@@ -92,7 +92,7 @@ def test_reset(mocker, context):
     context.applications['dummy_appli'] = application
     # call reset and check result
     context.reset()
-    assert set(context.supvisors.supvisors_mapper.instances), set(context.instances.keys())
+    assert set(context.supvisors.mapper.instances), set(context.instances.keys())
     context.local_status._state = SupvisorsInstanceStates.UNKNOWN
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
@@ -106,7 +106,7 @@ def test_reset(mocker, context):
 
 def test_master_identifier(context):
     """ Test the access to master identifier. """
-    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    local_identifier = context.supvisors.mapper.local_identifier
     assert context.master_identifier == ''
     assert not context.is_master
     context.master_identifier = '10.0.0.1'
@@ -137,7 +137,7 @@ def test_elect_master(context):
     assert context.master_identifier == '10.0.0.2'
     # test with running Supvisors instances, no known Master and core_identifiers not running
     context.master_identifier = ''
-    context.supvisors.supvisors_mapper._core_identifiers = ['10.0.0.1', '10.0.0.3']
+    context.supvisors.mapper._core_identifiers = ['10.0.0.1', '10.0.0.3']
     context.elect_master()
     assert context.master_identifier == '10.0.0.2'
     # test with running Supvisors instances, a known Master and one of the core_identifiers running
@@ -297,7 +297,7 @@ def test_get_nodes_load(mocker, context):
 def test_initial_running(context):
     """ Test the check of initial Supvisors instances running. """
     # update mapper
-    context.supvisors.supvisors_mapper.initial_identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3']
+    context.supvisors.mapper.initial_identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3']
     assert not context.initial_running()
     # add some RUNNING
     context.local_status._state = SupvisorsInstanceStates.RUNNING
@@ -331,9 +331,9 @@ def test_all_running(context):
 
 def test_instances_by_states(context):
     """ Test the access to instances in unknown state. """
-    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    local_identifier = context.supvisors.mapper.local_identifier
     # test initial states
-    all_instances = sorted(context.supvisors.supvisors_mapper.instances.keys())
+    all_instances = sorted(context.supvisors.mapper.instances.keys())
     assert not context.all_running()
     assert not context.running_core_identifiers()
     assert context.running_identifiers() == []
@@ -344,7 +344,7 @@ def test_instances_by_states(context):
     assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == []
     assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == []
     assert sorted(context.instances_by_states([SupvisorsInstanceStates.UNKNOWN])) == \
-           sorted(context.supvisors.supvisors_mapper.instances.keys())
+           sorted(context.supvisors.mapper.instances.keys())
     # change states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
@@ -365,9 +365,26 @@ def test_instances_by_states(context):
     assert context.instances_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5', 'test']
 
 
+def test_running_core_identifiers_empty(supvisors):
+    """ Test if the core instances are in a RUNNING state. """
+    supvisors.mapper._core_identifiers = []
+    assert supvisors.mapper.core_identifiers == []
+    context = Context(supvisors)
+    assert not context.running_core_identifiers()
+
+
+def test_running_core_identifiers_invalid(supvisors):
+    """ Test if the core instances are in a RUNNING state. """
+    supvisors.mapper._core_identifiers = ['dummy']
+    assert supvisors.mapper.core_identifiers == []
+    context = Context(supvisors)
+    assert not context.running_core_identifiers()
+
+
 def test_running_core_identifiers(supvisors):
     """ Test if the core instances are in a RUNNING state. """
-    supvisors.supvisors_mapper._core_identifiers = ['10.0.0.1', '10.0.0.4']
+    supvisors.mapper._core_identifiers = ['10.0.0.1', '10.0.0.4', '<10.0.0.1>10.0.0.1']
+    assert supvisors.mapper.core_identifiers == ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
     assert not context.all_running()
@@ -690,7 +707,7 @@ def test_load_processes(mocker, context):
         assert node.processes == {}
     assert not mocked_write.called
     # force local_identifier
-    context.supvisors.supvisors_mapper.local_identifier = '10.0.0.2'
+    context.supvisors.mapper.local_identifier = '10.0.0.2'
     # load ProcessInfoDatabase with known node
     context.load_processes('10.0.0.1', database_copy())
     # check context contents
@@ -946,7 +963,7 @@ def test_on_local_tick_event(mocker, context):
 def test_on_tick_event(mocker, context):
     """ Test the handling of a tick event from a remote Supvisors instance. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
-    mocked_stereotype = mocker.patch.object(context.supvisors.supvisors_mapper, 'assign_stereotypes')
+    mocked_stereotype = mocker.patch.object(context.supvisors.mapper, 'assign_stereotypes')
     mocked_check = context.supvisors.internal_com.pusher.send_check_instance
     context.supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = context.supvisors.external_publisher.send_instance_status
@@ -1639,7 +1656,7 @@ def test_on_timer_event(mocker, context):
     assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.2')]
     assert application_1.update_status.call_args_list == [call()]
     # only '10.0.0.2' and '10.0.0.5' instances changed state
-    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    local_identifier = context.supvisors.mapper.local_identifier
     for identifier, state in [(local_identifier, SupvisorsInstanceStates.RUNNING),
                               ('10.0.0.1', SupvisorsInstanceStates.RUNNING),
                               ('10.0.0.2', SupvisorsInstanceStates.SILENT),

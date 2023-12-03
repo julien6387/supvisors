@@ -70,7 +70,7 @@ def test_write_contents_no_plot(mocker, view):
     view.write_contents(mocked_root)
     assert mocked_processor.call_args_list == [call(mocked_root, 'cpu', 'times')]
     assert mocked_memory.call_args_list == [call(mocked_root, 'mem', 'times')]
-    assert mocked_network.call_args_list == [call(mocked_root, 'io', 'times')]
+    assert mocked_network.call_args_list == [call(mocked_root, 'io')]
     assert not mocked_export.called
 
 
@@ -93,7 +93,7 @@ def test_write_contents(mocker, view):
     view.write_contents(mocked_root)
     assert mocked_processor.call_args_list == [call(mocked_root, 'cpu', 'times')]
     assert mocked_memory.call_args_list == [call(mocked_root, 'mem', 'times')]
-    assert mocked_network.call_args_list == [call(mocked_root, 'io', 'times')]
+    assert mocked_network.call_args_list == [call(mocked_root, 'io')]
     assert mocked_cpu.call_args_list == [call('cpu', 'times')]
     assert mocked_mem.call_args_list == [call('mem', 'times')]
     assert mocked_io.call_args_list == [call('io', 'times')]
@@ -238,19 +238,21 @@ def test_write_network_statistics(mocker, view):
     view.view_ctx = Mock(parameters={INTF: 'eth0'})
     # build root structure
     mocked_trs = [Mock(attrib={}) for _ in range(4)]
-    mocked_mid = Mock(**{'repeat.return_value': [(mocked_trs[0], ('lo', 'lo recv')),
-                                                 (mocked_trs[1], ('lo', 'lo sent')),
-                                                 (mocked_trs[2], ('eth0', 'eth0 recv')),
-                                                 (mocked_trs[3], ('eth0', 'eth0 sent'))]})
+    mocked_mid = Mock(**{'repeat.return_value': [(mocked_trs[0], ('lo', [1, 2, 3], 'lo recv')),
+                                                 (mocked_trs[1], ('lo', [1, 2, 3], 'lo sent')),
+                                                 (mocked_trs[2], ('eth0', [2, 3], 'eth0 recv')),
+                                                 (mocked_trs[3], ('eth0', [2, 3], 'eth0 sent'))]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test method with dummy stats
-    dummy_io_stats = {'lo': ['lo recv', 'lo sent'], 'eth0': ['eth0 recv', 'eth0 sent']}
-    dummy_times = [1, 2, 3]
-    view.write_network_statistics(mocked_root, dummy_io_stats, dummy_times)
+    dummy_io_stats = {'lo': [[1, 2, 3], 'lo recv', 'lo sent'],
+                      'eth0': [[2, 3], 'eth0 recv', 'eth0 sent']}
+    view.write_network_statistics(mocked_root, dummy_io_stats)
     # check calls
     assert mocked_root.findmeld.call_args_list == [call('intf_tr_mid')]
-    assert mocked_mid.repeat.call_args_list == [call([('lo', 'lo recv'), ('lo', 'lo sent'),
-                                                      ('eth0', 'eth0 recv'), ('eth0', 'eth0 sent')])]
+    assert mocked_mid.repeat.call_args_list == [call([('lo', [1, 2, 3], 'lo recv'),
+                                                      ('lo', [1, 2, 3], 'lo sent'),
+                                                      ('eth0', [2, 3], 'eth0 recv'),
+                                                      ('eth0', [2, 3], 'eth0 sent')])]
     assert mocked_trs[0].attrib['class'] == 'brightened'
     assert mocked_trs[1].attrib['class'] == 'brightened'
     assert mocked_trs[2].attrib['class'] == 'shaded'
@@ -259,10 +261,10 @@ def test_write_network_statistics(mocker, view):
                                            call(mocked_trs[1], 'eth0', 'lo', False, False),
                                            call(mocked_trs[2], 'eth0', 'eth0', True, True),
                                            call(mocked_trs[3], 'eth0', 'eth0', False, True)]
-    assert mocked_stats.call_args_list == [call(mocked_trs[0], 'lo recv', dummy_times, True),
-                                           call(mocked_trs[1], 'lo sent', dummy_times, False),
-                                           call(mocked_trs[2], 'eth0 recv', dummy_times, True),
-                                           call(mocked_trs[3], 'eth0 sent', dummy_times, False)]
+    assert mocked_stats.call_args_list == [call(mocked_trs[0], 'lo recv', [1, 2, 3], True),
+                                           call(mocked_trs[1], 'lo sent', [1, 2, 3], False),
+                                           call(mocked_trs[2], 'eth0 recv', [2, 3], True),
+                                           call(mocked_trs[3], 'eth0 sent', [2, 3], False)]
 
 
 def test_write_common_statistics(mocker, view):

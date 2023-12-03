@@ -47,7 +47,7 @@ class SupvisorsInternalEmitter:
         # create the Multicast message emitter if the discovery mode is enabled
         self.mc_sender: Optional[MulticastSender] = None
         if self.supvisors.options.discovery_mode:
-            local_instance: SupvisorsInstanceId = supvisors.supvisors_mapper.local_instance
+            local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
             self.mc_sender = MulticastSender(local_instance.identifier,
                                              supvisors.options.multicast_group,
                                              supvisors.options.multicast_ttl,
@@ -84,8 +84,7 @@ class SupvisorsInternalEmitter:
 
     def _create_publisher(self) -> InternalPublisher:
         """ Start the Publisher thread. """
-        # TODO: make it async too ?
-        local_instance: SupvisorsInstanceId = self.supvisors.supvisors_mapper.local_instance
+        local_instance: SupvisorsInstanceId = self.supvisors.mapper.local_instance
         publisher = InternalPublisher(local_instance.identifier, local_instance.internal_port, self.supvisors.logger)
         publisher.start()
         return publisher
@@ -123,11 +122,12 @@ class SupvisorsInternalReceiver:
         """ The stop method is meant to be called from outside the async loop.
         This will stop all asynchronous tasks.
         """
-        asyncio.run_coroutine_threadsafe(self.set_stop(), self.loop).result()
-
-    async def set_stop(self) -> None:
-        """ Set the Future stop_event to stop all asynchronous tasks. """
-        self.stop_event.set()
+        if self.loop and self.loop.is_running() and self.stop_event and not self.stop_event.is_set():
+            # fire the event within the event loop
+            async def stop_it() -> None:
+                """ Set the Future stop_event to stop all asynchronous tasks. """
+                self.stop_event.set()
+            asyncio.run_coroutine_threadsafe(stop_it(), self.loop).result()
 
     def get_tasks(self) -> List:
         """ Return the tasks necessary to receive:

@@ -1,5 +1,26 @@
 # Change Log
 
+## 0.17.2 (2023-12-04)
+
+* Fix rare I/O exception by joining the `SupervisorsProxy` thread before exiting the `SupvisorsMainLoop`.
+
+* Fix rare exception when host network statistics are prepared for display in the **Supvisors** Web UI in the event
+  where network interfaces have different history sizes.
+
+* Fix the Supvisors identifier possibilities when using the distribution rule `SINGLE_INSTANCE`.
+
+* Update the process statistics collector thread so that it exits by itself when `supervisord` is killed.
+
+* Improve the node selection when using the distribution rule `SINGLE_NODE`.
+
+* Use an asynchronous server in the **Supvisors** internal communications.
+  The refactoring fixes an issue with the TCP server that sometimes wouldn't bind despite the `SO_REUSEADDR` set.
+
+* Restore the `action` class in the HTML of the **Supvisors** Web UI.
+
+* CI targets added for Python 3.11 and 3.12.
+
+
 ## 0.17 (2023-08-17)
 
 * Fix [Issue #112](https://github.com/julien6387/supvisors/issues/112).

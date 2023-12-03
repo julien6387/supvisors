@@ -43,7 +43,7 @@ class HostInstanceView(SupvisorsInstanceView):
         if stats_instance:
             self.write_processor_statistics(root, stats_instance.cpu, stats_instance.times)
             self.write_memory_statistics(root, stats_instance.mem, stats_instance.times)
-            self.write_network_statistics(root, stats_instance.io, stats_instance.times)
+            self.write_network_statistics(root, stats_instance.io)
             # write CPU / Memory / Network plots
             try:
                 self._write_cpu_image(stats_instance.cpu, stats_instance.times)
@@ -118,22 +118,23 @@ class HostInstanceView(SupvisorsInstanceView):
                                       'intfval_td_mid', 'intfavg_td_mid',
                                       'intfslope_td_mid', 'intfdev_td_mid')
 
-    def write_network_statistics(self, root, io_stats, timeline):
+    def write_network_statistics(self, root, io_stats):
         """ Rendering of the network statistics. """
         selected_intf = self.view_ctx.parameters[INTF]
         # display io statistics
-        flatten_io_stats = [(intf, lst)
-                            for intf, lsts in io_stats.items()
-                            for lst in lsts]
+        flatten_io_stats = []
+        for intf, (uptimes, recv_stats, sent_stats) in io_stats.items():
+            flatten_io_stats.append((intf, uptimes, recv_stats))
+            flatten_io_stats.append((intf, uptimes, sent_stats))
         iterator = root.findmeld('intf_tr_mid').repeat(flatten_io_stats)
         rowspan, shaded_tr = True, False
-        for tr_elt, (intf, single_io_stats) in iterator:
+        for tr_elt, (intf, uptimes, single_io_stats) in iterator:
             # set row background
             apply_shade(tr_elt, shaded_tr)
             # set interface cell rowspan
             self._write_network_single_title(tr_elt, selected_intf, intf, rowspan, shaded_tr)
             # set interface direction
-            self._write_network_single_statistics(tr_elt, single_io_stats, timeline, rowspan)
+            self._write_network_single_statistics(tr_elt, single_io_stats, uptimes, rowspan)
             if not rowspan:
                 shaded_tr = not shaded_tr
             rowspan = not rowspan

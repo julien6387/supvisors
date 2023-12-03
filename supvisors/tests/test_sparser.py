@@ -291,7 +291,7 @@ def test_valid_lxml(mocker, lxml_import, supvisors):
     check_valid(parser)
 
 
-def test_invalid_lxml(mocker, supvisors):
+def test_invalid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing of an invalid XML using lxml (optional dependency). """
     mocker.patch('supvisors.sparser.stderr')
     mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(InvalidXmlTest)])

@@ -197,7 +197,7 @@ class SupvisorsMapper:
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
-        self.local_identifier = None
+        self.local_identifier: Optional[str] = None
         self.initial_identifiers: NameList = []
         self.stereotypes: Dict[str, NameList] = {}
 
@@ -318,8 +318,8 @@ class SupvisorsMapper:
         The method maintains a map of Supvisors instances per stereotype.
         The list of Supvisors instances per stereotype is ordered the same way as the Supvisors instances themselves.
 
-        :param identifier: the identifier of the Supvisors instance
-        :param stereotypes: the stereotypes of the Supvisors instance
+        :param identifier: the identifier of the Supvisors instance.
+        :param stereotypes: the stereotypes of the Supvisors instance.
         :return: None
         """
         # assign stereotypes on the first attempt only
@@ -343,8 +343,8 @@ class SupvisorsMapper:
         If the identifier is not found, it is removed from the list.
         If more than one occurrence of the same identifier is found, only the first one is kept.
 
-        :param identifier_list: a list of Supvisors identifiers
-        :return: the filtered list of Supvisors identifiers
+        :param identifier_list: a list of Supvisors identifiers.
+        :return: the filtered list of Supvisors identifiers.
         """
         identifiers = []
         # filter unknown Supvisors identifiers and expand the stereotypes

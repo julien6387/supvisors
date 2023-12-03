@@ -44,7 +44,7 @@ def test_creation(mocker):
     assert mocked_srv_options.realize.called
     assert isinstance(supv.logger, Logger)
     assert isinstance(supv.supervisor_data, SupervisorData)
-    assert isinstance(supv.supvisors_mapper, SupvisorsMapper)
+    assert isinstance(supv.mapper, SupvisorsMapper)
     assert supv.host_collector is instant_host_statistics
     assert isinstance(supv.process_collector, ProcessStatisticsCollector)
     assert isinstance(supv.context, Context)
