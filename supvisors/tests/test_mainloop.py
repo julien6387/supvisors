@@ -412,18 +412,13 @@ def wait_loop_connected(main_loop: SupvisorsMainLoop, max_time: int = 10) -> boo
 @pytest.fixture
 def main_loop(supvisors):
     """ Create the SupvisorsMainLoop instance to test. """
-    supvisors.logger.debug = print
-    supvisors.logger.info = print
-    supvisors.logger.warn = print
-    supvisors.logger.error = print
-    supvisors.logger.critical = print
     # activate discovery mode
     supvisors.options.multicast_group = '239.0.0.1', 7777
     # WARN: local instance has been removed from the subscribers, but it's actually the only instance
     #       that can be tested here
     #       so add a Supvisors instance that has the same parameters as the local Supvisors instance,
     #       but with a different name
-    mapper = supvisors.supvisors_mapper
+    mapper = supvisors.mapper
     local_instance_id: SupvisorsInstanceId = mapper.local_instance
     mapper._instances = {'10.0.0.1': mapper.instances['10.0.0.1'],
                          'async_test': local_instance_id,
@@ -464,27 +459,22 @@ def test_mainloop_stop(mocker, main_loop):
 
 def test_mainloop_run(mocker, main_loop):
     """ Test the running of the main loop thread. """
-    local_instance_id: SupvisorsInstanceId = main_loop.supvisors.supvisors_mapper.local_instance
+    main_loop.supvisors.logger.info = print
+    local_instance_id: SupvisorsInstanceId = main_loop.supvisors.mapper.local_instance
     local_identifier = local_instance_id.identifier
     local_ip = gethostbyname(gethostname())
     # disable the SupervisorProxy thread
     mocked_proxy_start = mocker.patch.object(main_loop.proxy, 'start')
     mocked_proxy_stop = mocker.patch.object(main_loop.proxy, 'stop')
+    mocked_proxy_join = mocker.patch.object(main_loop.proxy, 'join')
     # add a Supvisors instance that has the same parameters as the local Supvisors instance, but with a different name
-    main_loop.supvisors.supvisors_mapper.instances['async_test'] = local_instance_id
+    main_loop.supvisors.mapper.instances['async_test'] = local_instance_id
     # WARN: handle_puller is blocking as long as there is no RequestPusher active,
     #       so make sure it has been started before starting the main loop
     assert main_loop.supvisors.internal_com.pusher is not None
-    # FIXME: temporary print to get a chance to understand why the thread does not start
-    print(f'before: {threading.active_count()}')
     main_loop.start()
-    print(f'after: {threading.active_count()}')
     try:
-        # FIXME: despite call to start, did not run
-        #assert wait_loop_connected(main_loop)
-        if not wait_loop_connected(main_loop):
-            print(f'fail connect: {threading.active_count()}')
-            assert False
+        assert wait_loop_connected(main_loop)
         assert mocked_proxy_start.called
         # inject basic messages to test the queues
         main_loop.supvisors.internal_com.pusher.send_isolate_instances(['10.0.0.1'])
@@ -520,3 +510,4 @@ def test_mainloop_run(mocker, main_loop):
         # close the main loop
         main_loop.stop()
         assert mocked_proxy_stop.called
+        assert mocked_proxy_join.called

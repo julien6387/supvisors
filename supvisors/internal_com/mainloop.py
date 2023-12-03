@@ -97,7 +97,7 @@ class SupervisorProxy(threading.Thread):
         """ Perform the XML-RPC according to the header. """
         # first element of body is always the identifier of the destination Supvisors instance
         identifier = body[0]
-        instance = self.supvisors.supvisors_mapper.instances[identifier]
+        instance = self.supvisors.mapper.instances[identifier]
         self.srv_url.update_url(instance.host_id, instance.http_port)
         # send message
         if header == DeferredRequestHeaders.CHECK_INSTANCE:
@@ -134,7 +134,7 @@ class SupervisorProxy(threading.Thread):
 
     def _get_origin(self, identifier: str) -> Ipv4Address:
         """ Return the IPv4 tuple associated with the Supvisors instance. """
-        instance = self.supvisors.supvisors_mapper.instances[identifier]
+        instance = self.supvisors.mapper.instances[identifier]
         return instance.ip_address, instance.http_port
 
     def _is_authorized(self, identifier: str) -> Optional[bool]:
@@ -336,6 +336,7 @@ class SupvisorsMainLoop(threading.Thread):
         # run the asynchronous event loop with the given tasks
         async_loop.run_until_complete(all_tasks)
         # exiting the main loop
+        self.logger.debug('SupvisorsMainLoop.run: out of async loop')
         self.proxy.stop()
         self.proxy.join()
         self.logger.info('SupvisorsMainLoop.run: exiting main loop')
