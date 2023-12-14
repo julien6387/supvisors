@@ -6,6 +6,13 @@
   The option `stats_collecting_period` is now applicable to host statistics collector.
 
 
+## 0.17.3 (2023-12-14)
+
+* Fix regression when displaying the Network statistics in the **Supvisors** Web UI.
+
+* Add restrictions to `flask-restx` dependencies.
+
+
 ## 0.17.2 (2023-12-04)
 
 * Fix rare I/O exception by joining the `SupervisorsProxy` thread before exiting the `SupvisorsMainLoop`.
@@ -13,7 +20,7 @@
 * Fix rare exception when host network statistics are prepared for display in the **Supvisors** Web UI in the event
   where network interfaces have different history sizes.
 
-* Fix the Supvisors identifier possibilities when using the distribution rule `SINGLE_INSTANCE`.
+* Fix the **Supvisors** identifier possibilities when using the distribution rule `SINGLE_INSTANCE`.
 
 * Update the process statistics collector process so that it exits by itself when `supervisord` is killed.
 
