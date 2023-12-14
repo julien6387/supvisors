@@ -189,8 +189,8 @@ class HostInstanceView(SupvisorsInstanceView):
         # get IO data
         intf_name = self.view_ctx.parameters[INTF]
         if intf_name:
-            recv_data = io_stats[intf_name][0]
-            sent_data = io_stats[intf_name][1]
+            recv_data = io_stats[intf_name][1]
+            sent_data = io_stats[intf_name][2]
             # build image from data
             plt = StatisticsPlot(self.logger)
             plt.add_timeline(timeline)
