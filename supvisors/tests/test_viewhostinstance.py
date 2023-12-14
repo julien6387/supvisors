@@ -96,7 +96,7 @@ def test_write_contents(mocker, view):
     assert mocked_network.call_args_list == [call(mocked_root, 'io')]
     assert mocked_cpu.call_args_list == [call('cpu', 'times')]
     assert mocked_mem.call_args_list == [call('mem', 'times')]
-    assert mocked_io.call_args_list == [call('io', 'times')]
+    assert mocked_io.call_args_list == [call('io')]
 
 
 def test_write_processor_single_title(view):
@@ -351,10 +351,10 @@ def test_write_io_image(mocker, view):
     # set context (meant to be set through render)
     view.view_ctx = Mock(parameters={INTF: 'eth0'})
     # just test calls to StatisticsPlot
-    dummy_io_stats = {'lo': ['lo recv', 'lo sent'], 'eth0': ['eth0 recv', 'eth0 sent']}
-    dummy_times_stats = [1, 2, 3]
-    view._write_io_image(dummy_io_stats, dummy_times_stats)
-    assert mocked_time.call_args_list == [call(dummy_times_stats)]
+    dummy_io_stats = {'lo': [[1, 2, 3, 4], 'lo recv', 'lo sent'],
+                      'eth0': [[2, 3, 4], 'eth0 recv', 'eth0 sent']}
+    view._write_io_image(dummy_io_stats)
+    assert mocked_time.call_args_list == [call([2, 3, 4])]
     assert mocked_plot.call_args_list == [call('eth0 recv', 'kbits/s', 'eth0 recv'),
                                           call('eth0 sent', 'kbits/s', 'eth0 sent')]
     assert mocked_export.call_args_list == [call(host_io_img)]

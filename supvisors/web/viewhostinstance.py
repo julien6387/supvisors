@@ -48,7 +48,7 @@ class HostInstanceView(SupvisorsInstanceView):
             try:
                 self._write_cpu_image(stats_instance.cpu, stats_instance.times)
                 self._write_mem_image(stats_instance.mem, stats_instance.times)
-                self._write_io_image(stats_instance.io, stats_instance.times)
+                self._write_io_image(stats_instance.io)
             except ImportError:
                 # matplotlib not installed: remove figure elements
                 stats_elt = root.findmeld('stats_div_mid')
@@ -183,14 +183,13 @@ class HostInstanceView(SupvisorsInstanceView):
         plt.add_plot('MEM', '%', mem_stats)
         plt.export_image(host_mem_img)
 
-    def _write_io_image(self, io_stats, timeline):
+    def _write_io_image(self, io_stats):
         """ Write MEM data into the dedicated buffer. """
         from supvisors.plot import StatisticsPlot
         # get IO data
         intf_name = self.view_ctx.parameters[INTF]
         if intf_name:
-            recv_data = io_stats[intf_name][1]
-            sent_data = io_stats[intf_name][2]
+            timeline, recv_data, sent_data = io_stats[intf_name]
             # build image from data
             plt = StatisticsPlot(self.logger)
             plt.add_timeline(timeline)
