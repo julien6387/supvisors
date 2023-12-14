@@ -4,6 +4,8 @@
 
 * Fix regression when displaying the Network statistics in the **Supvisors** Web UI.
 
+* Add restrictions to `flask-restx` dependencies.
+
 
 ## 0.17.2 (2023-12-04)
 
