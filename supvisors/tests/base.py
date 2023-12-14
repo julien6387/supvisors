@@ -32,7 +32,7 @@ from supvisors.context import Context
 from supvisors.initializer import Supvisors
 from supvisors.internal_com import SupvisorsMapper
 from supvisors.rpcinterface import RPCInterface
-from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
+from supvisors.statscollector import StatisticsCollectorProcess
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
 from supvisors.utils import extract_process_info
@@ -56,9 +56,8 @@ class MockedSupvisors:
                        f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
         self.mapper.configure(identifiers, {'supvisors_test'}, [])
         self.server_options = Mock(process_indexes={'xclock': 2})
-        # set real statistics collectors
-        self.host_collector = instant_host_statistics
-        self.process_collector = ProcessStatisticsCollector(5, self.logger)
+        # set real statistics collector and compilers
+        self.stats_collector = StatisticsCollectorProcess(self)
         self.host_compiler = HostStatisticsCompiler(self)
         self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
         # build context from node mapper

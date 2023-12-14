@@ -363,7 +363,8 @@ behavior may happen. The present section details where it is applicable.
 
 ``stats_collecting_period``
 
-    This is the *minimum* duration between 2 statistics measurements on one process. It is not a strict period. |br|
+    This is the *minimum* duration between 2 statistics measurements on one entity (host or process).
+    It is not a strict period. |br|
     Value in [``1`` ; ``3600``] seconds.
 
     *Default*:  ``10``.
@@ -374,7 +375,7 @@ behavior may happen. The present section details where it is applicable.
 
     .. note::
 
-        The process statistics collection is deferred to a dedicated process of |Supvisors|. The *Collector* is mainly
+        The statistics collection is deferred to a dedicated process of |Supvisors|. The *Collector* is mainly
         using the |psutil| module. |br|
         Regardless of the number of processes to manage, the *Collector* will not take up more than one processor core.
         If there are more statistics requests than allowed by one processor core, the duration between 2 measurements

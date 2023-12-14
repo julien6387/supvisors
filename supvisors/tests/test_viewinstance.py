@@ -54,8 +54,7 @@ def view_no_stats(http_context):
     # apply the forced inheritance done in supvisors.plugin
     StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
-    http_context.supervisord.supvisors.host_collector = None
-    http_context.supervisord.supvisors.process_collector = None
+    http_context.supervisord.supvisors.stats_collector = None
     return SupvisorsInstanceView(http_context, HOST_INSTANCE_PAGE)
 
 

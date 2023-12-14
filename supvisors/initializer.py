@@ -100,17 +100,11 @@ class Supvisors:
         except ValueError:
             self.logger.critical('Supvisors: Wrong Supvisors configuration (supvisors_list)')
             raise
-        # create statistics handlers
-        self.host_collector = None
-        self.process_collector = None
+        # create statistics handler
+        self.stats_collector = None
         try:
-            # test if statistics collector can be created for local host
-            if self.options.host_stats_enabled:
-                from .statscollector import instant_host_statistics
-                self.host_collector = instant_host_statistics
-            if self.options.process_stats_enabled:
-                from .statscollector import ProcessStatisticsCollector
-                self.process_collector = ProcessStatisticsCollector(self.options.collecting_period, self.logger)
+            from .statscollector import StatisticsCollectorProcess
+            self.stats_collector = StatisticsCollectorProcess(self)
         except (ImportError, ModuleNotFoundError):
             self.logger.info('Supvisors: psutil not installed')
             self.logger.warn('Supvisors: this Supvisors instance cannot not collect statistics')

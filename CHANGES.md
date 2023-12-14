@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.18 (2024-xx-xx)
+
+* Move the host statistics collector to the statistics collector process. 
+  The option `stats_collecting_period` is now applicable to host statistics collector.
+
+
 ## 0.17.2 (2023-12-04)
 
 * Fix rare I/O exception by joining the `SupervisorsProxy` thread before exiting the `SupvisorsMainLoop`.
@@ -9,7 +15,7 @@
 
 * Fix the Supvisors identifier possibilities when using the distribution rule `SINGLE_INSTANCE`.
 
-* Update the process statistics collector thread so that it exits by itself when `supervisord` is killed.
+* Update the process statistics collector process so that it exits by itself when `supervisord` is killed.
 
 * Improve the node selection when using the distribution rule `SINGLE_NODE`.
 

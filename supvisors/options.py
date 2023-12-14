@@ -75,6 +75,7 @@ class SupvisorsOptions:
         - starting_strategy: strategy used to start processes on Supvisors instances ;
         - host_stats_enabled: if False, no host statistics will be collected from this Supvisors instance ;
         - proc_stats_enabled: if False, no process statistics will be collected from this Supvisors instance ;
+        - collecting_period: period of the statistics collection ;
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors Web UI ;
         - stats_histo: depth of statistics history ;
         - stats_irix_mode: choice of CPU value display between IRIX and Solaris ;

@@ -16,10 +16,12 @@
 # limitations under the License.
 # ======================================================================
 
+import pytest
+pytest.importorskip('flask_restx', reason='cannot test as optional flask_restx is not installed')
+
 from typing import Union
 from unittest.mock import call, patch
 
-import pytest
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.xmlrpc import RPCError, Faults
 from werkzeug.exceptions import MethodNotAllowed

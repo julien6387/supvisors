@@ -22,7 +22,7 @@ from unittest.mock import Mock
 import pytest
 
 from supvisors.initializer import *
-from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
+from supvisors.statscollector import StatisticsCollectorProcess
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .base import DummySupervisor
 
@@ -45,8 +45,7 @@ def test_creation(mocker):
     assert isinstance(supv.logger, Logger)
     assert isinstance(supv.supervisor_data, SupervisorData)
     assert isinstance(supv.mapper, SupvisorsMapper)
-    assert supv.host_collector is instant_host_statistics
-    assert isinstance(supv.process_collector, ProcessStatisticsCollector)
+    assert isinstance(supv.stats_collector, StatisticsCollectorProcess)
     assert isinstance(supv.context, Context)
     assert isinstance(supv.starter, Starter)
     assert isinstance(supv.stopper, Stopper)
@@ -89,8 +88,7 @@ def test_psutil_exception(mocker):
     # create Supvisors instance
     supvisors = Supvisors(DummySupervisor())
     # test that parser exception is accepted
-    assert supvisors.host_collector is None
-    assert supvisors.process_collector is None
+    assert supvisors.stats_collector is None
 
 
 def test_parser_exception(mocker):
