@@ -17,7 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 from typing import Callable, Type, Union
 
 from supervisor.http import NOT_DONE_YET
@@ -25,16 +24,11 @@ from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLev
 from supervisor.options import make_namespec, split_namespec, VERSION
 from supervisor.xmlrpc import Faults, RPCError
 
+from . import __version__
 from .application import ApplicationStatus
 from .strategy import get_supvisors_instance, conciliate_conflicts
 from .ttypes import *
 from .utils import extract_process_info
-
-# get Supvisors version from file
-here = os.path.abspath(os.path.dirname(__file__))
-version_txt = os.path.join(here, 'version.txt')
-with open(version_txt, 'r') as ver:
-    API_VERSION = ver.read().split('=')[1].strip()
 
 
 def startProcess(self, name: str, wait: bool = True):
@@ -82,7 +76,7 @@ class RPCInterface(object):
         :rtype: str
         """
         self.logger.blather('RPCInterface.get_api_version: do NOT make it static as it breaks the RPC Interface')
-        return API_VERSION
+        return __version__
 
     def get_supvisors_state(self) -> Payload:
         """ Return the state and modes of **Supvisors**.

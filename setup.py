@@ -56,7 +56,7 @@ CLASSIFIERS = [
     "Topic :: System :: Software Distribution"
 ]
 
-version_txt = os.path.join(here, 'supvisors/version.txt')
+version_txt = os.path.join(here, 'supvisors', 'version.txt')
 supvisors_version = open(version_txt).read().split('=')[1].strip()
 
 setup(name='supvisors',
