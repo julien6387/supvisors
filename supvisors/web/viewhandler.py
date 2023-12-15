@@ -24,8 +24,8 @@ from supervisor.compat import as_bytes, as_string
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
+from supvisors import __version__
 from supvisors.instancestatus import SupvisorsInstanceStatus
-from supvisors.rpcinterface import API_VERSION
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
 from supvisors.utils import get_stats
@@ -107,7 +107,7 @@ class ViewHandler(MeldView):
             elt = root.findmeld('supvisors_mid')
             update_attrib(elt, 'class', 'failure')
         # set Supvisors version
-        root.findmeld('version_mid').content(API_VERSION)
+        root.findmeld('version_mid').content(__version__)
         # set current Supvisors instance identifier
         root.findmeld('identifier_mid').content(self.local_identifier)
         # configure refresh button

@@ -128,7 +128,9 @@ FAULTS_OFFSET = 100
 
 
 class SupvisorsFaults(Enum):
-    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, NOT_MANAGED, DISABLED = range(FAULTS_OFFSET, FAULTS_OFFSET + 4)
+    """ The additional XML-RPC faults that complement Supervisor's Faults. """
+    (SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, NOT_MANAGED, DISABLED,
+     NOT_APPLICABLE, NOT_INSTALLED) = range(FAULTS_OFFSET, FAULTS_OFFSET + 6)
 
 
 # Additional events

@@ -121,9 +121,10 @@ def test_exception():
 
 def test_supvisors_faults():
     """ Test the SupvisorsFaults enumeration. """
-    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED', 'DISABLED']
+    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED', 'DISABLED',
+                'NOT_APPLICABLE', 'NOT_INSTALLED']
     assert [x.name for x in SupvisorsFaults] == expected
-    assert [x.value for x in SupvisorsFaults] == list(range(100, 104))
+    assert [x.value for x in SupvisorsFaults] == list(range(100, 106))
 
 
 def test_process_event():

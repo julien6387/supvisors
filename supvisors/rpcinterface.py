@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Callable, Type, Union
+from typing import Callable, Optional, Type, Union
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
@@ -26,6 +26,7 @@ from supervisor.xmlrpc import Faults, RPCError
 
 from . import __version__
 from .application import ApplicationStatus
+from .process import ProcessStatus
 from .strategy import get_supvisors_instance, conciliate_conflicts
 from .ttypes import *
 from .utils import extract_process_info
@@ -66,7 +67,7 @@ class RPCInterface(object):
         """
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
-        self.logger.info(f'RPCInterface: using Supvisors={API_VERSION} Supervisor={VERSION}')
+        self.logger.info(f'RPCInterface: using Supvisors={__version__} Supervisor={VERSION}')
 
     # RPC Status methods
     def get_api_version(self) -> str:
@@ -132,9 +133,8 @@ class RPCInterface(object):
         try:
             status = self.supvisors.context.instances[identifier]
         except KeyError:
-            message = f'{identifier} unknown to Supvisors'
-            self.logger.error(f'RPCInterface.get_instance_info: {message}')
-            raise RPCError(Faults.INCORRECT_PARAMETERS, message)
+            self._raise(Faults.INCORRECT_PARAMETERS, 'get_instance_info',
+                        f'identifier={identifier} unknown to Supvisors')
         # get Supvisors instance status and complement with Starter and Stopper progress
         return status.serial()
 
@@ -279,28 +279,30 @@ class RPCInterface(object):
             ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors** ;
             ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors** ;
             ``Faults.ALREADY_STARTED`` if the application is ``STARTING``, ``STOPPING`` or ``RUNNING`` ;
-            ``Faults.ABNORMAL_TERMINATION`` if the application could not be started.
+            ``Faults.ABNORMAL_TERMINATION`` if the internal start request failed ;
+            ``Faults.NOT_RUNNING`` if ``application_name`` could not be started.
         """
         self.logger.trace(f'RPCInterface.start_application: strategy={strategy} application={application_name}'
                           f' wait={wait}')
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
-        # check application is known
-        if application_name not in self.supvisors.context.applications.keys():
-            raise RPCError(Faults.BAD_NAME, application_name)
+        # check application name
+        application = self._get_application(application_name)
         # check application is managed
         if application_name not in self.supvisors.context.get_managed_applications():
-            raise RPCError(SupvisorsFaults.NOT_MANAGED.value, application_name)
+            self._raise(SupvisorsFaults.NOT_MANAGED.value, 'start_application', application_name)
         # check application is not already RUNNING
-        application = self.supvisors.context.applications[application_name]
         if application.state != ApplicationStates.STOPPED:
-            raise RPCError(Faults.ALREADY_STARTED, application_name)
+            self._raise(Faults.ALREADY_STARTED, 'start_application', application_name)
         # TODO: develop a predictive model to check if starting can be achieved
         # if impossible due to a lack of resources, second try without optional
         # return false if still impossible
         self.supvisors.starter.start_application(strategy_enum, application)
         in_progress = self.supvisors.starter.in_progress()
         self.logger.debug(f'RPCInterface.start_application: {application_name} in_progress={in_progress}')
+        if not in_progress:
+            # the job has not been queued. something wrong happened (lack of resources ?)
+            self._raise(Faults.ABNORMAL_TERMINATION, 'start_application', f'failed to start {application_name}')
         # wait until application fully RUNNING or (failed)
         if wait and in_progress:
             def onwait() -> RPCInterface.OnWaitReturnType:
@@ -308,7 +310,7 @@ class RPCInterface(object):
                 if self.supvisors.starter.in_progress():
                     return NOT_DONE_YET
                 if application.state != ApplicationStates.RUNNING:
-                    raise RPCError(Faults.ABNORMAL_TERMINATION, application_name)
+                    self._raise(Faults.NOT_RUNNING, 'start_application', application_name)
                 return True
 
             onwait.delay = 0.5
@@ -327,20 +329,19 @@ class RPCInterface(object):
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION`` ;
             ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors** ;
             ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors** ;
-            ``Faults.NOT_RUNNING`` if application is ``STOPPED``.
+            ``Faults.NOT_RUNNING`` if ``application_name`` is already stopped ;
+            ``Faults.STILL_RUNNING`` if ``application_name`` could not be stopped.
         """
         self.logger.trace(f'RPCInterface.stop_application: application={application_name} wait={wait}')
         self._check_operating_conciliation()
-        # check application is known
-        if application_name not in self.supvisors.context.applications.keys():
-            raise RPCError(Faults.BAD_NAME, application_name)
+        # check application name
+        application = self._get_application(application_name)
         # check application is managed
         if application_name not in self.supvisors.context.get_managed_applications():
-            raise RPCError(SupvisorsFaults.NOT_MANAGED.value, application_name)
+            self._raise(SupvisorsFaults.NOT_MANAGED.value, 'stop_application', application_name)
         # check application is not already STOPPED
-        application = self.supvisors.context.applications[application_name]
         if not application.has_running_processes():
-            raise RPCError(Faults.NOT_RUNNING, application_name)
+            self._raise(Faults.NOT_RUNNING, 'stop_application', f'failed to stop {application_name}')
         # stop the application
         self.supvisors.stopper.stop_application(application)
         in_progress = self.supvisors.stopper.in_progress()
@@ -352,7 +353,7 @@ class RPCInterface(object):
                 if self.supvisors.stopper.in_progress():
                     return NOT_DONE_YET
                 if application.state != ApplicationStates.STOPPED:
-                    raise RPCError(Faults.ABNORMAL_TERMINATION, application_name)
+                    self._raise(Faults.STILL_RUNNING, 'stop_application', application_name)
                 return True
 
             onwait.delay = 0.5
@@ -375,7 +376,8 @@ class RPCInterface(object):
             ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
             ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors** ;
             ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors** ;
-            ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
+            ``Faults.ABNORMAL_TERMINATION`` if the internal restart request failed ;
+            ``Faults.NOT_RUNNING`` if `application_name`` could not be restarted.
         """
         self.logger.trace(f'RPCInterface.restart_application: strategy={strategy} application={application_name}'
                           f' wait={wait}')
@@ -387,8 +389,7 @@ class RPCInterface(object):
         self.supvisors.stopper.restart_application(strategy_enum, application)
         in_progress = self.supvisors.stopper.in_progress() or self.supvisors.starter.in_progress()
         if not in_progress:
-            self.logger.error(f'RPCInterface.restart_application: failed restarting {application_name}')
-            raise RPCError(Faults.ABNORMAL_TERMINATION, f'failed restarting {application_name}')
+            self._raise(Faults.ABNORMAL_TERMINATION, 'restart_application', f'failed to restart {application_name}')
         # theoretically, wait until application is stopped then running
         # in practice, just check stopper and start activity, even if not fully related to this call
         if wait:
@@ -404,8 +405,7 @@ class RPCInterface(object):
                     return NOT_DONE_YET
                 self.logger.debug(f'RPCInterface.restart_application: starting {application_name} completed')
                 if application.stopped():
-                    self.logger.error(f'RPCInterface.restart_application: {application_name} still stopped')
-                    raise RPCError(Faults.ABNORMAL_TERMINATION, f'failed to restart {application_name}')
+                    self._raise(Faults.NOT_RUNNING, 'restart_application', application_name)
                 return True
 
             onwait.delay = 0.5
@@ -425,7 +425,7 @@ class RPCInterface(object):
         :return: always ``True`` unless error.
         :rtype: bool
         :raises RPCError: with code:
-            ``Faults.BAD_NAME`` if ``namespec`` is unknown to the local Supervisor ;
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to Supvisors or Supervisor ;
             ``SupvisorsFaults.DISABLED`` if process is *disabled* ;
             ``Faults.ALREADY_STARTED`` if process is ``RUNNING`` ;
             ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
@@ -438,8 +438,7 @@ class RPCInterface(object):
         except KeyError:
             # process is unknown to the local Supervisor
             # this is unexpected as Supvisors checks the configuration before it sends this request
-            self.logger.error(f'RPCInterface.start_args: could not find {namespec} in Supervisor processes')
-            raise RPCError(Faults.BAD_NAME, f'namespec {namespec} unknown to this Supervisor instance')
+            self._raise(Faults.BAD_NAME, 'start_args', f'namespec={namespec} unknown to Supervisor')
         # start process with Supervisor internal RPC
         try:
             rpc_interface = self.supvisors.supervisor_data.supervisor_rpc_interface
@@ -472,7 +471,8 @@ class RPCInterface(object):
             ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors** ;
             ``Faults.ALREADY_STARTED`` if process is in a running state ;
-            ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
+            ``Faults.ABNORMAL_TERMINATION`` if the internal start request failed ;
+            ``Faults.NOT_RUNNING`` if ``namespec`` could not be started.
         """
         self.logger.trace(f'RPCInterface.start_process: namespec={namespec} strategy={strategy} extra_args={extra_args}'
                           f' wait={wait}')
@@ -484,7 +484,7 @@ class RPCInterface(object):
         # check processes are not already running
         for process in processes:
             if process.running():
-                raise RPCError(Faults.ALREADY_STARTED, process.namespec)
+                self._raise(Faults.ALREADY_STARTED, 'start_process', process.namespec)
         # start all processes
         for process in processes:
             self.supvisors.starter.start_process(strategy_enum, process, extra_args)
@@ -492,17 +492,19 @@ class RPCInterface(object):
         self.logger.debug(f'RPCInterface.start_process: {process.namespec} in_progress={in_progress}')
         if not in_progress:
             # one of the jobs has not been queued. something wrong happened (lack of resources ?)
-            self.logger.error(f'RPCInterface.start_process: failed starting {process.namespec}')
-            raise RPCError(Faults.ABNORMAL_TERMINATION, namespec)
+            self._raise(Faults.ABNORMAL_TERMINATION, 'start_process', f'failed to start {namespec}')
         # wait until application fully RUNNING or failed
         if wait:
             def onwait() -> RPCInterface.OnWaitReturnType:
                 # check starter
                 if self.supvisors.starter.in_progress():
                     return NOT_DONE_YET
+                proc_errors = []
                 for proc in processes:
                     if proc.stopped():
-                        raise RPCError(Faults.ABNORMAL_TERMINATION, proc.namespec)
+                        proc_errors.append(proc.namespec)
+                if proc_errors:
+                    self._raise(Faults.NOT_RUNNING, 'start_process', f'processes={proc_errors}')
                 return True
 
             onwait.delay = 0.5
@@ -524,10 +526,11 @@ class RPCInterface(object):
         :raises RPCError: with code:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
             ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
-            ``Faults.BAD_NAME`` if no running process found matching ``regex`` in **Supvisors** ;
-            ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
+            ``Faults.FAILED`` if no stopped process found matching ``regex`` in **Supvisors** ;
+            ``Faults.ABNORMAL_TERMINATION`` if the internal start request failed ;
+            ``Faults.NOT_RUNNING`` if ``namespec`` could not be started.
         """
-        self.logger.trace(f'RPCInterface.start_process: regex={regex} strategy={strategy} extra_args={extra_args}'
+        self.logger.trace(f'RPCInterface.start_any_process: regex={regex} strategy={strategy} extra_args={extra_args}'
                           f' wait={wait}')
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
@@ -537,7 +540,7 @@ class RPCInterface(object):
                          if get_supvisors_instance(self.supvisors, strategy_enum, process.possible_identifiers(),
                                                    process.rules.expected_load)), None)
         if not namespec:
-            raise RPCError(Faults.BAD_NAME, f'no candidate process matching "{regex}"')
+            self._raise(Faults.FAILED, 'start_any_process', f'no candidate process matching "{regex}"')
         # start the chosen one and return its namespec
         bool_or_callable = self.start_process(strategy, namespec, extra_args, wait)
         if wait and callable(bool_or_callable):
@@ -559,7 +562,8 @@ class RPCInterface(object):
         :raises RPCError: with code:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION`` ;
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors** ;
-            ``Faults.NOT_RUNNING`` if process is in a stopped state.
+            ``Faults.NOT_RUNNING`` if ``namespec`` is already stopped ;
+            ``Faults.STILL_RUNNING`` if ``namespec`` could not be stopped.
         """
         self._check_operating_conciliation()
         # check names
@@ -573,8 +577,7 @@ class RPCInterface(object):
         in_progress = self.supvisors.stopper.in_progress()
         # if already done, that would mean nothing was running
         if not in_progress:
-            self.logger.error(f'RPCInterface.stop_process: failed stopping {namespec}')
-            raise RPCError(Faults.NOT_RUNNING, namespec)
+            self._raise(Faults.NOT_RUNNING, 'stop_process', f'{namespec} already stopped')
         # theoretically, wait until processes are stopped
         # in practice, just check stopper, even if not fully related to this call
         if wait:
@@ -586,10 +589,9 @@ class RPCInterface(object):
                 proc_errors = []
                 for proc in processes:
                     if proc.running():
-                        self.logger.error(f'RPCInterface.stop_process: process={proc.namespec} still running')
                         proc_errors.append(proc.namespec)
                 if proc_errors:
-                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                    self._raise(Faults.STILL_RUNNING, 'stop_process', f'processes={proc_errors}')
                 return True
             onwait.delay = 0.5
             return onwait  # deferred
@@ -613,10 +615,11 @@ class RPCInterface(object):
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
             ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors** ;
-            ``Faults.ABNORMAL_TERMINATION`` if process could not be restarted.
+            ``Faults.ABNORMAL_TERMINATION`` if the internal restart request failed ;
+            ``Faults.NOT_RUNNING`` if ``namespec`` could not be restarted.
         """
         self.logger.trace(f'RPCInterface.restart_process: strategy={strategy} process={namespec} args={extra_args}'
-                          ' wait={wait}')
+                          f' wait={wait}')
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
         # check namespec
@@ -628,8 +631,7 @@ class RPCInterface(object):
             self.supvisors.stopper.restart_process(strategy_enum, process, extra_args)
         in_progress = self.supvisors.stopper.in_progress() or self.supvisors.starter.in_progress()
         if not in_progress:
-            self.logger.error(f'RPCInterface.restart_process: failed restarting {namespec}')
-            raise RPCError(Faults.ABNORMAL_TERMINATION, f'failed restarting {namespec}')
+            self._raise(Faults.ABNORMAL_TERMINATION, 'restart_process', f'failed to restart {namespec}')
         # theoretically, wait until processes are stopped then running
         # in practice, just check stopper and start activity, even if not fully related to this call
         if wait:
@@ -647,10 +649,9 @@ class RPCInterface(object):
                 proc_errors = []
                 for proc in processes:
                     if proc.stopped():
-                        self.logger.error(f'RPCInterface.restart_process: process={proc.namespec} still stopped')
                         proc_errors.append(proc.namespec)
                 if proc_errors:
-                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                    self._raise(Faults.NOT_RUNNING, 'restart_process', f'processes={proc_errors}')
                 return True
             onwait.delay = 0.5
             onwait.waitstop = True
@@ -660,7 +661,7 @@ class RPCInterface(object):
     def _increase_numprocs(self, process_namespecs: NameList, wait: bool) -> WaitReturnType:
         """ Following a call to update_numprocs, a number of processes have to be added to the internal configuration.
 
-        :param list[str] process_namespecs: the namespecs of the processes to stop and remove
+        :param list[str] process_namespecs: the namespecs of the processes to stop and remove.
         :param bool wait: if ``True``, wait for the confirmation that processes have been added to Supvisors.
         :return: a callable if wait is requested or ``True``.
         :rtype: bool
@@ -691,10 +692,11 @@ class RPCInterface(object):
     def _decrease_numprocs(self, process_namespecs: NameList, wait: bool) -> WaitReturnType:
         """ Following a call to update_numprocs, a number of processes have to be stopped and removed.
 
-        :param list[str] process_namespecs: the namespecs of the processes to stop and remove
+        :param list[str] process_namespecs: the namespecs of the processes to stop and remove.
         :param bool wait: if ``True``, wait for the confirmation that processes have been removed from Supvisors.
         :return: a callable for the deferred actions.
         :rtype: Callable[[], bool]
+        :raises RPCError: with code ``Faults.STILL_RUNNING`` if one of ``process_namespecs`` cannot be stopped.
         """
         # if the value is lower than the current one, processes must be stopped before they are deleted
         self.logger.debug(f'RPCInterface._decrease_numprocs: obsolete processes={process_namespecs}')
@@ -721,7 +723,6 @@ class RPCInterface(object):
                 proc_errors = []
                 for proc in processes_to_stop:
                     if proc.running():
-                        self.logger.error(f'RPCInterface._decrease_numprocs: process={proc.namespec} still running')
                         proc_errors.append(proc.namespec)
                         # WARN: do not delete a process that is running
                         process_namespecs.remove(proc.namespec)
@@ -729,7 +730,7 @@ class RPCInterface(object):
                 self.logger.debug(f'RPCInterface._decrease_numprocs: delete processes {process_namespecs}')
                 self.supvisors.supervisor_data.delete_processes(process_namespecs)
                 if proc_errors:
-                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                    self._raise(Faults.STILL_RUNNING, '_decrease_numprocs', f'processes={proc_errors}')
             # when removal is done in Supervisor, wait for confirmation in Supvisors
             if wait and not onwait.checkstop:
                 for namespec in process_namespecs:
@@ -739,7 +740,7 @@ class RPCInterface(object):
                         if local_identifier in proc.info_map:
                             return NOT_DONE_YET
                     except KeyError:
-                        self.logger.debug(f'RPCInterface._decrease_numprocs: processes {namespec} has been deleted')
+                        self.logger.debug(f'RPCInterface._decrease_numprocs: process={namespec} has been deleted')
             return True
 
         onwait.delay = 0.5
@@ -761,32 +762,34 @@ class RPCInterface(object):
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
             ``Faults.BAD_NAME`` if ``program_name`` is unknown to **Supvisors** ;
             ``Faults.INCORRECT_PARAMETERS`` if ``numprocs`` is not a strictly positive integer ;
-            ``SupvisorsFaults.SUPVISORS_CONF_ERROR`` if the program configuration does not support numprocs.
+            ``SupvisorsFaults.NOT_APPLICABLE`` if the program configuration does not support numprocs ;
+            ``Faults.STILL_RUNNING`` if one process corresponding to ``program_name`` cannot be stopped.
         """
         self.logger.trace(f'RPCInterface.update_numprocs: program={program_name} numprocs={numprocs}')
         self._check_operating()
         # test that program_name is known to the ServerOptions
         if program_name not in self.supvisors.server_options.program_processes:
-            self.logger.error(f'RPCInterface.update_numprocs: program={program_name} unknown')
-            raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
+            self._raise(Faults.BAD_NAME, 'update_numprocs', f'program={program_name} unknown to Supvisors')
         # test that numprocs is strictly positive
         try:
             value = int(numprocs)
             assert value > 0
         except (ValueError, AssertionError):
-            self.logger.error(f'RPCInterface.update_numprocs: program={program_name} incorrect numprocs={numprocs}')
-            raise RPCError(Faults.INCORRECT_PARAMETERS,
-                           f'incorrect value for numprocs: {numprocs} (integer > 0 expected)')
-        try:
-            add_namespecs, del_namespecs = self.supvisors.supervisor_data.update_numprocs(program_name, value)
-        except ValueError as exc:
-            self.logger.error(f'RPCInterface.update_numprocs: numprocs invalid to program={program_name}')
-            raise RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, f'numprocs not applicable: {exc}')
-        # use different methods for the next activities
-        if add_namespecs:
-            return self._increase_numprocs(add_namespecs, wait)
-        if del_namespecs:
-            return self._decrease_numprocs(del_namespecs, wait)
+            self._raise(Faults.INCORRECT_PARAMETERS, 'update_numprocs',
+                        f'program={program_name} incorrect numprocs={numprocs}',
+                        'integer > 0 expected')
+        else:
+            try:
+                add_namespecs, del_namespecs = self.supvisors.supervisor_data.update_numprocs(program_name, value)
+            except ValueError:
+                self._raise(SupvisorsFaults.NOT_APPLICABLE.value, 'update_numprocs',
+                            f'numprocs not applicable to program={program_name}')
+            else:
+                # use different methods for the next activities
+                if add_namespecs:
+                    return self._increase_numprocs(add_namespecs, wait)
+                if del_namespecs:
+                    return self._decrease_numprocs(del_namespecs, wait)
         return True
 
     def enable(self, program_name: str, wait: bool = True) -> WaitReturnType:
@@ -806,8 +809,7 @@ class RPCInterface(object):
         self._check_operating()
         # test that program_name is known to the ServerOptions
         if program_name not in self.supvisors.server_options.program_processes:
-            self.logger.error(f'RPCInterface.enable: program={program_name} unknown')
-            raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
+            self._raise(Faults.BAD_NAME, 'enable', f'program={program_name} unknown to Supvisors')
         # re-enable the corresponding process to be started
         self.supvisors.supervisor_data.enable_program(program_name)
         if wait:
@@ -839,20 +841,20 @@ class RPCInterface(object):
         :rtype: bool
         :raises RPCError: with code:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
-            ``Faults.BAD_NAME`` if ``program_name`` is unknown to **Supvisors**.
+            ``Faults.BAD_NAME`` if ``program_name`` is unknown to **Supvisors** ;
+            ``Faults.STILL_RUNNING`` if at least one process corresponding to ``program_name`` cannot be stopped.
         """
-        self.logger.trace(f'RPCInterface.disable: {program_name}')
+        self.logger.trace(f'RPCInterface.disable: program_name={program_name}')
         self._check_operating()
         # test that program_name is known to the ServerOptions
         if program_name not in self.supvisors.server_options.program_processes:
-            self.logger.error(f'RPCInterface.disable: program={program_name} unknown')
-            raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
+            self._raise(Faults.BAD_NAME, 'disable', f'program={program_name} unknown to Supvisors')
         # whatever they are already stopped or not, it is safe to disable the processes right now
         self.supvisors.supervisor_data.disable_program(program_name)
         # get corresponding subprocesses
         subprocesses = self.supvisors.supervisor_data.get_subprocesses(program_name)
         # stop all running processes related to the program
-        self.logger.debug(f'RPCInterface.disable: {program_name} - processes={subprocesses}')
+        self.logger.debug(f'RPCInterface.disable: program_name={program_name} processes={subprocesses}')
         local_identifier = self.supvisors.mapper.local_identifier
         processes_to_stop = list(filter(lambda x: x.running_on(local_identifier),
                                         [self._get_application_process(namespec)[1]
@@ -873,10 +875,9 @@ class RPCInterface(object):
                     proc_errors = []
                     for proc in processes_to_stop:
                         if proc.running():
-                            self.logger.error(f'RPCInterface.disable: process={proc.namespec} still running')
                             proc_errors.append(proc.namespec)
                     if proc_errors:
-                        raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                        self._raise(Faults.STILL_RUNNING, 'disable', f'processes={proc_errors}')
                 # wait until processes are disabled in Supvisors
                 if not onwait.waitstop:
                     for namespec in subprocesses:
@@ -972,22 +973,23 @@ class RPCInterface(object):
         :rtype: bool
         :raises RPCError: with code:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``INITIALIZATION`` ;
-            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if the synchronization is ending ;
-            ``Faults.INCORRECT_PARAMETERS`` if the synchro_options does not include ``USER`` ;
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if the synchronization is ending (master elected) ;
+            ``SupvisorsFaults.NOT_APPLICABLE`` if the synchro_options does not include ``USER`` ;
             ``Faults.BAD_NAME`` if master is an unknown Supvisors identifier ;
             ``Faults.NOT_RUNNING`` if the selected Master Supvisors instance is not in state ``RUNNING``.
         """
         self._check_state([SupvisorsStates.INITIALIZATION])
         if self.supvisors.context.master_identifier:
-            raise RPCError(SupvisorsFaults.BAD_SUPVISORS_STATE, 'Supvisors synchronization ending')
+            self._raise(SupvisorsFaults.BAD_SUPVISORS_STATE.value, 'end_sync', 'Supvisors synchronization ending')
         if SynchronizationOptions.USER not in self.supvisors.options.synchro_options:
-            raise RPCError(Faults.INCORRECT_PARAMETERS, 'USER expected in synchro_options')
+            self._raise(SupvisorsFaults.NOT_APPLICABLE.value, 'end_sync', 'USER expected in synchro_options')
         if master:
             if master not in self.supvisors.context.instances:
-                raise RPCError(Faults.BAD_NAME, f'unknown Supvisors identifier: {master}')
+                self._raise(Faults.BAD_NAME, 'end_sync', f'unknown Supvisors identifier={master}')
             status = self.supvisors.context.instances[master]
             if status.state != SupvisorsInstanceStates.RUNNING:
-                raise RPCError(Faults.NOT_RUNNING, f'Supvisors instance={master} is not RUNNING ({status.state.name})')
+                self._raise(Faults.NOT_RUNNING, 'end_sync',
+                            f'Supvisors instance={master} is not RUNNING ({status.state.name})')
         # checks passed so trigger the request
         self.supvisors.fsm.on_end_sync(master)
         # decision is made NOT to implement a wait loop for DEPLOYMENT state
@@ -1009,7 +1011,28 @@ class RPCInterface(object):
             handler.level = level
         return True
 
+    def enable_host_statistics(self, enabled: bool):
+        """ Override the option host_stats_enabled and enable/disable
+
+        :param bool enabled: if True and psutil installed, enable host statistics collection.
+        :return: always ``True`` unless error.
+        :rtype: bool
+        :raises RPCError: with code ``SupvisorsFaults.NOT_INSTALLED`` if ``psutil`` is not installed.
+        """
+        if not self.supvisors.stats_collector:
+            self._raise(SupvisorsFaults.NOT_INSTALLED.value, 'enable_host_statistics', 'psutil not installed')
+        self.supvisors.options.host_stats_enabled = enabled
+        # TODO: pass the value to stats process
+
     # utilities
+    def _raise(self, code: int, func: str, message: str, complement: Optional[str] = None) -> None:
+        """ Log the error and raise the exception. """
+        self.logger.error(f'RPCInterface.{func}: {message}')
+        complete_message = message
+        if complement:
+            complete_message += f' - {complement}'
+        raise RPCError(code, f'{complete_message}')
+
     def _get_starting_strategy(self, strategy: EnumParameterType) -> StartingStrategies:
         """ Check if the strategy given can fit to a StartingStrategies enum. """
         return self._get_strategy(strategy, StartingStrategies)
@@ -1025,20 +1048,21 @@ class RPCInterface(object):
             try:
                 return enum_klass[strategy]
             except KeyError:
-                self.logger.error(f'RPCInterface._get_strategy: invalid string for {enum_klass} ({strategy})')
-                raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'invalid {enum_klass}: {strategy} (string expected in {[x.name for x in enum_klass]})')
+                self._raise(Faults.INCORRECT_PARAMETERS, '_get_strategy',
+                            f'invalid {enum_klass} value={strategy}',
+                            f'string expected in {[x.name for x in enum_klass]}')
         # check by value
         if type(strategy) is int:
             try:
                 return enum_klass(strategy)
             except ValueError:
-                self.logger.error(f'RPCInterface._get_strategy: invalid integer for {enum_klass} ({strategy})')
-                raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'incorrect strategy: {strategy} (integer expected in {[x.value for x in enum_klass]}')
+                self._raise(Faults.INCORRECT_PARAMETERS, '_get_strategy',
+                            f'invalid {enum_klass} value={strategy}',
+                            f'integer expected in {[x.value for x in enum_klass]}')
         # other types are wrong
-        self.logger.error(f'RPCInterface._get_strategy: invalid {enum_klass} ({strategy})')
-        raise RPCError(Faults.INCORRECT_PARAMETERS, f'invalid {enum_klass}: {strategy} (string or integer expected)')
+        self._raise(Faults.INCORRECT_PARAMETERS, '_get_strategy',
+                    f'invalid {enum_klass} value={strategy} type={type(strategy)}',
+                    'type string or integer expected')
 
     @staticmethod
     def get_logger_levels() -> Dict[LevelsByName, str]:
@@ -1061,22 +1085,23 @@ class RPCInterface(object):
         if type(level_param) is str:
             level = getLevelNumByDescription(level_param.lower())
             if level is None:
-                self.logger.error(f'RPCInterface._get_logger_level: invalid string for logger level={level_param}')
                 values = list(RPCInterface.get_logger_levels().values())
-                raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'invalid logger level: {level_param} (string expected in {values})')
+                self._raise(Faults.INCORRECT_PARAMETERS, '_get_logger_level',
+                            f'invalid logger value={level_param}',
+                            f'string expected in {values}')
             return level
         # check by integer
         if type(level_param) is int:
             if level_param not in RPCInterface.get_logger_levels():
-                self.logger.error(f'RPCInterface._get_logger_level: invalid integer logger level={level_param}')
                 values = list(RPCInterface.get_logger_levels().keys())
-                raise RPCError(Faults.INCORRECT_PARAMETERS,
-                               f'invalid logger level: {level_param} (integer expected in {values})')
+                self._raise(Faults.INCORRECT_PARAMETERS, '_get_logger_level',
+                            f'invalid logger value={level_param}',
+                            f'integer expected in {values}')
             return level_param
         # other types are wrong
-        self.logger.error(f'RPCInterface._get_logger_level: invalid logger level={level_param}')
-        raise RPCError(Faults.INCORRECT_PARAMETERS, f'invalid logger level: {level_param} (string or integer expected)')
+        self._raise(Faults.INCORRECT_PARAMETERS, '_get_logger_level',
+                    f'invalid logger value={level_param} type={type(level_param)}',
+                    'type string or integer expected')
 
     def _check_from_deployment(self) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
@@ -1100,11 +1125,11 @@ class RPCInterface(object):
     def _check_state(self, states) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
         if self.supvisors.fsm.state not in states:
-            raise RPCError(SupvisorsFaults.BAD_SUPVISORS_STATE.value,
-                           f'Supvisors (state={self.supvisors.fsm.state.name}) not in state'
-                           f' {[state.name for state in states]} to perform request')
+            self._raise(SupvisorsFaults.BAD_SUPVISORS_STATE.value, '_check_state',
+                        f'invalid Supvisors state={self.supvisors.fsm.state.name}',
+                        f'state expected in {[state.name for state in states]}')
 
-    def _get_application_process(self, namespec):
+    def _get_application_process(self, namespec: str) -> Tuple[ApplicationStatus, Optional[ProcessStatus]]:
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.
         A BAD_NAME exception is raised if the application or the process is not found. """
         application_name, process_name = split_namespec(namespec)
@@ -1112,15 +1137,14 @@ class RPCInterface(object):
         process = self._get_process(application, process_name) if process_name else None
         return application, process
 
-    def _get_application(self, application_name):
+    def _get_application(self, application_name: str) -> ApplicationStatus:
         """ Return the ApplicationStatus corresponding to the application name.
         A BAD_NAME exception is raised if the application is not found. """
         try:
             return self.supvisors.context.applications[application_name]
         except KeyError:
-            message = f'application {application_name} unknown to Supvisors'
-            self.logger.error(f'RPCInterface._get_application: {message}')
-            raise RPCError(Faults.BAD_NAME, message)
+            self._raise(Faults.BAD_NAME, '_get_application',
+                        f'application={application_name} unknown to Supvisors')
 
     def _get_process(self, application: ApplicationStatus, process_name: str):
         """ Return the ProcessStatus corresponding to process_name in application.
@@ -1128,9 +1152,8 @@ class RPCInterface(object):
         try:
             return application.processes[process_name]
         except KeyError:
-            message = f'process={process_name} unknown in application={application.application_name}'
-            self.logger.error(f'RPCInterface._get_process: {message}')
-            raise RPCError(Faults.BAD_NAME, message)
+            self._raise(Faults.BAD_NAME, '_get_process',
+                        f'process={process_name} unknown in application={application.application_name}')
 
     @staticmethod
     def _get_internal_process_rules(process):

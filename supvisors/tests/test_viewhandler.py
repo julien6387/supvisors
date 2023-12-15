@@ -24,7 +24,7 @@ import pytest
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, ProcessStates
 
-from supvisors.rpcinterface import API_VERSION
+from supvisors import __version__
 from supvisors.ttypes import ApplicationStates, StartingStrategies, SupvisorsStates, SupvisorsInstanceStates
 from supvisors.web.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
 from supvisors.web.viewhandler import ViewHandler
@@ -163,7 +163,7 @@ def test_write_common(mocker, handler):
                                                    call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert not mocked_meta.deparent.called
     assert 'failure' not in mocked_supv.attrib['class']
-    assert mocked_version.content.call_args_list == [call(API_VERSION)]
+    assert mocked_version.content.call_args_list == [call(__version__)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_identifier)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
@@ -188,7 +188,7 @@ def test_write_common(mocker, handler):
                                                    call('autorefresh_a_mid')]
     assert mocked_meta.deparent.called
     assert mocked_supv.attrib == {'class': 'failure'}
-    assert mocked_version.content.call_args_list == [call(API_VERSION)]
+    assert mocked_version.content.call_args_list == [call(__version__)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_identifier)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
