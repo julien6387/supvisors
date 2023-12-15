@@ -5,6 +5,8 @@
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 
+* Rework **Supvisors** `RPCInterface` exceptions.
+
 
 ## 0.17.3 (2023-12-14)
 
