@@ -75,33 +75,33 @@ def _check_output_error(controller, error):
 
 def _check_call(controller, mocked_check, mocked_rpc, help_fct, do_fct, arg, rpc_result, has_error=False):
     """ Generic test of help and request. """
-    # test that help uses output
+    # 1. test that help uses output
     help_fct()
     assert controller.output.called
     controller.output.reset_mock()
-    # test request
+    # 2. test normal request
     do_fct(arg)
-    # test upcheck call if any
+    # check upcheck call if any
     if mocked_check:
         assert mocked_check.call_args_list == [call()]
         mocked_check.reset_mock()
-    # test RPC
+    # check RPC
     assert mocked_rpc.call_args_list == rpc_result
     mocked_rpc.reset_mock()
-    # test output (with no error)
+    # check output (with no error)
     _check_output_error(controller, has_error)
-    # test request error
+    # 3. test request error
     mocked_rpc.side_effect = xmlrpclib.Fault(0, 'error')
     do_fct(arg)
     mocked_rpc.side_effect = None
-    # test upcheck call if any
+    # check upcheck call if any
     if mocked_check:
         assert mocked_check.call_args_list == [call()]
         mocked_check.reset_mock()
-    # test RPC
+    # check RPC
     assert mocked_rpc.call_args_list == rpc_result
     mocked_rpc.reset_mock()
-    # test output (with error)
+    # check output (with error)
     _check_output_error(controller, True)
 
 
@@ -308,6 +308,13 @@ def test_strategies(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().get_strategies
     mocked_rpc.return_value = {'conciliation': 'hard', 'starting': 'easy', 'auto-fencing': True}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_strategies, plugin.do_strategies, '', [call()])
+
+
+def test_statistics_status(controller, plugin, mocked_check):
+    """ Test the master request. """
+    mocked_rpc = plugin.supvisors().get_statistics_status
+    mocked_rpc.return_value = {'host_stats': True, 'process_stats': False, 'collecting_period': 7.5}
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_stats_status, plugin.do_stats_status, '', [call()])
 
 
 def test_sstate(controller, plugin, mocked_check):
@@ -813,6 +820,100 @@ def test_loglevel(controller, plugin, mocked_check):
     for code, level in RPCInterface.get_logger_levels().items():
         _check_call(controller, mocked_check, mocked_rpc, plugin.help_loglevel, plugin.do_loglevel,
                     level, [call(code)])
+
+
+def test_enable_stats_host(controller, plugin, mocked_check):
+    """ Test the enable_stats request for host. """
+    mocked_rpc = plugin.supvisors().enable_host_statistics
+    # test the request using unknown statistics type
+    plugin.do_enable_stats('node')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                'host', [call(True)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                'host process', [call(True)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                'all', [call(True)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                '', [call(True)])
+
+
+def test_enable_stats_process(controller, plugin, mocked_check):
+    """ Test the enable_stats request for process. """
+    mocked_rpc = plugin.supvisors().enable_process_statistics
+    # test the request using unknown statistics type
+    plugin.do_enable_stats('node')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                'process', [call(True)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                'host process', [call(True)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                'all', [call(True)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_enable_stats, plugin.do_enable_stats,
+                '', [call(True)])
+
+
+def test_disable_stats_host(controller, plugin, mocked_check):
+    """ Test the disable_stats request for host. """
+    mocked_rpc = plugin.supvisors().enable_host_statistics
+    # test the request using unknown statistics type
+    plugin.do_disable_stats('node')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                'host', [call(False)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                'host process', [call(False)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                'all', [call(False)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                '', [call(False)])
+
+
+def test_disable_stats_process(controller, plugin, mocked_check):
+    """ Test the disable_stats request for process. """
+    mocked_rpc = plugin.supvisors().enable_process_statistics
+    # test the request using unknown statistics type
+    plugin.do_disable_stats('node')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                'process', [call(False)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                'host process', [call(False)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                'all', [call(False)])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_disable_stats, plugin.do_disable_stats,
+                '', [call(False)])
+
+
+def test_stats_period(controller, plugin, mocked_check):
+    """ Test the stats_period request. """
+    mocked_rpc = plugin.supvisors().update_collecting_period
+    # test the request without parameter
+    plugin.do_stats_period('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using an invalid float
+    plugin.do_stats_period('seven')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_stats_period, plugin.do_stats_period,
+                '7.5', [call(7.5)])
 
 
 def test_upcheck(controller, plugin):

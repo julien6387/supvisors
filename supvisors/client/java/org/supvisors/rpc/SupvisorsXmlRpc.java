@@ -85,6 +85,16 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The getStatisticsStatus method returns the status of statistics collection in Supvisors.
+     *
+     * @return SupvisorsStatisticsStatus: Information about the statistics collection.
+     */
+    public SupvisorsStatisticsStatus getStatisticsStatus() throws XmlRpcException {
+        HashMap result = client.rpcCall(Namespace + "get_statistics_status", null, HashMap.class);
+        return new SupvisorsStatisticsStatus(result);
+    }
+
+    /**
      * The getAllInstancesInfo method returns information about all Supvisors instances.
      *
      * @return HashMap<String, SupvisorsInstanceInfo>: Information for all Supvisors instances, sorted by name.
@@ -503,6 +513,45 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The enableHostStatistics method enables or disables the host statistics collection
+     * in the local Supvisors instance.
+     *
+     * @param Boolean enabled: true if the host statistics collection is enabled.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code NOT_INSTALLED if psutil is not installed.
+     */
+    public Boolean enableHostStatistics(final Boolean enabled) throws XmlRpcException {
+        Object[] params = new Object[]{enabled};
+        return client.rpcCall(Namespace + "enable_host_statistics", params, Boolean.class);
+    }
+
+    /**
+     * The enableProcessStatistics method enables or disables the process statistics collection
+     * in the local Supvisors instance.
+     *
+     * @param Boolean enabled: true if the process statistics collection is enabled.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code NOT_INSTALLED if psutil is not installed.
+     */
+    public Boolean enableProcessStatistics(final Boolean enabled) throws XmlRpcException {
+        Object[] params = new Object[]{enabled};
+        return client.rpcCall(Namespace + "enable_process_statistics", params, Boolean.class);
+    }
+
+    /**
+     * The updateCollectingPeriod method updates the host and process statistics collection period
+     * in the local Supvisors instance.
+     *
+     * @param Float period: the new statistics collection period.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code NOT_INSTALLED if psutil is not installed.
+     */
+    public Boolean updateCollectingPeriod(final Float period) throws XmlRpcException {
+        Object[] params = new Object[]{enabled};
+        return client.rpcCall(Namespace + "update_collecting_period", params, Boolean.class);
+    }
+
+    /**
      * The main for Supvisors self-tests.
      *
      * @param String[] args: The arguments.
@@ -610,6 +659,18 @@ public class SupvisorsXmlRpc {
         System.out.println(supvisors.disable("converter", true));
         System.out.println("### Testing supvisors.enable(...) ###");
         System.out.println(supvisors.enable("converter", true));
+
+        // test statistics options
+        System.out.println("### Testing supvisors.getStatisticsStatus(...) ###");
+        System.out.println(supvisors.getStatisticsStatus());
+        System.out.println("### Testing supvisors.enableHostStatistics(...) ###");
+        System.out.println(supvisors.enableHostStatistics(false));
+        System.out.println("### Testing supvisors.enableProcessStatistics(...) ###");
+        System.out.println(supvisors.enableProcessStatistics(false));
+        System.out.println("### Testing supvisors.updateCollectingPeriod(...) ###");
+        System.out.println(supvisors.updateCollectingPeriod(7.5));
+        System.out.println("### Testing supvisors.getStatisticsStatus(...) ###");
+        System.out.println(supvisors.getStatisticsStatus());
 
         // test supvisors request rpc
         System.out.println("### Testing supvisors.conciliate(...) ###");

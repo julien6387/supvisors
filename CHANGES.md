@@ -2,6 +2,11 @@
 
 ## 0.18 (2024-xx-xx)
 
+* Add new `get_statistics_status`, `enable_host_statistics`, `enable_process_statistics`, `update_collecting_period`
+  XML-RPCs to support the possibility to get and update the collection of host and process statistics.
+  The corresponding commands `stats_status`, `enable_stats` and `stats_period` have been added to `supervisorctl`.
+  The JAVA client includes the new XML-RPCs.
+
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 

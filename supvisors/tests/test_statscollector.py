@@ -38,12 +38,12 @@ def queues() -> Tuple[mp.Queue, mp.Queue, mp.Queue]:
 
 @pytest.fixture
 def host_collector(queues) -> HostStatisticsCollector:
-    return HostStatisticsCollector(queues[1], 10)
+    return HostStatisticsCollector(queues[1], 10, False)
 
 
 @pytest.fixture
 def proc_collector(queues) -> ProcessStatisticsCollector:
-    return ProcessStatisticsCollector(queues[2], 5, os.getpid())
+    return ProcessStatisticsCollector(queues[2], 5, False, os.getpid())
 
 
 def test_instant_cpu_statistics():
@@ -107,7 +107,7 @@ def test_instant_io_statistics():
 def test_statistics_collector():
     """ Test the StatisticsCollector base class. """
     stats_queue = mp.Queue()
-    collector = StatisticsCollector(stats_queue, 28)
+    collector = StatisticsCollector(stats_queue, 28, False)
     assert collector.stats_queue is stats_queue
     assert collector.period == 28
     assert not collector.enabled
@@ -391,7 +391,7 @@ def test_process_statistics_collector_collect_processes_statistics(mocker, proc_
     assert mocked_supervisor.called
     assert mocked_recent.called
     mocker.resetall()
-    # try with statistics collection enabled but and one process collected
+    # try with statistics collection enabled and one process collected
     mocked_recent.return_value = True
     assert proc_collector.collect_processes_statistics()
     assert mocked_supervisor.called
@@ -412,8 +412,9 @@ def test_statistics_collector_task(mocker, queues):
                                            return_value=mocked_proc_collector)
     # pre-fill the sending queue
     queues[0].put((StatsMsgType.ALIVE, None))
-    queues[0].put((StatsMsgType.ENABLE_PROCESS, True))
-    queues[0].put((StatsMsgType.ENABLE_HOST, True))
+    queues[0].put((StatsMsgType.ENABLE_PROCESS, False))
+    queues[0].put((StatsMsgType.ENABLE_HOST, False))
+    queues[0].put((StatsMsgType.PERIOD, 7.5))
     queues[0].put((StatsMsgType.PID, ('dummy_1', 123)))
     queues[0].put((StatsMsgType.PID, ('dummy_2', 456)))
     queues[0].put((StatsMsgType.ALIVE, None))
@@ -423,10 +424,10 @@ def test_statistics_collector_task(mocker, queues):
         queues[0].put((StatsMsgType.STOP, None))
     Thread(target=terminate).start()
     # trigger the main loop
-    statistics_collector_task(queues[0], queues[1], queues[2], 5, 777)
-    assert mocked_host_constructor.call_args_list == [call(queues[1], 5)]
+    statistics_collector_task(queues[0], queues[1], queues[2], 5, True, True, 777)
+    assert mocked_host_constructor.call_args_list == [call(queues[1], 5, True)]
     assert mocked_host_constructor.enabled
-    assert mocked_proc_constructor.call_args_list == [call(queues[2], 5, 777)]
+    assert mocked_proc_constructor.call_args_list == [call(queues[2], 5, True, 777)]
     assert mocked_proc_constructor.enabled
     assert mocked_proc_collector.update_process_list.call_args_list == [call('dummy_1', 123), call('dummy_2', 456)]
     # due to the multi-threading aspect, impossible to predict the exact number of calls
@@ -440,16 +441,14 @@ def test_statistics_collector_task_main_killed(mocker, queues):
     # mock HostStatisticsCollector
     mocked_host_collector = Mock(spec=HostStatisticsCollector)
     mocked_host_collector.collect_host_statistics.return_value = False
-    mocked_host_constructor = mocker.patch('supvisors.statscollector.HostStatisticsCollector',
-                                      return_value=mocked_host_collector)
+    mocker.patch('supvisors.statscollector.HostStatisticsCollector', return_value=mocked_host_collector)
     # mock ProcessStatisticsCollector
     mocked_proc_collector = Mock(spec=ProcessStatisticsCollector)
     mocked_proc_collector.collect_processes_statistics.return_value = False
-    mocked_proc_constructor = mocker.patch('supvisors.statscollector.ProcessStatisticsCollector',
-                                           return_value=mocked_proc_collector)
+    mocker.patch('supvisors.statscollector.ProcessStatisticsCollector', return_value=mocked_proc_collector)
     # trigger the main loop and test that it exits by itself after 15 seconds without heartbeat
     start_time = time()
-    statistics_collector_task(queues[0], queues[1], queues[2], 5, 777)
+    statistics_collector_task(queues[0], queues[1], queues[2], 5, False, False, 777)
     assert time() - start_time > HEARTBEAT_TIMEOUT
 
 
@@ -468,12 +467,9 @@ def test_statistics_collector_process(mocker, supvisors):
     assert mocked_creation.call_args_list == [call(target=statistics_collector_task,
                                                    args=(collector.cmd_queue,
                                                          collector.host_stats_queue, collector.proc_stats_queue,
-                                                         5, os.getpid()),
+                                                         5, True, True, os.getpid()),
                                                    daemon=True)]
     assert mocked_process.start.call_args_list == [call()]
-    # test statistics activation
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_HOST, True)
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_PROCESS, True)
     # test alive
     collector.alive()
     assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ALIVE, None)
@@ -502,6 +498,9 @@ def test_statistics_collector_process(mocker, supvisors):
     assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_HOST, False)
     collector.enable_process_statistics(False)
     assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_PROCESS, False)
+    # test statistics period update
+    collector.update_collecting_period(7.5)
+    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.PERIOD, 7.5)
     # test thread stopping
     collector.stop()
     assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.STOP, None)

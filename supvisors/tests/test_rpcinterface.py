@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -25,6 +24,7 @@ from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supvisors import __version__
 from supvisors.instancestatus import StateModes
 from supvisors.rpcinterface import *
+from supvisors.statscollector import StatsMsgType
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, DistributionRules, SupvisorsStates,
                               SupvisorsFaults)
 from .base import DummyRpcInterface
@@ -32,7 +32,7 @@ from .conftest import create_application
 
 
 @pytest.fixture
-def rpc(supvisors):
+def rpc(supvisors) -> RPCInterface:
     """ create the instance to be tested. """
     return RPCInterface(supvisors)
 
@@ -72,6 +72,21 @@ def test_strategies(rpc):
     rpc.supvisors.options.starting_strategy = StartingStrategies.MOST_LOADED
     # test call
     assert rpc.get_strategies() == {'auto-fencing': True, 'starting': 'MOST_LOADED', 'conciliation': 'INFANTICIDE'}
+
+
+def test_statistics_status(rpc):
+    """ Test the get_statistics_status RPC. """
+    # test call
+    assert rpc.get_statistics_status() == {'host_stats': True, 'process_stats': True, 'collecting_period': 5}
+    # update options
+    rpc.supvisors.options.process_stats_enabled = False
+    rpc.supvisors.options.collecting_period = 7.5
+    assert rpc.get_statistics_status() == {'host_stats': True, 'process_stats': False, 'collecting_period': 7.5}
+    # delete statistics collector
+    rpc.supvisors.options.host_stats_enabled = False
+    rpc.supvisors.options.process_stats_enabled = True
+    rpc.supvisors.stats_collector = None
+    assert rpc.get_statistics_status() == {'host_stats': False, 'process_stats': False, 'collecting_period': 7.5}
 
 
 def test_instance_info(rpc):
@@ -1587,6 +1602,67 @@ def test_change_log_level(rpc):
         level = getLevelNumByDescription(new_level)
         assert rpc.logger.level == level
         assert rpc.logger.handlers[0].level == level
+
+
+def test_enable_host_statistics(rpc):
+    """ Test the enable_host_statistics RPC. """
+    # check initial state
+    assert rpc.supvisors.stats_collector
+    assert rpc.supvisors.options.host_stats_enabled
+    # disable the shost statistics collection
+    rpc.enable_host_statistics(False)
+    assert not rpc.supvisors.options.host_stats_enabled
+    assert rpc.supvisors.stats_collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_HOST, False)
+    # enable the shost statistics collection
+    rpc.enable_host_statistics(True)
+    assert rpc.supvisors.options.host_stats_enabled
+    assert rpc.supvisors.stats_collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_HOST, True)
+    # again with no statistics collector
+    rpc.supvisors.stats_collector = None
+    for enabled in [False, True]:
+        with pytest.raises(RPCError) as exc:
+            rpc.enable_host_statistics(enabled)
+        assert exc.value.args[0] == SupvisorsFaults.NOT_INSTALLED.value
+        assert rpc.supvisors.options.host_stats_enabled
+
+
+def test_enable_process_statistics(rpc):
+    """ Test the enable_process_statistics RPC. """
+    # check initial state
+    assert rpc.supvisors.stats_collector
+    assert rpc.supvisors.options.process_stats_enabled
+    # disable the shost statistics collection
+    rpc.enable_process_statistics(False)
+    assert not rpc.supvisors.options.process_stats_enabled
+    assert rpc.supvisors.stats_collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_PROCESS, False)
+    # enable the host statistics collection
+    rpc.enable_process_statistics(True)
+    assert rpc.supvisors.options.process_stats_enabled
+    assert rpc.supvisors.stats_collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_PROCESS, True)
+    # again with no statistics collector
+    rpc.supvisors.stats_collector = None
+    for enabled in [False, True]:
+        with pytest.raises(RPCError) as exc:
+            rpc.enable_process_statistics(enabled)
+        assert exc.value.args[0] == SupvisorsFaults.NOT_INSTALLED.value
+        assert rpc.supvisors.options.process_stats_enabled
+
+
+def test_update_collecting_period(rpc):
+    """ Test the update_collecting_period RPC. """
+    # check initial state
+    assert rpc.supvisors.stats_collector
+    assert rpc.supvisors.options.collecting_period == 5
+    # disable the shost statistics collection
+    rpc.update_collecting_period(7.5)
+    assert rpc.supvisors.options.collecting_period == 7.5
+    assert rpc.supvisors.stats_collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.PERIOD, 7.5)
+    # again with no statistics collector
+    rpc.supvisors.stats_collector = None
+    with pytest.raises(RPCError) as exc:
+        rpc.update_collecting_period(10)
+    assert exc.value.args[0] == SupvisorsFaults.NOT_INSTALLED.value
+    assert rpc.supvisors.options.collecting_period == 7.5
 
 
 def test_get_logger_levels():

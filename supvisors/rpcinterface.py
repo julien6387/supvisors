@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Callable, Optional, Type, Union
+from typing import Callable, NoReturn, Optional, Type, Union
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
@@ -101,8 +101,8 @@ class RPCInterface(object):
     def get_strategies(self) -> Payload:
         """ Get the default strategies applied by **Supvisors**:
 
-            * auto-fencing: Supvisors instance isolation if it becomes inactive,
-            * starting: used in the ``DEPLOYMENT`` state to start applications,
+            * auto-fencing: Supvisors instance isolation if it becomes inactive ;
+            * starting: used in the ``DEPLOYMENT`` state to start applications ;
             * conciliation: used in the ``CONCILIATION`` state to conciliate conflicts.
 
         :return: a structure containing information about the strategies applied.
@@ -112,6 +112,22 @@ class RPCInterface(object):
         return {'auto-fencing': options.auto_fence,
                 'starting': options.starting_strategy.name,
                 'conciliation': options.conciliation_strategy.name}
+
+    def get_statistics_status(self) -> Payload:
+        """ Get information about the statistics collection status in **Supvisors**:
+
+            * host_stats: True if the host statistics are collected ;
+            * process_stats: True if the process statistics are collected ;
+            * collecting_period: the minimum interval between 2 samples of the same statistics type.
+
+        :return: a structure containing information about the statistics collected.
+        :rtype: dict[str, Any]
+        """
+        has_collector = self.supvisors.stats_collector is not None
+        options = self.supvisors.options
+        return {'host_stats': options.host_stats_enabled and has_collector,
+                'process_stats': options.process_stats_enabled and has_collector,
+                'collecting_period': options.collecting_period}
 
     def get_all_instances_info(self) -> PayloadList:
         """ Get information about all **Supvisors** instances.
@@ -131,12 +147,11 @@ class RPCInterface(object):
         :raises RPCError: with code ``Faults.INCORRECT_PARAMETERS`` if ``identifier`` is unknown to **Supvisors**.
         """
         try:
-            status = self.supvisors.context.instances[identifier]
+            # get Supvisors instance status and complement with Starter and Stopper progress
+            return self.supvisors.context.instances[identifier].serial()
         except KeyError:
             self._raise(Faults.INCORRECT_PARAMETERS, 'get_instance_info',
                         f'identifier={identifier} unknown to Supvisors')
-        # get Supvisors instance status and complement with Starter and Stopper progress
-        return status.serial()
 
     def get_all_applications_info(self) -> PayloadList:
         """ Get information about all applications managed in **Supvisors**.
@@ -678,10 +693,10 @@ class RPCInterface(object):
                     # process may have been deleted if there is no more Supervisor instance supporting it
                     try:
                         proc = self.supvisors.context.get_process(namespec)
-                        if local_identifier not in proc.info_map:
-                            return NOT_DONE_YET
                     except KeyError:
                         self.logger.debug(f'RPCInterface._decrease_numprocs: processes {namespec} does not exist yet')
+                        return NOT_DONE_YET
+                    if local_identifier not in proc.info_map:
                         return NOT_DONE_YET
                 return True
 
@@ -778,18 +793,16 @@ class RPCInterface(object):
             self._raise(Faults.INCORRECT_PARAMETERS, 'update_numprocs',
                         f'program={program_name} incorrect numprocs={numprocs}',
                         'integer > 0 expected')
-        else:
-            try:
-                add_namespecs, del_namespecs = self.supvisors.supervisor_data.update_numprocs(program_name, value)
-            except ValueError:
-                self._raise(SupvisorsFaults.NOT_APPLICABLE.value, 'update_numprocs',
-                            f'numprocs not applicable to program={program_name}')
-            else:
-                # use different methods for the next activities
-                if add_namespecs:
-                    return self._increase_numprocs(add_namespecs, wait)
-                if del_namespecs:
-                    return self._decrease_numprocs(del_namespecs, wait)
+        try:
+            add_namespecs, del_namespecs = self.supvisors.supervisor_data.update_numprocs(program_name, value)
+        except ValueError:
+            self._raise(SupvisorsFaults.NOT_APPLICABLE.value, 'update_numprocs',
+                        f'numprocs not applicable to program={program_name}')
+        # use different methods for the next activities
+        if add_namespecs:
+            return self._increase_numprocs(add_namespecs, wait)
+        if del_namespecs:
+            return self._decrease_numprocs(del_namespecs, wait)
         return True
 
     def enable(self, program_name: str, wait: bool = True) -> WaitReturnType:
@@ -1011,21 +1024,52 @@ class RPCInterface(object):
             handler.level = level
         return True
 
-    def enable_host_statistics(self, enabled: bool):
-        """ Override the option host_stats_enabled and enable/disable
+    def enable_host_statistics(self, enable_host: bool) -> bool:
+        """ Override the host statistics option for the local **Supvisors** instance.
 
-        :param bool enabled: if True and psutil installed, enable host statistics collection.
+        :param bool enable_host: if True/False and psutil installed, enable/disable host statistics collection.
         :return: always ``True`` unless error.
         :rtype: bool
         :raises RPCError: with code ``SupvisorsFaults.NOT_INSTALLED`` if ``psutil`` is not installed.
         """
         if not self.supvisors.stats_collector:
             self._raise(SupvisorsFaults.NOT_INSTALLED.value, 'enable_host_statistics', 'psutil not installed')
-        self.supvisors.options.host_stats_enabled = enabled
-        # TODO: pass the value to stats process
+        # update the host statistics collection status
+        self.supvisors.options.host_stats_enabled = enable_host
+        self.supvisors.stats_collector.enable_host_statistics(enable_host)
+        return True
+
+    def enable_process_statistics(self, enable_process: bool) -> bool:
+        """ Override the process statistics option for the local **Supvisors** instance.
+
+        :param bool enable_process: if True/False and psutil installed, enable/disable process statistics collection.
+        :return: always ``True`` unless error.
+        :rtype: bool
+        :raises RPCError: with code ``SupvisorsFaults.NOT_INSTALLED`` if ``psutil`` is not installed.
+        """
+        if not self.supvisors.stats_collector:
+            self._raise(SupvisorsFaults.NOT_INSTALLED.value, 'enable_process_statistics', 'psutil not installed')
+        # update the process statistics collection status
+        self.supvisors.options.process_stats_enabled = enable_process
+        self.supvisors.stats_collector.enable_process_statistics(enable_process)
+        return True
+
+    def update_collecting_period(self, collecting_period: float) -> bool:
+        """ Override the statistics period option for the local **Supvisors** instance.
+
+        :param float collecting_period: the minimum interval between 2 samples of the same statistics type.
+        :return: always ``True`` unless error.
+        :rtype: bool
+        :raises RPCError: with code ``SupvisorsFaults.NOT_INSTALLED`` if ``psutil`` is not installed.
+        """
+        if not self.supvisors.stats_collector:
+            self._raise(SupvisorsFaults.NOT_INSTALLED.value, 'update_collecting_period', 'psutil not installed')
+        self.supvisors.options.collecting_period = collecting_period
+        self.supvisors.stats_collector.update_collecting_period(collecting_period)
+        return True
 
     # utilities
-    def _raise(self, code: int, func: str, message: str, complement: Optional[str] = None) -> None:
+    def _raise(self, code: int, func: str, message: str, complement: Optional[str] = None) -> NoReturn:
         """ Log the error and raise the exception. """
         self.logger.error(f'RPCInterface.{func}: {message}')
         complete_message = message

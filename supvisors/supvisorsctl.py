@@ -165,6 +165,23 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the strategies command."""
         self.ctl.output('strategies\t\t\t\t\tGet the Supvisors strategies.')
 
+    def do_stats_status(self, _):
+        """ Command to get the Supvisors statistics collection status. """
+        if self._upcheck():
+            try:
+                status = self.supvisors().get_statistics_status()
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f"Collecting Host statistics:    {status['host_stats']}")
+                self.ctl.output(f"Collecting Process statistics: {status['process_stats']}")
+                self.ctl.output(f"Collecting statistics period:  {status['collecting_period']}")
+
+    def help_stats_status(self):
+        """ Print the help of the Supvisors statistics collection status command."""
+        self.ctl.output('stats_status\t\t\tGet the Supvisors statistics collection status.')
+
     def do_instance_status(self, arg):
         """ Command to get the status of instances known to Supvisors. """
         if self._upcheck():
@@ -973,7 +990,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('{} numprocs updated: {}'.format(args[0], result))
+                self.ctl.output(f'{args[0]} numprocs updated: {result}')
 
     def help_update_numprocs(self):
         """ Print the help of the update_numprocs command. """
@@ -1152,6 +1169,140 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
         values = RPCInterface.get_logger_levels().values()
         self.ctl.output(f'\t\t\t\t\tApplicable values are: {values}.')
+
+    def do_enable_stats(self, arg):
+        """ Command to enable host/process statistics collection in the local Supvisors. """
+        if self._upcheck():
+            args = arg.split()
+            enable_host_stats, enable_proc_stats = True, True
+            if args:
+                enable_host_stats, enable_proc_stats = False, False
+                error = False
+                # check request args
+                stats_types = list(map(str.lower, arg.split()))
+                for stats_type in stats_types:
+                    if stats_type == 'host':
+                        enable_host_stats = True
+                    elif stats_type == 'process':
+                        enable_proc_stats = True
+                    elif stats_type == 'all':
+                        enable_host_stats = True
+                        enable_proc_stats = True
+                    else:
+                        self.ctl.output(f'ERROR: invalid statistics type {stats_type}')
+                        error = True
+                if error:
+                    self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                    self.help_enable_stats()
+                    return
+            # disable host statistics collection
+            if enable_host_stats:
+                try:
+                    result = self.supvisors().enable_host_statistics(True)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Host statistics enabled: {result}')
+            # disable process statistics collection
+            if enable_proc_stats:
+                try:
+                    result = self.supvisors().enable_process_statistics(True)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Process statistics enabled: {result}')
+
+    def help_enable_stats(self):
+        """ Print the help of the enable_stats command."""
+        self.ctl.output('enable_stats\t\t\tEnable host and process statistics collection')
+        self.ctl.output('enable_stats all\t\tEnable host and process statistics collection')
+        self.ctl.output('enable_stats host\t\tEnable host statistics collection')
+        self.ctl.output('enable_stats process\t\tEnable process statistics collection')
+        self.ctl.output('enable_stats host process\tEnable host and process statistics collection')
+
+    def do_disable_stats(self, arg):
+        """ Command to disable host/process statistics collection in the local Supvisors. """
+        if self._upcheck():
+            args = arg.split()
+            disable_host_stats, disable_proc_stats = True, True
+            if args:
+                disable_host_stats, disable_proc_stats = False, False
+                error = False
+                # check request args
+                stats_types = list(map(str.lower, arg.split()))
+                for stats_type in stats_types:
+                    if stats_type == 'host':
+                        disable_host_stats = True
+                    elif stats_type == 'process':
+                        disable_proc_stats = True
+                    elif stats_type == 'all':
+                        disable_host_stats = True
+                        disable_proc_stats = True
+                    else:
+                        self.ctl.output(f'ERROR: invalid statistics type {stats_type}')
+                        error = True
+                if error:
+                    self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                    self.help_disable_stats()
+                    return
+            # disable host statistics collection
+            if disable_host_stats:
+                try:
+                    result = self.supvisors().enable_host_statistics(False)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Host statistics disabled: {result}')
+            # disable process statistics collection
+            if disable_proc_stats:
+                try:
+                    result = self.supvisors().enable_process_statistics(False)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Process statistics disabled: {result}')
+
+    def help_disable_stats(self):
+        """ Print the help of the disable_stats command."""
+        self.ctl.output('disable_stats\t\t\tDisable host and process statistics collection')
+        self.ctl.output('disable_stats all\t\tDisable host and process statistics collection')
+        self.ctl.output('disable_stats host\t\tDisable host statistics collection')
+        self.ctl.output('disable_stats process\t\tDisable process statistics collection')
+        self.ctl.output('disable_stats host process\tDisable host and process statistics collection')
+
+    def do_stats_period(self, arg):
+        """ Command to enable/disable host/process statistics collection in the local Supvisors. """
+        if self._upcheck():
+            # check request args
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: stats_period requires a period')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_stats_period()
+                return
+            try:
+                value = float(args[0])
+                assert value > 0.0
+            except ValueError:
+                self.ctl.output('ERROR: stats_period requires a strictly positive period')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_stats_period()
+                return
+            try:
+                result = self.supvisors().update_collecting_period(value)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'Statistics period updated: {result}')
+
+    def help_stats_period(self):
+        """ Print the help of the stats_period command."""
+        self.ctl.output('stats_period period\t\tUpdate the host and process statistics collection period')
 
     def _upcheck(self):
         """ Check of the API versions. """

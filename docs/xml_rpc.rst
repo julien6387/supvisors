@@ -217,7 +217,7 @@ Status
 .. _xml_rpc_supvisors:
 
 |Supvisors| Control
----------------------
+-------------------
 
   .. autoclass:: RPCInterface
     :noindex:
@@ -231,6 +231,31 @@ Status
         .. automethod:: restart()
 
         .. automethod:: shutdown()
+
+
+.. _xml_rpc_statistics:
+
+|Supvisors| Statistics Status and Control
+-----------------------------------------
+
+  .. autoclass:: RPCInterface
+    :noindex:
+
+        .. automethod:: get_statistics_status()
+
+            ==================== ========= ===========
+            Key                  Type      Description
+            ==================== ========= ===========
+            'host_stats'         ``bool``  The status of Host Statistics collection in |Supvisors|.
+            'process_stats'      ``bool``  The status of Process Statistics collection in |Supvisors|.
+            'collecting_period'  ``float`` The minimum interval between 2 samples of the same statistics type.
+            ==================== ========= ===========
+
+        .. automethod:: enable_host_statistics(enable_host)
+
+        .. automethod:: enable_process_statistics(enable_process)
+
+        .. automethod:: update_collecting_period(collecting_period)
 
 
 .. _xml_rpc_application:

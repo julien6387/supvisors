@@ -33,15 +33,17 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    all_start          local_status         sstate                  stop_process
-    all_start_args     loglevel             sstatus                 strategies
-    application_info   master               start_any_process       sversion
-    application_rules  process_rules        start_any_process_args  update_numprocs
-    conciliate         restart_application  start_application
-    conflicts          restart_process      start_args
-    disable            restart_sequence     start_process
-    enable             sreload              start_process_args
-    instance_status    sshutdown            stop_application
+    all_start          local_status         start_any_process       sversion
+    all_start_args     loglevel             start_any_process_args  update_numprocs
+    application_info   master               start_application
+    application_rules  process_rules        start_args
+    conciliate         restart_application  start_process
+    conflicts          restart_process      start_process_args
+    disable            restart_sequence     stats_period
+    enable             sreload              stats_status
+    enable_stats       sshutdown            stop_application
+    end_sync           sstate               stop_process
+    instance_status    sstatus              strategies
 
 .. _extended_status:
 
@@ -156,7 +158,7 @@ Status
 .. _supvisors_control:
 
 |Supvisors| Control
----------------------
+-------------------
 
 ``loglevel level``
 
@@ -178,6 +180,36 @@ Status
 ``sshutdown``
 
     Shutdown all |Supvisors| instances.
+
+
+.. _statistics_control:
+
+Statistics Control
+------------------
+
+``stats_status``
+
+    Get the |Supvisors| statistics collection status.
+
+``enable_stats process``
+
+    Enable process statistics collection
+
+``enable_stats host process``
+
+    Enable host and process statistics collection.
+
+``disable_stats host``
+
+    Disable host statistics collection.
+
+``disable_stats all``
+
+    Disable host and process statistics collection.
+
+``stats_period period``
+
+    Update the host and process statistics collection period.
 
 
 .. _application_control:

@@ -40,7 +40,7 @@ HEARTBEAT_TIMEOUT = 15
 
 class StatsMsgType(Enum):
     """ Message types used for PID queue. """
-    ALIVE, PID, STOP, ENABLE_HOST, ENABLE_PROCESS = range(5)
+    ALIVE, PID, STOP, ENABLE_HOST, ENABLE_PROCESS, PERIOD = range(6)
 
 
 # CPU statistics
@@ -103,11 +103,11 @@ class StatisticsCollector:
     # so if the put fails because the other end is terminated, the TimeoutException will end the process
     QUEUE_TIMEOUT = 10
 
-    def __init__(self, stats_queue: mp.Queue, period: float):
+    def __init__(self, stats_queue: mp.Queue, period: float, enabled: bool):
         """ Initialization of the attributes. """
         self.stats_queue: mp.Queue = stats_queue
         self.period: float = period
-        self.enabled: bool = False
+        self.enabled: bool = enabled
 
     def _post(self, stats: Dict) -> None:
         """ Post the statistics collected into the queue.
@@ -119,9 +119,9 @@ class StatisticsCollector:
 class HostStatisticsCollector(StatisticsCollector):
     """ Class holding the psutil structures for all the processes to collect statistics from. """
 
-    def __init__(self, stats_queue: mp.Queue, period: float):
+    def __init__(self, stats_queue: mp.Queue, period: float, enabled: bool):
         """ Initialization of the attributes. """
-        super().__init__(stats_queue, period)
+        super().__init__(stats_queue, period, enabled)
         self.last_stats_time: float = 0.0
 
     def collect_host_statistics(self) -> None:
@@ -181,9 +181,9 @@ def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optio
 class ProcessStatisticsCollector(StatisticsCollector):
     """ Class holding the psutil structures for all the processes to collect statistics from. """
 
-    def __init__(self, stats_queue: mp.Queue, period: float, supervisor_pid: int):
+    def __init__(self, stats_queue: mp.Queue, period: float, enabled: bool, supervisor_pid: int):
         """ Initialization of the attributes. """
-        super().__init__(stats_queue, period)
+        super().__init__(stats_queue, period, enabled)
         self.processes: List[Dict] = []
         # additional information obout the number of CPU cores, used for the Solaris mode
         self.nb_cores = mp.cpu_count()
@@ -296,11 +296,12 @@ class ProcessStatisticsCollector(StatisticsCollector):
 
 
 def statistics_collector_task(pid_queue: mp.Queue, host_stats_queue: mp.Queue, proc_stats_queue: mp.Queue,
-                              period: int, supervisor_pid: int):
+                              period: float, host_stats_enabled: bool, process_stats_enabled: bool,
+                              supervisor_pid: int):
     """ Statistics Collector main loop. """
     # create the collector instances
-    host_collector = HostStatisticsCollector(host_stats_queue, period)
-    proc_collector = ProcessStatisticsCollector(proc_stats_queue, period, supervisor_pid)
+    host_collector = HostStatisticsCollector(host_stats_queue, period, host_stats_enabled)
+    proc_collector = ProcessStatisticsCollector(proc_stats_queue, period, process_stats_enabled, supervisor_pid)
     # loop until a stop request is received or heartbeat fails
     last_heartbeat_received = time()
     stopped = False
@@ -318,6 +319,9 @@ def statistics_collector_task(pid_queue: mp.Queue, host_stats_queue: mp.Queue, p
                 host_collector.enabled = msg_body
             elif msg_type == StatsMsgType.ENABLE_PROCESS:
                 proc_collector.enabled = msg_body
+            elif msg_type == StatsMsgType.PERIOD:
+                host_collector.period = period
+                proc_collector.period = period
         # test heartbeat
         if not stopped:
             if time() - last_heartbeat_received > HEARTBEAT_TIMEOUT:
@@ -356,12 +360,11 @@ class StatisticsCollectorProcess:
         self.process = mp.Process(target=statistics_collector_task,
                                   args=(self.cmd_queue, self.host_stats_queue, self.proc_stats_queue,
                                         self.supvisors.options.collecting_period,
+                                        self.supvisors.options.host_stats_enabled,
+                                        self.supvisors.options.process_stats_enabled,
                                         os.getpid()),
                                   daemon=True)
         self.process.start()
-        # send default permissions for statistics collection
-        self.enable_host_statistics(self.supvisors.options.host_stats_enabled)
-        self.enable_process_statistics(self.supvisors.options.process_stats_enabled)
 
     def alive(self):
         """ Send a heartbeat to the collector process.
@@ -375,6 +378,10 @@ class StatisticsCollectorProcess:
     def enable_process_statistics(self, enabled: bool):
         """ Enable / disable the process statistics collection. """
         self.cmd_queue.put((StatsMsgType.ENABLE_PROCESS, enabled))
+
+    def update_collecting_period(self, period: float):
+        """ Update the period for host and process statistics collection. """
+        self.cmd_queue.put((StatsMsgType.PERIOD, period))
 
     def send_pid(self, namespec: str, pid: int):
         """ Send a process name and PID to the collector process. """
