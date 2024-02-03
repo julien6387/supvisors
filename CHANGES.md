@@ -12,6 +12,8 @@
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 
+* Use the latest versions of Sphinx-related modules for documentation, as `sphinx-5.0` is now the minimal dependency.
+
 
 ## 0.17.3 (2023-12-14)
 
