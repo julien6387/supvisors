@@ -74,7 +74,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.discovery_mode = (Boolean) instanceInfo.get("discovery_mode");
         this.remote_time = (Integer) instanceInfo.get("remote_time");
         this.local_time = (Integer) instanceInfo.get("local_time");
-        this.sequence_counter = (Integer) instanceInfo.get("sequence_counter");
+        this.sequence_counter = (Integer) instanceInfo.get("remote_sequence_counter");
         this.loading = (Integer) instanceInfo.get("loading");
         this.process_failure = (Boolean) instanceInfo.get("process_failure");
     }

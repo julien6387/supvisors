@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -253,6 +250,9 @@ def extract_and_complete(info):
     """ Provide payload as processed by Supvisors. """
     extracted_info = extract_process_info(info)
     extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': '', 'disabled': False})
+    extracted_info.update({'now_monotonic': info['now'] - 1e6,
+                           'start_monotonic': info['start'] - 1e6,
+                           'stop_monotonic': info['stop'] - 1e6})
     if info['name'].startswith('yeux'):
         program_name, process_index = info['name'].split('_')
         extracted_info.update({'program_name': program_name, 'process_index': int(process_index)})

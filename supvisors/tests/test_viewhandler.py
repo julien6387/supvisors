@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
 #
@@ -59,7 +56,9 @@ def test_init(http_context, handler):
     # test ViewHandler initialization
     assert handler.page_name is None
     current_time = time.time()
+    current_mtime = time.monotonic()
     assert current_time - 1 < handler.current_time < current_time
+    assert current_mtime - 1 < handler.current_mtime < current_mtime
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
     assert handler.local_identifier == handler.supvisors.mapper.local_identifier

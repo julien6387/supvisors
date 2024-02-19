@@ -1,5 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -203,7 +201,7 @@ def test_extra_args(source):
     # add extra arguments
     source.update_extra_args(namespec, '-la')
     # test access
-    assert source.get_process_config_options(namespec, ['extra_args']) == {'extra_args': '-la'}
+    assert source.get_process_config_data(namespec, ['extra_args']) == {'extra_args': '-la'}
     # test internal data
     assert config.command == 'ls -la'
     assert config.command_ref == 'ls'
@@ -211,7 +209,7 @@ def test_extra_args(source):
     # remove them
     source.update_extra_args(namespec, '')
     # test access
-    assert source.get_process_config_options(namespec, ['extra_args']) == {'extra_args': ''}
+    assert source.get_process_config_data(namespec, ['extra_args']) == {'extra_args': ''}
     # test internal data
     assert config.command == 'ls'
     assert config.command_ref == 'ls'
@@ -560,3 +558,60 @@ def test_spawn(mocker):
     # check that spawn does work
     assert process.spawn() == 'spawned'
     assert mocked_spawn.called
+
+
+def test_monotonic(mocker, source):
+    """ Test the start/stop monotonic markers. """
+    mocker.patch('time.monotonic', side_effect=[123.45, 456.78])
+    # test initial status
+    assert not any(hasattr(process, 'laststart_monotonic') or hasattr(process, 'laststop_monotonic')
+                   for appli in source.supervisord.process_groups.values()
+                   for process in appli.processes.values())
+    # add context to one group of the internal data
+    source.supvisors.server_options.processes_program = {'dummy_process_1': 'dummy_process',
+                                                         'dummy_process_2': 'dummy_process'}
+    source.update_internal_data('dummy_application')
+    # test internal data: 'dummy_application' processes should have additional attributes
+    assert all(hasattr(process, 'laststart_monotonic') and hasattr(process, 'laststop_monotonic')
+               for process in source.supervisord.process_groups['dummy_application'].processes.values())
+    # add context to internal data
+    source.update_internal_data()
+    # test internal data: all should have additional attributes
+    assert all(hasattr(process, 'laststart_monotonic') and hasattr(process, 'laststop_monotonic')
+               for appli in source.supervisord.process_groups.values()
+               for process in appli.processes.values())
+    # test unknown application and process
+    with pytest.raises(KeyError):
+        source.update_start('unknown_application:unknown_process')
+    with pytest.raises(KeyError):
+        source.update_start('dummy_application:unknown_process')
+    with pytest.raises(KeyError):
+        source.update_stop('unknown_application:unknown_process')
+    with pytest.raises(KeyError):
+        source.update_stop('dummy_application:unknown_process')
+    # test normal behaviour
+    namespec_1 = 'dummy_application:dummy_process_1'
+    namespec_2 = 'dummy_application:dummy_process_2'
+    process_1 = source._get_process(namespec_1)
+    process_2 = source._get_process(namespec_2)
+    # start first process
+    source.update_start(namespec_1)
+    # test access
+    fields = ['laststart_monotonic', 'laststop_monotonic']
+    assert source.get_process_data(namespec_1, fields) == {'laststart_monotonic': 123.45, 'laststop_monotonic': 0.0}
+    assert source.get_process_data(namespec_2, fields) == {'laststart_monotonic': 0.0, 'laststop_monotonic': 0.0}
+    # test internal data
+    assert process_1.laststart_monotonic == 123.45
+    assert process_1.laststop_monotonic == 0.0
+    assert process_2.laststart_monotonic == 0.0
+    assert process_2.laststop_monotonic == 0.0
+    # stop second process
+    source.update_stop(namespec_2)
+    # test access
+    assert source.get_process_data(namespec_1, fields) == {'laststart_monotonic': 123.45, 'laststop_monotonic': 0.0}
+    assert source.get_process_data(namespec_2, fields) == {'laststart_monotonic': 0.0, 'laststop_monotonic': 456.78}
+    # test internal data
+    assert process_1.laststart_monotonic == 123.45
+    assert process_1.laststop_monotonic == 0.0
+    assert process_2.laststart_monotonic == 0.0
+    assert process_2.laststop_monotonic == 456.78

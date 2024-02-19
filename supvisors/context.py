@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -34,34 +31,36 @@ from .ttypes import (ApplicationStates, SupvisorsInstanceStates, SupvisorsStates
 
 
 class Context:
-    """ The Context class holds the main data of Supvisors:
+    """ The Context class holds the main data of Supvisors.
 
-    - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier) ;
-    - applications: the dictionary of all ApplicationStatus (key is application name) ;
-    - master_identifier: the name of the Supvisors master ;
-    - is_master: a boolean telling if the local Supvisors instance is the master instance ;
-    - start_date: the date since Supvisors entered the INITIALIZATION state ;
-    - last_state_modes: the last Supvisors State and Modes published.
+    Attributes are:
+        - supvisors: the Supvisors global structure ;
+        - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier) ;
+        - applications: the dictionary of all ApplicationStatus (key is application name) ;
+        - start_date: the date since Supvisors entered the INITIALIZATION state ;
+        - last_state_modes: the last Supvisors State and Modes published.
     """
 
     # annotation types
     InstancesMap = Dict[str, SupvisorsInstanceStatus]
     ApplicationsMap = Dict[str, ApplicationStatus]
 
+    # attributes
+    supvisors: Any = None
+    start_date: float = 0.0
+    instances: InstancesMap = None
+    applications: ApplicationsMap = None
+    last_state_modes: Payload = None
+
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
         # the Supvisors instances declared statically
-        self.instances: Context.InstancesMap = {
-            identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
-            for identifier, supvisors_id in self.supvisors.mapper.instances.items()}
+        self.instances = {identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
+                          for identifier, supvisors_id in self.supvisors.mapper.instances.items()}
         # the applications known to Supvisors
-        self.applications: Context.ApplicationsMap = {}
-        # start time to manage end of synchronization phase
-        self.start_date: float = 0.0
-        # keep history of last state and modes publication
-        self.last_state_modes = None
+        self.applications = {}
 
     def reset(self) -> None:
         """ Reset the context to prepare a new synchronization phase.
@@ -533,10 +532,11 @@ class Context:
         :param event: the TICK event sent
         :return: None
         """
-        # for local Supvisors instance, use local data
+        # for local Supvisors instance, repeat local data
         counter = event['sequence_counter']
+        tick_mtime = event['when_monotonic']
         tick_time = event['when']
-        self.local_status.update_tick(counter, tick_time, counter, tick_time)
+        self.local_status.update_tick(counter, tick_mtime, tick_time)
         # trigger hand-shake on first TICK received
         if self.local_status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
             self.local_status.state = SupvisorsInstanceStates.CHECKING
@@ -566,7 +566,8 @@ class Context:
             # update the Supvisors instance with the TICK event
             self.supvisors.mapper.assign_stereotypes(identifier, event['stereotypes'])
             # for remote Supvisors instance, use local Supvisors instance data
-            status.update_tick(event['sequence_counter'], event['when'], self.local_sequence_counter, time.time())
+            status.update_tick(event['sequence_counter'], event['when_monotonic'], event['when'],
+                               self.local_sequence_counter)
             # trigger hand-shake on first TICK received
             if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
                 status.state = SupvisorsInstanceStates.CHECKING

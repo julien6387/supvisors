@@ -63,31 +63,38 @@ Status
 
         .. automethod:: get_instance_info(instance)
 
-            ================== ========= ===========
-            Key                Type      Description
-            ================== ========= ===========
-            'identifier'       ``str``   The deduced name of the |Supvisors| instance.
-            'node_name'        ``str``   The name of the node where the |Supvisors| instance is running.
-            'port'             ``int``   The HTTP port of the |Supvisors| instance.
-            'statecode'	       ``int``   The |Supvisors| instance state, in [0;6].
-            'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
-                                         `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
-            'discovery_mode'   ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
-            'remote_time'      ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
-                                         in the remote reference time.
-            'local_time'       ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
-                                         in the local reference time.
-            'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
-                                         instance, in [0;100]%.
-            'process_failure'  ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
-            'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
-            'fsm_statecode'    ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
-            'fsm_statename'    ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
-                                         ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
-                                         ``'SHUTTING_DOWN'``, ``'FINAL'``].
-            'starting_jobs'    ``bool``  True if the |Supvisors| instance has starting jobs in progress.
-            'stopping_jobs'    ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
-            ================== ========= ===========
+            ========================= ========= ===========
+            Key                       Type      Description
+            ========================= ========= ===========
+            'identifier'              ``str``   The deduced name of the |Supvisors| instance.
+            'node_name'               ``str``   The name of the node where the |Supvisors| instance is running.
+            'port'                    ``int``   The HTTP port of the |Supvisors| instance.
+            'statecode'	              ``int``   The |Supvisors| instance state, in [0;6].
+            'statename'	              ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
+                                                `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
+            'discovery_mode'          ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
+            'remote_sequence_counter' ``int``   The remote TICK counter, i.e. the number of TICK events received since
+                                                the remote |Supvisors| instance is running.
+            'remote_mtime'            ``float`` The monotonic time received in the last heartbeat sent by the remote
+                                                |Supvisors| instance, in seconds since the remote host started.
+            'remote_time'             ``float`` The POSIX time received in the last heartbeat sent by the remote
+                                                |Supvisors| instance, in seconds and in the remote reference time.
+            'local_sequence_counter'  ``int``   The local TICK counter when the latest TICK was received from the remote
+                                                |Supvisors| instance.
+            'local_mtime'             ``float`` The monotonic time when the latest TICK was received from the remote
+                                                |Supvisors| instance, in seconds since the local host started.
+            'local_time'              ``float`` The POSIX time when the latest TICK was received from the remote
+                                                |Supvisors| instance, in seconds and in the local reference time.
+            'loading'                 ``int``   The sum of the expected loading of the processes running on the |Supvisors|
+                                                instance, in [0;100]%.
+            'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
+            'fsm_statecode'           ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
+            'fsm_statename'           ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
+                                                ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                                ``'SHUTTING_DOWN'``, ``'FINAL'``].
+            'starting_jobs'           ``bool``  True if the |Supvisors| instance has starting jobs in progress.
+            'stopping_jobs'           ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
+            ========================= ========= ===========
 
         .. automethod:: get_all_instances_info()
 
@@ -118,7 +125,8 @@ Status
                                                ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``,
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
-            'last_event_time'  ``float``       The timestamp of the last event received for this process.
+            'last_event_time'  ``float``       The local monotonic time of the last event received for this process,
+                                               in seconds.
             'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
                                                running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.

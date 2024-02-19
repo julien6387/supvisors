@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -41,6 +38,7 @@ class ViewHandler(MeldView):
         """ Initialization of the attributes. """
         MeldView.__init__(self, context)
         self.page_name = None
+        self.current_mtime = time.monotonic()
         self.current_time = time.time()
         # add Supvisors shortcuts
         self.supvisors = context.supervisord.supvisors

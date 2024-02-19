@@ -53,24 +53,25 @@ def add_process_events() -> None:
     events.register('PROCESS_DISABLED', ProcessDisabledEvent)
 
 
-class SupervisorListener(object):
+class SupervisorListener:
     """ This class subscribes directly to the internal Supervisor events.
     These events are published to all Supvisors instances.
 
     Attributes are:
-
         - supvisors: the Supvisors global structure ;
-        - counter: the TICK counter;
+        - counter: the TICK sequence counter ;
         - main_loop: the Supvisors' event thread.
     """
+
+    supvisors: Any = None
+    counter: int = 0
+    main_loop: Optional[SupvisorsMainLoop] = None
 
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        self.counter = 0
         # NOTE: The SupvisorsMainLoop cannot be created at this level
         #       Before running, Supervisor forks when daemonized and the sockets are then lost
-        self.main_loop: Optional[SupvisorsMainLoop] = None
         # add new events to Supervisor EventTypes
         add_process_events()
         # subscribe to internal events
@@ -208,10 +209,11 @@ class SupervisorListener(object):
         """
         try:
             self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
-            # reset the time information to get more resolution
+            # add the monotonic time information for more resolution and robustness
             payload = {'ip_address': self.local_instance.ip_address,
                        'server_port': self.local_instance.http_port,
-                       'when': time.time(),
+                       'when': event.when,
+                       'when_monotonic': time.monotonic(),
                        'sequence_counter': self.counter,
                        'stereotypes': self.local_instance.stereotypes}
             self.counter += 1
@@ -259,11 +261,18 @@ class SupervisorListener(object):
             process_config = event.process.config
             namespec = make_namespec(event.process.group.config.name, process_config.name)
             self.logger.debug(f'SupervisorListener.on_process_state: got {event_name} for {namespec}')
+            # set monotonic time depending on the process state
+            process_state: ProcessStates = _process_states_by_name[event_name.split('_')[-1]]
+            if process_state == ProcessStates.STARTING:
+                self.supvisors.supervisor_data.update_start(namespec)
+            elif process_state in [ProcessStates.STOPPED, ProcessStates.BACKOFF, ProcessStates.EXITED]:
+                self.supvisors.supervisor_data.update_stop(namespec)
             # create payload from event
             payload = {'name': process_config.name,
                        'group': event.process.group.config.name,
-                       'state': _process_states_by_name[event_name.split('_')[-1]],
+                       'state': process_state,
                        'now': time.time(),
+                       'now_monotonic': time.monotonic(),
                        'pid': event.process.pid,
                        'expected': event.expected,
                        'spawnerr': event.process.spawnerr,
@@ -497,22 +506,23 @@ class SupervisorListener(object):
             for integrated_stats in integrated_stats_list:
                 self.external_publisher.send_process_statistics(integrated_stats)
 
-    def force_process_state(self, process: ProcessStatus, identifier: str, event_date: float,
+    def force_process_state(self, process: ProcessStatus, identifier: str, event_time: float,
                             forced_state: ProcessStates, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
 
-        :param process: the process structure
-        :param identifier: the identifier of the Supvisors instance where the process state is expected
-        :param event_date: the date of the last process event received, used for the evaluation of the error
-        :param forced_state: the process state to force if the expected state has not been received
-        :param reason: the reason declared
-        :return: None
+        :param process: the process structure.
+        :param identifier: the identifier of the Supvisors instance where the process state is expected.
+        :param event_time: the monotonic time of the last process event received, used for the evaluation of the error.
+        :param forced_state: the process state to force if the expected state has not been received.
+        :param reason: the reason declared.
+        :return: None.
         """
         # create payload from event
         payload = {'group': process.application_name, 'name': process.process_name,
                    'state': forced_state, 'forced': True,
                    'identifier': identifier,
-                   'now': event_date, 'pid': 0, 'expected': False, 'spawnerr': reason,
+                   'now': time.time(), 'now_monotonic': event_time,
+                   'pid': 0, 'expected': False, 'spawnerr': reason,
                    'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
         # update local Supvisors instance

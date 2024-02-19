@@ -1,5 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -94,8 +92,9 @@ def test_instance_info(rpc):
     instance = rpc.supvisors.context.instances['10.0.0.1']
     instance.state_modes = StateModes(SupvisorsStates.CONCILIATION, True, '10.0.0.2', False, True)
     # test with known identifier
-    expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0, 'local_time': 0,
-                'remote_time': 0, 'sequence_counter': 0,
+    expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
+                'local_mtime': 0.0, 'local_time': 0, 'local_sequence_counter': 0,
+                'remote_mtime': 0.0, 'remote_time': 0, 'remote_sequence_counter': 0,
                 'statecode': 0, 'statename': 'UNKNOWN', 'discovery_mode': True,
                 'process_failure': False,
                 'fsm_statecode': 4, 'fsm_statename': 'CONCILIATION',
@@ -1827,6 +1826,7 @@ def test_get_internal_process_rules(rpc):
 
 def test_get_local_info(mocker, rpc):
     """ Test the _get_local_info utility. """
+    mocker.patch('time.monotonic', return_value=45.67)
     rpc.supvisors.server_options.processes_program = {'dummy_name': 'dummy_name'}
     rpc.supvisors.server_options.process_indexes = {'dummy_name': 0}
     # prepare context
@@ -1837,16 +1837,20 @@ def test_get_local_info(mocker, rpc):
             'description': 'process dead',
             'spawnerr': ''}
     supervisor_data = rpc.supvisors.supervisor_data
-    mocker.patch.object(supervisor_data, 'get_process_config_options',
+    mocker.patch.object(supervisor_data, 'get_process_data',
+                        return_value={'laststart_monotonic': 123, 'laststop_monotonic': 0})
+    mocker.patch.object(supervisor_data, 'get_process_config_data',
                         return_value={'extra_args': '-x dummy_args', 'startsecs': 2, 'stopwaitsecs': 10})
     # test call
     assert rpc._get_local_info(info) == {'group': 'dummy_group', 'name': 'dummy_name',
                                          'extra_args': '-x dummy_args',
                                          'state': 0, 'statename': 'STOPPED',
-                                         'start': 1234, 'stop': 7777, 'now': 4321.0, 'pid': 4567,
+                                         'start': 1234, 'stop': 7777,
+                                         'now': 4321, 'now_monotonic': 45.67, 'pid': 4567,
                                          'description': 'process dead', 'expected': True, 'spawnerr': '',
                                          'startsecs': 2, 'stopwaitsecs': 10,
-                                         'program_name': 'dummy_name', 'process_index': 0}
+                                         'program_name': 'dummy_name', 'process_index': 0,
+                                         'start_monotonic': 123, 'stop_monotonic': 0}
 
 
 def test_start_process(mocker, supvisors):

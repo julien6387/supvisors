@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import time
 from typing import Callable, NoReturn, Optional, Type, Union
 
 from supervisor.http import NOT_DONE_YET
@@ -1208,16 +1206,21 @@ class RPCInterface(object):
 
     def _get_local_info(self, info):
         """ Create a payload from Supervisor process info. """
+        # filter useless (for Supvisors) information
         sub_info = extract_process_info(info)
-        # transform now from int to float
-        sub_info['now'] *= 1.0
         # add program-related information for internal purpose
-        # add startsecs, stopwaitsecs and extra_args values taken from Supervisor internal model
         process_name = info['name']
         namespec = make_namespec(info['group'], process_name)
-        option_names = 'startsecs', 'stopwaitsecs', 'extra_args', 'disabled'
-        options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
-        sub_info.update(options)
+        # add startsecs, stopwaitsecs and extra_args values taken from Supervisor internal model
+        field_names = 'startsecs', 'stopwaitsecs', 'extra_args', 'disabled'
+        config_data = self.supvisors.supervisor_data.get_process_config_data(namespec, field_names)
+        sub_info.update(config_data)
+        # add monotonic times
+        sub_info['now_monotonic'] = time.monotonic()
+        field_names = 'laststart_monotonic', 'laststop_monotonic'
+        process_data = self.supvisors.supervisor_data.get_process_data(namespec, field_names)
+        sub_info.update({'start_monotonic': process_data['laststart_monotonic'],
+                         'stop_monotonic': process_data['laststop_monotonic']})
         # add program and process_index taken from SupvisorsServerOptions
         srv_options = self.supvisors.server_options
         sub_info['program_name'] = srv_options.processes_program[process_name]

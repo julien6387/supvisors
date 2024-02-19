@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -20,6 +17,7 @@
 import json
 import os
 import socket
+import time
 from typing import Any, Dict, List, Tuple
 
 from supervisor.events import notify
@@ -230,6 +228,9 @@ class SupervisorData(object):
         # apply the new configuration
         for group in groups:
             for process in group.processes.values():
+                # prepare monotonic start/stop times
+                process.laststart_monotonic = 0.0
+                process.laststop_monotonic = 0.0
                 # prepare process disability
                 program = self.supvisors.server_options.processes_program[process.config.name]
                 process.config.disabled = self.disabilities.setdefault(program, False)
@@ -313,15 +314,15 @@ class SupervisorData(object):
         """ This method forces the autorestart to False in Supervisor internal data. """
         self._get_process_config(namespec).autorestart = False
 
-    def get_process_config_options(self, namespec: str, option_names: List[str]) -> Dict[str, Any]:
+    def get_process_config_data(self, namespec: str, field_names: List[str]) -> Dict[str, Any]:
         """ Get the configured option values of the program.
 
         :param namespec: the program namespec
-        :param option_names: the options to get
-        :return: a dictionary of option values
+        :param field_names: the attributes to get values from
+        :return: a dictionary of configuration values
         """
         process_config = self._get_process_config(namespec)
-        return {option_name: getattr(process_config, option_name) for option_name in option_names}
+        return {field_name: getattr(process_config, field_name) for field_name in field_names}
 
     def has_logfile(self, namespec: str, channel: str) -> bool:
         """ Return True if the process has a logfile configuration on the channel.
@@ -338,11 +339,10 @@ class SupervisorData(object):
         """ This method is used to add extra arguments to the command line.
         Implementation of Supervisor issue #1023 - Pass arguments to program when starting a job.
 
-        :param namespec: the process namespec
-        :param extra_args: the arguments to be added to the program command line
-        :return: None
+        :param namespec: the process namespec.
+        :param extra_args: the arguments to be added to the program command line.
+        :return: None.
         """
-        """  """
         config = self._get_process_config(namespec)
         # reset command line
         config.command = config.command_ref
@@ -351,6 +351,34 @@ class SupervisorData(object):
         if extra_args:
             config.command += ' ' + extra_args
         self.logger.trace(f'SupervisorData.update_extra_args: {namespec} extra_args={extra_args}')
+
+    def update_start(self, namespec: str) -> None:
+        """ Add the monotonic start time to the internal process.
+
+        :param namespec: the process namespec.
+        :return: None.
+        """
+        process = self._get_process(namespec)
+        process.laststart_monotonic = time.monotonic()
+
+    def update_stop(self, namespec: str) -> None:
+        """ Add the monotonic stop time to the internal process.
+
+        :param namespec: the process namespec.
+        :return: None.
+        """
+        process = self._get_process(namespec)
+        process.laststop_monotonic = time.monotonic()
+
+    def get_process_data(self, namespec: str, field_names: List[str]) -> Dict[str, Any]:
+        """ Get the process values.
+
+        :param namespec: the program namespec
+        :param field_names: the attributes to get values from
+        :return: a dictionary of process values
+        """
+        process = self._get_process(namespec)
+        return {field_name: getattr(process, field_name) for field_name in field_names}
 
     def force_process_fatal(self, namespec: str, reason: str) -> None:
         """ This method forces the FATAL process state into Supervisor internal data and dispatches process event

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -152,7 +149,7 @@ class SupvisorsView(ViewHandler):
         # set Supvisors instance current time
         elt = instance_div_elt.findmeld('time_th_mid')
         if status.has_active_state():
-            remote_time = status.get_remote_time(self.current_time)
+            remote_time = status.times.get_current_remote_time(self.current_mtime)
             elt.content(simple_localtime(remote_time))
         # set Supvisors instance current load
         elt = instance_div_elt.findmeld('percent_th_mid')

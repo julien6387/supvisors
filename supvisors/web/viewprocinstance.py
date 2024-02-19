@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -110,8 +107,8 @@ class ProcInstanceView(SupvisorsInstanceView):
                    'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
                    'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
-        info = {'state': ProcessStates.RUNNING, 'start': status.start_time, 'now': status.local_time,
-                'pid': os.getpid()}
+        info = {'state': ProcessStates.RUNNING, 'start': status.times.start_local_mtime,
+                'now': status.times.local_time, 'pid': os.getpid()}
         payload['description'] = ProcessStatus.update_description(info)
         return payload
 

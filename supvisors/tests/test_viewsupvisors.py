@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2020 Julien LE CLEACH
 #
@@ -147,13 +144,14 @@ def test_write_contents(mocker, view):
 
 
 def test_write_instance_box_title(mocker, view):
-    """ Test the _write_instance_box_title method. """
+    """ Test the _wr_write_instance_box_titleite_instance_box_title method. """
+    view.current_mtime = 234.56
     # patch context
-    mocker.patch('supvisors.web.viewsupvisors.simple_localtime', return_value='12:34:30')
+    mocked_time = mocker.patch('supvisors.web.viewsupvisors.simple_localtime', return_value='12:34:30')
     mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.RUNNING,
                          **{'has_active_state.return_value': True,
                             'get_load.return_value': 17,
-                            'get_remote_time.return_value': 1234})
+                            'times.get_current_remote_time.side_effect': lambda x: x + 1})
     # build root structure with one single element
     mocked_sync_a_mid = create_element()
     mocked_sync_th_mid = create_element({'user_sync_a_mid': mocked_sync_a_mid})
@@ -183,9 +181,11 @@ def test_write_instance_box_title(mocker, view):
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
     # test time element
     assert mocked_time_mid.content.call_args_list == [call('12:34:30')]
+    assert mocked_time.call_args_list == [call(235.56)]
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
+    mocker.resetall()
     mocked_root.reset_all()
     # test call in RUNNING state and master and not user_sync
     view.sup_ctx.master_identifier = '10.0.0.1'
@@ -205,9 +205,11 @@ def test_write_instance_box_title(mocker, view):
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
     # test time element
     assert mocked_time_mid.content.call_args_list == [call('12:34:30')]
+    assert mocked_time.call_args_list == [call(235.56)]
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
+    mocker.resetall()
     mocked_root.reset_all()
     # test call in SILENT state and user sync
     mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.SILENT,
@@ -228,6 +230,7 @@ def test_write_instance_box_title(mocker, view):
     assert mocked_state_mid.content.call_args_list == [call('SILENT')]
     # test time element
     assert not mocked_time_mid.content.called
+    assert not mocked_time.called
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('0%')]
 

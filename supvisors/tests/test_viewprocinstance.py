@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2020 Julien LE CLEACH
 #
@@ -175,6 +172,7 @@ def test_get_supervisord_data(view):
     view.view_ctx = Mock(local_identifier='10.0.0.1', **{'get_process_stats.return_value': (2, 'stats #1')})
     # get context
     instance_status = view.sup_ctx.instances['10.0.0.1']
+    instance_status.times.start_local_mtime = 0
     pid = os.getpid()
     # test call on empty time values
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
@@ -184,8 +182,8 @@ def test_get_supervisord_data(view):
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     assert view.get_supervisord_data(instance_status) == supervisord_info
     # test call on relevant time values
-    instance_status.start_time = 1000
-    instance_status.local_time = 185618
+    instance_status.times.start_local_mtime = 1000
+    instance_status.times.local_time = 185618
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
                         'single': True, 'identifier': '10.0.0.1', 'disabled': False, 'startable': False,
                         'description': f'pid {pid}, uptime 2 days, 3:16:58',

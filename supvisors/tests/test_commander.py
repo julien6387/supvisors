@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -76,7 +73,7 @@ def test_command_update(supvisors):
     command.update_sequence_counter()
     assert command.request_sequence_counter == 0
     # update instance counter
-    supvisors.context.instances['10.0.0.1'].sequence_counter = 1234
+    supvisors.context.instances['10.0.0.1'].times.remote_sequence_counter = 1234
     assert command.request_sequence_counter == 0
     command.update_sequence_counter()
     assert command.request_sequence_counter == 1234
@@ -155,7 +152,7 @@ def test_start_command_on_event(start_command):
     start_command.update_identifier('10.0.0.1')
     assert start_command.request_sequence_counter == 0
     process_info = start_command.get_instance_info()
-    start_command.instance_status.sequence_counter = 27
+    start_command.instance_status.times.remote_sequence_counter = 27
     # 1. call method for STOPPED, STOPPING and UNKNOWN states
     for state in [ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN]:
         process_info['state'] = state
@@ -221,25 +218,25 @@ def test_start_command_timed_out(start_command):
     # check call with process state BACKOFF or STARTING on the node
     for state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
         process_info['state'] = state
-        start_command.instance_status.sequence_counter = 16
+        start_command.instance_status.times.remote_sequence_counter = 16
         assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.IN_PROGRESS, 1234)
-        start_command.instance_status.sequence_counter = 17
+        start_command.instance_status.times.remote_sequence_counter = 17
         assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.TIMED_OUT, 1234)
     # check call with process state RUNNING on the node / wait_exit not expected
     process_info['state'] = ProcessStates.RUNNING
-    start_command.instance_status.sequence_counter = 100
+    start_command.instance_status.times.remote_sequence_counter = 100
     assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.SUCCESS, 1234)
     # check call with process state RUNNING on the node / wait_exit expected
     start_command.process.rules.wait_exit = True
     process_info['state'] = ProcessStates.RUNNING
-    start_command.instance_status.sequence_counter = 100
+    start_command.instance_status.times.remote_sequence_counter = 100
     assert start_command.timed_out() == (ProcessStates.EXITED, ProcessRequestResult.IN_PROGRESS, 1234)
     # check call with process state in STOPPED_STATES or STOPPING on the node
     for state in [ProcessStates.STOPPING] + list(STOPPED_STATES):
         process_info['state'] = state
-        start_command.instance_status.sequence_counter = 12
+        start_command.instance_status.times.remote_sequence_counter = 12
         assert start_command.timed_out() == (ProcessStates.STARTING, ProcessRequestResult.IN_PROGRESS, 1234)
-        start_command.instance_status.sequence_counter = 13
+        start_command.instance_status.times.remote_sequence_counter = 13
         assert start_command.timed_out() == (ProcessStates.STARTING, ProcessRequestResult.TIMED_OUT, 1234)
 
 
@@ -295,23 +292,23 @@ def test_stop_command_timed_out(stop_command):
     # check call with process state STOPPING on the node
     process_info['state'] = ProcessStates.STOPPING
     process_info['event_time'] = 1234
-    stop_command.instance_status.sequence_counter = 14
+    stop_command.instance_status.times.remote_sequence_counter = 14
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.IN_PROGRESS, 1234)
-    stop_command.instance_status.sequence_counter = 15
+    stop_command.instance_status.times.remote_sequence_counter = 15
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.TIMED_OUT, 1234)
     # check call for all stopped states
     for state in STOPPED_STATES:
         process_info['state'] = state
-        stop_command.instance_status.sequence_counter = 12
+        stop_command.instance_status.times.remote_sequence_counter = 12
         assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
-        stop_command.instance_status.sequence_counter = 13
+        stop_command.instance_status.times.remote_sequence_counter = 13
         assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
     # check call for all other states
     for state in RUNNING_STATES:
         process_info['state'] = state
-        stop_command.instance_status.sequence_counter = 12
+        stop_command.instance_status.times.remote_sequence_counter = 12
         assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.IN_PROGRESS, 1234)
-        stop_command.instance_status.sequence_counter = 13
+        stop_command.instance_status.times.remote_sequence_counter = 13
         assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.TIMED_OUT, 1234)
 
 
@@ -1010,7 +1007,7 @@ def test_application_stop_job_process_job(application_stop_job_1, stop_sample_te
     """ Test the ApplicationStopJobs.process_job method. """
     mocked_pusher = application_stop_job_1.supvisors.internal_com.pusher.send_stop_process
     # set context
-    application_stop_job_1.supvisors.context.instances['10.0.0.1'].sequence_counter = 14
+    application_stop_job_1.supvisors.context.instances['10.0.0.1'].times.remote_sequence_counter = 14
     # test with stopped process
     xlogo = stop_sample_test_1[1]
     assert xlogo.identifier == '10.0.0.1'

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -215,7 +212,7 @@ class ProcessStartCommand(ProcessCommand):
             # something wrong happened, reset sequence_counter to consider new timeout
             self.logger.debug(f'ProcessStartCommand.on_event: reset counter for the starting of {self.process.namespec}'
                               f' on {self.identifier}')
-            self.request_sequence_counter = self.instance_status.sequence_counter
+            self.update_sequence_counter()
             return ProcessRequestResult.IN_PROGRESS
         if process_state == ProcessStates.FATAL:
             self.logger.error(f'ProcessStartCommand.on_event: crash of {self.process.namespec} on {self.identifier}')
@@ -524,11 +521,11 @@ class ApplicationJobs(object):
         self.logger.trace(f'Commander.check: checking commands={self.current_jobs}')
         for command in list(self.current_jobs):
             # get the ProcessStatus method corresponding to condition and call it
-            expected_state, result, event_date = command.timed_out()
+            expected_state, result, event_time = command.timed_out()
             if result == ProcessRequestResult.TIMED_OUT:
                 # generate a process event for this process to inform all Supvisors instances
                 reason = f'process {getProcessStateDescription(expected_state)} event not received in time'
-                self.supvisors.listener.force_process_state(command.process, command.identifier, event_date,
+                self.supvisors.listener.force_process_state(command.process, command.identifier, event_time,
                                                             self.failure_state, reason)
                 # don't wait for event, abort the job right now
                 self.current_jobs.remove(command)

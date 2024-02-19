@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -218,10 +215,9 @@ class ControllerPlugin(ControllerPluginBase):
                                    'discovery': info['discovery_mode'],
                                    'load': f"{info['loading']}%",
                                    'ltime': simple_localtime(info['local_time']),
-                                   'counter': info['sequence_counter'],
+                                   'counter': info['remote_sequence_counter'],
                                    'failure': info['process_failure'],
                                    'fsm_state': info['fsm_statename'],
-                                   'discovery': info['discovery_mode'],
                                    'master': info['master_identifier'],
                                    'starting': info['starting_jobs'],
                                    'stopping': info['stopping_jobs']}
