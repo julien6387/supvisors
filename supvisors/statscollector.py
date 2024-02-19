@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -63,8 +60,7 @@ def instant_all_cpu_statistics() -> JiffiesList:
     cpu_stats = psutil.cpu_times(percpu=True)
     for cpu_stat in cpu_stats:
         work.append(cpu_stat.user + cpu_stat.nice + cpu_stat.system
-                    + cpu_stat.irq + cpu_stat.softirq
-                    + cpu_stat.steal + cpu_stat.guest)
+                    + cpu_stat.irq + cpu_stat.softirq + cpu_stat.steal)
         idle.append(cpu_stat.idle + cpu_stat.iowait)
     # return adding CPU average in front of lists
     work.insert(0, mean(work))

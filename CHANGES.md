@@ -12,6 +12,8 @@
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 
+* `guest` time removed from because CPU calculation because already accounted in `user` time on Linux.
+
 * Rework **Supvisors** `RPCInterface` exceptions.
 
 * Use the latest versions of Sphinx-related modules for documentation, as `sphinx-5.0` is now the minimal dependency.
