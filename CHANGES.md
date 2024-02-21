@@ -3,6 +3,8 @@
 ## 0.18 (2024-xx-xx)
 
 * Add monotonic time in internal model and exchanges to cope with time updates while **Supvisors** is running.
+  Impact on the XML-RPC `get_instance_info`, `get_process_info` and on the event interface for instance status
+  and process event.
 
 * Add new `get_statistics_status`, `enable_host_statistics`, `enable_process_statistics`, `update_collecting_period`
   XML-RPCs to support the possibility to get and update the collection of host and process statistics.
@@ -12,7 +14,9 @@
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 
-* `guest` time removed from because CPU calculation because already accounted in `user` time on Linux.
+* `guest` time removed from because CPU calculation because it is already accounted in `user` time on Linux.
+
+* Fix process CPU so that it corresponds to the Linux `top` result.
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 

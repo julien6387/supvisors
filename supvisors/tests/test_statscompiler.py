@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -40,16 +37,6 @@ def test_cpu_statistics():
         assert type(cpu) is float
         assert cpu >= 0
         assert cpu <= 100
-
-
-def test_cpu_total_work():
-    """ Test the CPU total work between 2 dates. """
-    # take 2 instant cpu statistics
-    ref_stats = (83.31, 305.4)
-    last_stats = (83.41, 306.3)
-    total_work = cpu_total_work(last_stats, ref_stats)
-    # total work is the sum of jiffies spent on cpu all
-    assert pytest.approx(total_work) == 1
 
 
 def test_io_statistics():
@@ -376,15 +363,15 @@ def test_proc_statistics_instance_creation(proc_statistics_instance):
 def test_proc_statistics_instance_integrate(proc_statistics_instance):
     """ Test the ProcStatisticsInstance.integrate method. """
     proc_statistics_instance.ref_start_time = 800
-    proc_statistics_instance.ref_stats = {'now': 1000, 'cpu': (25, 400),
+    proc_statistics_instance.ref_stats = {'now': 1000,
                                           'proc_work': 0.15,
                                           'proc_memory': 1.85}
-    last_stats = {'now': 1002, 'cpu': (45, 700),
+    last_stats = {'now': 1002,
                   'proc_work': 1.75,
                   'proc_memory': 1.9}
     proc_cpu, proc_mem, duration = proc_statistics_instance.integrate(last_stats)
     # check process stats
-    assert proc_cpu == 0.5
+    assert proc_cpu == 80
     assert proc_mem == 1.9
     assert duration == 202
 

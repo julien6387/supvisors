@@ -17,14 +17,14 @@
 import multiprocessing as mp
 import os
 import signal
+import time
 from enum import Enum
-from time import sleep, time
 from typing import Dict, List, Optional, Tuple, Union
 
 import psutil
 from supervisor.loggers import Logger
 
-from .ttypes import Jiffies, JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
+from .ttypes import JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
 from .utils import mean
 
 # Default sleep time when nothing to do
@@ -34,6 +34,9 @@ SLEEP_TIME = 0.2
 # after 15 seconds without heartbeat received, it is considered that the main process has been killed
 HEARTBEAT_TIMEOUT = 15
 
+# Number of logical processors
+NB_PROCESSORS = psutil.cpu_count()
+
 
 class StatsMsgType(Enum):
     """ Message types used for PID queue. """
@@ -41,31 +44,23 @@ class StatsMsgType(Enum):
 
 
 # CPU statistics
-def instant_cpu_statistics() -> Jiffies:
-    """ Return the instant average work+idle jiffies. """
-    cpu_stat = psutil.cpu_times()
-    work = (cpu_stat.user + cpu_stat.nice + cpu_stat.system
-            + cpu_stat.irq + cpu_stat.softirq
-            + cpu_stat.steal + cpu_stat.guest)
-    idle = (cpu_stat.idle + cpu_stat.iowait)
-    return work, idle
-
-
 def instant_all_cpu_statistics() -> JiffiesList:
     """ Return the instant work+idle jiffies for all the processors.
-    The average on all processors is inserted in front of the list. """
-    work: List[float] = []
-    idle: List[float] = []
+    The average on all processors is inserted in front of the list.
+    Guest times are included in user and nice on Linux. """
+    stats: JiffiesList = []
     # CPU details
     cpu_stats = psutil.cpu_times(percpu=True)
     for cpu_stat in cpu_stats:
-        work.append(cpu_stat.user + cpu_stat.nice + cpu_stat.system
-                    + cpu_stat.irq + cpu_stat.softirq + cpu_stat.steal)
-        idle.append(cpu_stat.idle + cpu_stat.iowait)
-    # return adding CPU average in front of lists
-    work.insert(0, mean(work))
-    idle.insert(0, mean(idle))
-    return list(zip(work, idle))
+        work = (cpu_stat.user + cpu_stat.nice + cpu_stat.system
+                + cpu_stat.irq + cpu_stat.softirq + cpu_stat.steal)
+        idle = cpu_stat.idle + cpu_stat.iowait
+        stats.append((work, idle))
+    # overall CPU average at the front of the list
+    avg_work = mean([x[0] for x in stats])
+    avg_idle = mean([x[1] for x in stats])
+    stats.insert(0, (avg_work, avg_idle))
+    return stats
 
 
 # Memory statistics
@@ -123,10 +118,10 @@ class HostStatisticsCollector(StatisticsCollector):
     def collect_host_statistics(self) -> None:
         """ Get a snapshot of some host resources. """
         if self.enabled:
-            current_time = time()
+            current_time = time.monotonic()
             if current_time - self.last_stats_time >= self.period:
                 try:
-                    stats = {'now': time(),
+                    stats = {'now': current_time,
                              'cpu': instant_all_cpu_statistics(),
                              'mem': instant_memory_statistics(),
                              'io': instant_io_statistics()}
@@ -181,8 +176,6 @@ class ProcessStatisticsCollector(StatisticsCollector):
         """ Initialization of the attributes. """
         super().__init__(stats_queue, period, enabled)
         self.processes: List[Dict] = []
-        # additional information obout the number of CPU cores, used for the Solaris mode
-        self.nb_cores = mp.cpu_count()
         # define the supervisor process and this collector process
         self.supervisor_process: Dict = {'last': 0,
                                          'supervisor': psutil.Process(supervisor_pid),
@@ -200,7 +193,7 @@ class ProcessStatisticsCollector(StatisticsCollector):
                 # process has been stopped in the gap. remove the entry
                 self.processes.pop(idx)
                 # publish the information that it has been stopped
-                stats = {'namespec': namespec, 'pid': 0, 'now': time()}
+                stats = {'namespec': namespec, 'pid': 0, 'now': time.monotonic()}
                 self._post(stats)
                 if pid > 0:
                     # new process running. mark as not found so that it is re-inserted
@@ -221,7 +214,7 @@ class ProcessStatisticsCollector(StatisticsCollector):
 
     def collect_supervisor(self):
         """ Collect supervisor and collector statistics, without considering any other supervisor children. """
-        current_time = time()
+        current_time = time.monotonic()
         elapsed = current_time - self.supervisor_process['last']
         if elapsed >= self.period:
             supervisor = self.supervisor_process['supervisor']
@@ -233,8 +226,7 @@ class ProcessStatisticsCollector(StatisticsCollector):
                 stats = {'namespec': 'supervisord',
                          'pid': supervisor.pid,
                          'now': current_time,
-                         'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
-                         'nb_cores': self.nb_cores,  # needed for Solaris mode
+                         'nb_cores': NB_PROCESSORS,  # needed for Solaris mode
                          'proc_work': sup_stats[0] + col_stats[0],
                          'proc_memory': sup_stats[1] + col_stats[1]}
                 self._post(stats)
@@ -248,7 +240,7 @@ class ProcessStatisticsCollector(StatisticsCollector):
     def collect_recent_process(self) -> bool:
         """ Collect the next process statistics. """
         if len(self.processes):
-            current_time = time()
+            current_time = time.monotonic()
             elapsed = current_time - self.processes[-1]['last']
             if elapsed >= self.period:
                 # period has passed. get statistics on the process
@@ -268,7 +260,6 @@ class ProcessStatisticsCollector(StatisticsCollector):
                         stats = {'namespec': proc_data['namespec'],
                                  'pid': proc.pid,
                                  'now': current_time,
-                                 'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
                                  'proc_work': proc_stats[0],
                                  'proc_memory': proc_stats[1]}
                         self._post(stats)
@@ -299,7 +290,7 @@ def statistics_collector_task(pid_queue: mp.Queue, host_stats_queue: mp.Queue, p
     host_collector = HostStatisticsCollector(host_stats_queue, period, host_stats_enabled)
     proc_collector = ProcessStatisticsCollector(proc_stats_queue, period, process_stats_enabled, supervisor_pid)
     # loop until a stop request is received or heartbeat fails
-    last_heartbeat_received = time()
+    last_heartbeat_received = time.monotonic()
     stopped = False
     while not stopped:
         # command reception loop
@@ -308,7 +299,7 @@ def statistics_collector_task(pid_queue: mp.Queue, host_stats_queue: mp.Queue, p
             if msg_type == StatsMsgType.STOP:
                 stopped = True
             elif msg_type == StatsMsgType.ALIVE:
-                last_heartbeat_received = time()
+                last_heartbeat_received = time.monotonic()
             elif msg_type == StatsMsgType.PID:
                 proc_collector.update_process_list(*msg_body)
             elif msg_type == StatsMsgType.ENABLE_HOST:
@@ -320,7 +311,7 @@ def statistics_collector_task(pid_queue: mp.Queue, host_stats_queue: mp.Queue, p
                 proc_collector.period = period
         # test heartbeat
         if not stopped:
-            if time() - last_heartbeat_received > HEARTBEAT_TIMEOUT:
+            if time.monotonic() - last_heartbeat_received > HEARTBEAT_TIMEOUT:
                 stopped = True
         # collect process statistics
         if not stopped:
@@ -330,7 +321,7 @@ def statistics_collector_task(pid_queue: mp.Queue, host_stats_queue: mp.Queue, p
             ready = proc_collector.collect_processes_statistics()
             # if no process is ready to be collected, go to sleep
             if not ready:
-                sleep(SLEEP_TIME)
+                time.sleep(SLEEP_TIME)
 
 
 class StatisticsCollectorProcess:

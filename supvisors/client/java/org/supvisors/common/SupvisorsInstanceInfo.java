@@ -43,14 +43,23 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /** The instance discovery mode. */
     private Boolean discovery_mode;
 
-    /** The date of the last heartbeat message, as received. */
+    /** The remote TICK counter. */
+    private Integer remote_sequence_counter;
+
+    /** The monotonic time of the last heartbeat message, as received. */
+    private Integer remote_mtime;
+
+    /** The time of the last heartbeat message, as received. */
     private Integer remote_time;
 
-    /** The date of the last heartbeat message, in the local reference time. */
-    private Integer local_time;
+    /** The local TICK counter at the reception time of the remote TICK counter. */
+    private Integer local_sequence_counter;
 
-    /** The TICK counter. */
-    private Integer sequence_counter;
+    /** The monotonic time of the last heartbeat message, in the local reference time. */
+    private Integer local_mtime;
+
+    /** The time of the last heartbeat message, in the local reference time. */
+    private Integer local_time;
 
     /**
      * The current declared loading of the node.
@@ -72,9 +81,12 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.port = (Integer) instanceInfo.get("port");
         this.statename = SupvisorsInstanceState.valueOf((String) instanceInfo.get("statename"));
         this.discovery_mode = (Boolean) instanceInfo.get("discovery_mode");
+        this.remote_sequence_counter = (Integer) instanceInfo.get("remote_sequence_counter");
+        this.remote_time = (Integer) instanceInfo.get("remote_mtime");
         this.remote_time = (Integer) instanceInfo.get("remote_time");
+        this.remote_sequence_counter = (Integer) instanceInfo.get("local_sequence_counter");
+        this.local_time = (Integer) instanceInfo.get("local_mtime");
         this.local_time = (Integer) instanceInfo.get("local_time");
-        this.sequence_counter = (Integer) instanceInfo.get("remote_sequence_counter");
         this.loading = (Integer) instanceInfo.get("loading");
         this.process_failure = (Boolean) instanceInfo.get("process_failure");
     }
@@ -134,7 +146,28 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getRemoteTime method returns the date of the last heartbeat message,
+     * The getRemoteSequenceCounter method returns the TICK counter, i.e. the number
+     * of TICK events received by Supvisors from Supervisor for this node,
+     * since this Supervisor instance has been started.
+     *
+     * @return Integer: The number of TICK events received.
+     */
+   public Integer getRemoteSequenceCounter() {
+        return this.remote_sequence_counter;
+    }
+
+    /**
+     * The getRemoteMonotonicTime method returns the monotonic time of the last heartbeat message,
+     * in the reference time of the remote node.
+     *
+     * @return Integer: The number of seconds since the remote node startup.
+     */
+    public Integer getRemoteMonotonicTime() {
+        return this.remote_mtime;
+    }
+
+    /**
+     * The getRemoteTime method returns the time of the last heartbeat message,
      * in the reference time of the remote node.
      *
      * @return Integer: The number of seconds since Epoch.
@@ -144,24 +177,32 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getLocalTime method returns the date of the last heartbeat message,
-     * in the reference time of the local Supvisors.
+     * The getLocalSequenceCounter method returns the local TICK counter, when the latest remote TICK was received
+     * from the remote node.
+     *
+     * @return Integer: The number of TICK events received.
+     */
+   public Integer getLocalSequenceCounter() {
+        return this.local_sequence_counter;
+    }
+
+    /**
+     * The getLocalMonotonicTime method returns the monotonic time taken when the latest TICK was received
+     * from the remote node.
+     *
+     * @return Integer: The number of seconds since the local node startup.
+     */
+   public Integer getLocalMonotonicTime() {
+        return this.local_mtime;
+    }
+
+    /**
+     * The getLocalTime method returns the time taken when the latest TICK was received from the remote node.
      *
      * @return Integer: The number of seconds since Epoch.
      */
    public Integer getLocalTime() {
         return this.local_time;
-    }
-
-    /**
-     * The getSequenceCounter method returns the TICK counter, i.e. the number
-     * of TICK events received by Supvisors from Supervisor for this node,
-     * since this Supervisor instance has been started.
-     *
-     * @return Integer: The number of TICK events received.
-     */
-   public Integer getSequenceCounter() {
-        return this.sequence_counter;
     }
 
     /**
@@ -194,8 +235,11 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
             + " port=" + this.port
             + " state=" + this.statename
             + " discoveryMode=" + this.discovery_mode
-            + " sequenceCounter=" + this.sequence_counter
-            + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
+            + " remoteSequenceCounter=" + this.sequence_counter
+            + " remoteMonotonicTime=\"" + this.remote_mtime + "\""
+            + " remoteTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
+            + " localSequenceCounter=" + this.local_sequence_counter
+            + " localMonotonicTime=\"" + this.local_mtime + "\""
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
             + " loading=" + this.loading
             + " processFailure=" + this.process_failure + ")";
