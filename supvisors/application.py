@@ -55,9 +55,6 @@ class ApplicationRules:
     # attributes
     managed: bool = False
     distribution: DistributionRules = DistributionRules.ALL_INSTANCES
-    identifiers: NameList = [WILDCARD]
-    at_identifiers: NameList = []
-    hash_identifiers: NameList = []
     start_sequence: int = 0
     stop_sequence: int = -1
     starting_strategy: StartingStrategies = StartingStrategies.CONFIG
@@ -68,6 +65,10 @@ class ApplicationRules:
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes. """
         self.supvisors = supvisors
+        # attributes with mutable default values
+        self.identifiers: NameList = [WILDCARD]
+        self.at_identifiers: NameList = []
+        self.hash_identifiers: NameList = []
 
     @property
     def logger(self) -> Logger:
@@ -176,8 +177,6 @@ class HomogeneousGroup:
     # applicable process at/hash rules
     at_identifiers: Optional[NameList] = None
     hash_identifiers: Optional[NameList] = None
-    # the list of processes belonging to the group
-    processes: ProcessList = []
 
     def __init__(self, program_name: str, supvisors: Any) -> None:
         """ Initialization of the attributes.
@@ -187,6 +186,8 @@ class HomogeneousGroup:
         """
         self.supvisors = supvisors
         self.program_name = program_name
+        # the list of processes belonging to the group
+        self.processes: ProcessList = []
 
     @property
     def logger(self) -> Logger:
@@ -384,11 +385,7 @@ class ApplicationStatus:
     major_failure: bool = False
     minor_failure: bool = False
     # process part
-    processes: ProcessMap = {}
-    process_groups: HomogeneousGroupsMap = {}
     rules: Optional[ApplicationRules] = None
-    start_sequence: ApplicationSequence = {}
-    stop_sequence: ApplicationSequence = {}
 
     def __init__(self, application_name: str, rules: ApplicationRules, supvisors: Any) -> None:
         """ Initialization of the attributes.
@@ -400,6 +397,11 @@ class ApplicationStatus:
         self.supvisors = supvisors
         self.application_name = application_name
         self.rules = rules
+        # attributes with mutable default values
+        self.processes: ProcessMap = {}
+        self.process_groups: ApplicationStatus.HomogeneousGroupsMap = {}
+        self.start_sequence: ApplicationStatus.ApplicationSequence = {}
+        self.stop_sequence: ApplicationStatus.ApplicationSequence = {}
 
     @property
     def logger(self) -> Logger:
