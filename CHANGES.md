@@ -2,6 +2,10 @@
 
 ## 0.18 (2024-xx-xx)
 
+* Fix [Issue #50](https://github.com/julien6387/supvisors/issues/50).
+  A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the
+  application operational status.
+
 * Add monotonic time in internal model and exchanges to cope with time updates while **Supvisors** is running.
   Impact on the XML-RPC `get_instance_info`, `get_process_info` and on the event interface for instance status
   and process event.

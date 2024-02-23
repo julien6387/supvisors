@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,15 +14,16 @@
 # limitations under the License.
 # ======================================================================
 
+import ast
 import re
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from supervisor.loggers import Logger
-from supervisor.states import ProcessStates
+from supervisor.states import ProcessStates, RUNNING_STATES
 
 from .process import ProcessStatus
 from .ttypes import (ApplicationStates, DistributionRules, NameList, NameSet, Payload, StartingStrategies,
-                     StartingFailureStrategies, RunningFailureStrategies)
+                     StartingFailureStrategies, RunningFailureStrategies, ApplicationStatusParseError)
 from .utils import WILDCARD
 
 # additional annotation types
@@ -42,33 +40,39 @@ class ApplicationRules:
         - identifiers: the Supervisors where the application can be started if not distributed (default: all) ;
         - hash_identifiers: when # rule is used, the application can be started on one of the Supervisors identified ;
         - start_sequence: defines the order of this application when starting all the applications
-          in the DEPLOYMENT state (0 means: no automatic start);
+          in the DEPLOYMENT state (0 means: no automatic start) ;
         - stop_sequence: defines the order of this application when stopping all the applications
-          (0 means: immediate stop);
+          (0 means: immediate stop) ;
         - starting_strategy: defines the strategy to apply when choosing the identifier where the process
-          shall be started during the starting of the application;
+          shall be started during the starting of the application ;
         - starting_failure_strategy: defines the strategy to apply when a required process cannot be started
-          during the starting of the application;
+          during the starting of the application ;
         - running_failure_strategy: defines the default strategy to apply when a required process crashes
-          when the application is running.
+          when the application is running ;
+        - status: the formula describing the application operational status.
     """
+
+    # attributes
+    managed: bool = False
+    distribution: DistributionRules = DistributionRules.ALL_INSTANCES
+    identifiers: NameList = [WILDCARD]
+    at_identifiers: NameList = []
+    hash_identifiers: NameList = []
+    start_sequence: int = 0
+    stop_sequence: int = -1
+    starting_strategy: StartingStrategies = StartingStrategies.CONFIG
+    starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
+    running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
+    status_tree: Optional[ast.Expr] = None
 
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes. """
-        # keep a reference to the Supvisors global structure
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
-        # attributes
-        self.managed: bool = False
-        self.distribution: DistributionRules = DistributionRules.ALL_INSTANCES
-        self.identifiers: NameList = [WILDCARD]
-        self.at_identifiers: NameList = []
-        self.hash_identifiers: NameList = []
-        self.start_sequence: int = 0
-        self.stop_sequence: int = -1
-        self.starting_strategy: StartingStrategies = StartingStrategies.CONFIG
-        self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
-        self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
+
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
 
     def check_stop_sequence(self, application_name: str) -> None:
         """ Check the stop_sequence value.
@@ -167,21 +171,22 @@ class HomogeneousGroup:
     It has been introduced to manage the # rules optionally set to some processes of the application start sequence
     to distribute the processes over a set of Supvisors instances. """
 
+    # information part
+    program_name: str = ''
+    # applicable process at/hash rules
+    at_identifiers: Optional[NameList] = None
+    hash_identifiers: Optional[NameList] = None
+    # the list of processes belonging to the group
+    processes: ProcessList = []
+
     def __init__(self, program_name: str, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
         :param program_name: the name of the homogeneous group
         :param supvisors: the global Supvisors structure
         """
-        # keep reference to common logger
         self.supvisors = supvisors
-        # information part
-        self.program_name: str = program_name
-        # applicable process at/hash rules
-        self.at_identifiers: Optional[NameList] = None
-        self.hash_identifiers: Optional[NameList] = None
-        # the list of processes belonging to the group
-        self.processes: ProcessList = []
+        self.program_name = program_name
 
     @property
     def logger(self) -> Logger:
@@ -373,6 +378,18 @@ class ApplicationStatus:
     PrintableApplicationSequence = Dict[int, Sequence[str]]
     HomogeneousGroupsMap = Dict[str, HomogeneousGroup]  # {program_name: HomogeneousGroup}
 
+    # information part
+    application_name: str = ''
+    _state: ApplicationStates = ApplicationStates.STOPPED
+    major_failure: bool = False
+    minor_failure: bool = False
+    # process part
+    processes: ProcessMap = {}
+    process_groups: HomogeneousGroupsMap = {}
+    rules: Optional[ApplicationRules] = None
+    start_sequence: ApplicationSequence = {}
+    stop_sequence: ApplicationSequence = {}
+
     def __init__(self, application_name: str, rules: ApplicationRules, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
@@ -380,20 +397,14 @@ class ApplicationStatus:
         :param rules: the rules applicable to the application
         :param supvisors: the global Supvisors structure
         """
-        # keep reference to common logger
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
-        # information part
-        self.application_name: str = application_name
-        self._state: ApplicationStates = ApplicationStates.STOPPED
-        self.major_failure: bool = False
-        self.minor_failure: bool = False
-        # process part
-        self.processes: ProcessMap = {}
-        self.process_groups: ApplicationStatus.HomogeneousGroupsMap = {}
-        self.rules: ApplicationRules = rules
-        self.start_sequence: ApplicationStatus.ApplicationSequence = {}
-        self.stop_sequence: ApplicationStatus.ApplicationSequence = {}
+        self.application_name = application_name
+        self.rules = rules
+
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
 
     # status methods
     def running(self) -> bool:
@@ -509,7 +520,7 @@ class ApplicationStatus:
             del self.process_groups[process.program_name]
         # re-evaluate sequences and status
         self.update_sequences()
-        self.update_status()
+        self.update()
 
     def resolve_rules(self):
         """ Call for hash identifiers resolution as the application is marked to be started in the Supvisors Starter.
@@ -520,8 +531,8 @@ class ApplicationStatus:
                               for sub_seq in self.start_sequence.values()
                               for process in sub_seq}
         # set their rules identifiers
-        for program in sequenced_programs:
-            self.process_groups[program].resolve_rules()
+        for program_name in sequenced_programs:
+            self.process_groups[program_name].resolve_rules()
 
     def possible_identifiers(self) -> NameList:
         """ Return the list of Supervisor identifiers where the application could be started, assuming that its
@@ -670,71 +681,185 @@ class ApplicationStatus:
         return sum(process.rules.expected_load for process in self.get_start_sequenced_processes())
 
     # global status methods
-    def update_status(self) -> None:
-        """ Update the state of the application iaw the state of its sequenced processes.
-        An unmanaged application - or generally without starting sequence - is always STOPPED.
-
-        NOTE: This is a displayed status, and thus relies on the displayed state considering the forced state.
+    def update(self) -> None:
+        """ Update the state and the operational status of the application.
+        An unmanaged application is always STOPPED.
 
         :return: None
         """
-        # always reset failures
-        self.major_failure, self.minor_failure, possible_major_failure = (False, ) * 3
         # get the processes from the starting sequence
-        sequenced_processes = [process for sub_seq in self.start_sequence.values()
-                               for process in sub_seq]
-        if not sequenced_processes:
-            self.logger.debug(f'ApplicationStatus.update_status: application_name={self.application_name}'
-                              ' is not managed so always STOPPED')
-            self.state = ApplicationStates.STOPPED
-            return
-        # evaluate application state based on the state of the processes in its start sequence
-        starting, running, stopping = (False,) * 3
-        for process in sequenced_processes:
-            self.logger.trace(f'ApplicationStatus.update_status: application_name={self.application_name}'
-                              f' process={process.namespec} state={process.state_string()}'
-                              f' required={process.rules.required} exit_expected={process.expected_exit}')
+        sequenced_processes: ProcessList = [process
+                                            for sub_seq in self.start_sequence.values()
+                                            for process in sub_seq]
+        # update the application state
+        self.state = self.update_state()
+        # update the application operational status
+        if self.rules.status_tree:
+            self.update_status_by_formula(sequenced_processes)
+        else:
+            self.update_status_by_required(sequenced_processes)
+
+    def update_state(self) -> ApplicationStates:
+        """ Update the state of the application iaw the state of its processes.
+        This is a displayed status, and thus relies on the displayed process state, considering the forced state.
+
+        :return: None
+        """
+        starting, running, stopping = False, False, False
+        # evaluate the application state from the state of its processes
+        for process in self.processes.values():
+            self.logger.trace(f'ApplicationStatus.update_state: application_name={self.application_name}'
+                              f' process={process.namespec} displayed_state={process.displayed_state}')
             if process.displayed_state == ProcessStates.RUNNING:
                 running = True
             elif process.displayed_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
                 starting = True
-            # STOPPING is not in STOPPED_STATES
             elif process.displayed_state == ProcessStates.STOPPING:
                 stopping = True
-            elif (process.displayed_state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
-                    or process.displayed_state == ProcessStates.EXITED and not process.expected_exit):
-                # a major/minor failure is raised in these states depending on the required option
-                if process.rules.required:
-                    self.major_failure = True
-                else:
-                    self.minor_failure = True
-            elif process.displayed_state == ProcessStates.STOPPED:
-                # possible major failure raised if STOPPED
-                # consideration will depend on the global application state
-                if process.rules.required:
-                    possible_major_failure = True
-            # only remaining case is EXITED + expected
-            # TODO: possible_major_failure could be set if it has not been run yet
-        self.logger.trace(f'ApplicationStatus.update_status: application_name={self.application_name}'
-                          f' - starting={starting} running={running} stopping={stopping}'
-                          f' major_failure={self.major_failure} minor_failure={self.minor_failure}'
-                          f' possible_major_failure={possible_major_failure}')
+        self.logger.trace(f'ApplicationStatus.update_state: application_name={self.application_name}'
+                          f' - starting={starting} running={running} stopping={stopping}')
         # apply rules for state
         if stopping:
             # if at least one process is STOPPING, let's consider that application is stopping
             # here priority is given to STOPPING over STARTING
-            self.state = ApplicationStates.STOPPING
-        elif starting:
+            return ApplicationStates.STOPPING
+        if starting:
             # if at least one process is STARTING, let's consider that application is starting
-            self.state = ApplicationStates.STARTING
-        elif running:
+            return ApplicationStates.STARTING
+        if running:
             # all processes in the sequence are RUNNING, so application is RUNNING
-            self.state = ApplicationStates.RUNNING
-        else:
-            # all processes in the sequence are STOPPED, so application is STOPPED
-            self.state = ApplicationStates.STOPPED
-        # consider possible failure
+            return ApplicationStates.RUNNING
+        # all processes in the sequence are STOPPED, so application is STOPPED
+        return ApplicationStates.STOPPED
+
+    def update_status_by_required(self, sequenced_processes: ProcessList) -> None:
+        """ Update the operational status of the application iaw its processes' state.
+        Any required process in failure implies a major failure.
+        Any non-required process in failure implies a minor failure if part of the starting sequence.
+
+        NOTE: This is the legacy method to evaluate the application status.
+              The formula method is now preferred.
+
+        :return: None
+        """
+        possible_major_failure = False
+        for process in self.processes.values():
+            self.logger.trace(f'ApplicationStatus.update_status: application_name={self.application_name}'
+                              f' process={process.namespec} state={process.state_string()}'
+                              f' required={process.rules.required} exit_expected={process.expected_exit}')
+            if (process.displayed_state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
+                    or (process.displayed_state == ProcessStates.EXITED and not process.expected_exit)):
+                # a major/minor failure is raised in these states depending on the required option
+                if process.rules.required:
+                    self.major_failure = True
+                elif process.process_name in sequenced_processes:
+                    self.minor_failure = True
+            elif process.displayed_state == ProcessStates.STOPPED:
+                # possible major failure raised if process STOPPED
+                # consideration will depend on the global application state
+                if process.rules.required:
+                    possible_major_failure = True
+        self.logger.trace(f'ApplicationStatus.update_status_by_required: application_name={self.application_name}'
+                          f' major_failure={self.major_failure} minor_failure={self.minor_failure}'
+                          f' possible_major_failure={possible_major_failure}')
+        # possible major failure is confirmed if the application is not stopped
         if self.state != ApplicationStates.STOPPED:
             self.major_failure |= possible_major_failure
-        self.logger.debug(f'Application.update_status: application_name={self.application_name} state={self.state}'
+        # reset the minor failure if the major failure is set
+        if self.major_failure:
+            self.minor_failure = False
+        self.logger.debug(f'Application.update_status_by_required: application_name={self.application_name}'
                           f' major_failure={self.major_failure} minor_failure={self.minor_failure}')
+
+    def evaluate(self, node: ast.Expr) -> Union[bool, List[bool]]:
+        """ Resolution of the AST expression.
+
+        All tree nodes are expected to be:
+            * a boolean operator (or, and) ;
+            * a unary operator (not) ;
+            * a function (any, all).
+
+        All tree leaves are expected to be string corresponding to:
+            * a process name ;
+            * a pattern matching at least one process name.
+
+        When multiple process names are found from a pattern, it is expected that a function evaluates them.
+
+        :param node: The current AST node.
+        :return: Either a boolean value or a list a boolean values intended to be used by an upper Call.
+        """
+        # handle string leaves (ast.Str is deprecated)
+        leaf: Optional[str] = None
+        if type(node) is ast.Str:
+            leaf = node.s
+        elif type(node) is ast.Constant and type(node.value) is str:
+            leaf = node.value
+        if leaf is not None:
+            if leaf in self.processes:
+                return self._get_process_status(leaf)
+            matches = self._get_matches(leaf)
+            if len(matches) == 1:
+                return self._get_process_status(matches[0])
+            elif len(matches) >= 1:
+                return [self._get_process_status(x) for x in matches]
+            raise ApplicationStatusParseError(f'no match for expression={node.s}')
+        # handle any/all functions
+        if type(node) is ast.Call:
+            if node.func.id not in ['all', 'any']:
+                raise ApplicationStatusParseError(f'unsupported function={node.func.id}')
+            if len(node.args) != 1:
+                raise ApplicationStatusParseError(f'function={node.func.id} called with more than one parameter')
+            args_eval = self.evaluate(node.args[0])
+            if type(args_eval) is bool:
+                args_eval = [args_eval]
+            return eval(f'{node.func.id}({args_eval})')
+        # handle and/or operators
+        if type(node) is ast.BoolOp:
+            args_eval = [self.evaluate(x) for x in node.values]
+            if any(type(x) is not bool for x in args_eval):
+                raise ApplicationStatusParseError(f'cannot apply BoolOp on unresolved expression={type(node)}')
+            if type(node.op) is ast.And:
+                return all(args_eval)
+            if type(node.op) is ast.Or:
+                return any(args_eval)
+        # handle not operator
+        if type(node) is ast.UnaryOp:
+            if type(node.op) is ast.Not:
+                return not self.evaluate(node.operand)
+            raise ApplicationStatusParseError(f'unsupported UnaryOp={type(node)}')
+        raise ApplicationStatusParseError(f'unsupported Expr={type(node)}')
+
+    def update_status_by_formula(self, sequenced_processes: ProcessList) -> None:
+        """ Update the operational status of the application iaw its processes' state.
+        The major failure is set according to the status formula.
+        If no major failure, any process in failure implies a minor failure if part of the starting sequence.
+
+        :return: None
+        """
+        # evaluate the status formula against the current processes' state
+        try:
+            result = self.evaluate(self.rules.status_tree)
+            if type(result) is not bool:
+                raise ApplicationStatusParseError('status formula cannot be resolved')
+        except ApplicationStatusParseError as exc:
+            self.logger.error(f'Application.update_status_by_formula: application_name={self.application_name} {exc}')
+            self.major_failure = True
+        else:
+            self.major_failure = result
+        # check for a minor failure
+        if not self.major_failure:
+            self.minor_failure = False  # TODO
+
+    def _get_process_status(self, process_name: str) -> bool:
+        """ Return False if the process is in a stopped (displayed) state. """
+        return self.processes[process_name].displayed_state in RUNNING_STATES
+
+    def _get_matches(self, pattern_name: str) -> List[str]:
+        """ Return the process names matching the pattern. """
+        # TODO: utiliser la même logique que program pattern
+        results = []
+        pattern = re.compile(r'^%s$' % pattern_name)
+        for name in self.processes.keys():
+            if pattern.match(name):
+                results.append(name)
+        return results

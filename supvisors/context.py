@@ -447,7 +447,7 @@ class Context:
         # re-evaluate application sequences and status
         for application in self.applications.values():
             application.update_sequences()
-            application.update_status()
+            application.update()
         # Write the disabilities file when all local information is made available,
         # so that an example exists whatever enable / disable has been called or not
         if identifier == self.local_identifier:
@@ -624,7 +624,7 @@ class Context:
             application = self.applications[application_name]
             # update sequence useless as long as the application.process map is not impacted (see decision above)
             # application.update_sequences()
-            application.update_status()
+            application.update()
             if self.external_publisher:
                 self.external_publisher.send_application_status(application.serial())
         #  return the identifiers of all invalidated Supvisors instances and the processes declared in failure
@@ -782,7 +782,7 @@ class Context:
                 if updated:
                     # refresh internal status
                     instance_status.update_process(process)
-                    application.update_status()
+                    application.update()
                     # publish process event, status and application status
                     if self.external_publisher:
                         self.external_publisher.send_process_event(identifier, event)

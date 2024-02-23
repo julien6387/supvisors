@@ -753,6 +753,21 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     *Required*:  No.
 
+``operational_status``
+
+    This element contains the formula that will be used to evaluate the operational status of the application,
+    displayed in the |Supvisors| Web UI, and has no other impact on any |Supvisors| function.
+    The formula will be parsed using the Python module ``AST``. The exhaustive list of operators and functions
+    supported by |Supvisors| is: ``and``, ``or``, ``not``, ``any`` and ``all``. Parenthesis can also be used. |br|
+    The operands must be string values, between quotes or double-quotes, corresponding to a program name
+    of the application, or a pattern matching one or multiple program names. Multiple program names must be used as
+    an argument of ``any`` or ``all``. |br|
+    When set, the ``required`` value of the  ``programs`` elements is not considered.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
 ``programs``
 
     This element is the grouping section of all ``program`` rules that are applicable to the application. |br|
@@ -829,7 +844,9 @@ Here follows the definition of the attributes and rules applicable to this eleme
 
     This element gives the importance of the program for the application. |br|
     If ``true`` (resp. ``false``), a failure of the program is considered major (resp. minor). |br|
-    This is quite informative and is mainly used to give the operational status of the application in the Web UI.
+    When the ``operational_status`` element of the  ``application`` element is set, this element is ignored. |br|
+    This information is mainly used to give the operational status of the application in the Web UI and has no other
+    impact on any |Supvisors| function.
 
     *Default*:  ``false``.
 

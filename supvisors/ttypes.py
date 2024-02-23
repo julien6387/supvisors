@@ -113,14 +113,24 @@ CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, Sup
 
 
 # Exceptions
-class InvalidTransition(Exception):
-    """ Exception used for an invalid transition in state machines. """
+class SupvisorsException(Exception):
+    """ Basic exception. """
 
-    def __init__(self, value):
-        self.value = value
+    message: str = ''
+
+    def __init__(self, message):
+        self.message = message
 
     def __str__(self):
-        return self.value
+        return self.message
+
+
+class InvalidTransition(SupvisorsException):
+    """ Exception used for an invalid transition in state machines. """
+
+
+class ApplicationStatusParseError(SupvisorsException):
+    """ Exception used for errors in the evaluation of the application status. """
 
 
 # Supvisors related faults

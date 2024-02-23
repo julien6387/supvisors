@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import ast
 import re
 from collections import OrderedDict
 from distutils.util import strtobool
@@ -38,7 +36,7 @@ supvisors_folder = path.dirname(__file__)
 rules_xsd = path.join(supvisors_folder, 'rules.xsd')
 
 
-class Parser(object):
+class Parser:
     """ The Parser class used to get application and program rules from an XML file. """
 
     # for recursive references to program models, depth is limited to 3
@@ -47,6 +45,13 @@ class Parser(object):
     # annotation types
     AnyRules = Union[ApplicationRules, ProcessRules]
 
+    # attributes
+    roots = []
+    aliases = {}
+    models = {}
+    application_patterns = {}
+    program_patterns = {}
+
     def __init__(self, supvisors: Any) -> None:
         """ The constructor parses the XML file and stores references the models and patterns found.
 
@@ -54,12 +59,6 @@ class Parser(object):
         """
         self.supvisors = supvisors
         self.logger = supvisors.logger
-        # attributes
-        self.roots = []
-        self.aliases = {}
-        self.models = {}
-        self.application_patterns = {}
-        self.program_patterns = {}
         # get a parser per rules file
         self.load_rules_files(supvisors.options.rules_files)
 
@@ -124,6 +123,7 @@ class Parser(object):
             self.load_enum(application_elt, 'starting_strategy', StartingStrategies, rules)
             self.load_enum(application_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
             self.load_enum(application_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
+            self.load_status(application_elt, 'operational_status', rules)
             self.logger.debug(f'Parser.load_application_rules: application {application_name} - rules {rules}')
         # check that rules are compliant with dependencies
         rules.check_dependencies(application_name)
@@ -320,6 +320,31 @@ class Parser(object):
             self.logger.trace(f'Parser.load_identifiers: identifiers={rules.identifiers}'
                               f' at_identifiers={rules.at_identifiers} hash_identifiers={rules.hash_identifiers}')
 
+    def load_status(self, elt: Any, attr_string: str, rules: ApplicationRules) -> None:
+        """ Return the status formula found from the XML element.
+        The string shall be parsed with AST.
+
+        :param elt: the XML element containing rules definition for an application or a program
+        :param attr_string: the XML tag searched and the name of the rule attribute
+        :param rules: the structure used to store the rules found
+        :return: None
+        """
+        str_value = elt.findtext(attr_string)
+        if str_value:
+            try:
+                tree = ast.parse(str_value)
+            except SyntaxError:
+                self.logger.error(f'Parser.load_status: AST parse failure for elt={Parser.get_element_name(elt)}'
+                                  f' {attr_string}="{str_value}"')
+            else:
+                # there must be only one element in the body
+                if len(tree.body) != 1:
+                    self.logger.error(f'Parser.load_status: unsupported AST expr for elt={Parser.get_element_name(elt)}'
+                                      f' {attr_string}="{str_value}"')
+                else:
+                    # store the expression tree
+                    rules.status_tree = tree.body[0].value
+
     def load_sequence(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the sequence value found from the XML element.
         The value must be greater than or equal to 0.
@@ -337,10 +362,10 @@ class Parser(object):
                     setattr(rules, attr_string, value)
                 else:
                     self.logger.error(f'Parser.load_sequence: invalid value for elt={Parser.get_element_name(elt)}'
-                                      f' {attr_string}: {value} (expected integer >= 0)')
+                                      f' {attr_string}={value} (expected integer >= 0)')
             except (TypeError, ValueError):
                 self.logger.error(f'Parser.load_sequence: not an integer for elt={Parser.get_element_name(elt)}'
-                                  f' {attr_string}: {str_value}')
+                                  f' {attr_string}="{str_value}"')
 
     def load_expected_loading(self, elt: Any, rules: ProcessRules) -> None:
         """ Return the expected_loading value found from the XML element.
@@ -358,10 +383,10 @@ class Parser(object):
                     setattr(rules, 'expected_load', value)
                 else:
                     self.logger.warn(f'Parser.load_expected_loading: invalid value for {Parser.get_element_name(elt)}'
-                                     f' expected_loading: {value} (expected integer in [0;100])')
+                                     f' expected_loading={value} (expected integer in [0;100])')
             except (TypeError, ValueError):
                 self.logger.warn(f'Parser.load_expected_loading: not an integer for {Parser.get_element_name(elt)}'
-                                 f' expected_loading: {str_value}')
+                                 f' expected_loading="{str_value}"')
 
     def load_boolean(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the boolean value found from XML element.
@@ -378,7 +403,7 @@ class Parser(object):
                 setattr(rules, attr_string, value)
             except ValueError:
                 self.logger.warn(f'Parser.load_boolean: not a boolean-like for {Parser.get_element_name(elt)}'
-                                 f' {attr_string}: {str_value}')
+                                 f' {attr_string}="{str_value}"')
 
     def load_enum(self, elt: Any, attr_string: str, klass: EnumClassType, rules: AnyRules) -> None:
         """ Return the running_failure_strategy value found from XML element.
@@ -396,7 +421,7 @@ class Parser(object):
                 setattr(rules, attr_string, klass[value])
             except KeyError:
                 self.logger.warn(f'Pattern.load_enum: invalid value for {Parser.get_element_name(elt)}'
-                                 f' {attr_string}: {value} (expected in {[x.name for x in klass]})')
+                                 f' {attr_string}="{value}" (expected in {[x.name for x in klass]})')
 
     def parse(self, filename: str) -> Optional[Any]:
         """ Parse the file depending on the modules installed.

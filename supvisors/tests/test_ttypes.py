@@ -111,12 +111,20 @@ def test_event_headers():
     assert [x.name for x in EventHeaders] == expected
 
 
-def test_exception():
+def test_invalid_transition():
     """ Test the exception InvalidTransition. """
     # test with unknown attributes
     with pytest.raises(InvalidTransition) as exc:
         raise InvalidTransition('invalid transition')
     assert 'invalid transition' == str(exc.value)
+
+
+def test_parse_error():
+    """ Test the exception ApplicationStatusParseError. """
+    # test with unknown attributes
+    with pytest.raises(ApplicationStatusParseError) as exc:
+        raise ApplicationStatusParseError('parse error')
+    assert 'parse error' == str(exc.value)
 
 
 def test_supvisors_faults():
