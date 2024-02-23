@@ -14,7 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import ast
 import re
 from collections import OrderedDict
 from distutils.util import strtobool
@@ -23,12 +22,13 @@ from sys import stderr
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from supervisor.datatypes import list_of_strings
+from supervisor.loggers import Logger
 from supervisor.options import split_namespec
 
 from .application import ApplicationRules
 from .process import ProcessRules
 from .ttypes import (DistributionRules, StartingStrategies, StartingFailureStrategies,
-                     RunningFailureStrategies, EnumClassType)
+                     RunningFailureStrategies, EnumClassType, ApplicationStatusParseError)
 from .utils import ATSIGN, HASHTAG, WILDCARD
 
 # XSD for XML validation
@@ -45,22 +45,25 @@ class Parser:
     # annotation types
     AnyRules = Union[ApplicationRules, ProcessRules]
 
-    # attributes
-    roots = []
-    aliases = {}
-    models = {}
-    application_patterns = {}
-    program_patterns = {}
-
     def __init__(self, supvisors: Any) -> None:
         """ The constructor parses the XML file and stores references the models and patterns found.
 
         :param supvisors: the global Supvisors structure.
         """
         self.supvisors = supvisors
-        self.logger = supvisors.logger
+        # attributes
+        self.roots = []
+        self.aliases = {}
+        self.models = {}
+        self.application_patterns = {}
+        self.program_patterns = {}
         # get a parser per rules file
         self.load_rules_files(supvisors.options.rules_files)
+
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
 
     def load_rules_files(self, rules_files: List[str]) -> None:
         """ Get roots, models and patterns from the rules files provided.
@@ -332,18 +335,10 @@ class Parser:
         str_value = elt.findtext(attr_string)
         if str_value:
             try:
-                tree = ast.parse(str_value)
-            except SyntaxError:
-                self.logger.error(f'Parser.load_status: AST parse failure for elt={Parser.get_element_name(elt)}'
+                rules.status_formula = str_value
+            except ApplicationStatusParseError as exc:
+                self.logger.error(f'Parser.load_status: {exc} for elt={Parser.get_element_name(elt)}'
                                   f' {attr_string}="{str_value}"')
-            else:
-                # there must be only one element in the body
-                if len(tree.body) != 1:
-                    self.logger.error(f'Parser.load_status: unsupported AST expr for elt={Parser.get_element_name(elt)}'
-                                      f' {attr_string}="{str_value}"')
-                else:
-                    # store the expression tree
-                    rules.status_tree = tree.body[0].value
 
     def load_sequence(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the sequence value found from the XML element.

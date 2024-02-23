@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -47,6 +44,7 @@ def test_rules_create(rules):
     assert rules.starting_strategy == StartingStrategies.CONFIG
     assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
+    assert rules.status_tree is None
 
 
 def test_rules_check_stop_sequence(rules):
@@ -125,7 +123,8 @@ def test_rules_check_dependencies(mocker, rules):
 def test_rules_str(rules):
     """ Test the string output. """
     assert str(rules) == ("managed=False distribution=ALL_INSTANCES identifiers=['*'] start_sequence=0 stop_sequence=-1"
-                          " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE")
+                          " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE"
+                          " status_formula=None")
 
 
 def test_rules_serial(rules):
@@ -137,13 +136,16 @@ def test_rules_serial(rules):
     assert rules.serial() == {'managed': True, 'distribution': 'ALL_INSTANCES', 'identifiers': ['*'],
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
-                              'running_failure_strategy': 'CONTINUE'}
+                              'running_failure_strategy': 'CONTINUE',
+                              'status_formula': None}
     # finally check managed and not distributed
     rules.distribution = DistributionRules.SINGLE_INSTANCE
+    rules.status_formula = 'dumb and dumber'
     assert rules.serial() == {'managed': True, 'distribution': 'SINGLE_INSTANCE', 'identifiers': ['*'],
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
-                              'running_failure_strategy': 'CONTINUE'}
+                              'running_failure_strategy': 'CONTINUE',
+                              'status_formula': 'dumb and dumber'}
 
 
 # Homogeneous group part
@@ -467,7 +469,7 @@ def test_application_never_started(supvisors):
     process = create_process(info, supvisors)
     process.add_info('10.0.0.1', info)
     application.add_process(process)
-    application.update_status()
+    application.update_state()
     assert not application.never_started()
 
 
@@ -480,7 +482,7 @@ def test_application_has_running_processes(supvisors):
     process = create_process(info, supvisors)
     process.add_info('10.0.0.1', info)
     application.add_process(process)
-    application.update_status()
+    application.update()
     assert application.stopped()
     assert not application.has_running_processes()
     # add a running process
@@ -488,7 +490,7 @@ def test_application_has_running_processes(supvisors):
     process = create_process(info, supvisors)
     process.add_info('10.0.0.1', info)
     application.add_process(process)
-    application.update_status()
+    application.update_state()
     assert application.stopped()
     assert application.has_running_processes()
 
@@ -816,20 +818,110 @@ def test_application_get_start_sequence_expected_load(filled_application):
     assert filled_application.get_start_sequence_expected_load() == 10 * seq_1_2_size
 
 
-def test_application_update_status(filled_application):
-    """ Test the rules to update the status of the application method. """
-    # as application is not managed, application is STOPPED there are no failures
-    filled_application.update_status()
+def test_update(mocker, filled_application):
+    """ Test the ApplicationStatus.update method. """
+    mocked_state = mocker.patch.object(filled_application, 'update_state', return_value=ApplicationStates.RUNNING)
+    mocked_formula = mocker.patch.object(filled_application, 'update_status_formula')
+    mocked_required = mocker.patch.object(filled_application, 'update_status_required')
+    # initial state
     assert filled_application.state == ApplicationStates.STOPPED
     assert not filled_application.major_failure
     assert not filled_application.minor_failure
-    # set application to managed, update sequences and status
+    # update state and status
+    # test with no formula set in application rules
+    assert filled_application.rules.status_formula is None
+    filled_application.update()
+    assert filled_application.state == ApplicationStates.RUNNING
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    assert mocked_state.call_args_list == [call()]
+    assert mocked_formula.call_args_list == []
+    assert mocked_required.call_args_list == [call({})]
+    mocker.resetall()
+    # update sequences
     filled_application.rules.managed = True
     filled_application.update_sequences()
-    filled_application.update_status()
+    sequenced_processes = {process.process_name: process
+                           for sub_seq in filled_application.start_sequence.values()
+                           for process in sub_seq}
+    # test again
+    filled_application.update()
+    assert filled_application.state == ApplicationStates.RUNNING
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    assert mocked_state.call_args_list == [call()]
+    assert mocked_formula.call_args_list == []
+    assert mocked_required.call_args_list == [call(sequenced_processes)]
+    mocker.resetall()
+    # test with formula set in application rules
+    filled_application.rules.status_formula = "xlogo"
+    filled_application.update()
+    assert filled_application.state == ApplicationStates.RUNNING
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    assert mocked_state.call_args_list == [call()]
+    assert mocked_formula.call_args_list == [call(sequenced_processes)]
+    assert mocked_required.call_args_list == []
+
+
+def test_application_update_state(filled_application):
+    """ Test the rules to update the status of the application method. """
+    assert filled_application.state == ApplicationStates.STOPPED
+    # there is a process in STOPPING state in the process database
+    # STOPPING has the highest priority in application state evaluation
+    assert filled_application.update_state() == ApplicationStates.STOPPING
+    # set STOPPING process to STOPPED
+    for process in filled_application.processes.values():
+        if process.state == ProcessStates.STOPPING:
+            process.state = ProcessStates.STOPPED
+    # now STARTING is expected as it is the second priority
+    assert filled_application.update_state() == ApplicationStates.STARTING
+    # set STARTING process to RUNNING
+    starting_process = next((process for process in filled_application.processes.values()
+                             if process.state == ProcessStates.STARTING), None)
+    starting_process.state = ProcessStates.RUNNING
+    # update status. there is still one BACKOFF process leading to STARTING application
+    assert filled_application.update_state() == ApplicationStates.STARTING
+    # set BACKOFF process to EXITED unexpected
+    backoff_process = next((process for process in filled_application.processes.values()
+                            if process.state == ProcessStates.BACKOFF), None)
+    backoff_process.state = ProcessStates.EXITED
+    backoff_process.expected_exit = False
+    # update status. now there is only stopped and running processes.
+    assert filled_application.update_state() == ApplicationStates.RUNNING
+    # set all process to RUNNING
+    for process in filled_application.processes.values():
+        process.state = ProcessStates.RUNNING
+    assert filled_application.update_state() == ApplicationStates.RUNNING
+    # set all processes to STOPPED
+    for process in filled_application.processes.values():
+        process.state = ProcessStates.STOPPED
+    # all processes are STOPPED in a STOPPED application, so no failure
+    assert filled_application.update_state() == ApplicationStates.STOPPED
+
+
+def test_application_update_status_required(filled_application):
+    """ Test the rules to update the status of the application method. """
+    # initial status
+    assert filled_application.state == ApplicationStates.STOPPED
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    # first call with no process required and no start sequence
+    filled_application.update_status_required({})
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    # set application to managed, update sequences and state
+    filled_application.rules.managed = True
+    filled_application.update_sequences()
+    filled_application.state = filled_application.update_state()
+    sequenced_processes = {process.process_name: process
+                           for sub_seq in filled_application.start_sequence.values()
+                           for process in sub_seq}
     # there is a process in STOPPING state in the process database
     # STOPPING has the highest priority in application state evaluation
     assert filled_application.state == ApplicationStates.STOPPING
+    # check the operational status
+    filled_application.update_status_required(sequenced_processes)
     # multiple STOPPED processes and global state not STOPPED
     # in default rules, no process is required so this is minor
     assert not filled_application.major_failure
@@ -840,26 +932,21 @@ def test_application_update_status(filled_application):
     fatal_process.rules.required = True
     # update status. major failure is now expected
     # minor still expected
-    filled_application.update_status()
-    assert filled_application.state == ApplicationStates.STOPPING
+    filled_application.update_status_required(sequenced_processes)
     assert filled_application.major_failure
     assert not filled_application.minor_failure
-    # set STOPPING process to STOPPED
+    # set STOPPING process to STOPPED and check no impact on failures
     for process in filled_application.processes.values():
         if process.state == ProcessStates.STOPPING:
             process.state = ProcessStates.STOPPED
-    # now STARTING is expected as it is the second priority
-    filled_application.update_status()
-    assert filled_application.state == ApplicationStates.STARTING
+    filled_application.update_status_required(sequenced_processes)
     assert filled_application.major_failure
     assert not filled_application.minor_failure
-    # set STARTING process to RUNNING
+    # set STARTING process to RUNNING and check no impact on failures
     starting_process = next((process for process in filled_application.processes.values()
                              if process.state == ProcessStates.STARTING), None)
     starting_process.state = ProcessStates.RUNNING
-    # update status. there is still one BACKOFF process leading to STARTING application
-    filled_application.update_status()
-    assert filled_application.state == ApplicationStates.STARTING
+    filled_application.update_status_required(sequenced_processes)
     assert filled_application.major_failure
     assert not filled_application.minor_failure
     # set BACKOFF process to EXITED unexpected
@@ -867,24 +954,42 @@ def test_application_update_status(filled_application):
                             if process.state == ProcessStates.BACKOFF), None)
     backoff_process.state = ProcessStates.EXITED
     backoff_process.expected_exit = False
-    # update status. now there is only stopped and running processes.
-    filled_application.update_status()
-    assert filled_application.state == ApplicationStates.RUNNING
+    # update status. major failure is set, so not minor_failure
+    filled_application.update_status_required(sequenced_processes)
     assert filled_application.major_failure
-    assert filled_application.minor_failure
+    assert not filled_application.minor_failure
     # set all process to RUNNING
     for process in filled_application.processes.values():
         process.state = ProcessStates.RUNNING
     # no more failures
-    filled_application.update_status()
-    assert filled_application.state == ApplicationStates.RUNNING
+    filled_application.update_status_required(sequenced_processes)
     assert not filled_application.major_failure
     assert not filled_application.minor_failure
     # set all processes to STOPPED
     for process in filled_application.processes.values():
         process.state = ProcessStates.STOPPED
     # all processes are STOPPED in a STOPPED application, so no failure
-    filled_application.update_status()
-    assert filled_application.state == ApplicationStates.STOPPED
+    filled_application.state = ApplicationStates.STOPPED
+    filled_application.update_status_required(sequenced_processes)
     assert not filled_application.major_failure
     assert not filled_application.minor_failure
+
+
+def test_application_get_process_status(filled_application):
+    """ Test the ApplicationStatus._get_process_status method. """
+    # TODO
+
+
+def test_application_get_matches(filled_application):
+    """ Test the ApplicationStatus._get_matches method. """
+    # TODO
+
+
+def test_application_evaluate(filled_application):
+    """ Test the ApplicationStatus.evaluate method. """
+    # TODO
+
+
+def test_application_update_status_formula(filled_application):
+    """ Test the rules to update the status of the application method. """
+    # TODO

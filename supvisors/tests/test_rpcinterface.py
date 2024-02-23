@@ -222,16 +222,19 @@ def test_application_rules(mocker, rpc):
     expected = {'application_name': 'appli', 'managed': True, 'distribution': 'ALL_INSTANCES',
                 'identifiers': ['*'],
                 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
-                'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
+                'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE',
+                'status_formula': None}
     assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]
     assert mocked_get.call_args_list == [call('appli')]
     mocker.resetall()
     # test RPC call with application name and managed/non-distributed application
     application.rules.distribution = DistributionRules.SINGLE_INSTANCE
+    application.rules.status_formula = "'dumb' or 'dumber'"
     expected = {'application_name': 'appli', 'managed': True, 'distribution': 'SINGLE_INSTANCE',
                 'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
-                'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
+                'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE',
+                'status_formula': "'dumb' or 'dumber'"}
     assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]
     assert mocked_get.call_args_list == [call('appli')]

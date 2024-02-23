@@ -60,7 +60,8 @@ class ApplicationRules:
     starting_strategy: StartingStrategies = StartingStrategies.CONFIG
     starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
     running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
-    status_tree: Optional[ast.Expr] = None
+    _status_formula: Optional[str] = None
+    _status_tree: Optional[ast.Module] = None
 
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes. """
@@ -74,6 +75,28 @@ class ApplicationRules:
     def logger(self) -> Logger:
         """ Get the Supvisors logger. """
         return self.supvisors.logger
+
+    @property
+    def status_formula(self):
+        return self._status_formula
+
+    @status_formula.setter
+    def status_formula(self, formula: str):
+        # AST-parse the formula
+        try:
+            tree = ast.parse(formula)
+        except SyntaxError:
+            raise ApplicationStatusParseError('AST parse failure')
+        # there must be only one element in the body
+        if len(tree.body) != 1:
+            raise ApplicationStatusParseError('unsupported AST expression')
+        # store the expression
+        self._status_formula = formula
+        self._status_tree = tree
+
+    @property
+    def status_tree(self):
+        return self._status_tree
 
     def check_stop_sequence(self, application_name: str) -> None:
         """ Check the stop_sequence value.
@@ -148,7 +171,8 @@ class ApplicationRules:
                 f' start_sequence={self.start_sequence} stop_sequence={self.stop_sequence}'
                 f' starting_strategy={self.starting_strategy.name}'
                 f' starting_failure_strategy={self.starting_failure_strategy.name}'
-                f' running_failure_strategy={self.running_failure_strategy.name}')
+                f' running_failure_strategy={self.running_failure_strategy.name}'
+                f' status_formula={self.status_formula}')
 
     # serialization
     def serial(self) -> Payload:
@@ -158,11 +182,13 @@ class ApplicationRules:
         :return: the application rules in a dictionary
         """
         if self.managed:
-            payload = {'managed': True, 'distribution': self.distribution.name, 'identifiers': self.identifiers,
+            payload = {'managed': True, 'distribution': self.distribution.name,
+                       'identifiers': self.identifiers,
                        'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
                        'starting_strategy': self.starting_strategy.name,
                        'starting_failure_strategy': self.starting_failure_strategy.name,
-                       'running_failure_strategy': self.running_failure_strategy.name}
+                       'running_failure_strategy': self.running_failure_strategy.name,
+                       'status_formula': self.status_formula}
             return payload
         return {'managed': False}
 
@@ -690,16 +716,16 @@ class ApplicationStatus:
         :return: None
         """
         # get the processes from the starting sequence
-        sequenced_processes: ProcessList = [process
-                                            for sub_seq in self.start_sequence.values()
-                                            for process in sub_seq]
+        sequenced_processes: ProcessMap = {process.process_name: process
+                                           for sub_seq in self.start_sequence.values()
+                                           for process in sub_seq}
         # update the application state
         self.state = self.update_state()
         # update the application operational status
         if self.rules.status_tree:
-            self.update_status_by_formula(sequenced_processes)
+            self.update_status_formula(sequenced_processes)
         else:
-            self.update_status_by_required(sequenced_processes)
+            self.update_status_required(sequenced_processes)
 
     def update_state(self) -> ApplicationStates:
         """ Update the state of the application iaw the state of its processes.
@@ -734,7 +760,7 @@ class ApplicationStatus:
         # all processes in the sequence are STOPPED, so application is STOPPED
         return ApplicationStates.STOPPED
 
-    def update_status_by_required(self, sequenced_processes: ProcessList) -> None:
+    def update_status_required(self, sequenced_processes: ProcessMap) -> None:
         """ Update the operational status of the application iaw its processes' state.
         Any required process in failure implies a major failure.
         Any non-required process in failure implies a minor failure if part of the starting sequence.
@@ -744,10 +770,12 @@ class ApplicationStatus:
 
         :return: None
         """
+        # reset failures
+        self.major_failure, self.minor_failure = False, False
         possible_major_failure = False
         for process in self.processes.values():
-            self.logger.trace(f'ApplicationStatus.update_status: application_name={self.application_name}'
-                              f' process={process.namespec} state={process.state_string()}'
+            self.logger.trace(f'ApplicationStatus.update_status_required: application_name={self.application_name}'
+                              f' process={process.namespec} state={process.displayed_state_string()}'
                               f' required={process.rules.required} exit_expected={process.expected_exit}')
             if (process.displayed_state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
                     or (process.displayed_state == ProcessStates.EXITED and not process.expected_exit)):
@@ -761,7 +789,7 @@ class ApplicationStatus:
                 # consideration will depend on the global application state
                 if process.rules.required:
                     possible_major_failure = True
-        self.logger.trace(f'ApplicationStatus.update_status_by_required: application_name={self.application_name}'
+        self.logger.trace(f'ApplicationStatus.update_status_required: application_name={self.application_name}'
                           f' major_failure={self.major_failure} minor_failure={self.minor_failure}'
                           f' possible_major_failure={possible_major_failure}')
         # possible major failure is confirmed if the application is not stopped
@@ -770,7 +798,7 @@ class ApplicationStatus:
         # reset the minor failure if the major failure is set
         if self.major_failure:
             self.minor_failure = False
-        self.logger.debug(f'Application.update_status_by_required: application_name={self.application_name}'
+        self.logger.debug(f'ApplicationStatus.update_status_required: application_name={self.application_name}'
                           f' major_failure={self.major_failure} minor_failure={self.minor_failure}')
 
     def evaluate(self, node: ast.Expr) -> Union[bool, List[bool]]:
@@ -831,7 +859,7 @@ class ApplicationStatus:
             raise ApplicationStatusParseError(f'unsupported UnaryOp={type(node)}')
         raise ApplicationStatusParseError(f'unsupported Expr={type(node)}')
 
-    def update_status_by_formula(self, sequenced_processes: ProcessList) -> None:
+    def update_status_formula(self, sequenced_processes: ProcessMap) -> None:
         """ Update the operational status of the application iaw its processes' state.
         The major failure is set according to the status formula.
         If no major failure, any process in failure implies a minor failure if part of the starting sequence.
@@ -840,11 +868,11 @@ class ApplicationStatus:
         """
         # evaluate the status formula against the current processes' state
         try:
-            result = self.evaluate(self.rules.status_tree)
+            result = self.evaluate(self.rules.status_tree.body[0].value)
             if type(result) is not bool:
                 raise ApplicationStatusParseError('status formula cannot be resolved')
         except ApplicationStatusParseError as exc:
-            self.logger.error(f'Application.update_status_by_formula: application_name={self.application_name} {exc}')
+            self.logger.error(f'ApplicationStatus.update_status_formula: application_name={self.application_name} {exc}')
             self.major_failure = True
         else:
             self.major_failure = result
@@ -858,7 +886,6 @@ class ApplicationStatus:
 
     def _get_matches(self, pattern_name: str) -> List[str]:
         """ Return the process names matching the pattern. """
-        # TODO: utiliser la même logique que program pattern
         results = []
         pattern = re.compile(r'^%s$' % pattern_name)
         for name in self.processes.keys():
