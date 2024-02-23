@@ -1220,6 +1220,7 @@ Here follows a complete example of a rules file. It is used in |Supvisors| self 
         <application name="import_database">
             <start_sequence>2</start_sequence>
             <starting_failure_strategy>STOP</starting_failure_strategy>
+            <operational_status>all('.*')</operational_status>
 
             <programs>
                 <program pattern="mount_disk_">
@@ -1243,6 +1244,7 @@ Here follows a complete example of a rules file. It is used in |Supvisors| self 
         <!-- movies_database application -->
         <application name="database">
             <start_sequence>3</start_sequence>
+            <operational_status>all("register.*") and any('movie.*')</operational_status>
 
             <programs>
                 <program pattern="movie_server_">
