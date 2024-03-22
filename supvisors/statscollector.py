@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -18,63 +15,52 @@
 # ======================================================================
 
 import multiprocessing as mp
+import multiprocessing.connection
 import os
-import signal
+import time
 from enum import Enum
-from time import sleep, time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import psutil
 from supervisor.loggers import Logger
 
-from .ttypes import Jiffies, JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
+from .ttypes import JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
 from .utils import mean
 
 # Default sleep time when nothing to do
 SLEEP_TIME = 0.2
 
-# Maximum time to put data into the statistics queue
-# Although daemonized, the collect_process_statistics does not end when supervisord is killed
-# so if the put fails because the other end is terminated, the TimeoutException will end the process
-QUEUE_TIMEOUT = 10
-
 # a heartbeat is expected every 5 seconds from the main process
 # after 15 seconds without heartbeat received, it is considered that the main process has been killed
 HEARTBEAT_TIMEOUT = 15
 
+# Number of logical processors
+NB_PROCESSORS = psutil.cpu_count()
+
 
 class StatsMsgType(Enum):
-    """ Message types used for PID queue. """
-    ALIVE, PID, STOP = range(3)
+    """ Message types used for CMD pipe. """
+    ALIVE, PID, STOP, ENABLE_HOST, ENABLE_PROCESS, PERIOD = range(6)
 
 
 # CPU statistics
-def instant_cpu_statistics() -> Jiffies:
-    """ Return the instant average work+idle jiffies. """
-    cpu_stat = psutil.cpu_times()
-    work = (cpu_stat.user + cpu_stat.nice + cpu_stat.system
-            + cpu_stat.irq + cpu_stat.softirq
-            + cpu_stat.steal + cpu_stat.guest)
-    idle = (cpu_stat.idle + cpu_stat.iowait)
-    return work, idle
-
-
 def instant_all_cpu_statistics() -> JiffiesList:
     """ Return the instant work+idle jiffies for all the processors.
-    The average on all processors is inserted in front of the list. """
-    work: List[float] = []
-    idle: List[float] = []
+    The average on all processors is inserted in front of the list.
+    Guest times are included in user and nice on Linux. """
+    stats: JiffiesList = []
     # CPU details
     cpu_stats = psutil.cpu_times(percpu=True)
     for cpu_stat in cpu_stats:
-        work.append(cpu_stat.user + cpu_stat.nice + cpu_stat.system
-                    + cpu_stat.irq + cpu_stat.softirq
-                    + cpu_stat.steal + cpu_stat.guest)
-        idle.append(cpu_stat.idle + cpu_stat.iowait)
-    # return adding CPU average in front of lists
-    work.insert(0, mean(work))
-    idle.insert(0, mean(idle))
-    return list(zip(work, idle))
+        work = (cpu_stat.user + cpu_stat.nice + cpu_stat.system
+                + cpu_stat.irq + cpu_stat.softirq + cpu_stat.steal)
+        idle = cpu_stat.idle + cpu_stat.iowait
+        stats.append((work, idle))
+    # overall CPU average at the front of the list
+    avg_work = mean([x[0] for x in stats])
+    avg_idle = mean([x[1] for x in stats])
+    stats.insert(0, (avg_work, avg_idle))
+    return stats
 
 
 # Memory statistics
@@ -99,25 +85,57 @@ def instant_io_statistics() -> InterfaceInstantStats:
     return result
 
 
+# Common
+class StatisticsCollector:
+    """ Base class for statistics collection. """
+
+    def __init__(self, stats_conn: mp.connection.Connection, period: float, enabled: bool):
+        """ Initialization of the attributes. """
+        self.stats_conn: mp.connection.Connection = stats_conn
+        self.period: float = period
+        self.enabled: bool = enabled
+
+    def _post(self, stats: Dict) -> None:
+        """ Post the statistics collected into the pipe.
+        A timeout is set to prevent an infinite blocking. """
+        self.stats_conn.send(stats)
+
+
 # Host statistics
-def instant_host_statistics() -> Dict:
-    """ Get a snapshot of some host resources. """
-    try:
-        return {'now': time(),
-                'cpu': instant_all_cpu_statistics(),
-                'mem': instant_memory_statistics(),
-                'io': instant_io_statistics()}
-    except OSError:
-        # possibly Too many open files: '/proc/stat'
-        # still unclear why it happens
-        return {}
+class HostStatisticsCollector(StatisticsCollector):
+    """ Class holding the psutil structures for all the processes to collect statistics from. """
+
+    def __init__(self, stats_conn: mp.connection.Connection, period: float, enabled: bool):
+        """ Initialization of the attributes. """
+        super().__init__(stats_conn, period, enabled)
+        self.last_stats_time: float = 0.0
+
+    def collect_host_statistics(self) -> None:
+        """ Get a snapshot of some host resources. """
+        if self.enabled:
+            current_time = time.monotonic()
+            if current_time - self.last_stats_time >= self.period:
+                try:
+                    stats = {'now': current_time,
+                             'cpu': instant_all_cpu_statistics(),
+                             'mem': instant_memory_statistics(),
+                             'io': instant_io_statistics()}
+                except OSError:
+                    # possibly Too many open files: '/proc/stat'
+                    # still unclear why it happens
+                    pass
+                else:
+                    # publish the information that it has been stopped
+                    self._post(stats)
+                # update reference time
+                self.last_stats_time = current_time
 
 
 # Process statistics
 process_attributes = ['cpu_times', 'memory_percent']
 
 
-def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optional[ProcessStats]:
+def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optional[Union[Tuple, ProcessStats]]:
     """ Return the instant jiffies and memory values for the process identified by pid. """
     try:
         # get main process statistics
@@ -146,16 +164,14 @@ def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optio
         return ()
 
 
-class CollectedProcesses:
+class ProcessStatisticsCollector(StatisticsCollector):
     """ Class holding the psutil structures for all the processes to collect statistics from. """
 
-    def __init__(self, stats_queue: mp.Queue, period: float, supervisor_pid: int):
+    def __init__(self, stats_conn: multiprocessing.connection.Connection,
+                 period: float, enabled: bool, supervisor_pid: int):
         """ Initialization of the attributes. """
-        self.stats_queue: mp.Queue = stats_queue
-        self.period: float = period
+        super().__init__(stats_conn, period, enabled)
         self.processes: List[Dict] = []
-        # additional information obout the number of CPU cores, used for the Solaris mode
-        self.nb_cores = mp.cpu_count()
         # define the supervisor process and this collector process
         self.supervisor_process: Dict = {'last': 0,
                                          'supervisor': psutil.Process(supervisor_pid),
@@ -173,10 +189,8 @@ class CollectedProcesses:
                 # process has been stopped in the gap. remove the entry
                 self.processes.pop(idx)
                 # publish the information that it has been stopped
-                self.stats_queue.put({'namespec': namespec,
-                                      'pid': 0,
-                                      'now': time()},
-                                     timeout=QUEUE_TIMEOUT)
+                stats = {'namespec': namespec, 'pid': 0, 'now': time.monotonic()}
+                self._post(stats)
                 if pid > 0:
                     # new process running. mark as not found so that it is re-inserted
                     found = False
@@ -196,7 +210,7 @@ class CollectedProcesses:
 
     def collect_supervisor(self):
         """ Collect supervisor and collector statistics, without considering any other supervisor children. """
-        current_time = time()
+        current_time = time.monotonic()
         elapsed = current_time - self.supervisor_process['last']
         if elapsed >= self.period:
             supervisor = self.supervisor_process['supervisor']
@@ -204,15 +218,14 @@ class CollectedProcesses:
             collector = self.supervisor_process['collector']
             col_stats = instant_process_statistics(collector, False)
             if sup_stats and col_stats:
-                # push the results into the stats_queue
-                self.stats_queue.put({'namespec': 'supervisord',
-                                      'pid': supervisor.pid,
-                                      'now': current_time,
-                                      'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
-                                      'nb_cores': self.nb_cores,  # needed for Solaris mode
-                                      'proc_work': sup_stats[0] + col_stats[0],
-                                      'proc_memory': sup_stats[1] + col_stats[1]},
-                                     timeout=QUEUE_TIMEOUT)
+                # push the results into the stats_conn
+                stats = {'namespec': 'supervisord',
+                         'pid': supervisor.pid,
+                         'now': current_time,
+                         'nb_cores': NB_PROCESSORS,  # needed for Solaris mode
+                         'proc_work': sup_stats[0] + col_stats[0],
+                         'proc_memory': sup_stats[1] + col_stats[1]}
+                self._post(stats)
                 # re-insert the process in front of the list
                 self.supervisor_process['last'] = current_time
             else:
@@ -223,7 +236,7 @@ class CollectedProcesses:
     def collect_recent_process(self) -> bool:
         """ Collect the next process statistics. """
         if len(self.processes):
-            current_time = time()
+            current_time = time.monotonic()
             elapsed = current_time - self.processes[-1]['last']
             if elapsed >= self.period:
                 # period has passed. get statistics on the process
@@ -232,21 +245,20 @@ class CollectedProcesses:
                 proc_stats = instant_process_statistics(proc)
                 if proc_stats is None:
                     # warn the subscribers that the process has been stopped
-                    self.stats_queue.put({'namespec': proc_data['namespec'],
-                                          'pid': 0,
-                                          'now': current_time},
-                                         timeout=QUEUE_TIMEOUT)
+                    stats = {'namespec': proc_data['namespec'],
+                             'pid': 0,
+                             'now': current_time}
+                    self._post(stats)
                     # not to be re-inserted in the list
                 else:
                     if proc_stats:  # proc_stats is an empty tuple in case of OSError
-                        # push the results into the stats_queue
-                        self.stats_queue.put({'namespec': proc_data['namespec'],
-                                              'pid': proc.pid,
-                                              'now': current_time,
-                                              'cpu': instant_cpu_statistics(),  # CPU needed for process CPU calculation
-                                              'proc_work': proc_stats[0],
-                                              'proc_memory': proc_stats[1]},
-                                             timeout=QUEUE_TIMEOUT)
+                        # push the results into the stats_conn
+                        stats = {'namespec': proc_data['namespec'],
+                                 'pid': proc.pid,
+                                 'now': current_time,
+                                 'proc_work': proc_stats[0],
+                                 'proc_memory': proc_stats[1]}
+                        self._post(stats)
                     # whatever it has succeeded or not, update date and re-insert the process in front of the list
                     proc_data['last'] = current_time
                     self.processes.insert(0, proc_data)
@@ -255,92 +267,134 @@ class CollectedProcesses:
         # most ready process is not ready enough. wait
         return False
 
+    def collect_processes_statistics(self) -> bool:
+        """ Collect process statistics that have passed the collecting period.
+        Return True if statistics from one process have been collected. """
+        if self.enabled:
+            # collect supervisord statistics
+            self.collect_supervisor()
+            # collect one sample of process statistics
+            return self.collect_recent_process()
+        return False
 
-def collect_process_statistics(pid_queue: mp.Queue, stats_queue: mp.Queue, period: int, supervisor_pid: int):
-    """ Collector main loop. """
-    collector = CollectedProcesses(stats_queue, period, supervisor_pid)
-    # loop until a stop request is received
-    last_heartbeat_received = time()
+
+def statistics_collector_task(cmd_conn: multiprocessing.connection.Connection,
+                              host_stats_conn: multiprocessing.connection.Connection,
+                              proc_stats_conn: multiprocessing.connection.Connection,
+                              period: float, host_stats_enabled: bool, process_stats_enabled: bool,
+                              supervisor_pid: int):
+    """ Statistics Collector main loop. """
+    # create the collector instances
+    host_collector = HostStatisticsCollector(host_stats_conn, period, host_stats_enabled)
+    proc_collector = ProcessStatisticsCollector(proc_stats_conn, period, process_stats_enabled, supervisor_pid)
+    # loop until a stop request is received or heartbeat fails
+    last_heartbeat_received = time.monotonic()
     stopped = False
     while not stopped:
-        # get new pids to collect statistics from
-        while not pid_queue.empty():
-            msg_type, msg_body = pid_queue.get()
+        # command reception loop
+        while cmd_conn.poll(timeout=SLEEP_TIME):
+            msg_type, msg_body = cmd_conn.recv()
             if msg_type == StatsMsgType.STOP:
                 stopped = True
             elif msg_type == StatsMsgType.ALIVE:
-                last_heartbeat_received = time()
+                last_heartbeat_received = time.monotonic()
             elif msg_type == StatsMsgType.PID:
-                collector.update_process_list(*msg_body)
+                proc_collector.update_process_list(*msg_body)
+            elif msg_type == StatsMsgType.ENABLE_HOST:
+                host_collector.enabled = msg_body
+            elif msg_type == StatsMsgType.ENABLE_PROCESS:
+                proc_collector.enabled = msg_body
+            elif msg_type == StatsMsgType.PERIOD:
+                host_collector.period = period
+                proc_collector.period = period
         # test heartbeat
         if not stopped:
-            if time() - last_heartbeat_received > HEARTBEAT_TIMEOUT:
+            if time.monotonic() - last_heartbeat_received > HEARTBEAT_TIMEOUT:
                 stopped = True
         # collect process statistics
         if not stopped:
-            # test if supervisord is ready to be collected
-            collector.collect_supervisor()
-            # test if the last element of the list is ready to be collected
-            ready = collector.collect_recent_process()
+            # collect host statistics if enabled
+            host_collector.collect_host_statistics()
+            # collect process statistics if enabled
+            ready = proc_collector.collect_processes_statistics()
             # if no process is ready to be collected, go to sleep
             if not ready:
-                sleep(SLEEP_TIME)
+                time.sleep(SLEEP_TIME)
 
 
-class ProcessStatisticsCollector:
-    """ Collector of instant process statistics.
-    The psutil processes are cached to speed up. """
+class StatisticsCollectorProcess:
+    """ Wrapper of the Statistics Collector task. """
 
     STOP_TIMEOUT = 2.0
 
-    def __init__(self, period: int, logger: Logger):
+    def __init__(self, supvisors):
         # store the attributes
-        self.period = period
-        self.logger: Logger = logger
-        # create communication queues
-        self.pid_queue = mp.Queue()  # used to receive pids and program names
-        self.stats_queue = mp.Queue()  # used to send process statistics
+        self.supvisors = supvisors
+        self.logger: Logger = supvisors.logger
+        # create communication pipes
+        self.cmd_recv, self.cmd_send = mp.Pipe(False)  # used to /receive commands, pids and program names
+        self.host_stats_recv, self.host_stats_send = mp.Pipe(False)  # used to send/receive host statistics
+        self.proc_stats_recv, self.proc_stats_send = mp.Pipe(False)  # used to send/receive process statistics
         # the process attribute
         self.process: Optional[mp.Process] = None
 
     def start(self):
-        """ Create and start the collector process.
+        """ Create and start the statistics collector task.
         The process must be started by the process that has created it, hence not created in the constructor
-        because Supervisor may fork depending on the options selected."""
-        self.process = mp.Process(target=collect_process_statistics,
-                                  args=(self.pid_queue, self.stats_queue, self.period, os.getpid()),
+        because Supervisor may fork depending on the options selected. """
+        self.process = mp.Process(target=statistics_collector_task,
+                                  args=(self.cmd_recv, self.host_stats_send, self.proc_stats_send,
+                                        self.supvisors.options.collecting_period,
+                                        self.supvisors.options.host_stats_enabled,
+                                        self.supvisors.options.process_stats_enabled,
+                                        os.getpid()),
                                   daemon=True)
         self.process.start()
 
     def alive(self):
         """ Send a heartbeat to the collector process.
         This is needed so that the thread ends itself if the main process gets killed. """
-        self.pid_queue.put((StatsMsgType.ALIVE, None))
+        self.cmd_send.send((StatsMsgType.ALIVE, None))
+
+    def enable_host_statistics(self, enabled: bool):
+        """ Enable / disable the host statistics collection. """
+        self.cmd_send.send((StatsMsgType.ENABLE_HOST, enabled))
+
+    def enable_process_statistics(self, enabled: bool):
+        """ Enable / disable the process statistics collection. """
+        self.cmd_send.send((StatsMsgType.ENABLE_PROCESS, enabled))
+
+    def update_collecting_period(self, period: float):
+        """ Update the period for host and process statistics collection. """
+        self.cmd_send.send((StatsMsgType.PERIOD, period))
 
     def send_pid(self, namespec: str, pid: int):
         """ Send a process name and PID to the collector process. """
-        self.pid_queue.put((StatsMsgType.PID, (namespec, pid)))
+        self.cmd_send.send((StatsMsgType.PID, (namespec, pid)))
+
+    @staticmethod
+    def _get_stats(stats_conn: multiprocessing.connection.Connection) -> PayloadList:
+        """ Get all statistics available from a given pipe connector. """
+        stats = []
+        while stats_conn.poll():
+            stats.append(stats_conn.recv())
+        return stats
+
+    def get_host_stats(self) -> PayloadList:
+        """ Get all host statistics available. """
+        return self._get_stats(self.host_stats_recv)
 
     def get_process_stats(self) -> PayloadList:
         """ Get all process statistics available. """
-        proc_stats = []
-        while not self.stats_queue.empty():
-            proc_stats.append(self.stats_queue.get())
-        return proc_stats
+        return self._get_stats(self.proc_stats_recv)
 
     def stop(self):
         """ Stop the collector process. """
         # send a stop message
-        self.pid_queue.put((StatsMsgType.STOP, None))
+        self.cmd_send.send((StatsMsgType.STOP, None))
         self.process.join(timeout=self.STOP_TIMEOUT)
-        self.logger.debug(f'ProcessStatisticsCollector.stop: msg exitcode={self.process.exitcode}')
         if self.process.exitcode != 0:
-            # the process did not end by itself, use hard termination
-            self.logger.error('ProcessStatisticsCollector.stop: exit failed')
-            # NOTE: kill introduced from Python 3.7
-            self.process.terminate()
-            self.process.join(timeout=self.STOP_TIMEOUT)
-            self.logger.debug(f'ProcessStatisticsCollector.stop: terminate exitcode={self.process.exitcode}')
-            if self.process.exitcode != signal.SIGTERM:
-                self.logger.critical('ProcessStatisticsCollector.stop: terminate failed'
-                                     f' exitcode={self.process.exitcode}')
+            # WARN: the process did not end by itself
+            #       using Process.terminate won't change a thing and kill has been introduced from Python 3.7
+            self.logger.critical('StatisticsCollectorProcess.stop: stop failed'
+                                 f' exitcode={self.process.exitcode}')

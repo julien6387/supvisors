@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -138,14 +135,14 @@ class SupvisorsInstanceStatus:
         # state and modes
         self.state_modes = StateModes()
         # the local instance may use the process statistics collector
-        self.process_collector = None
+        self.stats_collector = None
         is_local = supvisors.mapper.local_identifier == self.identifier
         if is_local:
             # use the condition to set the local discovery mode in states / modes object
             self.state_modes.discovery_mode = supvisors.options.discovery_mode
             # copy the process collector reference
             if supvisors.options.process_stats_enabled:
-                self.process_collector = supvisors.process_collector
+                self.stats_collector = supvisors.stats_collector
 
     def reset(self):
         """ Reset the contextual part of the Supvisors instance.
@@ -297,10 +294,10 @@ class SupvisorsInstanceStatus:
         """
         self.processes[process.namespec] = process
         # update the collector withe process if it is already running
-        if self.process_collector:
+        if self.stats_collector:
             pid = process.get_pid(self.identifier)
             if pid > 0:
-                self.process_collector.send_pid(process.namespec, pid)
+                self.stats_collector.send_pid(process.namespec, pid)
 
     def update_process(self, process: ProcessStatus) -> None:
         """ Upon a process state change, check if a pid is available to update the collector.
@@ -308,9 +305,9 @@ class SupvisorsInstanceStatus:
         :param process: the process status that has been updated
         :return: None
         """
-        if self.process_collector:
+        if self.stats_collector:
             pid = process.get_pid(self.identifier)
-            self.process_collector.send_pid(process.namespec, pid)
+            self.stats_collector.send_pid(process.namespec, pid)
 
     def remove_process(self, process: ProcessStatus) -> None:
         """ Remove a process from the process list.
@@ -320,8 +317,8 @@ class SupvisorsInstanceStatus:
         """
         del self.processes[process.namespec]
         # update the collector
-        if self.process_collector:
-            self.process_collector.send_pid(process.namespec, 0)
+        if self.stats_collector:
+            self.stats_collector.send_pid(process.namespec, 0)
 
     def running_processes(self):
         """ Return the process running on the Supvisors instance.

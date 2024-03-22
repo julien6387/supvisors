@@ -102,14 +102,10 @@ class SupervisorListener(object):
         return self.local_instance.identifier
 
     @property
-    def host_collector(self) -> Any:
-        """ Get the Supvisors function in charge of collecting host statistics. """
-        return self.supvisors.host_collector
-
-    @property
-    def process_collector(self) -> Any:
-        """ Get the Supvisors instance in charge of collecting process statistics. """
-        return self.supvisors.process_collector
+    def stats_collector(self) -> Any:
+        """ Get the Supvisors object in charge of collecting host and process statistics.
+        NOTE: May be None if psutil is not installed. """
+        return self.supvisors.stats_collector
 
     @property
     def host_compiler(self) -> Optional[HostStatisticsCompiler]:
@@ -162,8 +158,8 @@ class SupervisorListener(object):
             # Trigger the FSM
             self.fsm.next()
             # Start the process statistics collector
-            if self.process_collector:
-                self.process_collector.start()
+            if self.stats_collector:
+                self.stats_collector.start()
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_running: {format_exc()}')
@@ -174,8 +170,8 @@ class SupervisorListener(object):
         self.logger.warn('SupervisorListener.on_stopping: local supervisord is STOPPING')
         try:
             # Stop the process statistics collector
-            if self.process_collector:
-                self.process_collector.stop()
+            if self.stats_collector:
+                self.stats_collector.stop()
             # close pusher and publication sockets
             self.logger.debug('SupervisorListener.on_stopping: stopping internal com')
             self.supvisors.internal_com.stop()
@@ -229,28 +225,8 @@ class SupervisorListener(object):
             self.publisher.send_tick_event(payload)
             if self.mc_sender:
                 self.mc_sender.send_discovery_event(payload)
-            # get and publish host statistics at tick time (optional)
-            if self.host_collector:
-                stats = self.host_collector()
-                if stats:
-                    # send to local host compiler
-                    self.on_host_statistics(self.local_identifier, stats)
-                    # publish host statistics to other Supvisors instances
-                    self.publisher.send_host_statistics(stats)
-                    # check if network interfaces have changed
-                    self.supvisors.internal_com.check_intf(list(stats['io'].keys()))
-                    # TODO: TBC need to move to INITIALIZATION
-                else:
-                    self.logger.error(f'SupervisorListener.on_tick: failed to get host statistics')
-            # get and publish the process statistics collected from the last tick (optional)
-            if self.process_collector:
-                self.process_collector.alive()
-                # process all stats available
-                for stats in self.process_collector.get_process_stats():
-                    # send to local process compiler
-                    self.on_process_statistics(self.local_identifier, stats)
-                    # publish host statistics to other Supvisors instances
-                    self.publisher.send_process_statistics(stats)
+            # handle the statistics collection
+            self._on_tick_stats()
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
@@ -281,6 +257,26 @@ class SupervisorListener(object):
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {format_exc()}')
+
+    def _on_tick_stats(self) -> None:
+        """ Publish the host and process statistics collected since the latest tick. """
+        if self.stats_collector:
+            self.stats_collector.alive()
+            # get and publish the host statistics collected from the last tick
+            for stats in self.stats_collector.get_host_stats():
+                # send to local host compiler
+                self.on_host_statistics(self.local_identifier, stats)
+                # publish host statistics to other Supvisors instances
+                self.publisher.send_host_statistics(stats)
+                # check if network interfaces have changed
+                self.supvisors.internal_com.check_intf(list(stats['io'].keys()))
+                # TODO: TBC need to move to INITIALIZATION
+            # get and publish the process statistics collected from the last tick
+            for stats in self.stats_collector.get_process_stats():
+                # send to local process compiler
+                self.on_process_statistics(self.local_identifier, stats)
+                # publish host statistics to other Supvisors instances
+                self.publisher.send_process_statistics(stats)
 
     def _get_local_process_info(self, namespec: str) -> Payload:
         """ Use the Supvisors RPCInterface to get local information on this process.

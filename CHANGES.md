@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.17.4 (2024-03-23)
+
+* Fix bug that was randomly blocking **Supvisors** on restart or shutdown, due to a stdout flush hanging in
+  multiprocessing bowels. The statistics Process is now started before any other thread.
+
+* `guest` time removed from because CPU calculation because it is already accounted in `user` time on Linux.
+
+* Fix process CPU so that it corresponds to the Linux `top` result.
+
+* Use the latest versions of Sphinx-related modules for documentation, as `sphinx-5.0` is now the minimal dependency.
+
+
 ## 0.17.3 (2023-12-14)
 
 * Fix regression when displaying the Network statistics in the **Supvisors** Web UI.
