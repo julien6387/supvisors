@@ -290,11 +290,21 @@ class SupvisorsMapper:
         # get the must-match parameters
         local_host_name = getfqdn()
         local_http_port = self.supvisors.supervisor_data.server_port
+
         # try to find a Supvisors instance corresponding to the local configuration
-        # WARN: there MUST be exactly one unique matching Supvisors instance
-        matching_identifiers = [sup_id.identifier
-                                for sup_id in self._instances.values()
-                                if sup_id.host_matches(local_host_name) and sup_id.http_port == local_http_port]
+        # WARN: there MUST be exactly one unique matching Supvisors instance,
+        #       unless the "allow_local_hostname_mismatch" option is enabled.
+        #       This option accounts for scenarios like running on a cloud server
+        #       where the server's public IP address may resolve into a different host
+        #       name than the server has for its local IP address.
+        if self.supvisors.options.allow_local_hostname_mismatch:
+            matching_identifiers = [sup_id.identifier
+                                    for sup_id in self._instances.values()
+                                    if sup_id.http_port == local_http_port]
+        else:
+            matching_identifiers = [sup_id.identifier
+                                    for sup_id in self._instances.values()
+                                    if sup_id.host_matches(local_host_name) and sup_id.http_port == local_http_port]
         if len(matching_identifiers) == 1:
             self.local_identifier = matching_identifiers[0]
             if self.local_identifier != self.supvisors.supervisor_data.identifier:
