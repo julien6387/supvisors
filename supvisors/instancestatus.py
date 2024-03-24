@@ -247,7 +247,8 @@ class SupvisorsInstanceStatus:
             # use the condition to set the local discovery mode in states / modes object
             self.state_modes.discovery_mode = supvisors.options.discovery_mode
             # copy the process collector reference
-            self.stats_collector = supvisors.stats_collector
+            if supvisors.options.process_stats_enabled:
+                self.stats_collector = supvisors.stats_collector
 
     def reset(self):
         """ Reset the contextual part of the Supvisors instance.

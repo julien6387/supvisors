@@ -1,12 +1,12 @@
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,7 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import queue
 from threading import Thread
 from unittest.mock import call, Mock
 
@@ -24,23 +23,25 @@ from supvisors.statscollector import *
 
 pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
 
-
-@pytest.fixture
-def queues() -> Tuple[mp.Queue, mp.Queue, mp.Queue]:
-    pid_queue = mp.Queue()
-    host_stats_queue = mp.Queue()
-    proc_stats_queue = mp.Queue()
-    return pid_queue, host_stats_queue, proc_stats_queue
+PipeConnection = Tuple[mp.connection.Connection, mp.connection.Connection]
 
 
 @pytest.fixture
-def host_collector(queues) -> HostStatisticsCollector:
-    return HostStatisticsCollector(queues[1], 10, False)
+def pipes() -> Tuple[PipeConnection, PipeConnection, PipeConnection]:
+    cmd_pipe = mp.Pipe(False)
+    host_stats_pipe = mp.Pipe(False)  # used to send/receive host statistics
+    proc_stats_pipe = mp.Pipe(False)  # used to send/receive process statistics
+    return cmd_pipe, host_stats_pipe, proc_stats_pipe
 
 
 @pytest.fixture
-def proc_collector(queues) -> ProcessStatisticsCollector:
-    return ProcessStatisticsCollector(queues[2], 5, False, os.getpid())
+def host_collector(pipes) -> HostStatisticsCollector:
+    return HostStatisticsCollector(pipes[1][1], 10, False)
+
+
+@pytest.fixture
+def proc_collector(pipes) -> ProcessStatisticsCollector:
+    return ProcessStatisticsCollector(pipes[2][1], 5, False, os.getpid())
 
 
 def test_instant_all_cpu_statistics():
@@ -90,51 +91,52 @@ def test_instant_io_statistics():
 
 def test_statistics_collector():
     """ Test the StatisticsCollector base class. """
-    stats_queue = mp.Queue()
-    collector = StatisticsCollector(stats_queue, 28, False)
-    assert collector.stats_queue is stats_queue
+    cmd_recv, cmd_send = mp.Pipe(False)  # used to /receive commands, pids and program names
+    collector = StatisticsCollector(cmd_send, 28, False)
+    assert collector.stats_conn is cmd_send
     assert collector.period == 28
     assert not collector.enabled
-    assert stats_queue.empty()
+    assert not cmd_recv.poll(timeout=0.5)
     # check queue
     collector._post('dummy')
-    assert stats_queue.get(timeout=0.5) == 'dummy'
+    assert cmd_recv.poll()
+    assert cmd_recv.recv() == 'dummy'
 
 
-def test_host_statistics_collector_creation(queues, host_collector):
+def test_host_statistics_collector_creation(pipes, host_collector):
     """ Test the creation of a HostStatisticsCollector instance. """
     assert isinstance(host_collector, StatisticsCollector)
-    assert host_collector.stats_queue is queues[1]
+    assert host_collector.stats_conn is pipes[1][1]
     assert host_collector.period == 10
     assert not host_collector.enabled
     assert host_collector.last_stats_time == 0.0
 
 
-def test_host_statistics_collector_exception(mocker, host_collector):
+def test_host_statistics_collector_exception(mocker, pipes, host_collector):
     """ Test the host statistics collector when OSError has been raised by psutil. """
     mocker.patch('supvisors.statscollector.instant_all_cpu_statistics', side_effect=OSError)
-    assert host_collector.stats_queue.empty()
+    assert not pipes[1][0].poll(timeout=0.5)
     for enabled in [True, False]:
         host_collector.enabled = enabled
         host_collector.collect_host_statistics()
-        with pytest.raises(queue.Empty):
-            host_collector.stats_queue.get(timeout=0.5)
+        assert not pipes[1][0].poll(timeout=0.5)
 
 
-def test_host_statistics_collector_disabled(host_collector):
+def test_host_statistics_collector_disabled(pipes, host_collector):
     """ Test the host statistics collector when collection is disabled. """
-    assert host_collector.stats_queue.empty()
+    assert not host_collector.enabled
+    assert not pipes[1][0].poll(timeout=0.5)
     host_collector.collect_host_statistics()
-    with pytest.raises(queue.Empty):
-        host_collector.stats_queue.get(timeout=0.5)
+    assert not pipes[1][0].poll(timeout=0.5)
 
 
-def test_host_statistics_collector_enabled(host_collector):
+def test_host_statistics_collector_enabled(pipes, host_collector):
     """ Test the instant host statistics. """
-    assert host_collector.stats_queue.empty()
+    assert not pipes[1][0].poll(timeout=0.5)
     host_collector.enabled = True
     host_collector.collect_host_statistics()
-    stats = host_collector.stats_queue.get(timeout=0.5)
+    assert pipes[1][0].poll(timeout=0.5)
+    stats = pipes[1][0].recv()
     # check result
     assert len(stats) == 4
     #  check time (current is greater)
@@ -194,7 +196,6 @@ def test_instant_process_statistics_children(mocker):
     # test cpu value
     assert type(work) is float
     assert work >= 0
-    assert work <= 100
     # test mem value
     assert type(memory) is float
     assert memory >= 0
@@ -214,9 +215,9 @@ def test_instant_process_statistics_children(mocker):
     assert memory <= 100
 
 
-def test_process_statistics_collector_creation(queues, proc_collector):
+def test_process_statistics_collector_creation(pipes, proc_collector):
     """ Test the ProcessStatisticsCollector creation. """
-    assert proc_collector.stats_queue is queues[2]
+    assert proc_collector.stats_conn is pipes[2][1]
     assert proc_collector.period == 5
     assert not proc_collector.enabled
     assert proc_collector.processes == []
@@ -227,31 +228,28 @@ def test_process_statistics_collector_creation(queues, proc_collector):
     assert proc_collector.supervisor_process['collector'].pid == os.getpid()
 
 
-def test_process_statistics_collector_update_process_list(mocker, queues, proc_collector):
+def test_process_statistics_collector_update_process_list(mocker, pipes, proc_collector):
     """ Test the ProcessStatisticsCollector.update_process_list method. """
     # WARN: queue timeout uses time.monotonic so cannot use a time patch here
     mocked_process = mocker.patch.object(psutil, 'Process', side_effect=psutil.NoSuchProcess(1234))
     # 1. not found and process does not exist
     proc_collector.update_process_list('dummy_proc', 1234)
     assert mocked_process.call_args_list == [call(1234)]
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     assert proc_collector.processes == []
     mocked_process.reset_mock()
     # 2. not found and psutil raises an OSError
     mocked_process.side_effect = OSError
     proc_collector.update_process_list('dummy_proc', 1234)
     assert mocked_process.call_args_list == [call(1234)]
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     assert proc_collector.processes == []
     mocked_process.reset_mock()
     # 3. not found but process exists
     mocked_process.side_effect = lambda x: Mock(pid=x)
     proc_collector.update_process_list('dummy_proc', 1234)
     assert mocked_process.call_args_list == [call(1234)]
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     assert len(proc_collector.processes) == 1
     process = proc_collector.processes[0]
     assert process['namespec'] == 'dummy_proc'
@@ -261,8 +259,7 @@ def test_process_statistics_collector_update_process_list(mocker, queues, proc_c
     # 4. update with same pid
     proc_collector.update_process_list('dummy_proc', 1234)
     assert not mocked_process.called
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     assert len(proc_collector.processes) == 1
     process = proc_collector.processes[0]
     assert process['namespec'] == 'dummy_proc'
@@ -273,7 +270,8 @@ def test_process_statistics_collector_update_process_list(mocker, queues, proc_c
     time_ref = time.monotonic()
     proc_collector.update_process_list('dummy_proc', 4321)
     assert mocked_process.call_args_list == [call(4321)]
-    result = queues[2].get(timeout=0.5)
+    assert pipes[2][0].poll(timeout=0.5)
+    result = pipes[2][0].recv()
     assert sorted(result.keys()) == ['namespec', 'now', 'pid']
     assert result['namespec'] == 'dummy_proc'
     assert result['pid'] == 0
@@ -288,7 +286,8 @@ def test_process_statistics_collector_update_process_list(mocker, queues, proc_c
     time_ref = time.monotonic()
     proc_collector.update_process_list('dummy_proc', 0)
     assert not mocked_process.called
-    result = queues[2].get(timeout=0.5)
+    assert pipes[2][0].poll(timeout=0.5)
+    result = pipes[2][0].recv()
     assert sorted(result.keys()) == ['namespec', 'now', 'pid']
     assert result['namespec'] == 'dummy_proc'
     assert result['pid'] == 0
@@ -296,20 +295,20 @@ def test_process_statistics_collector_update_process_list(mocker, queues, proc_c
     assert proc_collector.processes == []
 
 
-def test_process_statistics_collector_collect_supervisor(mocker, queues, proc_collector):
+def test_process_statistics_collector_collect_supervisor(mocker, pipes, proc_collector):
     """ Test the ProcessStatisticsCollector.collect_supervisor method. """
     # WARN: queue timeout uses time.monotonic so cannot use a time patch here
     # 1. with not enough time to trigger the collection
     time_ref = time.monotonic()
     proc_collector.supervisor_process['last'] = time_ref
     proc_collector.collect_supervisor()
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     assert proc_collector.supervisor_process['last'] == time_ref
     # 2. with enough time to trigger the collection
     proc_collector.supervisor_process['last'] -= 5
     proc_collector.collect_supervisor()
-    supervisor_stats = queues[2].get(timeout=0.5)
+    assert pipes[2][0].poll(timeout=0.5)
+    supervisor_stats = pipes[2][0].recv()
     assert sorted(supervisor_stats.keys()) == ['namespec', 'nb_cores', 'now', 'pid', 'proc_memory', 'proc_work']
     assert supervisor_stats['namespec'] == 'supervisord'
     assert supervisor_stats['nb_cores'] == mp.cpu_count()
@@ -322,33 +321,31 @@ def test_process_statistics_collector_collect_supervisor(mocker, queues, proc_co
     proc_collector.supervisor_process['last'] -= 5
     mocker.patch('supvisors.statscollector.instant_process_statistics', return_value=())
     proc_collector.collect_supervisor()
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     assert proc_collector.supervisor_process['last'] > time_ref
 
 
-def test_process_statistics_collector_collect_recent_process(mocker, queues, proc_collector):
+def test_process_statistics_collector_collect_recent_process(mocker, pipes, proc_collector):
     """ Test the ProcessStatisticsCollector.collect_recent_process method. """
     # WARN: queue timeout uses time.monotonic so cannot use a time patch here
     time_ref = time.monotonic()
     # first try with no process to collect
     proc_collector.collect_recent_process()
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     # second try with processes but not enough time to trigger the collection
     process = psutil.Process()
     proc_collector.processes = [{'namespec': 'dummy_1', 'last': time_ref - 1, 'process': process},
                                 {'namespec': 'dummy_2', 'last': time_ref - 4, 'process': process}]
     proc_collector.collect_recent_process()
-    with pytest.raises(queue.Empty):
-        assert queues[2].get(timeout=0.5)
+    assert not pipes[2][0].poll(timeout=0.5)
     assert proc_collector.processes == [{'namespec': 'dummy_1', 'last': time_ref - 1, 'process': process},
                                         {'namespec': 'dummy_2', 'last': time_ref - 4, 'process': process}]
     # third try with enough time to trigger the collection on the first element of the list
     for proc in proc_collector.processes:
         proc['last'] -= 2
     proc_collector.collect_recent_process()
-    supervisor_stats = queues[2].get(timeout=0.5)
+    assert pipes[2][0].poll(timeout=0.5)
+    supervisor_stats = pipes[2][0].recv()
     assert sorted(supervisor_stats.keys()) == ['namespec', 'now', 'pid', 'proc_memory', 'proc_work']
     assert supervisor_stats['namespec'] == 'dummy_2'
     assert supervisor_stats['now'] > time_ref
@@ -371,7 +368,8 @@ def test_process_statistics_collector_collect_recent_process(mocker, queues, pro
     for proc in proc_collector.processes:
         proc['last'] -= 3
     proc_collector.collect_recent_process()
-    supervisor_stats = queues[2].get(timeout=0.5)
+    assert pipes[2][0].poll(timeout=0.5)
+    supervisor_stats = pipes[2][0].recv()
     assert sorted(supervisor_stats.keys()) == ['namespec', 'now', 'pid']
     assert supervisor_stats['namespec'] == 'dummy_1'
     assert supervisor_stats['now'] > time_ref + 1
@@ -406,7 +404,7 @@ def test_process_statistics_collector_collect_processes_statistics(mocker, proc_
     assert mocked_recent.called
 
 
-def test_statistics_collector_task(mocker, queues):
+def test_statistics_collector_task(mocker, pipes):
     """ Test the statistics_collector_task main loop of the process collector. """
     # mock HostStatisticsCollector
     mocked_host_collector = Mock(spec=HostStatisticsCollector)
@@ -419,23 +417,23 @@ def test_statistics_collector_task(mocker, queues):
     mocked_proc_constructor = mocker.patch('supvisors.statscollector.ProcessStatisticsCollector',
                                            return_value=mocked_proc_collector)
     # pre-fill the sending queue
-    queues[0].put((StatsMsgType.ALIVE, None))
-    queues[0].put((StatsMsgType.ENABLE_PROCESS, False))
-    queues[0].put((StatsMsgType.ENABLE_HOST, False))
-    queues[0].put((StatsMsgType.PERIOD, 7.5))
-    queues[0].put((StatsMsgType.PID, ('dummy_1', 123)))
-    queues[0].put((StatsMsgType.PID, ('dummy_2', 456)))
-    queues[0].put((StatsMsgType.ALIVE, None))
+    pipes[0][1].send((StatsMsgType.ALIVE, None))
+    pipes[0][1].send((StatsMsgType.ENABLE_PROCESS, False))
+    pipes[0][1].send((StatsMsgType.ENABLE_HOST, False))
+    pipes[0][1].send((StatsMsgType.PERIOD, 7.5))
+    pipes[0][1].send((StatsMsgType.PID, ('dummy_1', 123)))
+    pipes[0][1].send((StatsMsgType.PID, ('dummy_2', 456)))
+    pipes[0][1].send((StatsMsgType.ALIVE, None))
 
     def terminate():
         time.sleep(1)
-        queues[0].put((StatsMsgType.STOP, None))
+        pipes[0][1].send((StatsMsgType.STOP, None))
     Thread(target=terminate).start()
     # trigger the main loop
-    statistics_collector_task(queues[0], queues[1], queues[2], 5, True, True, 777)
-    assert mocked_host_constructor.call_args_list == [call(queues[1], 5, True)]
+    statistics_collector_task(pipes[0][0], pipes[1][0], pipes[2][0], 5, True, True, 777)
+    assert mocked_host_constructor.call_args_list == [call(pipes[1][0], 5, True)]
     assert mocked_host_constructor.enabled
-    assert mocked_proc_constructor.call_args_list == [call(queues[2], 5, True, 777)]
+    assert mocked_proc_constructor.call_args_list == [call(pipes[2][0], 5, True, 777)]
     assert mocked_proc_constructor.enabled
     assert mocked_proc_collector.update_process_list.call_args_list == [call('dummy_1', 123), call('dummy_2', 456)]
     # due to the multi-threading aspect, impossible to predict the exact number of calls
@@ -443,7 +441,7 @@ def test_statistics_collector_task(mocker, queues):
     assert mocked_proc_collector.collect_processes_statistics.call_count > 1
 
 
-def test_statistics_collector_task_main_killed(mocker, queues):
+def test_statistics_collector_task_main_killed(mocker, pipes):
     """ Test the exit of the statistics_collector_task main loop of the statistics collector
     when no heartbeat is received. """
     # mock HostStatisticsCollector
@@ -456,7 +454,7 @@ def test_statistics_collector_task_main_killed(mocker, queues):
     mocker.patch('supvisors.statscollector.ProcessStatisticsCollector', return_value=mocked_proc_collector)
     # trigger the main loop and test that it exits by itself after 15 seconds without heartbeat
     start_time = time.monotonic()
-    statistics_collector_task(queues[0], queues[1], queues[2], 5, False, False, 777)
+    statistics_collector_task(pipes[0][0], pipes[1][0], pipes[2][0], 5, False, False, 777)
     assert time.monotonic() - start_time > HEARTBEAT_TIMEOUT
 
 
@@ -466,29 +464,34 @@ def test_statistics_collector_process(mocker, supvisors):
     mocked_creation = mocker.patch('multiprocessing.Process', return_value=mocked_process)
     # test creation
     collector = StatisticsCollectorProcess(supvisors)
-    assert type(collector.cmd_queue) is mp.queues.Queue
-    assert type(collector.host_stats_queue) is mp.queues.Queue
-    assert type(collector.proc_stats_queue) is mp.queues.Queue
+    assert type(collector.cmd_recv) is mp.connection.Connection
+    assert type(collector.cmd_send) is mp.connection.Connection
+    assert type(collector.host_stats_recv) is mp.connection.Connection
+    assert type(collector.host_stats_send) is mp.connection.Connection
+    assert type(collector.proc_stats_recv) is mp.connection.Connection
+    assert type(collector.proc_stats_send) is mp.connection.Connection
     assert collector.process is None
     # test thread starting
     collector.start()
     assert mocked_creation.call_args_list == [call(target=statistics_collector_task,
-                                                   args=(collector.cmd_queue,
-                                                         collector.host_stats_queue, collector.proc_stats_queue,
+                                                   args=(collector.cmd_recv,
+                                                         collector.host_stats_send, collector.proc_stats_send,
                                                          5, True, True, os.getpid()),
                                                    daemon=True)]
     assert mocked_process.start.call_args_list == [call()]
     # test alive
     collector.alive()
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ALIVE, None)
+    assert collector.cmd_recv.poll(timeout=0.5)
+    assert collector.cmd_recv.recv() == (StatsMsgType.ALIVE, None)
     # test send_pid
     collector.send_pid('dummy_process', 1234)
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.PID, ('dummy_process', 1234))
+    assert collector.cmd_recv.poll(timeout=0.5)
+    assert collector.cmd_recv.recv() == (StatsMsgType.PID, ('dummy_process', 1234))
     # test get_host_stats
     assert collector.get_host_stats() == []
     host_stats = {'cpu': 28, 'mem': 12}
-    collector.host_stats_queue.put(host_stats)
-    time.sleep(0.5)
+    collector.host_stats_send.send(host_stats)
+    assert collector.host_stats_recv.poll(timeout=0.5)
     assert collector.get_host_stats() == [host_stats]
     # test get_process_stats
     assert collector.get_process_stats() == []
@@ -498,18 +501,21 @@ def test_statistics_collector_process(mocker, supvisors):
                   'cpu': 'cpu_stats',
                   'proc_work': 12,
                   'proc_memory': 5}
-    collector.proc_stats_queue.put(proc_stats)
-    time.sleep(0.5)
+    collector.proc_stats_send.send(proc_stats)
+    assert collector.proc_stats_recv.poll(timeout=0.5)
     assert collector.get_process_stats() == [proc_stats]
     # test statistics deactivation
     collector.enable_host_statistics(False)
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_HOST, False)
+    assert collector.cmd_recv.poll(timeout=0.5)
+    assert collector.cmd_recv.recv() == (StatsMsgType.ENABLE_HOST, False)
     collector.enable_process_statistics(False)
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.ENABLE_PROCESS, False)
+    assert collector.cmd_recv.poll(timeout=0.5)
+    assert collector.cmd_recv.recv() == (StatsMsgType.ENABLE_PROCESS, False)
     # test statistics period update
     collector.update_collecting_period(7.5)
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.PERIOD, 7.5)
+    assert collector.cmd_recv.poll(timeout=0.5)
+    assert collector.cmd_recv.recv() == (StatsMsgType.PERIOD, 7.5)
     # test thread stopping
     collector.stop()
-    assert collector.cmd_queue.get(timeout=0.5) == (StatsMsgType.STOP, None)
-    assert mocked_process.terminate.call_args_list == [call()]
+    assert collector.cmd_recv.poll(timeout=0.5)
+    assert collector.cmd_recv.recv() == (StatsMsgType.STOP, None)

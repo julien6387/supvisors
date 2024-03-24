@@ -15,8 +15,8 @@
 # ======================================================================
 
 import multiprocessing as mp
+import multiprocessing.connection
 import os
-import signal
 import time
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Union
@@ -89,30 +89,25 @@ def instant_io_statistics() -> InterfaceInstantStats:
 class StatisticsCollector:
     """ Base class for statistics collection. """
 
-    # Maximum time to put data into the statistics queue
-    # Although daemonized, the statistics_collector_task does not end when supervisord is killed
-    # so if the put fails because the other end is terminated, the TimeoutException will end the process
-    QUEUE_TIMEOUT = 10
-
-    def __init__(self, stats_queue: mp.Queue, period: float, enabled: bool):
+    def __init__(self, stats_conn: mp.connection.Connection, period: float, enabled: bool):
         """ Initialization of the attributes. """
-        self.stats_queue: mp.Queue = stats_queue
+        self.stats_conn: mp.connection.Connection = stats_conn
         self.period: float = period
         self.enabled: bool = enabled
 
     def _post(self, stats: Dict) -> None:
-        """ Post the statistics collected into the queue.
+        """ Post the statistics collected into the pipe.
         A timeout is set to prevent an infinite blocking. """
-        self.stats_queue.put(stats, timeout=StatisticsCollector.QUEUE_TIMEOUT)
+        self.stats_conn.send(stats)
 
 
 # Host statistics
 class HostStatisticsCollector(StatisticsCollector):
     """ Class holding the psutil structures for all the processes to collect statistics from. """
 
-    def __init__(self, stats_queue: mp.Queue, period: float, enabled: bool):
+    def __init__(self, stats_conn: mp.connection.Connection, period: float, enabled: bool):
         """ Initialization of the attributes. """
-        super().__init__(stats_queue, period, enabled)
+        super().__init__(stats_conn, period, enabled)
         self.last_stats_time: float = 0.0
 
     def collect_host_statistics(self) -> None:
@@ -172,9 +167,10 @@ def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optio
 class ProcessStatisticsCollector(StatisticsCollector):
     """ Class holding the psutil structures for all the processes to collect statistics from. """
 
-    def __init__(self, stats_queue: mp.Queue, period: float, enabled: bool, supervisor_pid: int):
+    def __init__(self, stats_conn: mp.connection.Connection,
+                 period: float, enabled: bool, supervisor_pid: int):
         """ Initialization of the attributes. """
-        super().__init__(stats_queue, period, enabled)
+        super().__init__(stats_conn, period, enabled)
         self.processes: List[Dict] = []
         # define the supervisor process and this collector process
         self.supervisor_process: Dict = {'last': 0,
@@ -222,7 +218,7 @@ class ProcessStatisticsCollector(StatisticsCollector):
             collector = self.supervisor_process['collector']
             col_stats = instant_process_statistics(collector, False)
             if sup_stats and col_stats:
-                # push the results into the stats_queue
+                # push the results into the stats_conn
                 stats = {'namespec': 'supervisord',
                          'pid': supervisor.pid,
                          'now': current_time,
@@ -256,7 +252,7 @@ class ProcessStatisticsCollector(StatisticsCollector):
                     # not to be re-inserted in the list
                 else:
                     if proc_stats:  # proc_stats is an empty tuple in case of OSError
-                        # push the results into the stats_queue
+                        # push the results into the stats_conn
                         stats = {'namespec': proc_data['namespec'],
                                  'pid': proc.pid,
                                  'now': current_time,
@@ -282,20 +278,22 @@ class ProcessStatisticsCollector(StatisticsCollector):
         return False
 
 
-def statistics_collector_task(pid_queue: mp.Queue, host_stats_queue: mp.Queue, proc_stats_queue: mp.Queue,
+def statistics_collector_task(cmd_conn: mp.connection.Connection,
+                              host_stats_conn: mp.connection.Connection,
+                              proc_stats_conn: mp.connection.Connection,
                               period: float, host_stats_enabled: bool, process_stats_enabled: bool,
                               supervisor_pid: int):
     """ Statistics Collector main loop. """
     # create the collector instances
-    host_collector = HostStatisticsCollector(host_stats_queue, period, host_stats_enabled)
-    proc_collector = ProcessStatisticsCollector(proc_stats_queue, period, process_stats_enabled, supervisor_pid)
+    host_collector = HostStatisticsCollector(host_stats_conn, period, host_stats_enabled)
+    proc_collector = ProcessStatisticsCollector(proc_stats_conn, period, process_stats_enabled, supervisor_pid)
     # loop until a stop request is received or heartbeat fails
     last_heartbeat_received = time.monotonic()
     stopped = False
     while not stopped:
         # command reception loop
-        while not pid_queue.empty():
-            msg_type, msg_body = pid_queue.get()
+        while cmd_conn.poll(timeout=SLEEP_TIME):
+            msg_type, msg_body = cmd_conn.recv()
             if msg_type == StatsMsgType.STOP:
                 stopped = True
             elif msg_type == StatsMsgType.ALIVE:
@@ -333,10 +331,10 @@ class StatisticsCollectorProcess:
         # store the attributes
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
-        # create communication queues
-        self.cmd_queue = mp.Queue()  # used to receive commands, pids and program names
-        self.host_stats_queue = mp.Queue()  # used to send host statistics
-        self.proc_stats_queue = mp.Queue()  # used to send process statistics
+        # create communication pipes
+        self.cmd_recv, self.cmd_send = mp.Pipe(False)  # used to /receive commands, pids and program names
+        self.host_stats_recv, self.host_stats_send = mp.Pipe(False)  # used to send/receive host statistics
+        self.proc_stats_recv, self.proc_stats_send = mp.Pipe(False)  # used to send/receive process statistics
         # the process attribute
         self.process: Optional[mp.Process] = None
 
@@ -345,7 +343,7 @@ class StatisticsCollectorProcess:
         The process must be started by the process that has created it, hence not created in the constructor
         because Supervisor may fork depending on the options selected. """
         self.process = mp.Process(target=statistics_collector_task,
-                                  args=(self.cmd_queue, self.host_stats_queue, self.proc_stats_queue,
+                                  args=(self.cmd_recv, self.host_stats_send, self.proc_stats_send,
                                         self.supvisors.options.collecting_period,
                                         self.supvisors.options.host_stats_enabled,
                                         self.supvisors.options.process_stats_enabled,
@@ -356,53 +354,47 @@ class StatisticsCollectorProcess:
     def alive(self):
         """ Send a heartbeat to the collector process.
         This is needed so that the thread ends itself if the main process gets killed. """
-        self.cmd_queue.put((StatsMsgType.ALIVE, None))
+        self.cmd_send.send((StatsMsgType.ALIVE, None))
 
     def enable_host_statistics(self, enabled: bool):
         """ Enable / disable the host statistics collection. """
-        self.cmd_queue.put((StatsMsgType.ENABLE_HOST, enabled))
+        self.cmd_send.send((StatsMsgType.ENABLE_HOST, enabled))
 
     def enable_process_statistics(self, enabled: bool):
         """ Enable / disable the process statistics collection. """
-        self.cmd_queue.put((StatsMsgType.ENABLE_PROCESS, enabled))
+        self.cmd_send.send((StatsMsgType.ENABLE_PROCESS, enabled))
 
     def update_collecting_period(self, period: float):
         """ Update the period for host and process statistics collection. """
-        self.cmd_queue.put((StatsMsgType.PERIOD, period))
+        self.cmd_send.send((StatsMsgType.PERIOD, period))
 
     def send_pid(self, namespec: str, pid: int):
         """ Send a process name and PID to the collector process. """
-        self.cmd_queue.put((StatsMsgType.PID, (namespec, pid)))
+        self.cmd_send.send((StatsMsgType.PID, (namespec, pid)))
 
     @staticmethod
-    def _get_stats(stats_queue: mp.Queue) -> PayloadList:
-        """ Get all statistics available from a given queue. """
+    def _get_stats(stats_conn: mp.connection.Connection) -> PayloadList:
+        """ Get all statistics available from a given pipe connector. """
         stats = []
-        while not stats_queue.empty():
-            stats.append(stats_queue.get())
+        while stats_conn.poll():
+            stats.append(stats_conn.recv())
         return stats
 
     def get_host_stats(self) -> PayloadList:
         """ Get all host statistics available. """
-        return self._get_stats(self.host_stats_queue)
+        return self._get_stats(self.host_stats_recv)
 
     def get_process_stats(self) -> PayloadList:
         """ Get all process statistics available. """
-        return self._get_stats(self.proc_stats_queue)
+        return self._get_stats(self.proc_stats_recv)
 
     def stop(self):
         """ Stop the collector process. """
         # send a stop message
-        self.cmd_queue.put((StatsMsgType.STOP, None))
+        self.cmd_send.send((StatsMsgType.STOP, None))
         self.process.join(timeout=self.STOP_TIMEOUT)
-        self.logger.debug(f'StatisticsCollectorProcess.stop: msg exitcode={self.process.exitcode}')
         if self.process.exitcode != 0:
-            # the process did not end by itself, use hard termination
-            self.logger.error('StatisticsCollectorProcess.stop: exit failed')
-            # NOTE: kill introduced from Python 3.7
-            self.process.terminate()
-            self.process.join(timeout=self.STOP_TIMEOUT)
-            self.logger.debug(f'StatisticsCollectorProcess.stop: terminate exitcode={self.process.exitcode}')
-            if self.process.exitcode != signal.SIGTERM:
-                self.logger.critical('StatisticsCollectorProcess.stop: terminate failed'
-                                     f' exitcode={self.process.exitcode}')
+            # WARN: the process did not end by itself
+            #       using Process.terminate won't change a thing and kill has been introduced from Python 3.7
+            self.logger.critical('StatisticsCollectorProcess.stop: stop failed'
+                                 f' exitcode={self.process.exitcode}')

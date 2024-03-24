@@ -18,11 +18,17 @@
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 
+* Rework **Supvisors** `RPCInterface` exceptions.
+
+
+## 0.17.4 (2024-03-24)
+
+* Fix bug that was randomly blocking **Supvisors** on restart or shutdown, due to a stdout flush hanging in
+  multiprocessing bowels. The statistics Process is now started before any other thread.
+
 * `guest` time removed from because CPU calculation because it is already accounted in `user` time on Linux.
 
 * Fix process CPU so that it corresponds to the Linux `top` result.
-
-* Rework **Supvisors** `RPCInterface` exceptions.
 
 * Use the latest versions of Sphinx-related modules for documentation, as `sphinx-5.0` is now the minimal dependency.
 
@@ -43,7 +49,7 @@
 
 * Fix the **Supvisors** identifier possibilities when using the distribution rule `SINGLE_INSTANCE`.
 
-* Update the process statistics collector process so that it exits by itself when `supervisord` is killed.
+* Update the process statistics collector thread so that it exits by itself when `supervisord` is killed.
 
 * Improve the node selection when using the distribution rule `SINGLE_NODE`.
 

@@ -144,6 +144,11 @@ class SupervisorListener:
             self.counter = 0
             # update Supervisor internal data for Supvisors support
             self.supvisors.supervisor_data.update_supervisor()
+            # WARN: Start the statistics collector first to avoid forking while other threads are running.
+            #       One of them might use stdout or stderr at fork time and a lock could be held forever,
+            #       leading Supvisors to hang at stop time
+            if self.stats_collector:
+                self.stats_collector.start()
             # NOTE: The communication structures and SupvisorsMainLoop cannot be created before this level
             #       Before running, Supervisor forks when daemonized and the sockets are then lost
             #       At this point, Supervisor has forked if not daemonized
@@ -155,9 +160,6 @@ class SupervisorListener:
             self.logger.debug('SupervisorListener.on_running: main loop started')
             # Trigger the FSM
             self.fsm.next()
-            # Start the statistics collector
-            if self.stats_collector:
-                self.stats_collector.start()
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_running: {format_exc()}')
@@ -224,6 +226,11 @@ class SupervisorListener:
             self.publisher.send_tick_event(payload)
             if self.mc_sender:
                 self.mc_sender.send_discovery_event(payload)
+            # handle the statistics collection
+            self._on_tick_stats()
+        except Exception:
+            # Supvisors shall never endanger the Supervisor thread
+            self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
             # handle the statistics collection
             self._on_tick_stats()
         except Exception:

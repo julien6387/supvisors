@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -23,7 +20,6 @@ import pytest
 
 from supvisors.initializer import *
 from supvisors.statscollector import StatisticsCollectorProcess
-from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .base import DummySupervisor
 
 
