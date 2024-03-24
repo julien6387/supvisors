@@ -37,8 +37,8 @@ class SupvisorsInstanceView(StatusView):
         StatusView.__init__(self, context)
         self.page_name = page_name
         # this class deals with local statistics so a local collector must be available
-        self.has_host_statistics = self.supvisors.host_collector is not None
-        self.has_process_statistics = self.supvisors.process_collector is not None
+        self.has_host_statistics = self.supvisors.stats_collector and self.supvisors.options.host_stats_enabled
+        self.has_process_statistics = self.supvisors.stats_collector and self.supvisors.options.process_stats_enabled
 
     def render(self):
         """ Catch render to force the use of ViewHandler's method instead of StatusView's method. """

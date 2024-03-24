@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -19,8 +16,8 @@
 
 from typing import Dict, List, Optional, Tuple
 
-from .ttypes import (CPUHistoryStats, CPUInstantStats, JiffiesList, Jiffies,
-                     InterfaceHistoryStats, InterfaceInstantStats, InterfaceIntegratedStats,
+from .ttypes import (CPUHistoryStats, CPUInstantStats, JiffiesList, InterfaceHistoryStats, InterfaceInstantStats,
+                     InterfaceIntegratedStats,
                      MemHistoryStats, TimesHistoryStats,
                      ProcessCPUHistoryStats, ProcessMemHistoryStats,
                      Payload, PayloadList)
@@ -32,23 +29,16 @@ IntegratedHostStatistics = Tuple[float, CPUInstantStats, float, InterfaceIntegra
 
 
 # CPU statistics
-def cpu_statistics(last_values: JiffiesList, ref_values: JiffiesList) -> CPUInstantStats:
+def cpu_statistics(latest_values: JiffiesList, ref_values: JiffiesList) -> CPUInstantStats:
     """ Return the CPU loading for all the processors between last and ref measures.
     The average on all processors is inserted in front of the list. """
     cpu = []
-    for unit in zip(last_values, ref_values):
-        work = unit[0][0] - unit[1][0]
-        idle = unit[0][1] - unit[1][1]
+    for (latest_work, latest_idle), (ref_work, ref_idle) in zip(latest_values, ref_values):
+        work = latest_work - ref_work
+        idle = latest_idle - ref_idle
         total = work + idle
         cpu.append(100.0 * work / total if total else 0)
     return cpu
-
-
-def cpu_total_work(last_values: Jiffies, ref_values: Jiffies) -> float:
-    """ Return the total work on the average CPU between last and ref measures. """
-    work = last_values[0] - ref_values[0]
-    idle = last_values[1] - ref_values[1]
-    return work + idle
 
 
 # Network statistics
@@ -192,7 +182,6 @@ class HostStatisticsCompiler:
     """ This class stores host statistics for all instances and periods.
 
     Attributes are:
-
         - instance_map: a dictionary containing a HostStatisticsInstance entry for each pair of node and period,
         - nb_cores: a dictionary giving the number of processor cores per node.
         """
@@ -236,10 +225,10 @@ class HostStatisticsCompiler:
 
 
 # Process statistics
-def cpu_process_statistics(last: float, ref: float, total_work: float) -> float:
-    """ Return the CPU loading of the process between last and ref measures. """
-    # process may have been started between ref and last
-    return 100.0 * (last - ref) / total_work
+def cpu_process_statistics(latest: float, ref: float, host_work: float) -> float:
+    """ Return the CPU loading of the process between latest and reference measures. """
+    # process may have been started between ref and latest
+    return 100.0 * (latest - ref) / host_work
 
 
 class ProcStatisticsInstance:
@@ -259,14 +248,10 @@ class ProcStatisticsInstance:
         self.cpu: ProcessCPUHistoryStats = []
         self.mem: ProcessMemHistoryStats = []
 
-    def integrate(self, last: Payload) -> IntegratedProcessStats:
+    def integrate(self, latest: Payload) -> IntegratedProcessStats:
         """ Return resources' statistics from two series of measures. """
-        # CPU statistics
-        work = cpu_total_work(last['cpu'], self.ref_stats['cpu'])
-        # calculate cpu if ref is found
-        # need the work jiffies in the interval
-        proc_cpu = cpu_process_statistics(last['proc_work'], self.ref_stats['proc_work'], work)
-        return proc_cpu, last['proc_memory'], last['now'] - self.ref_start_time
+        proc_cpu = (latest['proc_work'] - self.ref_stats['proc_work']) / (latest['now'] - self.ref_stats['now'])
+        return 100.0 * proc_cpu, latest['proc_memory'], latest['now'] - self.ref_start_time
 
     def push_statistics(self, proc_stats: Payload) -> Payload:
         """ Calculate new statistics given a new series of measures. """

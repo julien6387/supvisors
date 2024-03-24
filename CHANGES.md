@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.17.4 (2024-03-24)
+
+* Fix bug that was randomly blocking **Supvisors** on restart or shutdown, due to a stdout flush hanging in
+  multiprocessing bowels. The statistics Process is now started before any other thread.
+
+* `guest` time removed from because CPU calculation because it is already accounted in `user` time on Linux.
+
+* Fix process CPU so that it corresponds to the Linux `top` result.
+
+* Use the latest versions of Sphinx-related modules for documentation, as `sphinx-5.0` is now the minimal dependency.
+
+
 ## 0.17.3 (2023-12-14)
 
 * Fix regression when displaying the Network statistics in the **Supvisors** Web UI.
@@ -116,7 +128,7 @@
 
 * The option `stats_periods` accepts float values, not necessarily multiples of 5.
 
-* Fix [Issue #54](https://github.com/julien6387/supvisors/issues/54).
+* Implement [Issue #54](https://github.com/julien6387/supvisors/issues/54).
   Add host and process statistics to the **Supvisors** event interface.
 
 * Fix children process CPU times in statistics.
@@ -330,7 +342,7 @@
 
 ## 0.11 (2022-01-02)
 
-* Fix [Issue #99](https://github.com/julien6387/supvisors/issues/99).
+* Implement [Issue #99](https://github.com/julien6387/supvisors/issues/99).
   Update the **Supvisors** design so that it can be used to supervise multiple Supervisor instances on multiple nodes.
   This update had a major impact on the source code. More particularly:
   - The XML-RPCs `get_master_identifier`, `get_instance_info` and `get_all_instances_info` have been added to replace
@@ -650,7 +662,7 @@
 
 ## 0.3 (2020-12-29)
 
-* Fix [Issue #81](https://github.com/julien6387/supvisors/issues/81).
+* Implement [Issue #81](https://github.com/julien6387/supvisors/issues/81).
   When **Supvisors** logfile is set to `AUTO`, **Supvisors** uses the same logger as **Supervisor**.
 
 * Fix [Issue #79](https://github.com/julien6387/supvisors/issues/79).

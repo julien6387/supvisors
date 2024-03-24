@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -32,7 +29,7 @@ from supvisors.context import Context
 from supvisors.initializer import Supvisors
 from supvisors.internal_com import SupvisorsMapper
 from supvisors.rpcinterface import RPCInterface
-from supvisors.statscollector import ProcessStatisticsCollector, instant_host_statistics
+from supvisors.statscollector import StatisticsCollectorProcess
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
 from supvisors.utils import extract_process_info
@@ -56,9 +53,8 @@ class MockedSupvisors:
                        f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
         self.mapper.configure(identifiers, {'supvisors_test'}, [])
         self.server_options = Mock(process_indexes={'xclock': 2})
-        # set real statistics collectors
-        self.host_collector = instant_host_statistics
-        self.process_collector = ProcessStatisticsCollector(5, self.logger)
+        # set real statistics collector and compilers
+        self.stats_collector = StatisticsCollectorProcess(self)
         self.host_compiler = HostStatisticsCompiler(self)
         self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
         # build context from node mapper
@@ -254,6 +250,9 @@ def extract_and_complete(info):
     """ Provide payload as processed by Supvisors. """
     extracted_info = extract_process_info(info)
     extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': '', 'disabled': False})
+    extracted_info.update({'now_monotonic': info['now'] - 1e6,
+                           'start_monotonic': info['start'] - 1e6,
+                           'stop_monotonic': info['stop'] - 1e6})
     if info['name'].startswith('yeux'):
         program_name, process_index = info['name'].split('_')
         extracted_info.update({'program_name': program_name, 'process_index': int(process_index)})
