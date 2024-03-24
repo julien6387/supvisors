@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -212,8 +209,8 @@ class ControllerPlugin(ControllerPluginBase):
     def help_instance_status(self):
         """ Print the help of the instance_status command."""
         self.ctl.output('instance_status <identifier>\t\t\tGet the status of the Supvisors instance.')
-        self.ctl.output('instance_status <identifier> <identifier>\t\tGet the status for multiple Supvisors instances')
-        self.ctl.output('instance_status\t\t\t\tGet the status of all remote Supvisors instances.')
+        self.ctl.output('instance_status <identifier> <identifier>\tGet the status for multiple Supvisors instances')
+        self.ctl.output('instance_status\t\t\t\t\tGet the status of all remote Supvisors instances.')
 
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):
