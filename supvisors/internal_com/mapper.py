@@ -259,6 +259,7 @@ class SupvisorsMapper:
         :param core_list: the minimum Supvisors identifiers to end the synchronization phase.
         :return: None
         """
+        self.supvisors_list = supvisors_list
         if supvisors_list:
             # get Supervisor identification from each element
             for item in supvisors_list:
@@ -293,14 +294,14 @@ class SupvisorsMapper:
 
         # try to find a Supvisors instance corresponding to the local configuration
         # WARN: there MUST be exactly one unique matching Supvisors instance,
-        #       unless the "allow_local_hostname_mismatch" option is enabled.
-        #       This option accounts for scenarios like running on a cloud server
-        #       where the server's public IP address may resolve into a different host
-        #       name than the server has for its local IP address.
-        if self.supvisors.options.allow_local_hostname_mismatch:
+        #       unless the local host name is manually specified via the local_host_name option.
+        if self.supvisors.options.local_host_name is not None:
             matching_identifiers = [sup_id.identifier
-                                    for sup_id in self._instances.values()
-                                    if sup_id.http_port == local_http_port]
+                                for sup_id in self._instances.values()
+                                if sup_id.host_id == self.supvisors.options.local_host_name and sup_id.http_port == local_http_port]
+            self.logger.info(self.supvisors.options.local_host_name)
+            self.logger.info(str([sup_id.host_id
+                                for sup_id in self._instances.values()]))
         else:
             matching_identifiers = [sup_id.identifier
                                     for sup_id in self._instances.values()
@@ -309,15 +310,20 @@ class SupvisorsMapper:
             self.local_identifier = matching_identifiers[0]
             if self.local_identifier != self.supvisors.supervisor_data.identifier:
                 self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
-                                 f' "{self.supvisors.supervisor_data.identifier}"'
-                                 f' and local Supvisors in supvisors_list "{self.local_identifier}"')
+                                f' "{self.supvisors.supervisor_data.identifier}"'
+                                f' and local Supvisors in supvisors_list "{self.local_identifier}".'
+                                )
             # assign the generic Supvisors instance stereotype
             self.assign_stereotypes(self.local_identifier, stereotypes)
         else:
             if len(matching_identifiers) > 1:
                 message = f'multiple candidates for the local Supvisors identifiers={matching_identifiers}'
             else:
-                message = 'could not find the local Supvisors in supvisors_list'
+                message = ('could not find the local Supvisors in supvisors_list. '
+                            'Consider specifying the host machine\'s host name manually using the '
+                            'local_host_name parameter. If using the local_host_name parameter, make '
+                            'sure it matches of of the hosts in supvisors_list.'
+                )
             self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
             raise ValueError(message)
         self.logger.info(f'SupvisorsMapper.find_local_identifier: local_identifier={self.local_identifier}')

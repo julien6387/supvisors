@@ -47,13 +47,17 @@ behavior may happen. The present section details where it is applicable.
 
     The exhaustive form of an element matches ``<identifier>host_name:http_port:internal_port``, where:
 
-        * ``identifier`` is the optional but **unique** |Supervisor| identifier (it can be set in the |Supervisor|
+        * ``identifier`` (optional) is the **unique** |Supervisor| identifier (it can be set in the |Supervisor|
           configuration or in the command line when starting the ``supervisord`` program) ;
-        * ``host_name`` is the name of the node where the |Supvisors| instance is running ;
-        * ``http_port`` is the port of the internet socket used to communicate with the |Supervisor| instance
+        * ``host_name`` (required) is the name of the node where the |Supvisors| instance is running ;
+        * ``http_port`` (optional) is the port of the internet socket used to communicate with the |Supervisor| instance
           (obviously unique per node) ;
-        * ``internal_port`` is the port of the TCP socket used by the |Supvisors| instance to publish internal events
+        * ``internal_port`` (optional) is the port of the TCP socket used by the |Supvisors| instance to publish internal events
           (also unique per node).
+        * ``local_host_name`` (optional) is a parameter to manually specify the host machine's host name. Without this
+          option, the local_host_name is searched for in the supvisors_list. Manually specifying the local host name
+          can be necessary when the host machine is a cloud server that resolves its local host name differently than
+          it resolves the host name for it's public IP address. **Must** be one of the hosts listed in ``supvisors_list``.
 
     *Default*:  the local host name.
 
