@@ -79,7 +79,8 @@ class SupvisorsOptions:
         - stats_histo: depth of statistics history ;
         - stats_irix_mode: choice of CPU value display between IRIX and Solaris ;
         - tail_limit: the number of bytes used to display the log tail of the file in the Web UI (refresh mode) ;
-        - tailf_limit: the number of bytes used to display the log tail of the file in the Web UI (tail -f mode).
+        - tailf_limit: the number of bytes used to display the log tail of the file in the Web UI (tail -f mode). ;
+        - local_host_name: manually specifies the name of the host machine.
     """
 
     SYNCHRO_TIMEOUT_MIN = 15
@@ -147,6 +148,8 @@ class SupvisorsOptions:
         # configure log tail limits
         self.tail_limit = self._get_value(config, 'tail_limit', 1024, byte_size)
         self.tailf_limit = self._get_value(config, 'tailf_limit', 1024, byte_size)
+        # get local host mismatch option
+        self.local_host_name = self._get_value(config, 'local_host_name', None)
         # check synchro options consistence
         self.check_synchro_options()
 
