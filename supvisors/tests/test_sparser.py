@@ -302,7 +302,7 @@ def test_valid_lxml(mocker, lxml_import, supvisors):
 
 @pytest.mark.skipif(sys.version_info < (3, 8) or sys.version_info >= (3, 9),
                     reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_lxml_38(mocker, lxml_import, supvisors):
+def test_valid_lxml_38_deprecated(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
     mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
@@ -372,7 +372,7 @@ def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
 
 @pytest.mark.skipif(sys.version_info < (3, 8) or sys.version_info >= (3, 9),
                     reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_element_tree_38(mocker, supvisors, lxml_fail_import):
+def test_valid_element_tree_38_deprecated(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
     mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
