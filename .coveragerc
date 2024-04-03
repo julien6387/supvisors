@@ -7,4 +7,4 @@ omit =
 [report]
 exclude_also =
     if __name__ == .__main__.:
-    def test_application_evaluate_strings_deprecated.*:
+    def test_.*_deprecated.*:

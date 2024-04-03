@@ -15,6 +15,7 @@
 # ======================================================================
 
 import ast
+import sys
 from io import BytesIO
 
 import pytest
@@ -27,14 +28,14 @@ from .configurations import InvalidXmlTest, XmlTest
 def assert_default_application_rules(rules):
     """ Check that rules contains default values. """
     assert_application_rules(rules, False, DistributionRules.ALL_INSTANCES, ['*'], 0, 0, StartingStrategies.CONFIG,
-                             StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE, None)
+                             StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
 
 
 def assert_application_rules(rules: ApplicationRules, managed: bool, distribution: DistributionRules,
                              identifiers: NameList, start: int, stop: int, starting_strategy: StartingStrategies,
                              starting_failure_strategy: StartingFailureStrategies,
                              running_failure_strategy: RunningFailureStrategies,
-                             status_tree: Optional[str]):
+                             has_status: bool = False):
     """ Check the application rules. """
     assert rules.managed == managed
     assert rules.distribution == distribution
@@ -44,10 +45,8 @@ def assert_application_rules(rules: ApplicationRules, managed: bool, distributio
     assert rules.starting_strategy == starting_strategy
     assert rules.starting_failure_strategy == starting_failure_strategy
     assert rules.running_failure_strategy == running_failure_strategy
-    if rules.status_tree is None:
-        assert status_tree is None
-    else:
-        assert ast.dump(rules.status_tree) == status_tree
+    if not has_status:
+        assert rules.status_tree is None
 
 
 def assert_default_process_rules(rules):
@@ -106,27 +105,25 @@ def check_valid(parser):
     # check first application
     rules = load_application_rules(parser, 'dummy_application_A')
     assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES, ['*'], 0, 0, StartingStrategies.CONFIG,
-                             StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE, None)
+                             StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
     # check second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    tree = ("BoolOp(op=And(), values=[Constant(value='.*B1'), "
-            "Constant(value='dummy_program_B2')])")
     assert_application_rules(rules, True, DistributionRules.SINGLE_NODE, ['*'], 1, 4, StartingStrategies.CONFIG,
-                             StartingFailureStrategies.STOP, RunningFailureStrategies.RESTART_PROCESS, tree)
+                             StartingFailureStrategies.STOP, RunningFailureStrategies.RESTART_PROCESS, True)
     # check third application
     rules = load_application_rules(parser, 'dummy_application_C')
     assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES, ['*'], 20, 0, StartingStrategies.LOCAL,
-                             StartingFailureStrategies.ABORT, RunningFailureStrategies.STOP_APPLICATION, None)
+                             StartingFailureStrategies.ABORT, RunningFailureStrategies.STOP_APPLICATION)
     # check fourth application
     rules = load_application_rules(parser, 'dummy_application_D')
     assert_application_rules(rules, True, DistributionRules.SINGLE_INSTANCE, ['10.0.0.1', '10.0.0.5'], 0, 100,
                              StartingStrategies.LESS_LOADED,
-                             StartingFailureStrategies.CONTINUE, RunningFailureStrategies.SHUTDOWN, None)
+                             StartingFailureStrategies.CONTINUE, RunningFailureStrategies.SHUTDOWN)
     # check loop application
     rules = load_application_rules(parser, 'dummy_application_E')
     assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES,  ['*'], 0, 0,
                              StartingStrategies.MOST_LOADED,
-                             StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE, None)
+                             StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
     # check program from unknown application: all default
     rules = load_program_rules(parser, 'dummy_application_X', 'dummy_program_X0')
     assert_default_process_rules(rules)
@@ -288,6 +285,7 @@ def lxml_import():
     return pytest.importorskip('lxml')
 
 
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
 def test_valid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
     mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
@@ -296,6 +294,25 @@ def test_valid_lxml(mocker, lxml_import, supvisors):
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
     parser = Parser(supvisors)
     check_valid(parser)
+    # check status formula in the second application
+    rules = load_application_rules(parser, 'dummy_application_B')
+    status_tree = "BoolOp(op=And(), values=[Constant(value='.*B1'), Constant(value='dummy_program_B2')])"
+    assert ast.dump(rules.status_tree) == status_tree
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
+def test_valid_lxml_deprecated(mocker, lxml_import, supvisors):
+    """ Test the parsing using lxml (optional dependency). """
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
+    mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
+    parser = Parser(supvisors)
+    check_valid(parser)
+    # check status formula in the second application
+    rules = load_application_rules(parser, 'dummy_application_B')
+    status_tree = "BoolOp(op=And(), values=[Str(value='.*B1'), Str(value='dummy_program_B2')])"
+    assert ast.dump(rules.status_tree) == status_tree
 
 
 def test_invalid_lxml(mocker, lxml_import, supvisors):
@@ -320,6 +337,7 @@ def test_no_parser(mocker, supvisors, lxml_fail_import):
         Parser(supvisors)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
 def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
@@ -329,6 +347,26 @@ def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
     parser = Parser(supvisors)
     check_valid(parser)
+    # check status formula in the second application
+    rules = load_application_rules(parser, 'dummy_application_B')
+    status_tree = "BoolOp(op=And(), values=[Constant(value='.*B1'), Constant(value='dummy_program_B2')])"
+    assert ast.dump(rules.status_tree) == status_tree
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
+def test_valid_element_tree_deprecated(mocker, supvisors, lxml_fail_import):
+    """ Test the parsing of a valid XML using ElementTree. """
+    # create Parser instance
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
+    mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
+    parser = Parser(supvisors)
+    check_valid(parser)
+    # check status formula in the second application
+    rules = load_application_rules(parser, 'dummy_application_B')
+    status_tree = "BoolOp(op=And(), values=[Str(value='.*B1'), Str(value='dummy_program_B2')])"
+    assert ast.dump(rules.status_tree) == status_tree
 
 
 def test_invalid_element_tree(mocker, supvisors, lxml_fail_import):
