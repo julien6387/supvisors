@@ -5,6 +5,7 @@
 * Implement [Issue #50](https://github.com/julien6387/supvisors/issues/50).
   A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the
   application operational status.
+  `status_formula` is added to the result of the XML-RPC `get_application_rules`.
 
 * Add a new XML-RPC `lazy_update_numprocs`, whose behaviour differ from `update_numprocs` in a way that the obsolete
   processes will be deleted from the Supervisor configuration when they are stopped (exit, crash or later user request)
