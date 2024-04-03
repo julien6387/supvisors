@@ -1490,10 +1490,11 @@ def test_on_process_state_event_running_process_unknown(mocker, supvisors, conte
     assert not mocked_publisher.send_application_status.called
 
 
-def test_on_process_state_event_locally_unknown_forced(supvisors, context):
+def test_on_process_state_event_locally_unknown_forced(mocker, supvisors, context):
     """ Test the Context.on_process_state_event with a RUNNING Supvisors instance and a process known by the local
     Supvisors instance but not configured on the instance that raised the event.
     This is a forced event that will be accepted in the ProcessStatus. """
+    mocker.patch('time.monotonic', return_value=1234)
     supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_publisher = supvisors.external_publisher
     # get instance status used for tests
@@ -1530,7 +1531,7 @@ def test_on_process_state_event_locally_unknown_forced(supvisors, context):
     assert mocked_publisher.send_process_event.call_args_list == [call('10.0.0.1', expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process',
                 'statecode': ProcessStates.FATAL, 'statename': 'FATAL', 'expected_exit': True,
-                'last_event_time': 234, 'identifiers': ['10.0.0.1'], 'extra_args': ''}
+                'last_event_time': 1234, 'identifiers': ['10.0.0.1'], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': ApplicationStates.STOPPED.value,
                 'statename': ApplicationStates.STOPPED.name, 'major_failure': False, 'minor_failure': True}
