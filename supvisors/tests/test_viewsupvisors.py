@@ -464,7 +464,7 @@ def test_write_conflict_uptime(view):
     # test call
     view._write_conflict_uptime(mocked_root, {'uptime': 1234})
     assert mocked_root.findmeld.call_args_list == [call('uptime_td_mid')]
-    assert mocked_uptime_mid.content.call_args_list == [call('00:20:34')]
+    assert mocked_uptime_mid.content.call_args_list == [call('0:20:34')]
 
 
 def test_write_conflict_process_actions(view):

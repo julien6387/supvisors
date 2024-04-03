@@ -727,6 +727,28 @@ def test_update_numprocs(controller, plugin, mocked_check):
                 'dummy_process 2', [call('dummy_process', 2)])
 
 
+def test_lazy_update_numprocs(controller, plugin, mocked_check):
+    """ Test the lazy_update_numprocs request. """
+    plugin.do_lazy_update_numprocs('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using incorrect numprocs
+    plugin.do_lazy_update_numprocs('dummy_process deux')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using incorrect numprocs
+    plugin.do_lazy_update_numprocs('dummy_process 0')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    mocked_rpc = plugin.supvisors().lazy_update_numprocs
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_lazy_update_numprocs, plugin.do_lazy_update_numprocs,
+                'dummy_process 2', [call('dummy_process', 2)])
+
+
 def test_enable(controller, plugin, mocked_check):
     """ Test the enable request. """
     plugin.do_enable('')

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -158,3 +155,19 @@ def test_process_event():
     event = ProcessRemovedEvent(process)
     assert isinstance(event, ProcessEvent)
     assert event.payload() == 'processname:dummy_process groupname:dummy_group '
+
+
+def test_supvisors_process_config():
+    """ Test the SupvisorsProcessConfig class. """
+    # first test the ProgramConfig class
+    program_config = ProgramConfig('dummy_program', ProgramConfig)
+    assert program_config.name == 'dummy_program'
+    assert program_config.klass is ProgramConfig
+    assert program_config.numprocs == 1
+    assert program_config.group_config_info == {}
+    assert not program_config.disabled
+    # now test the SupvisorsProcessConfig class
+    process_config = SupvisorsProcessConfig(program_config, 4, '-s test')
+    assert process_config.program_config is program_config
+    assert process_config.process_index == 4
+    assert process_config.command_ref == '-s test'

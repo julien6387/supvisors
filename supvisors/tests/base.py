@@ -22,16 +22,18 @@ from unittest.mock import Mock
 
 from supervisor.loggers import getLogger, handle_stdout, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.states import STOPPED_STATES, SupervisorStates
+from supervisor.states import STOPPED_STATES, SupervisorStates, ProcessStates
 
 import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
 from supvisors.internal_com import SupvisorsMapper
+from supvisors.options import SupvisorsOptions, SupvisorsServerOptions
 from supvisors.rpcinterface import RPCInterface
 from supvisors.statscollector import StatisticsCollectorProcess
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
+from supvisors.supervisorupdater import SupervisorUpdater
 from supvisors.utils import extract_process_info
 
 
@@ -41,18 +43,18 @@ class MockedSupvisors:
     def __init__(self, supervisord, config):
         """ Use mocks when not possible to use real structures. """
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
-        from supvisors.options import SupvisorsOptions
         self.options = SupvisorsOptions(supervisord, self.logger, **config)
         self.options.rules_files = [config['rules_files']]
         # mock the supervisord source
         self.supervisor_data = SupervisorData(self, supervisord)
+        self.supervisor_updater = SupervisorUpdater(self)
         self.mapper = SupvisorsMapper(self)
         host_name = gethostname()
         fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
                        f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
         self.mapper.configure(identifiers, {'supvisors_test'}, [])
-        self.server_options = Mock(process_indexes={'xclock': 2})
+        self.server_options = SupvisorsServerOptions(self)
         # set real statistics collector and compilers
         self.stats_collector = StatisticsCollectorProcess(self)
         self.host_compiler = HostStatisticsCompiler(self)
@@ -82,7 +84,8 @@ class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
 
     def __init__(self):
-        self.handler = Mock(rpcinterface=Mock(supervisor=Mock(rpc_name='supervisor_RPC'),
+        self.handler = Mock(rpcinterface=Mock(system=Mock(rpc_name='system_RPC'),
+                                              supervisor=Mock(rpc_name='supervisor_RPC'),
                                               supvisors=Mock(rpc_name='supvisors_RPC')))
 
 
@@ -149,6 +152,8 @@ class DummyProcessConfig:
         self.name = name
         self.command = command
         self.autorestart = autorestart
+        self.startsecs = 5
+        self.stopwaitsecs = 10
         self.stdout_logfile = stdout_logfile
         self.stderr_logfile = stderr_logfile
 
@@ -157,16 +162,16 @@ class DummyProcess:
     """ Simple supervisor process with simple attributes. """
 
     def __init__(self, name: str, command: str, autorestart: bool, stdout_logfile: bool, stderr_logfile: bool):
-        self.state = 'STOPPED'
+        self.state = ProcessStates.STOPPED
         self.spawnerr = ''
         self.laststart = 1234
         self.config = DummyProcessConfig(name, command, autorestart, stdout_logfile, stderr_logfile)
 
     def give_up(self):
-        self.state = 'FATAL'
+        self.state = ProcessStates.FATAL
 
     def transition(self):
-        self.state = 'STARTING'
+        self.state = ProcessStates.STARTING
 
 
 class DummySupervisor:
@@ -176,7 +181,7 @@ class DummySupervisor:
         self.options = DummyServerOptions()
         dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True, True, False)
         dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False, False, True)
-        self.process_groups = {'dummy_application': Mock(config='dummy_application_config',
+        self.process_groups = {'dummy_application': Mock(config=Mock(name='dummy_application'),
                                                          processes={'dummy_process_1': dummy_process_1,
                                                                     'dummy_process_2': dummy_process_2})}
 

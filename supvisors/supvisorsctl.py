@@ -200,7 +200,7 @@ class ControllerPlugin(ControllerPluginBase):
                 payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port',
                            'state': 'State', 'discovery': 'Discovery',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter', 'failure': 'Failure',
-                           'fsm_state': 'FSM', 'master': 'Master', 'discovery': 'Discovery',
+                           'fsm_state': 'FSM', 'master': 'Master',
                            'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # check request args
@@ -226,8 +226,8 @@ class ControllerPlugin(ControllerPluginBase):
     def help_instance_status(self):
         """ Print the help of the instance_status command."""
         self.ctl.output('instance_status <identifier>\t\t\tGet the status of the Supvisors instance.')
-        self.ctl.output('instance_status <identifier> <identifier>\tGet the status for multiple Supvisors instances')
-        self.ctl.output('instance_status\t\t\t\t\tGet the status of all remote Supvisors instances.')
+        self.ctl.output('instance_status <identifier> <identifier>\t\tGet the status for multiple Supvisors instances')
+        self.ctl.output('instance_status\t\t\t\tGet the status of all remote Supvisors instances.')
 
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):
@@ -991,6 +991,39 @@ class ControllerPlugin(ControllerPluginBase):
     def help_update_numprocs(self):
         """ Print the help of the update_numprocs command. """
         self.ctl.output('update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs.')
+
+    def do_lazy_update_numprocs(self, arg):
+        """ Command to dynamically update the numprocs of the program.
+        Implementation of Supervisor issue #177 - Dynamic numproc change.
+        The difference with update_numprocs is that the obsolete processes will be removed from the configuration
+        only when they will stop (by themselves or as a consequence of a later action).
+        """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: lazy_update_numprocs requires a program name and a numprocs values')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_lazy_update_numprocs()
+                return
+            try:
+                value = int(args[1])
+                assert value > 0
+            except (ValueError, AssertionError):
+                self.ctl.output('ERROR: numprocs must be a strictly positive integer')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_lazy_update_numprocs()
+                return
+            try:
+                result = self.supvisors().lazy_update_numprocs(args[0], value)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{args[0]} numprocs updated: {result}')
+
+    def help_lazy_update_numprocs(self):
+        """ Print the help of the lazy_update_numprocs command. """
+        self.ctl.output('lazy_update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs (lazy mode).')
 
     def do_enable(self, arg):
         """ Command to enable the processes corresponding to the program.

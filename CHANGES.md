@@ -2,9 +2,13 @@
 
 ## 0.18 (2024-xx-xx)
 
-* Fix [Issue #50](https://github.com/julien6387/supvisors/issues/50).
+* Implement [Issue #50](https://github.com/julien6387/supvisors/issues/50).
   A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the
   application operational status.
+
+* Add a new XML-RPC `lazy_update_numprocs`, whose behaviour differ from `update_numprocs` in a way that the obsolete
+  processes will be deleted from the Supervisor configuration when they are stopped (exit, crash or later user request)
+  instead of being forced to stop immediately when requesting the numprocs to decrease.
 
 * Add monotonic time in internal model and exchanges to cope with time updates while **Supvisors** is running.
   Impact on the XML-RPC `get_instance_info`, `get_process_info` and on the event interface for instance status

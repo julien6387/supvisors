@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -72,15 +69,9 @@ class CheckStopSequenceTest(CheckSequenceTest):
                 self.context.add_application(application)
             application.add_program(program)
         # set required status
+        self.context.get_application('database').status_logic = database_status_logic
         self.context.get_program('my_movies:manager').required = True
         self.context.get_program('my_movies:web_server').required = True
-        # set managed status
-        self.context.get_application('service').managed = False
-        disk_handler = self.context.get_application('disk_handler')
-        if disk_handler:
-            # only on cliche83
-            disk_handler.managed = False
-        self.context.get_application('evt_listener').managed = False
 
     def check_converter_running(self):
         """ Check the start sequence of the converter program. """

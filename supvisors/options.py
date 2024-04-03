@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -18,17 +15,20 @@
 # ======================================================================
 
 import glob
+import json
 import os
 import platform
 from collections import OrderedDict
-from typing import Dict, List, Optional, Tuple, TypeVar
+from typing import Dict, List, Optional, Tuple
 
 from supervisor.datatypes import Automatic, logfile_name, boolean, integer, byte_size, logging_level, list_of_strings
 from supervisor.loggers import Logger
-from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
+from supervisor.options import (expand, make_namespec, ServerOptions,
+                                ProcessConfig, FastCGIProcessConfig, EventListenerConfig)
 
 from .ttypes import (ConciliationStrategies, EventLinks, StartingStrategies, SynchronizationOptions,
-                     Ipv4Address, Payload, StatisticsTypes)
+                     Ipv4Address, NameList, Payload, StatisticsTypes,
+                     GroupConfigInfo, ProgramConfig, SupvisorsProcessConfig)
 
 
 # Options of main section
@@ -519,35 +519,90 @@ class SupvisorsServerOptions(ServerOptions):
 
     Attributes are:
         - parser: the config parser ;
-        - program_class: the Supervisor class type of the program among {ProcessConfig, FastCGIProcessConfig,
-          EventListenerConfig} ;
-        - program_processes: for each program, the group names using it and the corresponding process configurations ;
-        - process_programs: the program associated to each process (key is a process name, not a namespec) ;
-        - process_indexes: the index of each process (key is a process name, not a namespec), so numprocs_start
-          has no impact on the number.
+        - program_configs: the program configuration not retained by Supervisor ;
+        - process_configs: the process configuration not retained by Supervisor.
     """
 
-    # annotation types
-    ProcessConfigList = List[ProcessConfig]
-    ProcessConfigInfo = Dict[str, ProcessConfigList]
-    ProcessGroupInfo = Dict[str, ProcessConfigInfo]
-    ProcessConfigType = TypeVar('ProcessConfigType', bound='Type[ProcessConfig]')
-    ProcessClassInfo = Dict[str, ProcessConfigType]
-
-    def __init__(self, logger: Logger):
+    def __init__(self, supvisors):
         """ Initialization of the attributes. """
         ServerOptions.__init__(self)
-        # keep a reference to the logger
-        self.logger: Logger = logger
+        self.supvisors = supvisors
         # attributes
         self.parser = None
-        self.program_class: SupvisorsServerOptions.ProcessClassInfo = {}
-        self.program_processes: SupvisorsServerOptions.ProcessGroupInfo = {}
-        self.processes_program: Dict[str, str] = {}
-        self.process_indexes: Dict[str, int] = {}
+        self.program_configs: Dict[str, ProgramConfig] = {}  # {program_name: ProgramConfig}
+        self.process_configs: Dict[str, SupvisorsProcessConfig] = {}  # {process_name: SupvisorsProcessConfig}
+        # disabilities for local processes (Supervisor issue #591)
+        self.disabilities: Dict[str, bool] = {}  # {program_name: disability}
+        self.read_disabilities()
 
-    def _processes_from_section(self, parser, section, group_name, klass=None) -> List[ProcessConfig]:
-        """ This method is overridden to: store the program number of a homogeneous program.
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
+
+    @property
+    def supvisors_options(self) -> SupvisorsOptions:
+        """ Get the Supvisors options. """
+        return self.supvisors.options
+
+    # Supervisor issue #591
+    def read_disabilities(self) -> None:
+        """ Read disabilities file and apply data to Supervisor processes.
+
+        :return: None
+        """
+        self.disabilities = {}
+        disabilities_file = self.supvisors_options.disabilities_file
+        if disabilities_file:
+            self.logger.info(f'SupvisorsServerOptions.read_disabilities: file={disabilities_file}')
+            if os.path.isfile(disabilities_file):
+                with open(disabilities_file) as in_file:
+                    data = json.load(in_file)
+                    if type(data) is dict:
+                        self.disabilities = data
+                        self.logger.debug(f'SupvisorsServerOptions.read_disabilities: disabilities={self.disabilities}')
+            else:
+                self.logger.debug(f'SupvisorsServerOptions.read_disabilities: {disabilities_file} not found')
+        else:
+            self.logger.warn('SupvisorsServerOptions.read_disabilities: no persistence for program disabilities')
+
+    def write_disabilities(self, force: bool = True) -> None:
+        """ Write disabilities file from Supervisor processes.
+        If forced (default), the file will be written with the current status.
+        If not forced, the file will be written if it does not exist.
+
+        :param force: if True, overwrite the existing file.
+        :return: None
+        """
+        disabilities_file = self.supvisors_options.disabilities_file
+        if disabilities_file:
+            if force or not os.path.isfile(disabilities_file):
+                # serialize to the file defined in options
+                with open(disabilities_file, 'w+') as out_file:
+                    out_file.write(json.dumps(self.disabilities))
+
+    def enable_program(self, program_name: str) -> None:
+        """ Re-enable the processes to be started and trigger their autostart if configured to.
+
+        :param program_name: the program to enable
+        :return: None
+        """
+        self.disabilities[program_name] = False
+        self.write_disabilities()
+
+    def disable_program(self, program_name: str) -> None:
+        """ Disable the program so that the corresponding processes cannot be started.
+
+        :param program_name: the program to disable
+        :return: None
+        """
+        self.disabilities[program_name] = True
+        self.write_disabilities()
+
+    # Get additional information not stored by Supervisor when parsing the configuration files
+    def _processes_from_section(self, parser, section: str, group_name: str, klass=None) -> List[ProcessConfig]:
+        """ This method is overridden to store the configuration information not kept by Supervisor.
+
         This is originally used in Supervisor to set the real program name from the format defined in the ini file.
         However, Supervisor does not keep this information in its internal structure.
 
@@ -564,16 +619,26 @@ class SupvisorsServerOptions(ServerOptions):
         process_configs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
         # store process configurations and groups
         program_name = section.split(':', 1)[1]
-        program_groups = self.program_processes.setdefault(program_name, {})
-        program_groups[group_name] = process_configs
-        # store the program class type
-        self.program_class[program_name] = klass
-        # store the number and the program of each process
+        if program_name in self.program_configs:
+            # get the existing program configuration
+            program_config = self.program_configs[program_name]
+        else:
+            # create the program configuration
+            program_config = ProgramConfig(program_name, klass)
+            program_config.numprocs = int(parser.saneget(section, 'numprocs', '1'))
+            program_config.disabled = self.disabilities.setdefault(program_name, False)
+            self.program_configs[program_name] = program_config
+        # store a generic process_config extension (identical for all groups)
         for idx, process_config in enumerate(process_configs):
-            # process_config.name is the process_name
-            self.processes_program[process_config.name] = program_name
-            self.process_indexes[process_config.name] = idx
-        # return original result
+            # process_config.name is the process_name (without group name)
+            alt_process_config = self.process_configs.get(process_config.name)
+            if not alt_process_config:
+                # create a process configuration to get the associated program configuration
+                alt_process_config = SupvisorsProcessConfig(program_config, idx, process_config.command)
+                self.process_configs[process_config.name] = alt_process_config
+        # associate the group to the program
+        program_config.group_config_info[group_name] = process_configs
+        # return super result
         return process_configs
 
     def get_section(self, program_name: str):
@@ -582,38 +647,45 @@ class SupvisorsServerOptions(ServerOptions):
         :param program_name: the name of the program configured
         :return: the Supervisor section name
         """
-        klass = self.program_class[program_name]
+        klass = self.program_configs[program_name].klass
         if klass is FastCGIProcessConfig:
             return f'fcgi-program:{program_name}'
         if klass is EventListenerConfig:
             return f'eventlistener:{program_name}'
         return f'program:{program_name}'
 
-    def update_numprocs(self, program_name: str, numprocs: int) -> str:
-        """ This method updates the numprocs value directly in the configuration parser.
+    def get_subprocesses(self, program_name) -> NameList:
+        """ Return all processes related to the program definition.
 
-        :param program_name: the program name, as found in the sections of the Supervisor configuration files
-        :param numprocs: the new numprocs value
-        :return: The section updated
+        :param program_name: the name of the program, as declared in the configuration files.
+        :return: all namespecs corresponding to the program.
+        """
+        program_groups: GroupConfigInfo = self.program_configs[program_name].group_config_info
+        return [make_namespec(group_name, process_config.name)
+                for group_name, process_config_list in program_groups.items()
+                for process_config in process_config_list]
+
+    def update_numprocs(self, program_name: str, numprocs: int) -> GroupConfigInfo:
+        """ This method updates the program configuration based on the new numprocs value.
+
+        :param program_name: the program name, as found in the sections of the Supervisor configuration files.
+        :param numprocs: the new numprocs value.
+        :return: the new process configurations.
         """
         section = self.get_section(program_name)
-        self.logger.debug(f'SupvisorsServerOptions.update_numprocs: update parser section={section}')
+        # update the parser value
+        self.logger.debug(f'SupvisorsServerOptions.update_numprocs: update parser section={section}'
+                          f' with numprocs={numprocs}')
         self.parser[section]['numprocs'] = str(numprocs)
-        return section
-
-    def reload_processes_from_section(self, section: str, group_name: str) -> List[ProcessConfig]:
-        """ This method rebuilds the ProcessConfig instances for the program.
-
-        :param section: the program section in the configuration files
-        :param group_name: the group that embeds the program definition
-        :return: the list of ProcessConfig
-        """
-        # reset corresponding stored procnumbers
-        program_name = section.split(':')[1]
-        for process_list in self.program_processes[program_name].values():
+        # get the existing program configuration
+        program = self.program_configs[program_name]
+        program.numprocs = numprocs
+        # rebuild the process configs from the new Supervisor configuration
+        group_configs = {}
+        for group_name, process_list in program.group_config_info.items():
+            # remove the former process configuration
             for process in process_list:
-                self.processes_program.pop(process.name, None)
-                self.process_indexes.pop(process.name, None)
-        # call parser again
-        klass = self.program_class[program_name]
-        return self.processes_from_section(self.parser, section, group_name, klass)
+                self.process_configs.pop(process.name, None)
+            # build the new configuration
+            group_configs[group_name] = self.processes_from_section(self.parser, section, group_name, program.klass)
+        return group_configs

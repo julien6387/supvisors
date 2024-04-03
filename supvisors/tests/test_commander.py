@@ -214,7 +214,7 @@ def test_start_command_timed_out(start_command):
     start_command.request_sequence_counter = 10
     assert start_command.wait_ticks == 6
     process_info = start_command.get_instance_info()
-    process_info['now'] = 1234
+    process_info['event_time'] = 1234
     # check call with process state BACKOFF or STARTING on the node
     for state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
         process_info['state'] = state
@@ -845,7 +845,7 @@ def test_application_start_job_before(mocker, supvisors, application_start_job_1
 def test_application_start_job_process_job(mocker, supvisors, application_start_job_1, start_sample_test_1):
     """ Test the ApplicationStartJobs.process_job method. """
     # get patches
-    mocker.patch('time.time', return_value=1234.56)
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors.listener.force_process_state
     mocked_pusher = supvisors.internal_com.pusher.send_start_process

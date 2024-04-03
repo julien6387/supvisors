@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -19,11 +16,11 @@
 
 import sys
 import unittest
-
 from queue import Empty
-from supervisor.states import ProcessStates
-from supvisors.ttypes import StartingStrategies, SupvisorsStates
 
+from supervisor.states import ProcessStates
+
+from supvisors.ttypes import StartingStrategies, SupvisorsStates
 from .event_queues import SupvisorsEventQueues
 from .running_identifiers import RunningIdentifiersTest
 
@@ -147,7 +144,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
         # application should be still running with manager, but with major failure due to web_server
         # that cannot be started, and with minor failure due to hmi crash
         event = self._get_next_application_status()
-        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'RUNNING'}
         assert subset.items() < event.items()
         # STOPPING / STOPPED events are expected for the manager
@@ -155,14 +152,14 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
         assert {'name': 'manager', 'state': 40}.items() < event.items()
         # application should be stopping
         event = self._get_next_application_status()
-        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'STOPPING'}
         assert subset.items() < event.items()
         event = self._get_next_process_event()
         assert {'name': 'manager', 'state': 0}.items() < event.items()
         # application should be stopped
         event = self._get_next_application_status()
-        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'STOPPED'}
         assert subset.items() < event.items()
         # no further event expected

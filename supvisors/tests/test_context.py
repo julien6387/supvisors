@@ -73,7 +73,7 @@ def test_create(supvisors, context):
 
 def test_reset(mocker, supvisors, context):
     """ Test the reset of Context values. """
-    mocker.patch('supvisors.context.time.time', return_value=3600)
+    mocker.patch('time.monotonic', return_value=3600)
     # change master definition
     local_identifier = supvisors.mapper.local_identifier
     context.master_identifier = local_identifier
@@ -692,7 +692,7 @@ def test_load_processes(mocker, supvisors, context):
     """ Test the storage of processes handled by Supervisor on a given node. """
     mocker.patch('supvisors.application.ApplicationStatus.update_sequences')
     mocker.patch('supvisors.application.ApplicationStatus.update')
-    mocked_write = mocker.patch.object(supvisors.supervisor_data, 'write_disabilities')
+    mocked_write = mocker.patch.object(supvisors.server_options, 'write_disabilities')
     # check application list
     assert context.applications == {}
     for node in context.instances.values():

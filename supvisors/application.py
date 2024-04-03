@@ -49,7 +49,8 @@ class ApplicationRules:
           during the starting of the application ;
         - running_failure_strategy: defines the default strategy to apply when a required process crashes
           when the application is running ;
-        - status: the formula describing the application operational status.
+        - status_formula: the formula describing the application operational status ;
+        - status_tree: the AST-parsed formula describing the application operational status.
     """
 
     # attributes
@@ -77,11 +78,13 @@ class ApplicationRules:
         return self.supvisors.logger
 
     @property
-    def status_formula(self):
+    def status_formula(self) -> str:
+        """ Return the status formula if it has passed the AST parsing. """
         return self._status_formula
 
     @status_formula.setter
     def status_formula(self, formula: str):
+        """ AST-parse the status formula. """
         # AST-parse the formula
         try:
             tree = ast.parse(formula)
@@ -95,8 +98,9 @@ class ApplicationRules:
         self._status_tree = tree
 
     @property
-    def status_tree(self):
-        return self._status_tree
+    def status_tree(self) -> Optional[ast.Expr]:
+        """ Return the root expression of the AST-parsed status formula. """
+        return self._status_tree.body[0].value if self._status_tree else None
 
     def check_stop_sequence(self, application_name: str) -> None:
         """ Check the stop_sequence value.
@@ -711,7 +715,6 @@ class ApplicationStatus:
     # global status methods
     def update(self) -> None:
         """ Update the state and the operational status of the application.
-        An unmanaged application is always STOPPED.
 
         :return: None
         """
@@ -721,11 +724,15 @@ class ApplicationStatus:
                                            for process in sub_seq}
         # update the application state
         self.state = self.update_state()
+        # reset failures
+        self.major_failure, self.minor_failure = False, False
         # update the application operational status
         if self.rules.status_tree:
             self.update_status_formula(sequenced_processes)
         else:
             self.update_status_required(sequenced_processes)
+        self.logger.debug(f'ApplicationStatus.update: application_name={self.application_name}'
+                          f' major_failure={self.major_failure} minor_failure={self.minor_failure}')
 
     def update_state(self) -> ApplicationStates:
         """ Update the state of the application iaw the state of its processes.
@@ -770,8 +777,6 @@ class ApplicationStatus:
 
         :return: None
         """
-        # reset failures
-        self.major_failure, self.minor_failure = False, False
         possible_major_failure = False
         for process in self.processes.values():
             self.logger.trace(f'ApplicationStatus.update_status_required: application_name={self.application_name}'
@@ -798,8 +803,6 @@ class ApplicationStatus:
         # reset the minor failure if the major failure is set
         if self.major_failure:
             self.minor_failure = False
-        self.logger.debug(f'ApplicationStatus.update_status_required: application_name={self.application_name}'
-                          f' major_failure={self.major_failure} minor_failure={self.minor_failure}')
 
     def evaluate(self, node: ast.Expr) -> Union[bool, List[bool]]:
         """ Resolution of the AST expression.
@@ -818,7 +821,7 @@ class ApplicationStatus:
         :param node: The current AST node.
         :return: Either a boolean value or a list a boolean values intended to be used by an upper Call.
         """
-        # handle string leaves (ast.Str is deprecated)
+        # handle string leaves (ast.Str is deprecated from Python < 3.8)
         leaf: Optional[str] = None
         if type(node) is ast.Str:
             leaf = node.s
@@ -837,8 +840,6 @@ class ApplicationStatus:
         if type(node) is ast.Call:
             if node.func.id not in ['all', 'any']:
                 raise ApplicationStatusParseError(f'unsupported function={node.func.id}')
-            if len(node.args) != 1:
-                raise ApplicationStatusParseError(f'function={node.func.id} called with more than one parameter')
             args_eval = self.evaluate(node.args[0])
             if type(args_eval) is bool:
                 args_eval = [args_eval]
@@ -847,7 +848,7 @@ class ApplicationStatus:
         if type(node) is ast.BoolOp:
             args_eval = [self.evaluate(x) for x in node.values]
             if any(type(x) is not bool for x in args_eval):
-                raise ApplicationStatusParseError(f'cannot apply BoolOp on unresolved expression={type(node)}')
+                raise ApplicationStatusParseError(f'cannot apply BoolOp on unresolved expression')
             if type(node.op) is ast.And:
                 return all(args_eval)
             if type(node.op) is ast.Or:
@@ -855,9 +856,12 @@ class ApplicationStatus:
         # handle not operator
         if type(node) is ast.UnaryOp:
             if type(node.op) is ast.Not:
-                return not self.evaluate(node.operand)
-            raise ApplicationStatusParseError(f'unsupported UnaryOp={type(node)}')
-        raise ApplicationStatusParseError(f'unsupported Expr={type(node)}')
+                args_eval = self.evaluate(node.operand)
+                if type(args_eval) is not bool:
+                    raise ApplicationStatusParseError(f'cannot apply UnaryOp on unresolved expression')
+                return not args_eval
+            raise ApplicationStatusParseError(f'unsupported UnaryOp={type(node.op).__name__}')
+        raise ApplicationStatusParseError(f'unsupported Expr={type(node).__name__}')
 
     def update_status_formula(self, sequenced_processes: ProcessMap) -> None:
         """ Update the operational status of the application iaw its processes' state.
@@ -868,21 +872,31 @@ class ApplicationStatus:
         """
         # evaluate the status formula against the current processes' state
         try:
-            result = self.evaluate(self.rules.status_tree.body[0].value)
+            result = self.evaluate(self.rules.status_tree)
             if type(result) is not bool:
                 raise ApplicationStatusParseError('status formula cannot be resolved')
         except ApplicationStatusParseError as exc:
-            self.logger.error(f'ApplicationStatus.update_status_formula: application_name={self.application_name} {exc}')
+            self.logger.error(f'ApplicationStatus.update_status_formula: application_name={self.application_name}'
+                              f' - {exc}')
             self.major_failure = True
         else:
-            self.major_failure = result
-        # check for a minor failure
+            self.major_failure = not result
+        # check for a minor failure in start sequence processes
         if not self.major_failure:
-            self.minor_failure = False  # TODO
+            for process in sequenced_processes.values():
+                self.logger.trace(f'ApplicationStatus.update_status_formula: application_name={self.application_name}'
+                                  f' process={process.namespec} state={process.displayed_state_string()}'
+                                  f' exit_expected={process.expected_exit}')
+                if (process.displayed_state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
+                        or (process.displayed_state == ProcessStates.EXITED and not process.expected_exit)):
+                    self.minor_failure = True
 
     def _get_process_status(self, process_name: str) -> bool:
-        """ Return False if the process is in a stopped (displayed) state. """
-        return self.processes[process_name].displayed_state in RUNNING_STATES
+        """ Return False if the process is in a stopped (displayed) state.
+        Exception is made for EXITED expected, which is considered as normal. """
+        process = self.processes[process_name]
+        return ((process.displayed_state in RUNNING_STATES)
+                or (process.displayed_state == ProcessStates.EXITED and process.expected_exit))
 
     def _get_matches(self, pattern_name: str) -> List[str]:
         """ Return the process names matching the pattern. """

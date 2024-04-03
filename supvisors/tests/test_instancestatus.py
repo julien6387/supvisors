@@ -477,24 +477,33 @@ def test_add_process_stopped_collector(supvisors, local_status):
 
 def test_update_tick(mocker, filled_status):
     """ Test the SupvisorsInstanceStatus.update_tick method. """
-    mocked_times = mocker.patch.object(filled_status.times, 'update')
     mocked_proc_times = [mocker.patch.object(process, 'update_times')
                          for process in filled_status.processes.values()]
     # check calls for local tick
     now, now_mono = time.time(), time.monotonic()
     filled_status.update_tick(25, now_mono, now)
-    assert mocked_times.call_args_list == [call(25, now_mono, now, -1)]
-    for mock in mocked_proc_times:
-        assert mock.call_args_list == [call(filled_status.identifier, filled_status.times.local_mtime,
-                                            filled_status.times.local_time)]
+    assert filled_status.times.remote_sequence_counter == 25
+    assert filled_status.times.remote_mtime == now_mono
+    assert filled_status.times.remote_time == now
+    assert filled_status.times.local_sequence_counter == 25
+    assert filled_status.times.local_mtime == now_mono
+    assert filled_status.times.local_time == now
+    for mocked in mocked_proc_times:
+        assert mocked.call_args_list == [call(filled_status.identifier, filled_status.times.remote_mtime,
+                                              filled_status.times.remote_time)]
     mocker.resetall()
     # check calls for remote tick
     now, now_mono = time.time(), time.monotonic()
     filled_status.update_tick(27, now_mono, now, 25)
-    assert mocked_times.call_args_list == [call(27, now_mono, now, 25)]
-    for mock in mocked_proc_times:
-        assert mock.call_args_list == [call(filled_status.identifier, filled_status.times.local_mtime,
-                                            filled_status.times.local_time)]
+    assert filled_status.times.remote_sequence_counter == 27
+    assert filled_status.times.remote_mtime == now_mono
+    assert filled_status.times.remote_time == now
+    assert filled_status.times.local_sequence_counter == 25
+    assert filled_status.times.local_mtime >= now_mono
+    assert filled_status.times.local_time >= now
+    for mocked in mocked_proc_times:
+        assert mocked.call_args_list == [call(filled_status.identifier, filled_status.times.remote_mtime,
+                                              filled_status.times.remote_time)]
 
 
 def test_running_process(filled_status):

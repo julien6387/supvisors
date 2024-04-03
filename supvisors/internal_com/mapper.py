@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -56,8 +53,19 @@ class SupvisorsInstanceId:
         - stereotype: the stereotype (used for rules).
     """
 
-    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
+    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:.]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
                          r':(?P<internal_port>\d{4,5})?)?$')
+
+    # attributes deduced from input
+    identifier = None
+    host_id = None
+    http_port = None
+    internal_port = None
+    event_port = None
+    # attributes got from network
+    host_name = None
+    aliases = None
+    ip_addresses = None
 
     def __init__(self, item: str, supvisors: Any):
         """ Initialization of the attributes.
@@ -65,28 +73,23 @@ class SupvisorsInstanceId:
         :param item: the Supervisor parameters to be parsed
         """
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
-        # attributes deduced from input
-        self.identifier = None
-        self.host_id = None
-        self.http_port = None
-        self.internal_port = None
-        self.event_port = None
         # attributes set a posteriori
         self.stereotypes: NameList = []
         # parse item to get the values
         self.parse_from_string(item)
         self.check_values()
         # choose the node name among the possible node identifiers
-        self.host_name = None
-        self.aliases = None
-        self.ip_addresses = None
         if self.host_id:
             addresses = get_addresses(self.host_id, self.logger)
             if addresses:
                 self.host_name, self.aliases, self.ip_addresses = addresses
                 self.logger.debug(f'SupvisorsInstanceId: host_id={self.host_id} host_name={self.host_name}'
                                   f' aliases={self.aliases} ip_addresses={self.ip_addresses}')
+
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
 
     @property
     def ip_address(self):

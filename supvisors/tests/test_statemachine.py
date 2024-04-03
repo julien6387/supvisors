@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -99,7 +96,7 @@ def init_state(supvisors_ctx):
 
 def test_initialization_state_enter(mocker, init_state):
     """ Test the Initialization state of the FSM / enter method. """
-    mocker.patch('supvisors.context.time.time', return_value=1234)
+    mocker.patch('time.monotonic', return_value=1234)
     assert isinstance(init_state, AbstractState)
     local_identifier = init_state.local_identifier
     # test that master and start_date are reset
@@ -210,7 +207,7 @@ def test_initialization_state_check_end_sync_user(init_state):
 
 def test_initialization_state_next(mocker, init_state):
     """ Test the Initialization state of the FSM / next method. """
-    mocker.patch('supvisors.statemachine.time', return_value=1234)
+    mocker.patch('time.monotonic', return_value=1234)
     mocked_running = mocker.patch.object(init_state.supvisors.context, 'running_identifiers', return_value=[])
     mocked_checked = mocker.patch.object(init_state.supvisors.context, 'activate_checked')
     mocked_elect = mocker.patch.object(init_state.supvisors.context, 'elect_master')

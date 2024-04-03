@@ -307,6 +307,8 @@ Process Control
 
                     * `#177 - Dynamic numproc change <https://github.com/Supervisor/supervisor/issues/177>`_
 
+        .. automethod:: lazy_update_numprocs(program_name, numprocs)
+
         .. automethod:: enable(program_name, wait=True)
 
             .. hint::

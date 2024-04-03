@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+
 import ast
 from io import BytesIO
 
@@ -108,8 +109,8 @@ def check_valid(parser):
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE, None)
     # check second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    tree = ("Module(body=[Expr(value=BoolOp(op=And(), values=[Constant(value='.*B1'), "
-            "Constant(value='dummy_program_B2')]))], type_ignores=[])")
+    tree = ("BoolOp(op=And(), values=[Constant(value='.*B1'), "
+            "Constant(value='dummy_program_B2')])")
     assert_application_rules(rules, True, DistributionRules.SINGLE_NODE, ['*'], 1, 4, StartingStrategies.CONFIG,
                              StartingFailureStrategies.STOP, RunningFailureStrategies.RESTART_PROCESS, tree)
     # check third application

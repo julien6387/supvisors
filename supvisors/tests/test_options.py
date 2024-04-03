@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 # 
@@ -19,6 +16,7 @@
 
 import os.path
 import sys
+from unittest.mock import call
 
 import pytest
 from supervisor.loggers import LevelsByName
@@ -64,7 +62,7 @@ def filled_opt(mocker, supervisor, supvisors, config):
 @pytest.fixture
 def server_opt(supvisors):
     """ Create a Supvisors-like structure filled with some instances. """
-    return SupvisorsServerOptions(supvisors.logger)
+    return SupvisorsServerOptions(supvisors)
 
 
 def test_empty_logger_configuration():
@@ -507,57 +505,180 @@ def create_server(mocker, server_opt, config):
     return server_opt
 
 
+def test_server_options_disabilities(mocker, supvisors, server_opt):
+    """ Test the SupvisorsServerOptions disabilities management. """
+    # patch open
+    mocked_open = mocker.patch('builtins.open', mocker.mock_open())
+    # read_disabilities has already been called once in the constructor based on a non-existing file
+    assert server_opt.disabilities == {}
+    # disable program
+    server_opt.disable_program('program_1')
+    mocked_open.assert_called_once_with(supvisors.options.disabilities_file, 'w+')
+    handle = mocked_open()
+    json_expected = '{"program_1": true}'
+    assert handle.write.call_args_list == [call(json_expected)]
+    handle.reset_mock()
+    mocked_open.reset_mock()
+    # enable program
+    server_opt.enable_program('program_2')
+    mocked_open.assert_called_once_with(supvisors.options.disabilities_file, 'w+')
+    json_expected = '{"program_1": true, "program_2": false}'
+    assert handle.write.call_args_list == [call(json_expected)]
+    handle.reset_mock()
+    mocked_open.reset_mock()
+    # check when write is not forced and file does not exist
+    mocked_isfile = mocker.patch('os.path.isfile', return_value=False)
+    server_opt.write_disabilities(False)
+    assert handle.write.call_args_list == [call(json_expected)]
+    handle.reset_mock()
+    # check when write is not forced and file exists
+    mocked_isfile.return_value = True
+    server_opt.write_disabilities(False)
+    assert not handle.write.called
+    # empty context and read
+    mocked_open = mocker.patch('builtins.open', mocker.mock_open(read_data=json_expected))
+    mocker.patch('os.path.isfile', return_value=True)
+    server_opt.disabilities = {}
+    server_opt.read_disabilities()
+    assert server_opt.disabilities == {'program_1': True, 'program_2': False}
+    mocked_open.assert_called_once_with(supvisors.options.disabilities_file)
+    handle = mocked_open()
+    assert handle.read.call_args_list == [call()]
+    # test with disabilities files not set
+    supvisors.options.disabilities_file = None
+    server_opt.disabilities = {}
+    server_opt.read_disabilities()
+    assert server_opt.disabilities == {}
+
+
+def check_program_config(program_config: ProgramConfig, result: Payload):
+    """ Compare the ProgramConfig to a result payload. """
+    assert result['name'] == program_config.name
+    assert result['klass'] is program_config.klass
+    assert result['numprocs'] == program_config.numprocs
+    assert result['disabled'] == program_config.disabled
+    # only one group in all results
+    assert len(program_config.group_config_info) == 1
+    group_name, process_config_list = next(iter(program_config.group_config_info.items()))
+    assert result['group_config_info'] == {group_name: [x.name for x in process_config_list]}
+
+
+def check_process_config(process_config: SupvisorsProcessConfig, result: Payload):
+    """ Compare the SupvisorsProcessConfig to a result payload. """
+    assert result['process_index'] == process_config.process_index
+    assert result['command_ref'] == process_config.command_ref
+    assert result['program_config'] is process_config.program_config
+
+
 def test_server_options(mocker, server_opt):
     """ Test that the internal numbers of homogeneous programs are stored.
     WARN: All in one test because it doesn't work when create_server is called twice.
     """
     # test attributes
     assert server_opt.parser is None
-    assert server_opt.program_class == {}
-    assert server_opt.program_processes == {}
-    assert server_opt.processes_program == {}
-    assert server_opt.process_indexes == {}
+    assert server_opt.program_configs == {}
+    assert server_opt.process_configs == {}
     # call realize
     server = create_server(mocker, server_opt, ProgramConfiguration)
-    assert server_opt.processes_program == {'dumber_10': 'dumber', 'dumber_11': 'dumber', 'dummy': 'dummy',
-                                            'dummy_0': 'dummies', 'dummy_1': 'dummies', 'dummy_2': 'dummies',
-                                            'dummy_ears_20': 'dummy_ears', 'dummy_ears_21': 'dummy_ears'}
-    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0,
-                                      'dumber_11': 1, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
-    expected_printable = {program_name: {group_name: [process.name for process in processes]}
-                          for program_name, program_configs in server.program_processes.items()
-                          for group_name, processes in program_configs.items()}
-    assert expected_printable == {'dumber': {'dumber': ['dumber_10', 'dumber_11']},
-                                  'dummies': {'dummy_group': ['dummy_0', 'dummy_1', 'dummy_2']},
-                                  'dummy': {'dummy_group': ['dummy']},
-                                  'dummy_ears': {'dummy_ears': ['dummy_ears_20', 'dummy_ears_21']}}
-    assert server.program_class['dummy'] is ProcessConfig
-    assert server.program_class['dummies'] is ProcessConfig
-    assert server.program_class['dumber'] is FastCGIProcessConfig
-    assert server.program_class['dummy_ears'] is EventListenerConfig
+    # check program configurations
+    assert sorted(server_opt.program_configs.keys()) == ['dumber', 'dummies', 'dummy', 'dummy_ears']
+    expected = {'name': 'dumber', 'klass': FastCGIProcessConfig, 'numprocs': 2, 'disabled': False,
+                'group_config_info': {'dumber': ['dumber_10', 'dumber_11']}}
+    check_program_config(server_opt.program_configs['dumber'], expected)
+    expected = {'name': 'dummies', 'klass': ProcessConfig, 'numprocs': 3, 'disabled': False,
+                'group_config_info': {'dummy_group': ['dummy_0', 'dummy_1', 'dummy_2']}}
+    check_program_config(server_opt.program_configs['dummies'], expected)
+    expected = {'name': 'dummy', 'klass': ProcessConfig, 'numprocs': 1, 'disabled': False,
+                'group_config_info': {'dummy_group': ['dummy']}}
+    check_program_config(server_opt.program_configs['dummy'], expected)
+    expected = {'name': 'dummy_ears', 'klass': EventListenerConfig, 'numprocs': 2, 'disabled': False,
+                'group_config_info': {'dummy_ears': ['dummy_ears_20', 'dummy_ears_21']}}
+    check_program_config(server_opt.program_configs['dummy_ears'], expected)
+    # check process configurations
+    assert sorted(server_opt.process_configs.keys()) == ['dumber_10', 'dumber_11', 'dummy',
+                                                         'dummy_0', 'dummy_1', 'dummy_2',
+                                                         'dummy_ears_20', 'dummy_ears_21']
+    expected = {'process_index': 0, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dumber']}
+    check_process_config(server_opt.process_configs['dumber_10'], expected)
+    expected = {'process_index': 1, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dumber']}
+    check_process_config(server_opt.process_configs['dumber_11'], expected)
+    expected = {'process_index': 0, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummy']}
+    check_process_config(server_opt.process_configs['dummy'], expected)
+    expected = {'process_index': 0, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummies']}
+    check_process_config(server_opt.process_configs['dummy_0'], expected)
+    expected = {'process_index': 1, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummies']}
+    check_process_config(server_opt.process_configs['dummy_1'], expected)
+    expected = {'process_index': 2, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummies']}
+    check_process_config(server_opt.process_configs['dummy_2'], expected)
+    expected = {'process_index': 0, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummy_ears']}
+    check_process_config(server_opt.process_configs['dummy_ears_20'], expected)
+    expected = {'process_index': 1, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummy_ears']}
+    check_process_config(server_opt.process_configs['dummy_ears_21'], expected)
+    # check sub-processes
+    assert server_opt.get_subprocesses('dumber') == ['dumber:dumber_10', 'dumber:dumber_11']
+    assert server_opt.get_subprocesses('dummies') == ['dummy_group:dummy_0', 'dummy_group:dummy_1',
+                                                      'dummy_group:dummy_2']
+    assert server_opt.get_subprocesses('dummy') == ['dummy_group:dummy']
+    assert server_opt.get_subprocesses('dummy_ears') == ['dummy_ears:dummy_ears_20', 'dummy_ears:dummy_ears_21']
     # udpate procnums of a program
-    assert server.update_numprocs('dummies', 1) == 'program:dummies'
+    result = server.update_numprocs('dummies', 1)
     assert server.parser['program:dummies']['numprocs'] == '1'
-    # reload programs
-    result = server.reload_processes_from_section('program:dummies', 'dummy_group')
-    expected_printable = [process.name for process in result]
-    assert expected_printable == ['dummy_0']
-    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1,
-                                      'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert sorted(result.keys()) == ['dummy_group']
+    assert len(result['dummy_group']) == 1
+    assert result['dummy_group'][0].name == 'dummy_0'
+    expected = {'name': 'dummies', 'klass': ProcessConfig, 'numprocs': 1, 'disabled': False,
+                'group_config_info': {'dummy_group': ['dummy_0']}}
+    check_program_config(server_opt.program_configs['dummies'], expected)
+    assert result['dummy_group'] == server_opt.program_configs['dummies'].group_config_info['dummy_group']
+    expected = {'process_index': 0, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummies']}
+    check_process_config(server_opt.process_configs['dummy_0'], expected)
+    assert 'dummy_1' not in server_opt.process_configs
+    assert 'dummy_2' not in server_opt.process_configs
+    assert server_opt.get_subprocesses('dummies') == ['dummy_group:dummy_0']
     # udpate procnums of a FastCGI program
-    assert server.update_numprocs('dumber', 1) == 'fcgi-program:dumber'
+    result = server.update_numprocs('dumber', 1)
     assert server.parser['fcgi-program:dumber']['numprocs'] == '1'
-    # reload programs
-    result = server.reload_processes_from_section('fcgi-program:dumber', 'dumber')
-    expected_printable = [process.name for process in result]
-    assert expected_printable == ['dumber_10']
-    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    assert sorted(result.keys()) == ['dumber']
+    assert len(result['dumber']) == 1
+    assert result['dumber'][0].name == 'dumber_10'
+    expected = {'name': 'dumber', 'klass': FastCGIProcessConfig, 'numprocs': 1, 'disabled': False,
+                'group_config_info': {'dumber': ['dumber_10']}}
+    check_program_config(server_opt.program_configs['dumber'], expected)
+    assert result['dumber'] == server_opt.program_configs['dumber'].group_config_info['dumber']
+    expected = {'process_index': 0, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dumber']}
+    check_process_config(server_opt.process_configs['dumber_10'], expected)
+    assert 'dumber_11' not in server_opt.process_configs
+    assert server_opt.get_subprocesses('dumber') == ['dumber:dumber_10']
     # udpate procnums of an event listener
-    assert server.update_numprocs('dummy_ears', 3) == 'eventlistener:dummy_ears'
+    result = server.update_numprocs('dummy_ears', 3)
     assert server.parser['eventlistener:dummy_ears']['numprocs'] == '3'
-    # reload programs
-    result = server.reload_processes_from_section('eventlistener:dummy_ears', 'dummy_ears')
-    expected_printable = [process.name for process in result]
-    assert expected_printable == ['dummy_ears_20', 'dummy_ears_21', 'dummy_ears_22']
-    assert server.process_indexes == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0,
-                                      'dummy_ears_20': 0, 'dummy_ears_21': 1, 'dummy_ears_22': 2}
+    assert sorted(result.keys()) == ['dummy_ears']
+    assert len(result['dummy_ears']) == 3
+    assert result['dummy_ears'][0].name == 'dummy_ears_20'
+    assert result['dummy_ears'][1].name == 'dummy_ears_21'
+    assert result['dummy_ears'][2].name == 'dummy_ears_22'
+    expected = {'name': 'dummy_ears', 'klass': EventListenerConfig, 'numprocs': 3, 'disabled': False,
+                'group_config_info': {'dummy_ears': ['dummy_ears_20', 'dummy_ears_21', 'dummy_ears_22']}}
+    check_program_config(server_opt.program_configs['dummy_ears'], expected)
+    assert result['dummy_ears'] == server_opt.program_configs['dummy_ears'].group_config_info['dummy_ears']
+    expected = {'process_index': 0, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummy_ears']}
+    check_process_config(server_opt.process_configs['dummy_ears_20'], expected)
+    expected = {'process_index': 1, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummy_ears']}
+    check_process_config(server_opt.process_configs['dummy_ears_21'], expected)
+    expected = {'process_index': 2, 'command_ref': 'ls',
+                'program_config': server_opt.program_configs['dummy_ears']}
+    check_process_config(server_opt.process_configs['dummy_ears_22'], expected)
+    assert server_opt.get_subprocesses('dummy_ears') == ['dummy_ears:dummy_ears_20', 'dummy_ears:dummy_ears_21',
+                                                         'dummy_ears:dummy_ears_22']

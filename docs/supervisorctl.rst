@@ -33,17 +33,19 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    all_start          local_status         start_any_process       sversion
-    all_start_args     loglevel             start_any_process_args  update_numprocs
-    application_info   master               start_application
-    application_rules  process_rules        start_args
-    conciliate         restart_application  start_process
-    conflicts          restart_process      start_process_args
-    disable            restart_sequence     stats_period
-    enable             sreload              stats_status
-    enable_stats       sshutdown            stop_application
-    end_sync           sstate               stop_process
-    instance_status    sstatus              strategies
+    all_start             local_status            start_application
+    all_start_args        loglevel                start_args
+    application_info      master                  start_process
+    application_rules     process_rules           start_process_args
+    conciliate            restart_application     stats_period
+    conflicts             restart_process         stats_status
+    disable               restart_sequence        stop_application
+    disable_stats         sreload                 stop_process
+    enable                sshutdown               strategies
+    enable_stats          sstate                  sversion
+    end_sync              sstatus                 update_numprocs
+    instance_status       start_any_process
+    lazy_update_numprocs  start_any_process_args
 
 .. _extended_status:
 
@@ -331,7 +333,13 @@ Process Control
 
 ``update_numprocs program_name numprocs``
 
-    Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners).
+    Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners),
+    stopping the obsolete programs immediately.
+
+``lazy_update_numprocs program_name numprocs``
+
+    Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners),
+    giving a chance to the obsolete programs to end by themselves.
 
 ``enable program_name``
 

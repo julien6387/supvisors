@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -83,7 +80,8 @@ class StartingStrategyTest(RunningIdentifiersTest):
         with self.assertRaises(xmlrpclib.Fault) as exc:
             self.local_supvisors.start_process(self.strategy.value, f'my_movies:converter_{idx:02d}')
         self.assertEqual(Faults.ABNORMAL_TERMINATION, exc.exception.faultCode)
-        self.assertEqual(f'ABNORMAL_TERMINATION: my_movies:converter_{idx:02d}', exc.exception.faultString)
+        self.assertEqual(f'ABNORMAL_TERMINATION: failed to start my_movies:converter_{idx:02d}',
+                         exc.exception.faultString)
         # wait for event FATAL
         event = self._get_next_process_event()
         assert {'group': 'my_movies', 'name': f'converter_{idx:02d}', 'state': 200}.items() < event.items()

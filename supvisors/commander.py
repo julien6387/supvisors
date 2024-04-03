@@ -234,7 +234,7 @@ class ProcessStartCommand(ProcessCommand):
         # check the process state on the targeted Supvisors instance
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
-        process_state_date = instance_info['now']
+        process_state_date = instance_info['event_time']
         # if the evaluation is done in the RUNNING state, the EXITED state must be expected
         # otherwise the ProcessCommand would have been removed
         # this part is a risk for the Supvisors Starter to wait forever
@@ -777,7 +777,7 @@ class ApplicationStartJobs(ApplicationJobs):
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.supvisors.listener.force_process_state(command.process, '', time.time(),
+                self.supvisors.listener.force_process_state(command.process, '', time.monotonic(),
                                                             self.failure_state, 'no resource available')
                 self.process_failure(process)
         # return True when the job is queued

@@ -15,6 +15,7 @@
 # ======================================================================
 
 import random
+import sys
 from socket import getfqdn, gethostname
 from unittest.mock import call
 
@@ -844,7 +845,9 @@ def test_update(mocker, filled_application):
     sequenced_processes = {process.process_name: process
                            for sub_seq in filled_application.start_sequence.values()
                            for process in sub_seq}
-    # test again
+    # test again (check also that failures are reset)
+    filled_application.major_failure = True
+    filled_application.minor_failure = True
     filled_application.update()
     assert filled_application.state == ApplicationStates.RUNNING
     assert not filled_application.major_failure
@@ -926,6 +929,7 @@ def test_application_update_status_required(filled_application):
     # in default rules, no process is required so this is minor
     assert not filled_application.major_failure
     assert filled_application.minor_failure
+    filled_application.minor_failure = False
     # set FATAL process to major
     fatal_process = next((process for process in filled_application.processes.values()
                           if process.state == ProcessStates.FATAL))
@@ -935,6 +939,7 @@ def test_application_update_status_required(filled_application):
     filled_application.update_status_required(sequenced_processes)
     assert filled_application.major_failure
     assert not filled_application.minor_failure
+    filled_application.major_failure = False
     # set STOPPING process to STOPPED and check no impact on failures
     for process in filled_application.processes.values():
         if process.state == ProcessStates.STOPPING:
@@ -949,6 +954,7 @@ def test_application_update_status_required(filled_application):
     filled_application.update_status_required(sequenced_processes)
     assert filled_application.major_failure
     assert not filled_application.minor_failure
+    filled_application.major_failure = False
     # set BACKOFF process to EXITED unexpected
     backoff_process = next((process for process in filled_application.processes.values()
                             if process.state == ProcessStates.BACKOFF), None)
@@ -958,6 +964,7 @@ def test_application_update_status_required(filled_application):
     filled_application.update_status_required(sequenced_processes)
     assert filled_application.major_failure
     assert not filled_application.minor_failure
+    filled_application.major_failure = False
     # set all process to RUNNING
     for process in filled_application.processes.values():
         process.state = ProcessStates.RUNNING
@@ -977,19 +984,182 @@ def test_application_update_status_required(filled_application):
 
 def test_application_get_process_status(filled_application):
     """ Test the ApplicationStatus._get_process_status method. """
-    # TODO
+    assert not filled_application._get_process_status('xlogo')
+    assert not filled_application._get_process_status('sleep')
+    assert filled_application._get_process_status('segv')
+    assert filled_application._get_process_status('xfontsel')
+    # force a state to STARTING
+    filled_application.processes['segv'].forced_state = ProcessStates.STARTING
+    assert filled_application._get_process_status('segv')
+    # force a state to EXITED / expected
+    filled_application.processes['xfontsel'].forced_state = ProcessStates.EXITED
+    filled_application.processes['xfontsel'].expected_exit = True
+    assert filled_application._get_process_status('xfontsel')
+    # force a state to EXITED / not expected
+    filled_application.processes['xfontsel'].expected_exit = False
+    assert not filled_application._get_process_status('xfontsel')
 
 
 def test_application_get_matches(filled_application):
     """ Test the ApplicationStatus._get_matches method. """
-    # TODO
+    assert filled_application._get_matches('') == []
+    assert filled_application._get_matches('dummy') == []
+    assert filled_application._get_matches('xlogo') == ['xlogo']
+    assert sorted(filled_application._get_matches('x.*')) == ['xclock', 'xfontsel', 'xlogo']
+    assert sorted(filled_application._get_matches(r'yeux_[01]{2}')) == ['yeux_00', 'yeux_01']
 
 
-def test_application_evaluate(filled_application):
-    """ Test the ApplicationStatus.evaluate method. """
-    # TODO
+class Str:
+    def __init__(self, value):
+        self.s = value
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
+def test_application_evaluate_strings_deprecated(filled_application):
+    """ Test the ApplicationStatus.evaluate method with string expression from Python 3.8.
+    ast.Str is obsolete since then and replaced by ast.Constant. """
+    # test string leaf error
+    expr = ast.Str('a string')
+    with pytest.raises(ApplicationStatusParseError):
+        filled_application.evaluate(expr)
+    # test string leaf with process status running (force ast.Str type because it )
+    expr = ast.Str('xfontsel')
+    assert filled_application.evaluate(expr) is True
+    # test string leaf with process status running
+    expr = ast.Str('xlogo')
+    assert filled_application.evaluate(expr) is False
+    # test pattern with single resolution
+    expr = ast.Str('xcl.ck')
+    assert filled_application.evaluate(expr) is False
+    # test pattern with multiple resolution
+    expr = ast.Str('(xlogo|sleep)')
+    assert filled_application.evaluate(expr) == [False, False]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
+def test_application_evaluate_strings_38(filled_application):
+    """ Test the ApplicationStatus.evaluate method with string expression from Python 3.8.
+    ast.Str is obsolete since then and replaced by ast.Constant. """
+    # force ast.Str type because it is replaced by an ast.Constant at creation
+    ast.Str = Str
+    # test string leaf error
+    expr = ast.Constant('a string')
+    with pytest.raises(ApplicationStatusParseError):
+        filled_application.evaluate(expr)
+    # test string leaf with process status running (just to hit ast.Str)
+    expr = ast.Str('xfontsel')
+    assert filled_application.evaluate(expr) is True
+    # test string leaf with process status running
+    expr = ast.Constant('xlogo')
+    assert filled_application.evaluate(expr) is False
+    # test pattern with single resolution
+    expr = ast.Constant('xcl.ck')
+    assert filled_application.evaluate(expr) is False
+    # test pattern with multiple resolution
+    expr = ast.Constant('(xlogo|sleep)')
+    assert filled_application.evaluate(expr) == [False, False]
+
+
+def test_application_evaluate_functions(filled_application):
+    """ Test the ApplicationStatus.evaluate method with functions. """
+    filled_application.processes['yeux_00'].expected_exit = False
+    # test all function
+    tree = ast.parse('all("yeux.*")')
+    assert filled_application.evaluate(tree.body[0].value) is False
+    tree = ast.parse('all("yeux.*1")')
+    assert filled_application.evaluate(tree.body[0].value) is True
+    # test any function
+    tree = ast.parse('any("yeux.*")')
+    assert filled_application.evaluate(tree.body[0].value) is True
+    tree = ast.parse('any("xlogo")')
+    assert filled_application.evaluate(tree.body[0].value) is False
+    # test other function
+    tree = ast.parse('map(str, ["xlogo"])')
+    with pytest.raises(ApplicationStatusParseError) as exc:
+        filled_application.evaluate(tree.body[0].value)
+    assert exc.value.message == 'unsupported function=map'
+
+
+def test_application_evaluate_operators(filled_application):
+    """ Test the ApplicationStatus.evaluate method with operators. """
+    filled_application.processes['yeux_00'].expected_exit = False
+    # test unresolvable bool operator
+    tree = ast.parse('"xlogo" and "yeux.*"')
+    with pytest.raises(ApplicationStatusParseError) as exc:
+        filled_application.evaluate(tree.body[0].value)
+    assert exc.value.message == 'cannot apply BoolOp on unresolved expression'
+    # test and operator
+    tree = ast.parse('"xlogo" and "yeux_01"')
+    assert filled_application.evaluate(tree.body[0].value) is False
+    tree = ast.parse('"xfontsel" and "yeux_01"')
+    assert filled_application.evaluate(tree.body[0].value) is True
+    # test and operator
+    tree = ast.parse('"xlogo" or "yeux_01"')
+    assert filled_application.evaluate(tree.body[0].value) is True
+    tree = ast.parse('"xlogo" or "yeux_00"')
+    assert filled_application.evaluate(tree.body[0].value) is False
+    # test unresolvable unary operator
+    tree = ast.parse('not "yeux.*"')
+    with pytest.raises(ApplicationStatusParseError) as exc:
+        filled_application.evaluate(tree.body[0].value)
+    assert exc.value.message == 'cannot apply UnaryOp on unresolved expression'
+    # test not operator
+    tree = ast.parse('not "yeux.00"')
+    assert filled_application.evaluate(tree.body[0].value) is True
+    tree = ast.parse('not "yeux.01"')
+    assert filled_application.evaluate(tree.body[0].value) is False
+    # test error when using other unary operator type
+    tree = ast.parse('- "yeux.01"')
+    with pytest.raises(ApplicationStatusParseError) as exc:
+        filled_application.evaluate(tree.body[0].value)
+    assert exc.value.message == 'unsupported UnaryOp=USub'
+    # test error when using other operator type
+    tree = ast.parse('"yeux.01" + "yeux.01"')
+    with pytest.raises(ApplicationStatusParseError) as exc:
+        filled_application.evaluate(tree.body[0].value)
+    assert exc.value.message == 'unsupported Expr=BinOp'
 
 
 def test_application_update_status_formula(filled_application):
     """ Test the rules to update the status of the application method. """
-    # TODO
+    filled_application.processes['yeux_00'].expected_exit = False
+    # set application to managed, update sequences and state
+    filled_application.rules.managed = True
+    filled_application.update_sequences()
+    sequenced_processes = {process.process_name: process
+                           for sub_seq in filled_application.start_sequence.values()
+                           for process in sub_seq}
+    # check initial state
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    # test error handling when the evaluation returns a non-boolean result
+    filled_application.rules.status_formula = '"yeux.*"'
+    filled_application.update_status_formula(sequenced_processes)
+    assert filled_application.major_failure
+    assert not filled_application.minor_failure
+    filled_application.major_failure = False
+    # test error handling when the evaluation raises an exception
+    filled_application.rules.status_formula = 'map(str, ["xlogo"])'
+    filled_application.update_status_formula(sequenced_processes)
+    assert filled_application.major_failure
+    assert not filled_application.minor_failure
+    filled_application.major_failure = False
+    # test evaluation with normal major failure
+    filled_application.rules.status_formula = 'all("yeux.*")'
+    filled_application.update_status_formula(sequenced_processes)
+    assert filled_application.major_failure
+    assert not filled_application.minor_failure
+    filled_application.major_failure = False
+    # test evaluation with no major failure, triggering the minor failure evaluation
+    # reason: sleep is FATAL
+    filled_application.rules.status_formula = 'any("yeux.*")'
+    filled_application.update_status_formula(sequenced_processes)
+    assert not filled_application.major_failure
+    assert filled_application.minor_failure
+    filled_application.minor_failure = False
+    # force the FATAL state to STOPPED and the expeected exit and check that minor failure disappears
+    filled_application.processes['sleep'].forced_state = ProcessStates.STOPPED
+    filled_application.processes['yeux_00'].expected_exit = True
+    filled_application.update_status_formula(sequenced_processes)
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure

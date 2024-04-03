@@ -359,13 +359,13 @@ class SupvisorsInstanceStatus:
         :param local_sequence_counter: the last TICK counter received from the local Supvisors instance ;
         :return: None
         """
-        self.logger.debug(f'SupvisorsInstanceStatus.update_tick: update Supvisors={self.identifier}'
+        self.logger.debug(f'SupvisorsInstanceStatus.update_tick: update Supvisors={self.identifier}' 
                           f' with sequence_counter={remote_sequence_counter} remote_time={remote_time}'
                           f' remote_mtime={remote_mtime} local_sequence_counter={local_sequence_counter}')
         self.times.update(remote_sequence_counter, remote_mtime, remote_time, local_sequence_counter)
         # update all process times
         for process in self.processes.values():
-            process.update_times(self.identifier, self.times.local_mtime, self.times.local_time)
+            process.update_times(self.identifier, self.times.remote_mtime, self.times.remote_time)
 
     def check_transition(self, new_state):
         """ Check that the state transition is valid. """

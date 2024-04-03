@@ -137,13 +137,13 @@ class SupervisorListener:
 
     def on_running(self, _):
         """ Called when Supervisor is RUNNING.
-        This method start the Supvisors main loop. """
+        This method starts the Supvisors main loop. """
         self.logger.info('SupervisorListener.on_running: local supervisord is RUNNING')
         try:
             # reset the tick counter
             self.counter = 0
             # update Supervisor internal data for Supvisors support
-            self.supvisors.supervisor_data.update_supervisor()
+            self.supvisors.supervisor_updater.on_supervisor_start()
             # WARN: Start the statistics collector first to avoid forking while other threads are running.
             #       One of them might use stdout or stderr at fork time and a lock could be held forever,
             #       leading Supvisors to hang at stop time
@@ -231,11 +231,6 @@ class SupervisorListener:
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
-            # handle the statistics collection
-            self._on_tick_stats()
-        except Exception:
-            # Supvisors shall never endanger the Supervisor thread
-            self.logger.critical(f'SupervisorListener.on_tick: {format_exc()}')
 
     def _on_tick_stats(self) -> None:
         """ Publish the host and process statistics collected since the latest tick. """
@@ -262,17 +257,11 @@ class SupervisorListener:
         The event is published to all Supvisors instances. """
         try:
             event_name = events.getEventNameByType(event.__class__)
-            process_config = event.process.config
-            namespec = make_namespec(event.process.group.config.name, process_config.name)
+            namespec = make_namespec(event.process.group.config.name, event.process.config.name)
             self.logger.debug(f'SupervisorListener.on_process_state: got {event_name} for {namespec}')
-            # set monotonic time depending on the process state
             process_state: ProcessStates = _process_states_by_name[event_name.split('_')[-1]]
-            if process_state == ProcessStates.STARTING:
-                self.supvisors.supervisor_data.update_start(namespec)
-            elif process_state in [ProcessStates.STOPPED, ProcessStates.BACKOFF, ProcessStates.EXITED]:
-                self.supvisors.supervisor_data.update_stop(namespec)
             # create payload from event
-            payload = {'name': process_config.name,
+            payload = {'name': event.process.config.name,
                        'group': event.process.group.config.name,
                        'state': process_state,
                        'now': time.time(),
@@ -280,13 +269,18 @@ class SupervisorListener:
                        'pid': event.process.pid,
                        'expected': event.expected,
                        'spawnerr': event.process.spawnerr,
-                       'extra_args': process_config.extra_args,
-                       'disabled': process_config.disabled}
+                       'extra_args': event.process.extra_args,
+                       'disabled': event.process.supvisors_config.program_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
             # update local Supvisors instance
             self.fsm.on_process_state_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
             self.publisher.send_process_state_event(payload)
+            # post-event actions: check obsolete processes and update internal monotonic times
+            if process_state == ProcessStates.STARTING:
+                self.supvisors.supervisor_data.update_start(namespec)
+            elif process_state in [ProcessStates.STOPPED, ProcessStates.BACKOFF, ProcessStates.EXITED]:
+                self.supvisors.supervisor_data.update_stop(namespec)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {format_exc()}')
@@ -377,7 +371,7 @@ class SupervisorListener:
         try:
             self.logger.debug(f'SupervisorListener.on_group_added: group={event.group}')
             # update Supervisor internal data for extra_args
-            self.supvisors.supervisor_data.update_internal_data(event.group)
+            self.supvisors.supervisor_updater.on_group_added(event.group)
             # inform all Supvisors instances that new processes have been added
             for process_name in self.supvisors.supervisor_data.get_group_processes(event.group):
                 namespec = make_namespec(event.group, process_name)

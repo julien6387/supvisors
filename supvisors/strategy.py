@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -370,6 +367,9 @@ class InfanticideStrategy(AbstractStrategy):
         """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
             # determine the process with higher uptime (the oldest)
+            for x in process.running_identifiers:
+                self.logger.info(f'InfanticideStrategy.conciliate: {process.namespec} at {x} uptime={process.info_map[x]["uptime"]}')
+
             saved_identifier = max(process.running_identifiers, key=lambda x: process.info_map[x]['uptime'])
             self.logger.warn(f'InfanticideStrategy.conciliate: keep {process.namespec} at {saved_identifier}')
             # stop other processes. work on copy as it may change during iteration

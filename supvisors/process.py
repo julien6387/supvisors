@@ -308,7 +308,7 @@ class ProcessStatus:
             force_state = instance_info['event_time'] <= event_time
         # apply forced state only if no event has been received since the forced state has been evaluated
         if force_state:
-            self.last_event_time = event_time
+            self.last_event_time = time.monotonic()
             self.forced_state = event['state']
             self.forced_reason = event['spawnerr']
             self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.displayed_state_string()}'
@@ -672,8 +672,8 @@ class ProcessStatus:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
 
         :param identifier: the identifier of the Supvisors instance from which the tick has been received.
-        :param remote_mtime: the TICK monotonic timestamp in the local Supvisors instance time reference.
-        :param remote_time: the TICK timestamp (seconds from Epoch) in the local Supvisors instance time reference.
+        :param remote_mtime: the TICK monotonic timestamp in the remote Supvisors instance time reference.
+        :param remote_time: the TICK timestamp (seconds from Epoch) in the remote Supvisors instance time reference.
         :return: None.
         """
         info = self.info_map.get(identifier)
@@ -755,8 +755,8 @@ class ProcessStatus:
                     self.state = ProcessStates.STOPPING
                     self.expected_exit = True
                 else:
-                    # for STOPPED_STATES, consider the most recent event time
-                    info = max(self.info_map.values(), key=lambda x: x['event_time'])
+                    # for STOPPED_STATES, consider the most recent event time in the local reference time
+                    info = max(self.info_map.values(), key=lambda x: x['local_time'])
                     self.state = info['state']
                     self.expected_exit = info['expected']
         # log the new status

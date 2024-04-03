@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -49,7 +46,7 @@ class SubscriberClient:
         self.identifier: Optional[str] = None
         # heartbeat part
         self.heartbeat_message: bytes = heartbeat_message
-        self.last_recv_heartbeat_time: float = time.time()
+        self.last_recv_heartbeat_time: float = time.monotonic()
         self.last_sent_heartbeat_time: float = 0.0
 
     def __str__(self) -> str:
@@ -70,20 +67,22 @@ class SubscriberClient:
                 self.logger.info(f'SubscriberClient.process_heartbeat: client {self.addr} identified'
                                  f' as {self.identifier}')
         # reset the clock everytime anything happens on the socket
-        self.last_recv_heartbeat_time = time.time()
+        self.logger.trace(f'SubscriberClient.process_heartbeat: heartbeat received from {self.identifier}')
+        self.last_recv_heartbeat_time = time.monotonic()
 
     async def manage_heartbeat(self) -> bool:
         """ Manages the periodic heartbeat emission and check its reception.
 
         :return: True if heartbeat messages are still received periodically.
         """
-        current_time: float = time.time()
+        current_time: float = time.monotonic()
         # check heartbeat emission
         if current_time - self.last_sent_heartbeat_time > HEARTBEAT_PERIOD:
             if not await write_stream(self.writer, self.heartbeat_message):
                 return False
             self.last_sent_heartbeat_time = current_time
-            self.logger.trace(f'SubscriberClient.manage_heartbeat: heartbeat emitted at {current_time} to {str(self)}')
+            self.logger.trace(f'SubscriberClient.manage_heartbeat: heartbeat emitted at {current_time}'
+                              f' to {str(self)}')
         # check heartbeat reception
         duration = current_time - self.last_recv_heartbeat_time
         if duration > HEARTBEAT_TIMEOUT:
@@ -190,10 +189,10 @@ class PublisherServer(threading.Thread):
             msg_as_bytes = await read_stream(reader)
             if msg_as_bytes is None:
                 self.logger.error('PublisherServer.handle_supvisors_client: failed to read the message'
-                                  f' from {self.identifier}')
+                                  f' from {str(client)}')
                 break
             elif not msg_as_bytes:
-                self.logger.trace(f'PublisherServer.handle_supvisors_client: nothing to read from {self.identifier}')
+                self.logger.trace(f'PublisherServer.handle_supvisors_client: nothing to read from {str(client)}')
             else:
                 # a heartbeat message has been received
                 client.process_heartbeat(msg_as_bytes)
@@ -285,18 +284,26 @@ class InternalAsyncSubscriber:
 
     def __init__(self, instance_id: SupvisorsInstanceId,
                  queue: asyncio.Queue, stop_event: asyncio.Event,
-                 logger: Logger):
+                 supvisors):
         """ Initialization of the attributes.
 
         :param instance_id: the identification structure of the publisher to connect.
         :param queue: the queue used to push the messages received.
         :param stop_event: the flag to stop the task.
-        :param logger: the Supvisors logger.
+        :param supvisors: the Supvisors structure.
         """
         self.instance_id: SupvisorsInstanceId = instance_id
         self.queue: asyncio.Queue = queue
         self.stop_event: asyncio.Event = stop_event
-        self.logger: Logger = logger
+        self.supvisors = supvisors
+        # heartbeat part
+        message = payload_to_bytes(InternalEventHeaders.HEARTBEAT, (self.supvisors.mapper.local_identifier,))
+        self.heartbeat_message: bytes = len(message).to_bytes(4, 'big') + message
+
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
 
     @property
     def identifier(self) -> str:
@@ -318,9 +325,7 @@ class InternalAsyncSubscriber:
 
         :return: None
         """
-        message = payload_to_bytes(InternalEventHeaders.HEARTBEAT, (self.identifier,))
-        buffer = len(message).to_bytes(4, 'big') + message
-        writer.write(buffer)
+        writer.write(self.heartbeat_message)
         await writer.drain()
 
     async def handle_subscriber(self):
@@ -335,11 +340,11 @@ class InternalAsyncSubscriber:
         # the publisher is connected
         self.logger.info(f'InternalAsyncSubscriber.handle_subscriber: {self.identifier} connected')
         peer_name = writer.get_extra_info('peername')
-        last_hb_recv: float = time.time()
+        last_hb_recv: float = time.monotonic()
         last_hb_sent: float = 0.0
         # loop until requested to stop, publisher closed or error happened
         while not self.stop_event.is_set() and not reader.at_eof():
-            current_time: float = time.time()
+            current_time: float = time.monotonic()
             # read the message
             msg_as_bytes = await read_stream(reader)
             if msg_as_bytes is None:
@@ -406,6 +411,11 @@ class InternalAsyncSubscribers:
         # create a stop event per subscriber to enable selective stop
         self.stop_events: Dict[str, asyncio.Event] = {}
 
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
+
     def get_coroutines(self) -> List:
         """ Return the subscriber tasks:
             - one per remote Supvisors instance to connect ;
@@ -416,6 +426,7 @@ class InternalAsyncSubscribers:
         identifiers = list(self.supvisors.mapper.instances.keys())
         # remove the local Supvisors instance from the list as it will receive events directly
         identifiers.remove(self.supvisors.mapper.local_identifier)
+        self.logger.debug(f'InternalAsyncSubscribers.get_coroutines: identifiers={identifiers}')
         # return the coroutines
         return [self.create_coroutine(identifier) for identifier in identifiers] + [self.check_stop()]
 
@@ -428,7 +439,7 @@ class InternalAsyncSubscribers:
         instance_id = self.supvisors.mapper.instances.get(identifier)
         if instance_id:
             self.stop_events[identifier] = stop_event = asyncio.Event()
-            subscriber = InternalAsyncSubscriber(instance_id, self.queue, stop_event, self.supvisors.logger)
+            subscriber = InternalAsyncSubscriber(instance_id, self.queue, stop_event, self.supvisors)
             return subscriber.auto_connect()
 
     async def check_stop(self):

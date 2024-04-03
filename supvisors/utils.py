@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -18,8 +15,9 @@
 # ======================================================================
 
 import re
+import time
+from datetime import timedelta
 from math import sqrt
-from time import gmtime, localtime, strftime, time
 from typing import Dict, List
 from urllib.parse import urlparse
 
@@ -38,15 +36,13 @@ ATSIGN = '@'
 def simple_localtime(now=None):
     """ Returns the local time as a string, without the date. """
     if now is None:
-        now = time()
-    return strftime("%H:%M:%S", localtime(now))
+        now = time.time()
+    return time.strftime("%H:%M:%S", time.localtime(now))
 
 
-def simple_gmtime(now=None):
-    """ Returns the UTC time as a string, without the date. """
-    if now is None:
-        now = time()
-    return strftime("%H:%M:%S", gmtime(now))
+def simple_duration(duration: float):
+    """ Returns the duration as days / hours / minutes / seconds. """
+    return str(timedelta(seconds=int(duration)))
 
 
 # Keys of information kept from Supervisor

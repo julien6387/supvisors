@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,7 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
-from time import time
+import time
 from typing import Any, Optional
 
 from supervisor.loggers import Logger
@@ -224,7 +221,7 @@ class InitializationState(AbstractState):
         # set all CHECKED Supvisors instances to RUNNING
         self.context.activate_checked()
         # get duration from start date
-        uptime: float = time() - self.context.start_date
+        uptime: float = time.monotonic() - self.context.start_date
         # cannot get out of this state without local Supvisors instance RUNNING
         running_identifiers = self.context.running_identifiers()
         if self.local_identifier in running_identifiers:

@@ -30,6 +30,7 @@ from .statemachine import FiniteStateMachine
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .strategy import RunningFailureHandler
 from .supervisordata import SupervisorData
+from .supervisorupdater import SupervisorUpdater
 from .ttypes import Payload
 
 
@@ -84,10 +85,11 @@ class Supvisors:
         # get options from config
         self.options = SupvisorsOptions(supervisor, self.logger, **config)
         # re-realize configuration to get process configuration not stored within Supervisor options
-        self.server_options = SupvisorsServerOptions(self.logger)
+        self.server_options = SupvisorsServerOptions(self)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor data wrapper
         self.supervisor_data = SupervisorData(self, supervisor)
+        self.supervisor_updater = SupervisorUpdater(self)
         # get declared Supvisors instances and check local identifier
         self.mapper = SupvisorsMapper(self)
         try:

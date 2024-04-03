@@ -68,7 +68,7 @@ class Context:
         :return: None
         """
         self.local_status.state_modes.master_identifier = ''
-        self.start_date = time.time()
+        self.start_date = time.monotonic()
         for status in self.instances.values():
             status.reset()
 
@@ -451,7 +451,7 @@ class Context:
         # Write the disabilities file when all local information is made available,
         # so that an example exists whatever enable / disable has been called or not
         if identifier == self.local_identifier:
-            self.supvisors.supervisor_data.write_disabilities(False)
+            self.supvisors.server_options.write_disabilities(False)
 
     # methods on events
     def on_instance_state_event(self, identifier: str, event: Payload) -> None:

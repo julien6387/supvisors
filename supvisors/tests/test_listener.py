@@ -88,7 +88,7 @@ def test_on_running(mocker, listener):
     """ Test the reception of a Supervisor RUNNING event. """
     ref_publisher = listener.publisher
     ref_main_loop = listener.main_loop
-    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_supervisor')
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_updater, 'on_supervisor_start')
     mocked_internal_com = mocker.patch('supvisors.listener.SupvisorsInternalEmitter')
     mocked_external_publisher = Mock()
     mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
@@ -160,7 +160,7 @@ def test_on_tick_exception(mocker, listener):
 def test_on_tick(mocker, discovery_listener):
     """ Test the reception of a Supervisor TICK event. """
     # create patches
-    mocker.patch('time.time', return_value=34.56)
+    mocker.patch('time.monotonic', return_value=34.56)
     mocked_tick = mocker.patch.object(discovery_listener.supvisors.context, 'on_local_tick_event')
     mocked_timer = discovery_listener.supvisors.fsm.on_timer_event
     mocked_stats = mocker.patch.object(discovery_listener, '_on_tick_stats')
@@ -169,7 +169,7 @@ def test_on_tick(mocker, discovery_listener):
     discovery_listener.on_tick(event)
     expected_tick = {'ip_address': discovery_listener.local_instance.host_name,
                      'server_port': discovery_listener.local_instance.http_port,
-                     'when': 34.56,
+                     'when': 120, 'when_monotonic': 34.56,
                      'sequence_counter': 0, 'stereotypes': ['supvisors_test']}
     assert mocked_tick.call_args_list == [call(expected_tick)]
     assert mocked_timer.call_args_list == [call(expected_tick)]
@@ -230,8 +230,8 @@ def test_on_process_state(mocker, listener):
     # test process event
     process = Mock(pid=1234, spawnerr='resource not available', backoff=2,
                    **{'config.name': 'dummy_process',
-                      'config.extra_args': '-s test',
-                      'config.disabled': True,
+                      'extra_args': '-s test',
+                      'supvisors_config.program_config.disabled': True,
                       'group.config.name': 'dummy_group'})
     test_cases = [(ProcessStates.STOPPED, ProcessStateStoppedEvent, False, True),
                   (ProcessStates.STARTING, ProcessStateStartingEvent, True, False),
@@ -247,7 +247,7 @@ def test_on_process_state(mocker, listener):
         expected = {'name': 'dummy_process', 'group': 'dummy_group',
                     'state': event_code,
                     'extra_args': '-s test',
-                    'now': 77,
+                    'now': 77, 'now_monotonic': 23.9,
                     'pid': 1234, 'disabled': True,
                     'expected': True, 'spawnerr': 'resource not available'}
         assert mocked_fsm.call_args_list == [call(listener.local_identifier, expected)]
@@ -369,7 +369,7 @@ def test_on_group_added_exception(listener):
 def test_on_group_added(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
     mocked_fsm = listener.supvisors.fsm.on_process_added_event
-    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_data, 'update_internal_data')
+    mocked_prepare = mocker.patch.object(listener.supvisors.supervisor_updater, 'on_group_added')
     mocked_processes = mocker.patch.object(listener.supvisors.supervisor_data, 'get_group_processes',
                                            return_value={'dummy_proc': Mock()})
     mocked_local = mocker.patch.object(listener, '_get_local_process_info', return_value={'namespec': 'dummy_proc'})
@@ -712,6 +712,7 @@ def test_on_remote_event(mocker, listener):
 
 def test_force_process_state(mocker, listener):
     """ Test the sending of a fake Supervisor process event. """
+    mocker.patch('time.time', return_value=45.6)
     # patch publisher
     mocked_fsm = mocker.patch.object(listener.supvisors.fsm, 'on_process_state_event')
     mocked_pub = mocker.patch.object(listener.supvisors.internal_com.publisher, 'send_process_state_event')
@@ -720,7 +721,7 @@ def test_force_process_state(mocker, listener):
     listener.force_process_state(process, '10.0.0.1', 56, ProcessStates.FATAL, 'bad luck')
     expected = {'name': 'process', 'group': 'appli', 'state': ProcessStates.FATAL, 'identifier': '10.0.0.1',
                 'forced': True, 'extra_args': '-h',
-                'now': 56,
+                'now': 45.6, 'now_monotonic': 56,
                 'pid': 0, 'expected': False,
                 'spawnerr': 'bad luck'}
     assert mocked_fsm.call_args_list == [call(listener.local_identifier, expected)]

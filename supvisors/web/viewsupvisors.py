@@ -19,7 +19,7 @@ from typing import Dict, List
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions
-from supvisors.utils import simple_gmtime, simple_localtime
+from supvisors.utils import simple_duration, simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -275,7 +275,7 @@ class SupvisorsView(ViewHandler):
     def _write_conflict_uptime(tr_elt, info):
         """ In a conflicts table, write the uptime of the process in conflict. """
         elt = tr_elt.findmeld('uptime_td_mid')
-        elt.content(simple_gmtime(info['uptime']))
+        elt.content(simple_duration(info['uptime']))
 
     def _write_conflict_process_actions(self, tr_elt, info):
         """ In a conflicts table, write the actions that can be requested on the process in conflict. """
