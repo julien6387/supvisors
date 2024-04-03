@@ -1109,14 +1109,14 @@ def test_update_status(supvisors):
     info = any_process_info_by_state(ProcessStates.FATAL)
     process = create_process(info, supvisors)
     process.add_info('10.0.0.3', info)
-    process.info_map['10.0.0.3']['event_time'] = 10
+    process.info_map['10.0.0.3']['local_time'] = 10
     assert process.running_identifiers == set()
     assert process.state == ProcessStates.FATAL
     assert not process.expected_exit
     # add a STOPPED process info
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process.add_info('10.0.0.1', info)
-    process.info_map['10.0.0.1']['event_time'] = 5
+    process.info_map['10.0.0.1']['local_time'] = 5
     process.update_status('10.0.0.1', ProcessStates.STOPPED)
     assert process.running_identifiers == set()
     assert process.state == ProcessStates.FATAL  # FATAL info above is more recent
@@ -1124,7 +1124,7 @@ def test_update_status(supvisors):
     # replace with an EXITED process info
     info = any_process_info_by_state(ProcessStates.EXITED)
     process.update_info('10.0.0.3', info)
-    process.info_map['10.0.0.3']['event_time'] = 15
+    process.info_map['10.0.0.3']['local_time'] = 15
     process.update_status('10.0.0.3', ProcessStates.EXITED)
     assert process.running_identifiers == set()
     assert process.state == ProcessStates.EXITED
@@ -1132,7 +1132,7 @@ def test_update_status(supvisors):
     # add a STARTING process info
     info = any_process_info_by_state(ProcessStates.STARTING)
     process.add_info('10.0.0.2', info)
-    process.info_map['10.0.0.2']['event_time'] = 20
+    process.info_map['10.0.0.2']['local_time'] = 20
     process.update_status('10.0.0.2', ProcessStates.STARTING)
     assert process.running_identifiers == {'10.0.0.2'}
     assert process.state == ProcessStates.STARTING
@@ -1140,7 +1140,7 @@ def test_update_status(supvisors):
     # replace a BACKOFF process info
     info = any_process_info_by_state(ProcessStates.BACKOFF)
     process.update_info('10.0.0.3', info)
-    process.info_map['10.0.0.3']['event_time'] = 20
+    process.info_map['10.0.0.3']['local_time'] = 20
     process.update_status('10.0.0.3', ProcessStates.BACKOFF)
     assert process.running_identifiers == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.BACKOFF
@@ -1148,7 +1148,7 @@ def test_update_status(supvisors):
     # replace STARTING process info with RUNNING
     info = any_process_info_by_state(ProcessStates.RUNNING)
     process.update_info('10.0.0.2', info)
-    process.info_map['10.0.0.2']['event_time'] = 25
+    process.info_map['10.0.0.2']['local_time'] = 25
     process.update_status('10.0.0.2', ProcessStates.RUNNING)
     assert process.running_identifiers == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
@@ -1156,7 +1156,7 @@ def test_update_status(supvisors):
     # replace BACKOFF process info with FATAL
     info = any_process_info_by_state(ProcessStates.FATAL)
     process.update_info('10.0.0.3', info)
-    process.info_map['10.0.0.3']['event_time'] = 25
+    process.info_map['10.0.0.3']['local_time'] = 25
     process.update_status('10.0.0.3', ProcessStates.FATAL)
     assert process.running_identifiers == {'10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
@@ -1165,7 +1165,7 @@ def test_update_status(supvisors):
     # in ProcessInfoDatabase, EXITED processes have a stop date later than STOPPED processes
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process.update_info('10.0.0.2', info)
-    process.info_map['10.0.0.2']['event_time'] = 30
+    process.info_map['10.0.0.2']['local_time'] = 30
     process.update_status('10.0.0.2', ProcessStates.STOPPED)
     assert not process.running_identifiers
     assert process.state == ProcessStates.STOPPED
