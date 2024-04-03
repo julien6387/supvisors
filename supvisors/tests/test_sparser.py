@@ -285,7 +285,7 @@ def lxml_import():
     return pytest.importorskip('lxml')
 
 
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="ast.Str is replaced by ast.Constant from Python 3.8")
 def test_valid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
     mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
