@@ -173,25 +173,26 @@ Status
             'application_name'          ``str``         The Application name.
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
-            'distribution'              ``str``         The distribution rule of the application,
+            'distribution'              ``str``         The distribution rule of the Application,
                                                         in [``'ALL_INSTANCES'``, ``'SINGLE_INSTANCE'``,
                                                         ``'SINGLE_NODE'``].
             'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
-                                                        non-fully distributed application processes can be started,
+                                                        non-fully distributed Application processes can be started,
                                                         provided only if ``distribution`` is not ``ALL_INSTANCES``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
                                                         in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications,
                                                         in [0;127].
-            'starting_strategy'         ``str``         The strategy applied when starting application automatically,
+            'starting_strategy'         ``str``         The strategy applied when starting Application automatically,
                                                         in [``'CONFIG'``, ``'LESS_LOADED'``, ``'MOST_LOADED'``,
                                                         ``'LOCAL'``, ``'LESS_LOADED_NODE'``, ``'MOST_LOADED_NODE'``].
             'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting
-                                                        application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
+                                                        Application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
             'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running
-                                                        application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
+                                                        Application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
                                                         ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``,
                                                         ``'SHUTDOWN'``, ``'RESTART'``].
+            'status_formula'            ``str``         The ``operational_status`` formula set in the Application rule.
             =========================== =============== ===========
 
         .. automethod:: get_process_rules(namespec)
