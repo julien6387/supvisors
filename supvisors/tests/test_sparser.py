@@ -311,7 +311,7 @@ def test_valid_lxml_deprecated(mocker, lxml_import, supvisors):
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    status_tree = "BoolOp(op=And(), values=[Str(value='.*B1'), Str(value='dummy_program_B2')])"
+    status_tree = "BoolOp(op=And(), values=[Str(s='.*B1'), Str(s='dummy_program_B2')])"
     assert ast.dump(rules.status_tree) == status_tree
 
 
@@ -365,7 +365,7 @@ def test_valid_element_tree_deprecated(mocker, supvisors, lxml_fail_import):
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    status_tree = "BoolOp(op=And(), values=[Str(value='.*B1'), Str(value='dummy_program_B2')])"
+    status_tree = "BoolOp(op=And(), values=[Str(s='.*B1'), Str(s='dummy_program_B2')])"
     assert ast.dump(rules.status_tree) == status_tree
 
 
