@@ -31,6 +31,11 @@
     --stable-color: dodgerblue;
     --error-color: #ff3333;
     --blink-color: orangered;
+    --navbg-color: #1a1a1a;
+    --stopped-color: #b3b300;
+    --running-color: green;
+    --fatal-color: red;
+    --crash-color: orange;
 }
 
 
@@ -68,14 +73,6 @@ body {
 #left_side header, #left_side header a {
    text-align: center;
    color: var(--title-color);
-}
-
-nav {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-    color: var(--text-color);
 }
 
 #instance_list div, #application_list div {
@@ -273,7 +270,7 @@ nav {
 /*
  * Resource design
 */
-header, nav, footer {
+header, footer {
     padding: 5px;
 }
 
@@ -322,11 +319,8 @@ h3 code {
     background: var(--vlight1-color);
 }
 
-nav ul, p {
-    font-size: .8em;
-}
-
 p {
+    font-size: .8em;
     margin-top: 0.1em;
     margin-bottom: 0;
 }
@@ -423,17 +417,17 @@ ul.vertical li {
 }
 
 .empty {
-    background-image: linear-gradient(165deg, silver, #1a1a1a);
+    background-image: linear-gradient(165deg, silver, var(--navbg-color));
     border: 1px grey inset;
 }
 
 .invInfo {
-    background-image: linear-gradient(165deg, #1a1a1a, dodgerblue);
+    background-image: linear-gradient(165deg, var(--navbg-color), dodgerblue);
     border: 1px blue inset;
 }
 
 .info {
-    background-image: linear-gradient(165deg, dodgerblue, #1a1a1a);
+    background-image: linear-gradient(165deg, dodgerblue, var(--navbg-color));
     border: 1px blue inset;
 }
 
@@ -443,7 +437,7 @@ ul.vertical li {
 }
 
 .warn {
-    background-image: linear-gradient(165deg, #f90, #1a1a1a);
+    background-image: linear-gradient(165deg, #f90, var(--navbg-color));
     border: 1px orange inset;
 }
 
@@ -453,7 +447,7 @@ ul.vertical li {
 }
 
 .erro {
-    background-image: linear-gradient(165deg, orangered, #1a1a1a);
+    background-image: linear-gradient(165deg, orangered, var(--navbg-color));
     border: 1px red inset;
 }
 
@@ -577,102 +571,43 @@ table .desc {
  * State gradients
  */
 table .CHECKING {
-    background-image: linear-gradient(165deg, white, grey, green, white);
+    background-image: linear-gradient(165deg, white, grey, var(--running-color), white);
     color: black;
 }
 
 table .STOPPED, table .EXITED, table .SILENT {
-    background-image: linear-gradient(165deg, white, #cc0, #cc0, white);
+    background-image: linear-gradient(165deg, white, var(--stopped-color), var(--stopped-color), white);
     color: black;
 }
 
 table .STARTING, table .BACKOFF {
-    background-image: linear-gradient(165deg, white, #cc0, green, white);
+    background-image: linear-gradient(165deg, white, var(--stopped-color), var(--running-color), white);
     color: black;
 }
 
 table .STOPPING {
-    background-image: linear-gradient(165deg, white, green, #cc0, white);
+    background-image: linear-gradient(165deg, white, var(--running-color), var(--stopped-color), white);
     color: black;
 }
 
 table .RUNNING, table .CHECKED {
-    background-image: linear-gradient(165deg, white, green, green, white);
+    background-image: linear-gradient(165deg, white, var(--running-color), var(--running-color), white);
     color: black;
 }
 
 table .RUNNING.crashed, table .CHECKED.crashed {
-    background-image: linear-gradient(165deg, orange, green, green, orange);
+    background-image: linear-gradient(165deg, var(--crash-color), var(--running-color), var(--running-color), var(--crash-color));
     color: black;
 }
 
 table .FATAL, table .ISOLATED {
-    background-image: linear-gradient(165deg, white, red, red, white);
+    background-image: linear-gradient(165deg, white, var(--fatal-color), var(--fatal-color), white);
     color: black;
 }
 
 table .UNKNOWN, table .disabled {
     background-image: linear-gradient(165deg, white, grey, grey, white);
     color: black;
-}
-
-nav .UNKNOWN {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey);
-}
-
-nav .UNKNOWN.active {
-    background-image: linear-gradient(165deg, grey, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .CHECKING {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey 80%, green);
-}
-
-nav .CHECKING.active {
-    background-image: linear-gradient(165deg, green, grey 20%, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .STOPPED, nav .SILENT {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0);
-}
-
-nav .STOPPED.active {
-    background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .RUNNING, nav .CHECKED {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
-}
-
-nav .RUNNING.active, nav .CHECKED.active {
-    background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .ISOLATED {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, red);
-}
-
-nav .STARTING {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, green);
-}
-
-nav .STARTING.active {
-    background-image: linear-gradient(165deg, green, #cc0 20%, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .STOPPING {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green 80%, #cc0);
-}
-
-nav li.STOPPING.active {
-    background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
-}
-
-nav li.failure::after {
-    content: url(../img/red_light_30.png);
-    float: right;
-    position: relative;
-    top: -30px;
 }
 
 h1 a.failure::after {

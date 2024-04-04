@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -162,7 +159,7 @@ class ApplicationView(ViewHandler):
                          'namespec': namespec, 'identifier': node_name,
                          'disabled': process.disabled(), 'startable': len(process.possible_identifiers()) > 0,
                          'statename': process.displayed_state_string(), 'statecode': process.displayed_state,
-                         'gravity': 'FATAL' if unexpected_exit else process.state_string(),
+                         'gravity': 'FATAL' if unexpected_exit else process.displayed_state_string(),
                          'has_crashed': process.has_crashed(),
                          'running_identifiers': list(process.running_identifiers),
                          'description': description,
