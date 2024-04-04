@@ -111,5 +111,6 @@ nav li.failure::after {
     content: url(../img/red_light_30.png);
     float: right;
     position: relative;
-    top: -30px;
+    top: -29px;
+    right: -5px;
 }

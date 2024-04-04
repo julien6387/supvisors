@@ -131,10 +131,11 @@ class ViewHandler(MeldView):
         self.write_nav_instances(root, identifier)
         self.write_nav_applications(root, appli)
 
-    def write_nav_instances(self, root, identifier):
+    def write_nav_instances(self, root, identifier: str) -> None:
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('instance_li_mid')
         identifiers = list(self.supvisors.mapper.instances.keys())
+        any_failure = False
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
         # so let's sort them by name
         if self.supvisors.options.discovery_mode:
@@ -145,10 +146,14 @@ class ViewHandler(MeldView):
             except KeyError:
                 self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:
+                failure = status.has_error()
+                any_failure |= failure
                 # set element class
                 update_attrib(li_elt, 'class', status.state.name)
                 if item == identifier:
                     update_attrib(li_elt, 'class', 'active')
+                if failure:
+                    update_attrib(li_elt, 'class', 'failure')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('instance_a_mid')
                 if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
@@ -161,10 +166,14 @@ class ViewHandler(MeldView):
                 else:
                     update_attrib(elt, 'class', 'off')
                 # set content
-                identifier = item
+                displayed_item = item
                 if item == self.sup_ctx.master_identifier:
-                    identifier = f'{MASTER_SYMBOL} {item}'
-                elt.content(identifier)
+                    displayed_item = f'{MASTER_SYMBOL} {item}'
+                elt.content(displayed_item)
+        # warn at title level if any application has a failure
+        if any_failure:
+            elt = root.findmeld('instance_h_mid')
+            update_attrib(elt, 'class', 'failure')
 
     def write_nav_applications(self, root, appli):
         """ Write the application part of the navigation menu. """
@@ -199,7 +208,8 @@ class ViewHandler(MeldView):
             elt.content(item.application_name)
         # warn at title level if any application has a failure
         if any_failure:
-            update_attrib(root.findmeld('appli_h_mid'), 'class', 'failure')
+            elt = root.findmeld('appli_h_mid')
+            update_attrib(elt, 'class', 'failure')
 
     def write_header(self, root):
         """ Write the header part of the page.

@@ -23,7 +23,11 @@
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 
-* Re-apply the eventual process `extra_args` when restarting the application.  
+* Re-apply the eventual process `extra_args` when restarting the application.
+
+* In the Supervisors navigation menu of the Web UI, add a red light to Supervisor instances having raised a failure.
+
+* Rework the navigation menu of the Web UI.
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 
@@ -534,7 +538,7 @@
 * In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned
   by a Supervisor group.
 
-* In the application navigation menu of the Web UI, add a red light near the Applications title if any application
+* In the Applications navigation menu of the Web UI, add a red light near the Applications title if any application
   has raised a failure.
 
 * In the Application page of the Web UI, default starting strategy is the starting strategy defined
@@ -566,7 +570,7 @@
 
 * Enable stop sequence on *Unmanaged* applications.
 
-* In the application navigation menu of the Web UI, add a red light to applications having raised a failure.
+* In the Applications navigation menu of the Web UI, add a red light to applications having raised a failure.
 
 * New application rules `distributed` and `addresses` added to the **Supvisors** rules file.
   Non-distributed applications have all their processes started on the same node chosen in accordance with the
