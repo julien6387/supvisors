@@ -35,7 +35,6 @@ class ProcessCommand:
 
     Attributes are:
         - process: the process wrapped ;
-        - logger: a reference to the Supvisors logger ;
         - identifier: the identifier of Supvisors instance where the request has been sent ;
         - instance_status: the status of the corresponding Supvisors instance ;
         - request_sequence_counter: the sequence_counter of the Supvisors instance when the request has been performed ;
@@ -51,8 +50,7 @@ class ProcessCommand:
 
         :param process: the ProcessStatus of the process to command
         """
-        self.process = process
-        self.logger: Logger = process.logger
+        self.process: ProcessStatus = process
         self.identifier: Optional[str] = None
         self.instance_status: Optional[SupvisorsInstanceStatus] = None
         self.request_sequence_counter: int = 0
@@ -65,13 +63,20 @@ class ProcessCommand:
                                  len(process.supvisors.context.valid_instances()) // 10)
         self._wait_ticks: int = self.minimum_ticks
 
+    @property
+    def logger(self) -> Logger:
+        """ Return the Supvisors logger. """
+        return self.process.logger
+
     def __str__(self) -> str:
         """ Get the process command as string.
 
         :return: the printable process command
         """
-        return (f'process={self.process.namespec} state={self.process.state_string()} identifier={self.identifier}'
-                f' request_sequence_counter={self.request_sequence_counter} wait_ticks={self.wait_ticks}')
+        return (f'process={self.process.namespec} state={self.process.state_string()}'
+                f' identifier={self.identifier}'
+                f' request_sequence_counter={self.request_sequence_counter}'
+                f' wait_ticks={self.wait_ticks}')
 
     def __repr__(self) -> str:
         """ Get the process command as string.
@@ -157,7 +162,12 @@ class ProcessStartCommand(ProcessCommand):
         # the following attributes are only for Starter
         self.strategy: StartingStrategies = strategy
         self.ignore_wait_exit: bool = False
-        self.extra_args: str = ''
+        # NOTE: Getting process extra_args here may seem pointless because either the process is started
+        #       by a start process command that will reset or override the extra_args, or the process is started
+        #       through a start application command where it is not possible to pass extra_args.
+        #       However, there is a use case when the process is alone in the application, started by a process command
+        #       with extra args, and a restart application is called. In this case, it makes sense to re-apply the args.
+        self.extra_args: str = process.extra_args
 
     def __str__(self) -> str:
         """ Get the process command as string.
@@ -1073,7 +1083,7 @@ class Starter(Commander):
         :param trigger: a status telling if the jobs have to be triggered directly or not.
         :return: None
         """
-        self.logger.debug(f'Starter.start_application: application={application.application_name}')
+        self.logger.debug(f'Starter.start_application: {application.application_name}')
         # push program list in job list and start work
         if application.stopped():
             self.store_application(application, strategy)
@@ -1082,8 +1092,7 @@ class Starter(Commander):
             if trigger:
                 self.next()
         else:
-            self.logger.warn(f'Starter.start_application: application {application.application_name}'
-                             ' already started')
+            self.logger.warn(f'Starter.start_application: {application.application_name} already started')
 
     def store_application(self, application: ApplicationStatus, strategy: StartingStrategies = None) -> bool:
         """ Copy the start sequence considering programs that are meant to be started automatically,
@@ -1130,11 +1139,11 @@ class Starter(Commander):
                       trigger: bool = True) -> None:
         """ Plan and start the necessary job to start the process in parameter, with the strategy requested.
 
-        :param strategy: the strategy to be used to start the process
-        :param process: the process to start
-        :param extra_args: the arguments to be added to the command line
-        :param trigger: a status telling if the jobs have to be triggered directly or not
-        :return: None
+        :param strategy: the strategy to be used to start the process.
+        :param process: the process to start.
+        :param extra_args: the arguments to be added to the command line.
+        :param trigger: a status telling if the jobs have to be triggered directly or not.
+        :return: None.
         """
         if process.stopped():
             self.logger.info(f'Starter.start_process: start {process.namespec} using strategy {strategy.name}')
@@ -1262,8 +1271,8 @@ class Stopper(Commander):
             # trigger stop
             self.stop_application(application, trigger)
         else:
-            self.logger.debug(f'Stopper.restart_application: application={application.application_name} already stopped'
-                              ' so start it directly')
+            self.logger.debug(f'Stopper.restart_application: application={application.application_name}'
+                              ' already stopped so start it directly')
             self.supvisors.starter.start_application(strategy, application, trigger)
 
     def stop_process(self, process: ProcessStatus, identifiers: NameList = None, trigger: bool = True) -> None:

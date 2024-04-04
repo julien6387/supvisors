@@ -193,9 +193,7 @@ class SupvisorsMapper:
 
         :param supvisors: the global Supvisors structure
         """
-        # keep reference of common logger
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
         # init attributes
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
         self._nodes: Dict[str, NameList] = {}
@@ -203,6 +201,11 @@ class SupvisorsMapper:
         self.local_identifier: Optional[str] = None
         self.initial_identifiers: NameList = []
         self.stereotypes: Dict[str, NameList] = {}
+
+    @property
+    def logger(self) -> Logger:
+        """ Return the Supvisors logger. """
+        return self.supvisors.logger
 
     @property
     def local_instance(self) -> SupvisorsInstanceId:

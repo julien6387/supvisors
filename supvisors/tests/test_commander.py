@@ -111,8 +111,9 @@ def start_command(supvisors):
     """ Create a ProcessStartCommand instance. """
     info = process_info_by_name('xclock')
     info['startsecs'] = 18
-    process = create_process(info, supvisors)
+    process: ProcessStatus = create_process(info, supvisors)
     process.add_info('10.0.0.1', info)
+    process.extra_args = '--help'
     return ProcessStartCommand(process, StartingStrategies.MOST_LOADED)
 
 
@@ -126,7 +127,7 @@ def test_start_command_create(start_command):
     assert start_command._wait_ticks == ProcessCommand.DEFAULT_TICK_TIMEOUT
     assert start_command.strategy == StartingStrategies.MOST_LOADED
     assert not start_command.ignore_wait_exit
-    assert start_command.extra_args == ''
+    assert start_command.extra_args == '--help'
 
 
 def test_start_command_str(start_command):

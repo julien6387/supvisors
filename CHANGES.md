@@ -23,6 +23,8 @@
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 
+* Re-apply the eventual process `extra_args` when restarting the application.  
+
 * Rework **Supvisors** `RPCInterface` exceptions.
 
 
