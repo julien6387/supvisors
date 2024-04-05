@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
 #
@@ -166,7 +163,12 @@ class RequestAsyncPuller:
         self.puller_sock: socket = supvisors.internal_com.puller_sock
         self.queue: asyncio.Queue = queue
         self.stop_event: asyncio.Event = stop_event
-        self.logger: Logger = supvisors.logger
+        self.supvisors = supvisors
+
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
 
     async def handle_puller(self):
         """ The main coroutine in charge of receiving messages from the RequestPusher. """

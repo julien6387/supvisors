@@ -1,5 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -37,7 +35,7 @@ def publisher(supvisors):
     local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
     emitter = InternalPublisher(local_instance.identifier,
                                 local_instance.internal_port,
-                                supvisors.logger)
+                                supvisors)
     emitter.start()
     yield emitter
     emitter.close()
@@ -271,8 +269,8 @@ def test_publisher_bind_exception(supvisors):
     """
     local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
     # create 2 publisher servers
-    server1 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)
-    server2 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors.logger)
+    server1 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors)
+    server2 = PublisherServer(local_instance.identifier, local_instance.internal_port, supvisors)
     try:
         # wait for the first publisher server to be alive
         server1.start()

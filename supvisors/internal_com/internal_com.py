@@ -82,7 +82,7 @@ class SupvisorsInternalEmitter:
     def _create_publisher(self) -> InternalPublisher:
         """ Start the Publisher thread. """
         local_instance: SupvisorsInstanceId = self.supvisors.mapper.local_instance
-        publisher = InternalPublisher(local_instance.identifier, local_instance.internal_port, self.supvisors.logger)
+        publisher = InternalPublisher(local_instance.identifier, local_instance.internal_port, self.supvisors)
         publisher.start()
         return publisher
 

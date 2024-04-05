@@ -38,16 +38,21 @@ HEARTBEAT_TIMEOUT = 10
 class SubscriberClient:
     """ Simple structure for a connected TCP client. """
 
-    def __init__(self, writer: asyncio.StreamWriter, heartbeat_message: bytes, logger: Logger):
+    def __init__(self, writer: asyncio.StreamWriter, heartbeat_message: bytes, supvisors):
         """ Store attributes and configure the socket. """
+        self.supvisors = supvisors
         self.writer: asyncio.StreamWriter = writer
-        self.logger: Logger = logger
         self.addr: Ipv4Address = writer.get_extra_info('peername')
         self.identifier: Optional[str] = None
         # heartbeat part
         self.heartbeat_message: bytes = heartbeat_message
         self.last_recv_heartbeat_time: float = time.monotonic()
         self.last_sent_heartbeat_time: float = 0.0
+
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
 
     def __str__(self) -> str:
         """ ID shortcut for logs. """
@@ -97,12 +102,12 @@ class PublisherServer(threading.Thread):
     It creates the server side of the TCP connection.
     A heartbeat is added both ways for robustness. """
 
-    def __init__(self, identifier: str, port: int, logger: Logger):
+    def __init__(self, identifier: str, port: int, supvisors):
         """ Configure the TCP server socket.
         The Publisher publishes the internal events to multiple clients. """
         super().__init__(daemon=True)
         self.identifier = identifier
-        self.logger: Logger = logger
+        self.supvisors = supvisors
         # publication FIFO using UNIX sockets
         self.put_sock, self.get_sock = socketpair()
         # the TCP server port and instance
@@ -115,6 +120,11 @@ class PublisherServer(threading.Thread):
         self.stop_event: Optional[asyncio.Event] = None
         # common heartbeat message
         self.heartbeat_message = payload_to_bytes(InternalEventHeaders.HEARTBEAT, (self.identifier, {}))
+
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
 
     def stop(self) -> None:
         """ The stop method is meant to be called from outside the async loop.
@@ -180,7 +190,7 @@ class PublisherServer(threading.Thread):
     async def handle_supvisors_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """ Manage the Subscriber TCP client connection. """
         # push writer to clients list
-        client = SubscriberClient(writer, self.heartbeat_message, self.logger)
+        client = SubscriberClient(writer, self.heartbeat_message, self.supvisors)
         self.logger.info(f'PublisherServer.handle_supvisors_client: new client={str(client)}')
         self.clients.append(client)
         # loop until subscriber closed or stop event set
@@ -191,7 +201,7 @@ class PublisherServer(threading.Thread):
                 self.logger.error('PublisherServer.handle_supvisors_client: failed to read the message'
                                   f' from {str(client)}')
                 break
-            elif not msg_as_bytes:
+            if not msg_as_bytes:
                 self.logger.trace(f'PublisherServer.handle_supvisors_client: nothing to read from {str(client)}')
             else:
                 # a heartbeat message has been received
