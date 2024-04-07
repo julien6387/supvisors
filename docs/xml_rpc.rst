@@ -281,6 +281,8 @@ Application Control
 
         .. automethod:: restart_application(strategy, application_name, wait=True)
 
+        .. automethod:: test_start_application(strategy, application_name)
+
 
 .. _xml_rpc_process:
 
@@ -299,6 +301,8 @@ Process Control
         .. automethod:: stop_process(namespec, wait=True)
 
         .. automethod:: restart_process(strategy, namespec, extra_args='', wait=True)
+
+        .. automethod:: test_start_process(strategy, namespec)
 
         .. automethod:: update_numprocs(program_name, numprocs, wait=True)
 

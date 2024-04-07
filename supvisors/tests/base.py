@@ -62,13 +62,14 @@ class MockedSupvisors:
         # build context from node mapper
         self.context = Context(self)
         # mock by spec
-        from supvisors.commander import Starter, Stopper
+        from supvisors.commander import Starter, Stopper, StarterModel
         from supvisors.strategy import RunningFailureHandler
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.listener import SupervisorListener
         from supvisors.sparser import Parser
         from supvisors.internal_com import SupvisorsInternalEmitter
         self.starter = Mock(spec=Starter)
+        self.starter_model = Mock(spec=StarterModel)
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
         self.fsm = Mock(spec=FiniteStateMachine, redeploy_mark=False)

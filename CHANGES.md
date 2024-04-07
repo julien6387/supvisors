@@ -13,6 +13,11 @@
   application operational status.
   `status_formula` is added to the result of the XML-RPC `get_application_rules`.
 
+* Implement [Issue #15](https://github.com/julien6387/supvisors/issues/15).
+  A `StarterModel` has been added to **Supvisors** to give a prediction of the application distribution when started.
+  The command is available through the new XML-RPCs `test_start_application` and `test_start_process` and have been
+  added to `supervisorctl`.
+
 * Add a new XML-RPC `lazy_update_numprocs`, whose behaviour differ from `update_numprocs` in a way that the obsolete
   processes will be deleted from the Supervisor configuration when they are stopped (exit, crash or later user request)
   instead of being forced to stop immediately when requesting the numprocs to decrease.

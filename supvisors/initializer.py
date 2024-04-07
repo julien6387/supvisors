@@ -21,7 +21,7 @@ from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 
 from supvisors.internal_com.mapper import SupvisorsMapper
-from .commander import Starter, Stopper
+from .commander import Starter, Stopper, StarterModel
 from .context import Context
 from .listener import SupervisorListener
 from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic, get_logger_configuration
@@ -114,6 +114,8 @@ class Supvisors:
         # create application starter and stopper
         self.starter = Starter(self)
         self.stopper = Stopper(self)
+        # create application starter model
+        self.starter_model = StarterModel(self)
         # create the failure handler of crashing processes
         # WARN: must be created before the state machine
         self.failure_handler = RunningFailureHandler(self)

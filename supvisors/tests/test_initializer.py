@@ -45,6 +45,7 @@ def test_creation(mocker):
     assert isinstance(supv.stats_collector, StatisticsCollectorProcess)
     assert isinstance(supv.context, Context)
     assert isinstance(supv.starter, Starter)
+    assert isinstance(supv.starter_model, StarterModel)
     assert isinstance(supv.stopper, Stopper)
     assert isinstance(supv.host_compiler, HostStatisticsCompiler)
     assert isinstance(supv.process_compiler, ProcStatisticsCompiler)

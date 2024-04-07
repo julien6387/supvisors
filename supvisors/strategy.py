@@ -291,7 +291,7 @@ def create_strategy(supvisors: Any, strategy: StartingStrategies) -> AbstractSta
 
 
 def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identifiers: NameList,
-                           expected_load: int) -> Optional[str]:
+                           expected_load: int, load_request_map: LoadMap) -> Optional[str]:
     """ Creates a strategy and let it find a Supvisors instance to start a process having a defined load.
 
     :param supvisors: the global Supvisors structure
@@ -307,9 +307,7 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
         return None
     # create the relevant strategy to choose a Supvisors instance among the candidates
     instance = create_strategy(supvisors, strategy)
-    # consider all pending starting requests into global load
-    load_request_map = supvisors.starter.get_load_requests()
-    supvisors.logger.debug(f'get_supvisors_instance: load_request_map={load_request_map}')
+    # sort the load_request_map per node
     node_load_request_map = get_node_load_request_map(supvisors.mapper, load_request_map)
     supvisors.logger.debug(f'get_supvisors_instance: node_load_request_map={node_load_request_map}')
     # get nodes load

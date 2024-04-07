@@ -334,6 +334,35 @@ class RPCInterface:
             return onwait  # deferred
         return in_progress
 
+    def test_start_application(self, strategy: EnumParameterType, application_name: str) -> PayloadList:
+        """ Return a distribution prediction for a start of the *Managed* application named ``application_name``
+        iaw the strategy and the rules file.
+
+        :param StartingStrategies strategy: the strategy used to choose a **Supvisors** instance,
+            as a string or as a value.
+        :param str application_name: the name of the application.
+        :return: a list of structures with the predicted distribution of the application processes.
+        :rtype: list[dict[str, Any]]
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
+            ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors** ;
+            ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors** ;
+            ``Faults.ALREADY_STARTED`` if the application is ``STARTING``, ``STOPPING`` or ``RUNNING``.
+        """
+        self.logger.trace(f'RPCInterface.test_start_application: strategy={strategy} application={application_name}')
+        self._check_operating()
+        strategy_enum = self._get_starting_strategy(strategy)
+        # check application name
+        application = self._get_application(application_name)
+        # check application is managed
+        if application_name not in self.supvisors.context.get_managed_applications():
+            self._raise(SupvisorsFaults.NOT_MANAGED.value, 'test_start_application', application_name)
+        # check application is not already RUNNING
+        if application.state != ApplicationStates.STOPPED:
+            self._raise(Faults.ALREADY_STARTED, 'test_start_application', application_name)
+        return self.supvisors.starter_model.test_start_application(strategy_enum, application)
+
     def stop_application(self, application_name: str, wait: bool = True) -> WaitReturnType:
         """ Stop the *Managed* application named ``application_name``.
         To stop *Unmanaged* applications, use ``supervisor.stop('group:*')``.
@@ -527,6 +556,34 @@ class RPCInterface:
             onwait.delay = 0.5
             return onwait  # deferred
         return True
+
+    def test_start_process(self, strategy: EnumParameterType, namespec: str) -> WaitReturnType:
+        """ Start a process named ``namespec`` iaw the strategy and the rules file.
+        WARN: the 'wait_exit' rule is not considered here.
+
+        :param StartingStrategies strategy: the strategy used to choose a **Supvisors** instance,
+            as a string or as a value.
+        :param str namespec: the process namespec (``name``,``group:name``, or ``group:*``).
+        :return: a list of structures with the predicted distribution of the processes.
+        :rtype: list[dict[str, Any]].
+        :raises RPCError: with code:
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
+            ``Faults.INCORRECT_PARAMETERS`` if ``strategy`` is unknown to **Supvisors** ;
+            ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors** ;
+            ``Faults.ALREADY_STARTED`` if process is in a running state.
+        """
+        self.logger.trace(f'RPCInterface.test_start_process: namespec={namespec} strategy={strategy}')
+        self._check_operating()
+        strategy_enum = self._get_starting_strategy(strategy)
+        # check names
+        application, process = self._get_application_process(namespec)
+        processes = [process] if process else application.processes.values()
+        # check processes are not already running
+        for process in processes:
+            if process.running():
+                self._raise(Faults.ALREADY_STARTED, 'test_start_process', process.namespec)
+        # start all processes
+        return self.supvisors.starter_model.test_start_processes(strategy_enum, processes)
 
     def start_any_process(self, strategy: EnumParameterType, regex: str, extra_args: str = '',
                           wait: bool = True) -> WaitStringReturnType:

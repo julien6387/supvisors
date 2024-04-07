@@ -584,6 +584,71 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('start_application <strategy>\t\t\t'
                         'Start all managed applications with strategy.')
 
+    def do_test_start_application(self, arg):
+        """ Command to test the starting of Supvisors applications using a strategy and rules. """
+        if self._upcheck():
+            args = as_string(arg).split()
+            # check number of arguments
+            if len(args) != 2:
+                self.ctl.output('ERROR: test_start_application requires one strategy and one application name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_application()
+                return
+            # check strategy format
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for test_start_application.'
+                                f' use one of {[x.name for x in StartingStrategies]}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_application()
+                return
+            # get all application info
+            application_name = args[1]
+            try:
+                info = self.supvisors().get_application_info(args[1])
+            except xmlrpclib.Fault:
+                self.ctl.output(f'ERROR: unknown application "{application_name}"')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                return
+            # match with parameters
+            if not info['managed']:
+                self.ctl.output(f'ERROR: {application_name} unmanaged')
+                self.help_test_start_application()
+                return
+            # request test start for matching applications
+            try:
+                results_list = self.supvisors().test_start_application(strategy.value, application_name)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'{application_name}: ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                return
+            # print results summary
+            max_appli = ControllerPlugin.max_template(results_list, 'application_name', 'Application')
+            max_process = ControllerPlugin.max_template(results_list, 'process_name', 'Process')
+            max_identifiers = ControllerPlugin.max_template(results_list, 'running_identifiers', 'Supervisor')
+            # print title
+            template = (f'%(appli)-{max_appli}s%(proc)-{max_process}s%(state)-12s'
+                        f'%(identifiers)-{max_identifiers}s%(reason)s')
+            title = {'appli': 'Application', 'proc': 'Process', 'state': 'State',
+                     'identifiers': 'Supervisor', 'reason': 'Reason'}
+            self.ctl.output(template % title)
+            # print results
+            for results in results_list:
+                payload = {'appli': results['application_name'],
+                           'proc': results['process_name'],
+                           'identifiers': results['running_identifiers'],
+                           'state': results['state'],
+                           'reason': results['forced_reason']}
+                self.ctl.output(template % payload)
+
+    def help_test_start_application(self):
+        """ Print the help of the test_start_application command."""
+        self.ctl.output('test_start_application <strategy> <appli>\t\t'
+                        'Test the starting of the managed application named appli with strategy.')
+        self.ctl.output('test_start_application <strategy>\t\t\t'
+                        'Test the starting of all managed applications with strategy.')
+
     def do_restart_application(self, arg):
         """ Command to restart Supvisors applications using a strategy and rules. """
         if self._upcheck():
@@ -789,6 +854,54 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('start_process <strategy> <proc>\t\t\tStart the process named proc with strategy.')
         self.ctl.output('start_process <strategy> <proc> <proc>\t\tStart multiple named processes with strategy.')
         self.ctl.output('start_process <strategy>\t\t\tStart all processes with strategy.')
+
+    def do_test_start_process(self, arg):
+        """ Command to test the starting of Supvisors processes using a strategy and rules. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) != 2:
+                self.ctl.output('ERROR: test_start_process requires one strategy and one namespec')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_process()
+                return
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for test_start_process.'
+                                f' use one of {[x.name for x in StartingStrategies]}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_process()
+                return
+            namespec = args[1]
+            try:
+                results_list = self.supvisors().test_start_process(strategy.value, namespec)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                return
+            # print results summary
+            max_appli = ControllerPlugin.max_template(results_list, 'application_name', 'Application')
+            max_process = ControllerPlugin.max_template(results_list, 'process_name', 'Process')
+            max_identifiers = ControllerPlugin.max_template(results_list, 'running_identifiers', 'Supervisor')
+            # print title
+            template = (f'%(appli)-{max_appli}s%(proc)-{max_process}s%(state)-12s'
+                        f'%(identifiers)-{max_identifiers}s%(reason)s')
+            title = {'appli': 'Application', 'proc': 'Process', 'state': 'State',
+                     'identifiers': 'Supervisor', 'reason': 'Reason'}
+            self.ctl.output(template % title)
+            # print results
+            for results in results_list:
+                payload = {'appli': results['application_name'],
+                           'proc': results['process_name'],
+                           'identifiers': results['running_identifiers'],
+                           'state': results['state'],
+                           'reason': results['forced_reason']}
+                self.ctl.output(template % payload)
+
+    def help_test_start_process(self):
+        """ Print the help of the test_start_process command."""
+        self.ctl.output('test_start_process <strategy> <proc>\t\t\tStart the process named proc with strategy.')
+        self.ctl.output('test_start_process <strategy>\t\t\tStart all processes with strategy.')
 
     def do_start_any_process(self, arg):
         """ Command to start processes using regular expressions, with a strategy and rules. """

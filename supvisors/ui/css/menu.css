@@ -92,11 +92,11 @@ nav .FAILED {
 }
 
 nav .STARTING {
-    background-image: radial-gradient(ellipse 80% 170% at center right, var(--stopped-color) 10%, var(--running-color) 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 80% 170% at center right, var(--running-color) 10%, var(--stopped-color) 20%, transparent 30%);
 }
 
 nav .STARTING.active {
-    background-image: radial-gradient(circle at center left, var(--running-color) 30%, var(--stopped-color) 40%, transparent 50%);
+    background-image: radial-gradient(circle at center left, var(--stopped-color) 30%, var(--running-color) 40%, transparent 50%);
 }
 
 nav .STOPPING {

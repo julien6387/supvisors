@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -204,44 +201,43 @@ def test_get_supvisors_instance_no_candidate(supvisors):
     """ Test the choice of a Supvisors instance according to a strategy when no candidate is available. """
     local_identifier = supvisors.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
-    assert get_supvisors_instance(supvisors, StartingStrategies.CONFIG, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED_NODE, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED_NODE, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LOCAL, instances, 0) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.CONFIG, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED_NODE, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED_NODE, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LOCAL, instances, 0, {}) is None
 
 
 def test_get_supvisors_instance(filled_instances, load_details):
     """ Test the choice of a Supvisors instance according to a strategy. """
-    filled_instances.starter.get_load_requests.return_value = load_details[0]
     # context
     local_identifier = filled_instances.mapper.local_identifier
     instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
     # test CONFIG strategy
     strategy = StartingStrategies.CONFIG
     for load, result in [(0, local_identifier), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test LESS_LOADED strategy
     strategy = StartingStrategies.LESS_LOADED
     for load, result in [(0, 'test'), (15, 'test'), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test MOST_LOADED strategy
     strategy = StartingStrategies.MOST_LOADED
     for load, result in [(0, '10.0.0.5'), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test LESS_LOADED_NODE strategy
     strategy = StartingStrategies.LESS_LOADED_NODE
     for load, result in [(0, '10.0.0.3'), (15, '10.0.0.3'), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test MOST_LOADED_NODE strategy
     strategy = StartingStrategies.MOST_LOADED_NODE
     for load, result in [(0, '10.0.0.5'), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test LOCAL strategy
     strategy = StartingStrategies.LOCAL
     for load, result in [(0, local_identifier), (15, local_identifier), (65, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
 
 
 def test_get_node(mocker, filled_instances):

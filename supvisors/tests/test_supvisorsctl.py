@@ -327,16 +327,16 @@ def test_instance_status(controller, plugin, mocked_check):
     """ Test the instance_status request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
     mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 60000,
-                                'statename': 'running', 'discovery_mode': True,
+                                'statename': 'running', 'discovery_mode': False,
                                 'loading': 10, 'local_time': 1500, 'remote_sequence_counter': 12,
                                 'process_failure': False,
-                                'fsm_statename': 'OPERATION', 'discovery_mode': False, 'master_identifier': '10.0.0.1',
+                                'fsm_statename': 'OPERATION', 'master_identifier': '10.0.0.1',
                                 'starting_jobs': True, 'stopping_jobs': False},
                                {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 60000,
-                                'statename': 'stopped', 'discovery_mode': False,
+                                'statename': 'stopped', 'discovery_mode': True,
                                 'loading': 0, 'local_time': 100, 'remote_sequence_counter': 15,
                                 'process_failure': True,
-                                'fsm_statename': 'CONCILATION', 'discovery_mode': True, 'master_identifier': 'hostname',
+                                'fsm_statename': 'CONCILATION', 'master_identifier': 'hostname',
                                 'starting_jobs': False, 'stopping_jobs': True}]
     _check_call(controller, mocked_check, mocked_rpc,  plugin.help_instance_status, plugin.do_instance_status,
                 '', [call()])
@@ -502,6 +502,52 @@ def test_start_application(controller, plugin, mocked_check):
                                      ('appli_2', 'appli_1'))
 
 
+def test_test_start_application(controller, plugin, mocked_check):
+    """ Test the test_start_application request. """
+    mocked_appli = plugin.supvisors().get_application_info
+    mocked_appli.return_value = {'application_name': 'appli_1', 'managed': False}
+    mocked_rpc = plugin.supvisors().test_start_application
+    mocked_rpc.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1',
+                                'state': 'RUNNING', 'running_identifiers': ['10.0.0.1'], 'forced_reason': ''},
+                               {'application_name': 'appli_1', 'process_name': 'proc_2',
+                                'state': 'EXITED', 'running_identifiers': [], 'forced_reason': ''},
+                               {'application_name': 'appli_1', 'process_name': 'proc_3',
+                                'state': 'FATAL', 'running_identifiers': [], 'forced_reason': 'no resource'}]
+    # test the request using few arguments
+    plugin.do_test_start_application('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    assert not mocked_appli.called
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    plugin.do_test_start_application('strategy')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    assert not mocked_appli.called
+    mocked_check.reset_mock()
+    # test request with unknown application
+    mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
+    plugin.do_test_start_application('MOST_LOADED appli_1')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_appli.call_args_list == [call('appli_1')]
+    mocked_check.reset_mock()
+    mocked_appli.reset_mock()
+    # test request with application not managed
+    mocked_appli.side_effect = None
+    plugin.do_test_start_application('CONFIG appli_1')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_appli.call_args_list == [call('appli_1')]
+    mocked_check.reset_mock()
+    mocked_appli.reset_mock()
+    # test request with application managed
+    mocked_appli.return_value = {'application_name': 'appli_1', 'managed': True}
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_test_start_application,
+                plugin.do_test_start_application, 'LESS_LOADED appli_1', [call(1, 'appli_1')])
+    assert mocked_appli.call_args_list == [call('appli_1'), call('appli_1')]
+
+
 def test_restart_application(controller, plugin, mocked_check):
     """ Test the restart_application request. """
     mocked_appli = plugin.supvisors().get_all_applications_info
@@ -605,6 +651,30 @@ def test_start_process(controller, plugin, mocked_check):
                                  plugin.help_start_process, plugin.do_start_process,
                                  ('appli_1:proc_1', 'appli_2:proc_3'), 'appli_1:proc_1 appli_2:proc_3',
                                  ('appli_1:proc_1', 'appli_2:proc_3'))
+
+
+def test_test_start_process(controller, plugin, mocked_check):
+    """ Test the test_start_process request. """
+    mocked_rpc = plugin.supvisors().test_start_process
+    mocked_rpc.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1',
+                                'state': 'RUNNING', 'running_identifiers': ['10.0.0.1'], 'forced_reason': ''},
+                               {'application_name': 'appli_2', 'process_name': 'proc_2',
+                                'state': 'EXITED', 'running_identifiers': [], 'forced_reason': ''},
+                               {'application_name': 'appli_3', 'process_name': 'proc_3',
+                                'state': 'FATAL', 'running_identifiers': [], 'forced_reason': 'no resource'}]
+    # test the request using few arguments
+    plugin.do_test_start_process('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    plugin.do_test_start_process('strategy')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test request with application managed
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_test_start_process,
+                plugin.do_test_start_process, 'LOCAL appli_1:*', [call(3, 'appli_1:*')])
 
 
 def test_start_any_process(controller, plugin, mocked_check):
