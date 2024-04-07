@@ -23,7 +23,7 @@ from supvisors.ttypes import *
 
 def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
-    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
+    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'FAILED', 'ISOLATED']
     assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
@@ -96,9 +96,22 @@ def test_synchronization_options():
 
 def test_internal_event_headers():
     """ Test the InternalEventHeaders enumeration. """
-    expected = ['HEARTBEAT', 'TICK', 'AUTHORIZATION', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED',
-                'PROCESS_DISABILITY', 'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE', 'ALL_INFO', 'DISCOVERY']
+    expected = ['REQUEST', 'PUBLICATION', 'DISCOVERY']
     assert [x.name for x in InternalEventHeaders] == expected
+
+
+def test_publication_headers():
+    """ Test the PublicationHeaders enumeration. """
+    expected = ['TICK', 'AUTHORIZATION', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED',
+                'PROCESS_DISABILITY', 'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE', 'ALL_INFO', 'DISCOVERY']
+    assert [x.name for x in PublicationHeaders] == expected
+
+
+def test_request_headers():
+    """ Test the RequestHeaders enumeration. """
+    expected = ['CHECK_INSTANCE', 'START_PROCESS', 'STOP_PROCESS',
+                'RESTART', 'SHUTDOWN', 'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
+    assert [x.name for x in RequestHeaders] == expected
 
 
 def test_event_headers():

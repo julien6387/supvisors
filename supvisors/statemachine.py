@@ -586,10 +586,6 @@ class FiniteStateMachine:
         # trigger remaining jobs in RunningFailureHandler
         if self.context.is_master:
             self.supvisors.failure_handler.trigger_jobs()
-        # check if new isolating remotes and isolate them at main loop level
-        identifiers = self.context.handle_isolation()
-        if identifiers:
-            self.supvisors.internal_com.pusher.send_isolate_instances(identifiers)
         # trigger FSM for global status re-evaluation
         # the Master may have been invalidated
         # process_failures could also positively impact the conflicts in the CONCILIATION state
@@ -603,7 +599,7 @@ class FiniteStateMachine:
         :param event: the tick event
         :return:
         """
-        if self.context.is_valid(identifier, event['ip_address']):
+        if self.context.is_valid(identifier, (event['ip_address'], event['server_port'])):
             # update the Supvisors instance status
             self.context.on_tick_event(identifier, event)
 
@@ -617,7 +613,6 @@ class FiniteStateMachine:
         """
         # When Supvisors is in discovery mode, new Supvisors instances may be added on-the-fly
         if self.context.on_discovery_event(identifier, event):
-            self.supvisors.internal_com.pusher.send_connect_instance(identifier)
             # a DEPLOYMENT will be requested if a new Supvisors instance has been inserted
             self.redeploy_mark = True
 

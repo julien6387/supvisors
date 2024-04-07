@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import NameList, NameSet
+from supvisors.ttypes import Ipv4Address, NameList, NameSet
 
 
 def get_addresses(host_id: str, logger: Logger) -> Optional[Tuple[str, NameList, NameList]]:
@@ -46,21 +46,18 @@ class SupvisorsInstanceId:
         - identifier: the Supervisor identifier or 'host_name[:http_port]' if not provided ;
         - host_id: the host where the Supervisor is running ;
         - http_port: the Supervisor port number ;
-        - internal_port: the port number used to publish local events to remote Supvisors instances ;
         - event_port: the port number used to publish all Supvisors events ;
         - host_name: the host name corresponding to the host id, as known by the local network configuration ;
         - ip_address: the main ip_address of the host, as known by the local network configuration ;
         - stereotype: the stereotype (used for rules).
     """
 
-    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:.]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
-                         r':(?P<internal_port>\d{4,5})?)?$')
+    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:.]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5}))?$')
 
     # attributes deduced from input
     identifier = None
     host_id = None
     http_port = None
-    internal_port = None
     event_port = None
     # attributes got from network
     host_name = None
@@ -92,9 +89,14 @@ class SupvisorsInstanceId:
         return self.supvisors.logger
 
     @property
-    def ip_address(self):
+    def ip_address(self) -> Optional[str]:
         """ Return the main IP address. """
         return self.ip_addresses[0] if self.ip_addresses else None
+
+    @property
+    def source(self) -> Tuple[str, Ipv4Address]:
+        """ Return the identification details of the instance. """
+        return self.identifier, (self.ip_address, self.http_port)
 
     def host_matches(self, fdqn: str) -> bool:
         """ Check if the fully-qualified domain name matches the host name or any alias.
@@ -119,27 +121,14 @@ class SupvisorsInstanceId:
         # if http_port is not provided, use the local http_port value
         if not self.http_port:
             self.http_port = self.supvisors.supervisor_data.server_port
-        # if internal_port is not provided, use the option value if set or http_port+1
-        if not self.internal_port:
-            # assign to internal_port option value if set
-            if self.supvisors.options.internal_port:
-                self.internal_port = self.supvisors.options.internal_port
-            else:
-                # by default, assign to http_port + 1
-                self.internal_port = self.http_port + 1
         # define event_port using option value if set
         if self.supvisors.options.event_port:
             self.event_port = self.supvisors.options.event_port
         else:
-            # by default, assign to event_port + 1, unless this value is already taken by http_port
-            if self.http_port != self.internal_port + 1:
-                self.event_port = self.internal_port + 1
-            else:
-                # in this case, assign to http_port + 1
-                self.event_port = self.http_port + 1
+            # by default, assign to http_port + 1
+            self.event_port = self.http_port + 1
         self.logger.debug(f'SupvisorsInstanceId.check_values: identifier={self.identifier}'
-                          f' host_id={self.host_id} http_port={self.http_port}'
-                          f' internal_port={self.internal_port}')
+                          f' host_id={self.host_id} http_port={self.http_port}')
 
     def parse_from_string(self, item: str):
         """ Parse string according to PATTERN to get the Supvisors instance identification attributes.
@@ -154,12 +143,8 @@ class SupvisorsInstanceId:
             # check http port
             port = pattern_match.group('http_port')
             self.http_port = int(port) if port else 0
-            # check internal port
-            port = pattern_match.group('internal_port')
-            self.internal_port = int(port) if port else 0
             self.logger.debug(f'SupvisorsInstanceId.parse_from_string: identifier={self.identifier}'
-                              f' host_id={self.host_id} http_port={self.http_port}'
-                              f' internal_port={self.internal_port}')
+                              f' host_id={self.host_id} http_port={self.http_port}')
 
     def __repr__(self) -> str:
         """ Initialization of the attributes.
@@ -274,7 +259,7 @@ class SupvisorsMapper:
         else:
             # if supvisors_list is empty, use self identification from supervisor internal data
             supervisor = self.supvisors.supervisor_data
-            item = f'<{supervisor.identifier}>{gethostname()}:{supervisor.server_port}:'
+            item = f'<{supervisor.identifier}>{gethostname()}:{supervisor.server_port}'
             self.logger.info(f'SupvisorsMapper.configure: define local Supvisors as {item}')
             self.add_instance(item, False)
         self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')

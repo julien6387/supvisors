@@ -280,8 +280,7 @@ class SupvisorsInstanceStatus:
             if self.check_transition(new_state):
                 self._state = new_state
                 self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
-                if new_state in [SupvisorsInstanceStates.SILENT,
-                                 SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
+                if new_state in [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]:
                     self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.identifier}')
                     self.state_modes.state = SupvisorsStates.OFF
             else:
@@ -331,7 +330,7 @@ class SupvisorsInstanceStatus:
         :return: the activity status.
         """
         return self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                              SupvisorsInstanceStates.RUNNING]
+                              SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]
 
     def is_inactive(self, local_sequence_counter: int) -> bool:
         """ Return True if the latest update was received more than INACTIVITY_TICKS ago.
@@ -345,9 +344,14 @@ class SupvisorsInstanceStatus:
         counter_diff = local_sequence_counter - self.times.local_sequence_counter
         return self.has_active_state() and counter_diff > self.supvisors.options.inactivity_ticks
 
-    def in_isolation(self):
-        """ Return True if the Supvisors instance is in isolation. """
-        return self.state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
+    def isolated(self):
+        """ Return True if the Supvisors instance is isolated. """
+        return self.state == SupvisorsInstanceStates.ISOLATED
+
+    def raise_communication_failure(self):
+        """ Set the state to FAILED upon XML-RPC failure. """
+        if self.has_active_state():
+            self.state = SupvisorsInstanceStates.FAILED
 
     def update_tick(self, remote_sequence_counter: int, remote_mtime: float, remote_time: float,
                     local_sequence_counter: int = -1):
@@ -433,20 +437,22 @@ class SupvisorsInstanceStatus:
 
     # dictionary for transitions
     _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,
-                                                      SupvisorsInstanceStates.ISOLATING,
+                                                      SupvisorsInstanceStates.ISOLATED,
                                                       SupvisorsInstanceStates.SILENT),
                     SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.UNKNOWN,
                                                        SupvisorsInstanceStates.CHECKED,
-                                                       SupvisorsInstanceStates.ISOLATING,
+                                                       SupvisorsInstanceStates.ISOLATED,
                                                        SupvisorsInstanceStates.SILENT),
                     SupvisorsInstanceStates.CHECKED: (SupvisorsInstanceStates.RUNNING,
-                                                      SupvisorsInstanceStates.ISOLATING,
+                                                      SupvisorsInstanceStates.ISOLATED,
                                                       SupvisorsInstanceStates.SILENT),
                     SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.SILENT,
-                                                      SupvisorsInstanceStates.ISOLATING,
+                                                      SupvisorsInstanceStates.FAILED,
+                                                      SupvisorsInstanceStates.ISOLATED,
                                                       SupvisorsInstanceStates.CHECKING),
                     SupvisorsInstanceStates.SILENT: (SupvisorsInstanceStates.CHECKING,
-                                                     SupvisorsInstanceStates.ISOLATING),
-                    SupvisorsInstanceStates.ISOLATING: (SupvisorsInstanceStates.ISOLATED,),
+                                                     SupvisorsInstanceStates.ISOLATED),
+                    SupvisorsInstanceStates.FAILED: (SupvisorsInstanceStates.SILENT,
+                                                     SupvisorsInstanceStates.ISOLATED),
                     SupvisorsInstanceStates.ISOLATED: ()
                     }

@@ -27,7 +27,7 @@ SUPVISORS = 'Supvisors'
 # all enumerations
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATING, ISOLATED = range(7)
+    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, FAILED, ISOLATED = range(7)
 
 
 class SupvisorsStates(Enum):
@@ -88,9 +88,23 @@ class SynchronizationOptions(Enum):
 
 # for internal publish / subscribe
 class InternalEventHeaders(Enum):
+    """ Event type for deferred XML-RPCs. """
+    REQUEST, PUBLICATION, DISCOVERY = range(3)
+
+
+# for internal publish / subscribe
+class PublicationHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    (HEARTBEAT, TICK, AUTHORIZATION, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
-     HOST_STATISTICS, PROCESS_STATISTICS, STATE, ALL_INFO, DISCOVERY) = range(12)
+    (TICK, AUTHORIZATION, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
+     HOST_STATISTICS, PROCESS_STATISTICS, STATE, ALL_INFO, DISCOVERY) = range(11)
+
+
+# for deferred XML-RPC requests
+class RequestHeaders(Enum):
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
+    (CHECK_INSTANCE,
+     START_PROCESS, STOP_PROCESS,
+     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(8)
 
 
 class EventHeaders(Enum):
@@ -105,7 +119,6 @@ class EventHeaders(Enum):
 
 
 # State lists commonly used
-ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
 WORKING_STATES = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
 CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.FINAL]
 

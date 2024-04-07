@@ -26,12 +26,12 @@ from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
 from .external_com import create_external_publisher, EventPublisherInterface
-from .internal_com import (SupvisorsInternalEmitter, InternalPublisher, MulticastSender,
+from .internal_com import (SupvisorsInternalEmitter, MulticastSender, RpcPusher,
                            SupvisorsInstanceId, SupvisorsMainLoop)
 from .process import ProcessStatus
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
-                     SUPVISORS, InternalEventHeaders, Payload)
+                     SUPVISORS, PublicationHeaders, Payload)
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
@@ -121,9 +121,9 @@ class SupervisorListener:
         return self.supvisors.fsm
 
     @property
-    def publisher(self) -> InternalPublisher:
+    def pusher(self) -> RpcPusher:
         """ Get the com interface used to publish Supvisors internal events to all Supvisors instances. """
-        return self.supvisors.internal_com.publisher
+        return self.supvisors.internal_com.pusher
 
     @property
     def mc_sender(self) -> Optional[MulticastSender]:
@@ -223,7 +223,7 @@ class SupervisorListener:
             self.supvisors.context.on_local_tick_event(payload)
             self.fsm.on_timer_event(payload)
             # publish the TICK to all Supvisors instances
-            self.publisher.send_tick_event(payload)
+            self.pusher.send_tick_event(payload)
             if self.mc_sender:
                 self.mc_sender.send_discovery_event(payload)
             # handle the statistics collection
@@ -241,16 +241,13 @@ class SupervisorListener:
                 # send to local host compiler
                 self.on_host_statistics(self.local_identifier, stats)
                 # publish host statistics to other Supvisors instances
-                self.publisher.send_host_statistics(stats)
-                # check if network interfaces have changed
-                self.supvisors.internal_com.check_intf(list(stats['io'].keys()))
-                # TODO: TBC need to move to INITIALIZATION
+                self.pusher.send_host_statistics(stats)
             # get and publish the process statistics collected from the last tick
             for stats in self.stats_collector.get_process_stats():
                 # send to local process compiler
                 self.on_process_statistics(self.local_identifier, stats)
                 # publish host statistics to other Supvisors instances
-                self.publisher.send_process_statistics(stats)
+                self.pusher.send_process_statistics(stats)
 
     def on_process_state(self, event: events.ProcessStateEvent) -> None:
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
@@ -275,7 +272,7 @@ class SupervisorListener:
             # update local Supvisors instance
             self.fsm.on_process_state_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.publisher.send_process_state_event(payload)
+            self.pusher.send_process_state_event(payload)
             # post-event actions: check obsolete processes and update internal monotonic times
             if process_state == ProcessStates.STARTING:
                 self.supvisors.supervisor_data.update_start(namespec)
@@ -314,7 +311,7 @@ class SupervisorListener:
                 # update local Supvisors instance
                 self.fsm.on_process_added_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
-                self.publisher.send_process_added_event(process_info)
+                self.pusher.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
@@ -333,7 +330,7 @@ class SupervisorListener:
             # update local Supvisors instance
             self.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.publisher.send_process_removed_event(payload)
+            self.pusher.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_removed: {format_exc()}')
@@ -355,7 +352,7 @@ class SupervisorListener:
                 # update local Supvisors instance
                 self.fsm.on_process_disability_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
-                self.publisher.send_process_disability_event(process_info)
+                self.pusher.send_process_disability_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_disability: {format_exc()}')
@@ -382,7 +379,7 @@ class SupervisorListener:
                     # update local Supvisors instance
                     self.fsm.on_process_added_event(self.local_identifier, process_info)
                     # publish to the other Supvisors instances
-                    self.publisher.send_process_added_event(process_info)
+                    self.pusher.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
@@ -403,7 +400,7 @@ class SupervisorListener:
             # update local Supvisors instance
             self.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.publisher.send_process_removed_event(payload)
+            self.pusher.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
@@ -412,9 +409,8 @@ class SupervisorListener:
         """ Called when a RemoteCommunicationEvent is notified.
         This is used to sequence the events received from the Supvisors thread with the other events handled
         by the local Supervisor. """
+        self.logger.trace(f'SupervisorListener.on_remote_event: type={event.type} data={event.data}')
         try:
-            self.logger.trace(f'SupervisorListener.on_remote_event: got RemoteCommunicationEvent {event.type}'
-                              f' / {event.data}')
             if event.type == SUPVISORS:
                 self.unstack_event(event.data)
         except Exception:
@@ -423,59 +419,56 @@ class SupervisorListener:
 
     def unstack_event(self, message: str) -> None:
         """ Unstack and process one event from the event queue. """
-        event_address, (event_type, (event_identifier, event_data)) = json.loads(message)
-        header = InternalEventHeaders(event_type)
-        # Note: DISCOVERY messages contain the necessary information for Supvisors instances discovery,
-        #  so it has to be processed first
-        if header == InternalEventHeaders.DISCOVERY:
-            self.logger.trace(f'SupervisorListener.unstack_event: got DISCOVERY from {event_identifier}: {event_data}')
+        event_origin, (event_type, event_data) = json.loads(message)
+        event_identifier, _ = event_origin
+        header = PublicationHeaders(event_type)
+        # NOTE: DISCOVERY messages contain the necessary information for Supvisors instances discovery,
+        #       so it has to be processed first
+        if header == PublicationHeaders.DISCOVERY:
+            self.logger.trace(f'SupervisorListener.unstack_event: DISCOVERY from {event_identifier}: {event_data}')
             self.fsm.on_discovery_event(event_identifier, event_data)
             return
         # check message origin validity
-        if not self.supvisors.context.is_valid(event_identifier, event_address[0]):
-            self.logger.error('SupervisorListener.unstack_event: got event from unknown'
-                              f' Supvisors=({event_identifier} / {event_address[0]})')
+        if not self.supvisors.context.is_valid(*event_origin):
+            self.logger.error(f'SupervisorListener.unstack_event: event from unknown Supvisors={event_origin}')
             return
         # process the message depending on the event type
-        if header == InternalEventHeaders.TICK:
-            self.logger.trace(f'SupervisorListener.unstack_event: got TICK from {event_identifier}:'
-                              f' {event_data}')
+        if header == PublicationHeaders.TICK:
+            self.logger.trace(f'SupervisorListener.unstack_event: TICK from {event_identifier}: {event_data}')
             self.fsm.on_tick_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.AUTHORIZATION:
-            self.logger.trace(f'SupervisorListener.unstack_event: got AUTHORIZATION from {event_identifier}:'
-                              f' {event_data}')
+        elif header == PublicationHeaders.AUTHORIZATION:
+            self.logger.trace(f'SupervisorListener.unstack_event: AUTHORIZATION from {event_identifier}: {event_data}')
             self.fsm.on_authorization(event_identifier, event_data)
-        elif header == InternalEventHeaders.PROCESS:
-            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS from {event_identifier}:'
-                              f' {event_data}')
+        elif header == PublicationHeaders.PROCESS:
+            self.logger.trace(f'SupervisorListener.unstack_event: PROCESS from {event_identifier}: {event_data}')
             self.fsm.on_process_state_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.PROCESS_ADDED:
-            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_ADDED from {event_identifier}:'
+        elif header == PublicationHeaders.PROCESS_ADDED:
+            self.logger.trace(f'SupervisorListener.unstack_event: PROCESS_ADDED from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_added_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.PROCESS_REMOVED:
-            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_REMOVED from {event_identifier}:'
+        elif header == PublicationHeaders.PROCESS_REMOVED:
+            self.logger.trace(f'SupervisorListener.unstack_event: PROCESS_REMOVED from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_removed_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.PROCESS_DISABILITY:
+        elif header == PublicationHeaders.PROCESS_DISABILITY:
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_DISABILITY from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_disability_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.HOST_STATISTICS:
+        elif header == PublicationHeaders.HOST_STATISTICS:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
                               f' {event_data}')
             self.on_host_statistics(event_identifier, event_data)
-        elif header == InternalEventHeaders.PROCESS_STATISTICS:
+        elif header == PublicationHeaders.PROCESS_STATISTICS:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_STATISTICS from {event_identifier}:'
                               f' {event_data}')
             self.on_process_statistics(event_identifier, event_data)
-        elif header == InternalEventHeaders.STATE:
+        elif header == PublicationHeaders.STATE:
             self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_state_event(event_identifier, event_data)
-        elif header == InternalEventHeaders.ALL_INFO:
+        elif header == PublicationHeaders.ALL_INFO:
             self.logger.trace(f'SupervisorListener.unstack_event: got ALL_INFO from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_info(event_identifier, event_data)
@@ -526,4 +519,4 @@ class SupervisorListener:
         # update local Supvisors instance
         self.fsm.on_process_state_event(self.local_identifier, payload)
         # publish to the other Supvisors instances
-        self.publisher.send_process_state_event(payload)
+        self.pusher.send_process_state_event(payload)

@@ -68,7 +68,7 @@ Key	                      Type       Value
 'port'                    ``int``    The HTTP port of the |Supvisors| instance.
 'statecode'               ``int``    The |Supvisors| instance state, in [0;6].
 'statename'               ``str``    The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``,
-                                     `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
+                                     `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'FAILED'``, ``'ISOLATED'`` }.
 'discovery_mode'          ``bool``   True if the discovery mode is activated in the |Supvisors| instance.
 'remote_sequence_counter' ``int``    The remote TICK counter, i.e. the number of TICK events received since
                                      the remote |Supvisors| instance is running.

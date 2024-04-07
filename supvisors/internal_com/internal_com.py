@@ -20,8 +20,7 @@ from typing import Any, List, Optional, Coroutine
 
 from .mapper import SupvisorsInstanceId
 from .multicast import MulticastSender, handle_mc_receiver
-from .pubsub import InternalPublisher, InternalAsyncSubscribers
-from .pushpull import RequestPusher, RequestAsyncPuller
+from .pushpull import RpcPusher, AsyncRpcPuller
 
 
 class SupvisorsInternalEmitter:
@@ -38,9 +37,7 @@ class SupvisorsInternalEmitter:
         self.pusher_sock, self.puller_sock = socketpair()
         # create the pusher used to detach the XML-RPC requests from the Supervisor Thread
         # events will be received in the SupvisorsMainLoop thread
-        self.pusher = RequestPusher(self.pusher_sock, supvisors.logger)
-        # create the publisher
-        self.publisher: InternalPublisher = self._create_publisher()
+        self.pusher = RpcPusher(self.pusher_sock, supvisors)
         # create the Multicast message emitter if the discovery mode is enabled
         self.mc_sender: Optional[MulticastSender] = None
         if self.supvisors.options.discovery_mode:
@@ -49,8 +46,6 @@ class SupvisorsInternalEmitter:
                                              supvisors.options.multicast_group,
                                              supvisors.options.multicast_ttl,
                                              supvisors.logger)
-        # store network interface names
-        self.intf_names: List[str] = []
 
     def stop(self) -> None:
         """ Close all sockets.
@@ -60,31 +55,8 @@ class SupvisorsInternalEmitter:
         """
         if self.mc_sender:
             self.mc_sender.close()
-        self.publisher.close()
         self.pusher_sock.close()
         # WARN: do NOT close puller_sock as it will be done from the Supvisors thread (mainloop.py)
-
-    def check_intf(self, intf_names: List[str]):
-        """ Restart the Publisher when a new network interfaces is added. """
-        if self.intf_names:
-            # check if there's a new network interface
-            new_intf_names = [x for x in intf_names if x not in self.intf_names]
-            if new_intf_names:
-                if self.publisher:
-                    self.supvisors.logger.warn('SupvisorsInternalEmitter.restart: publisher restart'
-                                               f' due to new network interfaces {new_intf_names}')
-                    self.publisher.close()
-                # create a new publisher
-                self.publisher = self._create_publisher()
-        # store current list
-        self.intf_names = intf_names
-
-    def _create_publisher(self) -> InternalPublisher:
-        """ Start the Publisher thread. """
-        local_instance: SupvisorsInstanceId = self.supvisors.mapper.local_instance
-        publisher = InternalPublisher(local_instance.identifier, local_instance.internal_port, self.supvisors)
-        publisher.start()
-        return publisher
 
 
 class SupvisorsInternalReceiver:
@@ -104,13 +76,9 @@ class SupvisorsInternalReceiver:
         self.stop_event: asyncio.Event = asyncio.Event()
         # asyncio queues
         self.requester_queue = asyncio.Queue()
-        self.subscriber_queue = asyncio.Queue()
         self.discovery_queue = asyncio.Queue()
         # asyncio tasks
-        self.puller: RequestAsyncPuller = RequestAsyncPuller(self.requester_queue, self.stop_event, supvisors)
-        self.subscribers: InternalAsyncSubscribers = InternalAsyncSubscribers(self.subscriber_queue,
-                                                                              self.stop_event,
-                                                                              supvisors)
+        self.puller: AsyncRpcPuller = AsyncRpcPuller(self.requester_queue, self.stop_event, supvisors)
         self.discovery_coro: Optional[Coroutine] = None
         if self.supvisors.options.discovery_mode:
             self.discovery_coro = handle_mc_receiver(self.discovery_queue, self.stop_event, supvisors)
@@ -134,7 +102,6 @@ class SupvisorsInternalReceiver:
         """
         # get the mandatory tasks
         all_coro = [self.puller.handle_puller()]
-        all_coro.extend(self.subscribers.get_coroutines())
         # add the optional task for discovery mode
         if self.discovery_coro:
             all_coro.append(self.discovery_coro)

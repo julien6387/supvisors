@@ -17,7 +17,6 @@
 import pytest
 
 from supvisors.internal_com.multicast import *
-from supvisors.ttypes import InternalEventHeaders
 
 
 @pytest.fixture
@@ -38,13 +37,13 @@ async def test_multicast(supvisors, mc_sender):
     async def sender_task():
         """ test of the multicast sender """
         await asyncio.sleep(0.5)
-        mc_sender.send_tick_event({'when': 1234})
+        mc_sender.send_discovery_event({'when': 1234})
         await asyncio.sleep(1.0)
         stop_event.set()
 
     async def check_output():
         """ test of the receiver output """
-        expected = [InternalEventHeaders.TICK.value, [supvisors.mapper.local_identifier, {'when': 1234}]]
+        expected = (PublicationHeaders.DISCOVERY.value, {'when': 1234})
         message = await asyncio.wait_for(queue.get(), 2.0)
         # first part of the message is platform-dependent, so avoid to test it
         assert message[1] == expected
@@ -62,7 +61,7 @@ def test_emitter_send_exception(mc_sender):
     Checked ok with debugger.
     """
     mc_sender.close()
-    mc_sender.send_tick_event({})
+    mc_sender.send_discovery_event({})
 
 
 @pytest.mark.asyncio

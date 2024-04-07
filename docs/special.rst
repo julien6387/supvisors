@@ -13,32 +13,30 @@ To that end, a communication protocol needs to be put in place place between all
 Given the objectives of |Supvisors|, a polling mechanism doesn't fit. All |Supervisor| events have to be processed, so
 an event-driven protocol is naturally considered.
 
-The XML-RPC protocol provided by |Supervisor| is discarded as it is synchronous and thus improper to deal with a system
-involving multiple clients.
-
 Communication protocols
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-2 internal communication protocols have been implemented in |Supvisors|.
+2 internal communication protocols are used in |Supvisors|.
 
-TCP Publish-Subscribe
-*********************
+XML-RPC publication
+*******************
 
-The main protocol implemented in |Supvisors| is based on a **Publish-Subscribe pattern over TCP**.
+The main protocol implemented in |Supvisors| is based on the XML-RPC protocol provided by |Supervisor|. It is used to
+share the local events to the other |Supvisors| instances.
 
-Although it was originally based on a PyZmq PUB-SUB, it has been replaced by a custom implementation to limit the
-mandatory dependencies and to have a better control over the underlying threads and sockets.
+The XML-RPC protocol was originally discarded because it led easily to deadlocks when involving requests to multiple
+|Supervisor| instances. So a first implementation has been done based on a PyZmq PUB-SUB. It then has been replaced
+by a custom implementation to limit the mandatory dependencies and to have a better control over the underlying threads
+and sockets. In both case, the events were sent over a TCP socket and posted sequentially to the local |Supervisor|
+using a ``supervisor.sendRemoteCommEvent`` XML-RPC.
 
-This protocol is initially made up of all |Supvisors| instances declared in the ``supvisors_list`` option of the
-``[supvisors]`` section in the |Supervisor| configuration file.
+Finally, with a proper understanding of the limitations brought by the XML-RPC implementation and its non-thread-safe
+nature, the |Supvisors| design has been simplified so that the local events and requests are all sequentially processed
+in a single thread.
 
-Each entry in the ``supvisors_list`` option defines (even implicitly) the TCP server host and port of each |Supvisors|
-instance that the local |Supvisors| instance has to connect to publish its events.
-
-.. note::
-
-    Depending on the |Supvisors| configuration, only the TCP server host may be defined in the ``supvisors_list``,
-    in which case |Supvisors| will take the value of the ``internal_port`` option as applicable port for all TCP servers.
+The ``TICK`` events are sent to all |Supvisors| instances discovered of declared in the ``supvisors_list`` option
+of the ``[supvisors]`` section in the |Supervisor| configuration file. As soon as the |Supvisors| instance is
+``CHECKED``, all other events are shared.
 
 UDP Multicast
 *************

@@ -45,15 +45,13 @@ behavior may happen. The present section details where it is applicable.
     The elements of ``supvisors_list`` define how the |Supvisors| instances will share information between them
     and MUST be identical to all |Supvisors| instances or unpredictable behavior may happen.
 
-    The exhaustive form of an element matches ``<identifier>host_name:http_port:internal_port``, where:
+    The exhaustive form of an element matches ``<identifier>host_name:http_port``, where:
 
         * ``identifier`` is the optional but **unique** |Supervisor| identifier (it can be set in the |Supervisor|
           configuration or in the command line when starting the ``supervisord`` program) ;
         * ``host_name`` is the name of the node where the |Supvisors| instance is running ;
         * ``http_port`` is the port of the internet socket used to communicate with the |Supervisor| instance
-          (obviously unique per node) ;
-        * ``internal_port`` is the port of the TCP socket used by the |Supvisors| instance to publish internal events
-          (also unique per node).
+          (obviously unique per node).
 
     *Default*:  the local host name.
 
@@ -76,8 +74,8 @@ behavior may happen. The present section details where it is applicable.
         If the |Supvisors| is configured with at most one |Supvisors| instance per host, only the ``host_name`` may be
         necessary.
 
-        if ``http_port`` or ``internal_port`` are not provided, the local |Supvisors| instance takes the assumption
-        that the other |Supvisors| instance uses the same ``http_port`` and ``internal_port``.
+        if ``http_port`` is not provided, the local |Supvisors| instance takes the assumption that the other |Supvisors|
+        instance uses the same ``http_port``.
 
         ``identifier`` can be seen as a nickname that may be more user-friendly than a ``host_name`` or a
         ``host_name:http_port`` when displayed in the |Supvisors| Web UI or used in the `Supvisors' Rules File`_.
@@ -96,13 +94,13 @@ behavior may happen. The present section details where it is applicable.
         +------------------------------------+---------------------+
         | Configured name                    | Deduced name        |
         +====================================+=====================+
-        | ``<supervisor_01>10.0.0.1:8888:``  | ``supervisor_01``   |
+        | ``<supervisor_01>10.0.0.1:8888``   | ``supervisor_01``   |
         +------------------------------------+---------------------+
         | ``<supervisor_01>10.0.0.1``        | ``supervisor_01``   |
         +------------------------------------+---------------------+
         | ``10.0.0.1``                       | ``10.0.0.1``        |
         +------------------------------------+---------------------+
-        | ``10.0.0.1:8888:8889``             | ``10.0.0.1:8888``   |
+        | ``10.0.0.1:8888``                  | ``10.0.0.1:8888``   |
         +------------------------------------+---------------------+
 
         In case of doubt, the |Supvisors| Web UI displays the deduced names in the Supervisors navigation menu.
@@ -188,19 +186,6 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
-``internal_port``
-
-    When |Supvisors| is configured to use a TCP Publish / Subscribe pattern to share the local events to the other
-    |Supvisors| instances, this value is the port number where the local |Supvisors| instance will bind its server.
-    The value must match the ``internal_port`` value of the corresponding |Supvisors| instance in ``supvisors_list``
-    (if it has been set).
-
-    *Default*:  local |Supervisor| HTTP port + 1.
-
-    *Required*:  No.
-
-    *Identical*:  No.
-
 
 ``event_link``
 
@@ -224,7 +209,7 @@ behavior may happen. The present section details where it is applicable.
     The port number used to publish all |Supvisors| events (Instance, Application, Process ans Statistics events). |br|
     The protocol of this interface is detailed in :ref:`event_interface`.
 
-    *Default*:  local |Supervisor| HTTP port + 2.
+    *Default*:  local |Supervisor| HTTP port + 1.
 
     *Required*:  No.
 
@@ -554,7 +539,6 @@ Configuration File Example
     supvisors_list = cliche81,<cliche82>192.168.1.49,cliche83:60000:60001,cliche84
     rules_files = ./etc/my_movies*.xml
     auto_fence = false
-    internal_port = 60001
     event_link = WS
     event_port = 60002
     synchro_timeout = 20

@@ -60,8 +60,6 @@ class SupvisorsOptions:
         - multicast_interface: UDP Multicast Group interface ;
         - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
-        - internal_port: the port number used to publish the local events to remote Supvisors instances
-          (not used for multicast) ;
         - event_link: type of the event link used to publish all Supvisors events ;
         - event_port: port number used to publish all Supvisors events ;
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive ;
@@ -117,8 +115,7 @@ class SupvisorsOptions:
         self.multicast_ttl = self._get_value(config, 'multicast_ttl', 1, self.to_ttl)
         # get the rules files
         self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
-        # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
-        self.internal_port = self._get_value(config, 'internal_port', 0, self.to_port_num)
+        # if event_port is not defined, it will be set later based on Supervisor HTTP port
         self.event_link = self._get_value(config, 'event_link', EventLinks.NONE, self.to_event_link)
         self.event_port = self._get_value(config, 'event_port', 0, self.to_port_num)
         self.auto_fence = self._get_value(config, 'auto_fence', False, boolean)
@@ -160,7 +157,6 @@ class SupvisorsOptions:
                 f' multicast_interface={self.multicast_interface}'
                 f' multicast_ttl={self.multicast_ttl}'
                 f' rules_files={self.rules_files}'
-                f' internal_port={self.internal_port}'
                 f' event_link={self.event_link.name}'
                 f' event_port={self.event_port}'
                 f' auto_fence={self.auto_fence}'

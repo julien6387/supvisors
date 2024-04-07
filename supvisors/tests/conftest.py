@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2021 Julien LE CLEACH
 #
@@ -17,7 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import time
 from unittest.mock import Mock
 
 import pytest
@@ -55,9 +51,8 @@ def to_simple_url(host: str, page: str, **actions):
 
 # fixture for common global structures
 @pytest.fixture
-def options():
-    return {'internal_port': '65100',
-            'event_link': 'none',
+def dict_options():
+    return {'event_link': 'none',
             'event_port': '65200',
             'synchro_timeout': '20',
             'inactivity_ticks': '2',
@@ -83,9 +78,9 @@ def supervisor():
 
 
 @pytest.fixture
-def supvisors(mocker, supervisor, options):
+def supvisors(mocker, supervisor, dict_options):
     mocker.patch('supvisors.internal_com.mapper.get_addresses', side_effect=lambda x, y: (x, [x], [x]))
-    return MockedSupvisors(supervisor, options)
+    return MockedSupvisors(supervisor, dict_options)
 
 
 # Easy XHTML element creation
@@ -182,13 +177,3 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.shutdown.return_value = True
     proxy.supvisors.end_sync.return_value = True
     proxy.supvisors.change_log_level.return_value = True
-
-
-# Wait / sync functions
-def wait_internal_publisher(publisher, max_time: int = 10) -> bool:
-    """ Wait for the InternalPublisher to be alive. """
-    nb_tries = max_time
-    while nb_tries > 0 and publisher.stop_event is None:
-        time.sleep(1.0)
-        nb_tries -= 1
-    return publisher.stop_event is not None

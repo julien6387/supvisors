@@ -153,13 +153,13 @@ def test_times(mocker, supvisors, supvisors_times):
 @pytest.fixture
 def supvisors_id(supvisors):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId('<supvisors>10.0.0.1:65000:65001', supvisors)
+    return SupvisorsInstanceId('<supvisors>10.0.0.1:65000', supvisors)
 
 
 @pytest.fixture
 def local_supvisors_id(supvisors):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId(f'<{supvisors.mapper.local_identifier}>10.0.0.1:65000:65001', supvisors)
+    return SupvisorsInstanceId(f'<{supvisors.mapper.local_identifier}>10.0.0.1:65000', supvisors)
 
 
 @pytest.fixture
@@ -243,7 +243,7 @@ def test_reset(status):
         status.times.start_local_mtime = 0.7
         status.reset()
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                     SupvisorsInstanceStates.RUNNING]:
+                     SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]:
             assert status.state == SupvisorsInstanceStates.UNKNOWN
         else:
             assert status.state == state
@@ -281,8 +281,7 @@ def test_serialization(mocker, status):
 
 def test_transitions(status):
     """ Test the state transitions of SupvisorsInstanceStatus. """
-    silent_states = [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATING,
-                     SupvisorsInstanceStates.ISOLATED]
+    silent_states = [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]
     for state1 in SupvisorsInstanceStates:
         for state2 in SupvisorsInstanceStates:
             # check all possible transitions from each state
@@ -343,7 +342,7 @@ def test_has_active_state(status):
     for state in SupvisorsInstanceStates:
         status._state = state
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                     SupvisorsInstanceStates.RUNNING]:
+                     SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]:
             assert status.has_active_state()
         else:
             assert not status.has_active_state()
@@ -361,20 +360,18 @@ def test_inactive(status):
     for state in SupvisorsInstanceStates:
         status._state = state
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                     SupvisorsInstanceStates.RUNNING]:
+                     SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]:
             assert status.is_inactive(10)
         else:
             assert not status.is_inactive(10)
 
 
 def test_isolation(status):
-    """ Test the SupvisorsInstanceStatus.in_isolation method. """
+    """ Test the SupvisorsInstanceStatus.isolated method. """
     for state in SupvisorsInstanceStates:
         status._state = state
-        assert (status.in_isolation() and
-                state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED] or
-                not status.in_isolation() and state not in [SupvisorsInstanceStates.ISOLATING,
-                                                            SupvisorsInstanceStates.ISOLATED])
+        assert (status.isolated() and state == SupvisorsInstanceStates.ISOLATED or
+                not status.isolated() and state != SupvisorsInstanceStates.ISOLATED)
 
 
 def test_process_no_collector(supvisors, status):

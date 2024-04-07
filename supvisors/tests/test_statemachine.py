@@ -33,7 +33,7 @@ def supvisors_ctx(supvisors):
     nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     nodes['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
-    nodes['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATING
+    nodes['10.0.0.3']._state = SupvisorsInstanceStates.FAILED
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.ISOLATED
     nodes['test']._state = SupvisorsInstanceStates.UNKNOWN
@@ -108,7 +108,7 @@ def test_initialization_state_enter(mocker, init_state):
     assert instances[local_identifier].state == SupvisorsInstanceStates.UNKNOWN
     assert instances['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
     assert instances['10.0.0.2'].state == SupvisorsInstanceStates.UNKNOWN
-    assert instances['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATING
+    assert instances['10.0.0.3'].state == SupvisorsInstanceStates.UNKNOWN
     assert instances['10.0.0.4'].state == SupvisorsInstanceStates.UNKNOWN
     assert instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
 
@@ -725,8 +725,6 @@ def test_timer_event(mocker, fsm):
     mocked_stopper = fsm.supvisors.stopper.on_instances_invalidation
     mocked_add = fsm.supvisors.failure_handler.add_default_job
     mocked_trigger = fsm.supvisors.failure_handler.trigger_jobs
-    mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation', return_value=[])
-    mocked_isolate = fsm.supvisors.internal_com.pusher.send_isolate_instances
     # test when no invalidation by context
     event = {'counter': 1234}
     fsm.on_timer_event(event)
@@ -736,8 +734,6 @@ def test_timer_event(mocker, fsm):
     assert not mocked_stopper.called
     assert not mocked_add.called
     assert not mocked_trigger.called
-    assert mocked_isolation.call_args_list == [call()]
-    assert not mocked_isolate.called
     mocker.resetall()
     # from this point, context.on_timer_event returns invalidated data
     mocked_event.return_value = ['10.0.0.3'], [proc_1, proc_2]
@@ -751,8 +747,6 @@ def test_timer_event(mocker, fsm):
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert not mocked_add.called
         assert not mocked_trigger.called
-        assert mocked_isolation.call_args_list == [call()]
-        assert not mocked_isolate.called
         mocker.resetall()
         mocked_starter.reset_mock()
         mocked_stopper.reset_mock()
@@ -767,15 +761,12 @@ def test_timer_event(mocker, fsm):
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert not mocked_add.called
         assert not mocked_trigger.called
-        assert mocked_isolation.call_args_list == [call()]
-        assert not mocked_isolate.called
         mocker.resetall()
         mocked_starter.reset_mock()
         mocked_stopper.reset_mock()
     # test when FSM is in WORKING_STATES and local is Master
     fsm.context.master_identifier = fsm.context.local_identifier
     assert fsm.context.is_master
-    mocked_isolation.return_value = ['10.0.0.2', '10.0.0.3']
     for state in WORKING_STATES:
         fsm.state = state
         fsm.on_timer_event(event)
@@ -785,14 +776,11 @@ def test_timer_event(mocker, fsm):
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert mocked_add.call_args_list == [call(proc_1), call(proc_2)]
         assert mocked_trigger.called
-        assert mocked_isolation.call_args_list == [call()]
-        assert mocked_isolate.call_args_list == [call(['10.0.0.2', '10.0.0.3'])]
         mocker.resetall()
         mocked_starter.reset_mock()
         mocked_stopper.reset_mock()
         mocked_add.reset_mock()
         mocked_trigger.reset_mock()
-        mocked_isolate.reset_mock()
 
 
 def test_tick_event(mocker, fsm):
@@ -800,7 +788,7 @@ def test_tick_event(mocker, fsm):
     # inject tick event and test call to context on_tick_event
     mocked_evt = mocker.patch.object(fsm.supvisors.context, 'on_tick_event')
     # test when tick comes from another node
-    event = {'tick': 1234, 'ip_address': '10.0.0.1', 'server_port': 1234}
+    event = {'tick': 1234, 'ip_address': '10.0.0.1', 'server_port': 65000}
     fsm.on_tick_event('10.0.0.1', event)
     assert mocked_evt.call_args_list == [call('10.0.0.1', event)]
     mocker.resetall()

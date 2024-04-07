@@ -600,12 +600,12 @@ table .RUNNING.crashed, table .CHECKED.crashed {
     color: black;
 }
 
-table .FATAL, table .ISOLATED {
+table .FATAL, table .FAILED {
     background-image: linear-gradient(165deg, white, var(--fatal-color), var(--fatal-color), white);
     color: black;
 }
 
-table .UNKNOWN, table .disabled {
+table .UNKNOWN, table .ISOLATED, table .disabled {
     background-image: linear-gradient(165deg, white, grey, grey, white);
     color: black;
 }

@@ -31,7 +31,6 @@ def config():
     return {'supvisors_list': 'cliche01,cliche03,cliche02', 'stereotypes': 'test',
             'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
-            'internal_port': '60001',
             'event_link': 'zmq', 'event_port': '60002',
             'synchro_options': 'LIST,USER', 'synchro_timeout': '20',
             'inactivity_ticks': '9',
@@ -88,7 +87,6 @@ def test_options_creation(opt):
     assert opt.multicast_interface is None
     assert opt.multicast_ttl == 1
     assert opt.rules_files is None
-    assert opt.internal_port == 0
     assert opt.event_link == EventLinks.NONE
     assert opt.event_port == 0
     assert not opt.auto_fence
@@ -115,7 +113,6 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.multicast_interface == '192.168.1.1'
     assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
-    assert filled_opt.internal_port == 60001
     assert filled_opt.event_link == EventLinks.ZMQ
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
@@ -139,7 +136,7 @@ def test_str(opt):
     """ Test the string output. """
     assert str(opt) == ('supvisors_list=None stereotypes=set()'
                         ' multicast_group=None multicast_interface=None multicast_ttl=1'
-                        ' rules_files=None internal_port=0'
+                        ' rules_files=None'
                         ' event_link=NONE event_port=0'
                         " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
                         ' inactivity_ticks=2 core_identifiers=set()'
@@ -159,7 +156,6 @@ def test_filled_str(filled_opt):
                           " stereotypes={'test'}"
                           ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
                           " rules_files=['my_movies.xml']"
-                          ' internal_port=60001'
                           ' event_link=ZMQ event_port=60002'
                           ' auto_fence=True'
                           " synchro_options=['LIST', 'USER'] synchro_timeout=20"

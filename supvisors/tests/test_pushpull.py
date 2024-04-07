@@ -21,13 +21,6 @@ import pytest
 from supvisors.internal_com.pushpull import *
 
 
-def test_deferred_request_headers():
-    """ Test the DeferredRequestHeaders enumeration. """
-    expected = ['CHECK_INSTANCE', 'ISOLATE_INSTANCES', 'CONNECT_INSTANCE', 'START_PROCESS', 'STOP_PROCESS',
-                'RESTART', 'SHUTDOWN', 'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
-    assert [x.name for x in DeferredRequestHeaders] == expected
-
-
 @pytest.fixture
 def push_pull():
     """ Return a pair of sockets to be used for Push / Pull. """
@@ -42,18 +35,15 @@ async def test_push_pull_end_event(supvisors, push_pull):
     event = asyncio.Event()
     # create puller
     supvisors.internal_com.puller_sock = push_pull[1]
-    puller = RequestAsyncPuller(queue, event, supvisors)
+    puller = AsyncRpcPuller(queue, event, supvisors)
 
     async def pusher_task():
         """ test of the pusher """
-        pusher = RequestPusher(push_pull[0], supvisors.logger)
+        pusher = RpcPusher(push_pull[0], supvisors)
         assert pusher.logger is supvisors.logger
+        # 1. test requests
         # test push CHECK_INSTANCE
         pusher.send_check_instance('10.0.0.1')
-        # test push ISOLATE_INSTANCES
-        pusher.send_isolate_instances(['10.0.0.1', '10.0.0.2'])
-        # test push ISOLATE_INSTANCES
-        pusher.send_connect_instance('10.0.0.1')
         # test push START_PROCESS
         pusher.send_start_process('10.0.0.1', 'group:name', 'extra args')
         # test push STOP_PROCESS
@@ -68,41 +58,87 @@ async def test_push_pull_end_event(supvisors, push_pull):
         pusher.send_restart_all('10.0.0.1')
         # test push SHUTDOWN_ALL
         pusher.send_shutdown_all('10.0.0.1')
+        # 2. test publications
+        # test push TICK
+        pusher.send_tick_event({'when': 1234})
+        # test push PROCESS
+        pusher.send_process_state_event({'name': 'dummy', 'state': 'RUNNING'})
+        # test push PROCESS_ADDED
+        pusher.send_process_added_event({'name': 'dummy'})
+        # test push PROCESS_REMOVED
+        pusher.send_process_removed_event({'name': 'dummy'})
+        # test push PROCESS_DISABILITY
+        pusher.send_process_disability_event({'name': 'dummy_program'})
+        # test push HOST_STATISTICS
+        pusher.send_host_statistics({'cpu': 1.0})
+        # test push PROCESS_STATISTICS
+        pusher.send_process_statistics({'dummy_process': {'cpu': 1.0}})
+        # test push STATE
+        pusher.send_state_event({'state': 'INIT'})
         # test timeout on reception
         await asyncio.sleep(1.5)
         event.set()
 
     async def check_output():
         """ test of the puller output """
-        # test subscribe CHECK_INSTANCE
-        expected = [DeferredRequestHeaders.CHECK_INSTANCE.value, ['10.0.0.1', ]]
+        # 1. test requests
+        # test pull CHECK_INSTANCE
+        expected = [InternalEventHeaders.REQUEST.value, [RequestHeaders.CHECK_INSTANCE.value, ['10.0.0.1', ]]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe ISOLATE_INSTANCES
-        expected = [DeferredRequestHeaders.ISOLATE_INSTANCES.value, ['10.0.0.1', '10.0.0.2']]
+        # test pull START_PROCESS
+        expected = [InternalEventHeaders.REQUEST.value,
+                    [RequestHeaders.START_PROCESS.value, ['10.0.0.1', 'group:name', 'extra args']]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe CONNECT_INSTANCE
-        expected = [DeferredRequestHeaders.CONNECT_INSTANCE.value, ['10.0.0.1', ]]
+        # test pull STOP_PROCESS
+        expected = [InternalEventHeaders.REQUEST.value, [RequestHeaders.STOP_PROCESS.value, ['10.0.0.1', 'group:name']]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe START_PROCESS
-        expected = [DeferredRequestHeaders.START_PROCESS.value, ['10.0.0.1', 'group:name', 'extra args']]
+        # test pull RESTART
+        expected = [InternalEventHeaders.REQUEST.value, [RequestHeaders.RESTART.value, ['10.0.0.1', ]]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe STOP_PROCESS
-        expected = [DeferredRequestHeaders.STOP_PROCESS.value, ['10.0.0.1', 'group:name']]
+        # test pull SHUTDOWN
+        expected = [InternalEventHeaders.REQUEST.value, [RequestHeaders.SHUTDOWN.value, ['10.0.0.1', ]]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe RESTART
-        expected = [DeferredRequestHeaders.RESTART.value, ['10.0.0.1', ]]
+        # test pull RESTART_SEQUENCE
+        expected = [InternalEventHeaders.REQUEST.value, [RequestHeaders.RESTART_SEQUENCE.value, ['10.0.0.1', ]]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe SHUTDOWN
-        expected = [DeferredRequestHeaders.SHUTDOWN.value, ['10.0.0.1', ]]
+        # test pull RESTART_ALL
+        expected = [InternalEventHeaders.REQUEST.value, [RequestHeaders.RESTART_ALL.value, ['10.0.0.1', ]]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe RESTART_SEQUENCE
-        expected = [DeferredRequestHeaders.RESTART_SEQUENCE.value, ['10.0.0.1', ]]
+        # test pull SHUTDOWN_ALL
+        expected = [InternalEventHeaders.REQUEST.value, [RequestHeaders.SHUTDOWN_ALL.value, ['10.0.0.1', ]]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe RESTART_ALL
-        expected = [DeferredRequestHeaders.RESTART_ALL.value, ['10.0.0.1', ]]
+        # 2. test publications
+        # test pull TICK
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.TICK.value, {'when': 1234}]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
-        # test subscribe SHUTDOWN_ALL
-        expected = [DeferredRequestHeaders.SHUTDOWN_ALL.value, ['10.0.0.1', ]]
+        # test pull PROCESS
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.PROCESS.value, {'name': 'dummy', 'state': 'RUNNING'}]]
+        assert await asyncio.wait_for(queue.get(), 1.0) == expected
+        # test pull PROCESS_ADDED
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.PROCESS_ADDED.value, {'name': 'dummy'}]]
+        assert await asyncio.wait_for(queue.get(), 1.0) == expected
+        # test pull PROCESS_REMOVED
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.PROCESS_REMOVED.value, {'name': 'dummy'}]]
+        assert await asyncio.wait_for(queue.get(), 1.0) == expected
+        # test pull PROCESS_DISABILITY
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.PROCESS_DISABILITY.value, {'name': 'dummy_program'}]]
+        assert await asyncio.wait_for(queue.get(), 1.0) == expected
+        # test pull HOST_STATISTICS
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.HOST_STATISTICS.value, {'cpu': 1.0}]]
+        assert await asyncio.wait_for(queue.get(), 1.0) == expected
+        # test pull PROCESS_STATISTICS
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.PROCESS_STATISTICS.value,{'dummy_process': {'cpu': 1.0}}]]
+        assert await asyncio.wait_for(queue.get(), 1.0) == expected
+        # test pull STATE
+        expected = [InternalEventHeaders.PUBLICATION.value,
+                    [PublicationHeaders.STATE.value, {'state': 'INIT'}]]
         assert await asyncio.wait_for(queue.get(), 1.0) == expected
 
     # handle_puller can loop forever, so add a wait_for just in case something goes wrong
@@ -119,11 +155,11 @@ async def test_push_pull_end_eof(supvisors, push_pull):
     event = asyncio.Event()
     # create puller
     supvisors.internal_com.puller_sock = push_pull[1]
-    puller = RequestAsyncPuller(queue, event, supvisors)
+    puller = AsyncRpcPuller(queue, event, supvisors)
 
     async def pusher_task():
         """ test of the pusher """
-        pusher = RequestPusher(push_pull[0], supvisors.logger)
+        pusher = RpcPusher(push_pull[0], supvisors)
         assert pusher.logger is supvisors.logger
         # test push CHECK_INSTANCE
         pusher.send_check_instance('10.0.0.1')
@@ -142,7 +178,7 @@ async def test_push_pull_end_error(supvisors, push_pull):
     event = asyncio.Event()
     # create puller
     supvisors.internal_com.puller_sock = push_pull[1]
-    puller = RequestAsyncPuller(queue, event, supvisors)
+    puller = AsyncRpcPuller(queue, event, supvisors)
 
     async def pusher_task():
         """ test of the pusher """
@@ -159,6 +195,6 @@ def test_push_error(supvisors, push_pull):
     """ Test the RequestPusher / push_message exception management.
     The aim is to hit the lines 197-198.
     Check OK with debugger. """
-    pusher = RequestPusher(push_pull[0], supvisors.logger)
+    pusher = RpcPusher(push_pull[0], supvisors)
     push_pull[0].close()
     pusher.send_shutdown('10.0.0.1')

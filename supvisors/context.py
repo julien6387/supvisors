@@ -27,7 +27,7 @@ from .instancestatus import SupvisorsInstanceStatus
 from .process import ProcessRules, ProcessStatus
 from .ttypes import (ApplicationStates, SupvisorsInstanceStates, SupvisorsStates,
                      WORKING_STATES, CLOSING_STATES,
-                     NameList, Payload, PayloadList, LoadMap)
+                     Ipv4Address, NameList, Payload, PayloadList, LoadMap)
 
 
 class Context:
@@ -84,12 +84,12 @@ class Context:
 
     @property
     def local_identifier(self) -> str:
-        """ Get last local TICK sequence counter, used for node invalidation. """
+        """ Get the local Supvisors instance identifier. """
         return self.supvisors.mapper.local_identifier
 
     @property
     def local_status(self) -> SupvisorsInstanceStatus:
-        """ Get local Supvisors instance structure. """
+        """ Get the local Supvisors instance structure. """
         return self.instances[self.local_identifier]
 
     @property
@@ -161,7 +161,7 @@ class Context:
         changed, state_modes = self.local_status.apply_state_modes(event)
         if changed:
             # on change, publish the local Supvisors state and modes to the other Supvisors instances
-            self.supvisors.internal_com.publisher.send_state_event(state_modes.serial())
+            self.supvisors.internal_com.pusher.send_state_event(state_modes.serial())
             # publish SupvisorsInstanceStatus and SupvisorsStatus
             self.export_status(self.local_status)
 
@@ -204,12 +204,14 @@ class Context:
             self._publish_state_mode()
 
     # methods on nodes
-    def is_valid(self, identifier: str, ip_address: str) -> bool:
+    def is_valid(self, identifier: str, ipv4_address: Ipv4Address) -> bool:
         """ Check the validity of the message emitter.
-        Validity is ok if the identifier is known with the correct IP address and not declared in isolation. """
+        Validity is ok if the identifier is known with the correct IP address and not declared isolated. """
+        ip_address, http_port = ipv4_address
         if identifier in self.instances:
             status = self.instances[identifier]
-            if not status.in_isolation() and status.supvisors_id.ip_address == ip_address:
+            if (not status.isolated() and status.supvisors_id.ip_address == ip_address
+                    and status.supvisors_id.http_port == http_port):
                 return True
         return False
 
@@ -250,17 +252,13 @@ class Context:
                        if identifier in core_identifiers)
         return False
 
-    def isolating_instances(self) -> NameList:
-        """ Return the identifiers of the Supervisor instances in ISOLATING state. """
-        return self.instances_by_states([SupvisorsInstanceStates.ISOLATING])
-
-    def isolation_instances(self) -> NameList:
-        """ Return the identifiers of the Supervisors in ISOLATING or ISOLATED state. """
-        return self.instances_by_states([SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED])
+    def isolated_instances(self) -> NameList:
+        """ Return the identifiers of the Supervisors in ISOLATED state. """
+        return self.instances_by_states([SupvisorsInstanceStates.ISOLATED])
 
     def valid_instances(self) -> NameList:
-        """ Return the identifiers of the Supervisors NOT in ISOLATING or ISOLATED state. """
-        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN,
+        """ Return the identifiers of the Supervisors NOT in ISOLATED state. """
+        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.FAILED,
                                          SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
                                          SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.SILENT])
 
@@ -284,9 +282,9 @@ class Context:
                 self.invalid(status)
 
     def invalid(self, status: SupvisorsInstanceStatus, fence=None) -> None:
-        """ Declare SILENT or ISOLATING the SupvisorsInstanceStatus in parameter, according to the auto_fence option.
+        """ Declare SILENT or ISOLATED the SupvisorsInstanceStatus in parameter, according to the auto_fence option.
 
-        The local Supvisors instance is never set to ISOLATING / ISOLATED, whatever the option is set or not.
+        The local Supvisors instance is never set to ISOLATED, whatever the option is set or not.
         Always give it a chance to restart.
 
         @param: fence: True when the remote Supvisors instance has isolated the local Supvisors instance
@@ -304,7 +302,7 @@ class Context:
             #   - the remote Supvisors instance has isolated the local Supvisors instance (auth exchange)
             #   - the remote Supvisors instance has become non-responsive, and the option auto_fence is activated,
             #     the Supvisors FSM is in WORKING_STATES.
-            status.state = SupvisorsInstanceStates.ISOLATING
+            status.state = SupvisorsInstanceStates.ISOLATED
         else:
             status.state = SupvisorsInstanceStates.SILENT
         # publish SupvisorsInstanceStatus and SupvisorsStatus
@@ -461,10 +459,10 @@ class Context:
         :param event: the new state and modes
         :return: None
         """
-        # ISOLATING / ISOLATED instances are not updated anymore
+        # ISOLATED instances are not updated anymore
         # should not happen as the subscriber should have been disconnected but there may be a tick in the pipe
         status = self.instances[identifier]
-        if not status.in_isolation():
+        if not status.isolated():
             # update the Supvisors instance StateModes status
             status.update_state_modes(event)
             # check if a Master is known to this Supvisors instance and compare with the local's
@@ -560,9 +558,9 @@ class Context:
         if self.local_status.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             self.logger.debug('Context.on_tick_event: waiting for local tick first')
             return
-        # ISOLATING / ISOLATED instances are not updated anymore
+        # ISOLATED instances are not updated anymore
         status = self.instances[identifier]
-        if not status.in_isolation():
+        if not status.isolated():
             # update the Supvisors instance with the TICK event
             self.supvisors.mapper.assign_stereotypes(identifier, event['stereotypes'])
             # for remote Supvisors instance, use local Supvisors instance data
@@ -585,7 +583,7 @@ class Context:
         """
         ip_address, port = event['ip_address'], event['server_port']
         if identifier not in self.instances:
-            item = f'<{identifier}>{ip_address}:{port}:'
+            item = f'<{identifier}>{ip_address}:{port}'
             new_instance = self.supvisors.mapper.add_instance(item, True)
             self.instances[identifier] = SupvisorsInstanceStatus(new_instance, self.supvisors)
             return True
@@ -789,13 +787,3 @@ class Context:
                         self.external_publisher.send_process_status(process.serial())
                         self.external_publisher.send_application_status(application.serial())
                     return process
-
-    def handle_isolation(self) -> NameList:
-        """ Move ISOLATING Supvisors instances to ISOLATED and publish related events. """
-        identifiers = self.isolating_instances()
-        for identifier in identifiers:
-            status = self.instances[identifier]
-            status.state = SupvisorsInstanceStates.ISOLATED
-            # publish SupvisorsInstanceStatus and SupvisorsStatus events
-            self.export_status(status)
-        return identifiers

@@ -20,7 +20,6 @@ from threading import Timer
 import pytest
 
 from supvisors.internal_com.internal_com import *
-from .conftest import wait_internal_publisher
 
 
 @pytest.fixture
@@ -29,8 +28,6 @@ def emitter(supvisors, request) -> SupvisorsInternalEmitter:
     if request.param == 'discovery':
         supvisors.options.multicast_group = '239.0.0.1', 7777
     emitter_test = SupvisorsInternalEmitter(supvisors)
-    # wait for the publisher to be alive to avoid stop issues
-    assert wait_internal_publisher(emitter_test.publisher)
     yield emitter_test
     emitter_test.stop()
 
@@ -42,37 +39,11 @@ def test_emitter(supvisors, emitter):
     ref_pusher = emitter.pusher_sock
     ref_puller = emitter.puller_sock
     ref_request = emitter.pusher
-    ref_publisher = emitter.publisher
     assert type(ref_pusher) is socket
     assert type(ref_puller) is socket
-    assert type(ref_request) is RequestPusher
+    assert type(ref_request) is RpcPusher
     assert emitter.pusher.socket is emitter.pusher_sock
-    assert type(ref_publisher) is InternalPublisher
     assert emitter.mc_sender is None
-    assert emitter.intf_names == []
-    # add interfaces and test no change for the first call
-    emitter.check_intf(['lo'])
-    assert emitter.intf_names == ['lo']
-    assert ref_pusher is emitter.pusher_sock
-    assert ref_puller is emitter.puller_sock
-    assert ref_request is emitter.pusher
-    assert ref_publisher is emitter.publisher
-    # add interfaces again and check publisher restart
-    emitter.check_intf(['lo', 'eth0'])
-    assert wait_internal_publisher(emitter.publisher)
-    assert emitter.intf_names == ['lo', 'eth0']
-    assert ref_pusher is emitter.pusher_sock
-    assert ref_puller is emitter.puller_sock
-    assert ref_request is emitter.pusher
-    assert ref_publisher is not emitter.publisher
-    ref_publisher = emitter.publisher
-    # remove interfaces and test no change on structures
-    emitter.check_intf(['lo'])
-    assert emitter.intf_names == ['lo']
-    assert ref_pusher is emitter.pusher_sock
-    assert ref_puller is emitter.puller_sock
-    assert ref_request is emitter.pusher
-    assert ref_publisher is emitter.publisher
 
 
 @pytest.mark.parametrize('emitter', ['discovery'], indirect=True)
@@ -82,25 +53,9 @@ def test_emitter_discovery(supvisors, emitter):
     assert emitter.supvisors is supvisors
     assert type(emitter.pusher_sock) is socket
     assert type(emitter.puller_sock) is socket
-    assert type(emitter.pusher) is RequestPusher
+    assert type(emitter.pusher) is RpcPusher
     assert emitter.pusher.socket is emitter.pusher_sock
-    assert type(emitter.publisher) is InternalPublisher
     assert type(ref_mc_sender) is MulticastSender
-    assert emitter.intf_names == []
-    # quick test on interfaces with just the mc_sender
-    # add interfaces and test no change for the first call
-    emitter.check_intf(['lo'])
-    assert emitter.intf_names == ['lo']
-    assert ref_mc_sender is emitter.mc_sender
-    # add interfaces again and check no change on MulticastSender
-    emitter.check_intf(['lo', 'eth0'])
-    assert wait_internal_publisher(emitter.publisher)
-    assert emitter.intf_names == ['lo', 'eth0']
-    assert ref_mc_sender is emitter.mc_sender
-    # remove interfaces and test no change on structures
-    emitter.check_intf(['eth0'])
-    assert emitter.intf_names == ['eth0']
-    assert ref_mc_sender is emitter.mc_sender
     # test close
     emitter.stop()
 
@@ -125,17 +80,14 @@ async def test_receiver(supvisors, receiver):
     assert receiver.loop is asyncio.get_event_loop()
     assert not receiver.stop_event.is_set()
     assert receiver.requester_queue.empty()
-    assert receiver.subscriber_queue.empty()
     assert receiver.discovery_queue.empty()
-    assert type(receiver.puller) is RequestAsyncPuller
-    assert type(receiver.subscribers) is InternalAsyncSubscribers
+    assert type(receiver.puller) is AsyncRpcPuller
     assert receiver.discovery_coro is None
-    # test the number of tasks (one per Supvisors instance, local instance excepted, + stop, + puller)
-    assert len(supvisors.mapper.instances) == 7
+    # test the number of tasks (only puller)
     tasks = receiver.get_tasks()
     try:
         assert all(asyncio.iscoroutine(x) for x in tasks)
-        assert len(tasks) == len(supvisors.mapper.instances) + 1
+        assert len(tasks) == 1
     finally:
         # avoid warnings about coroutines never awaited
         receiver.stop_event.set()
@@ -150,17 +102,14 @@ async def test_receiver_discovery(supvisors, receiver):
     assert receiver.loop is asyncio.get_event_loop()
     assert not receiver.stop_event.is_set()
     assert receiver.requester_queue.empty()
-    assert receiver.subscriber_queue.empty()
     assert receiver.discovery_queue.empty()
-    assert type(receiver.puller) is RequestAsyncPuller
-    assert type(receiver.subscribers) is InternalAsyncSubscribers
+    assert type(receiver.puller) is AsyncRpcPuller
     assert asyncio.iscoroutine(receiver.discovery_coro)
-    # test the number of tasks (one per Supvisors instance, local instance excepted, + stop, + puller, + discovery)
-    assert len(supvisors.mapper.instances) == 7
+    # test the number of tasks (puller + discovery)
     tasks = receiver.get_tasks()
     try:
         assert all(asyncio.iscoroutine(x) for x in tasks)
-        assert len(tasks) == len(supvisors.mapper.instances) + 2
+        assert len(tasks) == 2
     finally:
         # avoid warnings about coroutines never awaited
         receiver.stop_event.set()

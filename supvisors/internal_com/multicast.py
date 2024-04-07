@@ -17,7 +17,6 @@
 import asyncio
 import struct
 import traceback
-from enum import Enum
 from socket import (inet_aton, error, socket,
                     AF_INET, INADDR_ANY, SOCK_DGRAM,
                     IPPROTO_IP, IPPROTO_UDP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL)
@@ -25,8 +24,8 @@ from typing import Any
 
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import Ipv4Address, Payload
-from .internalinterface import InternalCommEmitter, payload_to_bytes, bytes_to_payload
+from supvisors.ttypes import Ipv4Address, PublicationHeaders, Payload
+from .internalinterface import payload_to_bytes, bytes_to_payload
 
 # Default size of the Multicast reception buffer
 BUFFER_SIZE = 16 * 1024
@@ -34,8 +33,8 @@ BUFFER_SIZE = 16 * 1024
 
 # Emission part
 #   done in Sync to work in Supervisor thread
-class MulticastSender(InternalCommEmitter):
-    """ only TICKS for discovery mode. """
+class MulticastSender:
+    """ Multicast only TICKS for discovery mode. """
 
     def __init__(self, identifier: str, mc_group: Ipv4Address, ttl: int, logger: Logger):
         """ Create a socket to multicast messages. """
@@ -51,15 +50,15 @@ class MulticastSender(InternalCommEmitter):
         """ Close the UDP socket. """
         self.socket.close()
 
-    def emit_message(self, event_type: Enum, event_body: Payload):
-        """ Multicast a message.
-        It is not necessary to add a message size . """
-        message = payload_to_bytes(event_type, (self.identifier, event_body))
-        self.logger.debug(f'MulticastSender.emit_message: size={len(message)}')
+    def send_discovery_event(self, payload: Payload):
+        """ Multicast the discovery event.
+        It is not necessary to add a message size. """
+        self.logger.trace('MulticastSender.emit_message')
+        message = payload_to_bytes((PublicationHeaders.DISCOVERY.value, (self.identifier, payload)))
         try:
             self.socket.sendto(message, self.mc_group)
         except OSError:
-            self.logger.error(f'MulticastSender.emit_message: failed to send event (type={event_type.name})')
+            self.logger.error('MulticastSender.emit_message: failed to send DISCOVERY message')
             self.logger.info(f'MulticastSender.emit_message: {traceback.format_exc()}')
 
 
@@ -77,17 +76,19 @@ class MulticastReceiver(asyncio.Protocol):
         """ Just for information. Not used. """
         self.logger.debug(f'MulticastReceiver.connection_made')
 
-    def datagram_received(self, data, address):
+    def datagram_received(self, data, address: Ipv4Address) -> None:
         """ Decode the message received to put it into the asynchronous queue. """
         self.logger.debug(f'MulticastReceiver.datagram_received: from {address}')
-        self.queue.put_nowait((address, bytes_to_payload(data)))
+        msg_type, (identifier, msg_body) = bytes_to_payload(data)
+        self.queue.put_nowait(((identifier, address), (msg_type, msg_body)))
 
 
 async def handle_mc_receiver(queue: asyncio.Queue, stop_event: asyncio.Event, supvisors: Any):
     """ The main coroutine in charge of receiving messages from the MulticastSender. """
     mc_address = supvisors.options.multicast_group
     mc_interface = supvisors.options.multicast_interface
-    supvisors.logger.debug(f'handle_mc_receiver: creating MulticastReceiver on {mc_address}')
+    logger = supvisors.logger
+    logger.debug(f'handle_mc_receiver: creating MulticastReceiver on {mc_address}')
     # open the MulticastReceiver
     loop = asyncio.get_event_loop()
     try:
@@ -95,9 +96,9 @@ async def handle_mc_receiver(queue: asyncio.Queue, stop_event: asyncio.Event, su
                                                                   family=AF_INET, proto=IPPROTO_UDP,
                                                                   local_addr=mc_address, reuse_port=True)
     except error as exc:
-        supvisors.logger.error(f'handle_mc_receiver: failed to open endpoint to {mc_address} - {str(exc)}')
+        logger.error(f'handle_mc_receiver: failed to open endpoint to {mc_address} - {str(exc)}')
     else:
-        supvisors.logger.info(f'handle_mc_receiver: endpoint opened to {mc_address}')
+        logger.info(f'handle_mc_receiver: endpoint opened to {mc_address}')
         try:
             if mc_interface:
                 mcast_req = struct.pack('=4s4s', inet_aton(mc_address[0]), inet_aton(mc_interface))
@@ -106,11 +107,11 @@ async def handle_mc_receiver(queue: asyncio.Queue, stop_event: asyncio.Event, su
             # WARN: public access to underlying socket is sadly not provided
             transport._sock.setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP, mcast_req)
         except error as exc:
-            supvisors.logger.error(f'handle_mc_receiver: failed to set membership {mc_interface or "INADDR_ANY"}'
-                                   f' to {mc_address} - {str(exc)}')
+            logger.error(f'handle_mc_receiver: failed to set membership {mc_interface or "INADDR_ANY"}'
+                         f' to {mc_address} - {str(exc)}')
         else:
-            supvisors.logger.debug(f'handle_mc_receiver: membership set for {mc_address}')
+            logger.debug(f'handle_mc_receiver: membership set for {mc_address}')
             # wait for task termination
             await stop_event.wait()
         transport.close()
-    supvisors.logger.debug(f'handle_mc_receiver: exit')
+    logger.debug(f'handle_mc_receiver: exit')

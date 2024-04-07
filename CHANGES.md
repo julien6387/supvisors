@@ -2,6 +2,12 @@
 
 ## 0.18 (2024-xx-xx)
 
+* Refactoring of the **Supvisors** internal communications.
+  The `internal_port` of the **Supvisors** section in the Supervisor configuration file is no longer needed.
+  As a consequence, the `supvisors_list` option is simplified as follows: `<identifier>host_name:http_port`. 
+  The transitional `SupvisorsInstanceStates.ISOLATING` state has been removed.
+  The `SupvisorsInstanceStates.FAILED` state has been added to point out a Supervisor instance that became unresponsive.
+
 * Implement [Issue #50](https://github.com/julien6387/supvisors/issues/50).
   A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the
   application operational status.

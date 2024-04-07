@@ -52,7 +52,7 @@ class MockedSupvisors:
         host_name = gethostname()
         fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
+                       f'<{host_name}>{fqdn}:65000', f'<test>{fqdn}:55000']
         self.mapper.configure(identifiers, {'supvisors_test'}, [])
         self.server_options = SupvisorsServerOptions(self)
         # set real statistics collector and compilers

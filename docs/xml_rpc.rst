@@ -71,7 +71,7 @@ Status
             'port'                    ``int``   The HTTP port of the |Supvisors| instance.
             'statecode'	              ``int``   The |Supvisors| instance state, in [0;6].
             'statename'	              ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
-                                                `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
+                                                `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'FAILED'``, ``'ISOLATED'``].
             'discovery_mode'          ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
             'remote_sequence_counter' ``int``   The remote TICK counter, i.e. the number of TICK events received since
                                                 the remote |Supvisors| instance is running.
@@ -358,8 +358,10 @@ but they are configured to communicate with the local |Supervisor| instance.
 If the :program:`Python` client has to communicate with another |Supervisor| instance, the parameters must be set
 accordingly.
 
->>> from supervisor.childutils import getRPCInterface
->>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://cliche81:60000'})
+The ``ServerProxy`` of the ``xmlrpc`` module can also be used.
+
+>>> from xmlrpc.client import ServerProxy
+>>> proxy = ServerProxy('http://cliche81:60000')
 >>> proxy.supvisors.get_supvisors_state()
 {'fsm_statecode': 3, 'fsm_statename': 'OPERATION', 'starting_jobs': [], 'stopping_jobs': []}
 

@@ -20,18 +20,18 @@ import queue
 import threading
 import traceback
 from http.client import CannotSendRequest, IncompleteRead
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 from supervisor.childutils import getRPCInterface
 from supervisor.compat import xmlrpclib
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import RPCError
 
-from supvisors.ttypes import InternalEventHeaders, SupvisorsInstanceStates, Ipv4Address, SUPVISORS, ISOLATION_STATES
+from supvisors.ttypes import (Ipv4Address, InternalEventHeaders, RequestHeaders, PublicationHeaders,
+                              SupvisorsInstanceStates, SUPVISORS)
 from supvisors.utils import SupervisorServerUrl
 from .internal_com import SupvisorsInternalReceiver
 from .internalinterface import ASYNC_TIMEOUT
-from .pushpull import DeferredRequestHeaders
 
 
 class SupervisorProxy(threading.Thread):
@@ -56,20 +56,21 @@ class SupervisorProxy(threading.Thread):
         # SupervisorServerUrl contains the environment variables linked to Supervisor security access,
         self.srv_url: SupervisorServerUrl = SupervisorServerUrl(supvisors.supervisor_data.get_env())
         # create an XML-RPC client to the local Supervisor instance
-        self.proxy = getRPCInterface(self.srv_url.env)
+        self.proxies = {self.local_identifier: getRPCInterface(self.srv_url.env)}
 
     @property
     def logger(self) -> Logger:
         """ Shortcut to the Supvisors logger. """
         return self.supvisors.logger
 
-    def push_event(self, message):
-        """ Add an event to send to Supervisor. """
-        self.queue.put_nowait((None, message))
+    @property
+    def local_identifier(self) -> str:
+        """ Get the local Supvisors instance identifier. """
+        return self.supvisors.mapper.local_identifier
 
-    def push_request(self, request: DeferredRequestHeaders, params):
+    def push_message(self, *message):
         """ Add an event to send to Supervisor. """
-        self.queue.put_nowait((request, params))
+        self.queue.put_nowait(message)
 
     def stop(self):
         """ Set the event to stop the main loop. """
@@ -80,39 +81,74 @@ class SupervisorProxy(threading.Thread):
         self.logger.info('SupervisorProxy.run: entering main loop')
         while not self.event.is_set():
             try:
-                event_type, event_data = self.queue.get(timeout=SupervisorProxy.QUEUE_TIMEOUT)
+                event_type, event_body = self.queue.get(timeout=SupervisorProxy.QUEUE_TIMEOUT)
             except queue.Empty:
                 self.logger.blather('SupervisorProxy.run: nothing received')
             else:
-                if event_type is not None:
-                    self.execute(event_type, event_data)
-                else:
-                    self.send_remote_comm_event(event_data)
+                if event_type == InternalEventHeaders.REQUEST:
+                    self.execute(event_body)
+                elif event_type == InternalEventHeaders.PUBLICATION:
+                    self.publish(event_body)
+                elif event_type == InternalEventHeaders.DISCOVERY:
+                    self.send_remote_comm_event(self.local_identifier, event_body)
         self.logger.info('SupervisorProxy.run: exiting main loop')
 
-    def execute(self, header: DeferredRequestHeaders, body) -> None:
+    def _get_origin(self, identifier: str) -> Tuple[str, Ipv4Address]:
+        """ Return the identification of the Supvisors instance. """
+        return self.supvisors.mapper.instances[identifier].source
+
+    def get_proxy(self, identifier: str):
+        """ Get the proxy corresponding to the Supervisor identifier. """
+        proxy = self.proxies.get(identifier)
+        if not proxy:
+            instance = self.supvisors.mapper.instances[identifier]
+            self.srv_url.update_url(instance.host_id, instance.http_port)
+            self.proxies[identifier] = proxy = getRPCInterface(self.srv_url.env)
+        return proxy
+
+    def publish(self, publication_message: Tuple):
+        """ Publish the event using the XML-RPC interface of the Supervisor instances.
+        Isolated instances are not considered.
+        No publication to self instance because the event has already been processed. """
+        try:
+            publication_type = PublicationHeaders(publication_message[0])
+        except ValueError:
+            self.logger.error(f'SupervisorProxy.publish: unexpected publication={publication_message}')
+            return
+        # publish the message to all known supvisors instances
+        message = self._get_origin(self.local_identifier), publication_message
+        for status in self.supvisors.context.instances.values():
+            if not status.isolated() and status.identifier != self.local_identifier:
+                # if the remote instance is not active, publish only TICK events
+                # TODO: retry if already FAILED ?
+                if publication_type == PublicationHeaders.TICK or status.has_active_state():
+                    self.send_remote_comm_event(status.identifier, message)
+
+    def execute(self, request_message: Tuple) -> None:
         """ Perform the XML-RPC according to the header. """
-        # first element of body is always the identifier of the destination Supvisors instance
-        identifier = body[0]
-        instance = self.supvisors.mapper.instances[identifier]
-        self.srv_url.update_url(instance.host_id, instance.http_port)
+        request_value, request_body = request_message
+        try:
+            request_type = RequestHeaders(request_value)
+        except ValueError:
+            self.logger.error(f'SupervisorProxy.execute: unexpected request={request_value}')
+            return
         # send message
-        if header == DeferredRequestHeaders.CHECK_INSTANCE:
-            self.check_instance(*body)
-        elif header == DeferredRequestHeaders.START_PROCESS:
-            self.start_process(*body)
-        elif header == DeferredRequestHeaders.STOP_PROCESS:
-            self.stop_process(*body)
-        elif header == DeferredRequestHeaders.RESTART:
-            self.restart(*body)
-        elif header == DeferredRequestHeaders.SHUTDOWN:
-            self.shutdown(*body)
-        elif header == DeferredRequestHeaders.RESTART_SEQUENCE:
-            self.restart_sequence(*body)
-        elif header == DeferredRequestHeaders.RESTART_ALL:
-            self.restart_all(*body)
-        elif header == DeferredRequestHeaders.SHUTDOWN_ALL:
-            self.shutdown_all(*body)
+        if request_type == RequestHeaders.CHECK_INSTANCE:
+            self.check_instance(*request_body)
+        elif request_type == RequestHeaders.START_PROCESS:
+            self.start_process(*request_body)
+        elif request_type == RequestHeaders.STOP_PROCESS:
+            self.stop_process(*request_body)
+        elif request_type == RequestHeaders.RESTART:
+            self.restart(*request_body)
+        elif request_type == RequestHeaders.SHUTDOWN:
+            self.shutdown(*request_body)
+        elif request_type == RequestHeaders.RESTART_SEQUENCE:
+            self.restart_sequence(*request_body)
+        elif request_type == RequestHeaders.RESTART_ALL:
+            self.restart_all(*request_body)
+        elif request_type == RequestHeaders.SHUTDOWN_ALL:
+            self.shutdown_all(*request_body)
 
     def check_instance(self, identifier: str) -> None:
         """ Check isolation and get all process info.
@@ -126,13 +162,8 @@ class SupervisorProxy(threading.Thread):
             self._transfer_states_modes(identifier)
             self._transfer_process_info(identifier)
         # inform local Supvisors that authorization result is available
-        message = InternalEventHeaders.AUTHORIZATION.value, (identifier, authorized)
-        self.send_remote_comm_event((self._get_origin(identifier), message))
-
-    def _get_origin(self, identifier: str) -> Ipv4Address:
-        """ Return the IPv4 tuple associated with the Supvisors instance. """
-        instance = self.supvisors.mapper.instances[identifier]
-        return instance.ip_address, instance.http_port
+        message = PublicationHeaders.AUTHORIZATION.value, (identifier, authorized)
+        self.send_remote_comm_event(self.local_identifier, (self._get_origin(identifier), message))
 
     def _is_authorized(self, identifier: str) -> Optional[bool]:
         """ Get authorization from remote Supvisors instance.
@@ -142,9 +173,9 @@ class SupervisorProxy(threading.Thread):
         :return: True if the local Supvisors instance is accepted by the remote Supvisors instance.
         """
         try:
-            supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
+            supvisors_rpc = self.get_proxy(identifier).supvisors
             # check authorization
-            local_status_payload = supvisors_rpc.get_instance_info(self.supvisors.context.local_identifier)
+            local_status_payload = supvisors_rpc.get_instance_info(self.local_identifier)
             self.logger.debug(f'SupervisorProxy._is_authorized: local_status_payload={local_status_payload}')
         except SupervisorProxy.RpcExceptions:
             # Remote Supvisors instance closed in the gap or Supvisors is incorrectly configured
@@ -158,7 +189,7 @@ class SupervisorProxy(threading.Thread):
             self.logger.error(f'SupervisorProxy._is_authorized: unknown Supvisors instance state={state}')
             return False
         # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
-        return instance_state not in ISOLATION_STATES
+        return instance_state != SupvisorsInstanceStates.ISOLATED
 
     def _transfer_process_info(self, identifier: str) -> None:
         """ Get the process information from the remote Supvisors instance and post it to the local Supvisors instance.
@@ -168,8 +199,7 @@ class SupervisorProxy(threading.Thread):
         """
         # get information about all processes handled by Supervisor
         try:
-            supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
-            all_info = supvisors_rpc.get_all_local_process_info()
+            all_info = self.get_proxy(identifier).supvisors.get_all_local_process_info()
         except SupervisorProxy.RpcExceptions:
             self.logger.error('SupervisorProxy._transfer_process_info: failed to get process information'
                               f' from Supvisors={identifier}')
@@ -178,8 +208,8 @@ class SupervisorProxy(threading.Thread):
             # do NOT set authorized to False in this case or an unwanted isolation may happen
         else:
             # inform local Supvisors about the processes available remotely
-            message = InternalEventHeaders.ALL_INFO.value, (identifier, all_info)
-            self.send_remote_comm_event((self._get_origin(identifier), message))
+            message = PublicationHeaders.ALL_INFO.value, all_info
+            self.send_remote_comm_event(self.local_identifier, (self._get_origin(identifier), message))
 
     def _transfer_states_modes(self, identifier: str) -> None:
         """ Get the states and modes from the remote Supvisors instance and post it to the local Supvisors instance.
@@ -189,9 +219,7 @@ class SupervisorProxy(threading.Thread):
         """
         # get authorization from remote Supvisors instance
         try:
-            # check how the remote Supvisors instance defines itself
-            supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
-            remote_status = supvisors_rpc.get_instance_info(identifier)
+            remote_status = self.get_proxy(identifier).supvisors.get_instance_info(identifier)
         except SupervisorProxy.RpcExceptions:
             # Remote Supvisors instance closed in the gap or Supvisors is incorrectly configured
             self.logger.error(f'SupervisorProxy._transfer_states_modes: failed to check Supvisors={identifier}')
@@ -199,14 +227,13 @@ class SupervisorProxy(threading.Thread):
             self.logger.debug(f'SupervisorProxy._transfer_states_modes: remote_status={remote_status}')
             state_modes = {key: remote_status[key] for key in SupervisorProxy.StateModesKeys}
             # provide the local Supvisors with the remote Supvisors instance state and modes
-            message = InternalEventHeaders.STATE.value, (identifier, state_modes)
-            self.send_remote_comm_event((self._get_origin(identifier), message))
+            message = PublicationHeaders.STATE.value, state_modes
+            self.send_remote_comm_event(self.local_identifier, (self._get_origin(identifier), message))
 
     def start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """
         try:
-            proxy = getRPCInterface(self.srv_url.env)
-            proxy.supvisors.start_args(namespec, extra_args, False)
+            self.get_proxy(identifier).supvisors.start_args(namespec, extra_args, False)
         except SupervisorProxy.RpcExceptions:
             self.logger.error(f'SupervisorProxy.start_process: failed to start process {namespec} on {identifier}'
                               f' with extra_args="{extra_args}"')
@@ -214,32 +241,28 @@ class SupervisorProxy(threading.Thread):
     def stop_process(self, identifier: str, namespec: str) -> None:
         """ Stop process asynchronously. """
         try:
-            proxy = getRPCInterface(self.srv_url.env)
-            proxy.supervisor.stopProcess(namespec, False)
+            self.get_proxy(identifier).supervisor.stopProcess(namespec, False)
         except SupervisorProxy.RpcExceptions:
             self.logger.error(f'SupervisorProxy.stop_process: failed to stop process {namespec} on {identifier}')
 
     def restart(self, identifier: str) -> None:
         """ Restart a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(self.srv_url.env)
-            proxy.supervisor.restart()
+            self.get_proxy(identifier).supervisor.restart()
         except SupervisorProxy.RpcExceptions:
             self.logger.error(f'SupervisorProxy.restart: failed to restart node {identifier}')
 
     def shutdown(self, identifier: str) -> None:
         """ Shutdown a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(self.srv_url.env)
-            proxy.supervisor.shutdown()
+            self.get_proxy(identifier).supervisor.shutdown()
         except SupervisorProxy.RpcExceptions:
             self.logger.error(f'SupervisorProxy.shutdown: failed to shutdown node {identifier}')
 
     def restart_sequence(self, identifier: str) -> None:
         """ Ask the Supvisors Master to trigger the DEPLOYMENT phase. """
         try:
-            proxy = getRPCInterface(self.srv_url.env)
-            proxy.supvisors.restart_sequence()
+            self.get_proxy(identifier).supvisors.restart_sequence()
         except SupervisorProxy.RpcExceptions:
             self.logger.error('SupervisorProxy.restart_sequence: failed to send Supvisors restart_sequence'
                               f' to Master {identifier}')
@@ -247,8 +270,7 @@ class SupervisorProxy(threading.Thread):
     def restart_all(self, identifier: str) -> None:
         """ Ask the Supvisors Master to restart Supvisors. """
         try:
-            proxy = getRPCInterface(self.srv_url.env)
-            proxy.supvisors.restart()
+            self.get_proxy(identifier).supvisors.restart()
         except SupervisorProxy.RpcExceptions:
             self.logger.error('SupervisorProxy.restart_all: failed to send Supvisors restart'
                               f' to Master {identifier}')
@@ -256,20 +278,23 @@ class SupervisorProxy(threading.Thread):
     def shutdown_all(self, identifier: str) -> None:
         """ Ask the Supvisors Master to shut down Supvisors. """
         try:
-            proxy = getRPCInterface(self.srv_url.env)
-            proxy.supvisors.shutdown()
+            self.get_proxy(identifier).supvisors.shutdown()
         except SupervisorProxy.RpcExceptions:
             self.logger.error('SupervisorProxy.shutdown_all: failed to send Supvisors shutdown'
                               f' to Master {identifier}')
 
-    def send_remote_comm_event(self, event_data) -> None:
+    def send_remote_comm_event(self, identifier: str, event_data) -> None:
         """ Perform the Supervisor sendRemoteCommEvent. """
         try:
-            self.proxy.supervisor.sendRemoteCommEvent(SUPVISORS, json.dumps(event_data))
+            self.get_proxy(identifier).supervisor.sendRemoteCommEvent(SUPVISORS, json.dumps(event_data))
         except SupervisorProxy.RpcExceptions:
             # expected on restart / shutdown
-            self.logger.error(f'SupervisorProxy.send_remote_comm_event: failed to send to Supervisor {event_data}')
+            self.logger.debug(f'SupervisorProxy.send_remote_comm_event: failed to send to Supervisor={identifier}'
+                              f' message={event_data}')
             self.logger.debug(f'SupervisorProxy.send_remote_comm_event: {traceback.format_exc()}')
+            # remove the proxy upon failure
+            self.supvisors.context.instances[identifier].raise_communication_failure()
+            del self.proxies[identifier]
 
 
 class SupvisorsMainLoop(threading.Thread):
@@ -326,8 +351,7 @@ class SupvisorsMainLoop(threading.Thread):
         # get the receiver tasks
         all_coro = self.receiver.get_tasks()
         # add the reception tasks for this class
-        all_coro.extend([self.read_queue(self.receiver.subscriber_queue, self.check_remote_event),
-                         self.read_queue(self.receiver.requester_queue, self.check_requests),
+        all_coro.extend([self.read_queue(self.receiver.requester_queue, self.check_message),
                          self.read_queue(self.receiver.discovery_queue, self.check_discovery_event)])
         all_tasks = asyncio.gather(*all_coro)
         # run the asynchronous event loop with the given tasks
@@ -351,32 +375,17 @@ class SupvisorsMainLoop(threading.Thread):
             else:
                 await callback(message)
 
-    async def check_remote_event(self, message):
-        """ Transfer the message to the Supervisor thread. """
-        self.logger.trace(f'SupvisorsMainLoop.check_remote_event: message={message}')
-        self.proxy.push_event(message)
-
     async def check_discovery_event(self, message):
         """ Transfer the message to the Supervisor thread. """
         self.logger.trace(f'SupvisorsMainLoop.check_discovery_event: message={message}')
-        self.proxy.push_event(message)
+        self.proxy.push_message(InternalEventHeaders.DISCOVERY, message)
 
-    async def check_requests(self, message) -> None:
-        """ Defer internal requests. """
+    async def check_message(self, message) -> None:
+        """ Deferred XML-RPC. """
         header, body = message
-        self.logger.debug(f'SupvisorsMainLoop.check_requests: header={header} body={body}')
-        deferred_request = DeferredRequestHeaders(header)
-        # check publication event or deferred request
-        if deferred_request == DeferredRequestHeaders.ISOLATE_INSTANCES:
-            # isolation request: disconnect the Supvisors instances from the subscribers
-            self.receiver.subscribers.disconnect_subscribers(body)
-        elif deferred_request == DeferredRequestHeaders.CONNECT_INSTANCE:
-            # discovery mode: a new Supvisors instance has to be added to the subscribers
-            for identifier in body:
-                self.logger.info(f'SupvisorsMainLoop.check_requests: add subscriber to {identifier}')
-                coro = self.receiver.subscribers.create_coroutine(identifier)
-                if coro:
-                    self.receiver.loop.create_task(coro)
+        try:
+            msg_type = InternalEventHeaders(header)
+        except ValueError:
+            self.logger.error(f'SupvisorsMainLoop.check_message: unexpected header={header}')
         else:
-            # XML-RPC requests
-            self.proxy.push_request(deferred_request, body)
+            self.proxy.push_message(msg_type, body)

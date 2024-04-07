@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
 #
@@ -22,5 +19,4 @@ from .internal_com import SupvisorsInternalEmitter
 from .mainloop import SupvisorsMainLoop
 from .mapper import SupvisorsInstanceId, SupvisorsMapper
 from .multicast import MulticastSender
-from .pubsub import InternalPublisher
-from .pushpull import RequestPusher
+from .pushpull import RpcPusher
