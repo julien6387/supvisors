@@ -503,6 +503,12 @@ Possible values are:
 
       * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
 
+.. hint::
+
+   The ``SHUTDOWN`` strategy provides an answer to the following |Supervisor| request:
+
+      * `#712 - shutdown supervisord once one of the programs is killed <https://github.com/Supervisor/supervisor/issues/712>`_
+
 
 .. _stopping_strategy:
 
