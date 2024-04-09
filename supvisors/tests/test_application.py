@@ -138,7 +138,7 @@ def test_rules_serial(rules):
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE',
-                              'status_formula': None}
+                              'status_formula': ''}
     # finally check managed and not distributed
     rules.distribution = DistributionRules.SINGLE_INSTANCE
     rules.status_formula = 'dumb and dumber'

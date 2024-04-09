@@ -520,7 +520,7 @@ def test_test_start_application(controller, plugin, mocked_check):
     assert not mocked_appli.called
     mocked_check.reset_mock()
     # test the request using unknown strategy
-    plugin.do_test_start_application('strategy')
+    plugin.do_test_start_application('strategy appli_1')
     _check_output_error(controller, True)
     assert mocked_check.call_args_list == [call()]
     assert not mocked_appli.called
@@ -668,7 +668,7 @@ def test_test_start_process(controller, plugin, mocked_check):
     assert mocked_check.call_args_list == [call()]
     mocked_check.reset_mock()
     # test the request using unknown strategy
-    plugin.do_test_start_process('strategy')
+    plugin.do_test_start_process('strategy appli_1:proc_1')
     _check_output_error(controller, True)
     assert mocked_check.call_args_list == [call()]
     mocked_check.reset_mock()

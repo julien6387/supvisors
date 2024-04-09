@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -36,39 +33,39 @@ class EventPublisherInterface:
     def close(self) -> None:
         """ Close the publisher.
 
-        :return: None
+        :return: None.
         """
         raise NotImplementedError
 
     def send_supvisors_status(self, status: Payload) -> None:
         """ Send a JSON-serialized supvisors status through the socket.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         raise NotImplementedError
 
     def send_instance_status(self, status: Payload) -> None:
         """ Send a Supvisors instance status.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         raise NotImplementedError
 
     def send_application_status(self, status: Payload) -> None:
         """ Send an application status.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         raise NotImplementedError
 
     def send_process_event(self, identifier: str, event: Payload) -> None:
         """ Send a process event.
 
-        :param identifier: the identifier used to identify the origin of the event
-        :param event: the event to publish
+        :param identifier: the identifier used to identify the origin of the event.
+        :param event: the event to publish.
         :return: None
         """
         raise NotImplementedError
@@ -76,24 +73,24 @@ class EventPublisherInterface:
     def send_process_status(self, status: Payload) -> None:
         """ Send a process status.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         raise NotImplementedError
 
     def send_host_statistics(self, statistics: Payload) -> None:
         """ Send host statistics.
 
-        :param statistics: the statistics to publish
-        :return: None
+        :param statistics: the statistics to publish.
+        :return: None.
         """
         raise NotImplementedError
 
     def send_process_statistics(self, statistics: Payload) -> None:
         """ Send process statistics.
 
-        :param statistics: the statistics to publish
-        :return: None
+        :param statistics: the statistics to publish.
+        :return: None.
         """
         raise NotImplementedError
 
@@ -101,8 +98,8 @@ class EventPublisherInterface:
 def create_external_publisher(supvisors: Any) -> EventPublisherInterface:
     """ Create the relevant event publisher in accordance with the option selected.
 
-    :param supvisors: the global Supvisors instance
-    :return: the event publisher instance
+    :param supvisors: the global Supvisors instance.
+    :return: the event publisher instance.
     """
     publisher_instance = None
     publisher_class = None

@@ -192,7 +192,7 @@ class ApplicationRules:
                        'starting_strategy': self.starting_strategy.name,
                        'starting_failure_strategy': self.starting_failure_strategy.name,
                        'running_failure_strategy': self.running_failure_strategy.name,
-                       'status_formula': self.status_formula}
+                       'status_formula': self.status_formula or ''}
             return payload
         return {'managed': False}
 

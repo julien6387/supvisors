@@ -517,7 +517,7 @@ public class SupervisorXmlRpc {
      * @param String[] args: The arguments.
      */
     public static void main(String[] args) throws InterruptedException, MalformedURLException, XmlRpcException {
-        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
+        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(Integer.parseInt(args[0]));
         SupervisorXmlRpc supervisor = new SupervisorXmlRpc(client);
 
         // test supervisor status and control

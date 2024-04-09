@@ -26,6 +26,7 @@ import com.google.gson.annotations.SerializedName;
  *
  * It gives a structured form to the Supvisors Instance information received from a XML-RPC.
  */
+
 public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
 
     /** The identifier of the Supvisors instance. */
@@ -47,7 +48,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     private Integer remote_sequence_counter;
 
     /** The monotonic time of the last heartbeat message, as received. */
-    private Integer remote_mtime;
+    private Double remote_mtime;
 
     /** The time of the last heartbeat message, as received. */
     private Integer remote_time;
@@ -56,7 +57,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     private Integer local_sequence_counter;
 
     /** The monotonic time of the last heartbeat message, in the local reference time. */
-    private Integer local_mtime;
+    private Double local_mtime;
 
     /** The time of the last heartbeat message, in the local reference time. */
     private Integer local_time;
@@ -70,6 +71,8 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /** True if one of the local processes has crashed or has exited unexpectedly. */
     private Boolean process_failure;
 
+    /** TODO: fsm_statename discovery_mode master_identifier starting_jobs stopping_jobs */
+
     /**
      * This constructor gets all information from an HashMap.
      *
@@ -82,10 +85,10 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.statename = SupvisorsInstanceState.valueOf((String) instanceInfo.get("statename"));
         this.discovery_mode = (Boolean) instanceInfo.get("discovery_mode");
         this.remote_sequence_counter = (Integer) instanceInfo.get("remote_sequence_counter");
-        this.remote_time = (Integer) instanceInfo.get("remote_mtime");
+        this.remote_mtime = (Double) instanceInfo.get("remote_mtime");
         this.remote_time = (Integer) instanceInfo.get("remote_time");
         this.remote_sequence_counter = (Integer) instanceInfo.get("local_sequence_counter");
-        this.local_time = (Integer) instanceInfo.get("local_mtime");
+        this.local_mtime = (Double) instanceInfo.get("local_mtime");
         this.local_time = (Integer) instanceInfo.get("local_time");
         this.loading = (Integer) instanceInfo.get("loading");
         this.process_failure = (Boolean) instanceInfo.get("process_failure");
@@ -160,9 +163,9 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      * The getRemoteMonotonicTime method returns the monotonic time of the last heartbeat message,
      * in the reference time of the remote node.
      *
-     * @return Integer: The number of seconds since the remote node startup.
+     * @return Double: The number of seconds since the remote node startup.
      */
-    public Integer getRemoteMonotonicTime() {
+    public Double getRemoteMonotonicTime() {
         return this.remote_mtime;
     }
 
@@ -190,9 +193,9 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      * The getLocalMonotonicTime method returns the monotonic time taken when the latest TICK was received
      * from the remote node.
      *
-     * @return Integer: The number of seconds since the local node startup.
+     * @return Double: The number of seconds since the local node startup.
      */
-   public Integer getLocalMonotonicTime() {
+   public Double getLocalMonotonicTime() {
         return this.local_mtime;
     }
 
@@ -235,11 +238,11 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
             + " port=" + this.port
             + " state=" + this.statename
             + " discoveryMode=" + this.discovery_mode
-            + " remoteSequenceCounter=" + this.sequence_counter
-            + " remoteMonotonicTime=\"" + this.remote_mtime + "\""
-            + " remoteTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
+            + " remoteSequenceCounter=" + this.remote_sequence_counter
+            + " remoteMonotonicTime=" + this.remote_mtime
+            + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
             + " localSequenceCounter=" + this.local_sequence_counter
-            + " localMonotonicTime=\"" + this.local_mtime + "\""
+            + " localMonotonicTime=" + this.local_mtime
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
             + " loading=" + this.loading
             + " processFailure=" + this.process_failure + ")";

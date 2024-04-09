@@ -41,7 +41,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     /** A status telling if the process has exited expectantly. */
     private Boolean expected_exit;
 
-    /** The date of the last event received for this process. */
+    /** The monotonic time of the last event received for this process. */
     private Double last_event_time;
 
     /** The identifiers of the Supvisors instances where the process is running. */
@@ -112,9 +112,9 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getLastEventTime method returns the date of the last event received for the process.
+     * The getLastEventTime method returns the monotonic time of the last event received for the process.
      *
-     * @return Double: The date of the last event received.
+     * @return Double: The monotonic time of the last event received.
      */
     public Double getLastEventTime() {
         return this.last_event_time;
@@ -151,7 +151,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
             + " processName=" + this.process_name
             + " state=" + this.statecode
             + " expectedExitStatus=" + this.expected_exit
-            + " lastEventTime=\"" + sdf.format(new Date((long) ((double) this.last_event_time * 1000L))) + "\""
+            + " lastEventTime=" + this.last_event_time
             + " identifiers=" + this.identifiers
             + " extraArgs=\"" + this.extra_args + "\")";
     }

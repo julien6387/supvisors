@@ -141,14 +141,14 @@ class SupvisorsTimes:
         self.start_local_mtime: float = -1.0
 
     @property
-    def capped_remote_time(self):
+    def capped_remote_time(self) -> int:
         """ Return a remote time compliant with XML-RPC limits.
         The xml-rpc integer type will be saturated in jan 2038 ("year 2038 problem").
         """
         return capped_int(self.remote_time)
 
     @property
-    def capped_local_time(self):
+    def capped_local_time(self) -> int:
         """ Return a local time compliant with XML-RPC limits.
         The xml-rpc integer type will be saturated in jan 2038 ("year 2038 problem").
         """

@@ -223,7 +223,7 @@ def test_application_rules(mocker, rpc):
                 'identifiers': ['*'],
                 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE',
-                'status_formula': None}
+                'status_formula': ''}
     assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]
     assert mocked_get.call_args_list == [call('appli')]
@@ -873,57 +873,60 @@ def test_start_any_process_no_process(mocker, supvisors, rpc):
     assert not mocked_start.called
 
 
-def test_start_any_process_no_identifier(mocker, rpc):
+def test_start_any_process_no_identifier(mocker, supvisors, rpc):
     """ Test the start_any_process RPC using a regex that matches processes but no rule. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     process_1 = Mock(**{'rules.expected_load': 10, 'possible_identifiers.return_value': ['10.0.0.1']})
-    mocked_find = mocker.patch.object(rpc.supvisors.context, 'find_runnable_processes', return_value=[process_1])
+    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes', return_value=[process_1])
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance', return_value=None)
     mocked_start = mocker.patch.object(rpc, 'start_process')
+    supvisors.starter.get_load_requests.return_value = {}
     # test RPC call with running process
     with pytest.raises(RPCError) as exc:
         rpc.start_any_process(0, ':x')
     assert exc.value.args == (Faults.FAILED, 'no candidate process matching ":x"')
     assert mocked_check.call_args_list == [call()]
     assert mocked_find.call_args_list == [call(':x')]
-    assert mocked_instance.call_args_list == [call(rpc.supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10)]
+    assert mocked_instance.call_args_list == [call(supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
     assert not mocked_start.called
 
 
-def test_start_any_process_no_wait(mocker, rpc):
+def test_start_any_process_no_wait(mocker, supvisors, rpc):
     """ Test the start_any_process RPC using a regex that matches processes and rules / no wait. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     process_1 = Mock(namespec='process_1',
                      **{'rules.expected_load': 10, 'possible_identifiers.return_value': ['10.0.0.1']})
-    mocked_find = mocker.patch.object(rpc.supvisors.context, 'find_runnable_processes', return_value=[process_1])
+    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes', return_value=[process_1])
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance', return_value='10.0.0.1')
     mocked_start = mocker.patch.object(rpc, 'start_process', return_value=True)
+    supvisors.starter.get_load_requests.return_value = {}
     # test RPC call with running process
     assert rpc.start_any_process(0, ':x', '-x 2', False) == 'process_1'
     assert mocked_check.call_args_list == [call()]
     assert mocked_find.call_args_list == [call(':x')]
-    assert mocked_instance.call_args_list == [call(rpc.supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10)]
+    assert mocked_instance.call_args_list == [call(supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
     assert mocked_start.call_args_list == [call(0, 'process_1', '-x 2', False)]
 
 
-def test_start_any_process_wait(mocker, rpc):
+def test_start_any_process_wait(mocker, supvisors, rpc):
     """ Test the start_any_process RPC using a regex that matches processes and rules / no wait. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     process_1 = Mock(namespec='process_1',
                      **{'rules.expected_load': 10, 'possible_identifiers.return_value': ['10.0.0.1']})
-    mocked_find = mocker.patch.object(rpc.supvisors.context, 'find_runnable_processes', return_value=[process_1])
+    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes', return_value=[process_1])
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance', return_value='10.0.0.1')
     start_job = Mock(**{'done.return_value': NOT_DONE_YET})
     mocked_start = mocker.patch.object(rpc, 'start_process', return_value=lambda: start_job.done())
+    supvisors.starter.get_load_requests.return_value = {}
     # test RPC call with running process
     deferred = rpc.start_any_process(0, ':x', '-x 2', True)
     assert callable(deferred)
     assert mocked_check.call_args_list == [call()]
     assert mocked_find.call_args_list == [call(':x')]
-    assert mocked_instance.call_args_list == [call(rpc.supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10)]
+    assert mocked_instance.call_args_list == [call(supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
     assert mocked_start.call_args_list == [call(0, 'process_1', '-x 2', True)]
     # test the deferred function
     assert deferred() is NOT_DONE_YET

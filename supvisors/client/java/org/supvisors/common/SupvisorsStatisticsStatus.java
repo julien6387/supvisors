@@ -34,7 +34,7 @@ public class SupvisorsStatisticsStatus {
     private Boolean processStatistics;
 
     /** The minimum interval between 2 samples of the same statistics type. */
-    private Float collectingPeriod;
+    private Double collectingPeriod;
 
     /**
      * The constructor gets all information from an HashMap.
@@ -44,7 +44,7 @@ public class SupvisorsStatisticsStatus {
     public SupvisorsStatisticsStatus(HashMap info)  {
         this.hostStatistics = (Boolean) info.get("host_stats");
         this.processStatistics = (Boolean) info.get("process_stats");
-        this.collectingPeriod = (Float) info.get("collecting_period");
+        this.collectingPeriod = (Double) info.get("collecting_period");
     }
 
     /**
@@ -70,7 +70,7 @@ public class SupvisorsStatisticsStatus {
      *
      * @return Float: The statistics collection period.
      */
-    public Float getStatisticsCollectingPeriod() {
+    public Double getStatisticsCollectingPeriod() {
         return this.collectingPeriod;
     }
 

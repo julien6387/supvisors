@@ -558,8 +558,8 @@ class RPCInterface:
         return True
 
     def test_start_process(self, strategy: EnumParameterType, namespec: str) -> WaitReturnType:
-        """ Start a process named ``namespec`` iaw the strategy and the rules file.
-        WARN: the 'wait_exit' rule is not considered here.
+        """ Return a distribution prediction for starting the processes corresponding to the namspec
+        iaw the strategy and the rules file.
 
         :param StartingStrategies strategy: the strategy used to choose a **Supvisors** instance,
             as a string or as a value.
@@ -604,15 +604,20 @@ class RPCInterface:
             ``Faults.ABNORMAL_TERMINATION`` if the internal start request failed ;
             ``Faults.NOT_RUNNING`` if ``namespec`` could not be started.
         """
-        self.logger.trace(f'RPCInterface.start_any_process: regex={regex} strategy={strategy} extra_args={extra_args}'
+        self.logger.trace(f'RPCInterface.start_any_process: regex={regex} strategy={strategy} extra_args="{extra_args}"'
                           f' wait={wait}')
         self._check_operating()
         strategy_enum = self._get_starting_strategy(strategy)
         # get the processes whose namespec matches the regex and that are not running
         processes = self.supvisors.context.find_runnable_processes(regex)
-        namespec = next((process.namespec for process in processes
-                         if get_supvisors_instance(self.supvisors, strategy_enum, process.possible_identifiers(),
-                                                   process.rules.expected_load)), None)
+        # get the first process that allows a starting iaw the strategy, rules and current distribution
+        namespec = None
+        load_request_map = self.supvisors.starter.get_load_requests()
+        for process in processes:
+            if get_supvisors_instance(self.supvisors, strategy_enum, process.possible_identifiers(),
+                                      process.rules.expected_load, load_request_map):
+                namespec = process.namespec
+                break
         if not namespec:
             self._raise(Faults.FAILED, 'start_any_process', f'no candidate process matching "{regex}"')
         # start the chosen one and return its namespec
