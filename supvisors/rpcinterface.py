@@ -822,16 +822,19 @@ class RPCInterface:
             return onwait  # deferred
         return True
 
-    def update_numprocs(self, program_name: str, numprocs: int, wait: bool = True) -> WaitReturnType:
+    def update_numprocs(self, program_name: str, numprocs: int, wait: bool = True, lazy: bool = False) -> WaitReturnType:
         """ Update dynamically the numprocs of the program.
         Implementation of Supervisor issue #177 - Dynamic numproc change.
 
-        When the number of processes decreases, the processes in excess are stopped.
+        When the number of processes decreases:
+            - the processes in excess are immediately stopped if lazy is False ;
+            - the processes in excess are kept in Supervisor as long as they're still running if lazy is True.
 
         :param str program_name: the program name, as found in the section of the Supervisor configuration files.
             Programs, FastCGI programs and event listeners are supported.
         :param int numprocs: the new numprocs value (must be strictly positive).
         :param bool wait: if ``True`` and the numprocs value decreases, wait for the processes in excess to be stopped.
+        :param bool lazy: if ``True``, use the lazy mode when decreasing the program numprocs.
         :return: always ``True`` unless error.
         :rtype: bool
         :raises RPCError: with code:
@@ -840,33 +843,6 @@ class RPCInterface:
             ``Faults.INCORRECT_PARAMETERS`` if ``numprocs`` is not a strictly positive integer ;
             ``SupvisorsFaults.NOT_APPLICABLE`` if the program configuration does not support numprocs ;
             ``Faults.STILL_RUNNING`` if one process corresponding to ``program_name`` cannot be stopped.
-        """
-        return self._update_numprocs(program_name, numprocs, wait, False)
-
-    def lazy_update_numprocs(self, program_name: str, numprocs: int) -> WaitReturnType:
-        """ Update dynamically the numprocs of the program.
-        Alternative implementation of Supervisor issue #177 - Dynamic numproc change.
-
-        When the number of processes decreases, the processes in excess are kept in Supervisor as long as they're still
-        running.
-
-        :param str program_name: the program name, as found in the section of the Supervisor configuration files.
-            Programs, FastCGI programs and event listeners are supported.
-        :param int numprocs: the new numprocs value (must be strictly positive).
-        :return: always ``True`` unless error.
-        :rtype: bool
-        :raises RPCError: with code:
-            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` ;
-            ``Faults.BAD_NAME`` if ``program_name`` is unknown to **Supvisors** ;
-            ``Faults.INCORRECT_PARAMETERS`` if ``numprocs`` is not a strictly positive integer ;
-            ``SupvisorsFaults.NOT_APPLICABLE`` if the program configuration does not support numprocs.
-        """
-        return self._update_numprocs(program_name, numprocs, False, True)
-
-    def _update_numprocs(self, program_name: str, numprocs: int, wait: bool, lazy: bool) -> WaitReturnType:
-        """ Update dynamically the numprocs of the program.
-        In lazy mode, the obsolete processes are not terminated directly. They will be removed from Supervisor once
-        they will be stopped, unless they are re-activated again following an increase of numprocs.
         """
         self.logger.trace(f'RPCInterface.update_numprocs: program={program_name} numprocs={numprocs}')
         self._check_operating()

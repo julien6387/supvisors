@@ -1146,33 +1146,6 @@ def test_restart_process_wait(mocker, rpc):
     check_restart_deferred_function(mocker, rpc, process_1, result)
 
 
-def test_update_numprocs(mocker, rpc):
-    """ Test the update_numprocs RPC. """
-    # get patches
-    mocked_check = mocker.patch.object(rpc, '_update_numprocs')
-    # test RPC calls
-    rpc.update_numprocs('dummy_program', 1)
-    assert mocked_check.call_args_list == [call('dummy_program', 1, True, False)]
-    mocker.resetall()
-    rpc.update_numprocs('dummy_program', 2, True)
-    assert mocked_check.call_args_list == [call('dummy_program', 2, True, False)]
-    mocker.resetall()
-    rpc.update_numprocs('dummy_program', 3, False)
-    assert mocked_check.call_args_list == [call('dummy_program', 3, False, False)]
-
-
-def test_lazy_update_numprocs(mocker, rpc):
-    """ Test the lazy_update_numprocs RPC. """
-    # get patches
-    mocked_check = mocker.patch.object(rpc, '_update_numprocs')
-    # test RPC calls
-    rpc.lazy_update_numprocs('dummy_program', 1)
-    assert mocked_check.call_args_list == [call('dummy_program', 1, False, True)]
-    mocker.resetall()
-    rpc.lazy_update_numprocs('dummy_program', 2)
-    assert mocked_check.call_args_list == [call('dummy_program', 2, False, True)]
-
-
 def test_update_numprocs_unknown_program(mocker, rpc):
     """ Test the update_numprocs RPC with unknown program. """
     # get patches
@@ -1201,7 +1174,7 @@ def test_update_numprocs_invalid_numprocs(mocker, rpc):
     # test RPC call with known program and invalid numprocs value (not integer)
     rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
     with pytest.raises(RPCError) as exc:
-        rpc._update_numprocs('dummy_program', 'one', False, False)
+        rpc.update_numprocs('dummy_program', 'one', False, False)
     assert exc.value.args == (Faults.INCORRECT_PARAMETERS,
                               'program=dummy_program incorrect numprocs=one - integer > 0 expected')
     assert mocked_check.call_args_list == [call()]
@@ -1220,7 +1193,7 @@ def test_update_numprocs_incorrect_numprocs(mocker, rpc):
     # test RPC call with known program and invalid numprocs value (not integer)
     rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
     with pytest.raises(RPCError) as exc:
-        rpc._update_numprocs('dummy_program', 0, False, False)
+        rpc.update_numprocs('dummy_program', 0, False, False)
     assert exc.value.args == (Faults.INCORRECT_PARAMETERS,
                               'program=dummy_program incorrect numprocs=0 - integer > 0 expected')
     assert mocked_check.call_args_list == [call()]
@@ -1240,7 +1213,7 @@ def test_update_numprocs_wrong_config(mocker, rpc):
     rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
     mocked_numprocs.side_effect = ValueError('program_num missing in process_name')
     with pytest.raises(RPCError) as exc:
-        rpc._update_numprocs('dummy_program', 2, False, False)
+        rpc.update_numprocs('dummy_program', 2, False, False)
     assert exc.value.args == (SupvisorsFaults.NOT_APPLICABLE.value,
                               'numprocs not applicable to program=dummy_program')
     assert mocked_check.call_args_list == [call()]
@@ -1259,7 +1232,7 @@ def test_update_numprocs_unchanged(mocker, rpc):
     # test RPC call with known program, correct numprocs value and numprocs increase (nothing to stop)
     rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
     mocked_numprocs.return_value = [], []
-    assert rpc._update_numprocs('dummy_program', 2, False, False) is True
+    assert rpc.update_numprocs('dummy_program', 2, False, False) is True
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_insert.called
@@ -1277,7 +1250,7 @@ def test_update_numprocs_increase(mocker, rpc):
     # test RPC call with known program, correct numprocs value and numprocs increase (nothing to stop)
     rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
     mocked_numprocs.return_value = ['dummy_program_01', 'dummy_program_02'], None
-    assert rpc._update_numprocs('dummy_program', 2, False, False)
+    assert rpc.update_numprocs('dummy_program', 2, False, False)
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert mocked_insert.call_args_list == [call(['dummy_program_01', 'dummy_program_02'])]
@@ -1295,7 +1268,7 @@ def test_update_numprocs_decrease(mocker, rpc):
     # test RPC call with known program, correct numprocs value and numprocs decrease
     rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
     mocked_numprocs.return_value = None, ['dummy_program_01', 'dummy_program_02']
-    assert rpc._update_numprocs('dummy_program', 2, True, False) is decrease_mock
+    assert rpc.update_numprocs('dummy_program', 2, True, False) is decrease_mock
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_increase.called
@@ -1312,27 +1285,27 @@ def test_update_numprocs_decrease_lazy(mocker, rpc):
     # test RPC call with known program, correct numprocs value and numprocs decrease
     rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
     mocked_numprocs.return_value = None, ['dummy_program_01', 'dummy_program_02']
-    assert rpc._update_numprocs('dummy_program', 2, True, True)
+    assert rpc.update_numprocs('dummy_program', 2, True, True)
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_increase.called
     assert not mocked_decrease.called
 
 
-def test_decrease_numprocs_no_stop(mocker, rpc):
+def test_decrease_numprocs_no_stop(mocker, supvisors, rpc):
     """ Test the RPCInterface._decrease_numprocs method.
     This test case deals with a context where the processes to remove are already stopped. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_process_deletion')
-    mocked_stop = rpc.supvisors.stopper.stop_process
-    mocked_next = rpc.supvisors.stopper.next
-    mocked_progress = rpc.supvisors.stopper.in_progress
-    local_identifier = rpc.supvisors.mapper.local_identifier
+    mocked_stop = supvisors.stopper.stop_process
+    mocked_next = supvisors.stopper.next
+    mocked_progress = supvisors.stopper.in_progress
+    local_identifier = supvisors.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     process_3 = Mock(namespec='process_3', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     get_map = {'process_1': process_1, 'process_2': process_2, 'process_3': process_3}
-    mocker.patch.object(rpc.supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
     mocked_progress.return_value = False
     # 1. test RPC call with known program, correct numprocs value and numprocs decrease (no process to stop) / no wait
     params = ['process_1', 'process_2', 'process_3']
@@ -1355,20 +1328,20 @@ def test_decrease_numprocs_no_stop(mocker, rpc):
     assert mocked_check.called
 
 
-def test_decrease_numprocs_stop(mocker, rpc):
+def test_decrease_numprocs_stop(mocker, supvisors, rpc):
     """ Test the RPCInterface._decrease_numprocs method.
     This test case deals with a context where the processes to remove have to be stopped. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_process_deletion')
-    mocked_stop = rpc.supvisors.stopper.stop_process
-    mocked_next = rpc.supvisors.stopper.next
-    mocked_progress = rpc.supvisors.stopper.in_progress
-    local_identifier = rpc.supvisors.mapper.local_identifier
+    mocked_stop = supvisors.stopper.stop_process
+    mocked_next = supvisors.stopper.next
+    mocked_progress = supvisors.stopper.in_progress
+    local_identifier = supvisors.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}}, **{'running_on.return_value': True})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}}, **{'running_on.return_value': True})
     process_3 = Mock(namespec='process_3', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     get_map = {'process_1': process_1, 'process_2': process_2, 'process_3': process_3}
-    mocker.patch.object(rpc.supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
     mocked_progress.return_value = True
     # test RPC call with known program, correct numprocs value and numprocs decrease (one process to stop) / wait
     params = ['process_1', 'process_2', 'process_3']
@@ -1395,16 +1368,16 @@ def test_decrease_numprocs_stop(mocker, rpc):
     assert not mocked_check.call_args_list == [call(['process_2', 'process_3'])]
 
 
-def test_check_process_insertion(mocker, rpc):
+def test_check_process_insertion(mocker, supvisors, rpc):
     """ Test the RPCInterface._check_process_insertion method. """
     # get patches
-    local_identifier = rpc.supvisors.mapper.local_identifier
+    local_identifier = supvisors.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={})
     process_2 = Mock(namespec='process_2', info_map={})
     get_map = {'process_1': process_1, 'process_2': process_2}
-    mocker.patch.object(rpc.supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
     # test with processes not added yet
-    params = 'process_1', 'process_2'
+    params = ['process_1', 'process_2']
     with pytest.raises(RPCError) as exc:
         rpc._check_process_insertion(params)
     assert exc.value.args == (Faults.FAILED, "processes=['process_1', 'process_2']")
@@ -1418,16 +1391,16 @@ def test_check_process_insertion(mocker, rpc):
     rpc._check_process_insertion(params)
 
 
-def test_check_process_deletion(mocker, rpc):
+def test_check_process_deletion(mocker, supvisors, rpc):
     """ Test the RPCInterface._check_process_deletion method. """
     # get patches
-    local_identifier = rpc.supvisors.mapper.local_identifier
+    local_identifier = supvisors.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}})
     get_map = {'process_1': process_1, 'process_2': process_2}
-    mocket_get = mocker.patch.object(rpc.supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocket_get = mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
     # test with processes not removed yet
-    params = 'process_1', 'process_2'
+    params = ['process_1', 'process_2']
     with pytest.raises(RPCError) as exc:
         rpc._check_process_deletion(params)
     assert exc.value.args == (Faults.FAILED, "processes=['process_1', 'process_2']")
@@ -1444,13 +1417,13 @@ def test_check_process_deletion(mocker, rpc):
     rpc._check_process_deletion(params)
 
 
-def test_enable_unknown_program(mocker, rpc):
+def test_enable_unknown_program(mocker, supvisors, rpc):
     """ Test the enable RPC with unknown program. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_operating')
-    mocked_enable = mocker.patch.object(rpc.supvisors.supervisor_updater, 'enable_program')
+    mocked_enable = mocker.patch.object(supvisors.supervisor_updater, 'enable_program')
     # test RPC call with unknown program
-    rpc.supvisors.server_options.program_configs = {}
+    supvisors.server_options.program_configs = {}
     with pytest.raises(RPCError) as exc:
         rpc.enable('dummy_program')
     assert exc.value.args == (Faults.BAD_NAME, 'program=dummy_program unknown to Supvisors')
@@ -1458,13 +1431,13 @@ def test_enable_unknown_program(mocker, rpc):
     assert not mocked_enable.called
 
 
-def test_enable_no_wait(mocker, rpc):
+def test_enable_no_wait(mocker, supvisors, rpc):
     """ Test the enable RPC / no wait. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_operating')
-    mocked_enable = mocker.patch.object(rpc.supvisors.supervisor_updater, 'enable_program')
+    mocked_enable = mocker.patch.object(supvisors.supervisor_updater, 'enable_program')
     # test RPC call with unknown program
-    rpc.supvisors.server_options.program_configs = {'dummy_program': {}}
+    supvisors.server_options.program_configs = {'dummy_program': {}}
     assert rpc.enable('dummy_program', False) is True
     assert mocked_check.call_args_list == [call()]
     assert mocked_enable.call_args_list == [call('dummy_program')]

@@ -304,15 +304,13 @@ Process Control
 
         .. automethod:: test_start_process(strategy, namespec)
 
-        .. automethod:: update_numprocs(program_name, numprocs, wait=True)
+        .. automethod:: update_numprocs(program_name, numprocs, wait=True, lazy=False)
 
             .. hint::
 
                 This XML-RPC is the implementation of the following |Supervisor| request:
 
                     * `#177 - Dynamic numproc change <https://github.com/Supervisor/supervisor/issues/177>`_
-
-        .. automethod:: lazy_update_numprocs(program_name, numprocs)
 
         .. automethod:: enable(program_name, wait=True)
 

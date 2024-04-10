@@ -1127,7 +1127,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_lazy_update_numprocs()
                 return
             try:
-                result = self.supvisors().lazy_update_numprocs(args[0], value)
+                result = self.supvisors().update_numprocs(args[0], value, True, True)
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC

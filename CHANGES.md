@@ -18,9 +18,9 @@
   The command is available through the new XML-RPCs `test_start_application` and `test_start_process` and have been
   added to `supervisorctl`.
 
-* Add a new XML-RPC `lazy_update_numprocs`, whose behaviour differ from `update_numprocs` in a way that the obsolete
-  processes will be deleted from the Supervisor configuration when they are stopped (exit, crash or later user request)
-  instead of being forced to stop immediately when requesting the numprocs to decrease.
+* Add a `lazy` attribute to the `update_numprocs` XML-RPC, so that when set combined to a numprocs decrease,
+  **Supvisors** defers the obsolete processes deletion from the Supervisor configuration only when the processes stop
+  (exit, crash or later user request) instead of stopping them immediately.
 
 * Add monotonic time in internal model and exchanges to cope with time updates while **Supvisors** is running.
   Impact on the XML-RPC `get_instance_info`, `get_process_info` and on the event interface for instance status
