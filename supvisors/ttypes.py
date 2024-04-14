@@ -27,7 +27,7 @@ SUPVISORS = 'Supvisors'
 # all enumerations
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, FAILED, ISOLATED = range(7)
+    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATED = range(6)
 
 
 class SupvisorsStates(Enum):
@@ -84,12 +84,6 @@ class StatisticsTypes(Enum):
 class SynchronizationOptions(Enum):
     """ Options to stop the synchronization phase. """
     STRICT, LIST, TIMEOUT, CORE, USER = range(5)
-
-
-# for internal publish / subscribe
-class InternalEventHeaders(Enum):
-    """ Event type for deferred XML-RPCs. """
-    REQUEST, PUBLICATION, DISCOVERY = range(3)
 
 
 # for internal publish / subscribe

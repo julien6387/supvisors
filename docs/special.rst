@@ -31,12 +31,12 @@ and sockets. In both case, the events were sent over a TCP socket and posted seq
 using a ``supervisor.sendRemoteCommEvent`` XML-RPC.
 
 Finally, with a proper understanding of the limitations brought by the XML-RPC implementation and its non-thread-safe
-nature, the |Supvisors| design has been simplified so that the local events and requests are all sequentially processed
-in a single thread.
+nature, the |Supvisors| design has been simplified so that the local events and requests are processed in threads
+dedicated to each Supervisor proxy.
 
 The ``TICK`` events are sent to all |Supvisors| instances discovered of declared in the ``supvisors_list`` option
-of the ``[supvisors]`` section in the |Supervisor| configuration file. As soon as the |Supvisors| instance is
-``CHECKED``, all other events are shared.
+of the ``[supvisors]`` section in the |Supervisor| configuration file, with the exception of ``ISOLATED`` instances.
+As soon as the |Supvisors| instance is ``CHECKED``, all other events are shared.
 
 UDP Multicast
 *************

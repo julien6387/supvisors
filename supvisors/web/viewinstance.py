@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2020 Julien LE CLEACH
 #
@@ -124,10 +121,10 @@ class SupvisorsInstanceView(StatusView):
 
     def restart_sup_action(self):
         """ Restart the local supervisor. """
-        self.supvisors.internal_com.pusher.send_restart(self.local_identifier)
+        self.supvisors.rpc_handler.send_restart(self.local_identifier)
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
-        self.supvisors.internal_com.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
         return delayed_warn('Supervisor shutdown requested')

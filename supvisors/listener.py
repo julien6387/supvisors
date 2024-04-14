@@ -26,8 +26,9 @@ from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
 from .external_com import create_external_publisher, EventPublisherInterface
-from .internal_com import (SupvisorsInternalEmitter, MulticastSender, RpcPusher,
-                           SupvisorsInstanceId, SupvisorsMainLoop)
+from .internal_com.mapper import SupvisorsInstanceId
+from .internal_com.multicast import SupvisorsDiscovery, MulticastSender
+from .internal_com.rpchandler import RpcHandler
 from .process import ProcessStatus
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
@@ -56,13 +57,11 @@ class SupervisorListener:
 
     Attributes are:
         - supvisors: the Supvisors global structure ;
-        - counter: the TICK sequence counter ;
-        - main_loop: the Supvisors' event thread.
+        - counter: the TICK sequence counter.
     """
 
     supvisors: Any = None
     counter: int = 0
-    main_loop: Optional[SupvisorsMainLoop] = None
 
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
@@ -121,14 +120,16 @@ class SupervisorListener:
         return self.supvisors.fsm
 
     @property
-    def pusher(self) -> RpcPusher:
+    def rpc_handler(self) -> RpcHandler:
         """ Get the com interface used to publish Supvisors internal events to all Supvisors instances. """
-        return self.supvisors.internal_com.pusher
+        return self.supvisors.rpc_handler
 
     @property
     def mc_sender(self) -> Optional[MulticastSender]:
         """ Get the com interface used to publish Supvisors internal events to all Supvisors instances. """
-        return self.supvisors.internal_com.mc_sender
+        if self.supvisors.discovery_handler:
+            return self.supvisors.discovery_handler.mc_sender
+        return None
 
     @property
     def external_publisher(self) -> Optional[EventPublisherInterface]:
@@ -149,15 +150,13 @@ class SupervisorListener:
             #       leading Supvisors to hang at stop time
             if self.stats_collector:
                 self.stats_collector.start()
-            # NOTE: The communication structures and SupvisorsMainLoop cannot be created before this level
+            # NOTE: The communication structures cannot be created before this level
             #       Before running, Supervisor forks when daemonized and the sockets are then lost
             #       At this point, Supervisor has forked if not daemonized
-            self.supvisors.internal_com = SupvisorsInternalEmitter(self.supvisors)
+            self.supvisors.rpc_handler = RpcHandler(self.supvisors)
+            if self.supvisors.options.discovery_mode:
+                self.supvisors.discovery_handler = SupvisorsDiscovery(self.supvisors)
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
-            self.main_loop = SupvisorsMainLoop(self.supvisors)
-            self.logger.debug('SupervisorListener.on_running: request to start main loop')
-            self.main_loop.start()
-            self.logger.debug('SupervisorListener.on_running: main loop started')
             # Trigger the FSM
             self.fsm.next()
         except Exception:
@@ -172,22 +171,23 @@ class SupervisorListener:
             # Stop the process statistics collector
             if self.stats_collector:
                 self.stats_collector.stop()
-            # close pusher and publication sockets
-            self.logger.debug('SupervisorListener.on_stopping: stopping internal com')
-            self.supvisors.internal_com.stop()
-            self.logger.debug('SupervisorListener.on_stopping: internal com stopped')
             # force Supervisor to close HTTP servers
-            # this will prevent any pending XML-RPC request to block the main loop
+            # this will prevent any pending XML-RPC request to block the Supervisor proxies
             self.supvisors.supervisor_data.close_httpservers()
-            # close external publication
+            # close RPC handler threads
+            self.logger.debug('SupervisorListener.on_stopping: closing Supervisor proxies...')
+            self.supvisors.rpc_handler.stop()
+            self.logger.debug('SupervisorListener.on_stopping: Supervisor proxies closed')
+            # close discovery handler thread
+            if self.supvisors.discovery_handler:
+                self.logger.debug('SupervisorListener.on_stopping: closing Supvisors discovery...')
+                self.supvisors.discovery_handler.stop()
+                self.logger.debug('SupervisorListener.on_stopping: Supvisors discovery closed')
+            # close external publication thread
             if self.external_publisher:
-                self.logger.debug('SupervisorListener.on_stopping: stopping external publisher')
+                self.logger.debug('SupervisorListener.on_stopping: stopping external publisher...')
                 self.external_publisher.close()
                 self.logger.debug('SupervisorListener.on_stopping: external publisher stopped')
-            # stop the main loop
-            self.logger.debug('SupervisorListener.on_stopping: stopping main loop')
-            self.main_loop.stop()
-            self.logger.debug('SupervisorListener.on_stopping: main loop stopped')
             # unsubscribe from events
             events.clear()
             # finally, close logger
@@ -223,7 +223,7 @@ class SupervisorListener:
             self.supvisors.context.on_local_tick_event(payload)
             self.fsm.on_timer_event(payload)
             # publish the TICK to all Supvisors instances
-            self.pusher.send_tick_event(payload)
+            self.rpc_handler.send_tick_event(payload)
             if self.mc_sender:
                 self.mc_sender.send_discovery_event(payload)
             # handle the statistics collection
@@ -241,13 +241,13 @@ class SupervisorListener:
                 # send to local host compiler
                 self.on_host_statistics(self.local_identifier, stats)
                 # publish host statistics to other Supvisors instances
-                self.pusher.send_host_statistics(stats)
+                self.rpc_handler.send_host_statistics(stats)
             # get and publish the process statistics collected from the last tick
             for stats in self.stats_collector.get_process_stats():
                 # send to local process compiler
                 self.on_process_statistics(self.local_identifier, stats)
                 # publish host statistics to other Supvisors instances
-                self.pusher.send_process_statistics(stats)
+                self.rpc_handler.send_process_statistics(stats)
 
     def on_process_state(self, event: events.ProcessStateEvent) -> None:
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
@@ -272,7 +272,7 @@ class SupervisorListener:
             # update local Supvisors instance
             self.fsm.on_process_state_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.pusher.send_process_state_event(payload)
+            self.rpc_handler.send_process_state_event(payload)
             # post-event actions: check obsolete processes and update internal monotonic times
             if process_state == ProcessStates.STARTING:
                 self.supvisors.supervisor_data.update_start(namespec)
@@ -311,7 +311,7 @@ class SupervisorListener:
                 # update local Supvisors instance
                 self.fsm.on_process_added_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
-                self.pusher.send_process_added_event(process_info)
+                self.rpc_handler.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_added: {format_exc()}')
@@ -330,7 +330,7 @@ class SupervisorListener:
             # update local Supvisors instance
             self.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.pusher.send_process_removed_event(payload)
+            self.rpc_handler.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_removed: {format_exc()}')
@@ -352,7 +352,7 @@ class SupervisorListener:
                 # update local Supvisors instance
                 self.fsm.on_process_disability_event(self.local_identifier, process_info)
                 # publish to the other Supvisors instances
-                self.pusher.send_process_disability_event(process_info)
+                self.rpc_handler.send_process_disability_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_disability: {format_exc()}')
@@ -379,7 +379,7 @@ class SupervisorListener:
                     # update local Supvisors instance
                     self.fsm.on_process_added_event(self.local_identifier, process_info)
                     # publish to the other Supvisors instances
-                    self.pusher.send_process_added_event(process_info)
+                    self.rpc_handler.send_process_added_event(process_info)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_added: {format_exc()}')
@@ -400,7 +400,7 @@ class SupervisorListener:
             # update local Supvisors instance
             self.fsm.on_process_removed_event(self.local_identifier, payload)
             # publish to the other Supvisors instances
-            self.pusher.send_process_removed_event(payload)
+            self.rpc_handler.send_process_removed_event(payload)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_group_removed: {format_exc()}')
@@ -419,7 +419,7 @@ class SupervisorListener:
 
     def unstack_event(self, message: str) -> None:
         """ Unstack and process one event from the event queue. """
-        event_origin, (event_type, event_data) = json.loads(message)
+        event_origin, (event_type, event_data) = toto = json.loads(message)
         event_identifier, _ = event_origin
         header = PublicationHeaders(event_type)
         # NOTE: DISCOVERY messages contain the necessary information for Supvisors instances discovery,
@@ -519,4 +519,4 @@ class SupervisorListener:
         # update local Supvisors instance
         self.fsm.on_process_state_event(self.local_identifier, payload)
         # publish to the other Supvisors instances
-        self.pusher.send_process_state_event(payload)
+        self.rpc_handler.send_process_state_event(payload)

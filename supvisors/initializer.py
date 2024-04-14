@@ -77,7 +77,8 @@ class Supvisors:
         """
         # WARN: The Supvisors communication objects cannot be created at this level.
         #       Before running, Supervisor forks when daemonized and the sockets would be lost.
-        self.internal_com = None
+        self.rpc_handler = None
+        self.discovery_handler = None
         self.external_publisher = None
         # create logger using option from config
         logger_config = get_logger_configuration(**config)

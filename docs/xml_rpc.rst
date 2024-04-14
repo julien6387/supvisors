@@ -87,6 +87,7 @@ Status
                                                 |Supvisors| instance, in seconds and in the local reference time.
             'loading'                 ``int``   The sum of the expected loading of the processes running on the |Supvisors|
                                                 instance, in [0;100]%.
+            'rpc_failure'             ``bool``  True upon failure of the XML-RPC towards the |Supvisors| instance.
             'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
             'fsm_statecode'           ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
             'fsm_statename'           ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,

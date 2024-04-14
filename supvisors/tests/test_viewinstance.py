@@ -239,7 +239,7 @@ def test_make_callback(mocker, view):
 def test_restart_sup_action(mocker, view):
     """ Test the restart_sup_action method. """
     mocker.patch('supvisors.web.viewinstance.delayed_warn', return_value='delayed warn')
-    mocked_pusher = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_restart')
+    mocked_pusher = mocker.patch.object(view.supvisors.rpc_handler, 'send_restart')
     local_identifier = view.supvisors.mapper.local_identifier
     assert view.restart_sup_action() == 'delayed warn'
     assert mocked_pusher.call_args_list == [call(local_identifier)]
@@ -248,7 +248,7 @@ def test_restart_sup_action(mocker, view):
 def test_shutdown_sup_action(mocker, view):
     """ Test the shutdown_sup_action method. """
     mocker.patch('supvisors.web.viewinstance.delayed_warn', return_value='delayed warn')
-    mocked_pusher = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_shutdown')
+    mocked_pusher = mocker.patch.object(view.supvisors.rpc_handler, 'send_shutdown')
     local_identifier = view.supvisors.mapper.local_identifier
     assert view.shutdown_sup_action() == 'delayed warn'
     assert mocked_pusher.call_args_list == [call(local_identifier)]

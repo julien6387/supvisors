@@ -202,8 +202,7 @@ class ProcessStartCommand(ProcessCommand):
 
         :return: None.
         """
-        pusher = self.supvisors.internal_com.pusher
-        pusher.send_start_process(self.identifier, self.process.namespec, self.extra_args)
+        self.supvisors.rpc_handler.send_start_process(self.identifier, self.process.namespec, self.extra_args)
         self.update_sequence_counter()
         self.logger.info(f'ProcessStartCommand.start: {self.namespec} requested to start on {self.identifier}')
 
@@ -336,8 +335,7 @@ class ProcessStopCommand(ProcessCommand):
 
         :return: None.
         """
-        pusher = self.supvisors.internal_com.pusher
-        pusher.send_stop_process(self.identifier, self.namespec)
+        self.supvisors.rpc_handler.send_stop_process(self.identifier, self.namespec)
         self.update_sequence_counter()
         self.logger.info(f'ProcessStopCommand.stop: {self.namespec} requested to stop on {self.identifier}')
 
@@ -571,11 +569,13 @@ class ApplicationJobs:
             # get the ProcessStatus method corresponding to condition and call it
             expected_state, result, event_time = command.timed_out()
             if result == ProcessRequestResult.TIMED_OUT:
+                # don't wait for event, abort the job right now
+                # NOTE: this is done BEFORE the forced state is sent because the event will come back immediately
+                #       in the on_event method below
+                self.current_jobs.remove(command)
                 # generate a process event for this process to inform all Supvisors instances
                 reason = f'process {getProcessStateDescription(expected_state)} event not received in time'
                 self.fail_command(command.process, command.identifier, event_time, reason)
-                # don't wait for event, abort the job right now
-                self.current_jobs.remove(command)
             if result == ProcessRequestResult.SUCCESS:
                 # NOTE: the result has been reached outside the scope of the sequencer
                 #       the job MUST be removed of the sequencer will block
@@ -607,6 +607,8 @@ class ApplicationJobs:
         else:
             self.logger.debug(f'ApplicationJobs.on_event: no corresponding job in the current sequence')
             # Various cases may lead to that situation:
+            #   * the process state has been forced dur to a timeout
+            #     => normal consequence
             #   * the process has crashed / exited after its RUNNING state but before the application is fully started
             #     => let the running failure strategy deal with that
             #   * the process is not in the automatic application sequence (so the event is related to a manual request)

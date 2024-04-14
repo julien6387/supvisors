@@ -81,7 +81,7 @@ def test_reset(mocker, supvisors, context):
     # change node states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.FAILED
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # add an application
@@ -92,7 +92,7 @@ def test_reset(mocker, supvisors, context):
     assert set(supvisors.mapper.instances), set(context.instances.keys())
     context.local_status._state = SupvisorsInstanceStates.UNKNOWN
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.FAILED
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.UNKNOWN
     assert context.applications == {'dummy_appli': application}
@@ -174,7 +174,7 @@ def test_is_valid(context):
     """ Test the Context.is_valid method. """
     # change states
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.FAILED
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test unknown identifier
@@ -194,7 +194,7 @@ def test_is_valid(context):
 
 def test_publish_state_modes(supvisors, context):
     """ Test the Context.publish_state_modes method. """
-    mocked_send_state = supvisors.internal_com.pusher.send_state_event
+    mocked_send_state = supvisors.rpc_handler.send_state_event
     # test unchanged
     context.publish_state_modes({'starter': False})
     assert not mocked_send_state.called
@@ -273,7 +273,7 @@ def test_export_status(mocker, supvisors, context):
                 'port': 65000, 'statecode': 0, 'statename': 'UNKNOWN',
                 'remote_sequence_counter': 0, 'remote_mtime': 0, 'remote_time': 0,
                 'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
-                'loading': 0, 'process_failure': False,
+                'loading': 0, 'rpc_failure': False, 'process_failure': False,
                 'fsm_statecode': 0, 'fsm_statename': 'OFF', 'discovery_mode': False,
                 'master_identifier': '', 'starting_jobs': False, 'stopping_jobs': False}
     assert context.external_publisher.send_instance_status.call_args_list == [call(expected)]
@@ -348,7 +348,7 @@ def test_instances_by_states(supvisors, context):
     # change states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.FAILED
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
@@ -390,7 +390,7 @@ def test_running_core_identifiers(supvisors):
     assert not context.running_core_identifiers()
     # change states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.FAILED
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
@@ -413,7 +413,7 @@ def test_activate_checked(context):
     # change node states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.FAILED
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.UNKNOWN
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKED
     context.instances['10.0.0.5']._state = SupvisorsInstanceStates.CHECKING
@@ -421,7 +421,7 @@ def test_activate_checked(context):
     context.activate_checked()
     assert context.local_status.state == SupvisorsInstanceStates.RUNNING
     assert context.instances['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
-    assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.FAILED
+    assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.UNKNOWN
     assert context.instances['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATED
     assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.RUNNING
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.CHECKING
@@ -472,7 +472,7 @@ def test_invalid_remove(supvisors, context):
     # test auto_fence option not set / no isolation
     supvisors.options.auto_fence = False
     for supvisors_state in SupvisorsStates:
-        for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.FAILED,
+        for state in [SupvisorsInstanceStates.UNKNOWN,
                       SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
                       SupvisorsInstanceStates.RUNNING]:
             # set context
@@ -485,7 +485,7 @@ def test_invalid_remove(supvisors, context):
     supvisors.options.auto_fence = True
     for supvisors_state in SupvisorsStates:
         working_state = supvisors_state in WORKING_STATES
-        for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.FAILED,
+        for state in [SupvisorsInstanceStates.UNKNOWN,
                       SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
                       SupvisorsInstanceStates.RUNNING]:
             # set context
@@ -816,7 +816,7 @@ def test_on_instance_state_event(mocker, supvisors, context):
                 'statecode': 3, 'statename': 'RUNNING',
                 'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
                 'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
-                'loading': 0, 'process_failure': False,
+                'loading': 0, 'rpc_failure': False,'process_failure': False,
                 'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'discovery_mode': False, 'master_identifier': '',
                 'starting_jobs': True, 'stopping_jobs': False}
     assert mocked_send.call_args_list == [call(expected)]
@@ -899,7 +899,7 @@ def test_authorization_checking_normal(mocker, context):
 def test_on_local_tick_event(mocker, supvisors, context):
     """ Test the handling of a TICK event on the local Supvisors instance. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
-    mocked_check = supvisors.internal_com.pusher.send_check_instance
+    mocked_check = supvisors.rpc_handler.send_check_instance
     supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = supvisors.external_publisher.send_instance_status
     # check the current context
@@ -933,7 +933,7 @@ def test_on_local_tick_event(mocker, supvisors, context):
                     'statecode': 1, 'statename': 'CHECKING',
                     'remote_sequence_counter': 31, 'remote_mtime': 234.56, 'remote_time': 1234,
                     'local_sequence_counter': 31, 'local_mtime': 234.56, 'local_time': 1234,
-                    'loading': 0, 'process_failure': False,
+                    'loading': 0, 'rpc_failure': False, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF',
                     'discovery_mode': False, 'master_identifier': '',
                     'starting_jobs': False, 'stopping_jobs': False}
@@ -962,7 +962,7 @@ def test_on_local_tick_event(mocker, supvisors, context):
                     'statecode': state.value, 'statename': state.name,
                     'remote_sequence_counter': 57, 'remote_mtime': 678.9, 'remote_time': 5678,
                     'local_sequence_counter': 57, 'local_mtime': 678.9, 'local_time': 5678,
-                    'loading': 0, 'process_failure': False,
+                    'loading': 0, 'rpc_failure': False, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF',
                     'discovery_mode': False, 'master_identifier': '',
                     'starting_jobs': False, 'stopping_jobs': False}
@@ -975,7 +975,7 @@ def test_on_tick_event(mocker, supvisors, context):
     mocker.patch('time.time', return_value=7200)
     mocker.patch('time.monotonic', return_value=3600)
     mocked_stereotype = mocker.patch.object(supvisors.mapper, 'assign_stereotypes')
-    mocked_check = supvisors.internal_com.pusher.send_check_instance
+    mocked_check = supvisors.rpc_handler.send_check_instance
     supvisors.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = supvisors.external_publisher.send_instance_status
     # check the current context
@@ -1040,7 +1040,7 @@ def test_on_tick_event(mocker, supvisors, context):
                     'port': 65000, 'statecode': 1, 'statename': 'CHECKING',
                     'remote_sequence_counter': 31, 'remote_mtime': 234.56, 'remote_time': 1234,
                     'local_sequence_counter': 7, 'local_mtime': 3600, 'local_time': 7200,
-                    'loading': 0, 'process_failure': False,
+                    'loading': 0, 'rpc_failure': False, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF',
                     'discovery_mode': False, 'master_identifier': '',
                     'starting_jobs': False, 'stopping_jobs': False}
@@ -1066,7 +1066,7 @@ def test_on_tick_event(mocker, supvisors, context):
                     'statecode': state.value, 'statename': state.name,
                     'remote_sequence_counter': 57, 'remote_mtime': 678.9, 'remote_time': 5678,
                     'local_sequence_counter': 7, 'local_mtime': 3600, 'local_time': 7200,
-                    'loading': 0, 'process_failure': False,
+                    'loading': 0, 'rpc_failure': False, 'process_failure': False,
                     'fsm_statecode': 0, 'fsm_statename': 'OFF',
                     'discovery_mode': False, 'master_identifier': '',
                     'starting_jobs': False, 'stopping_jobs': False}
@@ -1091,7 +1091,7 @@ def test_on_tick_event(mocker, supvisors, context):
                 'statecode': state.value, 'statename': state.name,
                 'remote_sequence_counter': 2, 'remote_mtime': 789.01, 'remote_time': 6789,
                 'local_sequence_counter': 0, 'local_mtime': 3600, 'local_time': 7200,
-                'loading': 0, 'process_failure': False,
+                'loading': 0, 'rpc_failure': False, 'process_failure': False,
                 'fsm_statecode': 0, 'fsm_statename': 'OFF',
                 'discovery_mode': False, 'master_identifier': '',
                 'starting_jobs': False, 'stopping_jobs': False}
@@ -1656,7 +1656,7 @@ def test_on_timer_event(mocker, supvisors, context):
     context.instances['10.0.0.2'].times.local_sequence_counter = 29
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.SILENT
     context.instances['10.0.0.3'].times.local_sequence_counter = 10
-    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.FAILED
+    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.4'].times.local_sequence_counter = 0
     context.instances['10.0.0.5']._state = SupvisorsInstanceStates.UNKNOWN
     context.instances['10.0.0.5'].times.local_sequence_counter = 0
@@ -1676,7 +1676,7 @@ def test_on_timer_event(mocker, supvisors, context):
                   'statecode': 4, 'statename': 'SILENT',
                   'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
                   'local_sequence_counter': 29, 'local_mtime': 0.0, 'local_time': 0,
-                  'loading': 15, 'process_failure': False,
+                  'loading': 15, 'rpc_failure': False, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF',
                   'discovery_mode': False, 'master_identifier': '',
                   'starting_jobs': False, 'stopping_jobs': False}
@@ -1684,7 +1684,7 @@ def test_on_timer_event(mocker, supvisors, context):
                   'statecode': 4, 'statename': 'SILENT',
                   'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
                   'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
-                  'loading': 0, 'process_failure': False,
+                  'loading': 0, 'rpc_failure': False, 'process_failure': False,
                   'fsm_statecode': 0, 'fsm_statename': 'OFF',
                   'discovery_mode': False, 'master_identifier': '',
                   'starting_jobs': False, 'stopping_jobs': False}

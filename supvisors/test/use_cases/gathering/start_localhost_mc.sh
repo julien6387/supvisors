@@ -17,11 +17,11 @@ rm -rf log ; mkdir log
 
 echo "start Supvisors on $HOST as server_1"
 export IDENTIFIER=server_1
-supervisord -c etc/supervisord_server_localhost.conf -i $IDENTIFIER
+supervisord -c etc/supervisord_server_mc.conf -i $IDENTIFIER
 
 echo "start Supvisors on $HOST as console_1"
 export IDENTIFIER=console_1
-supervisord -c etc/supervisord_console_localhost.conf -i $IDENTIFIER
+supervisord -c etc/supervisord_console_mc.conf -i $IDENTIFIER
 
 # start firefox to get the Web UI
 firefox http://localhost:61000?auto=true &

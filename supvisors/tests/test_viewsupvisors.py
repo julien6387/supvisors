@@ -614,7 +614,7 @@ def test_stop_action(mocker, view):
     process = Mock(running_identifiers=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
     mocked_get = mocker.patch.object(view.supvisors.context, 'get_process', return_value=process)
     # test call
-    mocked_rpc = mocker.patch.object(view.supvisors.internal_com.pusher, 'send_stop_process')
+    mocked_rpc = mocker.patch.object(view.supvisors.rpc_handler, 'send_stop_process')
     cb = view.stop_action('dummy_proc', '10.0.0.2')
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.2', 'dummy_proc')]
@@ -634,7 +634,7 @@ def test_keep_action(mocker, view):
     process = Mock(running_identifiers=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
     mocked_get = mocker.patch.object(view.supvisors.context, 'get_process', return_value=process)
     # test call
-    with patch.object(view.supvisors.internal_com.pusher, 'send_stop_process') as mocked_rpc:
+    with patch.object(view.supvisors.rpc_handler, 'send_stop_process') as mocked_rpc:
         cb = view.keep_action('dummy_proc', '10.0.0.2')
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.1', 'dummy_proc'), call('10.0.0.3', 'dummy_proc')]

@@ -851,7 +851,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     mocker.patch('time.monotonic', return_value=1234.56)
     mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors.listener.force_process_state
-    mocked_pusher = supvisors.internal_com.pusher.send_start_process
+    mocked_pusher = supvisors.rpc_handler.send_start_process
     mocked_failure = mocker.patch.object(application_start_job_1, 'process_failure')
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1'
@@ -1008,23 +1008,23 @@ def test_application_stop_job_creation(supvisors, application_stop_job_1, stop_s
     assert application_stop_job_1.failure_state == ProcessStates.STOPPED
 
 
-def test_application_stop_job_process_job(application_stop_job_1, stop_sample_test_1):
+def test_application_stop_job_process_job(supvisors, application_stop_job_1, stop_sample_test_1):
     """ Test the ApplicationStopJobs.process_job method. """
-    mocked_pusher = application_stop_job_1.supvisors.internal_com.pusher.send_stop_process
+    mocked_stop = supvisors.rpc_handler.send_stop_process
     # set context
-    application_stop_job_1.supvisors.context.instances['10.0.0.1'].times.remote_sequence_counter = 14
+    supvisors.context.instances['10.0.0.1'].times.remote_sequence_counter = 14
     # test with stopped process
     xlogo = stop_sample_test_1[1]
     assert xlogo.identifier == '10.0.0.1'
     assert not application_stop_job_1.process_job(xlogo)
-    assert not mocked_pusher.called
+    assert not mocked_stop.called
     assert xlogo.request_sequence_counter == 0
     # test with running process
     xfontsel = stop_sample_test_1[2]
     assert xfontsel.identifier == '10.0.0.1'
     xfontsel.process.running_identifiers = ['10.0.0.1', '10.0.0.2']
     assert application_stop_job_1.process_job(xfontsel)
-    assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xfontsel')]
+    assert mocked_stop.call_args_list == [call('10.0.0.1', 'sample_test_1:xfontsel')]
     assert xfontsel.request_sequence_counter == 14
 
 
@@ -1983,7 +1983,7 @@ def test_stopper_after(mocker, supvisors, stopper, sample_test_1):
 def test_process_start_command_model(supvisors):
     """ Test the ProcessStartCommandModel class. """
     # get patches
-    mocked_pusher = supvisors.internal_com.pusher.send_start_process
+    mocked_start = supvisors.rpc_handler.send_start_process
     supvisors.starter_model.event_list = []
     # test creation
     info = process_info_by_name('xlogo')
@@ -2005,7 +2005,7 @@ def test_process_start_command_model(supvisors):
     # test overriden start
     command_model.update_identifier('10.0.0.1')
     command_model.start()
-    assert not mocked_pusher.called
+    assert not mocked_start.called
     assert command_model.request_sequence_counter == 0
     assert command_model.process.running_identifiers == {'10.0.0.1'}
     assert command_model.process.state == ProcessStates.STOPPED
@@ -2016,7 +2016,7 @@ def test_process_start_command_model(supvisors):
     command_model.process.rules.wait_exit = True
     command_model.update_identifier('10.0.0.1')
     command_model.start()
-    assert not mocked_pusher.called
+    assert not mocked_start.called
     assert supvisors.starter_model.event_list == [(command_model.process, '10.0.0.1', ProcessStates.STARTING),
                                                   (command_model.process, '10.0.0.1', ProcessStates.RUNNING),
                                                   (command_model.process, '10.0.0.1', ProcessStates.EXITED)]

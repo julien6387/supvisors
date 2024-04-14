@@ -191,6 +191,9 @@ def test_create_no_collector(supvisors, supvisors_id, status):
     assert status.supvisors_id is supvisors_id
     assert status.identifier == 'supvisors'
     assert status.state == SupvisorsInstanceStates.UNKNOWN
+    assert not status.isolated
+    assert not status.rpc_failure
+    assert status.sequence_counter == 0
     assert status.times.identifier == 'supvisors'
     assert status.times.logger is supvisors.logger
     assert status.times.remote_sequence_counter == 0
@@ -243,7 +246,7 @@ def test_reset(status):
         status.times.start_local_mtime = 0.7
         status.reset()
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                     SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]:
+                     SupvisorsInstanceStates.RUNNING]:
             assert status.state == SupvisorsInstanceStates.UNKNOWN
         else:
             assert status.state == state
@@ -261,7 +264,7 @@ def test_serialization(mocker, status):
     mocker.patch('time.time', return_value=19413.5)
     mocker.patch('time.monotonic', return_value=13.5)
     status._state = SupvisorsInstanceStates.RUNNING
-    status.checked = True
+    status.rpc_failure = True
     status.times.update(28, 10.5, 50.2, 17)
     # test to_json method
     serialized = status.serial()
@@ -269,7 +272,7 @@ def test_serialization(mocker, status):
                           'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
                           'remote_sequence_counter': 28, 'remote_mtime': 10.5, 'remote_time': 50,
                           'local_sequence_counter': 17, 'local_mtime': 13.5, 'local_time': 19413,
-                          'process_failure': False,
+                          'rpc_failure': True, 'process_failure': False,
                           'fsm_statecode': 0, 'fsm_statename': 'OFF',
                           'master_identifier': '',
                           'starting_jobs': False, 'stopping_jobs': False}
@@ -342,7 +345,7 @@ def test_has_active_state(status):
     for state in SupvisorsInstanceStates:
         status._state = state
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                     SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]:
+                     SupvisorsInstanceStates.RUNNING]:
             assert status.has_active_state()
         else:
             assert not status.has_active_state()
@@ -360,18 +363,18 @@ def test_inactive(status):
     for state in SupvisorsInstanceStates:
         status._state = state
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                     SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]:
+                     SupvisorsInstanceStates.RUNNING]:
             assert status.is_inactive(10)
         else:
             assert not status.is_inactive(10)
 
 
 def test_isolation(status):
-    """ Test the SupvisorsInstanceStatus.isolated method. """
+    """ Test the SupvisorsInstanceStatus.isolated property. """
     for state in SupvisorsInstanceStates:
         status._state = state
-        assert (status.isolated() and state == SupvisorsInstanceStates.ISOLATED or
-                not status.isolated() and state != SupvisorsInstanceStates.ISOLATED)
+        assert (status.isolated and state == SupvisorsInstanceStates.ISOLATED or
+                not status.isolated and state != SupvisorsInstanceStates.ISOLATED)
 
 
 def test_process_no_collector(supvisors, status):

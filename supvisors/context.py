@@ -161,7 +161,7 @@ class Context:
         changed, state_modes = self.local_status.apply_state_modes(event)
         if changed:
             # on change, publish the local Supvisors state and modes to the other Supvisors instances
-            self.supvisors.internal_com.pusher.send_state_event(state_modes.serial())
+            self.supvisors.rpc_handler.send_state_event(state_modes.serial())
             # publish SupvisorsInstanceStatus and SupvisorsStatus
             self.export_status(self.local_status)
 
@@ -210,7 +210,7 @@ class Context:
         ip_address, http_port = ipv4_address
         if identifier in self.instances:
             status = self.instances[identifier]
-            if (not status.isolated() and status.supvisors_id.ip_address == ip_address
+            if (not status.isolated and status.supvisors_id.ip_address == ip_address
                     and status.supvisors_id.http_port == http_port):
                 return True
         return False
@@ -258,7 +258,7 @@ class Context:
 
     def valid_instances(self) -> NameList:
         """ Return the identifiers of the Supervisors NOT in ISOLATED state. """
-        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.FAILED,
+        return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN,
                                          SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
                                          SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.SILENT])
 
@@ -462,7 +462,7 @@ class Context:
         # ISOLATED instances are not updated anymore
         # should not happen as the subscriber should have been disconnected but there may be a tick in the pipe
         status = self.instances[identifier]
-        if not status.isolated():
+        if not status.isolated:
             # update the Supvisors instance StateModes status
             status.update_state_modes(event)
             # check if a Master is known to this Supvisors instance and compare with the local's
@@ -538,7 +538,7 @@ class Context:
         # trigger hand-shake on first TICK received
         if self.local_status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
             self.local_status.state = SupvisorsInstanceStates.CHECKING
-            self.supvisors.internal_com.pusher.send_check_instance(self.local_identifier)
+            self.supvisors.rpc_handler.send_check_instance(self.local_identifier)
         # publish new Supvisors Instance status
         self.export_status(self.local_status)
 
@@ -560,7 +560,7 @@ class Context:
             return
         # ISOLATED instances are not updated anymore
         status = self.instances[identifier]
-        if not status.isolated():
+        if not status.isolated:
             # update the Supvisors instance with the TICK event
             self.supvisors.mapper.assign_stereotypes(identifier, event['stereotypes'])
             # for remote Supvisors instance, use local Supvisors instance data
@@ -569,7 +569,7 @@ class Context:
             # trigger hand-shake on first TICK received
             if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
                 status.state = SupvisorsInstanceStates.CHECKING
-                self.supvisors.internal_com.pusher.send_check_instance(status.identifier)
+                self.supvisors.rpc_handler.send_check_instance(status.identifier)
             # publish new Supvisors Instance status
             self.export_status(status)
 

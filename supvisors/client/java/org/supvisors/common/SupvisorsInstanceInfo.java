@@ -68,6 +68,9 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     private Integer loading;
 
+    /** True if the XML-RPC towards the Supervisor instance are in failure. */
+    private Boolean rpc_failure;
+
     /** True if one of the local processes has crashed or has exited unexpectedly. */
     private Boolean process_failure;
 
@@ -91,6 +94,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.local_mtime = (Double) instanceInfo.get("local_mtime");
         this.local_time = (Integer) instanceInfo.get("local_time");
         this.loading = (Integer) instanceInfo.get("loading");
+        this.rpc_failure = (Boolean) instanceInfo.get("rpc_failure");
         this.process_failure = (Boolean) instanceInfo.get("process_failure");
     }
 
@@ -218,6 +222,15 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
+     * The hasRpcFailure method returns True if the XML-RPC towards the Supervisor instance fail.
+     *
+     * @return Boolean: The XML-RPC failure status.
+     */
+    public Boolean hasRpcFailure() {
+        return this.rpc_failure;
+    }
+
+    /**
      * The hasProcessFailure method returns True if any process is in FATAL or unexpected EXITED state.
      *
      * @return Boolean: The process failure status.
@@ -245,6 +258,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
             + " localMonotonicTime=" + this.local_mtime
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
             + " loading=" + this.loading
+            + " rpcFailure=" + this.rpc_failure
             + " processFailure=" + this.process_failure + ")";
     }
 

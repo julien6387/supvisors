@@ -33,7 +33,7 @@ def supvisors_ctx(supvisors):
     nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     nodes['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
-    nodes['10.0.0.3']._state = SupvisorsInstanceStates.FAILED
+    nodes['10.0.0.3']._state = SupvisorsInstanceStates.CHECKED
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.ISOLATED
     nodes['test']._state = SupvisorsInstanceStates.UNKNOWN
@@ -80,9 +80,9 @@ def test_off_state(supvisors_ctx):
     # 1. test enter method: no behaviour
     state.enter()
     # 2. test next method
-    assert supvisors_ctx.internal_com
+    assert supvisors_ctx.rpc_handler
     assert state.next() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.internal_com = None
+    supvisors_ctx.rpc_handler = None
     assert state.next() == SupvisorsStates.OFF
     # 3. test exit method: no behaviour
     state.exit()
@@ -429,7 +429,7 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     assert result == SupvisorsStates.RESTARTING
     # test exit method: call Supervisor restart
     state.exit()
-    assert state.supvisors.internal_com.pusher.send_restart.call_args_list == [call(state.local_identifier)]
+    assert supvisors_ctx.rpc_handler.send_restart.call_args_list == [call(state.local_identifier)]
 
 
 def test_master_shutting_down_state(mocker, supvisors_ctx):
@@ -459,7 +459,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     assert result == SupvisorsStates.SHUTTING_DOWN
     # test exit method: call Supervisor shutdown
     state.exit()
-    assert state.supvisors.internal_com.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
+    assert supvisors_ctx.rpc_handler.send_shutdown.call_args_list == [call(state.local_identifier)]
 
 
 def test_final_state(supvisors_ctx):
@@ -512,7 +512,7 @@ def test_slave_restarting_state(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.FINAL
     # test exit method: call Supervisor restart
     state.exit()
-    assert state.supvisors.internal_com.pusher.send_restart.call_args_list == [call(state.local_identifier)]
+    assert supvisors_ctx.rpc_handler.send_restart.call_args_list == [call(state.local_identifier)]
 
 
 def test_slave_shutting_down_state(mocker, supvisors_ctx):
@@ -535,7 +535,7 @@ def test_slave_shutting_down_state(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.FINAL
     # test exit method: call Supervisor shutdown
     state.exit()
-    assert state.supvisors.internal_com.pusher.send_shutdown.call_args_list == [call(state.local_identifier)]
+    assert supvisors_ctx.rpc_handler.send_shutdown.call_args_list == [call(state.local_identifier)]
 
 
 @pytest.fixture
@@ -1162,36 +1162,36 @@ def test_on_authorization(mocker, fsm):
     assert fsm.redeploy_mark
 
 
-def test_restart_sequence_event(fsm):
+def test_restart_sequence_event(supvisors, fsm):
     """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
     # inject restart event and test setting of redeploy_mark
-    mocked_zmq = fsm.supvisors.internal_com.pusher.send_restart_sequence
+    mocked_restart = supvisors.rpc_handler.send_restart_sequence
     fsm.supvisors.context.master_identifier = '10.0.0.1'
     assert not fsm.redeploy_mark
     # test when not master
     fsm.on_restart_sequence()
     assert not fsm.redeploy_mark
-    assert mocked_zmq.call_args_list == [call('10.0.0.1')]
-    mocked_zmq.reset_mock()
+    assert mocked_restart.call_args_list == [call('10.0.0.1')]
+    mocked_restart.reset_mock()
     # test when master
     fsm.context.master_identifier = fsm.context.local_identifier
     fsm.on_restart_sequence()
-    assert not mocked_zmq.called
+    assert not mocked_restart.called
     assert fsm.redeploy_mark is Forced
 
 
-def test_restart_event(mocker, fsm):
+def test_restart_event(mocker, supvisors, fsm):
     """ Test the actions triggered in state machine upon reception of a restart event. """
     # inject restart event and test call to fsm set_state RESTARTING
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = fsm.supvisors.internal_com.pusher.send_restart_all
+    mocked_send = supvisors.rpc_handler.send_restart_all
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_restart()
     assert not mocked_fsm.called
     assert not mocked_send.called
     # test when not master and Master set
-    fsm.supvisors.context.master_identifier = '10.0.0.1'
+    supvisors.context.master_identifier = '10.0.0.1'
     fsm.on_restart()
     assert not mocked_fsm.called
     assert mocked_send.call_args_list == [call('10.0.0.1')]
@@ -1203,18 +1203,18 @@ def test_restart_event(mocker, fsm):
     assert mocked_fsm.call_args_list == [call(SupvisorsStates.RESTARTING)]
 
 
-def test_shutdown_event(mocker, fsm):
+def test_shutdown_event(mocker, supvisors, fsm):
     """ Test the actions triggered in state machine upon reception of a shutdown event. """
     # inject shutdown event and test call to fsm set_state SHUTTING_DOWN
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = fsm.supvisors.internal_com.pusher.send_shutdown_all
+    mocked_send = supvisors.rpc_handler.send_shutdown_all
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_shutdown()
     assert not mocked_fsm.called
     assert not mocked_send.called
     # test when not master and Master set
-    fsm.supvisors.context.master_identifier = '10.0.0.1'
+    supvisors.context.master_identifier = '10.0.0.1'
     fsm.on_shutdown()
     assert not mocked_fsm.called
     assert mocked_send.call_args_list == [call('10.0.0.1')]

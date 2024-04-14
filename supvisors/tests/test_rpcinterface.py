@@ -54,49 +54,49 @@ def test_supvisors_state(rpc):
                                          'starting_jobs': [], 'stopping_jobs': []}
 
 
-def test_master_node(rpc):
+def test_master_node(supvisors, rpc):
     """ Test the get_master_address RPC. """
     # prepare context
-    rpc.supvisors.context.master_identifier = '10.0.0.1'
+    supvisors.context.master_identifier = '10.0.0.1'
     # test call
     assert rpc.get_master_identifier() == '10.0.0.1'
 
 
-def test_strategies(rpc):
+def test_strategies(supvisors, rpc):
     """ Test the get_strategies RPC. """
     # prepare context
-    rpc.supvisors.options.auto_fence = True
-    rpc.supvisors.options.conciliation_strategy = ConciliationStrategies.INFANTICIDE
-    rpc.supvisors.options.starting_strategy = StartingStrategies.MOST_LOADED
+    supvisors.options.auto_fence = True
+    supvisors.options.conciliation_strategy = ConciliationStrategies.INFANTICIDE
+    supvisors.options.starting_strategy = StartingStrategies.MOST_LOADED
     # test call
     assert rpc.get_strategies() == {'auto-fencing': True, 'starting': 'MOST_LOADED', 'conciliation': 'INFANTICIDE'}
 
 
-def test_statistics_status(rpc):
+def test_statistics_status(supvisors, rpc):
     """ Test the get_statistics_status RPC. """
     # test call
     assert rpc.get_statistics_status() == {'host_stats': True, 'process_stats': True, 'collecting_period': 5}
     # update options
-    rpc.supvisors.options.process_stats_enabled = False
-    rpc.supvisors.options.collecting_period = 7.5
+    supvisors.options.process_stats_enabled = False
+    supvisors.options.collecting_period = 7.5
     assert rpc.get_statistics_status() == {'host_stats': True, 'process_stats': False, 'collecting_period': 7.5}
     # delete statistics collector
-    rpc.supvisors.options.host_stats_enabled = False
-    rpc.supvisors.options.process_stats_enabled = True
-    rpc.supvisors.stats_collector = None
+    supvisors.options.host_stats_enabled = False
+    supvisors.options.process_stats_enabled = True
+    supvisors.stats_collector = None
     assert rpc.get_statistics_status() == {'host_stats': False, 'process_stats': False, 'collecting_period': 7.5}
 
 
-def test_instance_info(rpc):
+def test_instance_info(supvisors, rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
-    instance = rpc.supvisors.context.instances['10.0.0.1']
+    instance = supvisors.context.instances['10.0.0.1']
     instance.state_modes = StateModes(SupvisorsStates.CONCILIATION, True, '10.0.0.2', False, True)
     # test with known identifier
     expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
                 'local_mtime': 0.0, 'local_time': 0, 'local_sequence_counter': 0,
                 'remote_mtime': 0.0, 'remote_time': 0, 'remote_sequence_counter': 0,
                 'statecode': 0, 'statename': 'UNKNOWN', 'discovery_mode': True,
-                'process_failure': False,
+                'rpc_failure': False, 'process_failure': False,
                 'fsm_statecode': 4, 'fsm_statename': 'CONCILIATION',
                 'master_identifier': '10.0.0.2',
                 'starting_jobs': False, 'stopping_jobs': True}

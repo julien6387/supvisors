@@ -149,6 +149,7 @@ class ViewHandler(MeldView):
                 failure = status.has_error()
                 any_failure |= failure
                 # set element class
+                # FIXME: how to represent RPC failure ?
                 update_attrib(li_elt, 'class', status.state.name)
                 if item == identifier:
                     update_attrib(li_elt, 'class', 'active')

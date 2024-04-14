@@ -232,12 +232,12 @@ class SupvisorsInstanceStatus:
     def __init__(self, supvisors_id: SupvisorsInstanceId, supvisors: Any):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
         # attributes
         self.supvisors_id: SupvisorsInstanceId = supvisors_id
         self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.UNKNOWN
         self.times: SupvisorsTimes = SupvisorsTimes(self.identifier, self.logger)
         self.processes: Dict[str, ProcessStatus] = {}
+        self._rpc_failure: bool = False
         # state and modes
         self.state_modes = StateModes()
         # the local instance may use the process statistics collector
@@ -249,6 +249,11 @@ class SupvisorsInstanceStatus:
             # copy the process collector reference
             if supvisors.options.process_stats_enabled:
                 self.stats_collector = supvisors.stats_collector
+
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
 
     def reset(self):
         """ Reset the contextual part of the Supvisors instance.
@@ -269,23 +274,41 @@ class SupvisorsInstanceStatus:
         return self.supvisors_id.identifier
 
     @property
-    def state(self):
+    def state(self) -> SupvisorsInstanceStates:
         """ Property getter for the 'state' attribute. """
         return self._state
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: SupvisorsInstanceStates):
         """ Property setter for the 'state' attribute. """
         if self._state != new_state:
-            if self.check_transition(new_state):
-                self._state = new_state
-                self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
-                if new_state in [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]:
-                    self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.identifier}')
-                    self.state_modes.state = SupvisorsStates.OFF
-            else:
+            if not self.check_transition(new_state):
                 raise InvalidTransition(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} transition'
                                         f' rejected from {self.state.name} to {new_state.name}')
+            self._state = new_state
+            self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
+            # TODO: export status ? from context
+            if new_state in [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]:
+                self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.identifier}')
+                self.state_modes.state = SupvisorsStates.OFF
+                # TODO: export states and modes ?
+
+    @property
+    def isolated(self) -> bool:
+        """ Return True if the Supvisors instance is isolated. """
+        return self.state == SupvisorsInstanceStates.ISOLATED
+
+    @property
+    def rpc_failure(self) -> bool:
+        """ Property getter for the 'rpc_failure' attribute. """
+        return self._rpc_failure
+
+    @rpc_failure.setter
+    def rpc_failure(self, failure: bool) -> None:
+        """ Property setter for the 'rpc_failure' attribute. """
+        if self._rpc_failure != failure:
+            self._rpc_failure = failure
+            # TODO: export status ?
 
     @property
     def sequence_counter(self):
@@ -300,6 +323,7 @@ class SupvisorsInstanceStatus:
                    'port': self.supvisors_id.http_port,
                    'statecode': self.state.value, 'statename': self.state.name,
                    'loading': self.get_load(),
+                   'rpc_failure': self.rpc_failure,
                    'process_failure': self.has_error()}
         payload.update(self.times.serial())
         payload.update(self.state_modes.serial())
@@ -330,7 +354,7 @@ class SupvisorsInstanceStatus:
         :return: the activity status.
         """
         return self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                              SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]
+                              SupvisorsInstanceStates.RUNNING]
 
     def is_inactive(self, local_sequence_counter: int) -> bool:
         """ Return True if the latest update was received more than INACTIVITY_TICKS ago.
@@ -343,15 +367,6 @@ class SupvisorsInstanceStatus:
         #       or unreachable, because the periodic check is performed on the new local TICK.
         counter_diff = local_sequence_counter - self.times.local_sequence_counter
         return self.has_active_state() and counter_diff > self.supvisors.options.inactivity_ticks
-
-    def isolated(self):
-        """ Return True if the Supvisors instance is isolated. """
-        return self.state == SupvisorsInstanceStates.ISOLATED
-
-    def raise_communication_failure(self):
-        """ Set the state to FAILED upon XML-RPC failure. """
-        if self.has_active_state():
-            self.state = SupvisorsInstanceStates.FAILED
 
     def update_tick(self, remote_sequence_counter: int, remote_mtime: float, remote_time: float,
                     local_sequence_counter: int = -1):
@@ -447,12 +462,9 @@ class SupvisorsInstanceStatus:
                                                       SupvisorsInstanceStates.ISOLATED,
                                                       SupvisorsInstanceStates.SILENT),
                     SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.SILENT,
-                                                      SupvisorsInstanceStates.FAILED,
                                                       SupvisorsInstanceStates.ISOLATED,
                                                       SupvisorsInstanceStates.CHECKING),
                     SupvisorsInstanceStates.SILENT: (SupvisorsInstanceStates.CHECKING,
-                                                     SupvisorsInstanceStates.ISOLATED),
-                    SupvisorsInstanceStates.FAILED: (SupvisorsInstanceStates.SILENT,
                                                      SupvisorsInstanceStates.ISOLATED),
                     SupvisorsInstanceStates.ISOLATED: ()
                     }
