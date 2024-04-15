@@ -68,6 +68,9 @@ def test_all_requests(mocker, supvisors):
     # check that the other methods have not been called
     assert not proxy_server.post_discovery.called
     assert not proxy_server.publish.called
+    # call stop
+    handler.stop()
+    assert proxy_server.stop.call_args_list == [call()]
 
 
 def test_all_publications(mocker, supvisors):
@@ -119,6 +122,9 @@ def test_all_publications(mocker, supvisors):
     # check that the other methods have not been called
     assert not proxy_server.post_discovery.called
     assert not proxy_server.post_request.called
+    # call stop
+    handler.stop()
+    assert proxy_server.stop.call_args_list == [call()]
 
 
 def test_discovery_event(mocker, supvisors):
@@ -135,3 +141,6 @@ def test_discovery_event(mocker, supvisors):
     # check that the other methods have not been called
     assert not proxy_server.post_request.called
     assert not proxy_server.publish.called
+    # call stop
+    handler.stop()
+    assert proxy_server.stop.call_args_list == [call()]

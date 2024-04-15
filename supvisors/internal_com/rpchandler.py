@@ -45,7 +45,7 @@ class RpcHandler:
 
     def stop(self):
         """ Stop the Supvisors proxy server threads. """
-        self.proxy_server.stop()  # FIXME: not tested
+        self.proxy_server.stop()
 
     # Discovery events
     def post_discovery(self, discovery_event) -> None:

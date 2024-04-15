@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+
 import time
 
 import pytest
@@ -40,6 +41,7 @@ def test_multicast(supvisors, discovery):
     # send event
     discovery.mc_sender.send_discovery_event({'when': 1234})
     # check output
+    time.sleep(1.0)
     call_args_list = supvisors.rpc_handler.post_discovery.call_args_list
     assert len(call_args_list) == 1
     message = call_args_list[0][0][0]

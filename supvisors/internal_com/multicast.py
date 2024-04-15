@@ -52,7 +52,7 @@ class MulticastSender:
 
     def close(self) -> None:
         """ Close the UDP socket. """
-        self.socket.close()  # FIXME: not tested
+        self.socket.close()
 
     def send_discovery_event(self, payload: Payload):
         """ Multicast the discovery event.
@@ -61,7 +61,7 @@ class MulticastSender:
         message = payload_to_bytes((PublicationHeaders.DISCOVERY.value, (self.identifier, payload)))
         try:
             self.socket.sendto(message, self.mc_group)
-        except OSError:  # FIXME: not tested
+        except OSError:
             self.logger.error('MulticastSender.emit_message: failed to send DISCOVERY message')
             self.logger.info(f'MulticastSender.emit_message: {traceback.format_exc()}')
 
@@ -116,7 +116,7 @@ class MulticastReceiver(threading.Thread):
 
     def datagram_received(self, data, address: Ipv4Address) -> None:
         """ Decode the message received to put it into the asynchronous queue. """
-        self.logger.info(f'MulticastReceiver.datagram_received: size={len(data)} from {address}')  # FIXME
+        self.logger.debug(f'MulticastReceiver.datagram_received: size={len(data)} from {address}')
         msg_type, (identifier, msg_body) = bytes_to_payload(data)
         if self.callback:
             self.callback(((identifier, address), (msg_type, msg_body)))
@@ -177,5 +177,6 @@ class SupvisorsDiscovery:
 
     def stop(self) -> None:
         """ Stop the Multicast receiver thread. """
+        self.mc_sender.close()
         self.mc_receiver.stop()
         self.mc_receiver.join()
