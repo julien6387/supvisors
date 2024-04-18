@@ -192,7 +192,6 @@ def test_create_no_collector(supvisors, supvisors_id, status):
     assert status.identifier == 'supvisors'
     assert status.state == SupvisorsInstanceStates.UNKNOWN
     assert not status.isolated
-    assert not status.rpc_failure
     assert status.sequence_counter == 0
     assert status.times.identifier == 'supvisors'
     assert status.times.logger is supvisors.logger
@@ -272,7 +271,7 @@ def test_serialization(mocker, status):
                           'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
                           'remote_sequence_counter': 28, 'remote_mtime': 10.5, 'remote_time': 50,
                           'local_sequence_counter': 17, 'local_mtime': 13.5, 'local_time': 19413,
-                          'rpc_failure': True, 'process_failure': False,
+                          'process_failure': False,
                           'fsm_statecode': 0, 'fsm_statename': 'OFF',
                           'master_identifier': '',
                           'starting_jobs': False, 'stopping_jobs': False}

@@ -194,14 +194,14 @@ class ControllerPlugin(ControllerPluginBase):
                 max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
                 template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s'
                             '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
-                            '%(rpc_failure)-9s%(proc_failure)-11s'
+                            '%(proc_failure)-11s'
                             f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_node_names}s'
                             '%(starting)-10s%(stopping)-10s')
                 # print title
                 payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port',
                            'state': 'State', 'discovery': 'Discovery',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
-                           'rpc_failure': 'XML-RPC', 'proc_failure': 'Processes',
+                           'proc_failure': 'Processes',
                            'fsm_state': 'FSM', 'master': 'Master',
                            'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
@@ -218,7 +218,6 @@ class ControllerPlugin(ControllerPluginBase):
                                    'load': f"{info['loading']}%",
                                    'ltime': simple_localtime(info['local_time']),
                                    'counter': info['remote_sequence_counter'],
-                                   'rpc_failure': 'error' if info['rpc_failure'] else 'ok',
                                    'proc_failure': 'error' if info['process_failure'] else 'ok',
                                    'fsm_state': info['fsm_statename'],
                                    'master': info['master_identifier'],

@@ -504,6 +504,7 @@ def test_proxy_run_exception_remote(mocker, supvisors, proxy_thread):
     message = '10.0.0.2', (PublicationHeaders.TICK.value, {'when': 1234})
     proxy_thread.push_message((InternalEventHeaders.PUBLICATION, message))
     time.sleep(1.0)
+    assert mocked_publish.call_args_list == [call('10.0.0.2', (0, {'when': 1234}))]
     assert not proxy_thread.is_alive()
     assert mocked_push.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)),
                                                 (NotificationHeaders.INSTANCE_FAILURE.value, None)))]

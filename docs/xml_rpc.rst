@@ -71,7 +71,7 @@ Status
             'port'                    ``int``   The HTTP port of the |Supvisors| instance.
             'statecode'	              ``int``   The |Supvisors| instance state, in [0;6].
             'statename'	              ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
-                                                `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'FAILED'``, ``'ISOLATED'``].
+                                                `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATED'``].
             'discovery_mode'          ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
             'remote_sequence_counter' ``int``   The remote TICK counter, i.e. the number of TICK events received since
                                                 the remote |Supvisors| instance is running.
@@ -87,7 +87,6 @@ Status
                                                 |Supvisors| instance, in seconds and in the local reference time.
             'loading'                 ``int``   The sum of the expected loading of the processes running on the |Supvisors|
                                                 instance, in [0;100]%.
-            'rpc_failure'             ``bool``  True upon failure of the XML-RPC towards the |Supvisors| instance.
             'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
             'fsm_statecode'           ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
             'fsm_statename'           ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,

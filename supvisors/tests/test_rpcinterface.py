@@ -96,7 +96,7 @@ def test_instance_info(supvisors, rpc):
                 'local_mtime': 0.0, 'local_time': 0, 'local_sequence_counter': 0,
                 'remote_mtime': 0.0, 'remote_time': 0, 'remote_sequence_counter': 0,
                 'statecode': 0, 'statename': 'UNKNOWN', 'discovery_mode': True,
-                'rpc_failure': False, 'process_failure': False,
+                'process_failure': False,
                 'fsm_statecode': 4, 'fsm_statename': 'CONCILIATION',
                 'master_identifier': '10.0.0.2',
                 'starting_jobs': False, 'stopping_jobs': True}

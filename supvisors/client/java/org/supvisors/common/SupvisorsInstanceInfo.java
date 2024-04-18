@@ -68,13 +68,20 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     private Integer loading;
 
-    /** True if the XML-RPC towards the Supervisor instance are in failure. */
-    private Boolean rpc_failure;
-
     /** True if one of the local processes has crashed or has exited unexpectedly. */
     private Boolean process_failure;
 
-    /** TODO: fsm_statename discovery_mode master_identifier starting_jobs stopping_jobs */
+    /** The instance state. */
+    private SupvisorsState fsm_statename;
+
+    /** The instance discovery mode. */
+    private Boolean discovery_mode;
+
+    /** True if the Supvisors instance has starting jobs in progress. */
+    private Boolean starting_jobs;
+
+    /** True if the Supvisors instance has stopping jobs in progress. */
+    private Boolean stopping_jobs;
 
     /**
      * This constructor gets all information from an HashMap.
@@ -94,8 +101,11 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.local_mtime = (Double) instanceInfo.get("local_mtime");
         this.local_time = (Integer) instanceInfo.get("local_time");
         this.loading = (Integer) instanceInfo.get("loading");
-        this.rpc_failure = (Boolean) instanceInfo.get("rpc_failure");
         this.process_failure = (Boolean) instanceInfo.get("process_failure");
+        this.fsm_statename = SupvisorsState.valueOf((String) stateInfo.get("fsm_statename"));
+        this.discovery_mode = (Boolean) stateInfo.get("discovery_mode");
+        this.starting_jobs = (Boolean) stateInfo.get("starting_jobs");
+        this.stopping_jobs = (Boolean) stateInfo.get("stopping_jobs");
     }
 
     /**
@@ -159,7 +169,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      *
      * @return Integer: The number of TICK events received.
      */
-   public Integer getRemoteSequenceCounter() {
+    public Integer getRemoteSequenceCounter() {
         return this.remote_sequence_counter;
     }
 
@@ -189,7 +199,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      *
      * @return Integer: The number of TICK events received.
      */
-   public Integer getLocalSequenceCounter() {
+    public Integer getLocalSequenceCounter() {
         return this.local_sequence_counter;
     }
 
@@ -199,7 +209,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      *
      * @return Double: The number of seconds since the local node startup.
      */
-   public Double getLocalMonotonicTime() {
+    public Double getLocalMonotonicTime() {
         return this.local_mtime;
     }
 
@@ -208,7 +218,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      *
      * @return Integer: The number of seconds since Epoch.
      */
-   public Integer getLocalTime() {
+    public Integer getLocalTime() {
         return this.local_time;
     }
 
@@ -222,21 +232,48 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The hasRpcFailure method returns True if the XML-RPC towards the Supervisor instance fail.
-     *
-     * @return Boolean: The XML-RPC failure status.
-     */
-    public Boolean hasRpcFailure() {
-        return this.rpc_failure;
-    }
-
-    /**
      * The hasProcessFailure method returns True if any process is in FATAL or unexpected EXITED state.
      *
      * @return Boolean: The process failure status.
      */
     public Boolean hasProcessFailure() {
         return this.process_failure;
+    }
+
+    /**
+     * The getSupvisorsState method returns the state of Supvisors.
+     *
+     * @return SupvisorsState: The state of Supvisors.
+     */
+    public SupvisorsState getSupvisorsState() {
+        return this.fsm_statename;
+    }
+
+    /**
+     * The inDiscoveryMode method returns True if the Supvisors instance is in discovery mode.
+     *
+     * @return Boolean: The discovery mode status.
+     */
+    public Boolean inDiscoveryMode() {
+        return this.discovery_mode;
+    }
+
+    /**
+     * The hasStartingJobs method returns True if the Supvisors instance has jobs in progress in its Starter.
+     *
+     * @return Boolean: The starting jobs progress.
+     */
+    public Boolean hasStartingJobs() {
+        return this.starting_jobs;
+    }
+
+    /**
+     * The hasStoppingJobs method returns True if the Supvisors instance has jobs in progress in its Stopper.
+     *
+     * @return Boolean: The stopping jobs progress.
+     */
+    public Boolean hasStoppingJobs() {
+        return this.stopping_jobs;
     }
 
     /**
@@ -258,8 +295,11 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
             + " localMonotonicTime=" + this.local_mtime
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
             + " loading=" + this.loading
-            + " rpcFailure=" + this.rpc_failure
-            + " processFailure=" + this.process_failure + ")";
+            + " processFailure=" + this.process_failure
+            + " supvisorsState=" + this.fsm_statename
+            + " discoveryMode=" + this.discovery_mode
+            + " startingJobs=" + this.starting_jobs
+            + " stoppingJobs=" + this.stopping_jobs + ")";
     }
 
 }

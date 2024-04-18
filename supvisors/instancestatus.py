@@ -237,7 +237,6 @@ class SupvisorsInstanceStatus:
         self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.UNKNOWN
         self.times: SupvisorsTimes = SupvisorsTimes(self.identifier, self.logger)
         self.processes: Dict[str, ProcessStatus] = {}
-        self._rpc_failure: bool = False
         # state and modes
         self.state_modes = StateModes()
         # the local instance may use the process statistics collector
@@ -299,18 +298,6 @@ class SupvisorsInstanceStatus:
         return self.state == SupvisorsInstanceStates.ISOLATED
 
     @property
-    def rpc_failure(self) -> bool:
-        """ Property getter for the 'rpc_failure' attribute. """
-        return self._rpc_failure
-
-    @rpc_failure.setter
-    def rpc_failure(self, failure: bool) -> None:
-        """ Property setter for the 'rpc_failure' attribute. """
-        if self._rpc_failure != failure:
-            self._rpc_failure = failure
-            # TODO: export status ?
-
-    @property
     def sequence_counter(self):
         """ the remote sequence counter will be used as a reference outside of this class. """
         return self.times.remote_sequence_counter
@@ -323,7 +310,6 @@ class SupvisorsInstanceStatus:
                    'port': self.supvisors_id.http_port,
                    'statecode': self.state.value, 'statename': self.state.name,
                    'loading': self.get_load(),
-                   'rpc_failure': self.rpc_failure,
                    'process_failure': self.has_error()}
         payload.update(self.times.serial())
         payload.update(self.state_modes.serial())
