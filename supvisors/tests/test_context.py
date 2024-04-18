@@ -709,6 +709,14 @@ def test_load_processes(mocker, supvisors, context):
     assert not mocked_write.called
     # force local_identifier
     supvisors.mapper.local_identifier = '10.0.0.2'
+    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.CHECKING
+    # known node but empty database due to a failure in CHECKING state
+    context.load_processes('10.0.0.1', None)
+    assert context.instances['10.0.0.1'].state == SupvisorsInstanceStates.UNKNOWN
+    assert context.applications == {}
+    for node in context.instances.values():
+        assert node.processes == {}
+    assert not mocked_write.called
     # load ProcessInfoDatabase with known node
     context.load_processes('10.0.0.1', database_copy())
     # check context contents
@@ -1700,3 +1708,23 @@ def test_on_timer_event(mocker, supvisors, context):
                               ('10.0.0.4', SupvisorsInstanceStates.SILENT),
                               ('10.0.0.5', SupvisorsInstanceStates.UNKNOWN)]:
         assert context.instances[identifier].state == state
+    # TODO
+
+
+def test_publish_process_failures(mocker, supvisors, context):
+    """ Test the publication of processes in failure. """
+    supvisors.external_publisher = Mock(spec=EventPublisherInterface)
+    # update context applications
+    application_1, application_2 = Mock(), Mock()
+    context.applications = {'dummy_application_1': application_1,
+                            'dummy_application_2': application_2}
+    # patch the expected future invalidated node
+    proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_identifier.return_value': False})
+    proc_2 = Mock(application_name='dummy_application', rules=Mock(expected_load=12),
+                  **{'invalidate_identifier.return_value': True})
+    # TODO: test missed
+
+
+def test_on_instance_failure(mocker, supvisors, context):
+    """ Test the handling of an instance failure notification. """
+    # TODO: new method

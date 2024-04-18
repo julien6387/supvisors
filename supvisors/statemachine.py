@@ -15,12 +15,13 @@
 # ======================================================================
 
 import time
-from typing import Any, Optional
+from typing import Any, Optional, Set
 
 from supervisor.loggers import Logger
 
 from .context import Context
 from .options import SupvisorsOptions
+from .process import ProcessStatus
 from .strategy import conciliate_conflicts
 from .ttypes import (SupvisorsInstanceStates, RunningFailureStrategies, SupvisorsStates, SynchronizationOptions,
                      NameList, Payload, PayloadList, WORKING_STATES)
@@ -568,20 +569,29 @@ class FiniteStateMachine:
     def on_timer_event(self, event: Payload) -> None:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event trigger of this state machine. """
-        invalidated_identifiers, process_failures = self.context.on_timer_event(event)
-        self.logger.debug(f'FiniteStateMachine.on_timer_event: invalidated_identifiers={invalidated_identifiers}'
-                          f' process_failures={[process.namespec for process in process_failures]}')
+        invalidated_identifiers, failed_processes = self.context.on_timer_event(event)
+        self.handle_instance_failures(invalidated_identifiers, failed_processes)
+
+    def handle_instance_failures(self, invalidated_identifiers: NameList, failed_processes: Set[ProcessStatus]) -> None:
+        """ Upon failure of at least one Supvisors instance.
+
+        :param invalidated_identifiers: the identifiers of the invalidated Supvisors instances.
+        :param failed_processes: the processes in failure.
+        :return: None.
+        """
+        self.logger.debug(f'FiniteStateMachine.handle_failures: invalidated_identifiers={invalidated_identifiers}'
+                          f' process_failures={[process.namespec for process in failed_processes]}')
         if invalidated_identifiers:
             # inform Starter and Stopper
             # process_failures may be removed if already in their pipes
-            self.supvisors.starter.on_instances_invalidation(invalidated_identifiers, process_failures)
-            self.supvisors.stopper.on_instances_invalidation(invalidated_identifiers, process_failures)
+            self.supvisors.starter.on_instances_invalidation(invalidated_identifiers, failed_processes)
+            self.supvisors.stopper.on_instances_invalidation(invalidated_identifiers, failed_processes)
             # deal with process_failures and isolation only if in DEPLOYMENT, OPERATION or CONCILIATION states
             if self.state in WORKING_STATES:
                 # the Master fixes failures if any (can happen after an identifier invalidation, a process crash
                 #   or a conciliation request)
                 if self.context.is_master:
-                    for process in process_failures:
+                    for process in failed_processes:
                         self.supvisors.failure_handler.add_default_job(process)
         # trigger remaining jobs in RunningFailureHandler
         if self.context.is_master:
@@ -703,22 +713,31 @@ class FiniteStateMachine:
             # the Master has transitioned to another state, so trigger the FSM
             self.next()
 
-    def on_process_info(self, identifier: str, info: PayloadList) -> None:
+    def on_all_process_info(self, identifier: str, all_info: Optional[PayloadList]) -> None:
         """ This event is used to fill the internal structures with processes available on the Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param info: the process information
-        :return: None
+        :param identifier: the identifier of the Supvisors instance that sent the event.
+        :param all_info: all the processes' information.
+        :return: None.
         """
-        self.context.load_processes(identifier, info)
+        self.context.load_processes(identifier, all_info)
+
+    def on_instance_failure(self, identifier: str) -> None:
+        """ This event is received when a Supervisor proxy raised a failure.
+
+        :param identifier: the identifier of the Supvisors instance proxy that sent the event.
+        :return: None.
+        """
+        invalidated_identifiers, process_failures = self.context.on_instance_failure(identifier)
+        self.handle_instance_failures(invalidated_identifiers, process_failures)
 
     def on_authorization(self, identifier: str, authorized: Optional[bool]) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
         When a new Supvisors instance comes in the group, back to DEPLOYMENT for a possible deployment.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param authorized: the authorization status as seen by the remote Supvisors instance
-        :return: None
+        :param identifier: the identifier of the Supvisors instance that sent the event.
+        :param authorized: the authorization status as seen by the remote Supvisors instance.
+        :return: None.
         """
         self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}')
         if self.context.on_authorization(identifier, authorized):

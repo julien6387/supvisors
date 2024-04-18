@@ -32,7 +32,7 @@ from .internal_com.rpchandler import RpcHandler
 from .process import ProcessStatus
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
-                     SUPVISORS, PublicationHeaders, Payload)
+                     SUPVISORS_PUBLICATION, SUPVISORS_NOTIFICATION, PublicationHeaders, NotificationHeaders, Payload)
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
@@ -409,69 +409,91 @@ class SupervisorListener:
         """ Called when a RemoteCommunicationEvent is notified.
         This is used to sequence the events received from the Supvisors thread with the other events handled
         by the local Supervisor. """
-        self.logger.trace(f'SupervisorListener.on_remote_event: type={event.type} data={event.data}')
+        self.logger.warn(f'SupervisorListener.on_remote_event: type={event.type} data={event.data}')  # FIXME trace
         try:
-            if event.type == SUPVISORS:
-                self.unstack_event(event.data)
+            if event.type == SUPVISORS_PUBLICATION:
+                self.read_publication(event.data)
+            elif event.type == SUPVISORS_NOTIFICATION:
+                self.read_notification(event.data)
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_remote_event: {format_exc()}')
 
-    def unstack_event(self, message: str) -> None:
-        """ Unstack and process one event from the event queue. """
-        event_origin, (event_type, event_data) = toto = json.loads(message)
+    def read_notification(self, message: str):
+        """ Read and process a notification from the Supervisor event queue. """
+        event_origin, (event_type, event_data) = json.loads(message)
         event_identifier, _ = event_origin
-        header = PublicationHeaders(event_type)
+        header = NotificationHeaders(event_type)
         # NOTE: DISCOVERY messages contain the necessary information for Supvisors instances discovery,
         #       so it has to be processed first
-        if header == PublicationHeaders.DISCOVERY:
-            self.logger.trace(f'SupervisorListener.unstack_event: DISCOVERY from {event_identifier}: {event_data}')
+        if header == NotificationHeaders.DISCOVERY:
+            self.logger.trace(f'SupervisorListener.read_notification: DISCOVERY from {event_identifier}: {event_data}')
             self.fsm.on_discovery_event(event_identifier, event_data)
             return
         # check message origin validity
         if not self.supvisors.context.is_valid(*event_origin):
-            self.logger.error(f'SupervisorListener.unstack_event: event from unknown Supvisors={event_origin}')
+            self.logger.error(f'SupervisorListener.read_notification: event from unknown Supvisors={event_origin}')
+            return
+        # process the message depending on the event type
+        if header == NotificationHeaders.AUTHORIZATION:
+            self.logger.trace(f'SupervisorListener.read_notification: AUTHORIZATION from {event_identifier}:'
+                              f' {event_data}')
+            self.fsm.on_authorization(event_identifier, event_data)
+        elif header == NotificationHeaders.STATE:
+            self.logger.trace(f'SupervisorListener.read_notification: STATE from {event_identifier}:'
+                              f' {event_data}')
+            self.fsm.on_state_event(event_identifier, event_data)
+        elif header == NotificationHeaders.ALL_INFO:
+            self.logger.trace(f'SupervisorListener.read_notification: ALL_INFO from {event_identifier}:'
+                              f' {event_data}')
+            self.fsm.on_all_process_info(event_identifier, event_data)
+        elif header == NotificationHeaders.INSTANCE_FAILURE:
+            self.logger.trace(f'SupervisorListener.read_notification: INSTANCE_FAILURE from {event_identifier}:'
+                              f' {event_data}')
+            self.fsm.on_instance_failure(event_identifier)
+
+    def read_publication(self, message: str):
+        """ Read and process a notification from the Supervisor event queue. """
+        event_origin, (event_type, event_data) = json.loads(message)
+        event_identifier, _ = event_origin
+        header = PublicationHeaders(event_type)
+        # check message origin validity
+        if not self.supvisors.context.is_valid(*event_origin):
+            self.logger.error(f'SupervisorListener.read_publication: event from unknown Supvisors={event_origin}')
             return
         # process the message depending on the event type
         if header == PublicationHeaders.TICK:
-            self.logger.trace(f'SupervisorListener.unstack_event: TICK from {event_identifier}: {event_data}')
+            self.logger.trace(f'SupervisorListener.read_publication: TICK from {event_identifier}: {event_data}')
             self.fsm.on_tick_event(event_identifier, event_data)
-        elif header == PublicationHeaders.AUTHORIZATION:
-            self.logger.trace(f'SupervisorListener.unstack_event: AUTHORIZATION from {event_identifier}: {event_data}')
-            self.fsm.on_authorization(event_identifier, event_data)
         elif header == PublicationHeaders.PROCESS:
-            self.logger.trace(f'SupervisorListener.unstack_event: PROCESS from {event_identifier}: {event_data}')
+            self.logger.trace(f'SupervisorListener.read_publication: PROCESS from {event_identifier}: {event_data}')
             self.fsm.on_process_state_event(event_identifier, event_data)
         elif header == PublicationHeaders.PROCESS_ADDED:
-            self.logger.trace(f'SupervisorListener.unstack_event: PROCESS_ADDED from {event_identifier}:'
+            self.logger.trace(f'SupervisorListener.read_publication: PROCESS_ADDED from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_added_event(event_identifier, event_data)
         elif header == PublicationHeaders.PROCESS_REMOVED:
-            self.logger.trace(f'SupervisorListener.unstack_event: PROCESS_REMOVED from {event_identifier}:'
+            self.logger.trace(f'SupervisorListener.read_publication: PROCESS_REMOVED from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_removed_event(event_identifier, event_data)
         elif header == PublicationHeaders.PROCESS_DISABILITY:
-            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_DISABILITY from {event_identifier}:'
+            self.logger.trace(f'SupervisorListener.read_publication: PROCESS_DISABILITY from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_process_disability_event(event_identifier, event_data)
         elif header == PublicationHeaders.HOST_STATISTICS:
             # this Supvisors could handle statistics even if psutil is not installed
-            self.logger.trace(f'SupervisorListener.unstack_event: got HOST_STATISTICS from {event_identifier}:'
+            self.logger.trace(f'SupervisorListener.read_publication: HOST_STATISTICS from {event_identifier}:'
                               f' {event_data}')
             self.on_host_statistics(event_identifier, event_data)
         elif header == PublicationHeaders.PROCESS_STATISTICS:
             # this Supvisors could handle statistics even if psutil is not installed
-            self.logger.trace(f'SupervisorListener.unstack_event: got PROCESS_STATISTICS from {event_identifier}:'
+            self.logger.trace(f'SupervisorListener.read_publication: PROCESS_STATISTICS from {event_identifier}:'
                               f' {event_data}')
             self.on_process_statistics(event_identifier, event_data)
         elif header == PublicationHeaders.STATE:
-            self.logger.trace(f'SupervisorListener.unstack_event: got STATE from {event_identifier}:'
+            self.logger.trace(f'SupervisorListener.read_publication: STATE from {event_identifier}:'
                               f' {event_data}')
             self.fsm.on_state_event(event_identifier, event_data)
-        elif header == PublicationHeaders.ALL_INFO:
-            self.logger.trace(f'SupervisorListener.unstack_event: got ALL_INFO from {event_identifier}:'
-                              f' {event_data}')
-            self.fsm.on_process_info(event_identifier, event_data)
 
     def on_host_statistics(self, identifier: str, event_data: Payload) -> None:
         """ Compile the host statistics received from the Supvisors instance.

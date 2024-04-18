@@ -714,21 +714,36 @@ def test_master_complex_next(fsm, mock_master_events):
     assert fsm.state == SupvisorsStates.FINAL
 
 
-def test_timer_event(mocker, fsm):
+def test_on_timer_event(mocker, supvisors, fsm):
+    """ Test the actions triggered in state machine upon reception of a timer event. """
+    mocked_timer = mocker.patch.object(supvisors.context, 'on_timer_event', return_value=([], []))
+    mocked_handle = mocker.patch.object(fsm, 'handle_instance_failures')
+    # test no failure
+    event = {'counter': 1234}
+    fsm.on_timer_event(event)
+    assert mocked_handle.call_args_list == [call([], [])]
+    mocker.resetall()
+    # test with failures
+    proc_1 = Mock(namespec='proc_1')
+    proc_2 = Mock(namespec='proc_2')
+    mocked_timer.return_value = ['10.0.0.1', '10.0.0.5'], {proc_1, proc_2}
+    fsm.on_timer_event(event)
+    assert mocked_handle.call_args_list == [call(['10.0.0.1', '10.0.0.5'], {proc_1, proc_2})]
+
+
+def test_handle_instance_failures(mocker, supvisors, fsm):
     """ Test the actions triggered in state machine upon reception of a timer event. """
     # apply patches
     proc_1 = Mock(namespec='proc_1')
     proc_2 = Mock(namespec='proc_2')
-    mocked_event = mocker.patch.object(fsm.supvisors.context, 'on_timer_event', return_value=([], []))
     mocked_next = mocker.patch.object(fsm, 'next')
-    mocked_starter = fsm.supvisors.starter.on_instances_invalidation
-    mocked_stopper = fsm.supvisors.stopper.on_instances_invalidation
-    mocked_add = fsm.supvisors.failure_handler.add_default_job
-    mocked_trigger = fsm.supvisors.failure_handler.trigger_jobs
+    mocked_starter = supvisors.starter.on_instances_invalidation
+    mocked_stopper = supvisors.stopper.on_instances_invalidation
+    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_trigger = supvisors.failure_handler.trigger_jobs
     # test when no invalidation by context
     event = {'counter': 1234}
-    fsm.on_timer_event(event)
-    assert mocked_event.call_args_list == [call(event)]
+    fsm.handle_instance_failures([], [])
     assert mocked_next.called
     assert not mocked_starter.called
     assert not mocked_stopper.called
@@ -736,12 +751,11 @@ def test_timer_event(mocker, fsm):
     assert not mocked_trigger.called
     mocker.resetall()
     # from this point, context.on_timer_event returns invalidated data
-    mocked_event.return_value = ['10.0.0.3'], [proc_1, proc_2]
+    failures = ['10.0.0.3'], [proc_1, proc_2]
     # test when FSM is not in WORKING_STATES
     for state in CLOSING_STATES + [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION]:
         fsm.state = state
-        fsm.on_timer_event(event)
-        assert mocked_event.call_args_list == [call(event)]
+        fsm.handle_instance_failures(*failures)
         assert mocked_next.called
         assert mocked_starter.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
@@ -754,8 +768,7 @@ def test_timer_event(mocker, fsm):
     assert not fsm.context.is_master
     for state in WORKING_STATES:
         fsm.state = state
-        fsm.on_timer_event(event)
-        assert mocked_event.call_args_list == [call(event)]
+        fsm.handle_instance_failures(*failures)
         assert mocked_next.called
         assert mocked_starter.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
@@ -769,8 +782,7 @@ def test_timer_event(mocker, fsm):
     assert fsm.context.is_master
     for state in WORKING_STATES:
         fsm.state = state
-        fsm.on_timer_event(event)
-        assert mocked_event.call_args_list == [call(event)]
+        fsm.handle_instance_failures(*failures)
         assert mocked_next.called
         assert mocked_starter.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
         assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
@@ -1083,15 +1095,15 @@ def test_on_process_disability_event(mocker, fsm):
     assert mocked_context.call_args_list == [call('10.0.0.1', {'info': 'dummy_info', 'disabled': True})]
 
 
-def test_on_process_info(mocker, fsm):
+def test_on_all_process_info(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a process information. """
     # inject process info and test call to context load_processes
     mocked_load = mocker.patch.object(fsm.context, 'load_processes')
-    fsm.on_process_info('10.0.0.1', [{'info': 'dummy_info'}])
+    fsm.on_all_process_info('10.0.0.1', [{'info': 'dummy_info'}])
     assert mocked_load.call_args_list == [call('10.0.0.1', [{'info': 'dummy_info'}])]
 
 
-def test_on_state_event(mocker, fsm):
+def test_on_state_event(mocker, supvisors, fsm):
     """ Test the actions triggered in state machine upon reception of a Master state event. """
     mocked_set = mocker.patch.object(fsm, 'set_state')
     mocked_next = mocker.patch.object(fsm, 'next')
@@ -1106,7 +1118,7 @@ def test_on_state_event(mocker, fsm):
     assert not mocked_set.called
     assert not mocked_next.called
     # test change in the Master identifier and local Supvisors instance is involved
-    fsm.supvisors.mapper.local_identifier = '10.0.0.2'
+    supvisors.mapper.local_identifier = '10.0.0.2'
     fsm.context.master_identifier = '10.0.0.2'
     fsm.context.master_instance._state = SupvisorsInstanceStates.RUNNING
     fsm.context.master_instance.state_modes.state = SupvisorsStates.OPERATION
@@ -1128,12 +1140,12 @@ def test_on_state_event(mocker, fsm):
     assert not mocked_next.called
 
 
-def test_on_authorization(mocker, fsm):
+def test_on_authorization(mocker, supvisors, fsm):
     """ Test the actions triggered in state machine upon reception of an authorization event. """
     # prepare context
     mocked_auth = mocker.patch.object(fsm.context, 'on_authorization', return_value=False)
     # set initial condition
-    local_identifier = fsm.supvisors.context.local_identifier
+    local_identifier = supvisors.context.local_identifier
     fsm.set_state(SupvisorsStates.INITIALIZATION)
     # test rejected authorization
     fsm.on_authorization('10.0.0.1', False)
@@ -1149,7 +1161,7 @@ def test_on_authorization(mocker, fsm):
     assert not fsm.redeploy_mark
     mocked_auth.reset_mock()
     # test authorization when local is master, but not in working states
-    fsm.supvisors.context.master_identifier = local_identifier
+    supvisors.context.master_identifier = local_identifier
     assert fsm.context.is_master
     fsm.on_authorization('10.0.0.1', True)
     assert mocked_auth.call_args == call('10.0.0.1', True)

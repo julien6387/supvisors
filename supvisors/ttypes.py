@@ -21,7 +21,8 @@ from supervisor.events import Event
 from supervisor.options import ProcessConfig
 
 # Supvisors name
-SUPVISORS = 'Supvisors'
+SUPVISORS_PUBLICATION = 'SupvisorsPublication'
+SUPVISORS_NOTIFICATION = 'SupvisorsNotification'
 
 
 # all enumerations
@@ -88,17 +89,22 @@ class SynchronizationOptions(Enum):
 
 # for internal publish / subscribe
 class PublicationHeaders(Enum):
-    """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    (TICK, AUTHORIZATION, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
-     HOST_STATISTICS, PROCESS_STATISTICS, STATE, ALL_INFO, DISCOVERY) = range(11)
+    """ Enumeration class for the publication headers in messages between Listener and MainLoop. """
+    (TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
+     HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(8)
 
 
 # for deferred XML-RPC requests
 class RequestHeaders(Enum):
-    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop. """
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to SupervisorProxyServer. """
     (CHECK_INSTANCE,
      START_PROCESS, STOP_PROCESS,
      RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(8)
+
+
+class NotificationHeaders(Enum):
+    """ Enumeration class for the notification headers in messages between Listener and MainLoop. """
+    AUTHORIZATION, STATE, ALL_INFO, DISCOVERY, INSTANCE_FAILURE = range(5)
 
 
 class EventHeaders(Enum):

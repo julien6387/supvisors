@@ -48,16 +48,16 @@ class RpcHandler:
         self.proxy_server.stop()
 
     # Discovery events
-    def post_discovery(self, discovery_event) -> None:
+    def push_notification(self, discovery_event) -> None:
         """ Post the discovery event to the Supervisor proxy server.
 
         :param discovery_event: the Supvisors discovery event received on the Multicast Group.
         :return: None.
         """
-        self.proxy_server.post_discovery(discovery_event)
+        self.proxy_server.push_notification(discovery_event)
 
     # Deferred XML-RPC requests
-    def post_request(self, identifier: str, request_type: RequestHeaders, request_body: Optional[Tuple] = None) -> None:
+    def push_request(self, identifier: str, request_type: RequestHeaders, request_body: Optional[Tuple] = None) -> None:
         """ Push the request to the Supervisor proxy server.
 
         :param identifier: the target identifier of the request.
@@ -65,7 +65,7 @@ class RpcHandler:
         :param request_body: the request_body.
         :return: None.
         """
-        self.proxy_server.post_request(identifier, (request_type.value, request_body))
+        self.proxy_server.push_request(identifier, (request_type.value, request_body))
 
     def send_check_instance(self, identifier: str) -> None:
         """ Send request to check authorization to deal with the Supvisors instance.
@@ -73,7 +73,7 @@ class RpcHandler:
         :param identifier: the identifier of the Supvisors instance to check.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.CHECK_INSTANCE)
+        self.push_request(identifier, RequestHeaders.CHECK_INSTANCE)
 
     def send_start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
         """ Send request to start process.
@@ -83,7 +83,7 @@ class RpcHandler:
         :param extra_args: the additional arguments to be passed to the command line.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.START_PROCESS, (namespec, extra_args))
+        self.push_request(identifier, RequestHeaders.START_PROCESS, (namespec, extra_args))
 
     def send_stop_process(self, identifier: str, namespec: str) -> None:
         """ Send request to stop process.
@@ -92,7 +92,7 @@ class RpcHandler:
         :param namespec: the process namespec.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.STOP_PROCESS, (namespec,))
+        self.push_request(identifier, RequestHeaders.STOP_PROCESS, (namespec,))
 
     def send_restart(self, identifier: str):
         """ Send request to restart a Supervisor.
@@ -100,7 +100,7 @@ class RpcHandler:
         :param identifier: the identifier of the Supvisors instance where Supvisors has to be restarted.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.RESTART)
+        self.push_request(identifier, RequestHeaders.RESTART)
 
     def send_shutdown(self, identifier: str):
         """ Send request to shut down a Supervisor.
@@ -108,7 +108,7 @@ class RpcHandler:
         :param identifier: the identifier of the Supvisors instance where Supvisors has to be shut down.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.SHUTDOWN)
+        self.push_request(identifier, RequestHeaders.SHUTDOWN)
 
     def send_restart_sequence(self, identifier: str):
         """ Send request to trigger the DEPLOYMENT phase.
@@ -116,7 +116,7 @@ class RpcHandler:
         :param identifier: the Master Supvisors instance.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.RESTART_SEQUENCE)
+        self.push_request(identifier, RequestHeaders.RESTART_SEQUENCE)
 
     def send_restart_all(self, identifier: str):
         """ Send request to restart Supvisors.
@@ -124,7 +124,7 @@ class RpcHandler:
         :param identifier: the Master Supvisors instance.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.RESTART_ALL)
+        self.push_request(identifier, RequestHeaders.RESTART_ALL)
 
     def send_shutdown_all(self, identifier: str):
         """ Send request to shut down Supvisors.
@@ -132,7 +132,7 @@ class RpcHandler:
         :param identifier: the Master Supvisors instance.
         :return: None.
         """
-        self.post_request(identifier, RequestHeaders.SHUTDOWN_ALL)
+        self.push_request(identifier, RequestHeaders.SHUTDOWN_ALL)
 
     # Publications
     def push_publication(self, publication_type: PublicationHeaders, publication_body: Payload) -> None:
@@ -142,7 +142,7 @@ class RpcHandler:
         :param publication_body: the data to publish.
         :return: None.
         """
-        self.proxy_server.publish((publication_type.value, publication_body))
+        self.proxy_server.push_publication((publication_type.value, publication_body))
 
     def send_tick_event(self, payload: Payload) -> None:
         """ Send the tick event.

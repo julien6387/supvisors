@@ -6,7 +6,7 @@
   The `internal_port` of the **Supvisors** section in the Supervisor configuration file is no longer needed.
   As a consequence, the `supvisors_list` option is simplified as follows: `<identifier>host_name:http_port`. 
   The transitional `SupvisorsInstanceStates.ISOLATING` state has been removed.
-  The `rpc_failure` information has been added to the result of the `get_instance_info` XML-RPC.
+  The remote **Supvisors** instance becomes `SILENT` as soon as the published events fails due to a transport issue.
 
 * Implement [Issue #50](https://github.com/julien6387/supvisors/issues/50).
   A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the

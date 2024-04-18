@@ -96,8 +96,8 @@ def test_synchronization_options():
 
 def test_publication_headers():
     """ Test the PublicationHeaders enumeration. """
-    expected = ['TICK', 'AUTHORIZATION', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED',
-                'PROCESS_DISABILITY', 'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE', 'ALL_INFO', 'DISCOVERY']
+    expected = ['TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED',
+                'PROCESS_DISABILITY', 'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE']
     assert [x.name for x in PublicationHeaders] == expected
 
 
@@ -106,6 +106,12 @@ def test_request_headers():
     expected = ['CHECK_INSTANCE', 'START_PROCESS', 'STOP_PROCESS',
                 'RESTART', 'SHUTDOWN', 'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
     assert [x.name for x in RequestHeaders] == expected
+
+
+def test_notification_headers():
+    """ Test the NotificationHeaders enumeration. """
+    expected = ['AUTHORIZATION', 'STATE', 'ALL_INFO', 'DISCOVERY', 'INSTANCE_FAILURE']
+    assert [x.name for x in NotificationHeaders] == expected
 
 
 def test_event_headers():

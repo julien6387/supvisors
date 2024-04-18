@@ -287,11 +287,12 @@ class Context:
         The local Supvisors instance is never set to ISOLATED, whatever the option is set or not.
         Always give it a chance to restart.
 
-        @param: fence: True when the remote Supvisors instance has isolated the local Supvisors instance
+        :param status: the Supvisors instance to invalid.
+        :param fence: True when the remote Supvisors instance has isolated the local Supvisors instance.
         """
         if status.identifier == self.local_identifier:
             # A very few events can cause this situation:
-            # 1. a network failure
+            # 1. a network failure (XML-RPC request)
             # 2. a discrepancy has been detected between the internal context and the process events received
             #    a new CHECKING phase is required
             # NOTE: the local Supvisors instance cannot be ISOLATED from itself
@@ -425,31 +426,38 @@ class Context:
             application.add_process(process)
         return process
 
-    def load_processes(self, identifier: str, all_info: PayloadList) -> None:
+    def load_processes(self, identifier: str, all_info: Optional[PayloadList]) -> None:
         """ Load application dictionary from the process information received from the remote Supvisors.
 
-        :param identifier: the identifier of the Supvisors instance
-        :param all_info: the process information got from the node
-        :return: None
+        :param identifier: the identifier of the Supvisors instance.
+        :param all_info: the process information got from the node.
+        :return: None.
         """
         self.logger.trace(f'Context.load_processes: identifier={identifier} all_info={all_info}')
         # get SupvisorsInstanceStatus corresponding to identifier
         status = self.instances[identifier]
-        # store processes into their application entry
-        for info in all_info:
-            # get or create process
-            process = self.setdefault_process(identifier, info)
-            if process:
-                # share the instance to the Supervisor instance that holds it
-                status.add_process(process)
-        # re-evaluate application sequences and status
-        for application in self.applications.values():
-            application.update_sequences()
-            application.update()
-        # Write the disabilities file when all local information is made available,
-        # so that an example exists whatever enable / disable has been called or not
-        if identifier == self.local_identifier:
-            self.supvisors.server_options.write_disabilities(False)
+        if all_info is None:
+            # the check call in SupervisorProxy failed
+            # the remote Supvisors instance is likely starting, restarting or shutting down so defer
+            self.logger.warn(f'Context.load_processes: failed to get all process info from Supvisors={identifier}')
+            # go back to UNKNOWN to give it a chance at next TICK
+            status.state = SupvisorsInstanceStates.UNKNOWN
+        else:
+            # store processes into their application entry
+            for info in all_info:
+                # get or create process
+                process = self.setdefault_process(identifier, info)
+                if process:
+                    # share the instance to the Supervisor instance that holds it
+                    status.add_process(process)
+            # re-evaluate application sequences and status
+            for application in self.applications.values():
+                application.update_sequences()
+                application.update()
+            # Write the disabilities file when all local information is made available,
+            # so that an example exists whatever enable / disable has been called or not
+            if identifier == self.local_identifier:
+                self.supvisors.server_options.write_disabilities(False)
 
     # methods on events
     def on_instance_state_event(self, identifier: str, event: Payload) -> None:
@@ -506,7 +514,7 @@ class Context:
             return False
         # process authorization status
         if authorized is None:
-            # the check call in SupvisorsMainLoop failed
+            # the check call in SupervisorProxy failed
             # the remote Supvisors instance is likely starting, restarting or shutting down so defer
             self.logger.warn(f'Context.on_authorization: failed to get auth status from Supvisors={identifier}')
             # go back to UNKNOWN to give it a chance at next TICK
@@ -597,7 +605,7 @@ class Context:
         :return: the identifiers of the invalidated Supvisors instances and the processes in failure.
         """
         invalidated_identifiers: List[str] = []
-        process_failures: Set[ProcessStatus] = set({})  # strange but avoids IDE warning on annotations
+        failed_processes: Set[ProcessStatus] = set()
         # use the local TICK counter received as a reference
         sequence_counter = event['sequence_counter']
         # check all Supvisors instances
@@ -608,25 +616,52 @@ class Context:
                 invalidated_identifiers.append(status.identifier)
                 # for processes that were running on node, invalidate node in process
                 # WARN: Decision is made NOT to remove the node payload from the ProcessStatus and NOT to remove
-                #   the ProcessStatus from the Context if no more node payload left.
-                #   The aim is to keep a trace in the Web UI about the application processes that have been lost
-                #   and their related description.
-                process_failures.update({process for process in status.running_processes()
+                #       the ProcessStatus from the Context if no more node payload left.
+                #       The aim is to keep a trace in the Web UI about the application processes that have been lost
+                #       and their related description.
+                failed_processes.update({process for process in status.running_processes()
                                          if process.invalidate_identifier(status.identifier)})
+        # trigger the corresponding Supvisors events
+        self.publish_process_failures(failed_processes)
+        #  return the identifiers of all invalidated Supvisors instances and the processes declared in failure
+        return invalidated_identifiers, failed_processes
+
+    def publish_process_failures(self, failed_processes: Set[ProcessStatus]) -> None:
+        """ Publish the Supvisors events related with the processes failures.
+
+        :param failed_processes: the processes in failure.
+        :return: None.
+        """
         # publish process status in failure
         if self.external_publisher:
-            for process in process_failures:
+            for process in failed_processes:
                 self.external_publisher.send_process_status(process.serial())
         # update all application sequences and status
-        for application_name in {process.application_name for process in process_failures}:
+        for application_name in {process.application_name for process in failed_processes}:
             application = self.applications[application_name]
-            # update sequence useless as long as the application.process map is not impacted (see decision above)
+            # the application sequences update is useless as long as the application.process map is not impacted
+            # (see decision comment above in on_timer_event)
             # application.update_sequences()
             application.update()
             if self.external_publisher:
                 self.external_publisher.send_application_status(application.serial())
-        #  return the identifiers of all invalidated Supvisors instances and the processes declared in failure
-        return invalidated_identifiers, process_failures
+
+    def on_instance_failure(self, identifier: str) -> Set[ProcessStatus]:
+        """ Invalid a Supvisors instance that had an XML-RPC failure.
+
+        :param identifier: the identifier of the Supvisors instance that sent the event.
+        :return: the identifiers of the invalidated Supvisors instances and the processes in failure.
+        """
+        failed_processes: Set[ProcessStatus] = set()
+        # invalid silent Supvisors instances
+        status = self.instances[identifier]
+        self.invalid(status)
+        # for processes that were running on node, invalidate node in process
+        failed_processes.update({process for process in status.running_processes()
+                                 if process.invalidate_identifier(status.identifier)})
+        # trigger the corresponding Supvisors events
+        self.publish_process_failures(failed_processes)
+        return failed_processes
 
     def check_process(self, instance_status: SupvisorsInstanceStatus,
                       event: Payload, check_source=True) -> Optional[Tuple[ApplicationStatus, ProcessStatus]]:

@@ -25,7 +25,7 @@ from typing import Any, Optional
 
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import Ipv4Address, PublicationHeaders, Payload
+from supvisors.ttypes import Ipv4Address, NotificationHeaders, Payload
 from .internalinterface import payload_to_bytes, bytes_to_payload
 from .mapper import SupvisorsInstanceId
 
@@ -58,7 +58,7 @@ class MulticastSender:
         """ Multicast the discovery event.
         It is not necessary to add a message size. """
         self.logger.info('MulticastSender.emit_message')
-        message = payload_to_bytes((PublicationHeaders.DISCOVERY.value, (self.identifier, payload)))
+        message = payload_to_bytes((NotificationHeaders.DISCOVERY.value, (self.identifier, payload)))
         try:
             self.socket.sendto(message, self.mc_group)
         except OSError:
@@ -171,7 +171,7 @@ class SupvisorsDiscovery:
         local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
         self.mc_sender: MulticastSender = MulticastSender(local_instance.identifier, mc_group, mc_ttl, supvisors.logger)
         # create the Multicast message receiver
-        callback = supvisors.rpc_handler.post_discovery
+        callback = supvisors.rpc_handler.push_notification
         self.mc_receiver = MulticastReceiver(mc_group, mc_interface, callback, supvisors.logger)
         self.mc_receiver.start()
 

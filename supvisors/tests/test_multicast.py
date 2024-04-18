@@ -42,7 +42,7 @@ def test_multicast(supvisors, discovery):
     discovery.mc_sender.send_discovery_event({'when': 1234})
     # check output
     time.sleep(1.0)
-    call_args_list = supvisors.rpc_handler.post_discovery.call_args_list
+    call_args_list = supvisors.rpc_handler.push_notification.call_args_list
     assert len(call_args_list) == 1
     message = call_args_list[0][0][0]
     assert type(message) is tuple
@@ -51,7 +51,7 @@ def test_multicast(supvisors, discovery):
     assert source[0] == supvisors.mapper.local_identifier
     assert type(source[1]) is tuple
     assert len(source[1]) == 2
-    assert event_body == (PublicationHeaders.DISCOVERY.value, {'when': 1234})
+    assert event_body == (NotificationHeaders.DISCOVERY.value, {'when': 1234})
 
 
 # testing exception cases (by line number)
