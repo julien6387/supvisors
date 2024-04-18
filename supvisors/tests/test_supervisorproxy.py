@@ -506,7 +506,7 @@ def test_proxy_run_exception_remote(mocker, supvisors, proxy_thread):
     time.sleep(1.0)
     assert not proxy_thread.is_alive()
     assert mocked_push.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)),
-                                                (NotificationHeaders.INSTANCE_FAILURE.value,)))]
+                                                (NotificationHeaders.INSTANCE_FAILURE.value, None)))]
 
 
 def test_proxy_run(mocker, proxy_thread):
