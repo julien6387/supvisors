@@ -20,9 +20,10 @@ nav ul {
 
 nav li {
     background-color: var(--navbg-color);
+    height: 30px;
     margin-bottom: 2px;
     border: 1px #111 solid;
-    border-radius: 0 6px 0 6px;
+    border-radius: 6px 50% 50% 6px;
 }
 
 nav li a {
@@ -56,7 +57,7 @@ nav li:active {
 }
 
 nav .UNKNOWN, nav .ISOLATED {
-    background-image: radial-gradient(ellipse 80% 170% at center right, grey 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, grey 20%, transparent 30%);
 }
 
 nav .UNKNOWN.active {
@@ -64,7 +65,7 @@ nav .UNKNOWN.active {
 }
 
 nav .CHECKING {
-    background-image: radial-gradient(ellipse 80% 170% at center right, var(--running-color) 10%, grey 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 10%, grey 20%, transparent 30%);
 }
 
 nav .CHECKING.active {
@@ -72,7 +73,7 @@ nav .CHECKING.active {
 }
 
 nav .STOPPED, nav .SILENT {
-    background-image: radial-gradient(ellipse 80% 170% at center right, var(--stopped-color) 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--stopped-color) 20%, transparent 30%);
 }
 
 nav .STOPPED.active, nav .SILENT.active {
@@ -80,7 +81,7 @@ nav .STOPPED.active, nav .SILENT.active {
 }
 
 nav .RUNNING, nav .CHECKED {
-    background-image: radial-gradient(ellipse 80% 170% at center right, var(--running-color) 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 20%, transparent 30%);
 }
 
 nav .RUNNING.active, nav .CHECKED.active {
@@ -88,11 +89,11 @@ nav .RUNNING.active, nav .CHECKED.active {
 }
 
 nav .FAILED {
-    background-image: radial-gradient(ellipse 80% 170% at center right, var(--fatal-color) 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--fatal-color) 20%, transparent 30%);
 }
 
 nav .STARTING {
-    background-image: radial-gradient(ellipse 80% 170% at center right, var(--running-color) 10%, var(--stopped-color) 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 10%, var(--stopped-color) 20%, transparent 30%);
 }
 
 nav .STARTING.active {
@@ -100,7 +101,7 @@ nav .STARTING.active {
 }
 
 nav .STOPPING {
-    background-image: radial-gradient(ellipse 80% 170% at center right, var(--stopped-color) 10%, var(--running-color) 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--stopped-color) 10%, var(--running-color) 20%, transparent 30%);
 }
 
 nav li.STOPPING.active {
