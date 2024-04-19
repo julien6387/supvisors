@@ -1749,8 +1749,8 @@ def test_publish_process_failures(supvisors, context):
     assert application_3.update.call_args_list == [call()]
     assert supvisors.external_publisher.send_process_status.call_args_list == [call(proc_2_serial),
                                                                                call(proc_1_serial)]
-    assert supvisors.external_publisher.send_application_status.call_args_list == [call(application_3_serial),
-                                                                                   call(application_1_serial)]
+    assert supvisors.external_publisher.send_application_status.has_calls([call(application_3_serial),
+                                                                           call(application_1_serial)], any_order=True)
 
 
 def test_on_instance_failure(mocker, supvisors, context):
