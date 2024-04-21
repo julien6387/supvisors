@@ -330,6 +330,11 @@ a {
     color: var(--text-color);
 }
 
+span.master {
+    position: relative;
+    bottom: 0.1em;
+}
+
 /*
  * Blink Style
  *

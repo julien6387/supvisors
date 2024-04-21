@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -59,7 +56,7 @@ def test_interface():
     with pytest.raises(NotImplementedError):
         intf.send_application_status({})
     with pytest.raises(NotImplementedError):
-        intf.send_process_event('10.0.0.1', {})
+        intf.send_process_event({})
     with pytest.raises(NotImplementedError):
         intf.send_process_status({})
     with pytest.raises(NotImplementedError):

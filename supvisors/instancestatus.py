@@ -29,8 +29,10 @@ from .utils import TICK_PERIOD
 
 class StateModes:
 
-    def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF, discovery_mode: bool = False,
-                 master_identifier: str = '', starting_jobs: bool = False, stopping_jobs: bool = False):
+    def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF,
+                 discovery_mode: bool = False,
+                 master_identifier: str = '',
+                 starting_jobs: bool = False, stopping_jobs: bool = False):
         """ Initialization of the attributes.
 
         :param state: the FSM state.
@@ -269,8 +271,13 @@ class SupvisorsInstanceStatus:
     # accessors / mutators
     @property
     def identifier(self):
-        """ Property getter for the 'identifier' attribute. """
+        """ Property getter for the 'identifier' attribute of the Supvisors instance. """
         return self.supvisors_id.identifier
+
+    @property
+    def usage_identifier(self):
+        """ Property getter for the representation of the Supvisors instance. """
+        return str(self.supvisors_id)
 
     @property
     def state(self) -> SupvisorsInstanceStates:
@@ -282,13 +289,13 @@ class SupvisorsInstanceStatus:
         """ Property setter for the 'state' attribute. """
         if self._state != new_state:
             if not self.check_transition(new_state):
-                raise InvalidTransition(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} transition'
-                                        f' rejected from {self.state.name} to {new_state.name}')
+                raise InvalidTransition(f'SupvisorsInstanceStatus.state: Supvisors={self.usage_identifier}'
+                                        f' transition rejected from {self.state.name} to {new_state.name}')
             self._state = new_state
-            self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
+            self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.usage_identifier} is {self.state.name}')
             # TODO: export status ? from context
             if new_state in [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]:
-                self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.identifier}')
+                self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.usage_identifier}')
                 self.state_modes.state = SupvisorsStates.OFF
                 # TODO: export states and modes ?
 
@@ -306,6 +313,7 @@ class SupvisorsInstanceStatus:
     def serial(self) -> Payload:
         """ Return a serializable form of the SupvisorsInstanceStatus. """
         payload = {'identifier': self.identifier,
+                   'nick_identifier': self.supvisors_id.nick_identifier,
                    'node_name': self.supvisors_id.host_id,
                    'port': self.supvisors_id.http_port,
                    'statecode': self.state.value, 'statename': self.state.name,
@@ -364,7 +372,7 @@ class SupvisorsInstanceStatus:
         :param local_sequence_counter: the last TICK counter received from the local Supvisors instance ;
         :return: None
         """
-        self.logger.debug(f'SupvisorsInstanceStatus.update_tick: update Supvisors={self.identifier}' 
+        self.logger.debug(f'SupvisorsInstanceStatus.update_tick: update Supvisors={self.usage_identifier}' 
                           f' with sequence_counter={remote_sequence_counter} remote_time={remote_time}'
                           f' remote_mtime={remote_mtime} local_sequence_counter={local_sequence_counter}')
         self.times.update(remote_sequence_counter, remote_mtime, remote_time, local_sequence_counter)
@@ -424,7 +432,7 @@ class SupvisorsInstanceStatus:
         :return: the total load
         """
         instance_load = sum(process.rules.expected_load for process in self.running_processes())
-        self.logger.trace(f'SupvisorsInstanceStatus.get_load: Supvisors={self.identifier} load={instance_load}')
+        self.logger.trace(f'SupvisorsInstanceStatus.get_load: Supvisors={self.usage_identifier} load={instance_load}')
         return instance_load
 
     def has_error(self) -> bool:

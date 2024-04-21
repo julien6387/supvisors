@@ -50,12 +50,11 @@ class SupervisorProxy:
     """ xmlrpclib.ServerProxy is not thread-safe so all requests are pushed to a synchronous queue
     so that the requests are served and the async loop is not blocked. """
 
-    def __init__(self, identifier: str, supvisors: Any):
+    def __init__(self, status: SupvisorsInstanceStatus, supvisors: Any):
         """ Initialization of the attributes. """
-        self.identifier: str = identifier
+        self.status: SupvisorsInstanceStatus = status
         self.supvisors = supvisors
         # create an XML-RPC client to the local Supervisor instance
-        self.instance_status: SupvisorsInstanceStatus = supvisors.context.instances[identifier]
         self.proxy = self._get_proxy()
 
     @property
@@ -70,7 +69,7 @@ class SupervisorProxy:
 
     def _get_proxy(self):
         """ Get the proxy corresponding to the Supervisor identifier. """
-        instance_id = self.instance_status.supvisors_id
+        instance_id = self.status.supvisors_id
         # SupervisorServerUrl contains the environment variables linked to Supervisor security access,
         srv_url: SupervisorServerUrl = SupervisorServerUrl(self.supvisors.supervisor_data.get_env())
         srv_url.update_url(instance_id.host_id, instance_id.http_port)
@@ -82,20 +81,20 @@ class SupervisorProxy:
 
     def xml_rpc(self, fct_name: str, fct, args):
         """ Common exception handling on XML-RPC methods. """
-        self.logger.error(f'SupervisorProxyThread.xml_rpc: {fct_name}{args}')
         try:
             return fct(*args)
         except RPCError as exc:
             # the request is unexpected by an operational remote instance and the XML-RPC error is raised
             # no impact in proxy
-            self.logger.warn(f'SupervisorProxy.xml_rpc: Supervisor={self.identifier} {fct_name}{args} failed'
-                             f' - {str(exc)}')
+            self.logger.warn(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
+                             f' {fct_name}{args} failed - {str(exc)}')
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
         except (OSError, HTTPException) as exc:
             # transport issue due to network or remote Supervisor failure (includes a bunch of exceptions, such as
             # socket.gaierror, ConnectionResetError, CannotSendRequest, IncompleteRead, etc.)
             # the proxy is not operational
-            self.logger.error(f'SupervisorProxy.xml_rpc: Supervisor={self.identifier} not reachable - {str(exc)}')
+            self.logger.error(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier} not reachable'
+                              f' - {str(exc)}')
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
             raise SupervisorProxyException
         except xmlrpclib.Fault as exc:
@@ -111,7 +110,6 @@ class SupervisorProxy:
 
     def send_remote_comm_event(self, event_type: str, event) -> None:
         """ Send a user message to the remote Supervisor using the sendRemoteCommEvent XML-RPC. """
-        # at this stage, it is either a publication or a notification
         self.xml_rpc('supervisor.sendRemoteCommEvent',
                      self.proxy.supervisor.sendRemoteCommEvent,
                      (event_type, json.dumps(event)))
@@ -125,7 +123,7 @@ class SupervisorProxy:
             return
         # publish the message to the supvisors instance
         # if the remote instance is not active, publish only TICK events
-        if publication_type == PublicationHeaders.TICK or self.instance_status.has_active_state():
+        if publication_type == PublicationHeaders.TICK or self.status.has_active_state():
             message = self._get_origin(from_identifier), publication_message
             self.send_remote_comm_event(SUPVISORS_PUBLICATION, message)
 
@@ -160,13 +158,14 @@ class SupervisorProxy:
         :return: None.
         """
         authorized = self._is_authorized()
-        self.logger.info(f'SupervisorProxy.check_instance: identifier={self.identifier} authorized={authorized}')
+        self.logger.info(f'SupervisorProxy.check_instance: identifier={self.status.usage_identifier}'
+                         f' authorized={authorized}')
         if authorized:
             self._transfer_states_modes()
             self._transfer_process_info()
         # inform local Supvisors that authorization result is available
         # NOTE: use the proxy server to switch to the relevant proxy thread
-        origin = self._get_origin(self.identifier)
+        origin = self._get_origin(self.status.identifier)
         message = NotificationHeaders.AUTHORIZATION.value, authorized
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
@@ -185,7 +184,7 @@ class SupervisorProxy:
         if local_status_payload is None:
             return None
         # check the local Supvisors instance state as seen by the remote Supvisors instance
-        state = local_status_payload['statecode']
+        state = local_status_payload[0]['statecode']
         try:
             instance_state = SupvisorsInstanceStates(state)
         except ValueError:
@@ -201,14 +200,14 @@ class SupervisorProxy:
         """
         remote_status = self.xml_rpc('supvisors.get_instance_info',
                                      self.proxy.supvisors.get_instance_info,
-                                     (self.identifier,))
+                                     (self.status.identifier,))
         self.logger.debug(f'SupervisorProxy._transfer_states_modes: remote_status={remote_status}')
         state_modes = None
         if remote_status:
-            state_modes = {key: remote_status[key] for key in StateModesKeys}
+            state_modes = {key: remote_status[0][key] for key in StateModesKeys}
         # provide the local Supvisors with the remote Supvisors instance state and modes
         # NOTE: use the proxy server to switch to the relevant proxy thread
-        origin = self._get_origin(self.identifier)
+        origin = self._get_origin(self.status.identifier)
         message = NotificationHeaders.STATE.value, state_modes
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
@@ -223,7 +222,7 @@ class SupervisorProxy:
                                 ())
         # inform local Supvisors about the processes available remotely
         # NOTE: use the proxy server to switch to the relevant proxy thread
-        origin = self._get_origin(self.identifier)
+        origin = self._get_origin(self.status.identifier)
         message = NotificationHeaders.ALL_INFO.value, all_info
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
@@ -261,10 +260,10 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
 
     QUEUE_TIMEOUT = 1.0
 
-    def __init__(self, identifier: str, supvisors: Any):
+    def __init__(self, status: SupvisorsInstanceStatus, supvisors: Any):
         """ Initialization of the attributes. """
         threading.Thread.__init__(self, daemon=True)
-        SupervisorProxy.__init__(self, identifier, supvisors)
+        SupervisorProxy.__init__(self, status, supvisors)
         # thread logic
         self.queue: queue.Queue = queue.Queue()
         self.event: threading.Event = threading.Event()
@@ -279,7 +278,7 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
 
     def run(self):
         """ Proxy main loop. """
-        self.logger.info(f'SupervisorProxyThread.run: entering main loop for identifier={self.identifier}')
+        self.logger.info(f'SupervisorProxyThread.run: entering main loop for identifier={self.status.usage_identifier}')
         try:
             while not self.event.is_set():
                 try:
@@ -296,13 +295,12 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
                         # the local Supervisor is expected to be always non-isolated and active
                         self.send_remote_comm_event(SUPVISORS_NOTIFICATION, (source, event_body))
         except SupervisorProxyException:
-            self.logger.critical(f'SupervisorProxyThread.run: {traceback.format_exc()}')
             # inform the local Supvisors instance about the remote proxy failure, thus the remote Supvisors instance
-            if self.identifier != self.local_identifier:
-                origin = self._get_origin(self.identifier)
+            if self.status.identifier != self.local_identifier:
+                origin = self._get_origin(self.status.identifier)
                 message = NotificationHeaders.INSTANCE_FAILURE.value, None
                 self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
-        self.logger.info(f'SupervisorProxyThread.run: exiting main loop for identifier={self.identifier}')
+        self.logger.info(f'SupervisorProxyThread.run: exiting main loop for identifier={self.status.usage_identifier}')
 
 
 class SupervisorProxyServer:
@@ -312,6 +310,11 @@ class SupervisorProxyServer:
         """ Initialization of the attributes. """
         self.supvisors = supvisors
         self.proxies: Dict[str, SupervisorProxyThread] = {}
+
+    @property
+    def logger(self) -> Logger:
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
 
     @property
     def local_identifier(self) -> str:
@@ -325,12 +328,12 @@ class SupervisorProxyServer:
         No proxy is available for an ISOLATED instance.
         """
         proxy = self.proxies.get(identifier)
-        isolated = self.supvisors.context.instances[identifier].isolated
-        if not isolated and (not proxy or not proxy.is_alive()):
+        status: SupvisorsInstanceStatus = self.supvisors.context.instances[identifier]
+        if not status.isolated and (not proxy or not proxy.is_alive()):
             # create and start the proxy thread
-            self.proxies[identifier] = proxy = SupervisorProxyThread(identifier, self.supvisors)
+            self.proxies[identifier] = proxy = SupervisorProxyThread(status, self.supvisors)
             proxy.start()
-        elif proxy and isolated:
+        elif proxy and status.isolated:
             # destroy the proxy of an ISOLATED Supvisors instance
             proxy.stop()
             proxy.join()
@@ -340,6 +343,7 @@ class SupervisorProxyServer:
 
     def stop(self):
         """ Stop all the proxy threads. """
+        self.logger.debug(f'SupervisorProxyServer.stop: {list(self.proxies.keys())}')
         for proxy in self.proxies.values():
             proxy.stop()
         for proxy in self.proxies.values():

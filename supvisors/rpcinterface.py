@@ -48,6 +48,8 @@ def startProcess(self, name: str, wait: bool = True):
     return self._startProcess(name, wait)
 
 
+# FIXME: global check on identifier => mapper.filter
+
 class RPCInterface:
     """ This class holds the XML-RPC extension provided by **Supvisors**. """
 
@@ -137,23 +139,26 @@ class RPCInterface:
         :return: a list of structures containing information about all **Supvisors** instances.
         :rtype: list[dict[str, Any]]
         """
-        return [self.get_instance_info(identifier)
-                for identifier in sorted(self.supvisors.context.instances)]
+        return [self.get_instance_info(identifier)[0]
+                for identifier in sorted(self.supvisors.mapper.instances)]
 
-    def get_instance_info(self, identifier: str) -> Payload:
-        """ Get information about the **Supvisors** instance identified by ``identifier``.
+    def get_instance_info(self, identifier: str) -> PayloadList:
+        """ Get information about the **Supvisors** instances identified by ``identifier`` (Supvisors identifier,
+        Supervisor identifier or Supvisors stereotype).
+
+        This method can return multiple results if a **Supvisors** stereotype is used as parameter.
 
         :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
         :return: a structure containing information about the **Supvisors** instance.
-        :rtype: dict[str, Any]
-        :raises RPCError: with code ``Faults.INCORRECT_PARAMETERS`` if ``identifier`` is unknown to **Supvisors**.
+        :rtype: list[dict[str, Any]].
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
         """
-        try:
-            # get Supvisors instance status and complement with Starter and Stopper progress
-            return self.supvisors.context.instances[identifier].serial()
-        except KeyError:
-            self._raise(Faults.INCORRECT_PARAMETERS, 'get_instance_info',
-                        f'identifier={identifier} unknown to Supvisors')
+        identifiers = self.supvisors.mapper.filter([identifier])
+        if not identifiers:
+            self._raise(Faults.BAD_NAME, 'get_instance_info',
+                        f'identifier={identifier} is unknown to Supvisors')
+        return [self.supvisors.context.instances[identifier].serial()
+                for identifier in identifiers]
 
     def get_all_applications_info(self) -> PayloadList:
         """ Get information about all applications managed in **Supvisors**.
@@ -311,7 +316,6 @@ class RPCInterface:
         # check application is not already RUNNING
         if application.state != ApplicationStates.STOPPED:
             self._raise(Faults.ALREADY_STARTED, 'start_application', application_name)
-        # TODO: develop a predictive model to check if starting can be achieved
         # if impossible due to a lack of resources, second try without optional
         # return false if still impossible
         self.supvisors.starter.start_application(strategy_enum, application)
@@ -1059,6 +1063,7 @@ class RPCInterface:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if the synchronization is ending (master elected) ;
             ``SupvisorsFaults.NOT_APPLICABLE`` if the synchro_options does not include ``USER`` ;
             ``Faults.BAD_NAME`` if master is an unknown Supvisors identifier ;
+            ``Faults.INCORRECT_PARAMETERS`` if master is resolved in multiple Supvisors identifiers ;
             ``Faults.NOT_RUNNING`` if the selected Master Supvisors instance is not in state ``RUNNING``.
         """
         self._check_state([SupvisorsStates.INITIALIZATION])
@@ -1067,8 +1072,13 @@ class RPCInterface:
         if SynchronizationOptions.USER not in self.supvisors.options.synchro_options:
             self._raise(SupvisorsFaults.NOT_APPLICABLE.value, 'end_sync', 'USER expected in synchro_options')
         if master:
-            if master not in self.supvisors.context.instances:
+            identifiers = self.supvisors.mapper.filter([master])
+            if not identifiers:
                 self._raise(Faults.BAD_NAME, 'end_sync', f'unknown Supvisors identifier={master}')
+            if len(identifiers) > 1:
+                self._raise(Faults.INCORRECT_PARAMETERS, 'end_sync',
+                            f'multiple identifiers={identifiers} found for Supvisors master={master}')
+            master = identifiers[0]
             status = self.supvisors.context.instances[master]
             if status.state != SupvisorsInstanceStates.RUNNING:
                 self._raise(Faults.NOT_RUNNING, 'end_sync',

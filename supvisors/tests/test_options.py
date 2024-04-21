@@ -524,13 +524,9 @@ def test_server_options_disabilities(mocker, supvisors, server_opt):
     mocked_open.reset_mock()
     # check when write is not forced and file does not exist
     mocked_isfile = mocker.patch('os.path.isfile', return_value=False)
-    server_opt.write_disabilities(False)
+    server_opt.write_disabilities()
     assert handle.write.call_args_list == [call(json_expected)]
     handle.reset_mock()
-    # check when write is not forced and file exists
-    mocked_isfile.return_value = True
-    server_opt.write_disabilities(False)
-    assert not handle.write.called
     # empty context and read
     mocked_open = mocker.patch('builtins.open', mocker.mock_open(read_data=json_expected))
     mocker.patch('os.path.isfile', return_value=True)

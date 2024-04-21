@@ -152,11 +152,11 @@ class ApplicationView(ViewHandler):
         data = []
         for process in self.application.processes.values():
             namespec = process.namespec
-            node_name, description = self.get_process_last_desc(namespec)
+            identifier, description = self.get_process_last_desc(namespec)
             unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
+            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
             data.append({'application_name': process.application_name, 'process_name': process.process_name,
-                         'namespec': namespec, 'identifier': node_name,
+                         'namespec': namespec, 'identifier': identifier,
                          'disabled': process.disabled(), 'startable': len(process.possible_identifiers()) > 0,
                          'statename': process.displayed_state_string(), 'statecode': process.displayed_state,
                          'gravity': 'FATAL' if unexpected_exit else process.displayed_state_string(),
@@ -188,15 +188,16 @@ class ApplicationView(ViewHandler):
 
     def write_process(self, tr_elt, info):
         """ Rendering of the cell corresponding to the process running instances. """
-        running_nodes = info['running_identifiers']
-        if running_nodes:
+        running_identifiers = info['running_identifiers']
+        if running_identifiers:
             running_li_mid = tr_elt.findmeld('running_li_mid')
-            for li_elt, node_name in running_li_mid.repeat(running_nodes):
+            for li_elt, identifier in running_li_mid.repeat(running_identifiers):
+                nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
                 elt = li_elt.findmeld('running_a_mid')
-                elt.content(node_name)
-                url = self.view_ctx.format_url(node_name, PROC_INSTANCE_PAGE)
+                elt.content(nick_identifier)
+                url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE)
                 elt.attributes(href=url)
-                if node_name == info['identifier']:
+                if identifier == info['identifier']:
                     update_attrib(elt, 'class', 'active')
         else:
             elt = tr_elt.findmeld('running_ul_mid')

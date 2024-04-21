@@ -261,13 +261,13 @@ class SequenceChecker(SupvisorsEventQueues):
 class CheckSequenceTest(unittest.TestCase):
     """ Common class used to check starting and stopping sequences. """
 
-    TEST_IDENTIFIERS = ['supv-01', 'rocky52:60000', 'supv-03', 'rocky54']
+    HOST_01 = 'rocky51:60000'
+    HOST_02 = 'rocky52:60000'
+    HOST_03 = '192.168.1.70:30000'
+    HOST_04 = 'rocky54:60000'
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
-        # get the instances
-        for idx, identifier in enumerate(CheckSequenceTest.TEST_IDENTIFIERS):
-            setattr(self, f'HOST_{idx+1:02d}', identifier)
         # create a context
         self.context = Context()
         # create the thread of event subscriber

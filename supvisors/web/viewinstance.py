@@ -51,10 +51,10 @@ class SupvisorsInstanceView(StatusView):
         """ Rendering of the header part of the Supvisors Instance page. """
         # set Supvisors instance identifier
         elt = root.findmeld('instance_mid')
-        identifier = self.local_identifier
+        nick_identifier = self.local_nick_identifier
         if self.sup_ctx.is_master:
-            identifier = f'{MASTER_SYMBOL} {identifier}'
-        elt.content(identifier)
+            nick_identifier = f'{MASTER_SYMBOL} {nick_identifier}'
+        elt.content(nick_identifier)
         # set Supvisors instance state
         status: SupvisorsInstanceStatus = self.sup_ctx.local_status
         elt = root.findmeld('state_mid')

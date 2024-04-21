@@ -59,6 +59,7 @@ class SupervisorUpdater:
         self.supervisor.replace_default_handler()
         # complete Supervisor internal data with information extracted from the Supervisor configuration
         self.supervisor.complete_internal_data(self.server_options.process_configs)
+        self.server_options.write_disabilities()
 
     def on_group_added(self, group_name: str):
         """ Update Supervisor internal data for Supvisors support (impact limited on the group).
@@ -67,6 +68,7 @@ class SupervisorUpdater:
         :return: None.
         """
         self.supervisor.complete_internal_data(self.server_options.process_configs, group_name)
+        self.server_options.write_disabilities()
 
     # Supervisor issue #591
     def enable_program(self, program_name: str) -> None:

@@ -42,17 +42,21 @@ def test_on_supervisor_start(mocker, supvisors, updater):
     mocked_replace_tail = mocker.patch.object(updater.supervisor, 'replace_tail_handlers')
     mocked_replace_default = mocker.patch.object(updater.supervisor, 'replace_default_handler')
     mocked_update = mocker.patch.object(updater.supervisor, 'complete_internal_data')
+    mocked_write = mocker.patch.object(updater.server_options, 'write_disabilities')
     updater.on_supervisor_start()
     assert mocked_replace_tail.called
     assert mocked_replace_default.called
     assert mocked_update.called
+    assert mocked_write.called
 
 
 def test_on_group_added(mocker, supvisors, updater):
     """ Test the on_group_added method. """
     mocked_update = mocker.patch.object(updater.supervisor, 'complete_internal_data')
+    mocked_write = mocker.patch.object(updater.server_options, 'write_disabilities')
     updater.on_group_added('dummy_application')
     assert mocked_update.call_args_list == [call({}, 'dummy_application')]
+    assert mocked_write.called
 
 
 def test_enable_program(mocker, supvisors, updater):

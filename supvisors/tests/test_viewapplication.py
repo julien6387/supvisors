@@ -312,14 +312,14 @@ def test_write_process(view):
     """ Test the write_process method. """
     # create a process-like dict
     info = {'process_name': 'proc1', 'namespec': 'dummy_appli:dummy_proc',
-            'running_identifiers': [], 'identifier': '10.0.0.2'}
+            'running_identifiers': [], 'identifier': '10.0.0.2:65000'}
     # patch the view context
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # patch the meld elements
     running_ul_mid = Mock()
     running_a_mid = Mock(attrib={'class': 'button'})
     running_li_elt = Mock(**{'findmeld.return_value': running_a_mid})
-    running_li_mid = Mock(**{'repeat.return_value': [(running_li_elt, '10.0.0.1')]})
+    running_li_mid = Mock(**{'repeat.return_value': [(running_li_elt, '10.0.0.1:65000')]})
     tr_elt = Mock(**{'findmeld.side_effect': [running_ul_mid, running_li_mid]})
     # test call with stopped process
     view.write_process(tr_elt, info)
@@ -331,8 +331,8 @@ def test_write_process(view):
     view.view_ctx.format_url.reset_mock()
     running_ul_mid.replace.reset_mock()
     # test call with running process
-    info['running_identifiers'] = {'10.0.0.1'}
-    info['identifier'] = '10.0.0.1'
+    info['running_identifiers'] = {'10.0.0.1:65000'}
+    info['identifier'] = '10.0.0.1:65000'
     view.write_process(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('running_ul_mid'), call('running_li_mid')]
     assert running_ul_mid.replace.call_args_list == []

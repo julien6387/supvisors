@@ -61,10 +61,9 @@ class EventPublisherInterface:
         """
         raise NotImplementedError
 
-    def send_process_event(self, identifier: str, event: Payload) -> None:
+    def send_process_event(self, event: Payload) -> None:
         """ Send a process event.
 
-        :param identifier: the identifier used to identify the origin of the event.
         :param event: the event to publish.
         :return: None
         """

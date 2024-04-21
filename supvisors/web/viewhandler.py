@@ -45,14 +45,22 @@ class ViewHandler(MeldView):
         self.logger = self.supvisors.logger
         # cannot store context as it is named, or it would crush the http context
         self.sup_ctx = self.supvisors.context
-        # keep reference to the local node name
-        self.local_identifier = self.supvisors.mapper.local_identifier
         # even if there is no local collector, statistics can be available from other Supvisors instances
         # where a collector is available
         self.has_host_statistics = True
         self.has_process_statistics = True
         # init view_ctx (only for tests)
         self.view_ctx = None
+
+    @property
+    def local_identifier(self):
+        """ Return the identifier of the local Supvisors instance. """
+        return self.supvisors.mapper.local_identifier
+
+    @property
+    def local_nick_identifier(self):
+        """ Return the nick identifier of the local Supvisors instance. """
+        return self.supvisors.mapper.local_nick_identifier
 
     def __call__(self):
         """ Anticipation of Supervisor#1273.
@@ -107,7 +115,7 @@ class ViewHandler(MeldView):
         # set Supvisors version
         root.findmeld('version_mid').content(__version__)
         # set current Supvisors instance identifier
-        root.findmeld('identifier_mid').content(self.local_identifier)
+        root.findmeld('identifier_mid').content(self.local_nick_identifier)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name)
@@ -165,11 +173,13 @@ class ViewHandler(MeldView):
                     update_attrib(elt, 'class', 'on')
                 else:
                     update_attrib(elt, 'class', 'off')
-                # set content
-                displayed_item = item
+                # set content (master and failure symbols need a positional update against the text)
+                instance_elt = elt.findmeld('instance_sp_mid')
+                instance_elt.content(status.supvisors_id.nick_identifier)
                 if item == self.sup_ctx.master_identifier:
-                    displayed_item = f'{MASTER_SYMBOL} {item}'
-                elt.content(displayed_item)
+                    master_elt = elt.findmeld('master_sp_mid')
+                    master_elt.content(MASTER_SYMBOL)
+                    update_attrib(li_elt, 'class', 'master')
         # warn at title level if any application has a failure
         if any_failure:
             elt = root.findmeld('instance_h_mid')

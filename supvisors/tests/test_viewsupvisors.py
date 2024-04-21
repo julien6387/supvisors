@@ -143,15 +143,15 @@ def test_write_contents(mocker, view):
     assert not mocked_conflict_mid.replace.called
 
 
-def test_write_instance_box_title(mocker, view):
-    """ Test the _wr_write_instance_box_titleite_instance_box_title method. """
+def test_write_instance_box_title(mocker, supvisors, view):
+    """ Test the write_instance_box_title method. """
     view.current_mtime = 234.56
     # patch context
     mocked_time = mocker.patch('supvisors.web.viewsupvisors.simple_localtime', return_value='12:34:30')
-    mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.RUNNING,
-                         **{'has_active_state.return_value': True,
-                            'get_load.return_value': 17,
-                            'times.get_current_remote_time.side_effect': lambda x: x + 1})
+    status = supvisors.context.instances['10.0.0.1:65000']
+    status._state = SupvisorsInstanceStates.RUNNING
+    mocker.patch.object(status, 'get_load', return_value=17)
+    mocker.patch.object(status.times, 'get_current_remote_time', side_effect=lambda x: x + 1)
     # build root structure with one single element
     mocked_sync_a_mid = create_element()
     mocked_sync_th_mid = create_element({'user_sync_a_mid': mocked_sync_a_mid})
@@ -164,16 +164,16 @@ def test_write_instance_box_title(mocker, view):
                'time_th_mid': mocked_time_mid, 'percent_th_mid': mocked_percent_mid}
     mocked_root = create_element(mid_map)
     # test call in RUNNING state but not master and user_sync
-    view._write_instance_box_title(mocked_root, mocked_status, True)
+    view._write_instance_box_title(mocked_root, status, True)
     # test USER sync element
     assert not mocked_sync_th_mid.replace.called
     assert mocked_sync_a_mid.attrib['class'] == 'on'
-    expected_url = 'http:///index.html?ident=10.0.0.1&action=sup_master_sync'
+    expected_url = 'http:///index.html?ident=10.0.0.1:65000&action=sup_master_sync'
     assert mocked_sync_a_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_sync_a_mid.content.call_args_list == [call('&#160;&#10026;&#160;')]
     # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == 'on'
-    expected_url = 'http://10.0.0.1/proc_instance.html'
+    expected_url = 'http://10.0.0.1:65000/proc_instance.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
     # test state element
@@ -188,8 +188,8 @@ def test_write_instance_box_title(mocker, view):
     mocker.resetall()
     mocked_root.reset_all()
     # test call in RUNNING state and master and not user_sync
-    view.sup_ctx.master_identifier = '10.0.0.1'
-    view._write_instance_box_title(mocked_root, mocked_status, False)
+    view.sup_ctx.master_identifier = '10.0.0.1:65000'
+    view._write_instance_box_title(mocked_root, status, False)
     # test USER sync element
     assert mocked_sync_th_mid.replace.call_args_list == [call('')]
     assert mocked_sync_a_mid.attrib['class'] == ''
@@ -197,7 +197,7 @@ def test_write_instance_box_title(mocker, view):
     assert not mocked_sync_a_mid.content.called
     # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == 'on'
-    expected_url = 'http://10.0.0.1/proc_instance.html'
+    expected_url = 'http://10.0.0.1:65000/proc_instance.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
@@ -212,10 +212,9 @@ def test_write_instance_box_title(mocker, view):
     mocker.resetall()
     mocked_root.reset_all()
     # test call in SILENT state and user sync
-    mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.SILENT,
-                         **{'has_active_state.return_value': False,
-                            'get_load.return_value': 0})
-    view._write_instance_box_title(mocked_root, mocked_status, True)
+    status._state = SupvisorsInstanceStates.SILENT
+    mocker.patch.object(status, 'get_load', return_value=0)
+    view._write_instance_box_title(mocked_root, status, True)
     # test USER sync element
     assert not mocked_sync_th_mid.replace.called
     assert mocked_sync_a_mid.attrib['class'] == 'off'
@@ -302,37 +301,37 @@ def test_write_node_box_processes(view):
     assert mocked_process_a_mids[1].content.call_args_list == [call('other_proc')]
 
 
-def test_write_node_boxes(mocker, view):
+def test_write_node_boxes(mocker, supvisors, view):
     """ Test the write_instance_boxes method. """
     mocked_box_processes = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_instance_box_processes')
     mocked_box_title = mocker.patch('supvisors.web.viewsupvisors.SupvisorsView._write_instance_box_title')
     # patch context
-    view.supvisors.options.multicast_group = '293.0.0.1:7777'
+    supvisors.options.multicast_group = '293.0.0.1:7777'
     local_identifier = view.sup_ctx.local_identifier
     ref_instances = view.sup_ctx.instances
     view.sup_ctx.instances = {local_identifier: ref_instances[local_identifier],
-                              '10.0.0.1': ref_instances['10.0.0.1']}
+                              '10.0.0.1:65000': ref_instances['10.0.0.1:65000']}
     # build root structure with one single element
     mocked_box_mid_1 = Mock()
     mocked_box_mid_2 = Mock()
     mocked_address_template = Mock(**{'repeat.return_value': [(mocked_box_mid_1, local_identifier),
-                                                              (mocked_box_mid_2, '10.0.0.1')]})
+                                                              (mocked_box_mid_2, '10.0.0.1:65000')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
     # test call with user sync disabled
     view.write_instance_boxes(mocked_root)
     assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], False),
-                                               call(mocked_box_mid_2, ref_instances['10.0.0.1'], False)]
+                                               call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], False)]
     assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], False),
-                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1'], False)]
+                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], False)]
     mocker.resetall()
     # test call with user sync enabled
-    view.supvisors.options.synchro_options = [SynchronizationOptions.USER]
-    view.supvisors.fsm.state = SupvisorsStates.INITIALIZATION
+    supvisors.options.synchro_options = [SynchronizationOptions.USER]
+    supvisors.fsm.state = SupvisorsStates.INITIALIZATION
     view.write_instance_boxes(mocked_root)
     assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], True),
-                                               call(mocked_box_mid_2, ref_instances['10.0.0.1'], True)]
+                                               call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], True)]
     assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], True),
-                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1'], True)]
+                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], True)]
 
 
 def test_write_conciliation_strategies(view):

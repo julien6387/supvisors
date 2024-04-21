@@ -66,7 +66,9 @@ Status
             ========================= ========= ===========
             Key                       Type      Description
             ========================= ========= ===========
-            'identifier'              ``str``   The deduced name of the |Supvisors| instance.
+            'identifier'              ``str``   The |Supvisors| instance identifier (``host:http_port``).
+            'nick_identifier'         ``str``   The |Supervisor| instance identifier, or a copy of the |Supvisors|
+                                                identifier if not set.
             'node_name'               ``str``   The name of the node where the |Supvisors| instance is running.
             'port'                    ``int``   The HTTP port of the |Supvisors| instance.
             'statecode'	              ``int``   The |Supvisors| instance state, in [0;6].

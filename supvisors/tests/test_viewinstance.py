@@ -19,7 +19,6 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.web import MeldView
 
-from supvisors.instancestatus import StateModes
 from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.web.viewinstance import *
 from supvisors.web.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
@@ -93,7 +92,7 @@ def test_write_navigation(mocker, view):
     assert mocked_nav.call_args_list == [call(mocked_root, identifier=local_identifier)]
 
 
-def test_write_header(mocker, view):
+def test_write_header(mocker, supvisors, view):
     """ Test the write_header method. """
     mocked_actions = mocker.patch.object(view, 'write_instance_actions')
     mocked_periods = mocker.patch.object(view, 'write_periods')
@@ -106,16 +105,17 @@ def test_write_header(mocker, view):
     mocked_root = create_element({'instance_mid': instance_mid, 'state_mid': state_mid, 'percent_mid': percent_mid,
                                   'starting_mid': starting_mid, 'stopping_mid': stopping_mid})
     # first call tests with not master
-    mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING,
-                         state_modes=StateModes(stopping_jobs=True),
-                         **{'get_load.return_value': 12})
     local_identifier = view.sup_ctx.local_identifier
+    status = supvisors.context.local_status
+    status._state = SupvisorsInstanceStates.RUNNING
+    status.times.remote_time = 3600
+    status.state_modes.stopping_jobs = True
+    mocker.patch.object(status, 'get_load', return_value=12)
     assert not view.sup_ctx.is_master
-    view.sup_ctx.instances[local_identifier] = mocked_status
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),
                                                    call('starting_mid'), call('stopping_mid')]
-    assert instance_mid.content.call_args_list == [call(local_identifier)]
+    assert instance_mid.content.call_args_list == [call(status.supvisors_id.nick_identifier)]
     assert state_mid.content.call_args_list == [call('RUNNING')]
     assert percent_mid.content.call_args_list == [call('12%')]
     assert starting_mid.attrib['class'] == ''
@@ -123,17 +123,17 @@ def test_write_header(mocker, view):
     assert stopping_mid.attrib['class'] == 'blink'
     assert not stopping_mid.replace.called
     assert mocked_periods.call_args_list == [call(mocked_root)]
-    assert mocked_actions.call_args_list == [call(mocked_root, mocked_status)]
+    assert mocked_actions.call_args_list == [call(mocked_root, status)]
     # reset mocks
     mocker.resetall()
     mocked_root.reset_all()
     # second call tests with master and both Starter and Stopper having jobs
     view.sup_ctx.local_status.state_modes.master_identifier = view.sup_ctx.local_identifier
-    mocked_status.state_modes.starting_jobs = True
+    status.state_modes.starting_jobs = True
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid'),
                                                    call('starting_mid'), call('stopping_mid')]
-    assert instance_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} {local_identifier}')]
+    assert instance_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} {status.supvisors_id.nick_identifier}')]
     assert state_mid.content.call_args_list == [call('RUNNING')]
     assert percent_mid.content.call_args_list == [call('12%')]
     assert starting_mid.attrib['class'] == 'blink'
@@ -141,7 +141,7 @@ def test_write_header(mocker, view):
     assert stopping_mid.attrib['class'] == 'blink'
     assert not stopping_mid.replace.called
     assert mocked_periods.call_args_list == [call(mocked_root)]
-    assert mocked_actions.call_args_list == [call(mocked_root, mocked_status)]
+    assert mocked_actions.call_args_list == [call(mocked_root, status)]
 
 
 def test_write_instance_actions(mocker, view):

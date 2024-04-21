@@ -90,7 +90,7 @@ def test_external_publish_subscribe(supvisors):
 supvisors_payload = {'state': 'running', 'version': '1.0'}
 instance_payload = {'state': 'silent', 'identifier': 'cliche01', 'date': 1234}
 application_payload = {'state': 'starting', 'name': 'supvisors'}
-event_payload = {'state': 20, 'name': 'plugin', 'group': 'supvisors', 'now': 1230}
+event_payload = {'identifier': '10.0.0.1', 'state': 20, 'name': 'plugin', 'group': 'supvisors', 'now': 1230}
 process_payload = {'state': 'running', 'process_name': 'plugin', 'application_name': 'supvisors', 'date': 1230}
 hstats_payload = {'identifier': '10.0.0.1', 'period': 5.2, 'uptime': 1230, 'cpu': [28.3]}
 pstats_payload = {'identifier': '10.0.0.1', 'namespec': 'dummy_proc', 'period': 5.2, 'uptime': 1230, 'cpu': [28.3]}
@@ -101,7 +101,7 @@ def publish_all(publisher):
     publisher.send_supvisors_status(supvisors_payload)
     publisher.send_instance_status(instance_payload)
     publisher.send_application_status(application_payload)
-    publisher.send_process_event('local_identifier', event_payload)
+    publisher.send_process_event(event_payload)
     publisher.send_process_status(process_payload)
     publisher.send_host_statistics(hstats_payload)
     publisher.send_process_statistics(pstats_payload)
@@ -128,8 +128,7 @@ def check_subscription(subscriber, publisher, supvisors_subscribed=False, instan
     if application_subscribed:
         results.append(call(EventHeaders.APPLICATION.value, application_payload))
     if event_subscribed:
-        payload = dict(event_payload, **{'identifier': 'local_identifier'})
-        results.append(call(EventHeaders.PROCESS_EVENT.value, payload))
+        results.append(call(EventHeaders.PROCESS_EVENT.value, event_payload))
     if process_subscribed:
         results.append(call(EventHeaders.PROCESS_STATUS.value, process_payload))
     if hstats_subscribed:

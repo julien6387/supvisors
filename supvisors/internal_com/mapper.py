@@ -23,6 +23,9 @@ from supervisor.loggers import Logger
 
 from supvisors.ttypes import Ipv4Address, NameList, NameSet
 
+# default identifier given by Supervisor
+DEFAULT_IDENTIFIER = 'supervisor'
+
 
 def get_addresses(host_id: str, logger: Logger) -> Optional[Tuple[str, NameList, NameList]]:
     """ Get hostname, aliases and all IP addresses for the host_id.
@@ -39,11 +42,13 @@ def get_addresses(host_id: str, logger: Logger) -> Optional[Tuple[str, NameList,
 
 class SupvisorsInstanceId:
     """ Identification attributes for a Supvisors instance.
+
     The Supvisors instance uses the Supervisor identifier if provided, or builds an identifier from the host name and
     the HTTP port used by this Supervisor.
 
     Attributes are:
-        - identifier: the Supervisor identifier or 'host_name[:http_port]' if not provided ;
+        - identifier: the Supvisors identifier 'host_name:http_port' ;
+        - nick_identifier: the Supervisor identifier (defaulted to identifier) if not provided ;
         - host_id: the host where the Supervisor is running ;
         - http_port: the Supervisor port number ;
         - event_port: the port number used to publish all Supvisors events ;
@@ -54,8 +59,9 @@ class SupvisorsInstanceId:
 
     PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:.]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5}))?$')
 
-    # attributes deduced from input
+    # attributes taken from input
     identifier = None
+    nick_identifier = None
     host_id = None
     http_port = None
     event_port = None
@@ -111,16 +117,19 @@ class SupvisorsInstanceId:
 
         :return: None
         """
-        # define identifier
-        # NOTE: when default supervisor identifier is used, do not consider it
-        if (not self.identifier or self.identifier == 'supervisor') and self.host_id:
-            self.identifier = self.host_id
-            # use HTTP port in identifier only if it has explicitly been defined
-            if self.http_port:
-                self.identifier += f':{self.http_port}'
+        http_port = self.http_port or self.supvisors.supervisor_data.server_port
+        # define common identifier
+        if self.host_id:
+            self.identifier = f'{self.host_id}:{http_port}'
+            # if nick_identifier is not set or default Supervisor identifier is used, assign an automatic identifier
+            if not self.nick_identifier or self.nick_identifier == DEFAULT_IDENTIFIER:
+                if self.http_port:
+                    self.nick_identifier = self.identifier
+                else:
+                    self.nick_identifier = self.host_id
         # if http_port is not provided, use the local http_port value
         if not self.http_port:
-            self.http_port = self.supvisors.supervisor_data.server_port
+            self.http_port = http_port
         # define event_port using option value if set
         if self.supvisors.options.event_port:
             self.event_port = self.supvisors.options.event_port
@@ -128,6 +137,7 @@ class SupvisorsInstanceId:
             # by default, assign to http_port + 1
             self.event_port = self.http_port + 1
         self.logger.debug(f'SupvisorsInstanceId.check_values: identifier={self.identifier}'
+                          f' nick_identifier={self.nick_identifier}'
                           f' host_id={self.host_id} http_port={self.http_port}')
 
     def parse_from_string(self, item: str):
@@ -138,7 +148,7 @@ class SupvisorsInstanceId:
         """
         pattern_match = SupvisorsInstanceId.PATTERN.match(item)
         if pattern_match:
-            self.identifier = pattern_match.group('identifier')
+            self.nick_identifier = pattern_match.group('identifier')
             self.host_id = pattern_match.group('host')
             # check http port
             port = pattern_match.group('http_port')
@@ -149,9 +159,11 @@ class SupvisorsInstanceId:
     def __repr__(self) -> str:
         """ Initialization of the attributes.
 
-        :return: the identifier as string representation of the SupvisorsInstanceId object
+        :return: the identifier as string representation of the SupvisorsInstanceId object.
         """
-        return self.identifier
+        if self.identifier == self.nick_identifier:
+            return self.identifier
+        return f'<{self.nick_identifier}>{self.identifier}'
 
 
 class SupvisorsMapper:
@@ -162,6 +174,7 @@ class SupvisorsMapper:
         - logger: the reference to the common logger ;
         - _instances: the list of Supvisors instances declared in the supvisors section of the Supervisor
           configuration file ;
+        - _nick_identifiers: the list of nick identifiers that can be used on all Supvisors user interfaces ;
         - _nodes: the list of Supvisors instances grouped by node names ;
         - _core_identifiers: the list of Supvisors core identifiers declared in the supvisors section of the Supervisor
           configuration file ;
@@ -176,11 +189,11 @@ class SupvisorsMapper:
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes.
 
-        :param supvisors: the global Supvisors structure
+        :param supvisors: the global Supvisors structure.
         """
         self.supvisors = supvisors
-        # init attributes
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
+        self._nick_identifiers: Dict[str, str] = {}
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
         self.local_identifier: Optional[str] = None
@@ -196,9 +209,17 @@ class SupvisorsMapper:
     def local_instance(self) -> SupvisorsInstanceId:
         """ Property getter for the SupvisorsInstanceId corresponding to local_identifier.
 
-        :return: the local SupvisorsInstanceId
+        :return: the local SupvisorsInstanceId.
         """
         return self._instances[self.local_identifier]
+
+    @property
+    def local_nick_identifier(self) -> str:
+        """ Property getter for the nick identifier of the local Supvisors instance.
+
+        :return: the local nick identifier.
+        """
+        return self.local_instance.nick_identifier
 
     @property
     def instances(self) -> InstancesMap:
@@ -224,18 +245,23 @@ class SupvisorsMapper:
         """
         return self.filter(self._core_identifiers)
 
-    def add_instance(self, item: str, discovery: bool = True) -> SupvisorsInstanceId:
+    def get_nick_identifier(self, identifier: str) -> str:
+        """ Property getter for the nick identifier of the Supvisors instance.
+
+        :return: the nick identifier.
+        """
+        return self.instances[identifier].nick_identifier
+
+    def add_instance(self, item: str) -> SupvisorsInstanceId:
         """ Store a new Supvisors instance using a format compliant with the supvisors_list option.
 
-        :param item: the Supvisors instance to add
-        :param discovery: if True, instances are not statically declared in the configuration file and added on-the-fly
-        :return: the new Supvisors instance
+        :param item: the Supvisors instance to add.
+        :return: the new Supvisors instance.
         """
         supvisors_id = SupvisorsInstanceId(item, self.supvisors)
         if supvisors_id.ip_address:
-            if discovery:
-                self.logger.info(f'SupvisorsMapper.add_instance: new SupvisorsInstanceId={supvisors_id}')
             self._instances[supvisors_id.identifier] = supvisors_id
+            self._nick_identifiers[supvisors_id.nick_identifier] = supvisors_id.identifier
             self._nodes.setdefault(supvisors_id.ip_address, []).append(supvisors_id.identifier)
             return supvisors_id
         message = f'could not define a Supvisors identification from "{item}"'
@@ -253,7 +279,7 @@ class SupvisorsMapper:
         if supvisors_list:
             # get Supervisor identification from each element
             for item in supvisors_list:
-                self.add_instance(item, False)
+                self.add_instance(item)
             # keep information about the initial Supvisors identifiers added to the configuration
             self.initial_identifiers = list(self._instances.keys())
         else:
@@ -261,12 +287,13 @@ class SupvisorsMapper:
             supervisor = self.supvisors.supervisor_data
             item = f'<{supervisor.identifier}>{gethostname()}:{supervisor.server_port}'
             self.logger.info(f'SupvisorsMapper.configure: define local Supvisors as {item}')
-            self.add_instance(item, False)
-        self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')
+            self.add_instance(item)
+        self.logger.info(f'SupvisorsMapper.configure: identifiers={self._nick_identifiers}')
         self.logger.info(f'SupvisorsMapper.configure: nodes={self.nodes}')
         # get local Supervisor identification from list
         self.find_local_identifier(stereotypes)
-        # store core identifiers without filtering. it will be filtered on access because of discovery mode
+        # NOTE: store the core identifiers without filtering as is.
+        #       they can only be filtered on access because of discovery mode.
         self._core_identifiers = core_list
         self.logger.info(f'SupvisorsMapper.configure: core_identifiers={core_list}')
 
@@ -288,10 +315,11 @@ class SupvisorsMapper:
                                 if sup_id.host_matches(local_host_name) and sup_id.http_port == local_http_port]
         if len(matching_identifiers) == 1:
             self.local_identifier = matching_identifiers[0]
-            if self.local_identifier != self.supvisors.supervisor_data.identifier:
+            if ((self.supvisors.supervisor_data.identifier != DEFAULT_IDENTIFIER)
+                    and (self.local_nick_identifier != self.supvisors.supervisor_data.identifier)):
                 self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
                                  f' "{self.supvisors.supervisor_data.identifier}"'
-                                 f' and local Supvisors in supvisors_list "{self.local_identifier}"')
+                                 f' and local Supvisors in supvisors_list "{self.local_nick_identifier}"')
             # assign the generic Supvisors instance stereotype
             self.assign_stereotypes(self.local_identifier, stereotypes)
         else:
@@ -301,7 +329,7 @@ class SupvisorsMapper:
                 message = 'could not find the local Supvisors in supvisors_list'
             self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
             raise ValueError(message)
-        self.logger.info(f'SupvisorsMapper.find_local_identifier: local_identifier={self.local_identifier}')
+        self.logger.info(f'SupvisorsMapper.find_local_identifier: {str(self.local_instance)}')
 
     def assign_stereotypes(self, identifier: str, stereotypes: NameSet) -> None:
         """ Assign stereotypes to the Supvisors instance.
@@ -330,11 +358,15 @@ class SupvisorsMapper:
                     self.stereotypes[stereotype] = [identifier]
 
     def filter(self, identifier_list: NameList) -> NameList:
-        """ Check the Supvisors identifiers against the list declared in the configuration file.
+        """ Check the identifiers list against the identifiers declared in the configuration file
+        or via the discovery mode.
+
+        The identifier list can be made of Supvisors identifiers, Supervisor identifiers and/or stereotypes.
+
         If the identifier is not found, it is removed from the list.
         If more than one occurrence of the same identifier is found, only the first one is kept.
 
-        :param identifier_list: a list of Supvisors identifiers.
+        :param identifier_list: a list of Supvisors identifiers and/or nick identifiers and/or stereotypes.
         :return: the filtered list of Supvisors identifiers.
         """
         identifiers = []
@@ -342,6 +374,8 @@ class SupvisorsMapper:
         for identifier in identifier_list:
             if identifier in self._instances:
                 identifiers.append(identifier)
+            elif identifier in self._nick_identifiers:
+                identifiers.append(self._nick_identifiers[identifier])
             elif identifier in self.stereotypes:
                 # identifier is a stereotype
                 identifiers.extend(self.stereotypes[identifier])

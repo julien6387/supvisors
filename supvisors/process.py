@@ -535,7 +535,8 @@ class ProcessStatus:
         # extract description from information found and add identifier
         desc = info['description']
         if desc and desc != 'Not started':
-            desc = desc + ' on ' + identifier
+            nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
+            desc = desc + ' on ' + nick_identifier
         return identifier, desc
 
     # rules consideration

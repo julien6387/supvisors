@@ -91,7 +91,9 @@ class StartingStrategyTest(RunningIdentifiersTest):
     def check_loading(self, loadings):
         """ Check the nodes loading. """
         # print(loadings)
-        self.assertEqual(self.loading, {'supv-01': loadings[0], 'rocky52:60000': loadings[1], 'supv-03': loadings[2]})
+        self.assertEqual(self.loading, {'rocky51:60000': loadings[0],
+                                        'rocky52:60000': loadings[1],
+                                        '192.168.1.70:30000': loadings[2]})
 
     def test_config(self):
         """ Test the CONFIG starting strategy.

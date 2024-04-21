@@ -200,7 +200,7 @@ class DummyHttpContext:
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'ident': '10.0.0.4',
+                     'ident': '10.0.0.4:65000',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',

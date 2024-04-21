@@ -44,12 +44,14 @@ def mocked_rpc():
 
 @pytest.fixture
 def proxy(supvisors, mocked_rpc):
-    return SupervisorProxy('10.0.0.1', supvisors)
+    status = supvisors.context.instances['10.0.0.1:65000']
+    return SupervisorProxy(status, supvisors)
 
 
 @pytest.fixture
 def proxy_thread(supvisors, mocked_rpc):
-    return SupervisorProxyThread('10.0.0.1', supvisors)
+    status = supvisors.context.instances['10.0.0.1:65000']
+    return SupervisorProxyThread(status, supvisors)
 
 
 @pytest.fixture
@@ -62,8 +64,7 @@ def proxy_server(supvisors, mocked_rpc):
 def test_proxy_creation(mocked_rpc, proxy, supvisors):
     """ Test the SupvisorsProxy creation. """
     assert proxy.supvisors is supvisors
-    assert proxy.identifier == '10.0.0.1'
-    assert proxy.instance_status is supvisors.context.instances['10.0.0.1']
+    assert proxy.status is supvisors.context.instances['10.0.0.1:65000']
     assert proxy.proxy is not None
     assert proxy.logger is supvisors.logger
     assert proxy.local_identifier == supvisors.mapper.local_identifier
@@ -76,7 +77,7 @@ def test_get_origin(supvisors, proxy):
     """ Test the SupervisorProxy._get_origin method. """
     local_instance = supvisors.mapper.local_instance
     assert proxy._get_origin(proxy.local_identifier) == local_instance.source
-    assert proxy._get_origin('10.0.0.1') == ('10.0.0.1', ('10.0.0.1', 65000))
+    assert proxy._get_origin('10.0.0.1:65000') == ('10.0.0.1:65000', ('10.0.0.1', 65000))
 
 
 def test_proxy_xml_rpc(supvisors, proxy):
@@ -120,17 +121,17 @@ def test_publish(mocker, supvisors, proxy):
     """ Test the SupervisorProxy.publish method. """
     mocked_call = mocker.patch.object(proxy, 'xml_rpc')
     # update node states
-    instance_status = supvisors.context.instances['10.0.0.1']
+    instance_status = supvisors.context.instances['10.0.0.1:65000']
     # test incorrect publication type
-    proxy.publish('10.0.0.2', (28, {'message': 'hello'}))
+    proxy.publish('10.0.0.2:65000', (28, {'message': 'hello'}))
     assert not mocked_call.called
     # test TICK publication
-    origin = supvisors.mapper.instances['10.0.0.2'].source
+    origin = supvisors.mapper.instances['10.0.0.2:65000'].source
     for state in SupvisorsInstanceStates:
         # actually, publish is not called with ISOLATED state, but it is dealt before
-        proxy.publish('10.0.0.2', (PublicationHeaders.TICK.value, {'message': 'TICK'}))
+        proxy.publish('10.0.0.2:65000', (PublicationHeaders.TICK.value, {'message': 'TICK'}))
         instance_status._state = state
-        expected_json = '[["10.0.0.2", ["10.0.0.2", 65000]], [0, {"message": "TICK"}]]'
+        expected_json = '[["10.0.0.2:65000", ["10.0.0.2", 65000]], [0, {"message": "TICK"}]]'
         assert mocked_call.call_args_list == [call('supervisor.sendRemoteCommEvent',
                                                    proxy.proxy.supervisor.sendRemoteCommEvent,
                                                    (SUPVISORS_PUBLICATION, expected_json))]
@@ -138,13 +139,13 @@ def test_publish(mocker, supvisors, proxy):
     # test non-TICK publication with non-active state
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]:
         instance_status._state = state
-        proxy.publish('10.0.0.2', (PublicationHeaders.STATE.value, {'message': 'hello'}))
+        proxy.publish('10.0.0.2:65000', (PublicationHeaders.STATE.value, {'message': 'hello'}))
         assert not mocked_call.called
     # test non-TICK publication with active state
     for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
         instance_status._state = state
-        proxy.publish('10.0.0.2', (PublicationHeaders.STATE.value, {'message': 'STATE'}))
-        expected_json = '[["10.0.0.2", ["10.0.0.2", 65000]], [7, {"message": "STATE"}]]'
+        proxy.publish('10.0.0.2:65000', (PublicationHeaders.STATE.value, {'message': 'STATE'}))
+        expected_json = '[["10.0.0.2:65000", ["10.0.0.2", 65000]], [7, {"message": "STATE"}]]'
         assert mocked_call.call_args_list == [call('supervisor.sendRemoteCommEvent',
                                                    proxy.proxy.supervisor.sendRemoteCommEvent,
                                                    (SUPVISORS_PUBLICATION, expected_json))]
@@ -163,7 +164,7 @@ def test_proxy_check_instance(mocker, supvisors, mocked_rpc, proxy):
     assert not mocked_mode.called
     assert not mocked_info.called
     expected = NotificationHeaders.AUTHORIZATION.value, False
-    assert mocked_send.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.1:65000', ('10.0.0.1', 65000)), expected))]
     mocked_send.reset_mock()
     mocker.resetall()
     # test with authorization
@@ -173,7 +174,7 @@ def test_proxy_check_instance(mocker, supvisors, mocked_rpc, proxy):
     assert mocked_mode.call_args_list == [call()]
     assert mocked_info.call_args_list == [call()]
     expected = NotificationHeaders.AUTHORIZATION.value, True
-    assert mocked_send.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.1:65000', ('10.0.0.1', 65000)), expected))]
 
 
 def test_proxy_is_authorized(supvisors, mocked_rpc, proxy):
@@ -193,18 +194,18 @@ def test_proxy_is_authorized(supvisors, mocked_rpc, proxy):
     # test with a mocked rpc interface
     info_rpc.side_effect = None
     # test with local Supvisors instance isolated by remote
-    info_rpc.return_value = {'statecode': SupvisorsInstanceStates.ISOLATED.value}
+    info_rpc.return_value = [{'statecode': SupvisorsInstanceStates.ISOLATED.value}]
     assert proxy._is_authorized() is False
     assert info_rpc.call_args_list == [call(proxy.local_identifier)]
     info_rpc.reset_mock()
     # test with local Supvisors instance not isolated by remote
     for state in [x for x in SupvisorsInstanceStates if x != SupvisorsInstanceStates.ISOLATED]:
-        info_rpc.return_value = {'statecode': state.value}
+        info_rpc.return_value = [{'statecode': state.value}]
         assert proxy._is_authorized() is True
         assert info_rpc.call_args_list == [call(proxy.local_identifier)]
         info_rpc.reset_mock()
     # test with local Supvisors instance not isolated by remote but returning an unknown state
-    info_rpc.return_value = {'statecode': 128}
+    info_rpc.return_value = [{'statecode': 128}]
     assert proxy._is_authorized() is False
     assert info_rpc.call_args_list == [call(proxy.local_identifier)]
 
@@ -225,7 +226,7 @@ def test_proxy_transfer_process_info(supvisors, mocked_rpc, proxy):
     proxy._transfer_process_info()
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.ALL_INFO.value, None
-    assert mocked_send.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.1:65000', ('10.0.0.1', 65000)), expected))]
     info_rpc.reset_mock()
     mocked_send.reset_mock()
     # test with a mocked rpc interface
@@ -235,7 +236,7 @@ def test_proxy_transfer_process_info(supvisors, mocked_rpc, proxy):
     proxy._transfer_process_info()
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.ALL_INFO.value, all_info
-    assert mocked_send.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.1:65000', ('10.0.0.1', 65000)), expected))]
 
 
 def test_proxy_transfer_states_modes(supvisors, mocked_rpc, proxy):
@@ -246,15 +247,15 @@ def test_proxy_transfer_states_modes(supvisors, mocked_rpc, proxy):
     info_rpc.side_effect = xmlrpclib.Fault
     with pytest.raises(SupervisorProxyException):
         proxy._transfer_states_modes()
-    assert info_rpc.call_args_list == [call('10.0.0.1')]
+    assert info_rpc.call_args_list == [call('10.0.0.1:65000')]
     assert not mocked_send.called
     mocked_rpc.reset_mock()
     # test with XML-RPC application failure
     info_rpc.side_effect = RPCError(Faults.NO_FILE, 'a file')
     proxy._transfer_states_modes()
-    assert info_rpc.call_args_list == [call('10.0.0.1')]
+    assert info_rpc.call_args_list == [call('10.0.0.1:65000')]
     expected = NotificationHeaders.STATE.value, None
-    assert mocked_send.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.1:65000', ('10.0.0.1', 65000)), expected))]
     info_rpc.reset_mock()
     mocked_send.reset_mock()
     # test with a mocked rpc interface
@@ -267,14 +268,14 @@ def test_proxy_transfer_states_modes(supvisors, mocked_rpc, proxy):
                      'master_identifier': '10.0.0.1',
                      'starting_jobs': False, 'stopping_jobs': True}
     info_rpc.side_effect = None
-    info_rpc.return_value = instance_info
+    info_rpc.return_value = [instance_info]
     proxy._transfer_states_modes()
-    assert info_rpc.call_args_list == [call('10.0.0.1')]
+    assert info_rpc.call_args_list == [call('10.0.0.1:65000')]
     expected = NotificationHeaders.STATE.value, {'fsm_statecode': 6,
                                                  'discovery_mode': True,
                                                  'master_identifier': '10.0.0.1',
                                                  'starting_jobs': False, 'stopping_jobs': True}
-    assert mocked_send.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.1:65000', ('10.0.0.1', 65000)), expected))]
 
 
 def test_proxy_start_process(supvisors, mocked_rpc, proxy):
@@ -480,9 +481,9 @@ def test_proxy_run_exception_local(mocker, supvisors, proxy_thread):
     assert proxy_thread.is_alive()
     assert not proxy_thread.event.is_set()
     # force local identifier
-    supvisors.mapper.local_identifier = proxy_thread.identifier
+    supvisors.mapper.local_identifier = proxy_thread.status.identifier
     # send a publication event that will raise an exception
-    message = '10.0.0.2', (PublicationHeaders.TICK.value, {'when': 1234})
+    message = '10.0.0.2:65000', (PublicationHeaders.TICK.value, {'when': 1234})
     proxy_thread.push_message((InternalEventHeaders.PUBLICATION, message))
     time.sleep(1.0)
     assert not proxy_thread.is_alive()
@@ -499,14 +500,14 @@ def test_proxy_run_exception_remote(mocker, supvisors, proxy_thread):
     assert proxy_thread.is_alive()
     assert not proxy_thread.event.is_set()
     # force local identifier
-    supvisors.mapper.local_identifier = '10.0.0.3'
+    supvisors.mapper.local_identifier = '10.0.0.3:65000'
     # send a publication event that will raise an exception
-    message = '10.0.0.2', (PublicationHeaders.TICK.value, {'when': 1234})
+    message = '10.0.0.2:65000', (PublicationHeaders.TICK.value, {'when': 1234})
     proxy_thread.push_message((InternalEventHeaders.PUBLICATION, message))
     time.sleep(1.0)
-    assert mocked_publish.call_args_list == [call('10.0.0.2', (0, {'when': 1234}))]
+    assert mocked_publish.call_args_list == [call('10.0.0.2:65000', (0, {'when': 1234}))]
     assert not proxy_thread.is_alive()
-    assert mocked_push.call_args_list == [call((('10.0.0.1', ('10.0.0.1', 65000)),
+    assert mocked_push.call_args_list == [call((('10.0.0.1:65000', ('10.0.0.1', 65000)),
                                                 (NotificationHeaders.INSTANCE_FAILURE.value, None)))]
 
 
@@ -558,65 +559,66 @@ def test_proxy_server_get_proxy(supvisors, mocked_rpc, proxy_server):
     """ Test the SupervisorProxyServer get_proxy method. """
     assert proxy_server.proxies == {}
     # get a proxy from a non-isolated instance (instance not stored)
-    supvisors.context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
-    proxy_1 = proxy_server.get_proxy('10.0.0.1')
+    supvisors.context.instances['10.0.0.1:65000']._state = SupvisorsInstanceStates.RUNNING
+    proxy_1 = proxy_server.get_proxy('10.0.0.1:65000')
     assert proxy_1 is not None
-    assert proxy_1.identifier == '10.0.0.1'
-    assert proxy_server.proxies == {'10.0.0.1': proxy_1}
+    assert proxy_1.status.identifier == '10.0.0.1:65000'
+    assert proxy_server.proxies == {'10.0.0.1:65000': proxy_1}
     # get a proxy from a non-isolated instance (instance not stored / double test)
-    supvisors.context.instances['10.0.0.2']._state = SupvisorsInstanceStates.SILENT
-    proxy_2 = proxy_server.get_proxy('10.0.0.2')
+    supvisors.context.instances['10.0.0.2:65000']._state = SupvisorsInstanceStates.SILENT
+    proxy_2 = proxy_server.get_proxy('10.0.0.2:65000')
     assert proxy_2 is not None
-    assert proxy_2.identifier == '10.0.0.2'
-    assert proxy_server.proxies == {'10.0.0.1': proxy_1, '10.0.0.2': proxy_2}
+    assert proxy_2.status.identifier == '10.0.0.2:65000'
+    assert proxy_server.proxies == {'10.0.0.1:65000': proxy_1, '10.0.0.2:65000': proxy_2}
     # get a proxy from an isolated instance (instance not stored)
-    supvisors.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
-    proxy_3 = proxy_server.get_proxy('10.0.0.3')
+    supvisors.context.instances['10.0.0.3:65000']._state = SupvisorsInstanceStates.ISOLATED
+    proxy_3 = proxy_server.get_proxy('10.0.0.3:65000')
     assert proxy_3 is None
-    assert proxy_server.proxies == {'10.0.0.1': proxy_1, '10.0.0.2': proxy_2}
+    assert proxy_server.proxies == {'10.0.0.1:65000': proxy_1, '10.0.0.2:65000': proxy_2}
     # get a proxy from a non-isolated instance (instance stored)
-    proxy_1bis = proxy_server.get_proxy('10.0.0.1')
+    proxy_1bis = proxy_server.get_proxy('10.0.0.1:65000')
     assert proxy_1bis is proxy_1
     # get a proxy from an isolated instance (instance stored)
-    supvisors.context.instances['10.0.0.1']._state = SupvisorsInstanceStates.ISOLATED
-    proxy_1ter = proxy_server.get_proxy('10.0.0.1')
+    supvisors.context.instances['10.0.0.1:65000']._state = SupvisorsInstanceStates.ISOLATED
+    proxy_1ter = proxy_server.get_proxy('10.0.0.1:65000')
     assert proxy_1ter is None
-    assert proxy_server.proxies == {'10.0.0.2': proxy_2}
+    assert proxy_server.proxies == {'10.0.0.2:65000': proxy_2}
     # get a proxy from a non-isolated instance (instance stored but thread closed)
     proxy_2.stop()
     proxy_2.join()
-    proxy_2bis = proxy_server.get_proxy('10.0.0.2')
+    proxy_2bis = proxy_server.get_proxy('10.0.0.2:65000')
     assert proxy_2bis is not proxy_2
-    assert proxy_server.proxies == {'10.0.0.2': proxy_2bis}
+    assert proxy_server.proxies == {'10.0.0.2:65000': proxy_2bis}
     # test stop
     proxy_server.stop()
-    assert proxy_server.proxies == {'10.0.0.2': proxy_2bis}
+    assert proxy_server.proxies == {'10.0.0.2:65000': proxy_2bis}
     assert not proxy_2bis.is_alive()
 
 
 def test_server_proxy_push_message(mocker, supvisors, mocked_rpc, proxy_server):
     """ Test the SupervisorProxy function to send a remote communication event to a Supervisor instance. """
     mocked_push = mocker.patch('supvisors.internal_com.supervisorproxy.SupervisorProxyThread.push_message')
+    test_identifier = f'{socket.getfqdn()}:55000'
     # get a proxy from a non-isolated instance (instance not stored)
     supvisors.context.local_status._state = SupvisorsInstanceStates.CHECKED
-    supvisors.context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
-    supvisors.context.instances['10.0.0.2']._state = SupvisorsInstanceStates.SILENT
-    supvisors.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
-    supvisors.context.instances['10.0.0.4']._state = SupvisorsInstanceStates.ISOLATED
-    supvisors.context.instances['10.0.0.5']._state = SupvisorsInstanceStates.CHECKING
-    supvisors.context.instances['test']._state = SupvisorsInstanceStates.UNKNOWN
+    supvisors.context.instances['10.0.0.1:65000']._state = SupvisorsInstanceStates.RUNNING
+    supvisors.context.instances['10.0.0.2:65000']._state = SupvisorsInstanceStates.SILENT
+    supvisors.context.instances['10.0.0.3:65000']._state = SupvisorsInstanceStates.ISOLATED
+    supvisors.context.instances['10.0.0.4:65000']._state = SupvisorsInstanceStates.ISOLATED
+    supvisors.context.instances['10.0.0.5:65000']._state = SupvisorsInstanceStates.CHECKING
+    supvisors.context.instances[test_identifier]._state = SupvisorsInstanceStates.UNKNOWN
     assert proxy_server.proxies == {}
     local_identifier = supvisors.mapper.local_identifier
     # test request to a non-isolated Supervisor
-    proxy_server.push_request('10.0.0.1', {'message': 'test request'})
+    proxy_server.push_request('10.0.0.1:65000', {'message': 'test request'})
     assert mocked_push.call_args_list == [call((InternalEventHeaders.REQUEST,
                                                 (local_identifier, {'message': 'test request'})))]
-    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1']
+    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1:65000']
     mocked_push.reset_mock()
     # test request to an isolated Supervisor
-    proxy_server.push_request('10.0.0.3', {'message': 'test failed request'})
+    proxy_server.push_request('10.0.0.3:65000', {'message': 'test failed request'})
     assert not mocked_push.called
-    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1']
+    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1:65000']
     # stop all and reset
     proxy_server.stop()
     proxy_server.proxies = {}
@@ -625,7 +627,7 @@ def test_server_proxy_push_message(mocker, supvisors, mocked_rpc, proxy_server):
     assert len(mocked_push.call_args_list) == 4
     for called in mocked_push.call_args_list:
         assert called == call((InternalEventHeaders.PUBLICATION, (local_identifier, {'message': 'test publish'})))
-    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1', '10.0.0.2', '10.0.0.5', 'test']
+    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1:65000', '10.0.0.2:65000', '10.0.0.5:65000', test_identifier]
     mocked_push.reset_mock()
     # stop all and reset
     proxy_server.stop()

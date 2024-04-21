@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
 #
@@ -47,7 +44,7 @@ def test_init(http_context, ctx):
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
     assert ctx.local_identifier == ctx.supvisors.mapper.local_identifier
-    assert ctx.parameters == {'ident': '10.0.0.4', 'namespec': None, 'period': 5,
+    assert ctx.parameters == {'ident': '10.0.0.4:65000', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
     # errors must be set due to dummy values
@@ -64,7 +61,7 @@ def test_get_action(ctx):
 
 def test_get_node_name(ctx):
     """ Test the ViewContext.get_identifier method. """
-    assert ctx.get_identifier() == '10.0.0.4'
+    assert ctx.get_identifier() == '10.0.0.4:65000'
 
 
 def test_get_message(ctx):
@@ -80,10 +77,10 @@ def test_get_gravity(ctx):
 def test_url_parameters(ctx):
     """ Test the ViewContext.url_parameters method. """
     # test default
-    assert ctx.url_parameters(False) == 'ident=10.0.0.4&period=5.0&strategy=CONFIG'
-    assert ctx.url_parameters(True) == 'ident=10.0.0.4&period=5.0&strategy=CONFIG'
+    assert ctx.url_parameters(False) == 'ident=10.0.0.4%3A65000&period=5.0&strategy=CONFIG'
+    assert ctx.url_parameters(True) == 'ident=10.0.0.4%3A65000&period=5.0&strategy=CONFIG'
     # update internal parameters
-    ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'ident': '10.0.0.1', 'cpuid': 3,
+    ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'ident': '10.0.0.1:65000', 'cpuid': 3,
                            'intfname': 'eth0', 'appliname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG',
                            'shex': '10101'})
     # test without additional parameters
@@ -93,8 +90,8 @@ def test_url_parameters(ctx):
     regexp = r'&'.join([url_attr_template for _ in range(9)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1', 'cpuid=3', 'intfname=eth0',
-                       'appliname=dummy_appli', 'period=8', 'strategy=CONFIG', 'shex=10101'))
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1%3A65000', 'cpuid=3',
+                       'intfname=eth0', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG', 'shex=10101'))
     assert sorted(matches.groups()) == expected
     # reset shex
     url = ctx.url_parameters(True)
@@ -102,26 +99,26 @@ def test_url_parameters(ctx):
     regexp = r'&'.join([url_attr_template for _ in range(8)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1', 'cpuid=3', 'intfname=eth0',
-                       'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1%3A65000', 'cpuid=3',
+                       'intfname=eth0', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # don't reset shex
-    url = ctx.url_parameters(False, **{'ident': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
+    url = ctx.url_parameters(False, **{'ident': '127.0.0.1:65000', 'intfname': 'lo', 'shex': 'args'})
     regexp = r'&'.join([url_attr_template for _ in range(9)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1', 'cpuid=3', 'intfname=lo',
-                       'shex=args', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1%3A65000', 'cpuid=3',
+                       'intfname=lo', 'shex=args', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # reset shex
-    url = ctx.url_parameters(True, **{'ident': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
+    url = ctx.url_parameters(True, **{'ident': '127.0.0.1:65000', 'intfname': 'lo', 'shex': 'args'})
     regexp = r'&'.join([url_attr_template for _ in range(8)])
     matches = re.match(regexp, url)
     assert matches is not None
-    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1', 'cpuid=3', 'intfname=lo',
-                       'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
+    expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1%3A65000', 'cpuid=3',
+                       'intfname=lo', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
     assert sorted(matches.groups()) == expected
 
 
@@ -293,11 +290,11 @@ def test_update_identifier(ctx):
     del ctx.parameters[IDENTIFIER]
     # test call with valid value
     ctx.update_identifier()
-    assert ctx.parameters[IDENTIFIER] == '10.0.0.4'
+    assert ctx.parameters[IDENTIFIER] == '10.0.0.4:65000'
     # reset parameter
     del ctx.parameters[IDENTIFIER]
     # test call with invalid value
-    ctx.http_context.form[IDENTIFIER] = '192.168.1.1'
+    ctx.http_context.form[IDENTIFIER] = '192.168.1.1:65000'
     ctx.update_identifier()
     assert ctx.parameters[IDENTIFIER] == ctx.local_identifier
 
@@ -416,19 +413,19 @@ def test_update_interface_name(mocker, ctx):
 def test_format_url(ctx):
     """ Test the ViewContext.format_url method. """
     # test without node and arguments
-    assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4&period=5.0&strategy=CONFIG'
+    assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4%3A65000&period=5.0&strategy=CONFIG'
     # test with local node and arguments
     local_instance = ctx.supvisors.mapper.local_instance
     base_address = f'http://{local_instance.host_id}:65000/index.html?'
     url = ctx.format_url(ctx.local_identifier, 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
-    expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&shex=args&strategy=CONFIG'
+    expected = 'appliname=dummy_appli&ident=10.0.0.4%3A65000&period=10&shex=args&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
-    url = ctx.format_url('10.0.0.1', 'index.html',
+    url = ctx.format_url('10.0.0.1:65000', 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     base_address = 'http://10.0.0.1:65000/index.html?'
-    expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&strategy=CONFIG'
+    expected = 'appliname=dummy_appli&ident=10.0.0.4%3A65000&period=10&strategy=CONFIG'
     assert url == base_address + expected
 
 
@@ -439,7 +436,7 @@ def test_fire_message(ctx):
     # result depends on dict contents so ordering is unreliable
     url = ctx.http_context.response['headers']['Location']
     base_address = 'http://10.0.0.1:7777/index.html?'
-    expected = 'gravity=warning&ident=10.0.0.4&message=not%20as%20expected&period=5.0&strategy=CONFIG'
+    expected = 'gravity=warning&ident=10.0.0.4%3A65000&message=not%20as%20expected&period=5.0&strategy=CONFIG'
     assert url == base_address + expected
 
 
@@ -453,10 +450,10 @@ def test_get_nb_cores(ctx):
     # test new call
     assert ctx.get_nb_cores() == 4
     # test with unknown address
-    assert ctx.get_nb_cores('10.0.0.1') == 0
+    assert ctx.get_nb_cores('10.0.0.1:65000') == 0
     # test with known address
-    stats.nb_cores['10.0.0.1'] = 8
-    assert ctx.get_nb_cores('10.0.0.1') == 8
+    stats.nb_cores['10.0.0.1:65000'] = 8
+    assert ctx.get_nb_cores('10.0.0.1:65000') == 8
 
 
 def test_get_node_stats(supvisors, ctx):
@@ -466,14 +463,14 @@ def test_get_node_stats(supvisors, ctx):
     assert instance_stats.identifier == supvisors.mapper.local_identifier
     assert instance_stats.period == 5.0
     # test with unknown identifier
-    assert ctx.get_instance_stats('10.0.0.0') is None
+    assert ctx.get_instance_stats('10.0.0.0:65000') is None
     # test with known address parameter and existing period
-    instance_stats = ctx.get_instance_stats('10.0.0.1')
-    assert instance_stats.identifier == '10.0.0.1'
+    instance_stats = ctx.get_instance_stats('10.0.0.1:65000')
+    assert instance_stats.identifier == '10.0.0.1:65000'
     assert instance_stats.period == 5.0
     # update with unknown period
     ctx.parameters[PERIOD] = 8
-    assert ctx.get_instance_stats('10.0.0.1') is None
+    assert ctx.get_instance_stats('10.0.0.1:65000') is None
 
 
 def test_get_process_stats(mocker, supvisors, ctx):

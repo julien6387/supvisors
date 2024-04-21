@@ -84,19 +84,15 @@ class ZmqEventPublisher(EventPublisherInterface):
         self.socket.send_string(EventHeaders.APPLICATION.value, zmq.SNDMORE)
         self.socket.send_json(status)
 
-    def send_process_event(self, identifier: str, event: Payload) -> None:
+    def send_process_event(self, event: Payload) -> None:
         """ Send a JSON-serialized process event through the socket.
 
-        :param identifier: the identifier used to identify the origin of the event.
         :param event: the event to publish.
         :return: None.
         """
-        # build the event before it is sent
-        evt = event.copy()
-        evt['identifier'] = identifier
-        self.logger.trace(f'ZmqEventPublisher.send_process_event: {evt}')
+        self.logger.trace(f'ZmqEventPublisher.send_process_event: {event}')
         self.socket.send_string(EventHeaders.PROCESS_EVENT.value, zmq.SNDMORE)
-        self.socket.send_json(evt)
+        self.socket.send_json(event)
 
     def send_process_status(self, status: Payload) -> None:
         """ This method sends a serialized form of the process status through the socket.

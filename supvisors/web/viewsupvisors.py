@@ -14,7 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict, List
+from typing import List
 
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.strategy import conciliate_conflicts
@@ -35,10 +35,6 @@ class SupvisorsView(ViewHandler):
         - in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
     """
 
-    # Annotation types
-    ProcessCallable = Callable[[str, str], Callable]
-    ProcessCallableMap = Dict[str, ProcessCallable]
-
     def __init__(self, context):
         """ Call of the superclass constructors. """
         ViewHandler.__init__(self, context)
@@ -47,12 +43,12 @@ class SupvisorsView(ViewHandler):
         self.strategies: List[str] = [x.name.lower() for x in ConciliationStrategies]
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
-        self.global_methods: SupvisorsView.ProcessCallableMap = {'sup_sync': self.sup_sync_action,
-                                                                 'sup_restart': self.sup_restart_action,
-                                                                 'sup_shutdown': self.sup_shutdown_action}
+        self.global_methods = {'sup_sync': self.sup_sync_action,
+                               'sup_restart': self.sup_restart_action,
+                               'sup_shutdown': self.sup_shutdown_action}
         # process actions
-        self.process_methods: SupvisorsView.ProcessCallableMap = {'pstop': self.stop_action,
-                                                                  'pkeep': self.keep_action}
+        self.process_methods = {'pstop': self.stop_action,
+                                'pkeep': self.keep_action}
 
     def write_navigation(self, root) -> None:
         """ Rendering of the navigation menu. """
@@ -138,10 +134,10 @@ class SupvisorsView(ViewHandler):
             update_attrib(elt, 'class', 'on')
         else:
             update_attrib(elt, 'class', 'off')
-        identifier = status.identifier
-        if identifier == self.sup_ctx.master_identifier:
-            identifier = f'{MASTER_SYMBOL} {identifier}'
-        elt.content(identifier)
+        nick_identifier = status.supvisors_id.nick_identifier
+        if status.identifier == self.sup_ctx.master_identifier:
+            nick_identifier = f'{MASTER_SYMBOL} {nick_identifier}'
+        elt.content(nick_identifier)
         # set Supvisors instance state
         elt = instance_div_elt.findmeld('state_th_mid')
         elt.attrib['class'] = status.state.name + ' state'

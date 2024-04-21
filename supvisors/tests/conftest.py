@@ -85,8 +85,9 @@ def supvisors(mocker, supervisor, dict_options):
 
 # Easy XHTML element creation
 def create_element(mid_map=None):
-    mock = Mock(attrib={'class': ''}, **{'findmeld.side_effect': lambda x: mid_map[x] if mid_map else None,
-                                         'repeat.return_value': None})
+    mock = Mock(attrib={'class': ''},
+                **{'findmeld.side_effect': lambda x: mid_map[x] if mid_map else None,
+                   'repeat.return_value': None})
 
     def reset_all():
         mock.attrib = {'class': ''}

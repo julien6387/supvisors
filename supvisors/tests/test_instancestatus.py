@@ -16,6 +16,7 @@
 
 import pickle
 import random
+import socket
 from unittest.mock import call, Mock
 
 import pytest
@@ -159,7 +160,8 @@ def supvisors_id(supvisors):
 @pytest.fixture
 def local_supvisors_id(supvisors):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId(f'<{supvisors.mapper.local_identifier}>10.0.0.1:65000', supvisors)
+    item = f'<supvisors>{socket.getfqdn()}:65000'
+    return SupvisorsInstanceId(item, supvisors)
 
 
 @pytest.fixture
@@ -189,11 +191,12 @@ def test_create_no_collector(supvisors, supvisors_id, status):
     assert status.supvisors is supvisors
     assert status.logger is supvisors.logger
     assert status.supvisors_id is supvisors_id
-    assert status.identifier == 'supvisors'
+    assert status.identifier == '10.0.0.1:65000'
+    assert status.usage_identifier == '<supvisors>10.0.0.1:65000'
     assert status.state == SupvisorsInstanceStates.UNKNOWN
     assert not status.isolated
     assert status.sequence_counter == 0
-    assert status.times.identifier == 'supvisors'
+    assert status.times.identifier == '10.0.0.1:65000'
     assert status.times.logger is supvisors.logger
     assert status.times.remote_sequence_counter == 0
     assert status.times.remote_mtime == 0.0
@@ -267,7 +270,8 @@ def test_serialization(mocker, status):
     status.times.update(28, 10.5, 50.2, 17)
     # test to_json method
     serialized = status.serial()
-    assert serialized == {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
+    assert serialized == {'identifier': '10.0.0.1:65000', 'nick_identifier': 'supvisors',
+                          'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
                           'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
                           'remote_sequence_counter': 28, 'remote_mtime': 10.5, 'remote_time': 50,
                           'local_sequence_counter': 17, 'local_mtime': 13.5, 'local_time': 19413,

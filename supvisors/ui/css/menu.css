@@ -20,7 +20,7 @@ nav ul {
 
 nav li {
     background-color: var(--navbg-color);
-    height: 30px;
+    height: 32px;
     margin-bottom: 2px;
     border: 1px #111 solid;
     border-radius: 6px 50% 50% 6px;
@@ -112,6 +112,10 @@ nav li.failure::after {
     content: url(../img/red_light_30.png);
     float: right;
     position: relative;
-    top: -29px;
+    top: -28px;
     right: -5px;
+}
+
+nav li.master.failure::after {
+    top: -32px;
 }

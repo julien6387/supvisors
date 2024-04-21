@@ -18,6 +18,12 @@
   The command is available through the new XML-RPCs `test_start_application` and `test_start_process` and have been
   added to `supervisorctl`.
 
+* The **Supvisors** `core_identifiers` option and the **Supvisors** rules can now accept indifferently Supervisor
+  identifiers or keys with the `host:http_port` format.
+
+* Update the `get_instance_info` XML-RPC so that the function accepts a stereotype as parameter.
+  As a consequence, it now returns a list of dictionaries.
+
 * Add a `lazy` attribute to the `update_numprocs` XML-RPC, so that when set combined to a numprocs decrease,
   **Supvisors** defers the obsolete processes deletion from the Supervisor configuration only when the processes stop
   (exit, crash or later user request) instead of stopping them immediately.
@@ -39,6 +45,8 @@
 * In the Supervisors navigation menu of the Web UI, add a red light to Supervisor instances having raised a failure.
 
 * Rework the navigation menu of the Web UI.
+
+* All internal identifiers are now based on the `host:http_port` format.
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 

@@ -562,20 +562,16 @@ class SupvisorsServerOptions(ServerOptions):
         else:
             self.logger.warn('SupvisorsServerOptions.read_disabilities: no persistence for program disabilities')
 
-    def write_disabilities(self, force: bool = True) -> None:
+    def write_disabilities(self) -> None:
         """ Write disabilities file from Supervisor processes.
-        If forced (default), the file will be written with the current status.
-        If not forced, the file will be written if it does not exist.
 
-        :param force: if True, overwrite the existing file.
-        :return: None
+        :return: None.
         """
         disabilities_file = self.supvisors_options.disabilities_file
         if disabilities_file:
-            if force or not os.path.isfile(disabilities_file):
-                # serialize to the file defined in options
-                with open(disabilities_file, 'w+') as out_file:
-                    out_file.write(json.dumps(self.disabilities))
+            # serialize to the file defined in options
+            with open(disabilities_file, 'w+') as out_file:
+                out_file.write(json.dumps(self.disabilities))
 
     def enable_program(self, program_name: str) -> None:
         """ Re-enable the processes to be started and trigger their autostart if configured to.
