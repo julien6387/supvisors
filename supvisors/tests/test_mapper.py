@@ -322,7 +322,7 @@ def test_find_local_identifier_ip_address(supvisors, mapper):
     sup_id.aliases = ['dummy']
     # find self
     mapper.find_local_identifier({'test'})
-    assert mapper.local_identifier == '192.168.1.70:65000'
+    assert mapper.local_identifier == f'{ip_addresses[0]}:65000'
     for identifier, supvisors_id in mapper.instances.items():
         assert identifier != fqdn or supvisors_id.stereotypes == ['test']
     # 2. move fqdn
@@ -330,7 +330,7 @@ def test_find_local_identifier_ip_address(supvisors, mapper):
     sup_id.aliases = [fqdn]
     # find self
     mapper.find_local_identifier({'test_2'})
-    assert mapper.local_identifier == '192.168.1.70:65000'
+    assert mapper.local_identifier == f'{ip_addresses[0]}:65000'
     for identifier, supvisors_id in mapper.instances.items():
         assert identifier != fqdn or supvisors_id.stereotypes == ['test_2']
 
