@@ -21,7 +21,7 @@ sendRequest sstate
 sendRequest master
 sendRequest strategies
 sendRequest instance_status
-sendRequest instance_status "$HOSTNAME"
+sendRequest instance_status rocky51:60000
 sendRequest application_info
 sendRequest application_info database
 sendRequest sstatus

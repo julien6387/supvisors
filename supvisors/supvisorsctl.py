@@ -98,7 +98,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sversion(self):
         """ Print the help of the sversion command. """
-        self.ctl.output('sversion\t\t\t\tGet the API version of Supvisors.')
+        self.ctl.output('sversion\t\t\tGet the API version of Supvisors.')
 
     def do_sstate(self, _):
         """ Command to get the Supvisors state. """
@@ -128,7 +128,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sstate(self):
         """ Print the help of the sstate command. """
-        self.ctl.output('sstate\t\t\t\t\tGet the Supvisors state.')
+        self.ctl.output('sstate\t\t\t\tGet the Supvisors state.')
 
     def do_master(self, _):
         """ Command to get the Master Supvisors instance. """
@@ -143,7 +143,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_master(self):
         """ Print the help of the master command. """
-        self.ctl.output('master\t\t\t\t\tGet the Master Supvisors instance.')
+        self.ctl.output('master\t\t\t\tGet the Master Supvisors instance.')
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
@@ -160,7 +160,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_strategies(self):
         """ Print the help of the strategies command."""
-        self.ctl.output('strategies\t\t\t\t\tGet the Supvisors strategies.')
+        self.ctl.output('strategies\t\t\tGet the Supvisors strategies.')
 
     def do_stats_status(self, _):
         """ Command to get the Supvisors statistics collection status. """
@@ -191,14 +191,15 @@ class ControllerPlugin(ControllerPluginBase):
             else:
                 # create template. identifier has variable length
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
-                max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
-                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s'
+                max_hosts = ControllerPlugin.max_template(info_list, 'node_name', 'Host')
+                max_masters = ControllerPlugin.max_template(info_list, 'master_identifier', 'Master')
+                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_hosts}s%(port)-7s'
                             '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
                             '%(proc_failure)-11s'
-                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_node_names}s'
+                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_masters}s'
                             '%(starting)-10s%(stopping)-10s')
                 # print title
-                payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port',
+                payload = {'identifier': 'Supervisor', 'node_name': 'Host', 'port': 'Port',
                            'state': 'State', 'discovery': 'Discovery',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
                            'proc_failure': 'Processes',
@@ -228,8 +229,8 @@ class ControllerPlugin(ControllerPluginBase):
     def help_instance_status(self):
         """ Print the help of the instance_status command."""
         self.ctl.output('instance_status <identifier>\t\t\tGet the status of the Supvisors instance.')
-        self.ctl.output('instance_status <identifier> <identifier>\t\tGet the status for multiple Supvisors instances')
-        self.ctl.output('instance_status\t\t\t\tGet the status of all remote Supvisors instances.')
+        self.ctl.output('instance_status <identifier> <identifier>\tGet the status for multiple Supvisors instances')
+        self.ctl.output('instance_status\t\t\t\t\tGet the status of all Supvisors instances.')
 
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):
@@ -1105,7 +1106,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_update_numprocs(self):
         """ Print the help of the update_numprocs command. """
-        self.ctl.output('update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs.')
+        self.ctl.output('update_numprocs program_name numprocs\t\tUpdate the program numprocs.')
 
     def do_lazy_update_numprocs(self, arg):
         """ Command to dynamically update the numprocs of the program.
@@ -1213,7 +1214,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
-        self.ctl.output('conciliate <strategy>\t\t\t\t\tConciliate process conflicts using strategy')
+        self.ctl.output('conciliate <strategy>\t\t\t\tConciliate process conflicts using strategy')
 
     def do_restart_sequence(self, _):
         """ Command to trigger the whole start sequence of Supvisors. """

@@ -48,8 +48,6 @@ def startProcess(self, name: str, wait: bool = True):
     return self._startProcess(name, wait)
 
 
-# FIXME: global check on identifier => mapper.filter
-
 class RPCInterface:
     """ This class holds the XML-RPC extension provided by **Supvisors**. """
 

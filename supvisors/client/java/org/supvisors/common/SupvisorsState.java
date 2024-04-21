@@ -37,7 +37,7 @@ public enum SupvisorsState {
     private int stateCode;
 
     /** The constructor links the state code to the state name. */
-    private State(final int stateCode) {
+    private SupvisorsState(final int stateCode) {
         this.stateCode = stateCode;
     }
 }

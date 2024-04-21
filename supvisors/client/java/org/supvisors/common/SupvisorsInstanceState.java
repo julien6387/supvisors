@@ -32,7 +32,7 @@ public enum SupvisorsInstanceState {
     CHECKED(2),
     RUNNING(3),
     SILENT(4),
-    ISOLATED(5;
+    ISOLATED(5);
 
     /** The state code. */
     private final int state;

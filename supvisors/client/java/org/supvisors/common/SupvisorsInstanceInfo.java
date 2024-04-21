@@ -32,6 +32,9 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /** The identifier of the Supvisors instance. */
     private String identifier;
 
+    /** The identifier of the Supervisor instance. */
+    private String nick_identifier;
+
     /** The name of the node where the Supvisors instance is running. */
     private String node_name;
 
@@ -40,9 +43,6 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
 
     /** The instance state. */
     private SupvisorsInstanceState statename;
-
-    /** The instance discovery mode. */
-    private Boolean discovery_mode;
 
     /** The remote TICK counter. */
     private Integer remote_sequence_counter;
@@ -90,10 +90,10 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     public SupvisorsInstanceInfo(HashMap instanceInfo)  {
         this.identifier = (String) instanceInfo.get("identifier");
+        this.nick_identifier = (String) instanceInfo.get("nick_identifier");
         this.node_name = (String) instanceInfo.get("node_name");
         this.port = (Integer) instanceInfo.get("port");
         this.statename = SupvisorsInstanceState.valueOf((String) instanceInfo.get("statename"));
-        this.discovery_mode = (Boolean) instanceInfo.get("discovery_mode");
         this.remote_sequence_counter = (Integer) instanceInfo.get("remote_sequence_counter");
         this.remote_mtime = (Double) instanceInfo.get("remote_mtime");
         this.remote_time = (Integer) instanceInfo.get("remote_time");
@@ -102,10 +102,10 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.local_time = (Integer) instanceInfo.get("local_time");
         this.loading = (Integer) instanceInfo.get("loading");
         this.process_failure = (Boolean) instanceInfo.get("process_failure");
-        this.fsm_statename = SupvisorsState.valueOf((String) stateInfo.get("fsm_statename"));
-        this.discovery_mode = (Boolean) stateInfo.get("discovery_mode");
-        this.starting_jobs = (Boolean) stateInfo.get("starting_jobs");
-        this.stopping_jobs = (Boolean) stateInfo.get("stopping_jobs");
+        this.fsm_statename = SupvisorsState.valueOf((String) instanceInfo.get("fsm_statename"));
+        this.discovery_mode = (Boolean) instanceInfo.get("discovery_mode");
+        this.starting_jobs = (Boolean) instanceInfo.get("starting_jobs");
+        this.stopping_jobs = (Boolean) instanceInfo.get("stopping_jobs");
     }
 
     /**
@@ -124,6 +124,15 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     public String getIdentifier() {
         return this.identifier;
+    }
+
+    /**
+     * The getNickIdentifier method returns the identifier of the Supervisor instance.
+     *
+     * @return String: The identifier of the Supervisor instance.
+     */
+    public String getNickIdentifier() {
+        return this.nick_identifier;
     }
 
     /**
@@ -151,15 +160,6 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     public SupvisorsInstanceState getState() {
         return this.statename;
-    }
-
-    /**
-     * The inDiscoveryMode method returns True if the Supvisors instance is in discovery mode.
-     *
-     * @return Boolean: The discovery mode status.
-     */
-    public Boolean inDiscoveryMode() {
-        return this.discovery_mode;
     }
 
     /**
@@ -284,10 +284,10 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     public String toString() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsInstanceInfo(identifier=" + this.identifier
+            + " nickIdentifier=" + this.nick_identifier
             + " nodeName=" + this.node_name
             + " port=" + this.port
             + " state=" + this.statename
-            + " discoveryMode=" + this.discovery_mode
             + " remoteSequenceCounter=" + this.remote_sequence_counter
             + " remoteMonotonicTime=" + this.remote_mtime
             + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
