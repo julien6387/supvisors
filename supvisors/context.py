@@ -484,7 +484,7 @@ class Context:
                     self.master_identifier = remote_master
                 elif remote_master != self.master_identifier:
                     # ALERT: 2 different perceptions of the master, likely due to a split-brain situation.
-                    self.logger.warn('Context.on_instance_state_event: Master instance conflict. '
+                    self.logger.warn('Context.on_instance_state_event: Master conflict. '
                                      f' Local declares Master={self.master_identifier}'
                                      f' - Supvisors={status.usage_identifier} declares Master={remote_master}')
                     # WARN: resetting the Master at local level isn't enough because there may be multiple Supvisors

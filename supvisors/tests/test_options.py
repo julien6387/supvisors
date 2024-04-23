@@ -28,7 +28,7 @@ from .configurations import *
 
 @pytest.fixture
 def config():
-    return {'user_name': 'Supvisors tests',
+    return {'software_name': 'Supvisors tests',
             'supvisors_list': 'cliche01,cliche03,cliche02', 'stereotypes': 'test',
             'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
@@ -83,7 +83,7 @@ def test_filled_logger_configuration(config):
 
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
-    assert opt.user_name == ''
+    assert opt.software_name == ''
     assert opt.supvisors_list is None
     assert opt.multicast_group is None
     assert opt.multicast_interface is None
@@ -110,7 +110,7 @@ def test_options_creation(opt):
 
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
-    assert filled_opt.user_name == 'Supvisors tests'
+    assert filled_opt.software_name == 'Supvisors tests'
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
     assert filled_opt.multicast_group == ('239.0.0.1', 7777)
     assert filled_opt.multicast_interface == '192.168.1.1'
@@ -137,7 +137,7 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == ('user_name="" supvisors_list=None stereotypes=set()'
+    assert str(opt) == ('software_name="" supvisors_list=None stereotypes=set()'
                         ' multicast_group=None multicast_interface=None multicast_ttl=1'
                         ' rules_files=None'
                         ' event_link=NONE event_port=0'
@@ -154,7 +154,7 @@ def test_filled_str(filled_opt):
     variable_core_1 = "{'cliche01', 'cliche03'}"
     variable_core_2 = "{'cliche03', 'cliche01'}"
     result = str(filled_opt)
-    assert any(result == ('user_name="Supvisors tests"'
+    assert any(result == ('software_name="Supvisors tests"'
                           " supvisors_list=['cliche01', 'cliche03', 'cliche02']"
                           " stereotypes={'test'}"
                           ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'

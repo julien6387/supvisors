@@ -52,7 +52,7 @@ def to_simple_url(host: str, page: str, **actions):
 # fixture for common global structures
 @pytest.fixture
 def dict_options():
-    return {'user_name': 'Supvisors tests',
+    return {'software_name': 'Supvisors tests',
             'event_link': 'none',
             'event_port': '65200',
             'synchro_timeout': '20',
