@@ -538,7 +538,8 @@ class ViewHandler(MeldView):
                 elt.content(namespec)
                 elt = stats_elt.findmeld('instance_fig_mid')
                 if elt is not None:
-                    elt.content(info['identifier'])
+                    nick_identifier = self.supvisors.mapper.get_nick_identifier(info['identifier'])
+                    elt.content(nick_identifier)
                 # write CPU / Memory plots
                 if not self.write_process_plots(proc_stats, info['nb_cores']):
                     # matplolib not installed: remove figure elements
