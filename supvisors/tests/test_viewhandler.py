@@ -1029,7 +1029,7 @@ def test_write_process_statistics(mocker, handler):
     assert not mocked_plots.called
     root_elt.reset_all()
     # test call with namespec selection and no stats found
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1:65000', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert not stats_elt.replace.called
