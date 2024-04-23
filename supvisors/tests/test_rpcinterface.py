@@ -209,9 +209,53 @@ def test_all_local_process_info(mocker, rpc):
     assert mocked_get.call_args_list == [call({'group': 'dummy_group', 'name': 'dummy_name'})]
 
 
-def test_application_rules(mocker, rpc):
+def test_inner_process_info(supvisors, rpc):
+    """ Test the get_inner_process_info and get_all_inner_process_info RPCs. """
+    # prepare context
+    proc_1 = Mock(info_map={'10.0.0.1:65000': {'name': 'proc_1', 'state': 'RUNNING'},
+                            '10.0.0.2:65000': {'name': 'proc_1', 'state': 'STOPPED'}})
+    proc_2 = Mock(info_map={'10.0.0.2:65000': {'name': 'proc_2', 'state': 'STARTING'}})
+    supvisors.context.instances['10.0.0.1:65000'].processes = {'proc_1': proc_1}
+    supvisors.context.instances['10.0.0.2:65000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
+    application = create_application('group', supvisors)
+    application.processes = {'proc_1': proc_1, 'proc_2': proc_2}
+    supvisors.context.applications['group'] = application
+    # test unknown identifier
+    with pytest.raises(RPCError) as exc:
+        rpc.get_inner_process_info('10.0.0.0', 'group:proc_1')
+    assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
+    # test known identifier but without handshake
+    with pytest.raises(RPCError) as exc:
+        rpc.get_inner_process_info('10.0.0.3', 'group:proc_1')
+    assert exc.value.args == (Faults.FAILED, 'group:proc_1 unknown on 10.0.0.3')
+    # test unknown application
+    with pytest.raises(RPCError) as exc:
+        rpc.get_inner_process_info('10.0.0.1', 'dummy_group:proc_1')
+    assert exc.value.args == (Faults.BAD_NAME, 'application=dummy_group unknown to Supvisors')
+    # test unknown namespec
+    with pytest.raises(RPCError) as exc:
+        rpc.get_inner_process_info('10.0.0.1', 'group:proc')
+    assert exc.value.args == (Faults.BAD_NAME, 'process=proc unknown in application=group')
+    # test RPC call with nick identifier and process namespec
+    assert rpc.get_inner_process_info('10.0.0.1', 'group:proc_1') == [{'name': 'proc_1', 'state': 'RUNNING'}]
+    assert rpc.get_inner_process_info('10.0.0.2', 'group:proc_1') == [{'name': 'proc_1', 'state': 'STOPPED'}]
+    assert rpc.get_inner_process_info('10.0.0.2', 'group:proc_2') == [{'name': 'proc_2', 'state': 'STARTING'}]
+    with pytest.raises(RPCError) as exc:
+        rpc.get_inner_process_info('10.0.0.1', 'group:proc_2')
+    assert exc.value.args == (Faults.FAILED, 'group:proc_2 unknown on 10.0.0.1')
+    # test RPC call with nick identifier and homogeneous group namespec
+    assert rpc.get_inner_process_info('10.0.0.1', 'group:*') == [{'name': 'proc_1', 'state': 'RUNNING'}]
+    assert rpc.get_inner_process_info('10.0.0.2', 'group:*') == [{'name': 'proc_1', 'state': 'STOPPED'},
+                                                                 {'name': 'proc_2', 'state': 'STARTING'}]
+    # test RPC call with nick identifier for all processes
+    assert rpc.get_all_inner_process_info('10.0.0.1') == [{'name': 'proc_1', 'state': 'RUNNING'}]
+    assert rpc.get_all_inner_process_info('10.0.0.2') == [{'name': 'proc_1', 'state': 'STOPPED'},
+                                                          {'name': 'proc_2', 'state': 'STARTING'}]
+
+
+def test_application_rules(mocker, supvisors, rpc):
     """ Test the get_application_rules RPC. """
-    application = create_application('TestApplication', rpc.supvisors)
+    application = create_application('TestApplication', supvisors)
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
     # test RPC call with application name and unmanaged application

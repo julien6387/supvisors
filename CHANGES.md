@@ -37,6 +37,9 @@
   The corresponding commands `stats_status`, `enable_stats` and `stats_period` have been added to `supervisorctl`.
   The JAVA client includes the new XML-RPCs.
 
+* Add new `get_all_inner_process_info` and `get_inner_process_info` XML-RPCs to support debug investigation.
+  They return internal information on the processes declared on a **Supvisors** instance.
+
 * Move the host statistics collector to the statistics collector process. 
   The option `stats_collecting_period` is now applicable to host statistics collector.
 

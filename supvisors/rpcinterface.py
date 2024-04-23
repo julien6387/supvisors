@@ -254,6 +254,59 @@ class RPCInterface:
         info = supervisor_intf.getProcessInfo(namespec)
         return self._get_local_info(info)
 
+    def get_all_inner_process_info(self, identifier: str) -> PayloadList:
+        """ Get Supvisors internal information related to the processes declared on the Supvisors instance.
+        Mainly used for debug purpose.
+
+        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
+        :return: a list of structures containing information about the processes.
+        :rtype: list[dict[str, Any]]
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
+        :raises RPCError: with code ``Faults.FAILED`` if no handshake has been done with ``identifier``.
+        """
+        identifiers = self.supvisors.mapper.filter([identifier])
+        if not identifiers:
+            self._raise(Faults.BAD_NAME, 'get_inner_process_info',
+                        f'identifier={identifier} is unknown to Supvisors')
+        try:
+            return [proc.info_map[ident]
+                    for ident in identifiers
+                    for proc in self.supvisors.context.instances[ident].processes.values()
+                    if ident in proc.info_map]
+        except KeyError:
+            self._raise(Faults.FAILED, 'get_all_inner_process_info', f'no handshake performed with {identifier}')
+
+    def get_inner_process_info(self, identifier: str, namespec: str) -> PayloadList:
+        """ Get Supvisors internal information related to the processes corresponding to namespec and declared
+        on the Supvisors instance.
+        Mainly used for debug purpose.
+
+        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
+        :param str namespec: the process namespec (``name``, ``group:name``).
+        :return: a structure containing information about the process.
+        :rtype: list[dict[str, Any]]
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
+        :raises RPCError: with code ``Faults.FAILED`` if no handshake has been done with ``identifier``.
+        """
+        identifiers = self.supvisors.mapper.filter([identifier])
+        if not identifiers:
+            self._raise(Faults.BAD_NAME, 'get_inner_process_info',
+                        f'identifier={identifier} is unknown to Supvisors')
+        application, process = self._get_application_process(namespec)
+        try:
+            # namespec is a single process
+            if process:
+                return [process.info_map[ident]
+                        for ident in identifiers]
+            # namespec is a homogeneous group
+            return [proc.info_map[ident]
+                    for ident in identifiers
+                    for proc in application.processes.values()
+                    if ident in proc.info_map]
+        except KeyError:
+            self._raise(Faults.FAILED, 'get_inner_process_info', f'{namespec} unknown on {identifier}')
+
     def get_process_rules(self, namespec: str) -> PayloadList:
         """ Get the rules used to start / stop the process named ``namespec``.
 
