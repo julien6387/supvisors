@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+
 import socket
 from unittest.mock import call
 
@@ -51,6 +52,9 @@ def test_sup_id_create_no_match(supvisors):
         assert sup_id.stereotypes == []
         with pytest.raises(TypeError):
             str(sup_id)
+        assert sup_id.serial() == {'host_id': None, 'host_name': None, 'http_port': 65000,
+                                   'identifier': None, 'ip_addresses': None,
+                                   'nick_identifier': None, 'stereotypes': []}
 
 
 def test_sup_id_create_simple_no_default(supvisors):
@@ -70,6 +74,9 @@ def test_sup_id_create_simple_no_default(supvisors):
     assert sup_id.stereotypes == []
     with pytest.raises(TypeError):
         str(sup_id)
+    assert sup_id.serial() == {'host_id': None, 'host_name': None, 'http_port': 65000,
+                               'identifier': None, 'ip_addresses': None,
+                               'nick_identifier': None, 'stereotypes': []}
 
 
 def test_sup_id_create_host(supvisors):
@@ -87,6 +94,9 @@ def test_sup_id_create_host(supvisors):
     assert sup_id.ip_address == '10.0.0.1'
     assert sup_id.stereotypes == []
     assert str(sup_id) == '<10.0.0.1>10.0.0.1:65000'
+    assert sup_id.serial() == {'host_id': '10.0.0.1', 'host_name': '10.0.0.1', 'http_port': 65000,
+                               'identifier': '10.0.0.1:65000', 'ip_addresses': ['10.0.0.1'],
+                               'nick_identifier': '10.0.0.1', 'stereotypes': []}
 
 
 def test_sup_id_create_host_port(supvisors):
@@ -104,6 +114,9 @@ def test_sup_id_create_host_port(supvisors):
     assert sup_id.ip_address == '10.0.0.1'
     assert sup_id.stereotypes == []
     assert str(sup_id) == '10.0.0.1:7777'
+    assert sup_id.serial() == {'host_id': '10.0.0.1', 'host_name': '10.0.0.1', 'http_port': 7777,
+                               'identifier': '10.0.0.1:7777', 'ip_addresses': ['10.0.0.1'],
+                               'nick_identifier': '10.0.0.1:7777', 'stereotypes': []}
     # test with host+ports match (internal port defined)
     supvisors.options.event_port = 0
     sup_id = SupvisorsInstanceId('10.0.0.1:7777', supvisors)
@@ -118,6 +131,9 @@ def test_sup_id_create_host_port(supvisors):
     assert sup_id.ip_address == '10.0.0.1'
     assert sup_id.stereotypes == []
     assert str(sup_id) == '10.0.0.1:7777'
+    assert sup_id.serial() == {'host_id': '10.0.0.1', 'host_name': '10.0.0.1', 'http_port': 7777,
+                               'identifier': '10.0.0.1:7777', 'ip_addresses': ['10.0.0.1'],
+                               'nick_identifier': '10.0.0.1:7777', 'stereotypes': []}
 
 
 def test_sup_id_create_identifier(supvisors):
@@ -135,6 +151,9 @@ def test_sup_id_create_identifier(supvisors):
     assert sup_id.ip_address == 'cliche81'
     assert sup_id.stereotypes == []
     assert str(sup_id) == '<supvisors>cliche81:65000'
+    assert sup_id.serial() == {'host_id': 'cliche81', 'host_name': 'cliche81', 'http_port': 65000,
+                               'identifier': 'cliche81:65000', 'ip_addresses': ['cliche81'],
+                               'nick_identifier': 'supvisors', 'stereotypes': []}
     # test with identifier, host name and http port set
     sup_id = SupvisorsInstanceId('<supvisors>cliche81:8888', supvisors)
     assert sup_id.identifier == 'cliche81:8888'
@@ -148,6 +167,9 @@ def test_sup_id_create_identifier(supvisors):
     assert sup_id.ip_address == 'cliche81'
     assert sup_id.stereotypes == []
     assert str(sup_id) == '<supvisors>cliche81:8888'
+    assert sup_id.serial() == {'host_id': 'cliche81', 'host_name': 'cliche81', 'http_port': 8888,
+                               'identifier': 'cliche81:8888', 'ip_addresses': ['cliche81'],
+                               'nick_identifier': 'supvisors', 'stereotypes': []}
 
 
 def test_sup_id_host_matches(supvisors):
@@ -425,6 +447,11 @@ def test_assign_stereotypes(supvisors, mapper):
     assert sorted(mapper.instances['10.0.0.2:65000'].stereotypes) == sorted(['test', 'other test'])
     assert mapper.instances['10.0.0.3:65000'].stereotypes == ['test']
     assert mapper.instances['10.0.0.4:65000'].stereotypes == ['other test']
+    # test serial with stereotypes
+    assert mapper.instances['10.0.0.1:65000'].serial()['stereotypes'] == ['test']
+    assert sorted(mapper.instances['10.0.0.2:65000'].serial()['stereotypes']) == ['other test', 'test']
+    assert mapper.instances['10.0.0.3:65000'].serial()['stereotypes'] == ['test']
+    assert mapper.instances['10.0.0.4:65000'].serial()['stereotypes'] == ['other test']
 
 
 def test_filter(supvisors, mapper):

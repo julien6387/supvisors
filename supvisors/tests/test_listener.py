@@ -168,8 +168,12 @@ def test_on_tick(mocker, supvisors, discovery_listener):
     # test tick event
     event = Tick60Event(120, None)
     discovery_listener.on_tick(event)
-    expected_tick = {'ip_address': discovery_listener.local_instance.host_name,
-                     'server_port': discovery_listener.local_instance.http_port,
+    expected_tick = {'identifier': discovery_listener.local_identifier,
+                     'nick_identifier': discovery_listener.local_instance.nick_identifier,
+                     'host_id': discovery_listener.local_instance.host_id,
+                     'host_name': discovery_listener.local_instance.host_name,
+                     'ip_addresses': discovery_listener.local_instance.ip_addresses,
+                     'http_port': discovery_listener.local_instance.http_port,
                      'when': 120, 'when_monotonic': 34.56,
                      'sequence_counter': 0, 'stereotypes': ['supvisors_test']}
     assert mocked_tick.call_args_list == [call(expected_tick)]
@@ -411,7 +415,7 @@ def test_read_notification_wrong_type(supvisors, listener):
 
 def test_read_notification_invalid_origin(supvisors, listener):
     """ Test the processing of a notification coming from an invalid source. """
-    listener.read_notification('[["10.0.0.2", ["localhost", 65100]], [2, {"name": "dummy"}]]')
+    listener.read_notification('[["10.0.0.2", "10.0.0.2", ["localhost", 65100]], [2, {"name": "dummy"}]]')
     assert not supvisors.fsm.on_discovery_event.called
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
@@ -421,8 +425,8 @@ def test_read_notification_invalid_origin(supvisors, listener):
 
 def test_read_notification_discovery(supvisors, listener):
     """ Test the processing of a Supvisors discovery notification. """
-    listener.read_notification('[["10.0.0.4", ["10.0.0.4", 65100]], [3, {"server_port": 6666}]]')
-    expected = [call('10.0.0.4', {'server_port': 6666})]
+    listener.read_notification('[["10.0.0.4:65100", "10.0.0.4", ["10.0.0.4", 65100]], [3, {"server_port": 6666}]]')
+    expected = [call(['10.0.0.4:65100', '10.0.0.4', ['10.0.0.4', 65100]])]
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
     assert not supvisors.fsm.on_all_process_info.called
@@ -432,7 +436,7 @@ def test_read_notification_discovery(supvisors, listener):
 
 def test_read_notification_authorization(supvisors, listener):
     """ Test the processing of a Supvisors AUTHORIZATION notification. """
-    listener.read_notification('[["10.0.0.5:65000", ["10.0.0.5", 65000]], [0, false]]')
+    listener.read_notification('[["10.0.0.5:65000", "10.0.0.5", ["10.0.0.5", 65000]], [0, false]]')
     expected = [call(supvisors.context.instances['10.0.0.5:65000'], False)]
     assert supvisors.fsm.on_authorization.call_args_list == expected
     assert not supvisors.fsm.on_state_event.called
@@ -443,7 +447,7 @@ def test_read_notification_authorization(supvisors, listener):
 
 def test_read_notification_state(supvisors, listener):
     """ Test the processing of a Supvisors state notification. """
-    listener.read_notification('[["10.0.0.1:65000", ["10.0.0.1", 65000]],'
+    listener.read_notification('[["10.0.0.1:65000", "10.0.0.1", ["10.0.0.1", 65000]],'
                                '[1, {"statecode": 10, "statename": "RUNNING"}]]')
     expected = [call(supvisors.context.instances['10.0.0.1:65000'], {'statecode': 10, 'statename': 'RUNNING'})]
     assert not supvisors.fsm.on_authorization.called
@@ -455,7 +459,7 @@ def test_read_notification_state(supvisors, listener):
 
 def test_read_notification_all_info(supvisors, listener):
     """ Test the processing of a Supvisors all process information notification. """
-    listener.read_notification('[["10.0.0.4:65000", ["10.0.0.4", 65000]], [2, {"name": "dummy"}]]')
+    listener.read_notification('[["10.0.0.4:65000", "10.0.0.4", ["10.0.0.4", 65000]], [2, {"name": "dummy"}]]')
     expected = [call(supvisors.context.instances['10.0.0.4:65000'], {'name': 'dummy'})]
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
@@ -466,7 +470,7 @@ def test_read_notification_all_info(supvisors, listener):
 
 def test_read_notification_instance_failure(supvisors, listener):
     """ Test the processing of a Supvisors instance failure notification. """
-    listener.read_notification('[["10.0.0.4:65000", ["10.0.0.4", 65000]], [4, null]]')
+    listener.read_notification('[["10.0.0.4:65000", "10.0.0.4", ["10.0.0.4", 65000]], [4, null]]')
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
     assert not supvisors.fsm.on_all_process_info.called
@@ -479,7 +483,7 @@ def test_read_publication_wrong_type(mocker, supvisors, listener):
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
     with pytest.raises(ValueError):
-        listener.read_publication('[["10.0.0.1", ["10.0.0.1", 65000]], [10, {"name": "dummy"}]]')
+        listener.read_publication('[["10.0.0.1:65000", "10.0.0.1", ["10.0.0.1", 65000]], [10, {"name": "dummy"}]]')
     assert not supvisors.fsm.on_tick_event.called
     assert not supvisors.fsm.on_process_state_event.called
     assert not supvisors.fsm.on_process_added_event.called
@@ -494,7 +498,7 @@ def test_read_publication_invalid_origin(mocker, supvisors, listener):
     """ Test the processing of a publication coming from an invalid source. """
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
-    listener.read_publication('[["10.0.0.2", ["localhost", 65100]], [2, {"name": "dummy"}]]')
+    listener.read_publication('[["10.0.0.1", "10.0.0.2", ["localhost", 65100]], [2, {"name": "dummy"}]]')
     assert not supvisors.fsm.on_tick_event.called
     assert not supvisors.fsm.on_process_state_event.called
     assert not supvisors.fsm.on_process_added_event.called
@@ -509,7 +513,7 @@ def test_read_publication_tick(mocker, supvisors, listener):
     """ Test the processing of a Supvisors TICK publication. """
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
-    listener.read_publication('[["10.0.0.1:65000", ["10.0.0.1", 65000]], [0, "data"]]')
+    listener.read_publication('[["10.0.0.1:65000", "10.0.0.1", ["10.0.0.1", 65000]], [0, "data"]]')
     expected = [call(supvisors.context.instances['10.0.0.1:65000'], 'data')]
     assert supvisors.fsm.on_tick_event.call_args_list == expected
     assert not supvisors.fsm.on_process_state_event.called
@@ -525,7 +529,7 @@ def test_read_publication_process_state(mocker, supvisors, listener):
     """ Test the processing of a Supvisors process state publication. """
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
-    listener.read_publication('[["10.0.0.2:65000", ["10.0.0.2", 65000]], [1, {"name": "dummy"}]]')
+    listener.read_publication('[["10.0.0.2:65000", "10.0.0.2", ["10.0.0.2", 65000]], [1, {"name": "dummy"}]]')
     expected = [call(supvisors.context.instances['10.0.0.2:65000'], {'name': 'dummy'})]
     assert not supvisors.fsm.on_tick_event.called
     assert supvisors.fsm.on_process_state_event.call_args_list == expected
@@ -541,7 +545,7 @@ def test_read_publication_process_added(mocker, supvisors, listener):
     """ Test the processing of a Supvisors process added publication. """
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
-    listener.read_publication('[["10.0.0.1:65000", ["10.0.0.1", 65000]],'
+    listener.read_publication('[["10.0.0.1:65000", "10.0.0.1", ["10.0.0.1", 65000]],'
                               '[2, {"group": "dummy_group", "name": "dummy_process"}]]')
     expected = [call(supvisors.context.instances['10.0.0.1:65000'],
                      {'group': 'dummy_group', 'name': 'dummy_process'})]
@@ -559,7 +563,7 @@ def test_read_publication_process_removed(mocker, supvisors, listener):
     """ Test the processing of a Supvisors process removed publication. """
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
-    listener.read_publication('[["10.0.0.1:65000", ["10.0.0.1", 65000]],'
+    listener.read_publication('[["10.0.0.1:65000", "10.0.0.1", ["10.0.0.1", 65000]],'
                               '[3, {"group": "dummy_group", "name": "dummy_process"}]]')
     expected = [call(supvisors.context.instances['10.0.0.1:65000'],
                      {'group': 'dummy_group', 'name': 'dummy_process'})]
@@ -577,7 +581,7 @@ def test_read_publication_process_disability(mocker, supvisors, listener):
     """ Test the processing of a Supvisors process enabled publication. """
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
-    listener.read_publication('[["10.0.0.1:65000", ["10.0.0.1", 65000]],'
+    listener.read_publication('[["10.0.0.1:65000", "10.0.0.1", ["10.0.0.1", 65000]],'
                               '[4, {"group": "dummy_group", "name": "dummy_process"}]]')
     expected = [call(supvisors.context.instances['10.0.0.1:65000'],
                      {'group': 'dummy_group', 'name': 'dummy_process'})]
@@ -596,7 +600,7 @@ def test_read_publication_host_statistics(mocker, supvisors, listener):
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics', return_value=[])
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics', return_value=None)
     # message definition
-    message = '[["10.0.0.3:65000", ["10.0.0.3", 65000]],[5, [0, [[20, 30]], {"lo": [100, 200]}]]]'
+    message = '[["10.0.0.3:65000", "10.0.0.3", ["10.0.0.3", 65000]],[5, [0, [[20, 30]], {"lo": [100, 200]}]]]'
     # 1. external_publisher is None
     listener.read_publication(message)
     assert not supvisors.fsm.on_tick_event.called
@@ -630,7 +634,7 @@ def test_read_publication_process_statistics(mocker, supvisors, listener):
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics', return_value=None)
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
     # 1. external_publisher is None
-    listener.read_publication('[["10.0.0.3:65000", ["10.0.0.3", 65000]],'
+    listener.read_publication('[["10.0.0.3:65000", "10.0.0.3", ["10.0.0.3", 65000]],'
                               '[6, [{"cpu": [100, 200]}, {"cpu": [50, 20]}]]]')
     assert not supvisors.fsm.on_tick_event.called
     assert not supvisors.fsm.on_process_state_event.called
@@ -643,7 +647,7 @@ def test_read_publication_process_statistics(mocker, supvisors, listener):
     mocked_proc.reset_mock()
     # 2. set external_publisher but still no returned value for push_statistics
     listener.supvisors.external_publisher = Mock(**{'send_process_statistics.return_value': None})
-    listener.read_publication('[["10.0.0.3:65000", ["10.0.0.3", 65000]],'
+    listener.read_publication('[["10.0.0.3:65000", "10.0.0.3", ["10.0.0.3", 65000]],'
                               '[6, [{"cpu": [100, 200]}, {"cpu": [50, 20]}]]]')
     assert not mocked_host.called
     assert mocked_proc.call_args_list == [call('10.0.0.3:65000', [{'cpu': [100, 200]}, {'cpu': [50, 20]}])]
@@ -651,7 +655,7 @@ def test_read_publication_process_statistics(mocker, supvisors, listener):
     mocked_proc.reset_mock()
     # 3. external_publisher set and integrated value available for push_statistics
     mocked_proc.return_value = [{'uptime': 1234}]
-    listener.read_publication('[["10.0.0.3:65000", ["10.0.0.3", 65000]],'
+    listener.read_publication('[["10.0.0.3:65000", "10.0.0.3", ["10.0.0.3", 65000]],'
                               '[6, [{"cpu": [100, 200]}, {"cpu": [50, 20]}]]]')
     assert not mocked_host.called
     assert mocked_proc.call_args_list == [call('10.0.0.3:65000', [{'cpu': [100, 200]}, {'cpu': [50, 20]}])]
@@ -662,7 +666,7 @@ def test_read_publication_state(mocker, supvisors, listener):
     """ Test the processing of a Supvisors state event. """
     mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
     mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
-    listener.read_publication('[["10.0.0.1:65000", ["10.0.0.1", 65000]],'
+    listener.read_publication('[["10.0.0.1:65000", "10.0.0.1", ["10.0.0.1", 65000]],'
                               '[7, {"statecode": 10, "statename": "RUNNING"}]]')
     expected = [call(supvisors.context.instances['10.0.0.1:65000'], {'statecode': 10, 'statename': 'RUNNING'})]
     assert not supvisors.fsm.on_tick_event.called

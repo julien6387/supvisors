@@ -207,15 +207,19 @@ class Context:
             self._publish_state_mode()
 
     # methods on nodes
-    def is_valid(self, identifier: str, ipv4_address: Ipv4Address) -> Optional[SupvisorsInstanceStatus]:
+    def is_valid(self, identifier: str, nick_identifier: str,
+                 ipv4_address: Ipv4Address) -> Optional[SupvisorsInstanceStatus]:
         """ Check the validity of the message emitter.
         Validity is ok if the identifier is known with the correct IP address and not declared isolated. """
         ip_address, http_port = ipv4_address
-        if identifier in self.instances:
-            status = self.instances[identifier]
-            if (not status.isolated and status.supvisors_id.ip_address == ip_address
-                    and status.supvisors_id.http_port == http_port):
-                return status
+        identifiers = self.supvisors.mapper.filter([identifier, nick_identifier])
+        if len(identifiers) != 1:
+            # multiple resolution not expected here
+            return None
+        status = self.instances[identifiers[0]]
+        if (not status.isolated and ip_address in status.supvisors_id.ip_addresses
+                and status.supvisors_id.http_port == http_port):
+            return status
         return None
 
     def get_nodes_load(self) -> LoadMap:
@@ -579,17 +583,17 @@ class Context:
             # publish new Supvisors Instance status
             self.export_status(status)
 
-    def on_discovery_event(self, identifier: str, event: Payload) -> bool:
+    def on_discovery_event(self, identifier: str, nick_identifier: str) -> bool:
         """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
         If this event is received, the discovery mode is enabled.
 
-        :param identifier: the identifier of the Supvisors instance from which the event has been received.
-        :param event: the DISCOVERY event.
+        :param identifier: the remote Supvisors identifier.
+        :param nick_identifier: the remote Supervisor identifier.
         :return: True if a new Supvisors instance has been inserted.
         """
-        ip_address, port = event['ip_address'], event['server_port']
-        if not self.supvisors.mapper.filter([identifier]):
-            item = f'<{identifier}>{ip_address}:{port}'
+        if not self.supvisors.mapper.filter([identifier, nick_identifier]):
+            # NOTE: use the first IP address in the list
+            item = f'<{nick_identifier}>{identifier}'
             supvisors_id = self.supvisors.mapper.add_instance(item)
             self.logger.info(f'SupvisorsMapper.on_discovery_event: new SupvisorsInstanceId={supvisors_id}')
             self.instances[supvisors_id.identifier] = SupvisorsInstanceStatus(supvisors_id, self.supvisors)

@@ -21,7 +21,7 @@ import traceback
 from socket import (inet_aton, socket,
                     AF_INET, INADDR_ANY, SOCK_DGRAM, SOL_SOCKET, SO_REUSEADDR,
                     IPPROTO_IP, IPPROTO_UDP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL)
-from typing import Any, Optional
+from typing import Any, Optional, Set, Tuple
 
 from supervisor.loggers import Logger
 
@@ -40,9 +40,8 @@ BUFFER_SIZE = 1024
 class MulticastSender:
     """ Multicast only TICKS for discovery mode. """
 
-    def __init__(self, identifier: str, mc_group: Ipv4Address, mc_ttl: int, logger: Logger):
+    def __init__(self, mc_group: Ipv4Address, mc_ttl: int, logger: Logger):
         """ Create a socket to multicast messages. """
-        self.identifier: str = identifier
         self.mc_group: Ipv4Address = mc_group
         self.logger: Logger = logger
         # create the socket
@@ -57,8 +56,8 @@ class MulticastSender:
     def send_discovery_event(self, payload: Payload):
         """ Multicast the discovery event.
         It is not necessary to add a message size. """
-        self.logger.info('MulticastSender.emit_message')
-        message = payload_to_bytes((NotificationHeaders.DISCOVERY.value, (self.identifier, payload)))
+        self.logger.trace('MulticastSender.emit_message')
+        message = payload_to_bytes((NotificationHeaders.DISCOVERY.value, payload))
         try:
             self.socket.sendto(message, self.mc_group)
         except OSError:
@@ -82,6 +81,8 @@ class MulticastReceiver(threading.Thread):
         self.socket: Optional[socket] = None
         # create an event to stop the thread
         self.stop_event: threading.Event = threading.Event()
+        # single warning for new clients
+        self.log_warnings: Set[Tuple[str, str]] = set()
 
     def stop(self):
         """ Set a stop event for this thread.
@@ -117,9 +118,16 @@ class MulticastReceiver(threading.Thread):
     def datagram_received(self, data, address: Ipv4Address) -> None:
         """ Decode the message received to put it into the asynchronous queue. """
         self.logger.debug(f'MulticastReceiver.datagram_received: size={len(data)} from {address}')
-        msg_type, (identifier, msg_body) = bytes_to_payload(data)
+        msg_type, payload = bytes_to_payload(data)
         if self.callback:
-            self.callback(((identifier, address), (msg_type, msg_body)))
+            # check the address (log only once)
+            updated_address = address[0], payload['http_port']
+            if updated_address not in self.log_warnings and address[0] not in payload['ip_addresses']:
+                self.logger.warn(f'MulticastReceiver.datagram_received: UDP address={address[0]} does not fit'
+                                 f" the discovery event {payload['ip_addresses']}")
+                self.log_warnings.add(updated_address)
+            # the payload is not needed for now
+            self.callback(((payload['identifier'], payload['nick_identifier'], updated_address), (msg_type, ())))
 
     def open_multicast(self) -> None:
         """ Join the Supvisors Discovery Multicast group. """
@@ -169,7 +177,7 @@ class SupvisorsDiscovery:
         mc_interface = supvisors.options.multicast_interface
         # create the Multicast message emitter
         local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
-        self.mc_sender: MulticastSender = MulticastSender(local_instance.identifier, mc_group, mc_ttl, supvisors.logger)
+        self.mc_sender: MulticastSender = MulticastSender(mc_group, mc_ttl, supvisors.logger)
         # create the Multicast message receiver
         callback = supvisors.rpc_handler.push_notification
         self.mc_receiver = MulticastReceiver(mc_group, mc_interface, callback, supvisors.logger)

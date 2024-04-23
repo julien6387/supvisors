@@ -210,18 +210,16 @@ class SupervisorListener:
         The event is published to all Supvisors instances.
         Then statistics are published and periodic task is triggered.
 
-        :param event: the Supervisor TICK event
-        :return: None
+        :param event: the Supervisor TICK event.
+        :return: None.
         """
         try:
             self.logger.debug(f'SupervisorListener.on_tick: got TickEvent from Supervisor {event}')
             # add the monotonic time information for more resolution and robustness
-            payload = {'ip_address': self.local_instance.ip_address,
-                       'server_port': self.local_instance.http_port,
-                       'when': event.when,
+            payload = {'when': event.when,
                        'when_monotonic': time.monotonic(),
-                       'sequence_counter': self.counter,
-                       'stereotypes': self.local_instance.stereotypes}
+                       'sequence_counter': self.counter}
+            payload.update(self.local_instance.serial())
             self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
             # trigger the periodic check
@@ -274,7 +272,7 @@ class SupervisorListener:
                        'now_monotonic': time.monotonic(),
                        'pid': event.process.pid,
                        'expected': event.expected,
-                       'spawnerr': event.process.spawnerr,
+                       'spawnerr': event.process.spawnerr or '',
                        'extra_args': event.process.extra_args,
                        'disabled': event.process.supvisors_config.program_config.disabled}
             self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
@@ -431,13 +429,12 @@ class SupervisorListener:
     def read_notification(self, message: str):
         """ Read and process a notification from the Supervisor event queue. """
         event_origin, (event_type, event_data) = json.loads(message)
-        event_identifier, _ = event_origin
         header = NotificationHeaders(event_type)
         # NOTE: DISCOVERY messages contain the necessary information for Supvisors instances discovery,
         #       so it has to be processed first
         if header == NotificationHeaders.DISCOVERY:
-            self.logger.trace(f'SupervisorListener.read_notification: DISCOVERY from {event_identifier}: {event_data}')
-            self.fsm.on_discovery_event(event_identifier, event_data)
+            self.logger.trace(f'SupervisorListener.read_notification: DISCOVERY from {event_origin}')
+            self.fsm.on_discovery_event(event_origin)
             return
         # check message origin validity
         status: SupvisorsInstanceStatus = self.supvisors.context.is_valid(*event_origin)
@@ -465,7 +462,7 @@ class SupervisorListener:
     def read_publication(self, message: str):
         """ Read and process a notification from the Supervisor event queue. """
         event_origin, (event_type, event_data) = json.loads(message)
-        event_identifier, _ = event_origin
+        event_identifier = event_origin[0]
         header = PublicationHeaders(event_type)
         # check message origin validity
         status: SupvisorsInstanceStatus = self.supvisors.context.is_valid(*event_origin)

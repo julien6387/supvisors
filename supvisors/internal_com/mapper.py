@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import Ipv4Address, NameList, NameSet
+from supvisors.ttypes import Ipv4Address, NameList, NameSet, Payload
 
 # default identifier given by Supervisor
 DEFAULT_IDENTIFIER = 'supervisor'
@@ -100,9 +100,9 @@ class SupvisorsInstanceId:
         return self.ip_addresses[0] if self.ip_addresses else None
 
     @property
-    def source(self) -> Tuple[str, Ipv4Address]:
+    def source(self) -> Tuple[str, str, Ipv4Address]:
         """ Return the identification details of the instance. """
-        return self.identifier, (self.ip_address, self.http_port)
+        return self.identifier, self.nick_identifier, (self.ip_address, self.http_port)
 
     def host_matches(self, fdqn: str) -> bool:
         """ Check if the fully-qualified domain name matches the host name or any alias.
@@ -155,6 +155,19 @@ class SupvisorsInstanceId:
             self.http_port = int(port) if port else 0
             self.logger.debug(f'SupvisorsInstanceId.parse_from_string: identifier={self.identifier}'
                               f' host_id={self.host_id} http_port={self.http_port}')
+
+    def serial(self) -> Payload:
+        """ Get a serializable form of the instance parameters.
+
+        :return: the instance parameters in a dictionary.
+        """
+        return {'identifier': self.identifier,
+                'nick_identifier': self.nick_identifier,
+                'host_id': self.host_id,
+                'http_port': self.http_port,
+                'host_name': self.host_name,
+                'ip_addresses': self.ip_addresses,
+                'stereotypes': self.stereotypes}
 
     def __repr__(self) -> str:
         """ Initialization of the attributes.

@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import socket
 import time
 from unittest.mock import call, Mock
 
@@ -226,7 +227,10 @@ def test_write_nav_instances_identifier_error(supvisors, handler):
     # test call with no address status in context
     handler.write_nav_instances(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(sorted(supvisors.mapper.instances.keys()))]
+    fqdn = socket.getfqdn()
+    expected = ['10.0.0.1:65000', '10.0.0.2:65000', '10.0.0.3:65000', '10.0.0.4:65000', '10.0.0.5:65000',
+                f'{fqdn}:65000', f'{fqdn}:55000']
+    assert mocked_mid.repeat.call_args_list == [call(expected)]
     assert address_elt.findmeld.call_args_list == []
 
 

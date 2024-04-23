@@ -84,7 +84,7 @@ class ProcessRules:
 
         :param namespec: the namespec of the program considered.
         :param is_pattern: True is the rules were taken from a pattern element.
-        :return: None
+        :return: None.
         """
         if self.at_identifiers and not is_pattern:
             self.logger.error(f'ProcessRules.check_at_identifiers: {namespec} - at_identifiers reset'
@@ -96,7 +96,7 @@ class ProcessRules:
 
         :param namespec: the namespec of the program considered.
         :param is_pattern: True is the rules were taken from a pattern element.
-        :return: None
+        :return: None.
         """
         if self.hash_identifiers and not is_pattern:
             self.logger.error(f'ProcessRules.check_hash_identifiers: {namespec} - hash_identifiers reset'
@@ -107,7 +107,7 @@ class ProcessRules:
         """ Having both '#' and '@' in the same rule does not make sense.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.at_identifiers and self.hash_identifiers:
             self.logger.error(f'ProcessRules.check_sign_identifiers: {namespec} - hash_identifiers reset'
@@ -119,7 +119,7 @@ class ProcessRules:
         so force required to False if start_sequence is not set.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.required and self.start_sequence == 0:
             self.logger.error(f'ProcessRules.check_start_sequence: {namespec} - required forced to False'
@@ -131,7 +131,7 @@ class ProcessRules:
         If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.stop_sequence < 0:
             self.logger.trace(f'ProcessRules.check_stop_sequence: {namespec}'
@@ -143,7 +143,7 @@ class ProcessRules:
         In these cases, Supvisors triggers behaviors that are different to Supervisor.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
                                              RunningFailureStrategies.RESTART_APPLICATION]:
@@ -160,7 +160,7 @@ class ProcessRules:
 
         :param namespec: the namespec of the program considered.
         :param is_pattern: True is the rules were taken from a pattern element.
-        :return: None
+        :return: None.
         """
         self.check_at_identifiers(namespec, is_pattern)
         self.check_hash_identifiers(namespec, is_pattern)
@@ -172,7 +172,7 @@ class ProcessRules:
     def __str__(self) -> str:
         """ Get the process rules as string.
 
-        :return: the printable process rules
+        :return: the printable process rules.
         """
         return (f'identifiers={self.identifiers}'
                 f' at_identifiers={self.at_identifiers} hash_identifiers={self.hash_identifiers}'
@@ -185,11 +185,12 @@ class ProcessRules:
         """ Get a serializable form of the process rules.
         hash_identifiers is not exported as used internally to resolve identifiers.
 
-        :return: the process rules in a dictionary
+        :return: the process rules in a dictionary.
         """
         return {'identifiers': self.identifiers,
                 'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
-                'required': self.required,  'wait_exit': self.wait_exit, 'expected_loading': self.expected_load,
+                'required': self.required, 'wait_exit': self.wait_exit,
+                'expected_loading': self.expected_load,
                 'starting_failure_strategy': self.starting_failure_strategy.name,
                 'running_failure_strategy': self.running_failure_strategy.name}
 

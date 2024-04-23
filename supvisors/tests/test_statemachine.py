@@ -814,9 +814,9 @@ def test_tick_event(mocker, fsm):
 def test_discovery_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a discovery event. """
     mocked_evt = mocker.patch.object(fsm.supvisors.context, 'on_discovery_event')
-    event = {'tick': 1357, 'ip_address': '192.168.1.1', 'server_port': 5000}
-    fsm.on_discovery_event('rocky52', event)
-    assert mocked_evt.call_args_list == [call('rocky52', event)]
+    event = '192.168.1.1:5000', 'dummy_identifier', ['10.0.0.1', 7777]
+    fsm.on_discovery_event(event)
+    assert mocked_evt.call_args_list == [call('192.168.1.1:5000', 'dummy_identifier')]
     assert fsm.redeploy_mark
 
 

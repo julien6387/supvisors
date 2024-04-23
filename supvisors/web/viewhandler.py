@@ -150,7 +150,9 @@ class ViewHandler(MeldView):
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
         # so let's sort them by name
         if self.supvisors.options.discovery_mode:
-            identifiers = sorted(identifiers)
+            identifiers = [status.identifier
+                           for status in sorted(self.supvisors.mapper.instances.values(),
+                                                key=lambda x: x.nick_identifier)]
         for li_elt, item in mid_elt.repeat(identifiers):
             try:
                 status: SupvisorsInstanceStatus = self.sup_ctx.instances[item]

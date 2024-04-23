@@ -153,15 +153,15 @@ def test_on_discovery_event(supvisors, context):
     sup_id: SupvisorsInstanceId = context.instances['10.0.0.1:65000'].supvisors_id
     ref_ip_address, ref_port = sup_id.ip_address, sup_id.http_port
     # test in discovery mode and identifier known and identical
-    assert not context.on_discovery_event('10.0.0.1', {'ip_address': '10.0.0.1', 'server_port': 65000})
+    assert not context.on_discovery_event('10.0.0.1:65000', '10.0.0.1')
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
     # test in discovery mode and identifier known and changed
-    assert not context.on_discovery_event('10.0.0.1', {'ip_address': '10.0.0.2', 'server_port': 6000})
+    assert not context.on_discovery_event('10.0.0.2:6000', '10.0.0.1')
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
     # test in discovery mode and identifier unknown
-    assert context.on_discovery_event('rocky52', {'ip_address': '192.168.1.2', 'server_port': 5000})
+    assert context.on_discovery_event('192.168.1.2:5000', 'rocky52')
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
     assert '192.168.1.2:5000' in context.instances
@@ -180,18 +180,18 @@ def test_is_valid(context):
     context.instances['10.0.0.3:65000']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4:65000']._state = SupvisorsInstanceStates.RUNNING
     # test unknown identifier
-    assert not context.is_valid('rocky52', ('192.168.1.2', 1234))
+    assert not context.is_valid('rocky52', 'rocky52:6000', ('192.168.1.2', 1234))
     # test known identifier but isolated
-    assert not context.is_valid('10.0.0.3:65000', ('10.0.0.3', 1234))
+    assert not context.is_valid('10.0.0.3:65000', '10.0.0.3', ('10.0.0.3', 1234))
     # test known identifier, not isolated but with wrong IP address
-    assert not context.is_valid('10.0.0.1:65000', ('192.168.1.2', 1234))
-    assert not context.is_valid('10.0.0.4:65000', ('192.168.1.2', 1234))
+    assert not context.is_valid('10.0.0.1:65000', '10.0.0.1', ('192.168.1.2', 1234))
+    assert not context.is_valid('10.0.0.4:65000', '10.0.0.4', ('192.168.1.2', 1234))
     # test known identifier not isolated, with correct IP address and incorrect HTTP port
-    assert not context.is_valid('10.0.0.1:65000', ('10.0.0.1', 1234))
-    assert not context.is_valid('10.0.0.4:65000', ('10.0.0.4', 1234))
+    assert not context.is_valid('10.0.0.1:65000', '10.0.0.1', ('10.0.0.1', 1234))
+    assert not context.is_valid('10.0.0.4:65000', '10.0.0.4', ('10.0.0.4', 1234))
     # test known identifier not isolated, with correct IP address and HTTP port
-    assert context.is_valid('10.0.0.1:65000', ('10.0.0.1', 65000))
-    assert context.is_valid('10.0.0.4:65000', ('10.0.0.4', 65000))
+    assert context.is_valid('10.0.0.1:65000', '10.0.0.1', ('10.0.0.1', 65000))
+    assert context.is_valid('10.0.0.4:65000', '10.0.0.4', ('10.0.0.4', 65000))
 
 
 def test_publish_state_modes(supvisors, context):

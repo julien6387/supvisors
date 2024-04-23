@@ -192,7 +192,9 @@ class SupvisorsView(ViewHandler):
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
         # so let's sort them by name
         if self.supvisors.options.discovery_mode:
-            identifiers = sorted(identifiers)
+            identifiers = [status.identifier
+                           for status in sorted(self.supvisors.mapper.instances.values(),
+                                                key=lambda x: x.nick_identifier)]
         for instance_div_elt, identifier in instance_div_mid.repeat(identifiers):
             # get Supvisors instance status from Supvisors context
             status = self.sup_ctx.instances[identifier]

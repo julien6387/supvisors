@@ -15,7 +15,7 @@
 # ======================================================================
 
 import time
-from typing import Any, Optional, Set
+from typing import Any, Optional, Set, Tuple
 
 from supervisor.loggers import Logger
 
@@ -613,16 +613,15 @@ class FiniteStateMachine:
         """
         self.context.on_tick_event(status, event)
 
-    def on_discovery_event(self, identifier: str, event: Payload) -> None:
+    def on_discovery_event(self, event: Tuple) -> None:
         """ This event is used to add new Supvisors instances into the Supvisors system.
         No need to test if the discovery mode is enabled. This is managed in the internal communication layer.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event.
         :param event: the discovery event.
         :return: None.
         """
         # When Supvisors is in discovery mode, new Supvisors instances may be added on-the-fly
-        if self.context.on_discovery_event(identifier, event):
+        if self.context.on_discovery_event(event[0], event[1]):
             # a DEPLOYMENT will be requested if a new Supvisors instance has been inserted
             self.redeploy_mark = True
 
