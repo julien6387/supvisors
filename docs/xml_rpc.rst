@@ -167,6 +167,10 @@ Status
 
         .. automethod:: get_all_local_process_info()
 
+        .. automethod:: get_inner_process_info()
+
+        .. automethod:: get_all_inner_process_info()
+
         .. automethod:: get_application_rules(application_name)
 
             =========================== =============== ===========
