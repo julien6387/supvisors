@@ -45,9 +45,9 @@ behavior may happen. The present section details where it is applicable.
     The elements of ``supvisors_list`` define how the |Supvisors| instances will share information between them
     and MUST be identical to all |Supvisors| instances or unpredictable behavior may happen.
 
-    The exhaustive form of an element matches ``<identifier>host_name:http_port``, where:
+    The exhaustive form of an element matches ``<nick_identifier>host_name:http_port``, where:
 
-        * ``identifier`` is the optional but **unique** |Supervisor| identifier (it can be set in the |Supervisor|
+        * ``nick_identifier`` is the optional but **unique** |Supervisor| identifier (it can be set in the |Supervisor|
           configuration or in the command line when starting the ``supervisord`` program) ;
         * ``host_name`` is the name of the node where the |Supvisors| instance is running ;
         * ``http_port`` is the port of the internet socket used to communicate with the |Supervisor| instance
@@ -64,49 +64,38 @@ behavior may happen. The present section details where it is applicable.
         ``host_name`` can be the host name, as returned by the shell command :command:`hostname`, one of its declared
         aliases or an IP address.
 
+    .. note::
+
+        In user-related features (options, rules, XML-RPC) where a |Supvisors| identifier is requested,
+        ``nick_identifier`` and ``host_name:http_port`` can both be used indifferently.
+
     .. attention::
 
-        The chosen host name, alias or IP address must be known to every nodes in the list on the network interface
-        considered. If it's not the case, check the network configuration.
+        The chosen host name, alias or IP address must be known to every nodes in the ``supvisors_list``
+        on the network interface considered. If it's not the case, check the network configuration.
 
     .. hint::
 
         If the |Supvisors| is configured with at most one |Supvisors| instance per host, only the ``host_name`` may be
         necessary.
 
-        if ``http_port`` is not provided, the local |Supvisors| instance takes the assumption that the other |Supvisors|
-        instance uses the same ``http_port``.
+    .. hint::
 
-        ``identifier`` can be seen as a nickname that may be more user-friendly than a ``host_name`` or a
+        ``nick_identifier`` can be seen as a nickname that may be more user-friendly than a ``host_name`` or a
         ``host_name:http_port`` when displayed in the |Supvisors| Web UI or used in the `Supvisors' Rules File`_.
 
-    .. important:: *About the deduced names*
+    .. attention::
 
-        Depending on the name configured, the *deduced name* of the |Supvisors| instance may vary.
-        As this name is expected to be used in the rules files to define where the processes can be started,
-        it is important to understand how it is built.
+        if ``http_port`` is not provided, the local |Supvisors| instance takes the assumption that the other |Supvisors|
+        instance uses the same ``http_port``. The ``http_port`` *MUST* be set if there multiple |Supvisors| instances
+        running on the same node.
 
-        As a general rule, ``identifier`` takes precedence as a deduced name when set. Otherwise ``host_name`` is
-        used when set alone, unless a ``http_port`` is explicitly defined, in which case ``host_name:http_port``
-        will be used. |br|
-        A few examples:
+    .. important::
 
-        +------------------------------------+---------------------+
-        | Configured name                    | Deduced name        |
-        +====================================+=====================+
-        | ``<supervisor_01>10.0.0.1:8888``   | ``supervisor_01``   |
-        +------------------------------------+---------------------+
-        | ``<supervisor_01>10.0.0.1``        | ``supervisor_01``   |
-        +------------------------------------+---------------------+
-        | ``10.0.0.1``                       | ``10.0.0.1``        |
-        +------------------------------------+---------------------+
-        | ``10.0.0.1:8888``                  | ``10.0.0.1:8888``   |
-        +------------------------------------+---------------------+
-
-        In case of doubt, the |Supvisors| Web UI displays the deduced names in the Supervisors navigation menu.
-        The names can also be found at the beginning of the |Supvisors| log traces.
-
-        The recommendation is to uniformly use the |Supervisor| identifier.
+        As a general rule, |Supvisors| uses the form ``host_name:http_port`` to exchange information between the
+        |Supvisors| instances. |br|
+        Unless a ``nick_identifier`` is provided, this form will also be used on all user interfaces (configuration
+        files, Web UI, XML-RPC and logs).
 
 ``software_name``
 
