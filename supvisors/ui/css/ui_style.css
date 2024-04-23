@@ -288,6 +288,10 @@ h1 {
     margin-bottom: 0.2em;
 }
 
+h2 {
+    text-shadow: 3px 3px 2px black;
+}
+
 h2, h3 {
     font-size: 1.2em;
     margin: 0 0 8px 0;
@@ -315,7 +319,7 @@ h3 code {
     display: inline-block;
     padding: 5px 10px;
     font-size: 16px;
-    text-shadow: 3px 3px 6px black;
+    text-shadow: 3px 3px 4px black;
     background: var(--vlight1-color);
 }
 
