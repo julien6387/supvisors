@@ -54,6 +54,7 @@ class SupvisorsOptions:
     """ Holder of the Supvisors options.
 
     Attributes are:
+        - user_name: a string to be displayed at the top of the Supvisors Web UI ;
         - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
         - stereotype: the Supvisors instance stereotype, used as aliases in rules ;
         - multicast: UDP Multicast Group where Supvisors will exchange data ;
@@ -103,6 +104,8 @@ class SupvisorsOptions:
         """
         self.supervisord_options = supervisord.options
         self.logger = logger
+        # get the user string to be displayed at the top of the Supvisors Web UI
+        self.user_name = self._get_value(config, 'user_name', '')
         # get expected Supvisors instances
         self.supvisors_list = self._get_value(config, 'supvisors_list', None,
                                               lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
@@ -151,7 +154,8 @@ class SupvisorsOptions:
     def __str__(self):
         """ Contents as string. """
         mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}' if self.multicast_group else None
-        return (f'supvisors_list={self.supvisors_list}'
+        return (f'user_name="{self.user_name}"'
+                f' supvisors_list={self.supvisors_list}'
                 f' stereotypes={self.stereotypes}'
                 f' multicast_group={mc_group}'
                 f' multicast_interface={self.multicast_interface}'

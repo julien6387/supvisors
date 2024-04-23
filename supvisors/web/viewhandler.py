@@ -116,6 +116,9 @@ class ViewHandler(MeldView):
         root.findmeld('version_mid').content(__version__)
         # set current Supvisors instance identifier
         root.findmeld('identifier_mid').content(self.local_nick_identifier)
+        # write user name
+        elt = root.findmeld('user_name_mid')
+        elt.content(self.supvisors.options.user_name)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name)

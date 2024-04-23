@@ -108,6 +108,17 @@ behavior may happen. The present section details where it is applicable.
 
         The recommendation is to uniformly use the |Supervisor| identifier.
 
+``user_name``
+
+    An optional string that will be displayed at the top of the |Supvisors| Web UI. It is intended to correspond to
+    the name of the user software.
+
+    *Default*:  ''.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``multicast_group``
 
     The IP address and port number of the Multicast Group where the |Supvisors| instances will share their identity

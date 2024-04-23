@@ -148,22 +148,25 @@ def test_write_common(mocker, supvisors, handler):
     mocked_meta = create_element()
     mocked_supv = create_element()
     mocked_version = create_element()
+    mocked_user = create_element()
     mocked_identifier = create_element()
     mocked_refresh = create_element()
     mocked_autorefresh = create_element()
     mocked_autorefresh.attrib['class'] = 'button'
     mocked_root = create_element({'meta_mid': mocked_meta, 'supvisors_mid': mocked_supv,
                                   'version_mid': mocked_version, 'identifier_mid': mocked_identifier,
+                                  'user_name_mid': mocked_user,
                                   'refresh_a_mid': mocked_refresh, 'autorefresh_a_mid': mocked_autorefresh})
     # 1. test no conflict and auto-refresh
     supvisors.fsm.state = SupvisorsStates.OPERATION
     handler.write_common(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('identifier_mid'),
+    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('identifier_mid'), call('user_name_mid'),
                                                    call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert not mocked_meta.deparent.called
     assert 'failure' not in mocked_supv.attrib['class']
     assert mocked_version.content.call_args_list == [call(__version__)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_nick_identifier)]
+    assert mocked_user.content.call_args_list == [call('Supvisors tests')]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button active'
@@ -176,19 +179,18 @@ def test_write_common(mocker, supvisors, handler):
     mocked_msg.reset_mock()
     handler.view_ctx.format_url.reset_mock()
     # 2. test conflicts and no auto-refresh
-    mocked_root.findmeld.side_effect = [mocked_meta, mocked_supv, mocked_version, mocked_identifier, mocked_refresh,
-                                        mocked_autorefresh]
     supvisors.fsm.state = SupvisorsStates.CONCILIATION
     mocker.patch.object(handler.sup_ctx, 'conflicts', return_value=True)
     handler.view_ctx.parameters[AUTO] = False
     handler.write_common(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
-                                                   call('identifier_mid'), call('refresh_a_mid'),
-                                                   call('autorefresh_a_mid')]
+                                                   call('identifier_mid'), call('user_name_mid'),
+                                                   call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert mocked_meta.deparent.called
     assert mocked_supv.attrib == {'class': 'failure'}
     assert mocked_version.content.call_args_list == [call(__version__)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_nick_identifier)]
+    assert mocked_user.content.call_args_list == [call('Supvisors tests')]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button'
