@@ -10,13 +10,17 @@
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
+    <link rel="stylesheet" href="css/header.css" />
+    <link rel="stylesheet" href="css/message.css" />
+    <link rel="stylesheet" href="css/application.css" />
+    <link rel="stylesheet" href="css/process_table.css" />
     <style meld:id="style_mid"> </style>
 </head>
 
 <body>
     <div id="body_block">
 
-        <div id="left_side">
+        <div id="left_side" meld:id="menu_mid">
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a></h1>
                 <p><span meld:id="version_mid"></span></p>
@@ -53,43 +57,67 @@
         </div>
 
         <div id="right_side">
-            <header>
-                <div>
+            <header meld:id="header_mid">
+                <div class="card" meld:id="software_card_mid">
                     <h2 meld:id="software_mid" id="software_title"></h2>
                 </div>
 
-                <div>
-                    <h2><span meld:id="application_mid">application</span></h2>
-                    <h3>
-                        <code meld:id="state_mid">ApplicationStates</code>
-                        <span meld:id="state_led_mid"></span>
-                    </h3>
-                </div>
+                <div class="line" meld:id="software_line_mid"> </div>
 
-                <div>
-                    <table class="optionBox">
-                        <tr><th>Starting strategies</th></tr>
-                        <tr><td><ul class="linear">
-                            <li><a href="#" meld:id="config_a_mid" class="button">CONFIG</a></li>
-                            <li><a href="#" meld:id="most_loaded_a_mid" class="button">MOST_LOADED</a></li>
-                            <li><a href="#" meld:id="less_loaded_a_mid" class="button">LESS_LOADED</a></li>
-                            <li><a href="#" meld:id="local_a_mid" class="button">LOCAL</a></li>
-                            <li><a href="#" meld:id="most_loaded_node_a_mid" class="button">MOST_LOADED_NODE</a></li>
-                            <li><a href="#" meld:id="less_loaded_node_a_mid" class="button">LESS_LOADED_NODE</a></li>
-                        </ul></td></tr>
+                <div class="card" id="instance_status">
+                    <table class="status">
+                        <tbody>
+                            <tr>
+                                <th colspan="2" meld:id="application_mid" id="table_main"></th>
+                            </tr>
+                            <tr>
+                                <th class="table_title">State:</th>
+                                <td><code class="hstate" meld:id="state_mid"></code></td>
+                            </tr>
+                            <tr>
+                                <th class="table_title">Status:</th>
+                                <td><div meld:id="state_led_mid"></div></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
 
-                <div meld:id="period_div_mid">
-                    <table class="optionBox">
-                        <tr><th>Statistics Periods</th></tr>
-                        <tr><td><ul class="linear">
-                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button">Period</a></li>
-                        </ul></td></tr>
-                    </table>
+                <div class="line"> </div>
+
+                <div class="card">
+                    <div>
+                        <table class="optionBox" id="strategies">
+                            <tr><th>Starting strategies</th></tr>
+                            <tr><td>
+                                <ul class="linear">
+                                    <li><a href="#" meld:id="config_a_mid" class="button">CONFIG</a></li>
+                                    <li><a href="#" meld:id="most_loaded_a_mid" class="button">MOST_LOADED</a></li>
+                                    <li><a href="#" meld:id="less_loaded_a_mid" class="button">LESS_LOADED</a></li>
+                                    <li><a href="#" meld:id="local_a_mid" class="button">LOCAL</a></li>
+                                </ul>
+                            </td></tr>
+                            <tr><td>
+                                <ul class="linear">
+                                    <li><a href="#" meld:id="most_loaded_node_a_mid" class="button">MOST_LOADED_NODE</a></li>
+                                    <li><a href="#" meld:id="less_loaded_node_a_mid" class="button">LESS_LOADED_NODE</a></li>
+                                </ul>
+                            </td></tr>
+                        </table>
+                    </div>
+
+                    <div meld:id="period_div_mid">
+                        <table class="optionBox">
+                            <tr><th>Statistics Periods</th></tr>
+                            <tr><td><ul class="linear">
+                                <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button">Period</a></li>
+                            </ul></td></tr>
+                        </table>
+                    </div>
                 </div>
 
-                <div>
+                <div class="line"> </div>
+
+                <div class="card">
                     <table class="buttons">
                         <tbody>
                             <tr class="action">
@@ -132,7 +160,7 @@
                         <thead>
                             <tr>
                                 <th class="name">Name</th>
-                                <th class="state">State</th>
+                                <th class="state_column">State</th>
                                 <th class="instance">Supervisor</th>
                                 <th class="desc">Description</th>
                                 <th class="expected">Load</th>
@@ -145,7 +173,7 @@
                         <tfoot>
                             <tr>
                                 <th class="name">Name</th>
-                                <th class="state">State</th>
+                                <th class="state_column">State</th>
                                 <th class="instance">Supervisor</th>
                                 <th class="desc">Description</th>
                                 <th class="expected">Load</th>
@@ -158,7 +186,7 @@
                         <tbody class="hoverable">
                             <tr meld:id="tr_mid">
                                 <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid">Name</a></td>
-                                <td meld:id="state_td_mid" class="centered">State</td>
+                                <td meld:id="state_td_mid" class="state_column centered">State</td>
                                 <td meld:id="running_td_mid">
                                     <ul meld:id="running_ul_mid" class="linear">
                                         <li meld:id="running_li_mid">

@@ -1,0 +1,25 @@
+/*
+ * Supvisors Process page style
+ */
+
+#process_contents {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    justify-content: space-around;
+    overflow: auto;
+    margin: 5px;
+}
+
+#process_left_side {
+    font-family: Verdana, Arial, sans-serif;
+    text-align: justify;
+    margin-right: 5px;
+}
+
+#process_right_side {
+    max-width: 500px;
+    align-items: center;
+    margin-right: 10px;
+}
+

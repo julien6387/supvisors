@@ -177,7 +177,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
     # test state element
-    assert mocked_state_mid.attrib['class'] == 'RUNNING state'
+    assert mocked_state_mid.attrib['class'] == 'RUNNING'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
     # test time element
     assert mocked_time_mid.content.call_args_list == [call('12:34:30')]
@@ -201,7 +201,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
-    assert mocked_state_mid.attrib['class'] == 'RUNNING state'
+    assert mocked_state_mid.attrib['class'] == 'RUNNING'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
     # test time element
     assert mocked_time_mid.content.call_args_list == [call('12:34:30')]
@@ -225,7 +225,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     assert not mocked_identifier_mid.attributes.called
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
-    assert mocked_state_mid.attrib['class'] == 'SILENT state'
+    assert mocked_state_mid.attrib['class'] == 'SILENT'
     assert mocked_state_mid.content.call_args_list == [call('SILENT')]
     # test time element
     assert not mocked_time_mid.content.called

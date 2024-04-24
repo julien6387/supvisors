@@ -1,0 +1,17 @@
+/*
+ * Supvisors Instance pages style
+ */
+
+/* Header part */
+#instance_status table.status img {
+    width: 25px;
+}
+
+#instance_status td span.master {
+    font-size: 1.6em;
+}
+
+.hmode {
+    font-size: 1.2em;
+}
+

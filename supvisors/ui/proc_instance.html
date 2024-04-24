@@ -10,13 +10,18 @@
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
+    <link rel="stylesheet" href="css/header.css" />
+    <link rel="stylesheet" href="css/message.css" />
+    <link rel="stylesheet" href="css/proc_instance.css" />
+    <link rel="stylesheet" href="css/instance.css" />
+    <link rel="stylesheet" href="css/process_table.css" />
     <style meld:id="style_mid"> </style>
 </head>
 
 <body>
     <div id="body_block">
 
-        <div id="left_side">
+        <div id="left_side" meld:id="menu_mid">
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a></h1>
                 <p><span meld:id="version_mid"></span></p>
@@ -53,50 +58,63 @@
         </div>
 
         <div id="right_side">
-            <header>
-                <div>
+            <header meld:id="header_mid">
+                <div class="card" meld:id="software_card_mid">
                     <h2 meld:id="software_mid" id="software_title"></h2>
                 </div>
 
-                <div>
-                    <h2><span meld:id="instance_mid">Supervisor</span> - <span meld:id="percent_mid">50%</span></h2>
-                    <div id="state_modes">
-                        <div>
-                            <h3>
-                                <code meld:id="state_mid">SupvisorsStates</code>
-                            </h3>
-                        </div>
-                        <div>
-                            <ul class="vertical">
-                                <li><code meld:id="starting_mid">starting</code></li>
-                                <li><code meld:id="stopping_mid">stopping</code></li>
-                            </ul>
-                        </div>
+                <div class="line" meld:id="software_line_mid"> </div>
+
+                <div class="card" id="instance_status">
+                    <table class="status">
+                        <tbody>
+                            <tr>
+                                <th class="table_title"><img src="supervisor_icon.png"/></th>
+                                <th colspan="2" meld:id="instance_mid" id="table_main"></th>
+                                <td><span meld:id="master_mid" class="master"/></td>
+                            </tr>
+                            <tr>
+                                <th class="table_title">State:</th>
+                                <td colspan="3"><code class="hstate" meld:id="state_mid"></code></td>
+                            </tr>
+                            <tr>
+                                <th class="table_title">Modes:</th>
+                                <td meld:id="discovery_mid"></td>
+                                <td><code class="hmode" meld:id="starting_mid"></code></td>
+                                <td><code class="hmode" meld:id="stopping_mid"></code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="line"> </div>
+
+                <div class="card">
+                    <div meld:id="view_div_mid">
+                        <table class="optionBox">
+                            <tr><th>Statistics View</th></tr>
+                            <tr><td><ul class="linear">
+                                <li><a href="#" meld:id="process_view_a_mid" class="button off active">Processes</a></li>
+                                <li><a href="#" meld:id="host_view_a_mid" class="button on">Host</a></li>
+                            </ul></td></tr>
+                        </table>
+                    </div>
+
+                    <div meld:id="period_div_mid">
+                        <table class="optionBox">
+                            <tr><th>Statistics Periods</th></tr>
+                            <tr><td><ul class="linear">
+                                <li meld:id="period_li_mid">
+                                    <a href="#" meld:id="period_a_mid" class="button">Period</a>
+                                </li>
+                            </ul></td></tr>
+                        </table>
                     </div>
                 </div>
 
-                <div meld:id="view_div_mid">
-                    <table class="optionBox">
-                        <tr><th>Statistics View</th></tr>
-                        <tr><td><ul class="linear">
-                            <li><a href="#" meld:id="process_view_a_mid" class="button off active">Processes</a></li>
-                            <li><a href="#" meld:id="host_view_a_mid" class="button on">Host</a></li>
-                        </ul></td></tr>
-                    </table>
-                </div>
+                <div class="line"> </div>
 
-                <div meld:id="period_div_mid">
-                    <table class="optionBox">
-                        <tr><th>Statistics Periods</th></tr>
-                        <tr><td><ul class="linear">
-                            <li meld:id="period_li_mid">
-                                <a href="#" meld:id="period_a_mid" class="button">Period</a>
-                            </li>
-                        </ul></td></tr>
-                    </table>
-                </div>
-
-                <div>
+                <div class="card">
                     <table class="buttons">
                         <tbody>
                             <tr class="action">
@@ -144,7 +162,7 @@
                                     <a href="#" meld:id="shrink_a_mid"></a>
                                 </th>
                                 <th class="name">Name</th>
-                                <th class="state">State</th>
+                                <th class="state_column">State</th>
                                 <th class="desc">Description</th>
                                 <th class="expected">Load</th>
                                 <th meld:id="cpu_head_th_mid">CPU</th>
@@ -156,7 +174,7 @@
                         <tfoot>
                             <tr>
                                 <th class="name" colspan="2">Name</th>
-                                <th class="state">State</th>
+                                <th class="state_column">State</th>
                                 <th class="desc">Description</th>
                                 <th class="expected">Load</th>
                                 <th meld:id="cpu_foot_th_mid">CPU</th>
@@ -176,7 +194,7 @@
                             <tr meld:id="tr_mid">
                                 <td meld:id="shex_td_mid" class="shex centered"><a href="#" meld:id="shex_a_mid"></a></td>
                                 <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid">Name</a></td>
-                                <td meld:id="state_td_mid" class="centered">State</td>
+                                <td meld:id="state_td_mid" class="state_column centered">State</td>
                                 <td meld:id="desc_td_mid">Description</td>
                                 <td meld:id="load_td_mid" class="centered expected">--</td>
                                 <td class="centered" meld:id="pcpu_td_mid"><a href="#" meld:id="pcpu_a_mid">--</a></td>

@@ -47,7 +47,7 @@
 
 * In the Supervisors navigation menu of the Web UI, add a red light to Supervisor instances having raised a failure.
 
-* Rework the navigation menu of the Web UI.
+* Rework the navigation menu and the page headers of the Web UI.
 
 * Allow the display of a software name at the top of the **Supvisors** Web UI.
   An option `software_name` has been added to the **Supvisors** section of the Supervisor configuration file.

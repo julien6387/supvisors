@@ -1,0 +1,69 @@
+/*
+ * Supvisors style for pages displaying a process table
+ */
+
+#process_contents {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    justify-content: space-around;
+    overflow: auto;
+    margin: 5px;
+}
+
+#process_left_side {
+    font-family: Verdana, Arial, sans-serif;
+    text-align: justify;
+    margin-right: 5px;
+}
+
+#process_right_side {
+    max-width: 500px;
+    align-items: center;
+    margin-right: 10px;
+}
+
+#process_table th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+table .name {
+  width: 200px;
+}
+
+table .state {
+    width: 50px;
+}
+
+table .desc {
+  width: 250px;
+}
+
+.shex {
+    vertical-align: top;
+}
+
+.centered {
+    text-align: center;
+}
+
+.expected {
+    font-style: italic;
+}
+
+/*
+ * Related to the detailed statistics
+ */
+.stats_contents {
+    flex: 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.stats_contents div>* {
+    margin-left: 5px;
+}
+

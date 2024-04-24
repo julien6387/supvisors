@@ -1,0 +1,74 @@
+/*
+ * Supvisors style for Message / Time boxes
+ */
+
+#statusBox {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+#messageBox, #timeBox {
+    min-height: 25px;
+    max-height: 25px;
+    font-size: 0.9em;
+}
+
+#messageBox {
+    width: 100%;
+    margin: 5px;
+}
+
+#timeBox {
+    min-width: 220px;
+    max-width: 220px;
+    margin: 5px 5px 5px 0;
+    text-align: right;
+}
+
+.empty, .info, .warn, .erro, .invInfo {
+    padding: 5px;
+    margin: 5px auto;
+    border-radius: 10px;
+}
+
+.empty {
+    background-image: linear-gradient(165deg, silver, var(--navbg-color));
+    border: 1px grey inset;
+}
+
+.invInfo {
+    background-image: linear-gradient(165deg, var(--navbg-color), dodgerblue);
+    border: 1px blue inset;
+}
+
+.info {
+    background-image: linear-gradient(165deg, dodgerblue, var(--navbg-color));
+    border: 1px blue inset;
+}
+
+.info::before {
+    content: url(../img/info_20.png) '\00a0';
+    float: left;
+}
+
+.warn {
+    background-image: linear-gradient(165deg, #f90, var(--navbg-color));
+    border: 1px orange inset;
+}
+
+.warn::before {
+    content: url(../img/warn_20.png) '\00a0';
+    float: left;
+}
+
+.erro {
+    background-image: linear-gradient(165deg, orangered, var(--navbg-color));
+    border: 1px red inset;
+}
+
+.erro::before {
+    content: url(../img/erro_20.png) '\00a0';
+    float: left;
+}
+

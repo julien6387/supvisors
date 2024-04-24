@@ -1,5 +1,5 @@
 /*
- * Nav style
+ * Supvisors style for navigation menu
  */
 nav {
     flex: 1;
@@ -119,3 +119,9 @@ nav li.failure::after {
 nav li.master.failure::after {
     top: -32px;
 }
+
+nav span.master {
+    position: relative;
+    bottom: 0.1em;
+}
+

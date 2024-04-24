@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -115,6 +112,9 @@ def test_update_views():
     view = VIEWS['host_io.png']
     assert view['template'] is None
     assert HostNetworkImageView == view['view']
+    view = VIEWS['supervisor_icon.png']
+    assert view['template'] is None
+    assert SupervisorImageView == view['view']
 
 
 def test_make_rpc(mocker):

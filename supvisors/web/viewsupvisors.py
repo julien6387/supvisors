@@ -140,7 +140,7 @@ class SupvisorsView(ViewHandler):
         elt.content(nick_identifier)
         # set Supvisors instance state
         elt = instance_div_elt.findmeld('state_th_mid')
-        elt.attrib['class'] = status.state.name + ' state'
+        update_attrib(elt, 'class', status.state.name)
         elt.content(status.state.name)
         # set Supvisors instance current time
         elt = instance_div_elt.findmeld('time_th_mid')

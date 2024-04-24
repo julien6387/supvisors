@@ -245,7 +245,7 @@ class ViewHandler(MeldView):
                 # print period button
                 elt = li_elt.findmeld('period_a_mid')
                 if item == self.view_ctx.parameters[PERIOD]:
-                    update_attrib(elt, 'class', 'button off active')
+                    update_attrib(elt, 'class', 'off active')
                 else:
                     url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
                     elt.attributes(href=url)

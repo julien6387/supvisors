@@ -446,7 +446,7 @@ def test_write_periods_availability(handler):
     assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
     assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
     assert period_elt.findmeld.call_args_list == [call('period_a_mid')]
-    assert href_elt.attrib['class'] == 'button off active'
+    assert href_elt.attrib['class'] == 'off active'
     assert handler.view_ctx.format_url.call_args_list == []
     assert href_elt.attributes.call_args_list == []
     assert href_elt.content.call_args_list == [call('5s')]

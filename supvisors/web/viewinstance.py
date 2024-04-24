@@ -49,31 +49,30 @@ class SupvisorsInstanceView(StatusView):
     # RIGHT SIDE / HEADER part
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors Instance page. """
-        # set Supvisors instance identifier
-        elt = root.findmeld('instance_mid')
-        nick_identifier = self.local_nick_identifier
+        # get the header section
+        header_mid = root.findmeld('header_mid')
+        # set Master symbol
         if self.sup_ctx.is_master:
-            nick_identifier = f'{MASTER_SYMBOL} {nick_identifier}'
-        elt.content(nick_identifier)
+            header_mid.findmeld('master_mid').content(MASTER_SYMBOL)
+        # set Supvisors instance identifier
+        header_mid.findmeld('instance_mid').content(self.local_nick_identifier)
         # set Supvisors instance state
         status: SupvisorsInstanceStatus = self.sup_ctx.local_status
-        elt = root.findmeld('state_mid')
-        elt.content(status.state.name)
-        # set Supvisors instance load
-        elt = root.findmeld('percent_mid')
-        elt.content(f'{status.get_load()}%')
+        header_mid.findmeld('state_mid').content(status.state.name)
+        # set Supvisors discovery mode
+        if status.state_modes.discovery_mode:
+            header_mid.findmeld('discovery_mid').content('discovery')
         # set Supvisors instance modes
         for mid, progress in [('starting_mid', status.state_modes.starting_jobs),
                               ('stopping_mid', status.state_modes.stopping_jobs)]:
-            elt = root.findmeld(mid)
             if progress:
+                elt = header_mid.findmeld(mid)
+                elt.content(mid.split('_')[0])
                 update_attrib(elt, 'class', 'blink')
-            else:
-                elt.replace('')
         # write statistics parameters
-        self.write_periods(root)
+        self.write_periods(header_mid)
         # write actions related to the Supvisors instance
-        self.write_instance_actions(root, status)
+        self.write_instance_actions(header_mid, status)
 
     def write_instance_actions(self, root, status: SupvisorsInstanceStatus):
         """ Write actions related to the Supvisors instance. """

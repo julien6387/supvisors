@@ -1,0 +1,52 @@
+/*
+ * Supvisors Application page style
+ */
+ 
+/* Header part */
+#instance_status table.status td {
+    text-align: center;
+}
+
+/* Style for application operational status */
+.status_empty, .status_green, .status_yellow, .status_red {
+    padding: 15px 50px;
+}
+
+.status_empty {
+    background: url(../img/leds_empty_30.png) no-repeat center;
+}
+
+.status_green {
+    background: url(../img/leds_green_30.png) no-repeat center;
+}
+
+.status_yellow {
+    background: url(../img/leds_yellow_30.png) no-repeat center;
+}
+
+.status_red {
+    background: url(../img/leds_red_30.png) no-repeat center;
+}
+
+/* fix the width of the strategies box */
+#strategies {
+    width: 280px;
+}
+
+#strategies td {
+    border: none;
+    padding: 2px 3px;
+}
+
+/* Detailed process status */
+.stats_contents {
+    display: flex;
+    flex: 0;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.stats_contents div>* {
+    margin-left: 5px;
+}
+

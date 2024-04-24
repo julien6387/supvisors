@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -85,30 +82,36 @@ def test_image_view():
 
 
 def test_host_cpu_image_view():
-    """ Test the values set at construction. """
+    """ Test the HostCpuImageView class. """
     view = HostCpuImageView(DummyHttpContext())
     assert view.buffer is host_cpu_img
 
 
 def test_host_memory_image_view():
-    """ Test the values set at construction. """
+    """ Test the HostMemoryImageView class. """
     view = HostMemoryImageView(DummyHttpContext())
     assert view.buffer is host_mem_img
 
 
 def test_host_network_image_view():
-    """ Test the values set at construction. """
+    """ Test the HostNetworkImageView class. """
     view = HostNetworkImageView(DummyHttpContext())
     assert view.buffer is host_io_img
 
 
 def test_process_cpu_image_view():
-    """ Test the values set at construction. """
+    """ Test the ProcessCpuImageView class. """
     view = ProcessCpuImageView(DummyHttpContext())
     assert view.buffer is process_cpu_img
 
 
 def test_process_memory_image_view():
-    """ Test the values set at construction. """
+    """ Test the ProcessMemoryImageView class. """
     view = ProcessMemoryImageView(DummyHttpContext())
     assert view.buffer is process_mem_img
+
+
+def test_supervisor_image_view():
+    """ Test the ProcessMemoryImageView class. """
+    view = SupervisorImageView(DummyHttpContext())
+    assert view.buffer is supervisor_icon

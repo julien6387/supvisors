@@ -7,17 +7,19 @@
     <meta http-equiv="refresh" content="5" meld:id="meta_mid"/>
     <title>Supvisors status</title>
     <link href="img/icon.png" rel="icon" type="image/png" />
-    <link rel="stylesheet" href="css/main_page.css" />
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
+    <link rel="stylesheet" href="css/header.css" />
+    <link rel="stylesheet" href="css/message.css" />
+    <link rel="stylesheet" href="css/index.css" />
     <style meld:id="style_mid"> </style>
 </head>
 
 <body>
     <div id="body_block">
 
-        <div id="left_side">
+        <div id="left_side" meld:id="menu_mid">
             <header>
                 <h1>
                     <a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a>
@@ -58,17 +60,19 @@
         </div>
 
         <div id="right_side">
-            <header>
-                <div>
+            <header meld:id="header_mid">
+                <div class="card" meld:id="software_card_mid">
                     <h2 meld:id="software_mid" id="software_title"></h2>
                 </div>
 
-                <div id="state_modes">
+                <div class="line" meld:id="software_line_mid"> </div>
+
+                <div class="card" id="state_modes">
                     <div>
-                        <h3>
-                            <code meld:id="state_mid">SupvisorsStates</code>
-                        </h3>
+                        <h5>Supvisors state: </h5>
+                        <code class="hstate" meld:id="state_mid"></code>
                     </div>
+
                     <div>
                         <ul class="vertical">
                             <li><code meld:id="starting_mid">starting</code></li>
@@ -77,7 +81,9 @@
                     </div>
                 </div>
 
-                <div>
+                <div class="line"> </div>
+
+                <div class="card">
                     <table class="buttons">
                         <tbody>
                             <tr class="action">
@@ -127,7 +133,7 @@
                                     <th meld:id="identifier_th_mid" rowspan="2">
                                         <a href="#" meld:id="identifier_a_mid">Supervisor</a>
                                     </th>
-                                    <th rowspan="2" meld:id="state_th_mid">State</th>
+                                    <th rowspan="2" meld:id="state_th_mid" class="state_column">State</th>
                                     <th meld:id="time_th_mid">--:--:--</th>
                                 </tr>
                                 <tr>

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,7 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 from threading import RLock
 
 from supervisor import xmlrpc
@@ -116,6 +112,7 @@ def update_views() -> None:
     VIEWS['host_cpu.png'] = {'template': None, 'view': HostCpuImageView}
     VIEWS['host_mem.png'] = {'template': None, 'view': HostMemoryImageView}
     VIEWS['host_io.png'] = {'template': None, 'view': HostNetworkImageView}
+    VIEWS['supervisor_icon.png'] = {'template': None, 'view': SupervisorImageView}
 
 
 def apply_patches():
