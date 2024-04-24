@@ -271,8 +271,7 @@ class RPCInterface:
         try:
             return [proc.info_map[ident]
                     for ident in identifiers
-                    for proc in self.supvisors.context.instances[ident].processes.values()
-                    if ident in proc.info_map]
+                    for proc in self.supvisors.context.instances[ident].processes.values()]
         except KeyError:
             self._raise(Faults.FAILED, 'get_all_inner_process_info', f'no handshake performed with {identifier}')
 
@@ -302,8 +301,8 @@ class RPCInterface:
             # namespec is a homogeneous group
             return [proc.info_map[ident]
                     for ident in identifiers
-                    for proc in application.processes.values()
-                    if ident in proc.info_map]
+                    for proc in self.supvisors.context.instances[ident].processes.values()
+                    if proc.application_name == application.application_name]
         except KeyError:
             self._raise(Faults.FAILED, 'get_inner_process_info', f'{namespec} unknown on {identifier}')
 

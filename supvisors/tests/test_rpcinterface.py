@@ -210,11 +210,13 @@ def test_all_local_process_info(mocker, rpc):
 
 
 def test_inner_process_info(supvisors, rpc):
-    """ Test the get_inner_process_info and get_all_inner_process_info RPCs. """
+    """ Test the get_inner_process_info RPC. """
     # prepare context
-    proc_1 = Mock(info_map={'10.0.0.1:65000': {'name': 'proc_1', 'state': 'RUNNING'},
+    proc_1 = Mock(application_name='group',
+                  info_map={'10.0.0.1:65000': {'name': 'proc_1', 'state': 'RUNNING'},
                             '10.0.0.2:65000': {'name': 'proc_1', 'state': 'STOPPED'}})
-    proc_2 = Mock(info_map={'10.0.0.2:65000': {'name': 'proc_2', 'state': 'STARTING'}})
+    proc_2 = Mock(application_name='group',
+                  info_map={'10.0.0.2:65000': {'name': 'proc_2', 'state': 'STARTING'}})
     supvisors.context.instances['10.0.0.1:65000'].processes = {'proc_1': proc_1}
     supvisors.context.instances['10.0.0.2:65000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
     application = create_application('group', supvisors)
@@ -247,6 +249,27 @@ def test_inner_process_info(supvisors, rpc):
     assert rpc.get_inner_process_info('10.0.0.1', 'group:*') == [{'name': 'proc_1', 'state': 'RUNNING'}]
     assert rpc.get_inner_process_info('10.0.0.2', 'group:*') == [{'name': 'proc_1', 'state': 'STOPPED'},
                                                                  {'name': 'proc_2', 'state': 'STARTING'}]
+
+
+def test_get_all_inner_process_info(supvisors, rpc):
+    """ Test the get_all_inner_process_info RPC. """
+    # prepare context
+    proc_1 = Mock(application_name='group',
+                  info_map={'10.0.0.1:65000': {'name': 'proc_1', 'state': 'RUNNING'},
+                            '10.0.0.2:65000': {'name': 'proc_1', 'state': 'STOPPED'}})
+    proc_2 = Mock(application_name='group',
+                  info_map={'10.0.0.2:65000': {'name': 'proc_2', 'state': 'STARTING'}})
+    supvisors.context.instances['10.0.0.1:65000'].processes = {'proc_1': proc_1}
+    supvisors.context.instances['10.0.0.2:65000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
+    application = create_application('group', supvisors)
+    application.processes = {'proc_1': proc_1, 'proc_2': proc_2}
+    supvisors.context.applications['group'] = application
+    # test unknown identifier
+    with pytest.raises(RPCError) as exc:
+        rpc.get_all_inner_process_info('10.0.0.0')
+    assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
+    # test known identifier but without handshake
+    assert rpc.get_all_inner_process_info('10.0.0.3') == []
     # test RPC call with nick identifier for all processes
     assert rpc.get_all_inner_process_info('10.0.0.1') == [{'name': 'proc_1', 'state': 'RUNNING'}]
     assert rpc.get_all_inner_process_info('10.0.0.2') == [{'name': 'proc_1', 'state': 'STOPPED'},
