@@ -41,7 +41,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
 
     def write_periods(self, root):
-        """ Write configured periods for statistics. """
+        """ Write configured periods for process statistics. """
         self.write_periods_availability(root, self.has_process_statistics)
 
     # RIGHT SIDE / BODY part

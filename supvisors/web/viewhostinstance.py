@@ -33,6 +33,10 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, HOST_INSTANCE_PAGE)
 
+    def write_periods(self, header_elt):
+        """ Write configured periods for host statistics. """
+        self.write_periods_availability(header_elt, self.has_host_statistics)
+
     def write_contents(self, root):
         """ Rendering of tables and figures for address statistics. """
         # get data from statistics module iaw period selection

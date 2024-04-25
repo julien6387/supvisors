@@ -116,7 +116,7 @@ html, body, #body_block {
 
 body {
     margin: auto;
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
+    /*background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));*/
 }
 
 #body_block {
@@ -129,17 +129,39 @@ body {
  * Left Side (Menu) Layout
 */
 #left_side {
+    display: flex;
     min-width: 230px;
     max-width: 230px;
-    flex: 1;
-    display: flex;
     flex-direction: column;
-    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
+    /*background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));*/
+    background-image: linear-gradient(90deg, var(--dark1-color), var(--light2-color));
+}
+
+#left_side header {
+    display: flex;
+    flex-direction: row;
+    min-height: 88px;
+    max-height: 88px;
+    margin: 0 6px;
+    background-color: var(--dark1-color);
+    border-bottom-right-radius: 6px;
+    box-shadow: 4px 4px 6px black;
+    justify-content: start;
+}
+
+#left_side header div:nth-child(1) {
+    display: flex;
+    width: 218px;
+    flex-direction: column;
 }
 
 #left_side header, #left_side header a {
    text-align: center;
    color: var(--title-color);
+}
+
+#instance_list {
+    margin-top: 10px;
 }
 
 #instance_list div, #application_list div {
@@ -171,6 +193,8 @@ body {
     display: flex;
     flex-direction: column;
     color: var(--text-color);
+    /*background-image: linear-gradient(90deg, var(--light1-color), var(--light2-color) 10%);*/
+    background-color: var(--light2-color);
 }
 
 .vertical_contents {
@@ -378,3 +402,9 @@ h2.failure::after {
     content: "\2198";
 }
 
+/*
+ * Hide without removing
+ */
+.invisible {
+    opacity: 0;
+}

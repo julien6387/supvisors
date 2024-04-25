@@ -111,7 +111,30 @@ def test_process_memory_image_view():
     assert view.buffer is process_mem_img
 
 
-def test_supervisor_image_view():
-    """ Test the ProcessMemoryImageView class. """
-    view = SupervisorImageView(DummyHttpContext())
-    assert view.buffer is supervisor_icon
+def test_supervisor_icon_image():
+    """ Test the SupervisorIconImage class. """
+    # test default
+    view = SupervisorIconImage(DummyHttpContext())
+    assert view.buffer is not None
+    # test that a second instance would get the same object
+    ref_buffer = view.buffer
+    view = SupervisorIconImage(DummyHttpContext())
+    assert view.buffer is not None
+    assert view.buffer is ref_buffer
+
+
+def test_software_icon_image():
+    """ Test the SoftwareIconImage class. """
+    # test default
+    view = SoftwareIconImage(DummyHttpContext())
+    assert view.buffer is None
+    # load an image
+    icon_path = os.path.join(os.path.dirname(supervisor.__file__), 'ui', 'images', 'icon.png')
+    SoftwareIconImage.set_path(icon_path)
+    view = SoftwareIconImage(DummyHttpContext())
+    assert view.buffer is not None
+    # test that a second instance would get the same object
+    ref_buffer = view.buffer
+    view = SoftwareIconImage(DummyHttpContext())
+    assert view.buffer is not None
+    assert view.buffer is ref_buffer

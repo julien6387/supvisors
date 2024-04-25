@@ -23,9 +23,14 @@
 
         <div id="left_side" meld:id="menu_mid">
             <header>
-                <h1><a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a></h1>
-                <p><span meld:id="version_mid"></span></p>
-                <p>view from <span meld:id="identifier_mid"></span></p>
+                <div>
+                    <h1>
+                        <a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a>
+                    </h1>
+                    <p><span meld:id="version_mid"></span></p>
+                    <p>view from <span meld:id="identifier_mid"></span></p>
+                </div>
+                <div/>
             </header>
 
             <nav id="instance_list">
@@ -60,7 +65,12 @@
         <div id="right_side">
             <header meld:id="header_mid">
                 <div class="card" meld:id="software_card_mid">
-                    <h2 meld:id="software_mid" id="software_title"></h2>
+                    <div>
+                        <img meld:id="software_icon_mid" src="software_icon.png"/>
+                    </div>
+                    <div>
+                        <h2 meld:id="software_name_mid" id="software_title"></h2>
+                    </div>
                 </div>
 
                 <div class="line" meld:id="software_line_mid"> </div>
@@ -69,9 +79,11 @@
                     <table class="status">
                         <tbody>
                             <tr>
-                                <th class="table_title"><img src="supervisor_icon.png"/></th>
-                                <th colspan="2" meld:id="instance_mid" id="table_main"></th>
-                                <td><span meld:id="master_mid" class="master"/></td>
+                                <th class="table_title">
+                                    <span meld:id="master_mid" class="master"/> <img src="supervisor_icon.png"/>
+                                </th>
+                                <th colspan="3" meld:id="instance_mid" id="table_main"></th>
+                                <td/>
                             </tr>
                             <tr>
                                 <th class="table_title">State:</th>

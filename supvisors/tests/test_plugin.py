@@ -112,9 +112,14 @@ def test_update_views():
     view = VIEWS['host_io.png']
     assert view['template'] is None
     assert HostNetworkImageView == view['view']
+    # test supervisor icon provider
     view = VIEWS['supervisor_icon.png']
     assert view['template'] is None
-    assert SupervisorImageView == view['view']
+    assert SupervisorIconImage == view['view']
+    # test user software icon provider
+    view = VIEWS['software_icon.png']
+    assert view['template'] is None
+    assert SoftwareIconImage == view['view']
 
 
 def test_make_rpc(mocker):

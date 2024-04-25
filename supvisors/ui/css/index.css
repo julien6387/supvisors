@@ -2,29 +2,6 @@
  * Supvisors Main page
  */
 
-/* Header part */
-#state_modes {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-}
-
-#state_modes div {
-    display: flex;
-    flex-direction: row;
-    margin: auto 5px;
-    align-items: center;
-}
-
-code.hstate {
-    display: inline-block;
-    padding: 5px 10px;
-    font-size: 16px;
-    border-radius: 6px;
-    text-shadow: 3px 3px 4px black;
-    background: var(--vlight1-color);
-}
-
 /* Contents part */
 #index_contents {
     display: flex;

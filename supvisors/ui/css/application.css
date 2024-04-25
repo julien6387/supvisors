@@ -2,11 +2,6 @@
  * Supvisors Application page style
  */
  
-/* Header part */
-#instance_status table.status td {
-    text-align: center;
-}
-
 /* Style for application operational status */
 .status_empty, .status_green, .status_yellow, .status_red {
     padding: 15px 50px;

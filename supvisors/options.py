@@ -55,6 +55,7 @@ class SupvisorsOptions:
 
     Attributes are:
         - software_name: a string to be displayed at the top of the Supvisors Web UI ;
+        - software_icon: the path of an icon to be displayed at the top of the Supvisors Web UI ;
         - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running ;
         - stereotype: the Supvisors instance stereotype, used as aliases in rules ;
         - multicast: UDP Multicast Group where Supvisors will exchange data ;
@@ -106,6 +107,7 @@ class SupvisorsOptions:
         self.logger = logger
         # get the string to be displayed at the top of the Supvisors Web UI
         self.software_name = self._get_value(config, 'software_name', '')
+        self.software_icon = self._get_value(config, 'software_icon', None, self.to_existing_file)
         # get expected Supvisors instances
         self.supvisors_list = self._get_value(config, 'supvisors_list', None,
                                               lambda x: list(OrderedDict.fromkeys(filter(None, list_of_strings(x)))))
@@ -155,6 +157,7 @@ class SupvisorsOptions:
         """ Contents as string. """
         mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}' if self.multicast_group else None
         return (f'software_name="{self.software_name}"'
+                f' software_icon={self.software_icon}'
                 f' supvisors_list={self.supvisors_list}'
                 f' stereotypes={self.stereotypes}'
                 f' multicast_group={mc_group}'
@@ -247,6 +250,21 @@ class SupvisorsOptions:
         return value
 
     # conversion utils (completion of supervisor.datatypes)
+    def to_existing_file(self, value: str) -> Optional[str]:
+        """ Expand the file globs and return the file found.
+        One single result expected.
+
+        :param value: a space-separated sequence of file globs.
+        :return: the file found.
+        """
+        file_set = self.to_filepaths(value)
+        candidates = [filepath for filepath in file_set
+                      if os.path.isfile(filepath)]
+        if len(candidates) > 1:
+            self.logger.warn(f'SupvisorsOptions.to_existing_file: multiple candidates found matching {value}'
+                             f' - {candidates}')
+        return candidates[0] if candidates else None
+
     def to_filepaths(self, value: str) -> List[str]:
         """ Expand the file globs and return the files found.
 
@@ -257,17 +275,17 @@ class SupvisorsOptions:
         expansions = {'here': self.supervisord_options.here,
                       'host_node_name': platform.node()}
         expansions.update(self.supervisord_options.environ_expansions)
-        files = expand(value, expansions, 'rpcinterface.supvisors.rules_files')
+        files = expand(value, expansions, 'rpcinterface.supvisors')
         # get all files
-        rules_files = set()
+        file_set = set()
         for pattern in files.split():
             filepaths = glob.glob(pattern)
             for filepath in filepaths:
-                rules_files.add(os.path.abspath(filepath))
+                file_set.add(os.path.abspath(filepath))
         # check that something came out
-        if value and not rules_files:
-            self.logger.warn('SupvisorsOptions.to_filepaths: no rules file found')
-        return sorted(rules_files)
+        if value and not file_set:
+            self.logger.warn(f'SupvisorsOptions.to_filepaths: no file found matching {value}')
+        return sorted(file_set)
 
     @staticmethod
     def to_multicast_group(value: str) -> Ipv4Address:

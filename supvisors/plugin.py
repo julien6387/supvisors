@@ -112,7 +112,8 @@ def update_views() -> None:
     VIEWS['host_cpu.png'] = {'template': None, 'view': HostCpuImageView}
     VIEWS['host_mem.png'] = {'template': None, 'view': HostMemoryImageView}
     VIEWS['host_io.png'] = {'template': None, 'view': HostNetworkImageView}
-    VIEWS['supervisor_icon.png'] = {'template': None, 'view': SupervisorImageView}
+    VIEWS['supervisor_icon.png'] = {'template': None, 'view': SupervisorIconImage}
+    VIEWS['software_icon.png'] = {'template': None, 'view': SoftwareIconImage}
 
 
 def apply_patches():

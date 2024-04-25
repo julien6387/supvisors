@@ -54,21 +54,25 @@ class SupvisorsView(ViewHandler):
         """ Rendering of the navigation menu. """
         self.write_nav(root)
 
-    def write_header(self, root) -> None:
+    def write_header(self, header_elt) -> None:
         """ Rendering of the header part of the Supvisors main page. """
+        super().write_header(header_elt)
+        # set Supvisors state & modes
         state_modes = self.sup_ctx.get_state_modes()
-        # set Supvisors state
-        elt = root.findmeld('state_mid')
-        elt.content(state_modes['fsm_statename'])
+        header_elt.findmeld('state_mid').content(state_modes['fsm_statename'])
         # set Supvisors modes
         for mid, attr in [('starting_mid', 'starting_jobs'), ('stopping_mid', 'stopping_jobs')]:
-            elt = root.findmeld(mid)
+            elt = header_elt.findmeld(mid)
             if state_modes[attr]:
                 update_attrib(elt, 'class', 'blink')
             else:
                 elt.replace('')
+        # write the Master nick identifier
+        master_instance = self.sup_ctx.master_instance
+        identifier = master_instance.supvisors_id.nick_identifier if master_instance else 'none'
+        header_elt.findmeld('master_name_mid').content(identifier)
         # write actions related to Supvisors
-        self.write_supvisors_actions(root)
+        self.write_supvisors_actions(header_elt)
 
     def write_supvisors_actions(self, root) -> None:
         """ Write actions related to Supvisors. """

@@ -27,7 +27,7 @@ from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
 from supvisors.utils import get_stats
 from .viewcontext import *
-from .viewimage import process_cpu_img, process_mem_img
+from .viewimage import process_cpu_img, process_mem_img, SoftwareIconImage
 from .webutils import *
 
 
@@ -88,7 +88,10 @@ class ViewHandler(MeldView):
             self.write_style(root)
             self.write_common(root)
             self.write_navigation(root)
-            self.write_header(root)
+            # write the header section
+            header_mid = root.findmeld('header_mid')
+            self.write_header(header_mid)
+            # write the body section
             self.write_contents(root)
             # send message only at the end to get all URL parameters
             self.view_ctx.fire_message()
@@ -116,19 +119,6 @@ class ViewHandler(MeldView):
         root.findmeld('version_mid').content(__version__)
         # set current Supvisors instance identifier
         root.findmeld('identifier_mid').content(self.local_nick_identifier)
-        # write software name
-        elt = root.findmeld('software_mid')
-        elt.content(self.supvisors.options.software_name)
-        # configure refresh button
-        elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name)
-        elt.attributes(href=url)
-        # configure auto-refresh button
-        elt = root.findmeld('autorefresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{AUTO: not auto_refresh})
-        elt.attributes(href=url)
-        if auto_refresh:
-            update_attrib(elt, 'class', 'active')
         # set bottom message
         print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message(), self.current_time)
 
@@ -226,21 +216,54 @@ class ViewHandler(MeldView):
             elt = root.findmeld('appli_h_mid')
             update_attrib(elt, 'class', 'failure')
 
-    def write_header(self, root):
-        """ Write the header part of the page.
-        Subclasses will define what's to be done. """
-        raise NotImplementedError
+    def write_header(self, header_elt):
+        """ Write the header common part of the page.
+        Subclasses will define what's to be done at their level. """
+        # write software information
+        self.write_software(header_elt)
+        # write statistics parameters
+        self.write_periods(header_elt)
+        # configure refresh button
+        elt = header_elt.findmeld('refresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name)
+        elt.attributes(href=url)
+        # configure auto-refresh button
+        auto_refresh = self.view_ctx.parameters[AUTO]
+        elt = header_elt.findmeld('autorefresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{AUTO: not auto_refresh})
+        elt.attributes(href=url)
+        if auto_refresh:
+            update_attrib(elt, 'class', 'active')
 
-    def write_periods(self, root):
+    def write_software(self, header_elt):
+        """ Write the user software elements. """
+        card_elt = header_elt.findmeld('software_card_mid')
+        if not (self.supvisors.options.software_name or self.supvisors.options.software_icon):
+            line_elt = header_elt.findmeld('software_line_mid')
+            # remove the user software card if nothing set
+            # card_elt.replace('')
+            # header_elt.findmeld('software_line_mid').replace('')
+            update_attrib(card_elt, 'class', 'invisible')
+            update_attrib(line_elt, 'class', 'invisible')
+        else:
+            if self.supvisors.options.software_name:
+                # write software name
+                card_elt.findmeld('software_name_mid').content(self.supvisors.options.software_name)
+            # write user icon
+            if self.supvisors.options.software_icon:
+                SoftwareIconImage.set_path(self.supvisors.options.software_icon)
+            else:
+                card_elt.findmeld('software_icon_mid').replace('')
+
+    def write_periods(self, header_elt):
         """ Write configured periods for statistics.
-        By default, the periods box is visible. """
-        self.write_periods_availability(root, True)
+        Does nothing by default. To be specialized in subclasses where statistics are available. """
 
-    def write_periods_availability(self, root, available: bool) -> None:
+    def write_periods_availability(self, header_elt, available: bool) -> None:
         """ Write configured periods for statistics. """
         if available:
             # write the available periods
-            mid_elt = root.findmeld('period_li_mid')
+            mid_elt = header_elt.findmeld('period_li_mid')
             for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
                 # print period button
                 elt = li_elt.findmeld('period_a_mid')
@@ -252,7 +275,7 @@ class ViewHandler(MeldView):
                 elt.content(f'{item}s')
         else:
             # hide the Statistics periods box
-            root.findmeld('period_div_mid').replace('')
+            header_elt.findmeld('period_div_mid').replace('')
 
     def write_contents(self, root):
         """ Write the contents part of the page.

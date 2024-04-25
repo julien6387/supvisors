@@ -29,6 +29,7 @@ from .configurations import *
 @pytest.fixture
 def config():
     return {'software_name': 'Supvisors tests',
+            'software_icon': 'my_icon.png',
             'supvisors_list': 'cliche01,cliche03,cliche02', 'stereotypes': 'test',
             'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
             'rules_files': 'my_movies.xml', 'auto_fence': 'true',
@@ -55,6 +56,7 @@ def opt(supervisor, supvisors):
 @pytest.fixture
 def filled_opt(mocker, supervisor, supvisors, config):
     """ Test the values of options with defined Supvisors configuration. """
+    mocker.patch('supvisors.options.SupvisorsOptions.to_existing_file', return_value='my_icon.png')
     mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
     return SupvisorsOptions(supervisor, supvisors.logger, **config)
 
@@ -84,6 +86,7 @@ def test_filled_logger_configuration(config):
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     assert opt.software_name == ''
+    assert opt.software_icon is None
     assert opt.supvisors_list is None
     assert opt.multicast_group is None
     assert opt.multicast_interface is None
@@ -111,6 +114,7 @@ def test_options_creation(opt):
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.software_name == 'Supvisors tests'
+    assert filled_opt.software_icon == 'my_icon.png'
     assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
     assert filled_opt.multicast_group == ('239.0.0.1', 7777)
     assert filled_opt.multicast_interface == '192.168.1.1'
@@ -137,7 +141,8 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == ('software_name="" supvisors_list=None stereotypes=set()'
+    assert str(opt) == ('software_name="" software_icon=None'
+                        ' supvisors_list=None stereotypes=set()'
                         ' multicast_group=None multicast_interface=None multicast_ttl=1'
                         ' rules_files=None'
                         ' event_link=NONE event_port=0'
@@ -154,7 +159,7 @@ def test_filled_str(filled_opt):
     variable_core_1 = "{'cliche01', 'cliche03'}"
     variable_core_2 = "{'cliche03', 'cliche01'}"
     result = str(filled_opt)
-    assert any(result == ('software_name="Supvisors tests"'
+    assert any(result == ('software_name="Supvisors tests" software_icon=my_icon.png'
                           " supvisors_list=['cliche01', 'cliche03', 'cliche02']"
                           " stereotypes={'test'}"
                           ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
@@ -204,6 +209,21 @@ def test_check_dirpath(opt):
     # existing folder that cannot be created
     with pytest.raises(ValueError):
         assert opt.check_dirpath('/usr/dummy/disabilities.json')
+
+
+def test_to_existing_file(opt):
+    """ Test the validation of file globs into an existing file. """
+    # find a secure glob that would work with developer test and in Travis-CI
+    base_glob = os.path.dirname(__file__)
+    # test return a single value
+    filepath = opt.to_existing_file(f'{base_glob}/test_options.p?')
+    assert os.path.basename(filepath) == 'test_options.py'
+    # test return a single value despite multiple found
+    filepath = opt.to_existing_file(f'{base_glob}/*.py')
+    assert os.path.basename(filepath) == '__init__.py'
+    # test a glob that would not work anywhere
+    filepath = opt.to_existing_file(f'*/dummy.dumb')
+    assert filepath is None
 
 
 def test_to_filepaths(opt):

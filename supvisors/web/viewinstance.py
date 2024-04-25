@@ -47,47 +47,44 @@ class SupvisorsInstanceView(StatusView):
         self.write_nav(root, identifier=self.local_identifier)
 
     # RIGHT SIDE / HEADER part
-    def write_header(self, root):
+    def write_header(self, header_elt):
         """ Rendering of the header part of the Supvisors Instance page. """
-        # get the header section
-        header_mid = root.findmeld('header_mid')
+        super().write_header(header_elt)
         # set Master symbol
         if self.sup_ctx.is_master:
-            header_mid.findmeld('master_mid').content(MASTER_SYMBOL)
+            header_elt.findmeld('master_mid').content(MASTER_SYMBOL)
         # set Supvisors instance identifier
-        header_mid.findmeld('instance_mid').content(self.local_nick_identifier)
+        header_elt.findmeld('instance_mid').content(self.local_nick_identifier)
         # set Supvisors instance state
         status: SupvisorsInstanceStatus = self.sup_ctx.local_status
-        header_mid.findmeld('state_mid').content(status.state.name)
+        header_elt.findmeld('state_mid').content(status.state.name)
         # set Supvisors discovery mode
         if status.state_modes.discovery_mode:
-            header_mid.findmeld('discovery_mid').content('discovery')
+            header_elt.findmeld('discovery_mid').content('discovery')
         # set Supvisors instance modes
         for mid, progress in [('starting_mid', status.state_modes.starting_jobs),
                               ('stopping_mid', status.state_modes.stopping_jobs)]:
             if progress:
-                elt = header_mid.findmeld(mid)
+                elt = header_elt.findmeld(mid)
                 elt.content(mid.split('_')[0])
                 update_attrib(elt, 'class', 'blink')
-        # write statistics parameters
-        self.write_periods(header_mid)
         # write actions related to the Supvisors instance
-        self.write_instance_actions(header_mid, status)
+        self.write_instance_actions(header_elt, status)
 
-    def write_instance_actions(self, root, status: SupvisorsInstanceStatus):
+    def write_instance_actions(self, header_elt, status: SupvisorsInstanceStatus):
         """ Write actions related to the Supvisors instance. """
         # configure switch page
-        self.write_view_switch(root, status)
+        self.write_view_switch(header_elt, status)
         # configure stop all button
-        elt = root.findmeld('stopall_a_mid')
+        elt = header_elt.findmeld('stopall_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})
         elt.attributes(href=url)
         # configure restart button
-        elt = root.findmeld('restartsup_a_mid')
+        elt = header_elt.findmeld('restartsup_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartsup'})
         elt.attributes(href=url)
         # configure shutdown button
-        elt = root.findmeld('shutdownsup_a_mid')
+        elt = header_elt.findmeld('shutdownsup_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'shutdownsup'})
         elt.attributes(href=url)
 

@@ -5,10 +5,14 @@
 /* Header part */
 #instance_status table.status img {
     width: 25px;
+    position: relative;
+    top: 3px;
 }
 
-#instance_status td span.master {
+#instance_status th span.master {
     font-size: 1.6em;
+    position: relative;
+    bottom: 0.1em;
 }
 
 .hmode {

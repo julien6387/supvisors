@@ -49,8 +49,9 @@
 
 * Rework the navigation menu and the page headers of the Web UI.
 
-* Allow the display of a software name at the top of the **Supvisors** Web UI.
-  An option `software_name` has been added to the **Supvisors** section of the Supervisor configuration file.
+* Allow the display of a software name and icon at the top of the **Supvisors** Web UI.
+  The options `software_name` and `software_icon` have been added to the **Supvisors** section of the Supervisor
+  configuration file.
 
 * All internal identifiers are now based on the `host:http_port` format.
 

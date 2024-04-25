@@ -81,13 +81,15 @@ def test_render_action_in_progress(mocker, handler):
     """ Test the render method when Supervisor is in RUNNING state and when an action is in progress. """
     mocked_style = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_style')
     mocked_common = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_common')
-    mocked_contents = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_contents')
-    mocked_header = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
     mocked_nav = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_navigation')
+    mocked_header = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
+    mocked_contents = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_contents')
     mocked_clone = mocker.patch('supervisor.web.MeldView.clone')
     mocked_action = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_action')
     # build xml template
-    mocked_root = Mock(**{'write_xhtmlstring.return_value': 'xhtml'})
+    header_elt = create_element()
+    mocked_root = create_element({'header_mid': header_elt})
+    mocked_root.write_xhtmlstring.return_value = 'xhtml'
     mocked_clone.return_value = mocked_root
     # patch context
     handler.supvisors.context.get_all_namespecs = Mock(return_value=[])
@@ -123,14 +125,14 @@ def test_render_action_in_progress(mocker, handler):
     assert mocked_clone.call_args_list == [call()]
     assert mocked_style.call_args_list == [call(mocked_root)]
     assert mocked_common.call_args_list == [call(mocked_root)]
-    assert mocked_header.call_args_list == [call(mocked_root)]
+    assert mocked_header.call_args_list == [call(header_elt)]
     assert mocked_nav.call_args_list == [call(mocked_root)]
     assert mocked_contents.call_args_list == [call(mocked_root)]
 
 
-def test_handle_parameters(handler):
+def test_handle_parameters(supvisors, handler):
     """ Test the handle_parameters method. """
-    handler.supvisors.context.get_all_namespecs = Mock(return_value=[])
+    supvisors.context.get_all_namespecs = Mock(return_value=[])
     assert handler.view_ctx is None
     handler.handle_parameters()
     assert handler.view_ctx is not None
@@ -149,34 +151,20 @@ def test_write_common(mocker, supvisors, handler):
     mocked_meta = create_element()
     mocked_supv = create_element()
     mocked_version = create_element()
-    mocked_software = create_element()
     mocked_identifier = create_element()
-    mocked_refresh = create_element()
-    mocked_autorefresh = create_element()
-    mocked_autorefresh.attrib['class'] = 'button'
     mocked_root = create_element({'meta_mid': mocked_meta, 'supvisors_mid': mocked_supv,
-                                  'version_mid': mocked_version, 'identifier_mid': mocked_identifier,
-                                  'software_mid': mocked_software,
-                                  'refresh_a_mid': mocked_refresh, 'autorefresh_a_mid': mocked_autorefresh})
+                                  'version_mid': mocked_version, 'identifier_mid': mocked_identifier})
     # 1. test no conflict and auto-refresh
     supvisors.fsm.state = SupvisorsStates.OPERATION
     handler.write_common(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('identifier_mid'), call('software_mid'),
-                                                   call('refresh_a_mid'), call('autorefresh_a_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('identifier_mid')]
     assert not mocked_meta.deparent.called
     assert 'failure' not in mocked_supv.attrib['class']
     assert mocked_version.content.call_args_list == [call(__version__)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_nick_identifier)]
-    assert mocked_software.content.call_args_list == [call('Supvisors tests')]
-    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attrib['class'] == 'button active'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
-                                                          call('', 'dummy.html', auto=False)]
     assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
     # reset mocks
     mocked_root.reset_all()
-    mocked_autorefresh.attrib['class'] = 'button'
     mocked_msg.reset_mock()
     handler.view_ctx.format_url.reset_mock()
     # 2. test conflicts and no auto-refresh
@@ -185,18 +173,11 @@ def test_write_common(mocker, supvisors, handler):
     handler.view_ctx.parameters[AUTO] = False
     handler.write_common(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
-                                                   call('identifier_mid'), call('software_mid'),
-                                                   call('refresh_a_mid'), call('autorefresh_a_mid')]
+                                                   call('identifier_mid')]
     assert mocked_meta.deparent.called
     assert mocked_supv.attrib == {'class': 'failure'}
     assert mocked_version.content.call_args_list == [call(__version__)]
     assert mocked_identifier.content.call_args_list == [call(handler.local_nick_identifier)]
-    assert mocked_software.content.call_args_list == [call('Supvisors tests')]
-    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attrib['class'] == 'button'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
-                                                          call('', 'dummy.html', auto=True)]
     assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
 
 
@@ -412,18 +393,92 @@ def test_write_nav_applications_operation(supvisors, handler):
     assert appli_a_mid.content.call_args_list == [call('dummy_appli')]
 
 
-def test_write_header(handler):
+def test_write_header(mocker, handler):
     """ Test the ViewHandler.write_header method. """
-    with pytest.raises(NotImplementedError):
-        handler.write_header(Mock())
+    mocked_software = mocker.patch.object(handler, 'write_software')
+    mocked_periods = mocker.patch.object(handler, 'write_periods')
+    handler.page_name = 'dummy.html'
+    handler.view_ctx = Mock(parameters={AUTO: True}, **{'format_url.return_value': 'an url'})
+    mocked_refresh = create_element()
+    mocked_autorefresh = create_element()
+    mocked_autorefresh.attrib['class'] = 'button'
+    mocked_header = create_element({'refresh_a_mid': mocked_refresh, 'autorefresh_a_mid': mocked_autorefresh})
+    # 1. test auto-refresh
+    handler.write_header(mocked_header)
+    assert mocked_software.call_args_list == [call(mocked_header)]
+    assert mocked_periods.call_args_list == [call(mocked_header)]
+    assert mocked_header.findmeld.call_args_list == [call('refresh_a_mid'), call('autorefresh_a_mid')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
+                                                          call('', 'dummy.html', auto=False)]
+    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attrib['class'] == 'button active'
+    # reset mocks and context
+    mocker.resetall()
+    mocked_header.reset_all()
+    handler.view_ctx.format_url.reset_mock()
+    mocked_autorefresh.attrib['class'] = 'button'
+    # 2. test no auto-refresh
+    handler.view_ctx.parameters[AUTO] = False
+    handler.write_header(mocked_header)
+    assert mocked_software.call_args_list == [call(mocked_header)]
+    assert mocked_periods.call_args_list == [call(mocked_header)]
+    assert mocked_header.findmeld.call_args_list == [call('refresh_a_mid'), call('autorefresh_a_mid')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
+                                                          call('', 'dummy.html', auto=True)]
+    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attrib['class'] == 'button'
+
+
+def test_write_software(mocker, supvisors, handler):
+    """ Test the ViewHandler.write_software method. """
+    mocked_path = mocker.patch('supvisors.web.viewimage.SoftwareIconImage.set_path')
+    mocked_name = create_element()
+    mocked_icon = create_element()
+    mocked_line = create_element()
+    mocked_card = create_element({'software_icon_mid': mocked_icon, 'software_name_mid': mocked_name})
+    mocked_header = create_element({'software_card_mid': mocked_card, 'software_line_mid': mocked_line})
+    # 1. test user software name but no icon
+    assert supvisors.options.software_name
+    assert not supvisors.options.software_icon
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert mocked_card.findmeld.call_args_list == [call('software_name_mid'), call('software_icon_mid')]
+    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
+    assert mocked_icon.replace.call_args_list == [call('')]
+    assert not mocked_path.called
+    # reset mocks
+    mocked_header.reset_all()
+    # 2. test both user software name & icon set
+    supvisors.options.software_icon = '/tmp/an_icon.png'
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert mocked_card.findmeld.call_args_list == [call('software_name_mid')]
+    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
+    assert not mocked_icon.replace.called
+    assert mocked_path.call_args_list == [call('/tmp/an_icon.png')]
+    # reset mocks
+    mocked_header.reset_all()
+    mocker.resetall()
+    # 3. test no user software set
+    supvisors.options.software_name = ''
+    supvisors.options.software_icon = None
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid'), call('software_line_mid')]
+    assert not mocked_card.findmeld.called
+    assert mocked_card.attrib['class'] == 'invisible'
+    assert mocked_line.attrib['class'] == 'invisible'
+    assert not mocked_name.content.called
+    assert not mocked_icon.replace.called
+    assert not mocked_path.called
 
 
 def test_write_periods(mocker, handler):
     """ Test the ViewHandler.write_periods method. """
-    mocked_period = mocker.patch.object(handler, 'write_periods_availability')
-    mocked_root = Mock()
-    handler.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, True)]
+    handler.write_periods(Mock())
+    # no implementation, no nothing to test
+    assert True
 
 
 def test_write_periods_availability(handler):

@@ -58,17 +58,19 @@ class ApplicationView(ViewHandler):
         self.write_nav(root, appli=self.application_name)
 
     # RIGHT SIDE / HEADER part
-    def write_header(self, root):
+    def write_header(self, header_elt):
         """ Rendering of the header part of the Supvisors Application page. """
+        super().write_header(header_elt)
+        # write options
+        self.write_starting_strategy(header_elt)
+        # application-dependent data
         if self.application:
             # set application name
-            elt = root.findmeld('application_mid')
-            elt.content(self.application_name)
+            header_elt.findmeld('application_mid').content(self.application_name)
             # set application state
-            elt = root.findmeld('state_mid')
-            elt.content(self.application.state.name)
+            header_elt.findmeld('state_mid').content(self.application.state.name)
             # set LED iaw major/minor failures
-            elt = root.findmeld('state_led_mid')
+            elt = header_elt.findmeld('state_led_mid')
             if self.application.major_failure:
                 elt.attrib['class'] = 'status_red'
             elif self.application.minor_failure:
@@ -77,41 +79,38 @@ class ApplicationView(ViewHandler):
                 elt.attrib['class'] = 'status_green'
             else:
                 elt.attrib['class'] = 'status_empty'
-            # write options
-            self.write_starting_strategy(root)
-            self.write_periods(root)
             # write actions related to application
-            self.write_application_actions(root)
+            self.write_application_actions(header_elt)
 
-    def write_periods(self, root):
-        """ Write configured periods for statistics. """
-        self.write_periods_availability(root, self.has_process_statistics)
+    def write_periods(self, header_elt):
+        """ Write configured periods for process statistics. """
+        self.write_periods_availability(header_elt, self.has_process_statistics)
 
-    def write_starting_strategy(self, root):
+    def write_starting_strategy(self, header_elt):
         """ Write applicable starting strategies. """
         # get the current strategy
         selected_strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
         for strategy in StartingStrategies:
-            elt = root.findmeld('%s_a_mid' % strategy.name.lower())
+            elt = header_elt.findmeld('%s_a_mid' % strategy.name.lower())
             if selected_strategy == strategy.name:
                 elt.attrib['class'] = 'button off active'
             else:
                 url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy.name})
                 elt.attributes(href=url)
 
-    def write_application_actions(self, root):
+    def write_application_actions(self, header_elt):
         """ Write actions related to the application. """
         # configure start application button
-        elt = root.findmeld('startapp_a_mid')
+        elt = header_elt.findmeld('startapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'startapp'})
         elt.attributes(href=url)
         # configure stop application button
-        elt = root.findmeld('stopapp_a_mid')
+        elt = header_elt.findmeld('stopapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopapp'})
         elt.attributes(href=url)
         # configure restart application button
-        elt = root.findmeld('restartapp_a_mid')
+        elt = header_elt.findmeld('restartapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartapp'})
         elt.attributes(href=url)
 

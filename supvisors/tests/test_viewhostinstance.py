@@ -50,6 +50,21 @@ def test_init(view):
     assert view.page_name == HOST_INSTANCE_PAGE
 
 
+def test_write_periods(mocker, view):
+    """ Test the ApplicationView.write_periods method. """
+    mocked_period = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_periods_availability')
+    mocked_header = Mock()
+    # test with process statistics to be displayed
+    assert view.has_host_statistics
+    view.write_periods(mocked_header)
+    assert mocked_period.call_args_list == [call(mocked_header, True)]
+    mocked_period.reset_mock()
+    # test with process statistics NOT to be displayed
+    view.has_host_statistics = False
+    view.write_periods(mocked_header)
+    assert mocked_period.call_args_list == [call(mocked_header, False)]
+
+
 def test_write_contents_no_plot(mocker, view):
     """ Test the write_contents method. """
     mocked_network = mocker.patch.object(view, 'write_network_statistics')

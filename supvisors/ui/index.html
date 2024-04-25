@@ -21,11 +21,14 @@
 
         <div id="left_side" meld:id="menu_mid">
             <header>
-                <h1>
-                    <a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a>
-                </h1>
-                <p><span meld:id="version_mid"></span></p>
-                <p>view from <span meld:id="identifier_mid"></span></p>
+                <div>
+                    <h1>
+                        <a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a>
+                    </h1>
+                    <p><span meld:id="version_mid"></span></p>
+                    <p>view from <span meld:id="identifier_mid"></span></p>
+                </div>
+                <div/>
             </header>
 
             <nav id="instance_list">
@@ -62,23 +65,38 @@
         <div id="right_side">
             <header meld:id="header_mid">
                 <div class="card" meld:id="software_card_mid">
-                    <h2 meld:id="software_mid" id="software_title"></h2>
+                    <div>
+                        <img meld:id="software_icon_mid" src="software_icon.png"/>
+                    </div>
+                    <div>
+                        <h2 meld:id="software_name_mid" id="software_title"></h2>
+                    </div>
                 </div>
 
                 <div class="line" meld:id="software_line_mid"> </div>
 
-                <div class="card" id="state_modes">
-                    <div>
-                        <h5>Supvisors state: </h5>
-                        <code class="hstate" meld:id="state_mid"></code>
-                    </div>
-
-                    <div>
-                        <ul class="vertical">
-                            <li><code meld:id="starting_mid">starting</code></li>
-                            <li><code meld:id="stopping_mid">stopping</code></li>
-                        </ul>
-                    </div>
+                <div class="card" id="instance_status">
+                    <table class="status">
+                        <tbody>
+                            <tr>
+                                <th colspan="2" id="table_main">Supvisors</th>
+                                <td colspan="2"/>
+                            </tr>
+                            <tr>
+                                <th rowspan="2" class="table_title">State:</th>
+                                <td rowspan="2"><code class="hstate" meld:id="state_mid"></code></td>
+                                <td><code class="hmode" meld:id="starting_mid">starting</code></td>
+                            </tr>
+                            <tr>
+                                <td><code class="hmode" meld:id="stopping_mid">stopping</code></td>
+                            </tr>
+                            <tr>
+                                <th class="table_title">Master:</th>
+                                <td meld:id="master_name_mid"/>
+                                <td colspan="2"/>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="line"> </div>

@@ -82,8 +82,8 @@ def test_write_navigation(mocker, view):
 
 def test_write_header(mocker, view):
     """ Test the write_header method. """
+    mocked_super = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
     mocked_action = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_application_actions')
-    mocked_period = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_periods')
     mocked_strategy = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_starting_strategy')
     view.application_name = 'dummy_appli'
     view.application = Mock(state=ApplicationStates.STOPPED, major_failure=False, minor_failure=False,
@@ -92,49 +92,50 @@ def test_write_header(mocker, view):
     led_mid = create_element()
     state_mid = create_element()
     application_mid = create_element()
-    mocked_root = create_element({'application_mid': application_mid, 'state_mid': state_mid, 'state_led_mid': led_mid})
+    mocked_header = create_element({'application_mid': application_mid, 'state_mid': state_mid,
+                                    'state_led_mid': led_mid})
     # test call with stopped application
-    view.write_header(mocked_root)
+    view.write_header(mocked_header)
+    assert mocked_super.call_args_list == [call(mocked_header)]
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STOPPED')]
     assert led_mid.attrib['class'] == 'status_empty'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
-    mocked_root.reset_all()
+    assert mocked_strategy.call_args_list == [call(mocked_header)]
+    assert mocked_action.call_args_list == [call(mocked_header)]
+    mocked_header.reset_all()
     mocker.resetall()
     # test call with running application and no failure
     view.application = Mock(state=ApplicationStates.STARTING, major_failure=False, minor_failure=False,
                             **{'running.return_value': True})
-    view.write_header(mocked_root)
+    view.write_header(mocked_header)
+    assert mocked_super.call_args_list == [call(mocked_header)]
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_green'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
-    mocked_root.reset_all()
+    assert mocked_strategy.call_args_list == [call(mocked_header)]
+    assert mocked_action.call_args_list == [call(mocked_header)]
+    mocked_header.reset_all()
     mocker.resetall()
     # test call with running application and minor failure
     view.application.minor_failure = True
-    view.write_header(mocked_root)
+    view.write_header(mocked_header)
+    assert mocked_super.call_args_list == [call(mocked_header)]
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_yellow'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
-    mocked_root.reset_all()
+    assert mocked_strategy.call_args_list == [call(mocked_header)]
+    assert mocked_action.call_args_list == [call(mocked_header)]
+    mocked_header.reset_all()
     mocker.resetall()
     # test call with running application and major failure
     view.application.major_failure = True
-    view.write_header(mocked_root)
+    view.write_header(mocked_header)
+    assert mocked_super.call_args_list == [call(mocked_header)]
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_red'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
+    assert mocked_strategy.call_args_list == [call(mocked_header)]
+    assert mocked_action.call_args_list == [call(mocked_header)]
 
 
 def test_write_periods(mocker, view):
