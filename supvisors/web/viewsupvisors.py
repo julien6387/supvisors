@@ -54,9 +54,8 @@ class SupvisorsView(ViewHandler):
         """ Rendering of the navigation menu. """
         self.write_nav(root)
 
-    def write_header(self, header_elt) -> None:
+    def write_status(self, header_elt) -> None:
         """ Rendering of the header part of the Supvisors main page. """
-        super().write_header(header_elt)
         # set Supvisors state & modes
         state_modes = self.sup_ctx.get_state_modes()
         header_elt.findmeld('state_mid').content(state_modes['fsm_statename'])
@@ -71,21 +70,20 @@ class SupvisorsView(ViewHandler):
         master_instance = self.sup_ctx.master_instance
         identifier = master_instance.supvisors_id.nick_identifier if master_instance else 'none'
         header_elt.findmeld('master_name_mid').content(identifier)
-        # write actions related to Supvisors
-        self.write_supvisors_actions(header_elt)
 
-    def write_supvisors_actions(self, root) -> None:
+    def write_actions(self, header_elt) -> None:
         """ Write actions related to Supvisors. """
+        super().write_actions(header_elt)
         # configure end of sync button
-        elt = root.findmeld('start_a_mid')
+        elt = header_elt.findmeld('start_a_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_sync'})
         elt.attributes(href=url)
         # configure restart button
-        elt = root.findmeld('restart_a_mid')
+        elt = header_elt.findmeld('restart_a_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'})
         elt.attributes(href=url)
         # configure shutdown button
-        elt = root.findmeld('shutdown_a_mid')
+        elt = header_elt.findmeld('shutdown_a_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})
         elt.attributes(href=url)
 

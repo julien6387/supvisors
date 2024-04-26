@@ -55,18 +55,95 @@ def test_init(view):
     assert view.page_name == PROC_INSTANCE_PAGE
 
 
-def test_write_periods(mocker, view):
-    """ Test the ProcInstanceView.write_periods method. """
-    mocked_period = mocker.patch.object(view, 'write_periods_availability')
-    mocked_root = Mock()
-    # test with process statistics to be displayed
-    view.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, True)]
-    mocked_period.reset_mock()
-    # test with process statistics NOT to be displayed
+def test_write_options(mocker, view):
+    """ Test the SupvisorsInstanceView.write_options method. """
+    mocked_period = mocker.patch.object(view, 'write_periods')
+    mocked_switch = mocker.patch.object(view, 'write_view_switch')
+    option_card_mid = create_element()
+    option_line_mid = create_element()
+    period_div_mid = create_element()
+    view_div_mid = create_element()
+    mocked_header = create_element({'option_card_mid': option_card_mid, 'option_line_mid': option_line_mid,
+                                    'period_div_mid': period_div_mid, 'view_div_mid': view_div_mid})
+    # test all statistics enabled
+    assert view.has_host_statistics
+    assert view.has_process_statistics
+    view.write_options(mocked_header)
+    assert mocked_period.call_args_list == [call(mocked_header)]
+    assert mocked_switch.call_args_list == [call(mocked_header)]
+    assert not mocked_header.findmeld.called
+    assert not option_card_mid.replace.called
+    assert not option_line_mid.replace.called
+    assert not period_div_mid.replace.called
+    assert not view_div_mid.replace.called
+    mocker.resetall()
+    mocked_header.reset_all()
+    # test process statistics only
+    view.has_process_statistics = True
+    view.has_host_statistics = False
+    view.write_options(mocked_header)
+    assert mocked_period.call_args_list == [call(mocked_header)]
+    assert not mocked_switch.called
+    assert mocked_header.findmeld.call_args_list == [call('view_div_mid')]
+    assert not option_card_mid.replace.called
+    assert not option_line_mid.replace.called
+    assert not period_div_mid.replace.called
+    assert view_div_mid.replace.call_args_list == [call('')]
+    mocker.resetall()
+    mocked_header.reset_all()
+    # test host statistics only
     view.has_process_statistics = False
-    view.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, False)]
+    view.has_host_statistics = True
+    view.write_options(mocked_header)
+    assert not mocked_period.called
+    assert mocked_switch.call_args_list == [call(mocked_header)]
+    assert mocked_header.findmeld.call_args_list == [call('period_div_mid')]
+    assert not option_card_mid.replace.called
+    assert not option_line_mid.replace.called
+    assert period_div_mid.replace.call_args_list == [call('')]
+    assert not view_div_mid.replace.called
+    mocker.resetall()
+    mocked_header.reset_all()
+    # test no statistics
+    view.has_process_statistics = False
+    view.has_host_statistics = False
+    view.write_options(mocked_header)
+    assert not mocked_period.called
+    assert not mocked_switch.called
+    assert mocked_header.findmeld.call_args_list == [call('option_card_mid'), call('option_line_mid')]
+    assert option_card_mid.replace.call_args_list == [call('')]
+    assert option_line_mid.replace.call_args_list == [call('')]
+    assert not period_div_mid.replace.called
+    assert not view_div_mid.replace.called
+
+
+def test_write_view_switch(supvisors, view):
+    """ Test the SupvisorsInstanceView.write_view_switch method. """
+    # set context (meant to be set through constructor and render)
+    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+    supvisors.mapper.local_identifier = '10.0.0.1:65000'
+    # build root structure
+    mocked_process_view_mid = create_element()
+    mocked_host_view_mid = create_element()
+    mocked_header = create_element({'process_view_a_mid': mocked_process_view_mid,
+                                    'host_view_a_mid': mocked_host_view_mid})
+    # test call when SupvisorsInstanceView is a host page
+    view.page_name = HOST_INSTANCE_PAGE
+    view.write_view_switch(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('process_view_a_mid'), call('host_view_a_mid'), ]
+    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE)]
+    assert mocked_process_view_mid.attributes.call_args_list == [call(href='an url')]
+    assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
+    mocked_header.reset_all()
+    view.view_ctx.format_url.reset_mock()
+    # test call when SupvisorsInstanceView is a process page
+    view.page_name = PROC_INSTANCE_PAGE
+    view.write_view_switch(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('host_view_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE)]
+    assert not mocked_process_view_mid.attributes.called
+    assert mocked_host_view_mid.attributes.call_args_list == [call(href='an url')]
+    assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
 
 
 def test_write_contents(mocker, view):

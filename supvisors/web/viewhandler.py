@@ -219,10 +219,52 @@ class ViewHandler(MeldView):
     def write_header(self, header_elt):
         """ Write the header common part of the page.
         Subclasses will define what's to be done at their level. """
-        # write software information
         self.write_software(header_elt)
-        # write statistics parameters
-        self.write_periods(header_elt)
+        self.write_status(header_elt)
+        self.write_options(header_elt)
+        self.write_actions(header_elt)
+
+    def write_software(self, header_elt):
+        """ Write the user software elements. """
+        card_elt = header_elt.findmeld('software_card_mid')
+        if not (self.supvisors.options.software_name or self.supvisors.options.software_icon):
+            # remove the user software card if nothing set
+            card_elt.replace('')
+        else:
+            if self.supvisors.options.software_name:
+                # write software name
+                card_elt.findmeld('software_name_mid').content(self.supvisors.options.software_name)
+            # write user icon
+            if self.supvisors.options.software_icon:
+                SoftwareIconImage.set_path(self.supvisors.options.software_icon)
+            else:
+                card_elt.findmeld('software_icon_mid').replace('')
+
+    def write_status(self, header_elt):
+        """ Write the page instance status. """
+        raise NotImplementedError
+
+    def write_options(self, header_elt):
+        """ Write configured periods for statistics.
+        Does nothing by default. To be specialized in subclasses where statistics are available. """
+
+    def write_periods(self, header_elt) -> None:
+        """ Write configured periods for statistics.
+        The update is conditioned to statistics options set in subclasses. """
+        # write the available periods
+        mid_elt = header_elt.findmeld('period_li_mid')
+        for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
+            # print period button
+            elt = li_elt.findmeld('period_a_mid')
+            if item == self.view_ctx.parameters[PERIOD]:
+                update_attrib(elt, 'class', 'off active')
+            else:
+                url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
+                elt.attributes(href=url)
+            elt.content(f'{item}s')
+
+    def write_actions(self, header_elt):
+        """ Write the common action elements. """
         # configure refresh button
         elt = header_elt.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name)
@@ -234,48 +276,6 @@ class ViewHandler(MeldView):
         elt.attributes(href=url)
         if auto_refresh:
             update_attrib(elt, 'class', 'active')
-
-    def write_software(self, header_elt):
-        """ Write the user software elements. """
-        card_elt = header_elt.findmeld('software_card_mid')
-        if not (self.supvisors.options.software_name or self.supvisors.options.software_icon):
-            line_elt = header_elt.findmeld('software_line_mid')
-            # remove the user software card if nothing set
-            # card_elt.replace('')
-            # header_elt.findmeld('software_line_mid').replace('')
-            update_attrib(card_elt, 'class', 'invisible')
-            update_attrib(line_elt, 'class', 'invisible')
-        else:
-            if self.supvisors.options.software_name:
-                # write software name
-                card_elt.findmeld('software_name_mid').content(self.supvisors.options.software_name)
-            # write user icon
-            if self.supvisors.options.software_icon:
-                SoftwareIconImage.set_path(self.supvisors.options.software_icon)
-            else:
-                card_elt.findmeld('software_icon_mid').replace('')
-
-    def write_periods(self, header_elt):
-        """ Write configured periods for statistics.
-        Does nothing by default. To be specialized in subclasses where statistics are available. """
-
-    def write_periods_availability(self, header_elt, available: bool) -> None:
-        """ Write configured periods for statistics. """
-        if available:
-            # write the available periods
-            mid_elt = header_elt.findmeld('period_li_mid')
-            for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
-                # print period button
-                elt = li_elt.findmeld('period_a_mid')
-                if item == self.view_ctx.parameters[PERIOD]:
-                    update_attrib(elt, 'class', 'off active')
-                else:
-                    url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
-                    elt.attributes(href=url)
-                elt.content(f'{item}s')
-        else:
-            # hide the Statistics periods box
-            header_elt.findmeld('period_div_mid').replace('')
 
     def write_contents(self, root):
         """ Write the contents part of the page.

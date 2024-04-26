@@ -33,9 +33,12 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, HOST_INSTANCE_PAGE)
 
-    def write_periods(self, header_elt):
+    def write_options(self, header_elt):
         """ Write configured periods for host statistics. """
-        self.write_periods_availability(header_elt, self.has_host_statistics)
+        # in the current design, this page should not be accessed if the host statistics are not enabled
+        # so no need to hide the period buttons in this case
+        self.write_periods(header_elt)
+        # always allow to go back to process view
 
     def write_contents(self, root):
         """ Rendering of tables and figures for address statistics. """

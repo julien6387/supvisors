@@ -66,14 +66,12 @@ def test_write_navigation(mocker, view):
     assert mocked_nav.call_args_list == [call(mocked_root)]
 
 
-def test_write_header(mocker, supvisors, view):
+def test_write_status(mocker, supvisors, view):
     """ Test the write_header method. """
     # patch context
     mocker.patch.object(view.sup_ctx, 'get_state_modes',
                         return_value={'fsm_statename': SupvisorsStates.DEPLOYMENT.name,
                                       'starting_jobs': True, 'stopping_jobs': False})
-    mocked_super = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
-    mocked_actions = mocker.patch.object(view, 'write_supvisors_actions')
     # build root structure
     state_mid = create_element()
     starting_mid = create_element()
@@ -82,8 +80,7 @@ def test_write_header(mocker, supvisors, view):
     mocked_header = create_element({'state_mid': state_mid, 'master_name_mid': master_mid,
                                     'starting_mid': starting_mid, 'stopping_mid': stopping_mid})
     # test call with no master
-    view.write_header(mocked_header)
-    assert mocked_super.call_args_list == [call(mocked_header)]
+    view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
     assert state_mid.content.call_args_list == [call('DEPLOYMENT')]
@@ -92,13 +89,11 @@ def test_write_header(mocker, supvisors, view):
     assert stopping_mid.attrib['class'] == ''
     assert stopping_mid.replace.call_args_list == [call('')]
     assert master_mid.content.call_args_list == [call('none')]
-    assert mocked_actions.call_args_list == [call(mocked_header)]
     mocked_header.reset_all()
     mocker.resetall()
     # test call with master
     supvisors.context.local_status.state_modes.master_identifier = '10.0.0.1:65000'
-    view.write_header(mocked_header)
-    assert mocked_super.call_args_list == [call(mocked_header)]
+    view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
     assert state_mid.content.call_args_list == [call('DEPLOYMENT')]
@@ -107,23 +102,25 @@ def test_write_header(mocker, supvisors, view):
     assert stopping_mid.attrib['class'] == ''
     assert stopping_mid.replace.call_args_list == [call('')]
     assert master_mid.content.call_args_list == [call('10.0.0.1')]
-    assert mocked_actions.call_args_list == [call(mocked_header)]
 
 
-def test_write_supvisors_actions(view):
+def test_write_actions(mocker, view):
     """ Test the SupvisorsView.write_supvisors_actions method. """
+    mocked_super = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_actions')
     # set context (meant to be set through render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure
     start_mid = create_element()
     restart_mid = create_element()
     shutdown_mid = create_element()
-    mocked_root = create_element({'start_a_mid': start_mid,
-                                  'restart_a_mid': restart_mid,
-                                  'shutdown_a_mid': shutdown_mid})
+    mocked_header = create_element({'start_a_mid': start_mid,
+                                    'restart_a_mid': restart_mid,
+                                    'shutdown_a_mid': shutdown_mid})
     # test call
-    view.write_supvisors_actions(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('start_a_mid'), call('restart_a_mid'), call('shutdown_a_mid')]
+    view.write_actions(mocked_header)
+    assert mocked_super.call_args_list == [call(mocked_header)]
+    assert mocked_header.findmeld.call_args_list == [call('start_a_mid'), call('restart_a_mid'),
+                                                     call('shutdown_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE, **{ACTION: 'sup_sync'}),
                                                        call('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'}),
                                                        call('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})]

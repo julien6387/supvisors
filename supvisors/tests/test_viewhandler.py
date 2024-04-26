@@ -396,7 +396,108 @@ def test_write_nav_applications_operation(supvisors, handler):
 def test_write_header(mocker, handler):
     """ Test the ViewHandler.write_header method. """
     mocked_software = mocker.patch.object(handler, 'write_software')
-    mocked_periods = mocker.patch.object(handler, 'write_periods')
+    mocked_status = mocker.patch.object(handler, 'write_status')
+    mocked_options = mocker.patch.object(handler, 'write_options')
+    mocked_actions = mocker.patch.object(handler, 'write_actions')
+    mocked_header = create_element()
+    handler.write_header(mocked_header)
+    assert mocked_software.call_args_list == [call(mocked_header)]
+    assert mocked_status.call_args_list == [call(mocked_header)]
+    assert mocked_options.call_args_list == [call(mocked_header)]
+    assert mocked_actions.call_args_list == [call(mocked_header)]
+
+
+def test_write_software(mocker, supvisors, handler):
+    """ Test the ViewHandler.write_software method. """
+    mocked_path = mocker.patch('supvisors.web.viewimage.SoftwareIconImage.set_path')
+    mocked_name = create_element()
+    mocked_icon = create_element()
+    mocked_card = create_element({'software_icon_mid': mocked_icon, 'software_name_mid': mocked_name})
+    mocked_header = create_element({'software_card_mid': mocked_card})
+    # 1. test user software name but no icon
+    assert supvisors.options.software_name
+    assert not supvisors.options.software_icon
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert not mocked_card.replace.called
+    assert mocked_card.findmeld.call_args_list == [call('software_name_mid'), call('software_icon_mid')]
+    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
+    assert mocked_icon.replace.call_args_list == [call('')]
+    assert not mocked_path.called
+    # reset mocks
+    mocked_header.reset_all()
+    # 2. test both user software name & icon set
+    supvisors.options.software_icon = '/tmp/an_icon.png'
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert not mocked_card.replace.called
+    assert mocked_card.findmeld.call_args_list == [call('software_name_mid')]
+    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
+    assert not mocked_icon.replace.called
+    assert mocked_path.call_args_list == [call('/tmp/an_icon.png')]
+    # reset mocks
+    mocked_header.reset_all()
+    mocker.resetall()
+    # 3. test no user software set
+    supvisors.options.software_name = ''
+    supvisors.options.software_icon = None
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert mocked_card.replace.call_args_list == [call('')]
+    assert not mocked_card.findmeld.called
+    assert not mocked_name.content.called
+    assert not mocked_icon.replace.called
+    assert not mocked_path.called
+
+
+def test_write_status(handler):
+    """ Test the ViewHandler.write_options method. """
+    with pytest.raises(NotImplementedError):
+        handler.write_status(Mock())
+
+
+def test_write_options(handler):
+    """ Test the ViewHandler.write_options method. """
+    handler.write_options(Mock())
+    # no implementation, no nothing to test
+    assert True
+
+
+def test_write_periods(supvisors, handler):
+    """ Test the ViewHandler.write_periods method. """
+    # 1. test call with period selection identical to parameter
+    period_a_mid = create_element()
+    period_li_elt = create_element({'period_a_mid': period_a_mid})
+    period_li_mid = create_element()
+    period_li_mid.repeat.return_value = [(period_li_elt, 5)]
+    mocked_header = create_element({'period_li_mid': period_li_mid})
+    # test call with period selection identical to parameter
+    handler.view_ctx = Mock(parameters={PERIOD: 5}, **{'format_url.return_value': 'an url'})
+    handler.write_periods(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('period_li_mid')]
+    assert period_li_mid.repeat.call_args_list == [call(supvisors.options.stats_periods)]
+    assert period_li_elt.findmeld.call_args_list == [call('period_a_mid')]
+    assert period_a_mid.attrib['class'] == 'off active'
+    assert handler.view_ctx.format_url.call_args_list == []
+    assert period_a_mid.attributes.call_args_list == []
+    assert period_a_mid.content.call_args_list == [call('5s')]
+    mocked_header.reset_all()
+    period_li_elt.reset_all()
+    period_a_mid.attrib['class'] = ''
+    # 2. test call with period selection different from parameter
+    handler.view_ctx.parameters[PERIOD] = 10
+    handler.write_periods(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('period_li_mid')]
+    assert period_li_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
+    assert period_li_elt.findmeld.call_args_list == [call('period_a_mid')]
+    assert period_a_mid.attrib['class'] == ''
+    assert handler.view_ctx.format_url.call_args_list == [call('', None, period=5)]
+    assert period_a_mid.attributes.call_args_list == [call(href='an url')]
+    assert period_a_mid.content.call_args_list == [call('5s')]
+
+
+def test_write_actions(mocker, handler):
+    """ Test the ViewHandler.write_header method. """
     handler.page_name = 'dummy.html'
     handler.view_ctx = Mock(parameters={AUTO: True}, **{'format_url.return_value': 'an url'})
     mocked_refresh = create_element()
@@ -404,9 +505,7 @@ def test_write_header(mocker, handler):
     mocked_autorefresh.attrib['class'] = 'button'
     mocked_header = create_element({'refresh_a_mid': mocked_refresh, 'autorefresh_a_mid': mocked_autorefresh})
     # 1. test auto-refresh
-    handler.write_header(mocked_header)
-    assert mocked_software.call_args_list == [call(mocked_header)]
-    assert mocked_periods.call_args_list == [call(mocked_header)]
+    handler.write_actions(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
                                                           call('', 'dummy.html', auto=False)]
@@ -420,106 +519,13 @@ def test_write_header(mocker, handler):
     mocked_autorefresh.attrib['class'] = 'button'
     # 2. test no auto-refresh
     handler.view_ctx.parameters[AUTO] = False
-    handler.write_header(mocked_header)
-    assert mocked_software.call_args_list == [call(mocked_header)]
-    assert mocked_periods.call_args_list == [call(mocked_header)]
+    handler.write_actions(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
                                                           call('', 'dummy.html', auto=True)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button'
-
-
-def test_write_software(mocker, supvisors, handler):
-    """ Test the ViewHandler.write_software method. """
-    mocked_path = mocker.patch('supvisors.web.viewimage.SoftwareIconImage.set_path')
-    mocked_name = create_element()
-    mocked_icon = create_element()
-    mocked_line = create_element()
-    mocked_card = create_element({'software_icon_mid': mocked_icon, 'software_name_mid': mocked_name})
-    mocked_header = create_element({'software_card_mid': mocked_card, 'software_line_mid': mocked_line})
-    # 1. test user software name but no icon
-    assert supvisors.options.software_name
-    assert not supvisors.options.software_icon
-    handler.write_software(mocked_header)
-    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
-    assert mocked_card.findmeld.call_args_list == [call('software_name_mid'), call('software_icon_mid')]
-    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
-    assert mocked_icon.replace.call_args_list == [call('')]
-    assert not mocked_path.called
-    # reset mocks
-    mocked_header.reset_all()
-    # 2. test both user software name & icon set
-    supvisors.options.software_icon = '/tmp/an_icon.png'
-    handler.write_software(mocked_header)
-    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
-    assert mocked_card.findmeld.call_args_list == [call('software_name_mid')]
-    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
-    assert not mocked_icon.replace.called
-    assert mocked_path.call_args_list == [call('/tmp/an_icon.png')]
-    # reset mocks
-    mocked_header.reset_all()
-    mocker.resetall()
-    # 3. test no user software set
-    supvisors.options.software_name = ''
-    supvisors.options.software_icon = None
-    handler.write_software(mocked_header)
-    assert mocked_header.findmeld.call_args_list == [call('software_card_mid'), call('software_line_mid')]
-    assert not mocked_card.findmeld.called
-    assert mocked_card.attrib['class'] == 'invisible'
-    assert mocked_line.attrib['class'] == 'invisible'
-    assert not mocked_name.content.called
-    assert not mocked_icon.replace.called
-    assert not mocked_path.called
-
-
-def test_write_periods(mocker, handler):
-    """ Test the ViewHandler.write_periods method. """
-    handler.write_periods(Mock())
-    # no implementation, no nothing to test
-    assert True
-
-
-def test_write_periods_availability(handler):
-    """ Test the ViewHandler.write_periods_availability method. """
-    # 1. test call with period selection identical to parameter
-    mocked_mid = Mock()
-    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-    # test call when statistics are disabled
-    handler.write_periods_availability(mocked_root, False)
-    assert mocked_root.findmeld.call_args_list == [call('period_div_mid')]
-    assert mocked_mid.replace.call_args_list == [call('')]
-    # patch the meld elements
-    href_elt = Mock(attrib={'class': ''})
-    period_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(period_elt, 5)]})
-    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-    # test call with period selection identical to parameter
-    handler.view_ctx = Mock(parameters={PERIOD: 5}, **{'format_url.return_value': 'an url'})
-    handler.write_periods_availability(mocked_root, True)
-    assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
-    assert period_elt.findmeld.call_args_list == [call('period_a_mid')]
-    assert href_elt.attrib['class'] == 'off active'
-    assert handler.view_ctx.format_url.call_args_list == []
-    assert href_elt.attributes.call_args_list == []
-    assert href_elt.content.call_args_list == [call('5s')]
-    mocked_root.findmeld.reset_mock()
-    mocked_mid.repeat.reset_mock()
-    period_elt.findmeld.reset_mock()
-    href_elt.content.reset_mock()
-    href_elt.attrib['class'] = ''
-    # 2. test call with period selection different from parameter
-    handler.view_ctx.parameters[PERIOD] = 10
-    handler.write_periods_availability(mocked_root, True)
-    assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
-    assert period_elt.findmeld.call_args_list == [call('period_a_mid')]
-    assert href_elt.attrib['class'] == ''
-    assert handler.view_ctx.format_url.call_args_list == [call('', None, period=5)]
-    assert href_elt.attributes.call_args_list == [call(href='an url')]
-    assert href_elt.content.call_args_list == [call('5s')]
 
 
 def test_write_contents(handler):

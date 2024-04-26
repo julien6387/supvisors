@@ -21,7 +21,7 @@ from supervisor.web import MeldView
 
 from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.web.viewinstance import *
-from supvisors.web.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
+from supvisors.web.webutils import HOST_INSTANCE_PAGE
 from .base import DummyHttpContext
 from .conftest import create_element
 
@@ -83,19 +83,17 @@ def test_render(mocker, view):
     assert mocked_render.call_args_list == [call(view)]
 
 
-def test_write_navigation(mocker, view):
+def test_write_navigation(mocker, supvisors, view):
     """ Test the write_navigation method. """
     mocked_nav = mocker.patch.object(view, 'write_nav')
     mocked_root = Mock()
     view.write_navigation(mocked_root)
-    local_identifier = view.supvisors.mapper.local_identifier
+    local_identifier = supvisors.mapper.local_identifier
     assert mocked_nav.call_args_list == [call(mocked_root, identifier=local_identifier)]
 
 
-def test_write_header(mocker, supvisors, view):
-    """ Test the write_header method. """
-    mocked_super = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
-    mocked_actions = mocker.patch.object(view, 'write_instance_actions')
+def test_write_status(mocker, supvisors, view):
+    """ Test the write_status method. """
     # build root structure
     instance_mid = create_element()
     state_mid = create_element()
@@ -114,8 +112,7 @@ def test_write_header(mocker, supvisors, view):
     mocker.patch.object(status, 'get_load', return_value=12)
     assert not view.sup_ctx.is_master
     assert not view.sup_ctx.local_status.state_modes.discovery_mode
-    view.write_header(mocked_header)
-    assert mocked_super.call_args_list == [call(mocked_header)]
+    view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('stopping_mid')]
     assert not master_mid.content.called
     assert not discovery_mid.content.called
@@ -123,7 +120,6 @@ def test_write_header(mocker, supvisors, view):
     assert state_mid.content.call_args_list == [call('RUNNING')]
     assert starting_mid.attrib['class'] == ''
     assert stopping_mid.attrib['class'] == 'blink'
-    assert mocked_actions.call_args_list == [call(mocked_header, status)]
     # reset mocks
     mocker.resetall()
     mocked_header.reset_all()
@@ -132,7 +128,7 @@ def test_write_header(mocker, supvisors, view):
     assert view.sup_ctx.is_master
     status.state_modes.starting_jobs = True
     view.sup_ctx.local_status.state_modes.discovery_mode = True
-    view.write_header(mocked_header)
+    view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('master_mid'), call('instance_mid'), call('state_mid'),
                                                      call('discovery_mid'), call('starting_mid'), call('stopping_mid')]
     assert master_mid.content.call_args_list == [call(MASTER_SYMBOL)]
@@ -141,83 +137,31 @@ def test_write_header(mocker, supvisors, view):
     assert state_mid.content.call_args_list == [call('RUNNING')]
     assert starting_mid.attrib['class'] == 'blink'
     assert stopping_mid.attrib['class'] == 'blink'
-    assert mocked_actions.call_args_list == [call(mocked_header, status)]
 
 
-def test_write_instance_actions(mocker, view):
+def test_write_actions(mocker, view):
     """ Test the SupvisorsInstanceView.write_instance_actions method. """
-    mocker.patch.object(view, 'write_view_switch')
+    mocked_super = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_actions')
     # set context (meant to be set through render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-    # set instance context
-    mocked_status = Mock(**{'supvisors_id.host_name': '10.0.0.1'})
     # build root structure
     mocked_stop_mid = create_element()
     mocked_restart_mid = create_element()
     mocked_shutdown_mid = create_element()
-    mocked_root = create_element({'stopall_a_mid': mocked_stop_mid, 'restartsup_a_mid': mocked_restart_mid,
-                                  'shutdownsup_a_mid': mocked_shutdown_mid})
+    mocked_header = create_element({'stopall_a_mid': mocked_stop_mid, 'restartsup_a_mid': mocked_restart_mid,
+                                    'shutdownsup_a_mid': mocked_shutdown_mid})
     # test call when SupvisorsInstanceView is a host page
     view.page_name = HOST_INSTANCE_PAGE
-    view.write_instance_actions(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('stopall_a_mid'), call('restartsup_a_mid'),
-                                                   call('shutdownsup_a_mid')]
+    view.write_actions(mocked_header)
+    assert mocked_super.call_args_list == [call(mocked_header)]
+    assert mocked_header.findmeld.call_args_list == [call('stopall_a_mid'), call('restartsup_a_mid'),
+                                                     call('shutdownsup_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE, **{ACTION: 'stopall'}),
                                                        call('', HOST_INSTANCE_PAGE, **{ACTION: 'restartsup'}),
                                                        call('', HOST_INSTANCE_PAGE, **{ACTION: 'shutdownsup'})]
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_restart_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_shutdown_mid.attributes.call_args_list == [call(href='an url')]
-
-
-def test_write_view_switch(view):
-    """ Test the SupvisorsInstanceView.write_view_switch method. """
-    # set context (meant to be set through constructor and render)
-    view.has_host_statistics = True
-    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-    # set instance context
-    mocked_status = Mock(**{'supvisors_id.host_id': '10.0.0.1'})
-    # build root structure
-    mocked_process_view_mid = create_element()
-    mocked_host_view_mid = create_element()
-    mocked_view_mid = create_element()
-    mocked_root = create_element({'process_view_a_mid': mocked_process_view_mid,
-                                  'host_view_a_mid': mocked_host_view_mid,
-                                  'view_div_mid': mocked_view_mid})
-    # test call when SupvisorsInstanceView is a host page
-    view.page_name = HOST_INSTANCE_PAGE
-    view.write_view_switch(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('process_view_a_mid'), call('host_view_a_mid'), ]
-    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE)]
-    assert mocked_process_view_mid.attributes.call_args_list == [call(href='an url')]
-    assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
-    assert not mocked_view_mid.replace.called
-    mocked_root.reset_all()
-    view.view_ctx.format_url.reset_mock()
-    # test call when SupvisorsInstanceView is a process page and statistics are enabled
-    view.page_name = PROC_INSTANCE_PAGE
-    view.write_view_switch(mocked_root, mocked_status)
-    assert mocked_root.findmeld.call_args_list == [call('host_view_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE)]
-    assert not mocked_process_view_mid.attributes.called
-    assert mocked_host_view_mid.attributes.call_args_list == [call(href='an url')]
-    assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
-    assert not mocked_view_mid.replace.called
-    mocked_root.reset_all()
-    view.view_ctx.format_url.reset_mock()
-    # test call when statistics are disabled or collector is missing
-    view.has_host_statistics = False
-    for page in [PROC_INSTANCE_PAGE, HOST_INSTANCE_PAGE]:
-        view.page_name = page
-        view.write_view_switch(mocked_root, mocked_status)
-        assert mocked_root.findmeld.call_args_list == [call('view_div_mid')]
-        assert not mocked_host_view_mid.content.called
-        assert mocked_host_view_mid.attrib == {'class': ''}
-        assert not view.view_ctx.format_url.called
-        assert not mocked_process_view_mid.attributes.called
-        assert not mocked_host_view_mid.attributes.called
-        assert mocked_view_mid.replace.call_args_list == [call('')]
-        mocked_root.reset_all()
 
 
 def test_make_callback(mocker, view):

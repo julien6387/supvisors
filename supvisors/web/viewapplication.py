@@ -58,12 +58,8 @@ class ApplicationView(ViewHandler):
         self.write_nav(root, appli=self.application_name)
 
     # RIGHT SIDE / HEADER part
-    def write_header(self, header_elt):
+    def write_status(self, header_elt):
         """ Rendering of the header part of the Supvisors Application page. """
-        super().write_header(header_elt)
-        # write options
-        self.write_starting_strategy(header_elt)
-        # application-dependent data
         if self.application:
             # set application name
             header_elt.findmeld('application_mid').content(self.application_name)
@@ -79,12 +75,15 @@ class ApplicationView(ViewHandler):
                 elt.attrib['class'] = 'status_green'
             else:
                 elt.attrib['class'] = 'status_empty'
-            # write actions related to application
-            self.write_application_actions(header_elt)
 
-    def write_periods(self, header_elt):
-        """ Write configured periods for process statistics. """
-        self.write_periods_availability(header_elt, self.has_process_statistics)
+    def write_options(self, header_elt):
+        """ Write application options. """
+        self.write_starting_strategy(header_elt)
+        if self.has_process_statistics:
+            self.write_periods(header_elt)
+        else:
+            # hide the Statistics periods box
+            header_elt.findmeld('period_div_mid').replace('')
 
     def write_starting_strategy(self, header_elt):
         """ Write applicable starting strategies. """
@@ -99,8 +98,9 @@ class ApplicationView(ViewHandler):
                 url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy.name})
                 elt.attributes(href=url)
 
-    def write_application_actions(self, header_elt):
+    def write_actions(self, header_elt):
         """ Write actions related to the application. """
+        super().write_actions(header_elt)
         # configure start application button
         elt = header_elt.findmeld('startapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'startapp'})

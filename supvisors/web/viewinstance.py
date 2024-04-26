@@ -47,9 +47,8 @@ class SupvisorsInstanceView(StatusView):
         self.write_nav(root, identifier=self.local_identifier)
 
     # RIGHT SIDE / HEADER part
-    def write_header(self, header_elt):
+    def write_status(self, header_elt):
         """ Rendering of the header part of the Supvisors Instance page. """
-        super().write_header(header_elt)
         # set Master symbol
         if self.sup_ctx.is_master:
             header_elt.findmeld('master_mid').content(MASTER_SYMBOL)
@@ -68,13 +67,10 @@ class SupvisorsInstanceView(StatusView):
                 elt = header_elt.findmeld(mid)
                 elt.content(mid.split('_')[0])
                 update_attrib(elt, 'class', 'blink')
-        # write actions related to the Supvisors instance
-        self.write_instance_actions(header_elt, status)
 
-    def write_instance_actions(self, header_elt, status: SupvisorsInstanceStatus):
+    def write_actions(self, header_elt):
         """ Write actions related to the Supvisors instance. """
-        # configure switch page
-        self.write_view_switch(header_elt, status)
+        super().write_actions(header_elt)
         # configure stop all button
         elt = header_elt.findmeld('stopall_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})
@@ -87,24 +83,6 @@ class SupvisorsInstanceView(StatusView):
         elt = header_elt.findmeld('shutdownsup_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'shutdownsup'})
         elt.attributes(href=url)
-
-    def write_view_switch(self, root, status: SupvisorsInstanceStatus):
-        """ Write actions related to the Supvisors instance. """
-        if self.has_host_statistics:
-            # update process button
-            if self.page_name == HOST_INSTANCE_PAGE:
-                elt = root.findmeld('process_view_a_mid')
-                url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
-                elt.attributes(href=url)
-            # update host button
-            elt = root.findmeld('host_view_a_mid')
-            elt.content(f'{status.supvisors_id.host_id}')
-            if self.page_name == PROC_INSTANCE_PAGE:
-                url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
-                elt.attributes(href=url)
-        else:
-            # remove whole box if statistics are disabled. Host page is useless in this case
-            root.findmeld('view_div_mid').replace('')
 
     # ACTION part
     def make_callback(self, namespec, action):

@@ -40,9 +40,41 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
 
-    def write_periods(self, root):
-        """ Write configured periods for process statistics. """
-        self.write_periods_availability(root, self.has_process_statistics)
+    def write_options(self, header_elt):
+        """ Write configured periods for statistics.
+        Does nothing by default. To be specialized in subclasses where statistics are available. """
+        if not (self.has_process_statistics or self.has_host_statistics):
+            # hide the whole card and the following line
+            header_elt.findmeld('option_card_mid').replace('')
+            header_elt.findmeld('option_line_mid').replace('')
+        else:
+            # configure the process periods
+            if self.has_process_statistics:
+                self.write_periods(header_elt)
+            else:
+                # hide the Statistics periods box
+                header_elt.findmeld('period_div_mid').replace('')
+            # configure the view switch
+            if self.has_host_statistics:
+                self.write_view_switch(header_elt)
+            else:
+                # remove whole box if statistics are disabled
+                # Host page is useless in this case
+                header_elt.findmeld('view_div_mid').replace('')
+
+    def write_view_switch(self, header_elt):
+        """ Configure the statistics view buttons. """
+        # update process button
+        if self.page_name == HOST_INSTANCE_PAGE:
+            elt = header_elt.findmeld('process_view_a_mid')
+            url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
+            elt.attributes(href=url)
+        # update host button
+        elt = header_elt.findmeld('host_view_a_mid')
+        elt.content(f'{self.sup_ctx.local_status.supvisors_id.host_id}')
+        if self.page_name == PROC_INSTANCE_PAGE:
+            url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
+            elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
     def write_contents(self, root):
