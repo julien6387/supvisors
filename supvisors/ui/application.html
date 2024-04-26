@@ -27,7 +27,6 @@
                         <a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a>
                     </h1>
                     <p><span meld:id="version_mid"></span></p>
-                    <p>view from <span meld:id="identifier_mid"></span></p>
                 </div>
                 <div/>
             </header>
@@ -273,9 +272,12 @@
                 </div>
             </div>
 
-            <div id="statusBox">
+            <div id="statusBox" meld:id="footer_mid">
                 <div id="messageBox" meld:id="message_mid"></div>
-                <div id="timeBox" class="invInfo" meld:id="time_mid"></div>
+                <div id="timeBox" class="info">
+                    <p meld:id="time_mid"></p>
+                    <p>on <span meld:id="identifier_mid"></span></p>
+                </div>
             </div>
 
         </div>

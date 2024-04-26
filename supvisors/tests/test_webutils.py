@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -51,17 +48,20 @@ def test_print_message(mocker):
     mocker.patch('supvisors.web.webutils.ctime', return_value='a date')
     # create element structure
     time_mid = create_element()
+    identifier_mid = create_element()
     message_mid = create_element()
-    root = create_element({'time_mid': time_mid, 'message_mid': message_mid})
+    root = create_element({'time_mid': time_mid, 'message_mid': message_mid, 'identifier_mid': identifier_mid})
     # test with empty message
-    print_message(root, 'gravity', None, 1234)
+    print_message(root, 'gravity', None, 1234, '10.0.0.1')
     assert time_mid.content.call_args_list == [mocker.call('a date')]
+    assert identifier_mid.content.call_args_list == [mocker.call('10.0.0.1')]
     assert message_mid.content.call_args_list == [mocker.call('')]
     assert message_mid.attrib['class'] == 'empty'
     root.reset_all()
     # test with filled message
-    print_message(root, 'gravity', 'a simple message', 1234)
+    print_message(root, 'gravity', 'a simple message', 1234, '10.0.0.1')
     assert time_mid.content.call_args_list == [mocker.call('a date')]
+    assert identifier_mid.content.call_args_list == [mocker.call('10.0.0.1')]
     assert message_mid.content.call_args_list == [mocker.call('a simple message')]
     assert message_mid.attrib['class'] == 'gravity'
 

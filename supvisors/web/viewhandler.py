@@ -117,10 +117,10 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'failure')
         # set Supvisors version
         root.findmeld('version_mid').content(__version__)
-        # set current Supvisors instance identifier
-        root.findmeld('identifier_mid').content(self.local_nick_identifier)
         # set bottom message
-        print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message(), self.current_time)
+        footer_elt = root.findmeld('footer_mid')
+        print_message(footer_elt, self.view_ctx.get_gravity(), self.view_ctx.get_message(),
+                      self.current_time, self.local_nick_identifier)
 
     def write_navigation(self, root):
         """ Write the navigation menu.

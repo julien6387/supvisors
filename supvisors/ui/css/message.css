@@ -9,9 +9,16 @@
 }
 
 #messageBox, #timeBox {
-    min-height: 25px;
-    max-height: 25px;
+    min-height: 33px;
+    max-height: 33px;
+}
+
+#messageBox {
     font-size: 0.9em;
+}
+
+#timeBox p {
+    font-size: 0.8em;
 }
 
 #messageBox {
@@ -20,40 +27,35 @@
 }
 
 #timeBox {
-    min-width: 220px;
-    max-width: 220px;
+    min-width: 200px;
+    max-width: 200px;
     margin: 5px 5px 5px 0;
     text-align: right;
 }
 
-.empty, .info, .warn, .erro, .invInfo {
+.empty, .info, .warn, .erro {
     padding: 5px;
     margin: 5px auto;
     border-radius: 10px;
 }
 
 .empty {
-    background-image: linear-gradient(165deg, silver, var(--navbg-color));
+    background-image: linear-gradient(165deg, var(--navbg-color), silver);
     border: 1px grey inset;
 }
 
-.invInfo {
+.info {
     background-image: linear-gradient(165deg, var(--navbg-color), dodgerblue);
     border: 1px blue inset;
 }
 
-.info {
-    background-image: linear-gradient(165deg, dodgerblue, var(--navbg-color));
-    border: 1px blue inset;
-}
-
-.info::before {
+#messageBox.info::before {
     content: url(../img/info_20.png) '\00a0';
     float: left;
 }
 
 .warn {
-    background-image: linear-gradient(165deg, #f90, var(--navbg-color));
+    background-image: linear-gradient(165deg, var(--navbg-color), #f90);
     border: 1px orange inset;
 }
 
@@ -63,7 +65,7 @@
 }
 
 .erro {
-    background-image: linear-gradient(165deg, orangered, var(--navbg-color));
+    background-image: linear-gradient(165deg, var(--navbg-color), orangered);
     border: 1px red inset;
 }
 
@@ -71,4 +73,3 @@
     content: url(../img/erro_20.png) '\00a0';
     float: left;
 }
-

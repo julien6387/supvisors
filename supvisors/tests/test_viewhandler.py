@@ -148,21 +148,21 @@ def test_write_common(mocker, supvisors, handler):
                                                         'get_gravity.return_value': 'severe',
                                                         'get_message.return_value': 'a message'})
     # build xml template
+    footer_mid = create_element()
     mocked_meta = create_element()
     mocked_supv = create_element()
     mocked_version = create_element()
-    mocked_identifier = create_element()
     mocked_root = create_element({'meta_mid': mocked_meta, 'supvisors_mid': mocked_supv,
-                                  'version_mid': mocked_version, 'identifier_mid': mocked_identifier})
+                                  'version_mid': mocked_version, 'footer_mid': footer_mid})
     # 1. test no conflict and auto-refresh
     supvisors.fsm.state = SupvisorsStates.OPERATION
     handler.write_common(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('identifier_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('footer_mid')]
     assert not mocked_meta.deparent.called
     assert 'failure' not in mocked_supv.attrib['class']
     assert mocked_version.content.call_args_list == [call(__version__)]
-    assert mocked_identifier.content.call_args_list == [call(handler.local_nick_identifier)]
-    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
+    assert mocked_msg.call_args_list == [call(footer_mid, 'severe', 'a message',
+                                              handler.current_time, handler.local_nick_identifier)]
     # reset mocks
     mocked_root.reset_all()
     mocked_msg.reset_mock()
@@ -173,12 +173,12 @@ def test_write_common(mocker, supvisors, handler):
     handler.view_ctx.parameters[AUTO] = False
     handler.write_common(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
-                                                   call('identifier_mid')]
+                                                   call('footer_mid')]
     assert mocked_meta.deparent.called
     assert mocked_supv.attrib == {'class': 'failure'}
     assert mocked_version.content.call_args_list == [call(__version__)]
-    assert mocked_identifier.content.call_args_list == [call(handler.local_nick_identifier)]
-    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
+    assert mocked_msg.call_args_list == [call(footer_mid, 'severe', 'a message',
+                                              handler.current_time, handler.local_nick_identifier)]
 
 
 def test_write_navigation(handler):
