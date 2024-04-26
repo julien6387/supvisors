@@ -89,11 +89,11 @@ def test_statistics_status(supvisors, rpc):
 
 def test_instance_info(supvisors, rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
-    instance = supvisors.context.instances['10.0.0.1:65000']
+    instance = supvisors.context.instances['10.0.0.1:25000']
     instance.state_modes = StateModes(SupvisorsStates.CONCILIATION, True, '10.0.0.2', False, True)
     # test with known identifier
-    expected = {'identifier': '10.0.0.1:65000', 'nick_identifier': '10.0.0.1',
-                'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
+    expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                'node_name': '10.0.0.1', 'port': 25000, 'loading': 0,
                 'local_mtime': 0.0, 'local_time': 0, 'local_sequence_counter': 0,
                 'remote_mtime': 0.0, 'remote_time': 0, 'remote_sequence_counter': 0,
                 'statecode': 0, 'statename': 'UNKNOWN', 'discovery_mode': True,
@@ -113,10 +113,10 @@ def test_all_instances_info(supvisors, rpc):
     supvisors.starter.in_progress.return_value = False
     supvisors.stopper.in_progress.return_value = True
     # prepare context
-    supvisors.mapper._instances = {'10.0.0.1:65000': Mock(),
-                                   '10.0.0.2:65000': Mock()}
-    supvisors.context.instances = {'10.0.0.1:65000': Mock(**{'serial.return_value': 'address_info_1'}),
-                                   '10.0.0.2:65000': Mock(**{'serial.return_value': 'address_info_2'})}
+    supvisors.mapper._instances = {'10.0.0.1:25000': Mock(),
+                                   '10.0.0.2:25000': Mock()}
+    supvisors.context.instances = {'10.0.0.1:25000': Mock(**{'serial.return_value': 'address_info_1'}),
+                                   '10.0.0.2:25000': Mock(**{'serial.return_value': 'address_info_2'})}
     # test call
     assert rpc.get_all_instances_info() == ['address_info_1', 'address_info_2']
 
@@ -213,12 +213,12 @@ def test_inner_process_info(supvisors, rpc):
     """ Test the get_inner_process_info RPC. """
     # prepare context
     proc_1 = Mock(application_name='group',
-                  info_map={'10.0.0.1:65000': {'name': 'proc_1', 'state': 'RUNNING'},
-                            '10.0.0.2:65000': {'name': 'proc_1', 'state': 'STOPPED'}})
+                  info_map={'10.0.0.1:25000': {'name': 'proc_1', 'state': 'RUNNING'},
+                            '10.0.0.2:25000': {'name': 'proc_1', 'state': 'STOPPED'}})
     proc_2 = Mock(application_name='group',
-                  info_map={'10.0.0.2:65000': {'name': 'proc_2', 'state': 'STARTING'}})
-    supvisors.context.instances['10.0.0.1:65000'].processes = {'proc_1': proc_1}
-    supvisors.context.instances['10.0.0.2:65000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
+                  info_map={'10.0.0.2:25000': {'name': 'proc_2', 'state': 'STARTING'}})
+    supvisors.context.instances['10.0.0.1:25000'].processes = {'proc_1': proc_1}
+    supvisors.context.instances['10.0.0.2:25000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
     application = create_application('group', supvisors)
     application.processes = {'proc_1': proc_1, 'proc_2': proc_2}
     supvisors.context.applications['group'] = application
@@ -255,12 +255,12 @@ def test_get_all_inner_process_info(supvisors, rpc):
     """ Test the get_all_inner_process_info RPC. """
     # prepare context
     proc_1 = Mock(application_name='group',
-                  info_map={'10.0.0.1:65000': {'name': 'proc_1', 'state': 'RUNNING'},
-                            '10.0.0.2:65000': {'name': 'proc_1', 'state': 'STOPPED'}})
+                  info_map={'10.0.0.1:25000': {'name': 'proc_1', 'state': 'RUNNING'},
+                            '10.0.0.2:25000': {'name': 'proc_1', 'state': 'STOPPED'}})
     proc_2 = Mock(application_name='group',
-                  info_map={'10.0.0.2:65000': {'name': 'proc_2', 'state': 'STARTING'}})
-    supvisors.context.instances['10.0.0.1:65000'].processes = {'proc_1': proc_1}
-    supvisors.context.instances['10.0.0.2:65000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
+                  info_map={'10.0.0.2:25000': {'name': 'proc_2', 'state': 'STARTING'}})
+    supvisors.context.instances['10.0.0.1:25000'].processes = {'proc_1': proc_1}
+    supvisors.context.instances['10.0.0.2:25000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
     application = create_application('group', supvisors)
     application.processes = {'proc_1': proc_1, 'proc_2': proc_2}
     supvisors.context.applications['group'] = application
@@ -1750,7 +1750,7 @@ def test_end_sync(mocker, supvisors, rpc):
     mocked_check = mocker.patch.object(rpc, '_check_state')
     mocked_fsm = mocker.patch.object(supvisors.fsm, 'on_end_sync')
     # test RPC call with Master already set
-    supvisors.context.master_identifier = '10.0.0.1:65000'
+    supvisors.context.master_identifier = '10.0.0.1:25000'
     with pytest.raises(RPCError) as exc:
         rpc.end_sync()
     assert exc.value.args[0] == SupvisorsFaults.BAD_SUPVISORS_STATE.value
@@ -1779,8 +1779,8 @@ def test_end_sync(mocker, supvisors, rpc):
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter resolves in multiple identifiers
-    supvisors.mapper.assign_stereotypes('10.0.0.1:65000', {'test_stereotype'})
-    supvisors.mapper.assign_stereotypes('10.0.0.2:65000', {'test_stereotype'})
+    supvisors.mapper.assign_stereotypes('10.0.0.1:25000', {'test_stereotype'})
+    supvisors.mapper.assign_stereotypes('10.0.0.2:25000', {'test_stereotype'})
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('test_stereotype')
     assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
@@ -1789,16 +1789,16 @@ def test_end_sync(mocker, supvisors, rpc):
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter known but not running
     with pytest.raises(RPCError) as exc:
-        rpc.end_sync('10.0.0.1:65000')
+        rpc.end_sync('10.0.0.1:25000')
     assert exc.value.args[0] == Faults.NOT_RUNNING
     assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter known running
-    supvisors.context.instances['10.0.0.1:65000']._state = SupvisorsInstanceStates.RUNNING
-    assert rpc.end_sync('10.0.0.1:65000')
+    supvisors.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
+    assert rpc.end_sync('10.0.0.1:25000')
     assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
-    assert mocked_fsm.call_args_list == [call('10.0.0.1:65000')]
+    assert mocked_fsm.call_args_list == [call('10.0.0.1:25000')]
 
 
 def test_change_log_level(rpc):

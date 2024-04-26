@@ -275,8 +275,8 @@ def host_statistics_compiler(supvisors):
 def test_host_statistics_compiler_creation(supvisors, host_statistics_compiler):
     """ Test the creation of HostStatisticsCompiler. """
     assert host_statistics_compiler.nb_cores == {}
-    test_identifier = f'{socket.getfqdn()}:55000'
-    identifiers = ['10.0.0.1:65000', '10.0.0.2:65000', '10.0.0.3:65000', '10.0.0.4:65000', '10.0.0.5:65000',
+    test_identifier = f'{socket.getfqdn()}:15000'
+    identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000', '10.0.0.5:25000',
                    supvisors.mapper.local_identifier, test_identifier]
     assert sorted(host_statistics_compiler.instance_map.keys()) == sorted(identifiers)
     for period_map in host_statistics_compiler.instance_map.values():
@@ -291,24 +291,24 @@ def test_host_statistics_compiler_creation(supvisors, host_statistics_compiler):
 def test_host_statistics_compiler_get_stats(host_statistics_compiler):
     """ Test the HostStatisticsCompiler.get_stats method """
     # test with unknown identifier
-    assert host_statistics_compiler.get_stats('10.0.0.0:65000', 5.0) is None
+    assert host_statistics_compiler.get_stats('10.0.0.0:25000', 5.0) is None
     # test with correct identifier but unknown period
-    assert host_statistics_compiler.get_stats('10.0.0.1:65000', 1.0) is None
+    assert host_statistics_compiler.get_stats('10.0.0.1:25000', 1.0) is None
     # test with correct identifier and period
-    instance = host_statistics_compiler.get_stats('10.0.0.1:65000', 15.0)
+    instance = host_statistics_compiler.get_stats('10.0.0.1:25000', 15.0)
     assert instance and instance.period == 15.0
 
 
 def test_host_statistics_compiler_get_nb_cores(host_statistics_compiler):
     """ Test the HostStatisticsCompiler.get_nb_cores method """
     # fill some internal structures
-    host_statistics_compiler.nb_cores = {'10.0.0.1:65000': 4}
+    host_statistics_compiler.nb_cores = {'10.0.0.1:25000': 4}
     # test with unknown identifier
-    assert host_statistics_compiler.get_nb_cores('10.0.0.0:65000') == 0
+    assert host_statistics_compiler.get_nb_cores('10.0.0.0:25000') == 0
     # test with known identifier but data not received yet
-    assert host_statistics_compiler.get_nb_cores('10.0.0.2:65000') == 0
+    assert host_statistics_compiler.get_nb_cores('10.0.0.2:25000') == 0
     # test with known identifier and data available
-    assert host_statistics_compiler.get_nb_cores('10.0.0.1:65000') == 4
+    assert host_statistics_compiler.get_nb_cores('10.0.0.1:25000') == 4
 
 
 def test_host_statistics_compiler_push_statistics(mocker, host_statistics_compiler):
@@ -318,16 +318,16 @@ def test_host_statistics_compiler_push_statistics(mocker, host_statistics_compil
             mocker.patch.object(instance, 'push_statistics')
     # test with unknown identifier
     host_stats = {'cpu': [1, 2, 3, 4, 5]}
-    host_statistics_compiler.push_statistics('10.0.0.0:65000', host_stats)
+    host_statistics_compiler.push_statistics('10.0.0.0:25000', host_stats)
     assert host_statistics_compiler.nb_cores == {}
     assert all((not instance.push_statistics.called
                 for identifier, period_maps in host_statistics_compiler.instance_map.items()
                 for instance in period_maps.values()))
     # test with known identifier
-    host_statistics_compiler.push_statistics('10.0.0.1:65000', host_stats)
-    assert host_statistics_compiler.nb_cores == {'10.0.0.1:65000': 4}
+    host_statistics_compiler.push_statistics('10.0.0.1:25000', host_stats)
+    assert host_statistics_compiler.nb_cores == {'10.0.0.1:25000': 4}
     for identifier, period_maps in host_statistics_compiler.instance_map.items():
-        if identifier == '10.0.0.1:65000':
+        if identifier == '10.0.0.1:25000':
             assert all((instance.push_statistics.call_args_list == [call(host_stats)]
                         for instance in period_maps.values()))
         else:

@@ -209,8 +209,8 @@ def test_write_nav_instances_identifier_error(supvisors, handler):
     handler.write_nav_instances(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
     fqdn = socket.getfqdn()
-    expected = ['10.0.0.1:65000', '10.0.0.2:65000', '10.0.0.3:65000', '10.0.0.4:65000', '10.0.0.5:65000',
-                f'{fqdn}:65000', f'{fqdn}:55000']
+    expected = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000', '10.0.0.5:25000',
+                f'{fqdn}:25000', f'{fqdn}:15000']
     assert mocked_mid.repeat.call_args_list == [call(expected)]
     assert address_elt.findmeld.call_args_list == []
 
@@ -224,11 +224,11 @@ def test_write_nav_instances_silent_instance(supvisors, handler):
     instance_h_mid = create_element()
     instance_elt = create_element({'instance_a_mid': instance_a_mid})
     instance_li_mid = create_element()
-    instance_li_mid.repeat.return_value = [(instance_elt, '10.0.0.1:65000')]
+    instance_li_mid.repeat.return_value = [(instance_elt, '10.0.0.1:25000')]
     mocked_root = create_element({'instance_h_mid': instance_h_mid, 'instance_li_mid': instance_li_mid})
     # test call with address status set in context, SILENT and different from parameter
-    handler.sup_ctx.instances['10.0.0.1:65000']._state = SupvisorsInstanceStates.SILENT
-    handler.write_nav_instances(mocked_root, '10.0.0.2:65000')
+    handler.sup_ctx.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
+    handler.write_nav_instances(mocked_root, '10.0.0.2:25000')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
     assert instance_li_mid.repeat.call_args_list == [call(list(supvisors.mapper.instances.keys()))]
     assert instance_elt.attrib['class'] == 'SILENT'
@@ -239,7 +239,7 @@ def test_write_nav_instances_silent_instance(supvisors, handler):
     instance_elt.reset_all()
     mocked_root.reset_all()
     # test call with address status set in context, SILENT and identical to parameter
-    handler.write_nav_instances(mocked_root, '10.0.0.1:65000')
+    handler.write_nav_instances(mocked_root, '10.0.0.1:25000')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
     assert instance_li_mid.repeat.call_args_list == [call(list(supvisors.mapper.instances.keys()))]
     assert instance_elt.attrib['class'] == 'SILENT active'
@@ -258,11 +258,11 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
     instance_h_mid = create_element()
     instance_elt = create_element({'instance_a_mid': instance_a_mid})
     instance_li_mid = create_element()
-    instance_li_mid.repeat.return_value = [(instance_elt, '10.0.0.1:65000')]
+    instance_li_mid.repeat.return_value = [(instance_elt, '10.0.0.1:25000')]
     mocked_root = create_element({'instance_h_mid': instance_h_mid, 'instance_li_mid': instance_li_mid})
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # loop on active states
-    status = handler.sup_ctx.instances['10.0.0.1:65000']
+    status = handler.sup_ctx.instances['10.0.0.1:25000']
     all_identifiers = list(supvisors.mapper.instances.keys())
     for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
         # set context
@@ -271,12 +271,12 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         handler.sup_ctx.master_identifier = ''
         # test call with address status set in context, RUNNING, different from parameter and not MASTER
         mocker.patch.object(status, 'has_error', return_value=False)
-        handler.write_nav_instances(mocked_root, '10.0.0.2:65000')
+        handler.write_nav_instances(mocked_root, '10.0.0.2:25000')
         assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
         assert instance_li_mid.repeat.call_args_list == [call(all_identifiers)]
         assert instance_elt.attrib['class'] == state.name
         assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
-        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:65000', 'proc_instance.html')]
+        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', 'proc_instance.html')]
         assert instance_a_mid.attributes.call_args_list == [call(href='an url')]
         assert instance_a_mid.attrib['class'] == 'on'
         assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
@@ -289,14 +289,14 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         is_running = state == SupvisorsInstanceStates.RUNNING
         mocker.patch.object(status, 'has_error', return_value=is_running)
         status.state_modes.starting_jobs = True
-        handler.sup_ctx.master_identifier = '10.0.0.1:65000'
-        handler.write_nav_instances(mocked_root, '10.0.0.1:65000')
+        handler.sup_ctx.master_identifier = '10.0.0.1:25000'
+        handler.write_nav_instances(mocked_root, '10.0.0.1:25000')
         expected = [call('instance_li_mid')] + ([call('instance_h_mid')] if is_running else [])
         assert mocked_root.findmeld.call_args_list == expected
         assert instance_li_mid.repeat.call_args_list == [call(all_identifiers)]
         assert instance_elt.attrib['class'] == state.name + ' active' + (' failure' if is_running else '') + ' master'
         assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
-        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:65000', 'proc_instance.html')]
+        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', 'proc_instance.html')]
         assert instance_a_mid.attributes.call_args_list == [call(href='an url')]
         assert instance_a_mid.attrib['class'] == 'blink on'
         assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
@@ -1090,7 +1090,7 @@ def test_write_process_statistics(mocker, handler):
     assert not mocked_plots.called
     root_elt.reset_all()
     # test call with namespec selection and no stats found
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1:65000', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1:25000', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert not stats_elt.replace.called

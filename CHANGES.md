@@ -47,8 +47,6 @@
 
 * In the Supervisors navigation menu of the Web UI, add a red light to Supervisor instances having raised a failure.
 
-* Rework the navigation menu and the page headers of the Web UI.
-
 * Allow the display of a software name and icon at the top of the **Supvisors** Web UI.
   The options `software_name` and `software_icon` have been added to the **Supvisors** section of the Supervisor
   configuration file.
@@ -56,6 +54,8 @@
 * All internal identifiers are now based on the `host:http_port` format.
 
 * Rework **Supvisors** `RPCInterface` exceptions.
+
+* Rework the Web UI.
 
 
 ## 0.17.4 (2024-03-24)

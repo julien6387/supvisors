@@ -121,7 +121,7 @@ def test_write_view_switch(supvisors, view):
     """ Test the SupvisorsInstanceView.write_view_switch method. """
     # set context (meant to be set through constructor and render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-    supvisors.mapper.local_identifier = '10.0.0.1:65000'
+    supvisors.mapper.local_identifier = '10.0.0.1:25000'
     # build root structure
     mocked_process_view_mid = create_element()
     mocked_host_view_mid = create_element()
@@ -200,9 +200,9 @@ def test_get_process_data(mocker, view):
     mocker.patch.object(view, 'sort_data', side_effect=lambda x: (sorted(x, key=lambda y: y['namespec']), []))
     mocked_data = mocker.patch.object(view, 'get_supervisord_data', return_value={'namespec': 'supervisord'})
     # get context
-    instance_status = view.sup_ctx.instances['10.0.0.1:65000']
+    instance_status = view.sup_ctx.instances['10.0.0.1:25000']
     # test with empty context
-    view.view_ctx = Mock(local_identifier='10.0.0.1:65000',
+    view.view_ctx = Mock(local_identifier='10.0.0.1:25000',
                          **{'get_process_stats.side_effect': [(2, 'stats #1'), (1, None), (4, 'stats #3')]})
     assert view.get_process_data() == ([{'namespec': 'supervisord'}], [])
     assert mocked_data.call_args_list == [call(instance_status)]
@@ -217,7 +217,7 @@ def test_get_process_data(mocker, view):
         info['disabled'] = disabled
         process = create_process(info, view.supvisors)
         process.rules.expected_load = load
-        process.add_info('10.0.0.1:65000', info)
+        process.add_info('10.0.0.1:25000', info)
         # add to application
         view.sup_ctx.applications[process.application_name].processes[process.namespec] = process
         # add to supvisors instance status
@@ -226,17 +226,17 @@ def test_get_process_data(mocker, view):
     sorted_data, excluded_data = view.get_process_data()
     # test intermediate list
     data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
-             'single': False, 'identifier': '10.0.0.1:65000', 'disabled': False, 'startable': True,
+             'single': False, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': True,
              'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': True,
              'description': 'pid 80879, uptime 0:01:19',
              'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     data2 = {'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
-             'single': False, 'identifier': '10.0.0.1:65000', 'disabled': False, 'startable': True,
+             'single': False, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': True,
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF', 'has_crashed': False,
              'description': 'Exited too quickly (process log may have details)',
              'expected_load': 17, 'nb_cores': 1, 'proc_stats': None}
     data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
-             'single': True, 'identifier': '10.0.0.1:65000', 'disabled': True, 'startable': False,
+             'single': True, 'identifier': '10.0.0.1:25000', 'disabled': True, 'startable': False,
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED', 'has_crashed': False,
              'description': 'Sep 14 05:18 PM',
              'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
@@ -246,14 +246,14 @@ def test_get_process_data(mocker, view):
 
 def test_get_supervisord_data(view):
     """ Test the ProcInstanceView.get_supervisord_data method. """
-    view.view_ctx = Mock(local_identifier='10.0.0.1:65000', **{'get_process_stats.return_value': (2, 'stats #1')})
+    view.view_ctx = Mock(local_identifier='10.0.0.1:25000', **{'get_process_stats.return_value': (2, 'stats #1')})
     # get context
-    instance_status = view.sup_ctx.instances['10.0.0.1:65000']
+    instance_status = view.sup_ctx.instances['10.0.0.1:25000']
     instance_status.times.start_local_mtime = 0
     pid = os.getpid()
     # test call on empty time values
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1:65000', 'disabled': False, 'startable': False,
+                        'single': True, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': False,
                         'description': f'pid {pid}, uptime 0:00:00',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
@@ -262,7 +262,7 @@ def test_get_supervisord_data(view):
     instance_status.times.start_local_mtime = 1000
     instance_status.times.local_time = 185618
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1:65000', 'disabled': False, 'startable': False,
+                        'single': True, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': False,
                         'description': f'pid {pid}, uptime 2 days, 3:16:58',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}

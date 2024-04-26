@@ -87,20 +87,20 @@ def test_rules_check_hash_identifiers(rules):
     # address '10.0.0.1' has an index of 1-1 in supvisors_mapper
     rules.start_sequence = 1
     rules.check_hash_identifiers('sample_test_1')
-    assert rules.identifiers == ['10.0.0.1:65000']
+    assert rules.identifiers == ['10.0.0.1:25000']
     assert rules.start_sequence == 1
     # 4. update rules to test '#' with a subset of instances available
-    rules.hash_identifiers = ['10.0.0.0:65000', '10.0.0.3:65000', '10.0.0.5:65000']
+    rules.hash_identifiers = ['10.0.0.0:25000', '10.0.0.3:25000', '10.0.0.5:25000']
     rules.identifiers = []
     # here, at index 2-1 of this list, '10.0.0.5' can be found
     rules.check_hash_identifiers('sample_test_2')
-    assert rules.identifiers == ['10.0.0.3:65000']
+    assert rules.identifiers == ['10.0.0.3:25000']
     assert rules.start_sequence == 1
     # 5. test the case where procnumber is greater than the subset list of instances available
-    rules.hash_identifiers = ['10.0.0.1:65000']
+    rules.hash_identifiers = ['10.0.0.1:25000']
     rules.identifiers = []
     rules.check_hash_identifiers('sample_test_2')
-    assert rules.identifiers == ['10.0.0.1:65000']
+    assert rules.identifiers == ['10.0.0.1:25000']
     assert rules.start_sequence == 1
 
 
@@ -234,11 +234,11 @@ def homogeneous_group(supvisors):
     # add 2 processes of the same program
     info = process_info_by_name('yeux_00')
     process_1 = create_process(info, supvisors)
-    process_1.add_info('10.0.0.1:65000', info)
+    process_1.add_info('10.0.0.1:25000', info)
     group.add_process(process_1)
     info = process_info_by_name('yeux_01')
     process_2 = create_process(info, supvisors)
-    process_2.add_info('10.0.0.1:65000', info)
+    process_2.add_info('10.0.0.1:25000', info)
     group.add_process(process_2)
     return group
 
@@ -257,32 +257,32 @@ def test_homogeneous_group_resolve_at_wildcard(homogeneous_group):
     # the number of instance exceeds the number of processes
     homogeneous_group.resolve_rules()
     assert process_1.rules.at_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
     assert process_2.rules.at_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.2:65000']
+    assert process_2.rules.identifiers == ['10.0.0.2:25000']
     # 2. check no change with same call
     homogeneous_group.resolve_rules()
     assert process_1.rules.at_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
     assert process_2.rules.at_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.2:65000']
+    assert process_2.rules.identifiers == ['10.0.0.2:25000']
     # 3. in standard mode, the list of Supvisors instances cannot change
     #    but the number of processes in a homogeneous group can (update_numprocs XML-RPC)
-    info = process_2.info_map['10.0.0.1:65000']
+    info = process_2.info_map['10.0.0.1:25000']
     info.update({'name': 'yeux_02', 'process_index': 2})
     process_3 = create_process(info, homogeneous_group.supvisors)
-    process_3.add_info('10.0.0.1:65000', info)
+    process_3.add_info('10.0.0.1:25000', info)
     process_3.rules.at_identifiers = [WILDCARD]
     process_3.rules.identifiers = []
     homogeneous_group.add_process(process_3)
     # call new resolution
     homogeneous_group.resolve_rules()
     assert process_1.rules.at_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
     assert process_2.rules.at_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.2:65000']
+    assert process_2.rules.identifiers == ['10.0.0.2:25000']
     assert process_3.rules.at_identifiers == []
-    assert process_3.rules.identifiers == ['10.0.0.3:65000']
+    assert process_3.rules.identifiers == ['10.0.0.3:25000']
 
 
 def test_homogeneous_group_resolve_at_list(homogeneous_group):
@@ -290,38 +290,38 @@ def test_homogeneous_group_resolve_at_list(homogeneous_group):
     # patch list of instances so that it is smaller than the list of processes
     mapper = homogeneous_group.supvisors.mapper
     ref_instances = mapper.instances.copy()
-    mapper._instances = {'10.0.0.1:65000': ref_instances['10.0.0.1:65000']}
+    mapper._instances = {'10.0.0.1:25000': ref_instances['10.0.0.1:25000']}
     # force at-* rules in processes and group
-    homogeneous_group.at_identifiers = ['10.0.0.2:65000', '10.0.0.1:65000']
+    homogeneous_group.at_identifiers = ['10.0.0.2:25000', '10.0.0.1:25000']
     process_1 = homogeneous_group.processes[0]
-    process_1.rules.at_identifiers = ['10.0.0.2:65000', '10.0.0.1:65000']
+    process_1.rules.at_identifiers = ['10.0.0.2:25000', '10.0.0.1:25000']
     process_1.rules.identifiers = []
     process_2 = homogeneous_group.processes[1]
-    process_2.rules.at_identifiers = ['10.0.0.2:65000', '10.0.0.1:65000']
+    process_2.rules.at_identifiers = ['10.0.0.2:25000', '10.0.0.1:25000']
     process_2.rules.identifiers = []
     # 1. check assignment
     # the number of instance exceeds the number of processes
     homogeneous_group.resolve_rules()
     assert process_1.rules.at_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
-    assert process_2.rules.at_identifiers == ['10.0.0.2:65000', '10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
+    assert process_2.rules.at_identifiers == ['10.0.0.2:25000', '10.0.0.1:25000']
     assert process_2.rules.identifiers == []
     # 2. check no change with same call
     homogeneous_group.resolve_rules()
     assert process_1.rules.at_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
-    assert process_2.rules.at_identifiers == ['10.0.0.2:65000', '10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
+    assert process_2.rules.at_identifiers == ['10.0.0.2:25000', '10.0.0.1:25000']
     assert process_2.rules.identifiers == []
     # 3. in discovery mode, the list of Supvisors instances may increase
-    mapper._instances = {'10.0.0.1:65000': ref_instances['10.0.0.1:65000'],
-                         '10.0.0.3:65000': ref_instances['10.0.0.3:65000'],
-                         '10.0.0.2:65000': ref_instances['10.0.0.2:65000']}
+    mapper._instances = {'10.0.0.1:25000': ref_instances['10.0.0.1:25000'],
+                         '10.0.0.3:25000': ref_instances['10.0.0.3:25000'],
+                         '10.0.0.2:25000': ref_instances['10.0.0.2:25000']}
     # call new resolution
     homogeneous_group.resolve_rules()
     assert process_1.rules.at_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
     assert process_2.rules.at_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.2:65000']
+    assert process_2.rules.identifiers == ['10.0.0.2:25000']
 
 
 def test_homogeneous_group_resolve_hash_wildcard(homogeneous_group):
@@ -329,8 +329,8 @@ def test_homogeneous_group_resolve_hash_wildcard(homogeneous_group):
     # patch list of instances so that it is smaller than the list of processes
     mapper = homogeneous_group.supvisors.mapper
     ref_instances = mapper.instances.copy()
-    mapper._instances = {'10.0.0.1:65000': ref_instances['10.0.0.1:65000'],
-                         '10.0.0.2:65000': ref_instances['10.0.0.2:65000']}
+    mapper._instances = {'10.0.0.1:25000': ref_instances['10.0.0.1:25000'],
+                         '10.0.0.2:25000': ref_instances['10.0.0.2:25000']}
     # force hash-* rules in processes and group
     homogeneous_group.hash_identifiers = [WILDCARD]
     process_1 = homogeneous_group.processes[0]
@@ -343,32 +343,32 @@ def test_homogeneous_group_resolve_hash_wildcard(homogeneous_group):
     # the number of instance exceeds the number of processes
     homogeneous_group.resolve_rules()
     assert process_1.rules.hash_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
     assert process_2.rules.hash_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.2:65000']
+    assert process_2.rules.identifiers == ['10.0.0.2:25000']
     # 2. check no change with same call
     homogeneous_group.resolve_rules()
     assert process_1.rules.hash_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
     assert process_2.rules.hash_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.2:65000']
+    assert process_2.rules.identifiers == ['10.0.0.2:25000']
     # 3. in standard mode, the list of Supvisors instances cannot change
     #    but the number of processes in a homogeneous group can (update_numprocs XML-RPC)
-    info = process_2.info_map['10.0.0.1:65000']
+    info = process_2.info_map['10.0.0.1:25000']
     info.update({'name': 'yeux_02', 'process_index': 2})
     process_3 = create_process(info, homogeneous_group.supvisors)
-    process_3.add_info('10.0.0.1:65000', info)
+    process_3.add_info('10.0.0.1:25000', info)
     process_3.rules.hash_identifiers = [WILDCARD]
     process_3.rules.identifiers = []
     homogeneous_group.add_process(process_3)
     # call new resolution
     homogeneous_group.resolve_rules()
     assert process_1.rules.hash_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.1:65000']
+    assert process_1.rules.identifiers == ['10.0.0.1:25000']
     assert process_2.rules.hash_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.2:65000']
+    assert process_2.rules.identifiers == ['10.0.0.2:25000']
     assert process_3.rules.hash_identifiers == []
-    assert process_3.rules.identifiers == ['10.0.0.1:65000']
+    assert process_3.rules.identifiers == ['10.0.0.1:25000']
 
 
 def test_homogeneous_group_resolve_hash_list(homogeneous_group):
@@ -376,46 +376,46 @@ def test_homogeneous_group_resolve_hash_list(homogeneous_group):
     # patch list of instances so that it is smaller than the list of processes
     mapper = homogeneous_group.supvisors.mapper
     ref_instances = mapper.instances.copy()
-    mapper._instances = {'10.0.0.1:65000': ref_instances['10.0.0.1:65000'],
-                         '10.0.0.2:65000': ref_instances['10.0.0.2:65000']}
+    mapper._instances = {'10.0.0.1:25000': ref_instances['10.0.0.1:25000'],
+                         '10.0.0.2:25000': ref_instances['10.0.0.2:25000']}
     # force at-* rules in processes and group
-    homogeneous_group.hash_identifiers = ['10.0.0.3:65000', '10.0.0.2:65000', '10.0.0.1:65000']
+    homogeneous_group.hash_identifiers = ['10.0.0.3:25000', '10.0.0.2:25000', '10.0.0.1:25000']
     process_1 = homogeneous_group.processes[0]
-    process_1.rules.hash_identifiers = ['10.0.0.3:65000', '10.0.0.2:65000', '10.0.0.1:65000']
+    process_1.rules.hash_identifiers = ['10.0.0.3:25000', '10.0.0.2:25000', '10.0.0.1:25000']
     process_1.rules.identifiers = []
     process_2 = homogeneous_group.processes[1]
-    process_2.rules.hash_identifiers = ['10.0.0.3:65000', '10.0.0.2:65000', '10.0.0.1:65000']
+    process_2.rules.hash_identifiers = ['10.0.0.3:25000', '10.0.0.2:25000', '10.0.0.1:25000']
     process_2.rules.identifiers = []
     # 1. check assignment
     # the number of instance exceeds the number of processes
     homogeneous_group.resolve_rules()
     assert process_1.rules.hash_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.2:65000']
+    assert process_1.rules.identifiers == ['10.0.0.2:25000']
     assert process_2.rules.hash_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.1:65000']
+    assert process_2.rules.identifiers == ['10.0.0.1:25000']
     # 2. check no change with same call
     homogeneous_group.resolve_rules()
     assert process_1.rules.hash_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.2:65000']
+    assert process_1.rules.identifiers == ['10.0.0.2:25000']
     assert process_2.rules.hash_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.1:65000']
+    assert process_2.rules.identifiers == ['10.0.0.1:25000']
     # 3. in standard mode, the list of Supvisors instances cannot change
     #    but the number of processes in a homogeneous group can (update_numprocs XML-RPC)
-    info = process_2.info_map['10.0.0.1:65000']
+    info = process_2.info_map['10.0.0.1:25000']
     info.update({'name': 'yeux_02', 'process_index': 2})
     process_3 = create_process(info, homogeneous_group.supvisors)
-    process_3.add_info('10.0.0.1:65000', info)
-    process_3.rules.hash_identifiers = ['10.0.0.3:65000', '10.0.0.2:65000', '10.0.0.1:65000']
+    process_3.add_info('10.0.0.1:25000', info)
+    process_3.rules.hash_identifiers = ['10.0.0.3:25000', '10.0.0.2:25000', '10.0.0.1:25000']
     process_3.rules.identifiers = []
     homogeneous_group.add_process(process_3)
     # call new resolution
     homogeneous_group.resolve_rules()
     assert process_1.rules.hash_identifiers == []
-    assert process_1.rules.identifiers == ['10.0.0.2:65000']
+    assert process_1.rules.identifiers == ['10.0.0.2:25000']
     assert process_2.rules.hash_identifiers == []
-    assert process_2.rules.identifiers == ['10.0.0.1:65000']
+    assert process_2.rules.identifiers == ['10.0.0.1:25000']
     assert process_3.rules.hash_identifiers == []
-    assert process_3.rules.identifiers == ['10.0.0.2:65000']
+    assert process_3.rules.identifiers == ['10.0.0.2:25000']
 
 
 # ApplicationStatus part
@@ -652,38 +652,38 @@ def test_application_possible_identifiers(supvisors):
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
     process1 = create_process(info, supvisors)
-    for node_name in ['10.0.0.2:65000', '10.0.0.3:65000', '10.0.0.4:65000']:
+    for node_name in ['10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000']:
         process1.add_info(node_name, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
     process2 = create_process(info, supvisors)
-    for node_name in ['10.0.0.1:65000', '10.0.0.4:65000']:
+    for node_name in ['10.0.0.1:25000', '10.0.0.4:25000']:
         process2.add_info(node_name, info.copy())
     application.add_process(process2)
     # default identifiers is '*' in process rules
-    assert application.possible_identifiers() == ['10.0.0.4:65000']
+    assert application.possible_identifiers() == ['10.0.0.4:25000']
     # set a subset of identifiers in process rules so that there's no intersection with received status
-    application.rules.identifiers = ['10.0.0.1:65000', '10.0.0.2:65000']
+    application.rules.identifiers = ['10.0.0.1:25000', '10.0.0.2:25000']
     assert application.possible_identifiers() == []
     # increase received status
-    process1.add_info('10.0.0.1:65000', info.copy())
-    assert application.possible_identifiers() == ['10.0.0.1:65000']
+    process1.add_info('10.0.0.1:25000', info.copy())
+    assert application.possible_identifiers() == ['10.0.0.1:25000']
     # disable program on '10.0.0.1'
-    process2.update_disability('10.0.0.1:65000', True)
+    process2.update_disability('10.0.0.1:25000', True)
     assert application.possible_identifiers() == []
     # reset rules
     application.rules.identifiers = ['*']
-    assert application.possible_identifiers() == ['10.0.0.4:65000']
+    assert application.possible_identifiers() == ['10.0.0.4:25000']
     # test with full status and all instances in rules + re-enable on '10.0.0.1'
-    process2.update_disability('10.0.0.1:65000', False)
+    process2.update_disability('10.0.0.1:25000', False)
     for node_name in supvisors.mapper.instances:
         process1.add_info(node_name, info.copy())
         process2.add_info(node_name, info.copy())
     assert sorted(application.possible_identifiers()) == sorted(supvisors.mapper.instances.keys())
     # restrict again instances in rules
-    application.rules.identifiers = ['10.0.0.2:65000', '10.0.0.5:65000']
-    assert application.possible_identifiers() == ['10.0.0.2:65000', '10.0.0.5:65000']
+    application.rules.identifiers = ['10.0.0.2:25000', '10.0.0.5:25000']
+    assert application.possible_identifiers() == ['10.0.0.2:25000', '10.0.0.5:25000']
 
 
 def test_application_possible_node_identifiers(supvisors):
@@ -691,47 +691,47 @@ def test_application_possible_node_identifiers(supvisors):
     Same test logic as above but update the node mapping before. """
     # update the node mapping
     fqdn = getfqdn()
-    supvisors.mapper._nodes = {'10.0.0.1': ['10.0.0.1:65000', '10.0.0.3:65000', '10.0.0.5:65000'],
-                               '10.0.0.2': ['10.0.0.2:65000', '10.0.0.4:65000'],
-                               fqdn: [f'{fqdn}:65000', f'{fqdn}:55000']}
+    supvisors.mapper._nodes = {'10.0.0.1': ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000'],
+                               '10.0.0.2': ['10.0.0.2:25000', '10.0.0.4:25000'],
+                               fqdn: [f'{fqdn}:25000', f'{fqdn}:15000']}
     # create the test application
     application = create_application('ApplicationTest', supvisors)
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
     process1 = create_process(info, supvisors)
-    for identifier in ['10.0.0.2:65000', '10.0.0.3:65000', '10.0.0.4:65000']:
+    for identifier in ['10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000']:
         process1.add_info(identifier, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
     process2 = create_process(info, supvisors)
-    for identifier in ['10.0.0.1:65000', '10.0.0.4:65000']:
+    for identifier in ['10.0.0.1:25000', '10.0.0.4:25000']:
         process2.add_info(identifier, info.copy())
     application.add_process(process2)
     # default identifiers is '*' in process rules
-    assert application.possible_node_identifiers() == ['10.0.0.1:65000', '10.0.0.2:65000',
-                                                       '10.0.0.3:65000', '10.0.0.4:65000']
+    assert application.possible_node_identifiers() == ['10.0.0.1:25000', '10.0.0.2:25000',
+                                                       '10.0.0.3:25000', '10.0.0.4:25000']
     # set a subset of identifiers in process rules so that there's no intersection with received status
-    application.rules.identifiers = ['10.0.0.1:65000', '10.0.0.2:65000']
+    application.rules.identifiers = ['10.0.0.1:25000', '10.0.0.2:25000']
     assert application.possible_node_identifiers() == []
     # increase received status
-    process1.add_info('10.0.0.1:65000', info.copy())
-    assert application.possible_node_identifiers() == ['10.0.0.1:65000']
+    process1.add_info('10.0.0.1:25000', info.copy())
+    assert application.possible_node_identifiers() == ['10.0.0.1:25000']
     # disable program on 10.0.0.1
-    process2.update_disability('10.0.0.1:65000', True)
+    process2.update_disability('10.0.0.1:25000', True)
     assert application.possible_node_identifiers() == []
     # reset rules
     application.rules.identifiers = ['*']
-    assert application.possible_node_identifiers() == ['10.0.0.2:65000', '10.0.0.4:65000']
+    assert application.possible_node_identifiers() == ['10.0.0.2:25000', '10.0.0.4:25000']
     # test with full status and all instances in rules + re-enable on '10.0.0.1'
-    process2.update_disability('10.0.0.1:65000', False)
+    process2.update_disability('10.0.0.1:25000', False)
     for identifier in supvisors.mapper.instances:
         process1.add_info(identifier, info.copy())
         process2.add_info(identifier, info.copy())
     assert sorted(application.possible_node_identifiers()) == sorted(supvisors.mapper.instances.keys())
     # restrict again instances in rules
-    application.rules.identifiers = ['10.0.0.2:65000', '10.0.0.5:65000']
-    assert application.possible_node_identifiers() == ['10.0.0.2:65000', '10.0.0.5:65000']
+    application.rules.identifiers = ['10.0.0.2:25000', '10.0.0.5:25000']
+    assert application.possible_node_identifiers() == ['10.0.0.2:25000', '10.0.0.5:25000']
 
 
 def test_application_get_instance_processes(supvisors):

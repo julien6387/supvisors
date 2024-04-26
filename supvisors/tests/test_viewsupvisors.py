@@ -92,7 +92,7 @@ def test_write_status(mocker, supvisors, view):
     mocked_header.reset_all()
     mocker.resetall()
     # test call with master
-    supvisors.context.local_status.state_modes.master_identifier = '10.0.0.1:65000'
+    supvisors.context.local_status.state_modes.master_identifier = '10.0.0.1:25000'
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
@@ -166,7 +166,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     view.current_mtime = 234.56
     # patch context
     mocked_time = mocker.patch('supvisors.web.viewsupvisors.simple_localtime', return_value='12:34:30')
-    status = supvisors.context.instances['10.0.0.1:65000']
+    status = supvisors.context.instances['10.0.0.1:25000']
     status._state = SupvisorsInstanceStates.RUNNING
     mocker.patch.object(status, 'get_load', return_value=17)
     mocker.patch.object(status.times, 'get_current_remote_time', side_effect=lambda x: x + 1)
@@ -186,12 +186,12 @@ def test_write_instance_box_title(mocker, supvisors, view):
     # test USER sync element
     assert not mocked_sync_th_mid.replace.called
     assert mocked_sync_a_mid.attrib['class'] == 'on'
-    expected_url = 'http:///index.html?ident=10.0.0.1:65000&action=sup_master_sync'
+    expected_url = 'http:///index.html?ident=10.0.0.1:25000&action=sup_master_sync'
     assert mocked_sync_a_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_sync_a_mid.content.call_args_list == [call('&#160;&#10026;&#160;')]
     # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == 'on'
-    expected_url = 'http://10.0.0.1:65000/proc_instance.html'
+    expected_url = 'http://10.0.0.1:25000/proc_instance.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
     # test state element
@@ -206,7 +206,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     mocker.resetall()
     mocked_root.reset_all()
     # test call in RUNNING state and master and not user_sync
-    view.sup_ctx.master_identifier = '10.0.0.1:65000'
+    view.sup_ctx.master_identifier = '10.0.0.1:25000'
     view._write_instance_box_title(mocked_root, status, False)
     # test USER sync element
     assert mocked_sync_th_mid.replace.call_args_list == [call('')]
@@ -215,7 +215,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     assert not mocked_sync_a_mid.content.called
     # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == 'on'
-    expected_url = 'http://10.0.0.1:65000/proc_instance.html'
+    expected_url = 'http://10.0.0.1:25000/proc_instance.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
@@ -328,28 +328,28 @@ def test_write_node_boxes(mocker, supvisors, view):
     local_identifier = view.sup_ctx.local_identifier
     ref_instances = view.sup_ctx.instances
     view.sup_ctx.instances = {local_identifier: ref_instances[local_identifier],
-                              '10.0.0.1:65000': ref_instances['10.0.0.1:65000']}
+                              '10.0.0.1:25000': ref_instances['10.0.0.1:25000']}
     # build root structure with one single element
     mocked_box_mid_1 = Mock()
     mocked_box_mid_2 = Mock()
     mocked_address_template = Mock(**{'repeat.return_value': [(mocked_box_mid_1, local_identifier),
-                                                              (mocked_box_mid_2, '10.0.0.1:65000')]})
+                                                              (mocked_box_mid_2, '10.0.0.1:25000')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
     # test call with user sync disabled
     view.write_instance_boxes(mocked_root)
     assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], False),
-                                               call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], False)]
+                                               call(mocked_box_mid_2, ref_instances['10.0.0.1:25000'], False)]
     assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], False),
-                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], False)]
+                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1:25000'], False)]
     mocker.resetall()
     # test call with user sync enabled
     supvisors.options.synchro_options = [SynchronizationOptions.USER]
     supvisors.fsm.state = SupvisorsStates.INITIALIZATION
     view.write_instance_boxes(mocked_root)
     assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], True),
-                                               call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], True)]
+                                               call(mocked_box_mid_2, ref_instances['10.0.0.1:25000'], True)]
     assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], True),
-                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1:65000'], True)]
+                                                   call(mocked_box_mid_2, ref_instances['10.0.0.1:25000'], True)]
 
 
 def test_write_conciliation_strategies(view):

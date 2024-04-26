@@ -334,30 +334,30 @@ def test_process_possible_identifiers(supvisors):
     """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
     process = create_process(info, supvisors)
-    process.add_info('10.0.0.2:65000', info)
-    process.add_info('10.0.0.4:65000', info.copy())
+    process.add_info('10.0.0.2:25000', info)
+    process.add_info('10.0.0.4:25000', info.copy())
     # default identifiers is '*' in process rules and all are enabled
-    assert process.possible_identifiers() == ['10.0.0.2:65000', '10.0.0.4:65000']
+    assert process.possible_identifiers() == ['10.0.0.2:25000', '10.0.0.4:25000']
     # set a subset of identifiers in process rules so that there's no intersection with received status
-    process.rules.identifiers = ['10.0.0.1:65000', '10.0.0.3:65000']
+    process.rules.identifiers = ['10.0.0.1:25000', '10.0.0.3:25000']
     assert process.possible_identifiers() == []
     # increase received status
-    process.add_info('10.0.0.3:65000', info.copy())
-    assert process.possible_identifiers() == ['10.0.0.3:65000']
+    process.add_info('10.0.0.3:25000', info.copy())
+    assert process.possible_identifiers() == ['10.0.0.3:25000']
     # disable program on '10.0.0.3'
-    process.update_disability('10.0.0.3:65000', True)
+    process.update_disability('10.0.0.3:25000', True)
     assert process.possible_identifiers() == []
     # reset rules
     process.rules.identifiers = ['*']
-    assert process.possible_identifiers() == ['10.0.0.2:65000', '10.0.0.4:65000']
+    assert process.possible_identifiers() == ['10.0.0.2:25000', '10.0.0.4:25000']
     # test with full status and all instances in rules + re-enable on '10.0.0.3'
-    process.update_disability('10.0.0.3:65000', False)
+    process.update_disability('10.0.0.3:25000', False)
     for identifier in supvisors.mapper.instances:
         process.add_info(identifier, info.copy())
     assert process.possible_identifiers() == list(supvisors.mapper.instances.keys())
     # restrict again instances in rules
-    process.rules.identifiers = ['10.0.0.5:65000']
-    assert process.possible_identifiers() == ['10.0.0.5:65000']
+    process.rules.identifiers = ['10.0.0.5:25000']
+    assert process.possible_identifiers() == ['10.0.0.5:25000']
 
 
 def test_status_stopped_process(supvisors):
@@ -705,23 +705,23 @@ def test_get_last_description(supvisors):
     """ Test the ViewContext.get_process_last_desc method. """
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
-    process.info_map = {'10.0.0.1:65000': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0,
+    process.info_map = {'10.0.0.1:25000': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0,
                                            'now': 50, 'event_time': 50},
-                        '10.0.0.2:65000': {'local_time': 30, 'stop': 12, 'description': 'Not started',
+                        '10.0.0.2:25000': {'local_time': 30, 'stop': 12, 'description': 'Not started',
                                            'now': 55, 'event_time': 50},
-                        '10.0.0.3:65000': {'local_time': 20, 'stop': 22, 'description': 'desc3',
+                        '10.0.0.3:25000': {'local_time': 20, 'stop': 22, 'description': 'desc3',
                                            'now': 53, 'event_time': 50}}
     # state is not forced by default
     # test method return on non-running process
-    assert process.get_last_description() == ('10.0.0.1:65000', 'desc1 on 10.0.0.1')
+    assert process.get_last_description() == ('10.0.0.1:25000', 'desc1 on 10.0.0.1')
     # test method return on running process
-    process.running_identifiers.add('10.0.0.3:65000')
-    assert process.get_last_description() == ('10.0.0.3:65000', 'desc3 on 10.0.0.3')
+    process.running_identifiers.add('10.0.0.3:25000')
+    assert process.get_last_description() == ('10.0.0.3:25000', 'desc3 on 10.0.0.3')
     # test method return on multiple running processes
-    process.running_identifiers.add('10.0.0.2:65000')
-    assert process.get_last_description() == ('10.0.0.2:65000', 'Not started')
+    process.running_identifiers.add('10.0.0.2:25000')
+    assert process.get_last_description() == ('10.0.0.2:25000', 'Not started')
     # test again with forced state
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1:65000',
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1:25000',
              'now_monotonic': 50, 'spawnerr': 'global crash'}
     assert process.force_state(event)
     assert process.get_last_description() == (None, 'global crash')

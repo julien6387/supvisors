@@ -54,7 +54,7 @@ def to_simple_url(host: str, page: str, **actions):
 def dict_options():
     return {'software_name': 'Supvisors tests',
             'event_link': 'none',
-            'event_port': '65200',
+            'event_port': '25200',
             'synchro_timeout': '20',
             'inactivity_ticks': '2',
             'core_identifiers': '',

@@ -52,7 +52,7 @@ class MockedSupvisors:
         host_name = gethostname()
         fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{fqdn}:65000', f'<test>{fqdn}:55000']
+                       f'<{host_name}>{fqdn}:25000', f'<test>{fqdn}:15000']
         self.mapper.configure(identifiers, {'supvisors_test'}, [])
         self.server_options = SupvisorsServerOptions(self)
         # set real statistics collector and compilers
@@ -120,7 +120,7 @@ class DummyServerOptions:
         server_config = {'section': 'inet_http_server',
                          'family': socket.AF_INET,
                          'host': gethostname(),
-                         'port': 65000,
+                         'port': 25000,
                          'username': 'user',
                          'password': 'p@$$w0rd'}
         self.configfile = 'supervisord.conf'
@@ -200,7 +200,7 @@ class DummyHttpContext:
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'ident': '10.0.0.4:65000',
+                     'ident': '10.0.0.4:25000',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',
