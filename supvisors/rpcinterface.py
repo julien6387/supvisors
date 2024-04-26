@@ -262,18 +262,16 @@ class RPCInterface:
         :return: a list of structures containing information about the processes.
         :rtype: list[dict[str, Any]]
         :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
-        :raises RPCError: with code ``Faults.FAILED`` if no handshake has been done with ``identifier``.
         """
         identifiers = self.supvisors.mapper.filter([identifier])
         if not identifiers:
             self._raise(Faults.BAD_NAME, 'get_inner_process_info',
                         f'identifier={identifier} is unknown to Supvisors')
-        try:
-            return [proc.info_map[ident]
-                    for ident in identifiers
-                    for proc in self.supvisors.context.instances[ident].processes.values()]
-        except KeyError:
-            self._raise(Faults.FAILED, 'get_all_inner_process_info', f'no handshake performed with {identifier}')
+        # no need to check if the process info_map has an entry for the Supviors instance
+        # because it would not make sense if it didn't
+        return [proc.info_map[ident]
+                for ident in identifiers
+                for proc in self.supvisors.context.instances[ident].processes.values()]
 
     def get_inner_process_info(self, identifier: str, namespec: str) -> PayloadList:
         """ Get Supvisors internal information related to the processes corresponding to namespec and declared
