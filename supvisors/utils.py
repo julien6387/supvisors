@@ -105,6 +105,15 @@ def set_bit(data, num, value):
         data[base] &= ~(0x1 << shift)
 
 
+# to display small float values
+def get_small_value(value) -> str:
+    """ Segregate small values from 0.
+    For small negative values, the display is already suitable. """
+    if 0 < value < 0.005:
+        return f'+0.00'
+    return f'{value:.2f}'
+
+
 # linear regression
 def get_linear_regression(xdata, ydata):
     """ Calculate the coefficients of the linear equation corresponding

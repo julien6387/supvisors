@@ -118,8 +118,8 @@ class ApplicationView(ViewHandler):
     def write_contents(self, root) -> None:
         """ Rendering of the contents part of the page.
 
-        :param root: the root element of the page
-        :return: None
+        :param root: the root element of the page.
+        :return: None.
         """
         if self.application:
             data = self.get_process_data()
@@ -146,7 +146,7 @@ class ApplicationView(ViewHandler):
     def get_process_data(self) -> PayloadList:
         """ Collect sorted data on processes.
 
-        :return: information about the application processes
+        :return: information about the application processes.
         """
         data = []
         for process in self.application.processes.values():
@@ -231,8 +231,8 @@ class ApplicationView(ViewHandler):
         """ Start the application iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for starting the application
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for starting the application.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('start_application', (strategy.value, self.application_name, wait),
@@ -242,8 +242,8 @@ class ApplicationView(ViewHandler):
         """ Restart the application iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for restarting the application
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for restarting the application.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('restart_application', (strategy.value, self.application_name, wait),
@@ -253,7 +253,7 @@ class ApplicationView(ViewHandler):
         """ Stop the application.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :return: a callable for deferred result
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('stop_application', (self.application_name, wait),
@@ -264,9 +264,9 @@ class ApplicationView(ViewHandler):
         """ Start the process named namespec iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for starting the process
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for starting the process.
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('start_process', (strategy.value, namespec, '', wait),
@@ -276,9 +276,9 @@ class ApplicationView(ViewHandler):
         """ Restart the process named namespec iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for restarting the process
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for restarting the process.
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('restart_process', (strategy.value, namespec, '', wait),
@@ -288,8 +288,8 @@ class ApplicationView(ViewHandler):
         """ Stop the process named namespec.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('stop_process', (namespec, wait), f'Process {namespec} stopped')
@@ -298,7 +298,7 @@ class ApplicationView(ViewHandler):
         """ Can't call supervisor StatusView source code from application view.
         Just do the same job.
 
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         return self.supervisor_rpc_action('clearProcessLogs', (namespec,), f'Log for {namespec} cleared')

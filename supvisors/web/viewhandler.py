@@ -26,7 +26,7 @@ from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
-from supvisors.utils import get_stats
+from supvisors.utils import get_stats, get_small_value
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img, SoftwareIconImage
 from .webutils import *
@@ -302,10 +302,10 @@ class ViewHandler(MeldView):
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)
                     elt.attributes(href=url)
-                    elt.content(f'{cpuvalue:.2f}%')
+                    elt.content(get_small_value(cpuvalue))
                 else:
                     # print data with no link and button format
-                    elt.replace(f'{cpuvalue:.2f}%')
+                    elt.replace(get_small_value(cpuvalue))
             else:
                 # when no data, do not write link
                 elt.replace('--')
@@ -330,10 +330,10 @@ class ViewHandler(MeldView):
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)
                     elt.attributes(href=url)
-                    elt.content(f'{memvalue:.2f}%')
+                    elt.content(get_small_value(memvalue))
                 else:
                     # print data with no link
-                    elt.replace(f'{memvalue:.2f}%')
+                    elt.replace(get_small_value(memvalue))
             else:
                 # when no data, no not write link
                 elt.replace('--')
@@ -417,14 +417,12 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'disabled')
         elt.content(info['statename'])
         # print description
-        elt = tr_elt.findmeld('desc_td_mid')
-        elt.content(info['description'])
+        tr_elt.findmeld('desc_td_mid').content(info['description'])
 
     def write_common_statistics(self, tr_elt, info: Payload) -> None:
         """ Write the common part of a process or application statistics into a table. """
         # print expected load
-        elt = tr_elt.findmeld('load_td_mid')
-        elt.content(f"{info['expected_load']}%")
+        tr_elt.findmeld('load_td_mid').content(f"{info['expected_load']}")
         # get data from statistics module iaw period selection
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
@@ -502,17 +500,16 @@ class ViewHandler(MeldView):
             elt = ref_elt.findmeld(val_mid)
             if rate is not None:
                 self.set_slope_class(elt, rate)
-            elt.content(f'{stats[-1]:.2f}')
+            elt.content(get_small_value(stats[-1]))
             # set mean value
-            elt = ref_elt.findmeld(avg_mid)
-            elt.content(f'{avg:.2f}')
+            ref_elt.findmeld(avg_mid).content(get_small_value(avg))
             # adapt slope value iaw period selected
             if slope is not None:
                 value = slope * self.view_ctx.parameters[PERIOD]
-                ref_elt.findmeld(slope_mid).content(f'{value:.2f}')
+                ref_elt.findmeld(slope_mid).content(get_small_value(value))
             # set standard deviation
             if dev is not None:
-                ref_elt.findmeld(dev_mid).content(f'{dev:.2f}')
+                ref_elt.findmeld(dev_mid).content(get_small_value(dev))
 
     def write_process_plots(self, proc_stats: ProcStatisticsInstance) -> bool:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """

@@ -103,6 +103,16 @@ def test_bit_manipulation():
     assert ba.hex() == '000000'
 
 
+def test_get_small_value():
+    """ Test the format of float values. """
+    assert get_small_value(5.1) == '5.10'
+    assert get_small_value(-5.1) == '-5.10'
+    assert get_small_value(0.005) == '0.01'
+    assert get_small_value(-0.005) == '-0.01'
+    assert get_small_value(0.0049) == '+0.00'
+    assert get_small_value(-0.0049) == '-0.00'
+
+
 def test_linear_regression_numpy():
     """ Test the linear regression using numpy (if installed). """
     pytest.importorskip('numpy')
