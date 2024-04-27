@@ -185,9 +185,9 @@ def parse_docstring(comment: str) -> List:
         result = SUPERVISOR_RETURN_FORMAT.match(stripped_line)
         if result:
             match = True
-            # Supervisor does not always provides a return name (e.g. signalProcess)
+            # Supervisor does not always provide a return name (e.g. signalProcess)
             name = result.group('name') or ''
-            # Supervisor does not always provides a return description (e.g. getPID)
+            # Supervisor does not always provide a return description (e.g. getPID)
             desc = result.group('desc')
             returns = [idx, 'return', result.group('type'), name, [desc] if desc else []]
             current_struct = returns

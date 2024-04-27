@@ -38,18 +38,12 @@ def http_context(supvisors):
 @pytest.fixture
 def view(http_context):
     """ Return the instance to test. """
-    # apply the forced inheritance done in supvisors.plugin
-    StatusView.__bases__ = (ViewHandler,)
-    # create the instance to be tested
     return SupvisorsInstanceView(http_context, HOST_INSTANCE_PAGE)
 
 
 @pytest.fixture
 def view_no_stats(http_context):
     """ Return the instance to test, in which statistics have been disabled. """
-    # apply the forced inheritance done in supvisors.plugin
-    StatusView.__bases__ = (ViewHandler,)
-    # create the instance to be tested
     http_context.supervisord.supvisors.stats_collector = None
     return SupvisorsInstanceView(http_context, HOST_INSTANCE_PAGE)
 

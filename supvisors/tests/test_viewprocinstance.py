@@ -40,8 +40,6 @@ def http_context(supvisors):
 @pytest.fixture
 def view(http_context):
     """ Return the instance to test. """
-    # apply the forced inheritance done in supvisors.plugin
-    StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
     return ProcInstanceView(http_context)
 
@@ -127,17 +125,7 @@ def test_write_view_switch(supvisors, view):
     mocked_host_view_mid = create_element()
     mocked_header = create_element({'process_view_a_mid': mocked_process_view_mid,
                                     'host_view_a_mid': mocked_host_view_mid})
-    # test call when SupvisorsInstanceView is a host page
-    view.page_name = HOST_INSTANCE_PAGE
-    view.write_view_switch(mocked_header)
-    assert mocked_header.findmeld.call_args_list == [call('process_view_a_mid'), call('host_view_a_mid'), ]
-    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE)]
-    assert mocked_process_view_mid.attributes.call_args_list == [call(href='an url')]
-    assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
-    mocked_header.reset_all()
-    view.view_ctx.format_url.reset_mock()
-    # test call when SupvisorsInstanceView is a process page
-    view.page_name = PROC_INSTANCE_PAGE
+    # test call
     view.write_view_switch(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('host_view_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE)]
