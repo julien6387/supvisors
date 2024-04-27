@@ -30,23 +30,24 @@
 }
 
 #messageBox {
+    display: flex;
+    align-items: center;
     font-size: 0.9em;
-}
-
-#timeBox p {
-    font-size: 0.8em;
-}
-
-#messageBox {
     width: 100%;
     margin: 5px;
 }
 
 #timeBox {
+    display: flex;
+    flex-direction: column;
     min-width: 200px;
     max-width: 200px;
     margin: 5px 5px 5px 0;
     text-align: right;
+}
+
+#timeBox p {
+    font-size: 0.8em;
 }
 
 .empty, .info, .warn, .erro {
@@ -68,6 +69,8 @@
 #messageBox.info::before {
     content: url(../img/info_20.png) '\00a0';
     float: left;
+    position: relative;
+    top: 2px;
 }
 
 .warn {
@@ -78,6 +81,8 @@
 .warn::before {
     content: url(../img/warn_20.png) '\00a0';
     float: left;
+    position: relative;
+    top: 2px;
 }
 
 .erro {
@@ -88,4 +93,6 @@
 .erro::before {
     content: url(../img/erro_20.png) '\00a0';
     float: left;
+    position: relative;
+    top: 2px;
 }
