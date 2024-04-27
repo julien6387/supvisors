@@ -23,6 +23,7 @@ from supervisor.web import MeldView
 
 from supvisors import __version__
 from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
 from supvisors.utils import get_stats
@@ -460,79 +461,67 @@ class ViewHandler(MeldView):
         self.write_process_stdout_button(tr_elt, info, check_logfiles)
         self.write_process_stderr_button(tr_elt, info, check_logfiles)
 
-    def write_detailed_process_cpu(self, stats_elt, proc_stats: ProcStatisticsInstance, nb_cores: int) -> bool:
+    def write_detailed_process_cpu(self, stats_elt, proc_stats: Optional[ProcStatisticsInstance],
+                                   nb_cores: int) -> bool:
         """ Write the CPU part of the detailed process status.
 
-        :param stats_elt: the element from which to search for
-        :param proc_stats: the process statistics
-        :param nb_cores: the number of processor cores
-        :return: True if process CPU statistics are valid
+        :param stats_elt: the element from which to search for.
+        :param proc_stats: the process statistics.
+        :param nb_cores: the number of processor cores.
+        :return: True if process CPU statistics are valid.
         """
-        if proc_stats and len(proc_stats.cpu) > 0:
-            # calculate stats
-            avg, rate, (slope, intercept), dev = get_stats(proc_stats.times, proc_stats.cpu)
-            # print last CPU value of process
-            elt = stats_elt.findmeld('pcpuval_td_mid')
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            cpuvalue = proc_stats.cpu[-1]
+        if proc_stats:
+            # if SOLARIS mode configured, update the CPU data
+            # this will be applicable to the CPU plot
             if not self.supvisors.options.stats_irix_mode:
-                cpuvalue /= nb_cores
-            elt.content(f'{cpuvalue:.2f}%')
-            # set mean value
-            elt = stats_elt.findmeld('pcpuavg_td_mid')
-            if not self.supvisors.options.stats_irix_mode:
-                avg /= nb_cores
-            elt.content(f'{avg:.2f}%')
-            if slope is not None:
-                # set slope value between last 2 values
-                elt = stats_elt.findmeld('pcpuslope_td_mid')
-                elt.content(f'{slope:.2f}')
-            if dev is not None:
-                # set standard deviation
-                elt = stats_elt.findmeld('pcpudev_td_mid')
-                elt.content(f'{dev:.2f}')
+                proc_stats.cpu = [x / nb_cores for x in proc_stats.cpu]
+            self._write_common_detailed_statistics(stats_elt, proc_stats.cpu, proc_stats.times,
+                                                   'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                   'pcpuslope_td_mid', 'pcpudev_td_mid')
             return True
 
-    def write_detailed_process_mem(self, stats_elt, proc_stats: ProcStatisticsInstance) -> bool:
+    def write_detailed_process_mem(self, stats_elt, proc_stats: Optional[ProcStatisticsInstance]) -> bool:
         """ Write the MEM part of the detailed process status.
 
-        :param stats_elt: the element from which to search for
-        :param proc_stats: the process statistics
-        :return: True if process Memory statistics are valid
+        :param stats_elt: the element from which to search for.
+        :param proc_stats: the process statistics.
+        :return: True if process Memory statistics are valid.
         """
-        if proc_stats and len(proc_stats.mem) > 0:
-            avg, rate, (a, b), dev = get_stats(proc_stats.times, proc_stats.mem)
-            # print last MEM value of process
-            elt = stats_elt.findmeld('pmemval_td_mid')
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            elt.content(f'{proc_stats.mem[-1]:.2f}%')
-            # set mean value
-            elt = stats_elt.findmeld('pmemavg_td_mid')
-            elt.content(f'{avg:.2f}%')
-            if a is not None:
-                # set slope value between last 2 values
-                elt = stats_elt.findmeld('pmemslope_td_mid')
-                elt.content(f'{a:.2f}')
-            if dev is not None:
-                # set standard deviation
-                elt = stats_elt.findmeld('pmemdev_td_mid')
-                elt.content(f'{dev:.2f}')
+        if proc_stats:
+            self._write_common_detailed_statistics(stats_elt, proc_stats.mem, proc_stats.times,
+                                                   'pmemval_td_mid', 'pmemavg_td_mid',
+                                                   'pmemslope_td_mid', 'pmemdev_td_mid')
             return True
 
-    def write_process_plots(self, proc_stats: ProcStatisticsInstance, nb_cores: int) -> bool:
+    def _write_common_detailed_statistics(self, ref_elt, stats, timeline, val_mid, avg_mid, slope_mid, dev_mid):
+        """ Rendering of the memory statistics. """
+        if len(stats) > 0:
+            # get additional statistics
+            avg, rate, (slope, _), dev = get_stats(timeline, stats)
+            # set last value
+            elt = ref_elt.findmeld(val_mid)
+            if rate is not None:
+                self.set_slope_class(elt, rate)
+            elt.content(f'{stats[-1]:.2f}')
+            # set mean value
+            elt = ref_elt.findmeld(avg_mid)
+            elt.content(f'{avg:.2f}')
+            # adapt slope value iaw period selected
+            if slope is not None:
+                value = slope * self.view_ctx.parameters[PERIOD]
+                ref_elt.findmeld(slope_mid).content(f'{value:.2f}')
+            # set standard deviation
+            if dev is not None:
+                ref_elt.findmeld(dev_mid).content(f'{dev:.2f}')
+
+    def write_process_plots(self, proc_stats: ProcStatisticsInstance) -> bool:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
             from supvisors.plot import StatisticsPlot
-            # build CPU image
+            # build CPU image (if SOLARIS mode configured, CPU values have already been adjusted)
             cpu_img = StatisticsPlot(self.logger)
-            if self.supvisors.options.stats_irix_mode:
-                cpu_values = proc_stats.cpu
-            else:
-                cpu_values = [x / nb_cores for x in proc_stats.cpu]
             cpu_img.add_timeline(proc_stats.times)
-            cpu_img.add_plot('CPU', '%', cpu_values)
+            cpu_img.add_plot('CPU', '%', proc_stats.cpu)
             cpu_img.export_image(process_cpu_img)
             # build Memory image
             mem_img = StatisticsPlot(self.logger)
@@ -556,15 +545,14 @@ class ViewHandler(MeldView):
             done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats, info['nb_cores'])
             done_mem = self.write_detailed_process_mem(stats_elt, proc_stats)
             if done_cpu or done_mem:
-                # set titles
-                elt = stats_elt.findmeld('process_h_mid')
-                elt.content(namespec)
-                elt = stats_elt.findmeld('instance_fig_mid')
-                if elt is not None:
-                    nick_identifier = self.supvisors.mapper.get_nick_identifier(info['identifier'])
-                    elt.content(nick_identifier)
+                # set proces name
+                stats_elt.findmeld('process_td_mid').content(namespec)
+                # set node name and address
+                supvisors_id: SupvisorsInstanceId = self.supvisors.mapper.instances[info['identifier']]
+                stats_elt.findmeld('node_td_mid').content(supvisors_id.host_id)
+                stats_elt.findmeld('ipaddress_td_mid').content(supvisors_id.ip_address)
                 # write CPU / Memory plots
-                if not self.write_process_plots(proc_stats, info['nb_cores']):
+                if not self.write_process_plots(proc_stats):
                     # matplolib not installed: remove figure elements
                     for mid in ['cpuimage_fig_mid', 'memimage_fig_mid']:
                         stats_elt.findmeld(mid).replace('')

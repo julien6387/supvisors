@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
+    <link rel="stylesheet" href="css/card.css" />
     <link rel="stylesheet" href="css/header.css" />
     <link rel="stylesheet" href="css/message.css" />
     <link rel="stylesheet" href="css/host_instance.css" />
@@ -80,7 +81,7 @@
                                 <th class="table_title">
                                     <span meld:id="master_mid" class="master"/> <img src="supervisor_icon.png"/>
                                 </th>
-                                <th colspan="3" meld:id="instance_mid" id="table_main"></th>
+                                <th colspan="3" meld:id="instance_mid" class="table_main"></th>
                                 <td/>
                             </tr>
                             <tr>
@@ -167,18 +168,19 @@
                     <figure id="mem_fig" meld:id="memimage_fig_mid">
                         <img src="host_mem.png" alt="Host Memory Graph"/>
                     </figure>
+
                     <div id="mem_stats">
-                        <h6>Memory Statistics</h6>
+                        <h6>Memory Statistics (%)</h6>
                         <div>
                             <table>
                                 <tr>
                                     <th rowspan="2">
                                         <a href="#" class="button off active">mem</a>
                                     </th>
-                                    <th>Occ %</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
+                                    <th>Latest</th>
+                                    <th>Mean</th>
+                                    <th>Slope/P</th>
+                                    <th>StdDev</th>
                                 </tr>
                                 <tr class="brightened">
                                     <td meld:id="memval_td_mid">--</td>
@@ -189,20 +191,22 @@
                             </table>
                         </div>
                     </div>
+
                     <figure id="cpu_fig" meld:id="cpuimage_fig_mid">
                         <img src="host_cpu.png" alt="Host CPU Graph"/>
                     </figure>
+
                     <div id="cpu_stats">
-                        <h6>Processor Statistics</h6>
+                        <h6>Processor Statistics (%)</h6>
                         <div>
                         <table>
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Last %</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
+                                    <th>Latest</th>
+                                    <th>Mean</th>
+                                    <th>Slope/P</th>
+                                    <th>StdDev</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -219,21 +223,23 @@
                         </table>
                         </div>
                     </div>
+
                     <figure id="io_fig" meld:id="ioimage_fig_mid">
                         <img src="host_io.png" alt="Host Network Graph"/>
                     </figure>
+
                     <div id="io_stats">
-                        <h6>Network Statistics</h6>
+                        <h6>Network Statistics (kbit/s)</h6>
                         <div>
                             <table>
                                 <thead>
                                     <tr>
                                         <th>Interface</th>
                                         <th>Rx/Tx</th>
-                                        <th>Last kbit/s</th>
-                                        <th>Mean kbit/s</th>
-                                        <th>Slope %</th>
-                                        <th>SD kbit/s</th>
+                                        <th>Latest</th>
+                                        <th>Mean</th>
+                                        <th>Slope/P</th>
+                                        <th>StdDev</th>
                                     </tr>
                                 </thead>
                                 <tbody>

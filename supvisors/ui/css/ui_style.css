@@ -1,4 +1,20 @@
 /*
+ * Copyright 2024 Julien LE CLEACH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Additional resources
  */
 @font-face {
@@ -52,7 +68,7 @@ header {
     margin-bottom: 1em;
 }
 
-h1, h2, h3, h4 {
+h1, h2, h3, h4, h5 {
     font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 }
 
@@ -72,12 +88,8 @@ h2 {
 }
 
 h4 {
+    font-size: .9em;
     font-weight: bold;
-    text-align: center;
-    font-size: .8em;
-    padding: 5px;
-    border: 3px ridge var(--border-color);
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
 h5 {

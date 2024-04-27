@@ -971,60 +971,106 @@ def test_write_common_process_status(mocker, handler):
     assert mocked_stderr.call_args_list == [call(tr_elt, param, False)]
 
 
-def test_write_detailed_process_cpu(handler):
+def test_write_detailed_process_cpu(mocker, supvisors, handler):
     """ Test the write_detailed_process_cpu method. """
-    # patch the meld elements
-    val_elt = Mock(attrib={'class': ''})
-    avg_elt, slope_elt, dev_elt = Mock(), Mock(), Mock()
-    stats_elt = Mock(**{'findmeld.side_effect': [val_elt, avg_elt, slope_elt, dev_elt] * 2})
+    mocked_common = mocker.patch.object(handler, '_write_common_detailed_statistics')
     # create fake stats
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 13])
-    # test call with empty stats
+    # context
+    stats_elt = create_element()
+    supvisors.options.stats_irix_mode = True
+    # test call with no stats
     assert not handler.write_detailed_process_cpu(stats_elt, None, 4)
-    assert not handler.write_detailed_process_cpu(stats_elt, Mock(cpu=[]), 4)
+    # test call with empty stats
+    for mode in [True, False]:
+        supvisors.options.stats_irix_mode = mode
+        assert handler.write_detailed_process_cpu(stats_elt, Mock(cpu=[], times=[]), 4)
+        assert mocked_common.call_args_list == [call(stats_elt, [], [],
+                                                     'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                     'pcpuslope_td_mid', 'pcpudev_td_mid')]
+        mocked_common.reset_mock()
     # test call with irix mode
-    handler.supvisors.options.stats_irix_mode = True
+    supvisors.options.stats_irix_mode = True
     assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
-    assert val_elt.attrib['class'] == 'decrease'
-    assert val_elt.content.call_args_list == [call('13.00%')]
-    assert avg_elt.content.call_args_list == [call('13.00%')]
-    assert slope_elt.content.call_args_list == [call('1.50')]
-    assert dev_elt.content.call_args_list == [call('2.45')]
-    val_elt.content.reset_mock()
-    avg_elt.content.reset_mock()
-    slope_elt.content.reset_mock()
-    dev_elt.content.reset_mock()
-    del val_elt.attrib['class']
+    assert mocked_common.call_args_list == [call(stats_elt, [10, 16, 13], [1, 2, 3],
+                                                 'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                 'pcpuslope_td_mid', 'pcpudev_td_mid')]
+    mocked_common.reset_mock()
     # test call with solaris mode
-    proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 24])
-    handler.supvisors.options.stats_irix_mode = False
+    supvisors.options.stats_irix_mode = False
     assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
-    assert val_elt.attrib['class'] == 'increase'
-    assert val_elt.content.call_args_list == [call('6.00%')]
-    assert avg_elt.content.call_args_list == [call('4.17%')]
-    assert slope_elt.content.call_args_list == [call('7.00')]
-    assert dev_elt.content.call_args_list == [call('5.73')]
+    assert mocked_common.call_args_list == [call(stats_elt, [2.5, 4, 3.25], [1, 2, 3],
+                                                 'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                 'pcpuslope_td_mid', 'pcpudev_td_mid')]
 
 
-def test_write_detailed_process_mem(handler):
+def test_write_detailed_process_mem(mocker, handler):
     """ Test the write_detailed_process_mem method. """
-    # patch the meld elements
-    val_elt = Mock(attrib={'class': ''})
-    avg_elt, slope_elt, dev_elt = Mock(), Mock(), Mock()
-    stats_elt = Mock(**{'findmeld.side_effect': [val_elt, avg_elt, slope_elt, dev_elt] * 2})
+    mocked_common = mocker.patch.object(handler, '_write_common_detailed_statistics')
     # create fake stats
     proc_stats = Mock(times=[1, 2, 3], mem=[20, 32, 32])
-    # test call with empty stats
+    # context
+    stats_elt = create_element()
+    # test call with no stats
     assert not handler.write_detailed_process_mem(stats_elt, None)
-    assert not handler.write_detailed_process_mem(stats_elt, Mock(mem=[]))
-    # test call with irix mode
-    handler.supvisors.options.stats_irix_mode = True
+    # test call with empty stats
+    assert handler.write_detailed_process_mem(stats_elt, Mock(mem=[], times=[]))
+    assert mocked_common.call_args_list == [call(stats_elt, [], [],
+                                                 'pmemval_td_mid', 'pmemavg_td_mid',
+                                                 'pmemslope_td_mid', 'pmemdev_td_mid')]
+    mocked_common.reset_mock()
+    # test call stats
     assert handler.write_detailed_process_mem(stats_elt, proc_stats)
-    assert val_elt.attrib['class'] == 'stable'
-    assert val_elt.content.call_args_list == [call('32.00%')]
-    assert avg_elt.content.call_args_list == [call('28.00%')]
-    assert slope_elt.content.call_args_list == [call('6.00')]
-    assert dev_elt.content.call_args_list == [call('5.66')]
+    assert mocked_common.call_args_list == [call(stats_elt, [20, 32, 32], [1, 2, 3],
+                                                 'pmemval_td_mid', 'pmemavg_td_mid',
+                                                 'pmemslope_td_mid', 'pmemdev_td_mid')]
+
+
+def test_write_common_detailed_statistics(mocker, handler):
+    """ Test the _write_common_detailed_statistics method. """
+    mocked_class = mocker.patch.object(handler, 'set_slope_class')
+    mocked_stats = mocker.patch('supvisors.web.viewhandler.get_stats',
+                                side_effect=[(10.231, None, (None, 2), None), (8.999, 2, (-1.1, 4), 5.72)])
+    handler.view_ctx = Mock(parameters={PERIOD: 10})
+    # replace root structure
+    mocked_val_mid = create_element()
+    mocked_avg_mid = create_element()
+    mocked_slope_mid = create_element()
+    mocked_dev_mid = create_element()
+    mocked_tr = create_element({'val_mid': mocked_val_mid, 'avg_mid': mocked_avg_mid,
+                                'slope_mid': mocked_slope_mid, 'dev_mid': mocked_dev_mid})
+    # in first call, test empty stats
+    handler._write_common_detailed_statistics(mocked_tr, [], [],
+                                              'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
+    assert not mocked_tr.findmeld.called
+    assert not mocked_stats.called
+    assert not mocked_class.called
+    assert not mocked_val_mid.called
+    assert not mocked_avg_mid.called
+    assert not mocked_slope_mid.called
+    assert not mocked_dev_mid.called
+    # in second call, test no rate, slope and standard deviation
+    handler._write_common_detailed_statistics(mocked_tr, [1.523, 2.456], [1, 2],
+                                              'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
+    assert mocked_tr.findmeld.call_args_list == [call('val_mid'), call('avg_mid')]
+    assert mocked_stats.call_args_list == [call([1, 2], [1.523, 2.456])]
+    assert not mocked_class.called
+    assert mocked_val_mid.content.call_args_list == [call('2.46')]
+    assert mocked_avg_mid.content.call_args_list == [call('10.23')]
+    assert not mocked_slope_mid.called
+    assert not mocked_dev_mid.called
+    mocker.resetall()
+    mocked_tr.reset_all()
+    # in third call, test no rate, slope and standard deviation
+    handler._write_common_detailed_statistics(mocked_tr, [1.523, 2.456], [1, 2],
+                                              'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
+    assert mocked_stats.call_args_list == [call([1, 2], [1.523, 2.456])]
+    assert mocked_class.call_args_list == [call(mocked_val_mid, 2)]
+    assert mocked_tr.findmeld.call_args_list == [call('val_mid'), call('avg_mid'), call('slope_mid'), call('dev_mid')]
+    assert mocked_val_mid.content.call_args_list == [call('2.46')]
+    assert mocked_avg_mid.content.call_args_list == [call('9.00')]
+    assert mocked_slope_mid.content.call_args_list == [call('-11.00')]  # impact of PERIOD
+    assert mocked_dev_mid.content.call_args_list == [call('5.72')]
 
 
 def test_write_process_plots_no_plot(mocker, handler):
@@ -1032,12 +1078,12 @@ def test_write_process_plots_no_plot(mocker, handler):
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     mocker.patch.dict('sys.modules', {'supvisors.plot': None})
     # test call
-    assert not handler.write_process_plots([], 0)
+    assert not handler.write_process_plots([])
     # test that plot methods are not called
     assert not mocked_export.called
 
 
-def test_write_process_plots(mocker, handler):
+def test_write_process_plots(mocker, supvisors, handler):
     """ Test the write_process_plots method. """
     # skip test if matplotlib is not installed
     pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
@@ -1045,16 +1091,9 @@ def test_write_process_plots(mocker, handler):
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
     mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
-    # test call with dummy stats and Solaris mode
+    # test call with dummy stats
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 24], mem=[20, 32, 32])
-    assert handler.write_process_plots(proc_stats, 2)
-    assert mocked_time.call_args_list == [call([1, 2, 3]), call([1, 2, 3])]
-    assert mocked_plot.call_args_list == [call('CPU', '%', [5, 8, 12]), call('MEM', '%', [20, 32, 32])]
-    assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
-    mocker.resetall()
-    # test call with dummy stats and IRIX mode
-    handler.supvisors.options.stats_irix_mode = True
-    assert handler.write_process_plots(proc_stats, 2)
+    assert handler.write_process_plots(proc_stats)
     assert mocked_time.call_args_list == [call([1, 2, 3]), call([1, 2, 3])]
     assert mocked_plot.call_args_list == [call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])]
     assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
@@ -1068,11 +1107,13 @@ def test_write_process_statistics(mocker, handler):
     # patch the view context
     handler.view_ctx = Mock(parameters={PROCESS: None})
     # patch the meld elements
-    process_h_mid = create_element()
-    instance_fig_mid = create_element()
+    process_td_mid = create_element()
+    node_td_mid = create_element()
+    ipaddress_td_mid = create_element()
     cpuimage_fig_mid = create_element()
     memimage_fig_mid = create_element()
-    stats_elt = create_element({'process_h_mid': process_h_mid, 'instance_fig_mid': instance_fig_mid,
+    stats_elt = create_element({'process_td_mid': process_td_mid, 'node_td_mid': node_td_mid,
+                                'ipaddress_td_mid': ipaddress_td_mid,
                                 'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid})
     root_elt = create_element({'pstats_div_mid': stats_elt})
     # test call with no namespec selection
@@ -1083,8 +1124,9 @@ def test_write_process_statistics(mocker, handler):
     assert not stats_elt.findmeld.called
     assert not mocked_cpu.called
     assert not mocked_mem.called
-    assert not process_h_mid.content.called
-    assert not instance_fig_mid.content.called
+    assert not process_td_mid.content.called
+    assert not node_td_mid.content.called
+    assert not ipaddress_td_mid.content.called
     assert not cpuimage_fig_mid.replace.called
     assert not memimage_fig_mid.replace.called
     assert not mocked_plots.called
@@ -1097,8 +1139,9 @@ def test_write_process_statistics(mocker, handler):
     assert not stats_elt.findmeld.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert not process_h_mid.content.called
-    assert not instance_fig_mid.content.called
+    assert not process_td_mid.content.called
+    assert not node_td_mid.content.called
+    assert not ipaddress_td_mid.content.called
     assert not cpuimage_fig_mid.replace.called
     assert not memimage_fig_mid.replace.called
     assert not mocked_plots.called
@@ -1108,31 +1151,33 @@ def test_write_process_statistics(mocker, handler):
     mocked_cpu.return_value = True
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
-    assert stats_elt.findmeld.call_args_list == [call('process_h_mid'), call('instance_fig_mid')]
+    assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid')]
     assert not stats_elt.replace.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert process_h_mid.content.call_args_list == [call('dummy_proc')]
-    assert instance_fig_mid.content.call_args_list == [call('10.0.0.1')]
+    assert process_td_mid.content.call_args_list == [call('dummy_proc')]
+    assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
+    assert ipaddress_td_mid.content.call_args_list == [call('10.0.0.1')]
     assert not cpuimage_fig_mid.replace.called
     assert not memimage_fig_mid.replace.called
-    assert mocked_plots.call_args_list == [call('dummy_stats', 8)]
+    assert mocked_plots.call_args_list == [call('dummy_stats')]
     root_elt.reset_all()
     mocker.resetall()
     # test again with matplotlib import failure
     mocked_plots.return_value = False
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
-    assert stats_elt.findmeld.call_args_list == [call('process_h_mid'), call('instance_fig_mid'),
+    assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid'),
                                                  call('cpuimage_fig_mid'), call('memimage_fig_mid')]
     assert not stats_elt.replace.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert process_h_mid.content.call_args_list == [call('dummy_proc')]
-    assert instance_fig_mid.content.call_args_list == [call('10.0.0.1')]
+    assert process_td_mid.content.call_args_list == [call('dummy_proc')]
+    assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
+    assert ipaddress_td_mid.content.call_args_list == [call('10.0.0.1')]
     assert cpuimage_fig_mid.replace.call_args_list == [call('')]
     assert memimage_fig_mid.replace.call_args_list == [call('')]
-    assert mocked_plots.call_args_list == [call('dummy_stats', 8)]
+    assert mocked_plots.call_args_list == [call('dummy_stats')]
 
 
 def test_handle_action(handler):

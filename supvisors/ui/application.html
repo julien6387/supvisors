@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
+    <link rel="stylesheet" href="css/card.css" />
     <link rel="stylesheet" href="css/header.css" />
     <link rel="stylesheet" href="css/message.css" />
     <link rel="stylesheet" href="css/application.css" />
@@ -77,7 +78,7 @@
                     <table class="status">
                         <tbody>
                             <tr>
-                                <th colspan="2" meld:id="application_mid" id="table_main"></th>
+                                <th colspan="2" meld:id="application_mid" class="table_main"></th>
                             </tr>
                             <tr>
                                 <th class="table_title">State:</th>
@@ -219,19 +220,40 @@
                 </div>
 
                 <div id="process_right_side" meld:id="pstats_div_mid" class="vertical_contents">
-                    <h4>Detailed Statistics -- <span meld:id="process_h_mid">*</span> on <span meld:id="instance_fig_mid">--</span></h4>
+                    <div class="card">
+                        <table class="status">
+                            <tbody>
+                                <tr>
+                                    <th/>
+                                    <th class="table_main">Detailed Statistics</th>
+                                </tr>
+                                <tr>
+                                    <th class="table_title">Process:</th>
+                                    <td class="selected" meld:id="process_td_mid"></td>
+                                </tr>
+                                <tr>
+                                    <th class="table_title">Node:</th>
+                                    <td meld:id="node_td_mid"></td>
+                                </tr>
+                                <tr>
+                                    <th class="table_title">IP Address:</th>
+                                    <td meld:id="ipaddress_td_mid"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <div class="stats_contents">
                         <div>
                             <table>
                                 <tr>
-                                    <th colspan="4">CPU</th>
+                                    <th colspan="4">CPU (%)</th>
                                 </tr>
                                 <tr>
-                                    <th>%</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
+                                    <th>Latest</th>
+                                    <th>Mean</th>
+                                    <th>Slope/P</th>
+                                    <th>StdDev</th>
                                 </tr>
                                 <tr class="brightened">
                                     <td meld:id="pcpuval_td_mid">--</td>
@@ -241,16 +263,17 @@
                                 </tr>
                             </table>
                         </div>
+
                         <div>
                             <table>
                                 <tr>
-                                    <th colspan="4">MEM</th>
+                                    <th colspan="4">MEM (%)</th>
                                 </tr>
                                 <tr>
-                                    <th>%</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
+                                    <th>Latest</th>
+                                    <th>Mean</th>
+                                    <th>Slope/P</th>
+                                    <th>StdDev</th>
                                 </tr>
                                 <tr class="brightened">
                                     <td meld:id="pmemval_td_mid">--</td>

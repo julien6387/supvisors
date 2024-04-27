@@ -147,7 +147,7 @@ def test_write_processor_single_title(view):
 
 def test_write_processor_single_statistics(mocker, view):
     """ Test the _write_processor_single_statistics method. """
-    mocked_common = mocker.patch.object(view, '_write_common_statistics')
+    mocked_common = mocker.patch.object(view, '_write_common_detailed_statistics')
     # replace root element
     mocked_root = Mock()
     # test method call
@@ -178,7 +178,7 @@ def test_write_processor_statistics(mocker, view):
 
 def test_write_memory_statistics(mocker, view):
     """ Test the write_memory_statistics method. """
-    mocked_common = mocker.patch.object(view, '_write_common_statistics')
+    mocked_common = mocker.patch.object(view, '_write_common_detailed_statistics')
     # replace root element
     mocked_root = Mock()
     # test method call
@@ -230,7 +230,7 @@ def test_write_network_single_title(view):
 
 def test_write_network_single_statistics(mocker, view):
     """ Test the _write_network_single_statistics method. """
-    mocked_common = mocker.patch.object(view, '_write_common_statistics')
+    mocked_common = mocker.patch.object(view, '_write_common_detailed_statistics')
     # replace root structure
     mocked_title_mid = Mock()
     mocked_tr = Mock(**{'findmeld.return_value': mocked_title_mid})
@@ -288,52 +288,6 @@ def test_write_network_statistics(mocker, view):
                                            call(mocked_trs[1], 'lo sent', [1, 2, 3], False),
                                            call(mocked_trs[2], 'eth0 recv', [2, 3], True),
                                            call(mocked_trs[3], 'eth0 sent', [2, 3], False)]
-
-
-def test_write_common_statistics(mocker, view):
-    """ Test the _write_common_statistics method. """
-    mocked_class = mocker.patch.object(view, 'set_slope_class')
-    mocked_stats = mocker.patch('supvisors.web.viewhostinstance.get_stats',
-                                side_effect=[(10.231, None, (None, 2), None), (8.999, 2, (-1.1, 4), 5.72)])
-    # replace root structure
-    mocked_val_mid = Mock()
-    mocked_avg_mid = Mock()
-    mocked_slope_mid = Mock()
-    mocked_dev_mid = Mock()
-    mocked_tr = Mock(**{'findmeld.side_effect': [mocked_val_mid, mocked_avg_mid,
-                                                 mocked_val_mid, mocked_avg_mid,
-                                                 mocked_slope_mid, mocked_dev_mid]})
-    # in first call, test empty stats
-    view._write_common_statistics(mocked_tr, [], [], 'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
-    assert not mocked_tr.findmeld.called
-    assert not mocked_stats.called
-    assert not mocked_class.called
-    assert not mocked_val_mid.called
-    assert not mocked_avg_mid.called
-    assert not mocked_slope_mid.called
-    assert not mocked_dev_mid.called
-    # in second call, test no rate, slope and standard deviation
-    view._write_common_statistics(mocked_tr, [1.523, 2.456], [1, 2], 'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
-    assert mocked_tr.findmeld.call_args_list == [call('val_mid'), call('avg_mid')]
-    assert mocked_stats.call_args_list == [call([1, 2], [1.523, 2.456])]
-    assert not mocked_class.called
-    assert mocked_val_mid.content.call_args_list == [call('2.46')]
-    assert mocked_avg_mid.content.call_args_list == [call('10.23')]
-    assert not mocked_slope_mid.called
-    assert not mocked_dev_mid.called
-    mocked_stats.reset_mock()
-    mocked_val_mid.content.reset_mock()
-    mocked_avg_mid.content.reset_mock()
-    # in third call, test no rate, slope and standard deviation
-    view._write_common_statistics(mocked_tr, [1.523, 2.456], [1, 2], 'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
-    assert mocked_stats.call_args_list == [call([1, 2], [1.523, 2.456])]
-    assert mocked_class.call_args_list == [call(mocked_val_mid, 2)]
-    assert mocked_tr.findmeld.call_args_list == [call('val_mid'), call('avg_mid'),
-                                                 call('val_mid'), call('avg_mid'), call('slope_mid'), call('dev_mid')]
-    assert mocked_val_mid.content.call_args_list == [call('2.46')]
-    assert mocked_avg_mid.content.call_args_list == [call('9.00')]
-    assert mocked_slope_mid.content.call_args_list == [call('-1.10')]
-    assert mocked_dev_mid.content.call_args_list == [call('5.72')]
 
 
 def test_write_cpu_image(mocker, view):

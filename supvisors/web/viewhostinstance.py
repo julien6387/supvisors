@@ -83,9 +83,9 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def _write_processor_single_statistics(self, tr_elt, single_cpu_stats, timeline):
         """ Rendering of the processor statistics for a single core. """
-        self._write_common_statistics(tr_elt, single_cpu_stats, timeline,
-                                      'cpuval_td_mid', 'cpuavg_td_mid',
-                                      'cpuslope_td_mid', 'cpudev_td_mid')
+        self._write_common_detailed_statistics(tr_elt, single_cpu_stats, timeline,
+                                               'cpuval_td_mid', 'cpuavg_td_mid',
+                                               'cpuslope_td_mid', 'cpudev_td_mid')
 
     def write_processor_statistics(self, root, cpu_stats, timeline):
         """ Rendering of the processor statistics. """
@@ -101,9 +101,9 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def write_memory_statistics(self, root, mem_stats, timeline):
         """ Rendering of the memory statistics. """
-        self._write_common_statistics(root, mem_stats, timeline,
-                                      'memval_td_mid', 'memavg_td_mid',
-                                      'memslope_td_mid', 'memdev_td_mid')
+        self._write_common_detailed_statistics(root, mem_stats, timeline,
+                                               'memval_td_mid', 'memavg_td_mid',
+                                               'memslope_td_mid', 'memdev_td_mid')
 
     def _write_network_single_title(self, tr_elt, selected_intf, intf, rowspan, shaded_tr):
         """ Rendering of the title column of the network statistics. """
@@ -129,9 +129,9 @@ class HostInstanceView(SupvisorsInstanceView):
         elt = tr_elt.findmeld('intfrxtx_td_mid')
         elt.content('Rx' if rowspan else 'Tx')
         # calculate and write statistics
-        self._write_common_statistics(tr_elt, single_io_stats, timeline,
-                                      'intfval_td_mid', 'intfavg_td_mid',
-                                      'intfslope_td_mid', 'intfdev_td_mid')
+        self._write_common_detailed_statistics(tr_elt, single_io_stats, timeline,
+                                               'intfval_td_mid', 'intfavg_td_mid',
+                                               'intfslope_td_mid', 'intfdev_td_mid')
 
     def write_network_statistics(self, root, io_stats):
         """ Rendering of the network statistics. """
@@ -153,28 +153,6 @@ class HostInstanceView(SupvisorsInstanceView):
             if not rowspan:
                 shaded_tr = not shaded_tr
             rowspan = not rowspan
-
-    def _write_common_statistics(self, root, stats, timeline, val_mid, avg_mid, slope_mid, dev_mid):
-        """ Rendering of the memory statistics. """
-        if len(stats) > 0:
-            # get additional statistics
-            avg, rate, (a, b), dev = get_stats(timeline, stats)
-            # set last value
-            elt = root.findmeld(val_mid)
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            elt.content(f'{stats[-1]:.2f}')
-            # set mean value
-            elt = root.findmeld(avg_mid)
-            elt.content(f'{avg:.2f}')
-            if a is not None:
-                # set slope of linear regression
-                elt = root.findmeld(slope_mid)
-                elt.content(f'{a:.2f}')
-            if dev is not None:
-                # set standard deviation
-                elt = root.findmeld(dev_mid)
-                elt.content(f'{dev:.2f}')
 
     def _write_cpu_image(self, cpu_stats, timeline):
         """ Write CPU data into the dedicated buffer. """
