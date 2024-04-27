@@ -624,7 +624,7 @@ def test_write_supervisord_off_button(view):
     assert not start_a_mid.attributes.called
 
 
-def test_write_total_status(mocker, view):
+def test_write_total_status(mocker, supvisors, view):
     """ Test the ProcInstanceView.write_total_status method. """
     mocked_sum = mocker.patch.object(view, 'sum_process_info', return_value=(50, 2, None))
     # patch the meld elements
@@ -651,7 +651,7 @@ def test_write_total_status(mocker, view):
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]
     assert tr_elt.findmeld.call_args_list == [call('load_total_th_mid')]
-    assert load_elt.content.call_args_list == [call('50%')]
+    assert load_elt.content.call_args_list == [call('50')]
     assert not mem_elt.content.called
     assert not cpu_elt.content.called
     mocked_sum.reset_mock()
@@ -660,15 +660,15 @@ def test_write_total_status(mocker, view):
     load_elt.content.reset_mock()
     # test call with process stats and irix mode
     mocked_sum.return_value = 50, 2, Mock(cpu=[12], mem=[25])
-    view.supvisors.options.stats_irix_mode = True
+    supvisors.options.stats_irix_mode = True
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]
     assert tr_elt.findmeld.call_args_list == [call('load_total_th_mid'), call('mem_total_th_mid'),
                                               call('cpu_total_th_mid')]
-    assert load_elt.content.call_args_list == [call('50%')]
-    assert mem_elt.content.call_args_list == [call('25.00%')]
-    assert cpu_elt.content.call_args_list == [call('12.00%')]
+    assert load_elt.content.call_args_list == [call('50')]
+    assert mem_elt.content.call_args_list == [call('25.00')]
+    assert cpu_elt.content.call_args_list == [call('12.00')]
     mocked_sum.reset_mock()
     root_elt.findmeld.reset_mock()
     tr_elt.findmeld.reset_mock()
@@ -676,15 +676,15 @@ def test_write_total_status(mocker, view):
     mem_elt.content.reset_mock()
     cpu_elt.content.reset_mock()
     # test call with process stats and solaris mode
-    view.supvisors.options.stats_irix_mode = False
+    supvisors.options.stats_irix_mode = False
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]
     assert tr_elt.findmeld.call_args_list == [call('load_total_th_mid'), call('mem_total_th_mid'),
                                               call('cpu_total_th_mid')]
-    assert load_elt.content.call_args_list == [call('50%')]
-    assert mem_elt.content.call_args_list == [call('25.00%')]
-    assert cpu_elt.content.call_args_list == [call('6.00%')]
+    assert load_elt.content.call_args_list == [call('50')]
+    assert mem_elt.content.call_args_list == [call('25.00')]
+    assert cpu_elt.content.call_args_list == [call('6.00')]
 
 
 def test_make_callback(mocker, view):

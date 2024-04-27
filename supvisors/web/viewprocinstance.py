@@ -22,6 +22,7 @@ from supvisors.application import ApplicationStatus
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
+from supvisors.utils import get_small_value
 from .viewcontext import *
 from .viewinstance import SupvisorsInstanceView
 from .webutils import *
@@ -380,18 +381,15 @@ class ProcInstanceView(SupvisorsInstanceView):
             # sum MEM and CPU stats of all processes
             expected_load, nb_cores, appli_stats = self.sum_process_info(sorted_data + excluded_data)
             # update Load
-            elt = tr_elt.findmeld('load_total_th_mid')
-            elt.content(f'{expected_load}%')
+            tr_elt.findmeld('load_total_th_mid').content(f'{expected_load}')
             if appli_stats:
                 # update MEM
-                elt = tr_elt.findmeld('mem_total_th_mid')
-                elt.content(f'{appli_stats.mem[0]:.2f}%')
+                tr_elt.findmeld('mem_total_th_mid').content(get_small_value(appli_stats.mem[0]))
                 # update CPU
-                elt = tr_elt.findmeld('cpu_total_th_mid')
                 cpu_value = appli_stats.cpu[0]
                 if not self.supvisors.options.stats_irix_mode:
                     cpu_value /= nb_cores
-                elt.content(f'{cpu_value:.2f}%')
+                tr_elt.findmeld('cpu_total_th_mid').content(get_small_value(cpu_value))
 
     # ACTION part
     def make_callback(self, namespec, action):
