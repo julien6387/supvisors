@@ -22,11 +22,10 @@ from supervisor.options import ServerOptions
 from supervisor.process import Subprocess
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.supervisord import Supervisor
-from supervisor.web import VIEWS, StatusView
+from supervisor.web import VIEWS
 from supervisor.xmlrpc import Faults
 
 from supvisors.web.viewapplication import ApplicationView
-from supvisors.web.viewhandler import ViewHandler
 from supvisors.web.viewhostinstance import HostInstanceView
 from supvisors.web.viewimage import *
 from supvisors.web.viewmaintail import MainTailView
@@ -129,11 +128,6 @@ def apply_patches():
     update_views()
     # patch the Supervisor gettags to handle Supervisor and Supvisors docstring
     xmlrpc.gettags = parse_docstring
-    # patch inheritance of supervisor.web.StatusView
-    # 2 reasons:
-    #    * waiting for Supervisor#1273 to be fixed
-    #    * to benefit from the commonalities done in supvisors.ViewHandler
-    StatusView.__bases__ = (ViewHandler,)
 
 
 def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterface:

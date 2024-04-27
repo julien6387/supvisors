@@ -39,6 +39,17 @@ class HostInstanceView(SupvisorsInstanceView):
         # so no need to hide the period buttons in this case
         self.write_periods(header_elt)
         # always allow to go back to process view
+        self.write_view_switch(header_elt)
+
+    def write_view_switch(self, header_elt):
+        """ Configure the statistics view buttons. """
+        # update process button
+        elt = header_elt.findmeld('process_view_a_mid')
+        url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
+        elt.attributes(href=url)
+        # update host button
+        elt = header_elt.findmeld('host_view_a_mid')
+        elt.content(f'{self.sup_ctx.local_status.supvisors_id.host_id}')
 
     def write_contents(self, root):
         """ Rendering of tables and figures for address statistics. """
