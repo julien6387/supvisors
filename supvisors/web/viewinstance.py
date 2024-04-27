@@ -22,15 +22,16 @@ from .viewhandler import ViewHandler
 from .webutils import *
 
 
-class SupvisorsInstanceView(StatusView):
+class SupvisorsInstanceView(ViewHandler, StatusView):
     """ Common methods for the view renderer of the Supvisors Instance page.
+
     Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
-    Note that the inheritance of StatusView has been patched dynamically
-    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView inherits from ViewHandler instead of MeldView.
+    This might have been a diamond problem, but it does not really exit in Python.
     """
 
     def __init__(self, context, page_name):
         """ Call of the superclass constructors. """
+        ViewHandler.__init__(self, context)
         StatusView.__init__(self, context)
         self.page_name = page_name
         # this class deals with local statistics so a local collector must be available

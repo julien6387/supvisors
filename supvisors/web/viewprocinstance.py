@@ -64,17 +64,10 @@ class ProcInstanceView(SupvisorsInstanceView):
 
     def write_view_switch(self, header_elt):
         """ Configure the statistics view buttons. """
-        # update process button
-        if self.page_name == HOST_INSTANCE_PAGE:
-            elt = header_elt.findmeld('process_view_a_mid')
-            url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
-            elt.attributes(href=url)
-        # update host button
         elt = header_elt.findmeld('host_view_a_mid')
         elt.content(f'{self.sup_ctx.local_status.supvisors_id.host_id}')
-        if self.page_name == PROC_INSTANCE_PAGE:
-            url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
-            elt.attributes(href=url)
+        url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
+        elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
     def write_contents(self, root):
