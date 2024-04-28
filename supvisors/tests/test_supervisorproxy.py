@@ -490,8 +490,9 @@ def test_proxy_run_exception_local(mocker, supvisors, proxy_thread):
     assert not mocked_push.called
 
 
-def test_proxy_run_exception_remote(mocker, supvisors, proxy_thread):
-    """ Test the SupvisorsProxy thread run / stop with an exception on a remote proxy. """
+def test_proxy_run_exception_remote_inactive(mocker, supvisors, proxy_thread):
+    """ Test the SupvisorsProxy thread run / stop with an exception on a remote proxy
+    in the event where the remote status is not considered active. """
     mocked_publish = mocker.patch.object(proxy_thread, 'publish', side_effect=SupervisorProxyException)
     mocked_push = mocker.patch.object(supvisors.rpc_handler.proxy_server, 'push_notification')
     # start the thread
@@ -499,8 +500,32 @@ def test_proxy_run_exception_remote(mocker, supvisors, proxy_thread):
     time.sleep(1)
     assert proxy_thread.is_alive()
     assert not proxy_thread.event.is_set()
-    # force local identifier
+    # force local identifier to a non-running instance
     supvisors.mapper.local_identifier = '10.0.0.3:25000'
+    assert not proxy_thread.status.has_active_state()
+    # send a publication event that will raise an exception
+    message = '10.0.0.2:25000', (PublicationHeaders.TICK.value, {'when': 1234})
+    proxy_thread.push_message((InternalEventHeaders.PUBLICATION, message))
+    time.sleep(1.0)
+    assert mocked_publish.call_args_list == [call('10.0.0.2:25000', (0, {'when': 1234}))]
+    assert not proxy_thread.is_alive()
+    assert not mocked_push.called
+
+
+def test_proxy_run_exception_remote_active(mocker, supvisors, proxy_thread):
+    """ Test the SupvisorsProxy thread run / stop with an exception on a remote proxy
+    in the event where the remote status is considered active. """
+    mocked_publish = mocker.patch.object(proxy_thread, 'publish', side_effect=SupervisorProxyException)
+    mocked_push = mocker.patch.object(supvisors.rpc_handler.proxy_server, 'push_notification')
+    # start the thread
+    proxy_thread.start()
+    time.sleep(1)
+    assert proxy_thread.is_alive()
+    assert not proxy_thread.event.is_set()
+    # force local identifier to a non-running instance
+    supvisors.mapper.local_identifier = '10.0.0.3:25000'
+    proxy_thread.status._state = SupvisorsInstanceStates.RUNNING
+    assert proxy_thread.status.has_active_state()
     # send a publication event that will raise an exception
     message = '10.0.0.2:25000', (PublicationHeaders.TICK.value, {'when': 1234})
     proxy_thread.push_message((InternalEventHeaders.PUBLICATION, message))

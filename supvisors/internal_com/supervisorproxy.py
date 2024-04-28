@@ -278,7 +278,8 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
 
     def run(self):
         """ Proxy main loop. """
-        self.logger.info(f'SupervisorProxyThread.run: entering main loop for identifier={self.status.usage_identifier}')
+        self.logger.debug('SupervisorProxyThread.run: entering main loop'
+                          f' for identifier={self.status.usage_identifier}')
         try:
             while not self.event.is_set():
                 try:
@@ -296,11 +297,13 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
                         self.send_remote_comm_event(SUPVISORS_NOTIFICATION, (source, event_body))
         except SupervisorProxyException:
             # inform the local Supvisors instance about the remote proxy failure, thus the remote Supvisors instance
-            if self.status.identifier != self.local_identifier:
+            # not needed if not active yet
+            if self.status.identifier != self.local_identifier and self.status.has_active_state():
                 origin = self._get_origin(self.status.identifier)
                 message = NotificationHeaders.INSTANCE_FAILURE.value, None
                 self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
-        self.logger.info(f'SupervisorProxyThread.run: exiting main loop for identifier={self.status.usage_identifier}')
+        self.logger.debug('SupervisorProxyThread.run: exiting main loop'
+                          f' for identifier={self.status.usage_identifier}')
 
 
 class SupervisorProxyServer:
