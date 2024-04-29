@@ -156,22 +156,23 @@ def generic_rpc(rpc_intf, rpc_name: str, args: tuple, success_msg: str) -> Calla
 def update_attrib(elt, attribute: str, value: str) -> None:
     """ Add a new item to the attribute of an element.
 
-    :param elt: the element to update
-    :param attribute: the element attribute to update
-    :param value: the value to add
-    :return: None
+    :param elt: the element to update.
+    :param attribute: the element attribute to update.
+    :param value: the value to add.
+    :return: None.
     """
     current_value = elt.attrib.get(attribute, '')
-    if value not in current_value:
+    # NOTE: test on the split string because 'on' is in 'button'
+    if value not in current_value.split():
         elt.attrib[attribute] = f'{current_value} {value}'.strip()
 
 
 def apply_shade(elt, shaded: bool) -> None:
     """ Apply shade on element.
 
-    :param elt: the element to shade
-    :param shaded: the shade status
-    :return: None
+    :param elt: the element to shade.
+    :param shaded: the shade status.
+    :return: None.
     """
     if shaded:
         update_attrib(elt, 'class', 'shaded')

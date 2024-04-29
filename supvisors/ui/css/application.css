@@ -48,16 +48,3 @@
     border: none;
     padding: 2px 3px;
 }
-
-/* Detailed process status */
-.stats_contents {
-    display: flex;
-    flex: 0;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.stats_contents div>* {
-    margin-left: 5px;
-}
-

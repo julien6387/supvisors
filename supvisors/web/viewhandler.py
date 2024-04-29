@@ -261,6 +261,7 @@ class ViewHandler(MeldView):
             if item == self.view_ctx.parameters[PERIOD]:
                 update_attrib(elt, 'class', 'off active')
             else:
+                update_attrib(elt, 'class', 'on')
                 url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
                 elt.attributes(href=url)
             elt.content(f'{item}s')

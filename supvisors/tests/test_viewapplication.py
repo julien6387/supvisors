@@ -162,10 +162,10 @@ def test_write_starting_strategy(view):
             idx = strategy2.value
             if strategy2.value == strategy.value:
                 # strategy_mid at same index is selected
-                assert strategy_mids[idx].attrib['class'] == 'button off active'
+                assert strategy_mids[idx].attrib['class'] == 'off active'
                 assert strategy_mids[idx].attributes.call_args_list == []
             else:
-                assert strategy_mids[idx].attrib['class'] == ''
+                assert strategy_mids[idx].attrib['class'] == 'on'
                 assert strategy_mids[idx].attributes.call_args_list == [call(href='an url')]
             # reset mocks
             strategy_mids[idx].attrib['class'] = ''

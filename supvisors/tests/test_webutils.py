@@ -183,6 +183,18 @@ def test_generic_rpc(mocker, supvisors, messages):
     assert result() == 'Msg info'
 
 
+def test_update_attrib():
+    """ Test the update of element attributes. """
+    elt = create_element()
+    assert elt.attrib['class'] == ''
+    update_attrib(elt, 'class', 'button')
+    assert elt.attrib['class'] == 'button'
+    update_attrib(elt, 'class', 'on')
+    assert elt.attrib['class'] == 'button on'
+    update_attrib(elt, 'class', 'off active')
+    assert elt.attrib['class'] == 'button on off active'
+
+
 def test_apply_shade():
     """ Test the formatting of shaded / non-shaded elements. """
     elt = create_element()

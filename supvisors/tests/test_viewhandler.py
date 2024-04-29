@@ -491,7 +491,7 @@ def test_write_periods(supvisors, handler):
     assert mocked_header.findmeld.call_args_list == [call('period_li_mid')]
     assert period_li_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
     assert period_li_elt.findmeld.call_args_list == [call('period_a_mid')]
-    assert period_a_mid.attrib['class'] == ''
+    assert period_a_mid.attrib['class'] == 'on'
     assert handler.view_ctx.format_url.call_args_list == [call('', None, period=5)]
     assert period_a_mid.attributes.call_args_list == [call(href='an url')]
     assert period_a_mid.content.call_args_list == [call('5s')]

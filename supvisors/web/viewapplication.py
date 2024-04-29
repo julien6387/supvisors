@@ -93,8 +93,9 @@ class ApplicationView(ViewHandler):
         for strategy in StartingStrategies:
             elt = header_elt.findmeld('%s_a_mid' % strategy.name.lower())
             if selected_strategy == strategy.name:
-                elt.attrib['class'] = 'button off active'
+                update_attrib(elt, 'class', 'off active')
             else:
+                update_attrib(elt, 'class', 'on')
                 url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy.name})
                 elt.attributes(href=url)
 
