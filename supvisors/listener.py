@@ -416,7 +416,7 @@ class SupervisorListener:
         """ Called when a RemoteCommunicationEvent is notified.
         This is used to sequence the events received from the Supvisors thread with the other events handled
         by the local Supervisor. """
-        self.logger.trace(f'SupervisorListener.on_remote_event: JLC type={event.type} data={event.data}')
+        self.logger.trace(f'SupervisorListener.on_remote_event: type={event.type} data={event.data}')
         try:
             if event.type == SUPVISORS_PUBLICATION:
                 self.read_publication(event.data)
