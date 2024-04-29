@@ -157,17 +157,18 @@ body {
     border-bottom-right-radius: 6px;
     box-shadow: 4px 4px 6px black;
     justify-content: start;
+    text-align: center;
+    color: var(--title-color);
 }
 
-#left_side header div:nth-child(1) {
+#left_side header div {
     display: flex;
-    width: 218px;
+    width: 220px;
     flex-direction: column;
 }
 
-#left_side header, #left_side header a {
-   text-align: center;
-   color: var(--title-color);
+#left_side header h1 {
+    height: 35px;
 }
 
 #instance_list {
