@@ -402,7 +402,9 @@ class ViewHandler(MeldView):
     def write_common_process_table(self, table_elt):
         """ Hide MEM+CPU head+foot cells if statistics disabled"""
         if not self.has_process_statistics:
-            for mid in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid', 'total_mid']:
+            for mid in ['mem_head_th_mid', 'cpu_head_th_mid',
+                        'mem_foot_th_mid', 'cpu_foot_th_mid',
+                        'mem_total_th_mid', 'cpu_total_th_mid']:
                 elt = table_elt.findmeld(mid)
                 if elt is not None:
                     elt.deparent()

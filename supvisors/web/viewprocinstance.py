@@ -376,20 +376,18 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: None
         """
         tr_elt = table_elt.findmeld('total_mid')
-        if tr_elt is not None:
-            # element may have been removed due to stats option disabled
-            # sum MEM and CPU stats of all processes
-            expected_load, nb_cores, appli_stats = self.sum_process_info(sorted_data + excluded_data)
-            # update Load
-            tr_elt.findmeld('load_total_th_mid').content(f'{expected_load}')
-            if appli_stats:
-                # update MEM
-                tr_elt.findmeld('mem_total_th_mid').content(get_small_value(appli_stats.mem[0]))
-                # update CPU
-                cpu_value = appli_stats.cpu[0]
-                if not self.supvisors.options.stats_irix_mode:
-                    cpu_value /= nb_cores
-                tr_elt.findmeld('cpu_total_th_mid').content(get_small_value(cpu_value))
+        # sum MEM and CPU stats of all processes
+        expected_load, nb_cores, appli_stats = self.sum_process_info(sorted_data + excluded_data)
+        # update Load
+        tr_elt.findmeld('load_total_th_mid').content(f'{expected_load}')
+        if appli_stats:
+            # update MEM
+            tr_elt.findmeld('mem_total_th_mid').content(get_small_value(appli_stats.mem[0]))
+            # update CPU
+            cpu_value = appli_stats.cpu[0]
+            if not self.supvisors.options.stats_irix_mode:
+                cpu_value /= nb_cores
+            tr_elt.findmeld('cpu_total_th_mid').content(get_small_value(cpu_value))
 
     # ACTION part
     def make_callback(self, namespec, action):

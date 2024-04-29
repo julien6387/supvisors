@@ -628,25 +628,14 @@ def test_write_total_status(mocker, supvisors, view):
     """ Test the ProcInstanceView.write_total_status method. """
     mocked_sum = mocker.patch.object(view, 'sum_process_info', return_value=(50, 2, None))
     # patch the meld elements
-    load_elt = Mock(attrib={'class': ''})
-    mem_elt = Mock(attrib={'class': ''})
-    cpu_elt = Mock(attrib={'class': ''})
-    mid_map = {'load_total_th_mid': load_elt, 'mem_total_th_mid': mem_elt, 'cpu_total_th_mid': cpu_elt}
-    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
-    root_elt = Mock(attrib={}, **{'findmeld.return_value': None})
-    # test call with total element removed
+    load_elt = create_element()
+    mem_elt = create_element()
+    cpu_elt = create_element()
+    tr_elt = create_element({'load_total_th_mid': load_elt, 'mem_total_th_mid': mem_elt, 'cpu_total_th_mid': cpu_elt})
+    root_elt = create_element({'total_mid': tr_elt})
+    # test call
     sorted_data = [1, 2]
     excluded_data = [3, 4]
-    view.write_total_status(root_elt, sorted_data, excluded_data)
-    assert root_elt.findmeld.call_args_list == [call('total_mid')]
-    assert not tr_elt.findmeld.called
-    assert not mocked_sum.called
-    for elt in mid_map.values():
-        assert not elt.content.called
-    root_elt.findmeld.reset_mock()
-    # test call with total element present
-    root_elt.findmeld.return_value = tr_elt
-    # test call with no process stats
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]

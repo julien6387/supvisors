@@ -828,13 +828,15 @@ def test_write_process_button(handler):
 
 def test_write_common_process_table(handler):
     """ Test the write_common_process_table method. """
-    mem_head_elt = Mock()
-    mem_foot_elt = Mock()
-    cpu_head_elt = Mock()
-    cpu_foot_elt = Mock()
-    mid_map = {'mem_head_th_mid': mem_head_elt, 'cpu_head_th_mid': cpu_head_elt,
-               'mem_foot_th_mid': mem_foot_elt, 'cpu_foot_th_mid': cpu_foot_elt, 'total_mid': None}
-    root = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
+    mem_head_elt = create_element()
+    mem_foot_elt = create_element()
+    mem_total_elt = create_element()
+    cpu_head_elt = create_element()
+    cpu_foot_elt = create_element()
+    cpu_total_elt = create_element()
+    root = create_element({'mem_head_th_mid': mem_head_elt, 'cpu_head_th_mid': cpu_head_elt,
+                           'mem_foot_th_mid': mem_foot_elt, 'cpu_foot_th_mid': cpu_foot_elt,
+                           'mem_total_th_mid': mem_total_elt, 'cpu_total_th_mid': cpu_total_elt})
     # test with statistics enabled
     handler.has_process_statistics = True
     handler.write_common_process_table(root)
@@ -847,7 +849,8 @@ def test_write_common_process_table(handler):
     handler.has_process_statistics = False
     handler.write_common_process_table(root)
     assert root.findmeld.call_args_list == [call('mem_head_th_mid'), call('cpu_head_th_mid'),
-                                            call('mem_foot_th_mid'), call('cpu_foot_th_mid'), call('total_mid')]
+                                            call('mem_foot_th_mid'), call('cpu_foot_th_mid'),
+                                            call('mem_total_th_mid'), call('cpu_total_th_mid')]
     assert mem_head_elt.deparent.call_args_list == [call()]
     assert mem_foot_elt.deparent.call_args_list == [call()]
     assert cpu_head_elt.deparent.call_args_list == [call()]
