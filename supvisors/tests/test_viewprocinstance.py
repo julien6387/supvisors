@@ -142,45 +142,56 @@ def test_write_contents(mocker, view):
                                       side_effect=(([{'namespec': 'dummy'}], []),
                                                    ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                                    ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
+                                                   ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                                    ([{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])))
     # patch context
     view.view_ctx = Mock(parameters={PROCESS: None}, local_identifier='10.0.0.1',
                          **{'get_process_status.return_value': None})
     # patch the meld elements
-    mocked_root = Mock()
+    contents_elt = create_element()
     # test call with no process selected
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [])]
-    assert mocked_stats.call_args_list == [call(mocked_root, {})]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [])]
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
     # test call with process selected and no corresponding status
     # process set in excluded_list but not passed to write_process_statistics because unselected due to missing status
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
     assert view.view_ctx.parameters[PROCESS] == ''
-    assert mocked_stats.call_args_list == [call(mocked_root, {})]
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
     # test call with process selected but not running on considered node
     # process set in excluded_list
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.2'})
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
     assert view.view_ctx.parameters[PROCESS] == ''
-    assert mocked_stats.call_args_list == [call(mocked_root, {})]
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
-    # test call with process selected and running
+    # test call with process selected and running but no statistics on the instance
+    view.has_process_statistics = False
     view.view_ctx.parameters[PROCESS] = 'dummy'
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.1'})
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert view.view_ctx.parameters[PROCESS] == ''
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
+    mocker.resetall()
+    # test call with process selected and running, and statistics available
+    view.has_process_statistics = True
+    view.view_ctx.parameters[PROCESS] = 'dummy'
+    view.write_contents(contents_elt)
+    assert mocked_data.call_args_list == [call()]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])]
     assert view.view_ctx.parameters[PROCESS] == 'dummy'
-    assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy'})]
+    assert mocked_stats.call_args_list == [call(contents_elt, {'namespec': 'dummy'})]
 
 
 def test_get_process_data(mocker, view):

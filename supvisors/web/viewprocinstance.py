@@ -77,13 +77,17 @@ class ProcInstanceView(SupvisorsInstanceView):
         self.write_process_table(contents_elt, sorted_data, excluded_data)
         # check selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
-        if namespec and namespec != 'supervisord':
-            # unselect if not running in this Supvisors instance
-            status = self.view_ctx.get_process_status(namespec)
-            if not status or self.view_ctx.local_identifier not in status.running_identifiers:
-                self.logger.warn(f'ProcInstanceView.write_contents: unselect Process Statistics for {namespec}')
-                # form parameter is not consistent. remove it
+        if namespec:
+            if not self.has_process_statistics:
+                # statistics are not available for this Supvisors instance
                 self.view_ctx.parameters[PROCESS] = ''
+            elif namespec != 'supervisord':
+                # unselect if not running in this Supvisors instance
+                status = self.view_ctx.get_process_status(namespec)
+                if not status or self.view_ctx.local_identifier not in status.running_identifiers:
+                    self.logger.warn(f'ProcInstanceView.write_contents: unselect Process Statistics for {namespec}')
+                    # former parameter is not consistent with local instance. remove it
+                    self.view_ctx.parameters[PROCESS] = ''
         # write selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
         info = next(filter(lambda x: x['namespec'] == namespec, sorted_data + excluded_data), {})

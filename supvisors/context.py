@@ -320,7 +320,7 @@ class Context:
     def get_managed_applications(self) -> Dict[str, ApplicationStatus]:
         """ Get the managed applications (as defined in rules file).
 
-        :return: the managed applications
+        :return: the managed applications.
         """
         return {application_name: application for application_name, application in self.applications.items()
                 if application.rules.managed}
@@ -328,7 +328,7 @@ class Context:
     def is_namespec(self, namespec: str) -> bool:
         """ Check if the namespec is valid with the context.
 
-        :return: True if the namespec is valid
+        :return: True if the namespec is valid.
         """
         application_name, process_name = split_namespec(namespec)
         if application_name not in self.applications:
@@ -341,8 +341,8 @@ class Context:
     def get_process(self, namespec: str) -> Optional[ProcessStatus]:
         """ Return the ProcessStatus corresponding to the namespec.
 
-        :param namespec: the process namespec
-        :return: the corresponding ProcessStatus
+        :param namespec: the process namespec.
+        :return: the corresponding ProcessStatus.
         """
         application_name, process_name = split_namespec(namespec)
         return self.applications[application_name].processes[process_name]
@@ -351,7 +351,7 @@ class Context:
         """ Get all processes whose namespec matches the regex.
         The processes shall not be already running.
 
-        :return: the candidate processes
+        :return: the candidate processes.
         """
         return [process for application in self.applications.values()
                 for process in application.processes.values()
