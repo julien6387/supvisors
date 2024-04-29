@@ -115,15 +115,15 @@ class ApplicationView(ViewHandler):
         elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
-    def write_contents(self, root) -> None:
+    def write_contents(self, contents_elt) -> None:
         """ Rendering of the contents part of the page.
 
-        :param root: the root element of the page.
+        :param contents_elt: the root element of the page.
         :return: None.
         """
         if self.application:
             data = self.get_process_data()
-            self.write_process_table(root, data)
+            self.write_process_table(contents_elt, data)
             # check selected Process Statistics
             namespec = self.view_ctx.parameters[PROCESS]
             if namespec:
@@ -135,7 +135,7 @@ class ApplicationView(ViewHandler):
             # write selected Process Statistics
             namespec = self.view_ctx.parameters[PROCESS]
             info = next(filter(lambda x: x['namespec'] == namespec, data), {})
-            self.write_process_statistics(root, info)
+            self.write_process_statistics(contents_elt, info)
 
     def get_process_last_desc(self, namespec: str) -> Tuple[Optional[str], str]:
         """ Get the latest description received from the process across all instances.

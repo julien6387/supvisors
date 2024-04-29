@@ -87,20 +87,20 @@ class SupvisorsView(ViewHandler):
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})
         elt.attributes(href=url)
 
-    def write_contents(self, root) -> None:
+    def write_contents(self, contents_elt) -> None:
         """ Rendering of the contents of the Supvisors main page.
         This builds either a synoptic of the processes running on the Supvisors instances or the table of conflicts. """
         if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
             # remove Supvisors instances boxes
-            root.findmeld('boxes_div_mid').replace('')
+            contents_elt.findmeld('boxes_div_mid').replace('')
             # write conflicts
-            self.write_conciliation_strategies(root)
-            self.write_conciliation_table(root)
+            self.write_conciliation_strategies(contents_elt)
+            self.write_conciliation_table(contents_elt)
         else:
             # remove conflicts table
-            root.findmeld('conflicts_div_mid').replace('')
+            contents_elt.findmeld('conflicts_div_mid').replace('')
             # write Supvisors instances boxes
-            self.write_instance_boxes(root)
+            self.write_instance_boxes(contents_elt)
 
     # Standard part
     def _write_instance_box_title(self, instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool) -> None:

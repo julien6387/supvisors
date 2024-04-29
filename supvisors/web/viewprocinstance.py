@@ -71,10 +71,10 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
-    def write_contents(self, root):
+    def write_contents(self, contents_elt):
         """ Rendering of the contents part of the page. """
         sorted_data, excluded_data = self.get_process_data()
-        self.write_process_table(root, sorted_data, excluded_data)
+        self.write_process_table(contents_elt, sorted_data, excluded_data)
         # check selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec and namespec != 'supervisord':
@@ -87,7 +87,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         # write selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
         info = next(filter(lambda x: x['namespec'] == namespec, sorted_data + excluded_data), {})
-        self.write_process_statistics(root, info)
+        self.write_process_statistics(contents_elt, info)
 
     def get_process_data(self) -> Tuple[PayloadList, PayloadList]:
         """ Collect sorted data on processes.

@@ -86,6 +86,26 @@ def instant_io_statistics() -> InterfaceInstantStats:
 
 
 # Common
+class LocalNodeInfo:
+    """ Store node information to be displayed in the Supvisors Web UI. """
+
+    def __init__(self):
+        """ Get all values from psutil for once.
+        Store as strings because their only purpose is to be displayed in the Web UI. """
+        self.nb_core_physical: int = psutil.cpu_count(logical=False)
+        self.nb_core_logical: int = psutil.cpu_count()
+        # get processor frequency
+        frequency: float = psutil.cpu_freq().current  # MHz
+        self.frequency: str = f'{int(frequency)} MHz'
+        # get physical memory
+        physical_memory: int = psutil.virtual_memory().total  # bytes
+        for unit in ['KiB', 'MiB', 'GiB']:
+            physical_memory /= 1024
+            if physical_memory < 1024:
+                break
+        self.physical_memory: str = f'{physical_memory:.2f} {unit}'
+
+
 class StatisticsCollector:
     """ Base class for statistics collection. """
 
@@ -328,9 +348,12 @@ class StatisticsCollectorProcess:
     STOP_TIMEOUT = 2.0
 
     def __init__(self, supvisors):
+        """ Initialization of the attributes. """
         # store the attributes
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
+        # get the node characteristics
+        self.node_info: LocalNodeInfo = LocalNodeInfo()
         # create communication pipes
         self.cmd_recv, self.cmd_send = mp.Pipe(False)  # used to /receive commands, pids and program names
         self.host_stats_recv, self.host_stats_send = mp.Pipe(False)  # used to send/receive host statistics

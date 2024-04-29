@@ -21,64 +21,112 @@
 #instance_contents {
     display: flex;
     flex: 1;
+    flex-direction: column;
     overflow: auto;
+    align-items: center;
 }
 
+/* Characteristics part */
+#characteristics {
+    display: block;
+    flex-direction: row;
+    width: 60%;
+    min-height: 100px;
+    max-height: 100px;
+    padding: 0 10px;
+}
+
+#characteristics .card {
+    display: flex;
+    flex-direction: row;
+    height: 90%;
+    align-items: start;
+    justify-content: space-evenly;
+}
+
+#characteristics .card div {
+    margin-top: 10px;
+    padding: 0 20px;
+}
+
+#characteristics .vertical_separator {
+    display: block;
+    width: 1px;
+    position: relative;
+    top: 5px;
+    height: 70%;
+    border-right: 1px solid var(--text-color);
+}
+
+/* Statistics part */
 #rsc_grid {
     display: grid;
-    grid-template-columns: 1fr 300px 1fr;
-    grid-template-rows: 1fr 1fr;
+    flex: 1;
+    height: 83%;
+    grid-template-rows: 49% 49%;
     grid-gap: 10px;
+    align-items: center;
+    margin: 0 10px;
 }
 
-#mem_fig {
+#cpu_stats {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1;
 }
 
 #mem_stats {
     grid-column: 2;
-    grid-row: 2;
-    margin: auto;
-}
-
-#cpu_fig {
-    grid-column: 1;
-    grid-row: 1;
-}
-
-#cpu_stats {
-    overflow-y: auto;
-    flex-direction: column;
-    grid-column: 2;
-    grid-row: 1;
-}
-
-#cpu_stats div {
-    display: flex;
-    flex: 1;
-    overflow-y: auto;
-}
-
-#io_fig {
-    grid-column: 3;
     grid-row: 1;
 }
 
 #io_stats {
-    overflow-y: auto;
-    flex-direction: column;
-    grid-column: 3;
+    grid-column: 1;
     grid-row: 2;
 }
 
-#io_stats div {
+#disk_stats {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+#rsc_grid .card {
     display: flex;
     flex: 1;
+    height: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#rsc_grid .card figure {
+    margin-right: 10px;
+}
+
+#rsc_grid .card div {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    height: 90%;
+}
+
+.table_stats {
+    display: flex;
+    flex: 1;
+    height: 90%;
     overflow-y: auto;
     margin: auto;
 }
 
+.table_stats th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
 td {
     text-align: center;
+}
+
+#mem_stats tr:first-child th {
+    border-bottom: solid 1px var(--border-color);
 }

@@ -19,6 +19,7 @@ from unittest.mock import call, Mock
 
 import pytest
 
+from supvisors.statscollector import LocalNodeInfo
 from supvisors.web.viewcontext import *
 from .base import DummyHttpContext
 
@@ -454,6 +455,17 @@ def test_get_nb_cores(ctx):
     # test with known address
     stats.nb_cores['10.0.0.1:25000'] = 8
     assert ctx.get_nb_cores('10.0.0.1:25000') == 8
+
+
+def test_get_node_characteristics(ctx):
+    """ Test the ViewContext.get_node_characteristics method. """
+    # test with stats collector present
+    assert ctx.supvisors.stats_collector
+    assert type(ctx.get_node_characteristics()) is LocalNodeInfo
+    # cannot test the LocalNodeInfo contents as it is platform-dependent
+    # test with stats collector not set
+    ctx.supvisors.stats_collector = None
+    assert ctx.get_node_characteristics() is None
 
 
 def test_get_node_stats(supvisors, ctx):

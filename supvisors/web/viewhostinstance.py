@@ -14,8 +14,8 @@
 # limitations under the License.
 # ======================================================================
 
+from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.statscompiler import HostStatisticsInstance
-from supvisors.utils import get_stats
 from .viewcontext import *
 from .viewimage import host_cpu_img, host_mem_img, host_io_img
 from .viewinstance import SupvisorsInstanceView
@@ -23,11 +23,7 @@ from .webutils import *
 
 
 class HostInstanceView(SupvisorsInstanceView):
-    """ View renderer of the Host section of the Supvisors Instance page.
-    Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
-    Note that the inheritance of StatusView has been patched dynamically in supvisors.plugin.make_supvisors_rpcinterface
-    so that StatusView inherits from ViewHandler instead of MeldView.
-    """
+    """ View renderer of the Host section of the Supvisors Instance page. """
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
@@ -51,14 +47,18 @@ class HostInstanceView(SupvisorsInstanceView):
         elt = header_elt.findmeld('host_view_a_mid')
         elt.content(f'{self.sup_ctx.local_status.supvisors_id.host_id}')
 
-    def write_contents(self, root):
+    def write_contents(self, contents_elt):
         """ Rendering of tables and figures for address statistics. """
+        # get node characteristics
+        info = self.view_ctx.get_node_characteristics()
+        if info:
+            self.write_node_characteristics(contents_elt, info)
         # get data from statistics module iaw period selection
         stats_instance: HostStatisticsInstance = self.view_ctx.get_instance_stats()
         if stats_instance:
-            self.write_processor_statistics(root, stats_instance.cpu, stats_instance.times)
-            self.write_memory_statistics(root, stats_instance.mem, stats_instance.times)
-            self.write_network_statistics(root, stats_instance.io)
+            self.write_processor_statistics(contents_elt, stats_instance.cpu, stats_instance.times)
+            self.write_memory_statistics(contents_elt, stats_instance.mem, stats_instance.times)
+            self.write_network_statistics(contents_elt, stats_instance.io)
             # write CPU / Memory / Network plots
             try:
                 self._write_cpu_image(stats_instance.cpu, stats_instance.times)
@@ -66,9 +66,20 @@ class HostInstanceView(SupvisorsInstanceView):
                 self._write_io_image(stats_instance.io)
             except ImportError:
                 # matplotlib not installed: remove figure elements
-                stats_elt = root.findmeld('stats_div_mid')
                 for mid in ['cpuimage_fig_mid', 'memimage_fig_mid', 'ioimage_fig_mid']:
-                    stats_elt.findmeld(mid).replace('')
+                    contents_elt.findmeld(mid).replace('')
+
+    def write_node_characteristics(self, contents_elt, info):
+        """ Rendering of the node characteristics. """
+        # write Node section
+        supvisors_id: SupvisorsInstanceId = self.sup_ctx.local_status.supvisors_id
+        contents_elt.findmeld('node_td_mid').content(supvisors_id.host_id)
+        contents_elt.findmeld('ipaddress_td_mid').content(supvisors_id.ip_address)
+        # write Processor section
+        contents_elt.findmeld('cpu_count_td_mid').content(f'{info.nb_core_physical} / {info.nb_core_logical}')
+        contents_elt.findmeld('cpu_freq_td_mid').content(info.frequency)
+        # write Memory section
+        contents_elt.findmeld('physical_mem_td_mid').content(info.physical_memory)
 
     def _write_processor_single_title(self, tr_elt, selected_cpu_id, cpu_id):
         """ Rendering of the title of a single core. """

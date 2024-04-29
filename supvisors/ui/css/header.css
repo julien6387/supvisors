@@ -33,7 +33,7 @@
     height: 95%;
 }
 
-#right_side header .line {
+#right_side header .line_separator {
     flex: 1;
     display: flex;
     margin: 0 10px;
@@ -83,11 +83,16 @@ code.hstate {
 .optionBox {
     margin: 0 5px;
     border: 3px ridge var(--border-color);
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
-.optionBox th {
+.optionBox tr:first-child th {
+    border-top: none;
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
+    text-align: center;
+}
+
+.optionBox td {
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
     text-align: center;
 }
 

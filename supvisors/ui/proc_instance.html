@@ -73,7 +73,7 @@
                     </div>
                 </div>
 
-                <div class="line"> </div>
+                <div class="line_separator"> </div>
 
                 <div class="card" id="instance_status">
                     <table class="status">
@@ -99,74 +99,72 @@
                     </table>
                 </div>
 
-                <div class="line"> </div>
+                <div class="line_separator"> </div>
 
                 <div class="card" meld:id="option_card_mid">
                     <div meld:id="view_div_mid">
                         <table class="optionBox">
-                            <tr><th>Statistics View</th></tr>
-                            <tr><td><ul class="linear">
-                                <li><a href="#" meld:id="process_view_a_mid" class="button off active">Processes</a></li>
-                                <li><a href="#" meld:id="host_view_a_mid" class="button on">Host</a></li>
-                            </ul></td></tr>
+                            <thead>
+                                <tr>
+                                    <th>Statistics View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <ul class="linear">
+                                            <li><a href="#" meld:id="process_view_a_mid" class="button off active">Processes</a></li>
+                                            <li><a href="#" meld:id="host_view_a_mid" class="button on">Host</a></li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
 
                     <div meld:id="period_div_mid">
                         <table class="optionBox">
-                            <tr><th>Statistics Periods</th></tr>
-                            <tr><td><ul class="linear">
-                                <li meld:id="period_li_mid">
-                                    <a href="#" meld:id="period_a_mid" class="button">Period</a>
-                                </li>
-                            </ul></td></tr>
+                            <thead>
+                                <tr>
+                                    <th>Statistics Periods</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <ul class="linear">
+                                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button">Period</a></li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
 
-                <div class="line" meld:id="option_line_mid"> </div>
+                <div class="line_separator" meld:id="option_line_mid"> </div>
 
                 <div class="card">
                     <table class="buttons">
                         <tbody>
                             <tr class="action">
-                                <td>
-                                    <a href="#" meld:id="stopall_a_mid">
-                                        <img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/>
-                                    </a>
-                                </td>
-                                <td>
-                                    <a href="#" meld:id="restartsup_a_mid" class="on">
-                                        <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/>
-                                    </a>
-                                </td>
-                                <td>
-                                    <a href="#" meld:id="shutdownsup_a_mid" class="on">
-                                        <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/>
-                                    </a>
-                                </td>
+                                <td><a href="#" meld:id="stopall_a_mid"><img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/></a></td>
+                                <td><a href="#" meld:id="restartsup_a_mid" class="on"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/></a></td>
+                                <td><a href="#" meld:id="shutdownsup_a_mid" class="on"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/></a></td>
                             </tr>
                             <tr>
-                                <td/>
-                                <td>
-                                    <a href="#" meld:id="refresh_a_mid" class="button on">
-                                        <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/>
-                                    </a>
-                                </td>
-                                <td>
-                                    <a href="#" meld:id="autorefresh_a_mid" class="button on">
-                                        <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/>
-                                    </a>
-                                </td>
+                                <td></td>
+                                <td><a href="#" meld:id="refresh_a_mid" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></td>
+                                <td><a href="#" meld:id="autorefresh_a_mid" class="button on"><img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/></a></td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </header>
 
-            <div id="process_contents">
+            <div id="process_contents" meld:id="contents_mid">
                 <div id="process_left_side">
-                    <table id="process_table" meld:id="table_mid">
+                    <table class="process_table" meld:id="table_mid">
                         <thead>
                             <tr>
                                 <th class="shex">
@@ -249,40 +247,48 @@
                     <div class="stats_contents">
                         <div>
                             <table>
-                                <tr>
-                                    <th colspan="4">%CPU</th>
-                                </tr>
-                                <tr>
-                                    <th>Latest</th>
-                                    <th>Mean</th>
-                                    <th>Slope/P</th>
-                                    <th>StdDev</th>
-                                </tr>
-                                <tr class="brightened">
-                                    <td meld:id="pcpuval_td_mid">--</td>
-                                    <td meld:id="pcpuavg_td_mid">--</td>
-                                    <td meld:id="pcpuslope_td_mid">--</td>
-                                    <td meld:id="pcpudev_td_mid">--</td>
-                                </tr>
+                                <thead>
+                                    <tr>
+                                        <th colspan="4">%CPU</th>
+                                    </tr>
+                                    <tr>
+                                        <th>Latest</th>
+                                        <th>Mean</th>
+                                        <th>Slope/P</th>
+                                        <th>StdDev</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="brightened">
+                                        <td meld:id="pcpuval_td_mid">--</td>
+                                        <td meld:id="pcpuavg_td_mid">--</td>
+                                        <td meld:id="pcpuslope_td_mid">--</td>
+                                        <td meld:id="pcpudev_td_mid">--</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
                         <div>
                             <table>
-                                <tr>
-                                    <th colspan="4">%MEM</th>
-                                </tr>
-                                <tr>
-                                    <th>Latest</th>
-                                    <th>Mean</th>
-                                    <th>Slope/P</th>
-                                    <th>StdDev</th>
-                                </tr>
-                                <tr class="brightened">
-                                    <td meld:id="pmemval_td_mid">--</td>
-                                    <td meld:id="pmemavg_td_mid">--</td>
-                                    <td meld:id="pmemslope_td_mid">--</td>
-                                    <td meld:id="pmemdev_td_mid">--</td>
-                                </tr>
+                                <thead>
+                                    <tr>
+                                        <th colspan="4">%MEM</th>
+                                    </tr>
+                                    <tr>
+                                        <th>Latest</th>
+                                        <th>Mean</th>
+                                        <th>Slope/P</th>
+                                        <th>StdDev</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="brightened">
+                                        <td meld:id="pmemval_td_mid">--</td>
+                                        <td meld:id="pmemavg_td_mid">--</td>
+                                        <td meld:id="pmemslope_td_mid">--</td>
+                                        <td meld:id="pmemdev_td_mid">--</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
                     </div>

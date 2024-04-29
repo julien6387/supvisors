@@ -39,7 +39,7 @@ class StatisticsPlot(object):
         """ Initialization of the plot. """
         self.logger = logger
         # create the plot
-        fig = plt.figure(figsize=(6, 3), dpi=90)
+        fig = plt.figure(figsize=(5.8, 3), dpi=90)
         fig.patch.set_facecolor(StatisticsPlot.BACKGROUND_COLOR)
         self.ax = fig.add_subplot(111)
         # configure axis color

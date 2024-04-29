@@ -88,7 +88,8 @@ def test_render_action_in_progress(mocker, handler):
     mocked_action = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_action')
     # build xml template
     header_elt = create_element()
-    mocked_root = create_element({'header_mid': header_elt})
+    contents_elt = create_element()
+    mocked_root = create_element({'header_mid': header_elt, 'contents_mid': contents_elt})
     mocked_root.write_xhtmlstring.return_value = 'xhtml'
     mocked_clone.return_value = mocked_root
     # patch context
@@ -127,7 +128,7 @@ def test_render_action_in_progress(mocker, handler):
     assert mocked_common.call_args_list == [call(mocked_root)]
     assert mocked_header.call_args_list == [call(header_elt)]
     assert mocked_nav.call_args_list == [call(mocked_root)]
-    assert mocked_contents.call_args_list == [call(mocked_root)]
+    assert mocked_contents.call_args_list == [call(contents_elt)]
 
 
 def test_handle_parameters(supvisors, handler):

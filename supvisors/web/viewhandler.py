@@ -90,10 +90,11 @@ class ViewHandler(MeldView):
             self.write_common(root)
             self.write_navigation(root)
             # write the header section
-            header_mid = root.findmeld('header_mid')
-            self.write_header(header_mid)
+            header_elt = root.findmeld('header_mid')
+            self.write_header(header_elt)
             # write the body section
-            self.write_contents(root)
+            contents_elt = root.findmeld('contents_mid')
+            self.write_contents(contents_elt)
             # send message only at the end to get all URL parameters
             self.view_ctx.fire_message()
             return as_string(root.write_xhtmlstring())

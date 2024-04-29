@@ -227,6 +227,12 @@ class ViewContext:
             nb_cores = self.supvisors.process_compiler.get_nb_cores(stats_identifier)
         return nb_cores
 
+    def get_node_characteristics(self):
+        """ Get the node characteristics from the stats collector. """
+        if self.supvisors.stats_collector:
+            return self.supvisors.stats_collector.node_info
+        return None
+
     def get_instance_stats(self, identifier: str = None):
         """ Get the statistics structure related to the identifier and the period selected.
         If no identifier is specified, local identifier is used. """

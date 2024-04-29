@@ -18,6 +18,7 @@ from unittest.mock import call, Mock
 
 import pytest
 
+from supvisors.statscollector import LocalNodeInfo
 from supvisors.web.viewcontext import CPU, INTF, ViewContext
 from supvisors.web.viewhostinstance import HostInstanceView
 from supvisors.web.viewimage import host_cpu_img, host_io_img, host_mem_img
@@ -76,8 +77,9 @@ def test_write_view_switch(supvisors, view):
     assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
 
 
-def test_write_contents_no_plot(mocker, view):
+def test_write_contents_no_plot(mocker, supvisors, view):
     """ Test the write_contents method. """
+    mocked_characteristics = mocker.patch.object(view, 'write_node_characteristics')
     mocked_network = mocker.patch.object(view, 'write_network_statistics')
     mocked_memory = mocker.patch.object(view, 'write_memory_statistics')
     mocked_processor = mocker.patch.object(view, 'write_processor_statistics')
@@ -86,21 +88,33 @@ def test_write_contents_no_plot(mocker, view):
     mocker.patch.dict('sys.modules', {'supvisors.plot': None})
     # set context (meant to be set through render)
     dummy_stats = Mock(cpu='cpu', mem='mem', io='io', times='times')
-    view.view_ctx = Mock(**{'get_instance_stats.return_value': dummy_stats})
-    # replace root structure
-    mocked_root = Mock()
+    view.view_ctx = Mock(**{'get_instance_stats.return_value': dummy_stats,
+                            'get_node_characteristics.return_value': supvisors.stats_collector.node_info})
+    # create root structure
+    cpuimage_fig_mid = create_element()
+    memimage_fig_mid = create_element()
+    ioimage_fig_mid = create_element()
+    contents_elt = create_element({'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid,
+                                   'ioimage_fig_mid': ioimage_fig_mid})
     # test call
-    view.write_contents(mocked_root)
-    assert mocked_processor.call_args_list == [call(mocked_root, 'cpu', 'times')]
-    assert mocked_memory.call_args_list == [call(mocked_root, 'mem', 'times')]
-    assert mocked_network.call_args_list == [call(mocked_root, 'io')]
+    view.write_contents(contents_elt)
+    assert mocked_characteristics.call_args_list == [call(contents_elt, supvisors.stats_collector.node_info)]
+    assert mocked_processor.call_args_list == [call(contents_elt, 'cpu', 'times')]
+    assert mocked_memory.call_args_list == [call(contents_elt, 'mem', 'times')]
+    assert mocked_network.call_args_list == [call(contents_elt, 'io')]
     assert not mocked_export.called
+    assert contents_elt.findmeld.call_args_list == [call('cpuimage_fig_mid'), call('memimage_fig_mid'),
+                                                    call('ioimage_fig_mid')]
+    assert cpuimage_fig_mid.replace.call_args_list == [call('')]
+    assert memimage_fig_mid.replace.call_args_list == [call('')]
+    assert ioimage_fig_mid.replace.call_args_list == [call('')]
 
 
-def test_write_contents(mocker, view):
+def test_write_contents(mocker, supvisors, view):
     """ Test the write_contents method. """
     # skip test if matplotlib is not installed
     pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
+    mocked_characteristics = mocker.patch.object(view, 'write_node_characteristics')
     mocked_network = mocker.patch.object(view, 'write_network_statistics')
     mocked_memory = mocker.patch.object(view, 'write_memory_statistics')
     mocked_processor = mocker.patch.object(view, 'write_processor_statistics')
@@ -109,17 +123,54 @@ def test_write_contents(mocker, view):
     mocked_cpu = mocker.patch.object(view, '_write_cpu_image')
     # set context (meant to be set through render)
     dummy_stats = Mock(cpu='cpu', mem='mem', io='io', times='times')
-    view.view_ctx = Mock(**{'get_instance_stats.return_value': dummy_stats})
-    # replace root structure
-    mocked_root = Mock()
+    view.view_ctx = Mock(**{'get_instance_stats.return_value': dummy_stats,
+                            'get_node_characteristics.return_value': supvisors.stats_collector.node_info})
+    # create root structure
+    cpuimage_fig_mid = create_element()
+    memimage_fig_mid = create_element()
+    ioimage_fig_mid = create_element()
+    contents_elt = create_element({'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid,
+                                   'ioimage_fig_mid': ioimage_fig_mid})
     # test call
-    view.write_contents(mocked_root)
-    assert mocked_processor.call_args_list == [call(mocked_root, 'cpu', 'times')]
-    assert mocked_memory.call_args_list == [call(mocked_root, 'mem', 'times')]
-    assert mocked_network.call_args_list == [call(mocked_root, 'io')]
+    view.write_contents(contents_elt)
+    assert mocked_characteristics.call_args_list == [call(contents_elt, supvisors.stats_collector.node_info)]
+    assert mocked_processor.call_args_list == [call(contents_elt, 'cpu', 'times')]
+    assert mocked_memory.call_args_list == [call(contents_elt, 'mem', 'times')]
+    assert mocked_network.call_args_list == [call(contents_elt, 'io')]
     assert mocked_cpu.call_args_list == [call('cpu', 'times')]
     assert mocked_mem.call_args_list == [call('mem', 'times')]
     assert mocked_io.call_args_list == [call('io')]
+    assert not contents_elt.findmeld.called
+    assert not cpuimage_fig_mid.replace.called
+    assert not memimage_fig_mid.replace.called
+    assert not ioimage_fig_mid.replace.called
+
+
+def test_write_node_characteristics(mocker, supvisors, view):
+    """ Test the write_node_characteristics method. """
+    # patch psutil functions
+    mocker.patch('psutil.cpu_count', return_value=4)
+    mocker.patch('psutil.cpu_freq', return_value=Mock(current=3000.01))
+    mocker.patch('psutil.virtual_memory', return_value=Mock(total=16123456789))
+    # create the xhtml structure
+    node_td_mid = create_element()
+    ipaddress_td_mid = create_element()
+    cpu_count_td_mid = create_element()
+    cpu_freq_td_mid = create_element()
+    physical_mem_td_mid = create_element()
+    contents_elt = create_element({'node_td_mid': node_td_mid, 'ipaddress_td_mid': ipaddress_td_mid,
+                                   'cpu_count_td_mid': cpu_count_td_mid, 'cpu_freq_td_mid': cpu_freq_td_mid,
+                                   'physical_mem_td_mid': physical_mem_td_mid})
+    # change local node
+    supvisors.mapper.local_identifier = '10.0.0.1:25000'
+    # test call
+    node_info = LocalNodeInfo()
+    view.write_node_characteristics(contents_elt, node_info)
+    assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
+    assert ipaddress_td_mid.content.call_args_list == [call('10.0.0.1')]
+    assert cpu_count_td_mid.content.call_args_list == [call('4 / 4')]
+    assert cpu_freq_td_mid.content.call_args_list == [call('3000 MHz')]
+    assert physical_mem_td_mid.content.call_args_list == [call('15.02 GiB')]
 
 
 def test_write_processor_single_title(view):
