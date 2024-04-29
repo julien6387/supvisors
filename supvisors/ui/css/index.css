@@ -23,48 +23,52 @@
     display: flex;
     flex: 1;
     overflow: auto;
-    margin-top: 10px;
+    padding: 10px;
 }
 
+/* Conflicts */
 #conflict_part {
     flex: 1;
 }
 
+/* Instance boxes */
 #box_part {
     display: flex;
     flex: 1;
     height: 90px;
-    justify-content: space-around;
+    justify-content: space-evenly;
     flex-wrap: wrap;
+    gap: 12px;
 }
 
-.instanceBox {
-    display: contents;
+#box_part .card {
+    display: flex;
+    margin: auto;
 }
 
-.instanceBox>* {
+#box_part table {
+    height: 100%;
     margin: 10px;
 }
 
-.instanceBox table {
-    height: 100%;
-    border: 3px ridge var(--border-color);
-}
-
-.instanceBox th {
+#box_part th:not(.state_column) {
     height: 18px;
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
 
-.instanceBox td:nth-child(1) {
+#box_part tr:first-child th {
+    border-bottom: solid 1px var(--border-color);
+}
+
+#box_part td:nth-child(1) {
     vertical-align: top;
 }
 
-.instanceBox td.process_list {
+#box_part td.process_list {
     max-width: 250px;
 }
 
-.instanceBox tbody .button {
+#box_part tbody .button {
     padding: 2px 4px;
     margin-bottom: 4px;
     background-color: #007600;
@@ -72,12 +76,11 @@
     cursor: default;
 }
 
-.instanceBox thead .button {
+#box_part thead .button {
     font-size: 1.4em;
 }
 
 /* fix state columns width */
-.state_column {
+#box_part .state_column {
     width: 50px;
 }
-
