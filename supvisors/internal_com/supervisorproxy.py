@@ -283,18 +283,11 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
         try:
             while not self.event.is_set():
                 try:
-                    event_type, (source, event_body) = self.queue.get(timeout=self.QUEUE_TIMEOUT)
+                    event = self.queue.get(timeout=self.QUEUE_TIMEOUT)
                 except queue.Empty:
                     self.logger.blather('SupervisorProxyThread.run: nothing received')
                 else:
-                    if event_type == InternalEventHeaders.REQUEST:
-                        self.execute(event_body)
-                    elif event_type == InternalEventHeaders.PUBLICATION:
-                        self.publish(source, event_body)
-                    elif event_type == InternalEventHeaders.NOTIFICATION:
-                        # direct forward without check
-                        # the local Supervisor is expected to be always non-isolated and active
-                        self.send_remote_comm_event(SUPVISORS_NOTIFICATION, (source, event_body))
+                    self.process_event(event)
         except SupervisorProxyException:
             # inform the local Supvisors instance about the remote proxy failure, thus the remote Supvisors instance
             # not needed if not active yet
@@ -305,9 +298,24 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
         self.logger.debug('SupervisorProxyThread.run: exiting main loop'
                           f' for identifier={self.status.usage_identifier}')
 
+    def process_event(self, event):
+        """ Proceed with the event depending on its type. """
+        event_type, (source, event_body) = event
+        if event_type == InternalEventHeaders.REQUEST:
+            self.execute(event_body)
+        elif event_type == InternalEventHeaders.PUBLICATION:
+            self.publish(source, event_body)
+        elif event_type == InternalEventHeaders.NOTIFICATION:
+            # direct forward without checking
+            # the local Supervisor is expected to be always non-isolated and active
+            self.send_remote_comm_event(SUPVISORS_NOTIFICATION, (source, event_body))
+
 
 class SupervisorProxyServer:
     """ Manage the Supervisor proxies and distribute the messages. """
+
+    # enable a specific proxy thread
+    klass = SupervisorProxyThread
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
@@ -334,7 +342,7 @@ class SupervisorProxyServer:
         status: SupvisorsInstanceStatus = self.supvisors.context.instances[identifier]
         if not status.isolated and (not proxy or not proxy.is_alive()):
             # create and start the proxy thread
-            self.proxies[identifier] = proxy = SupervisorProxyThread(status, self.supvisors)
+            self.proxies[identifier] = proxy = self.klass(status, self.supvisors)
             proxy.start()
         elif proxy and status.isolated:
             # destroy the proxy of an ISOLATED Supvisors instance
@@ -383,5 +391,4 @@ class SupervisorProxyServer:
         :return: None.
         """
         proxy = self.get_proxy(self.local_identifier)
-        if proxy:
-            proxy.push_message((InternalEventHeaders.NOTIFICATION, message))
+        proxy.push_message((InternalEventHeaders.NOTIFICATION, message))
