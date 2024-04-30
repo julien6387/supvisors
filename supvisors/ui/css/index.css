@@ -61,7 +61,7 @@
 }
 
 #box_part td:nth-child(1) {
-    vertical-align: top;
+    vertical-align: center;
 }
 
 #box_part td.process_list {
@@ -69,15 +69,7 @@
 }
 
 #box_part tbody .button {
-    padding: 2px 4px;
     margin-bottom: 4px;
-    background-color: #007600;
-    border-radius: 6px;
-    cursor: default;
-}
-
-#box_part thead .button {
-    font-size: 1.4em;
 }
 
 /* fix state columns width */

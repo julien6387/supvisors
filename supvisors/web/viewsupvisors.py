@@ -16,6 +16,7 @@
 
 from typing import List
 
+from supvisors.application import ApplicationStatus
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions
@@ -153,8 +154,7 @@ class SupvisorsView(ViewHandler):
         elt = instance_div_elt.findmeld('percent_th_mid')
         elt.content(f'{status.get_load()}%')
 
-    @staticmethod
-    def _write_instance_box_processes(instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool):
+    def _write_instance_box_applications(self, instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool):
         """ Rendering of the Supvisors instance box running processes. """
         appli_tr_mid = instance_div_elt.findmeld('appli_tr_mid')
         running_processes = status.running_processes()
@@ -165,22 +165,42 @@ class SupvisorsView(ViewHandler):
                 # set row shading
                 apply_shade(appli_tr_elt, shaded_tr)
                 shaded_tr = not shaded_tr
-                # set application name
-                app_name_td_mid = appli_tr_elt.findmeld('app_name_td_mid')
-                app_name_td_mid.content(application_name)
-                # group cells if the User sync button is displayed
-                if user_sync:
-                    update_attrib(app_name_td_mid, 'colspan', '2')
-                # set running process list
-                process_li_mid = appli_tr_elt.findmeld('process_li_mid')
-                processes = filter(lambda x: x.application_name == application_name, running_processes)
-                for li_elt, process in process_li_mid.repeat(processes):
-                    process_a_mid = li_elt.findmeld('process_a_mid')
-                    process_a_mid.content(process.process_name)
+                # write application element
+                application = self.sup_ctx.applications[application_name]
+                self._write_instance_box_application(appli_tr_elt, status.identifier, application, user_sync,
+                                                     running_processes)
         else:
             # keep an empty line
             process_li_mid = appli_tr_mid.findmeld('process_li_mid')
             process_li_mid.replace('')
+
+    def _write_instance_box_application(self, appli_tr_elt, identifier: str, application: ApplicationStatus,
+                                        user_sync: bool, running_processes: List[ProcessStatus]):
+        """ Rendering of the application in the Supvisors instance box running processes. """
+        # set application name
+        app_name_td_mid = appli_tr_elt.findmeld('app_name_td_mid')
+        app_name_td_mid.content(application.application_name)
+        if application.rules.managed:
+            update_attrib(app_name_td_mid, 'class', 'on')
+            parameters = {APPLI: application.application_name, IDENTIFIER: identifier,
+                          STRATEGY: application.rules.starting_strategy.name}
+            url = self.view_ctx.format_url(identifier, APPLICATION_PAGE, **parameters)
+            app_name_td_mid.attributes(href=url)
+        # group cells if the User sync button is displayed
+        if user_sync:
+            update_attrib(app_name_td_mid, 'colspan', '2')
+        # set running process list
+        process_li_mid = appli_tr_elt.findmeld('process_li_mid')
+        processes = filter(lambda x: x.application_name == application.application_name,
+                           running_processes)
+        for li_elt, process in process_li_mid.repeat(processes):
+            process_a_mid = li_elt.findmeld('process_a_mid')
+            process_a_mid.content(process.process_name)
+            # write link to process page with process statistics
+            update_attrib(process_a_mid, 'class', 'on')
+            parameters = {PROCESS: process.namespec, IDENTIFIER: identifier}
+            url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE, **parameters)
+            process_a_mid.attributes(href=url)
 
     def write_instance_boxes(self, root):
         """ Rendering of the Supvisors instance boxes. """
@@ -203,7 +223,7 @@ class SupvisorsView(ViewHandler):
             # write box_title
             self._write_instance_box_title(instance_div_elt, status, user_sync)
             # fill with running processes
-            self._write_instance_box_processes(instance_div_elt, status, user_sync)
+            self._write_instance_box_applications(instance_div_elt, status, user_sync)
 
     # Conciliation part
     def write_conciliation_strategies(self, root):
