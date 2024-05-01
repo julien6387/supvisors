@@ -51,7 +51,7 @@
     margin: 10px;
 }
 
-#box_part th:not(.state_column) {
+#box_part th:not(.state_cell) {
     height: 18px;
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
@@ -73,6 +73,6 @@
 }
 
 /* fix state columns width */
-#box_part .state_column {
+#box_part .state_cell {
     width: 50px;
 }

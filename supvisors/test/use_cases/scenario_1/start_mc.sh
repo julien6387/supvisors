@@ -14,7 +14,7 @@ do
 	ssh $i "export DISPLAY=:0 ; cd $test_dir ; rm -rf log ; mkdir log
 	        export CUR_DATE=$CUR_DATE
 	        export CUR_TIME=$CUR_TIME
-	        supervisord -c etc/supervisord_distributed_mc.conf"
+	        supervisord -c etc/supervisord_distributed_mc.conf -i $i"
 done
 
 # start firefox to get the Web UI

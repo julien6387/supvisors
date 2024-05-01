@@ -52,7 +52,7 @@
     --navbg-color: #1a1a1a;
     --stopped-color: #b3b300;
     --running-color: green;
-    --fatal-color: red;
+    --fatal-color: #cc0000;
     --crash-color: orange;
 }
 
@@ -116,6 +116,10 @@ p {
 a {
     text-decoration: none;
     color: var(--text-color);
+}
+
+a.off {
+    cursor: not-allowed;
 }
 
 /*
@@ -326,42 +330,42 @@ caption {
 /*
  * State gradients
  */
-.state_column.CHECKING {
+.state_cell.CHECKING {
     background-image: linear-gradient(165deg, white, grey, var(--running-color), white);
     color: black;
 }
 
-.state_column.STOPPED, .state_column.EXITED, .state_column.SILENT {
+.state_cell.STOPPED, .state_cell.EXITED, .state_cell.SILENT {
     background-image: linear-gradient(165deg, white, var(--stopped-color), var(--stopped-color), white);
     color: black;
 }
 
-.state_column.STARTING, .state_column.BACKOFF {
+.state_cell.STARTING, .state_cell.BACKOFF {
     background-image: linear-gradient(165deg, white, var(--stopped-color), var(--running-color), white);
     color: black;
 }
 
-.state_column.STOPPING {
+.state_cell.STOPPING {
     background-image: linear-gradient(165deg, white, var(--running-color), var(--stopped-color), white);
     color: black;
 }
 
-.state_column.RUNNING, .state_column.CHECKED {
+.state_cell.RUNNING, .state_cell.CHECKED {
     background-image: linear-gradient(165deg, white, var(--running-color), var(--running-color), white);
     color: black;
 }
 
-.state_column.RUNNING.crashed, .state_column.CHECKED.crashed {
+.state_cell.RUNNING.crashed, .state_cell.CHECKED.crashed {
     background-image: linear-gradient(165deg, var(--crash-color), var(--running-color), var(--running-color), var(--crash-color));
     color: black;
 }
 
-.state_column.FATAL {
+.state_cell.FATAL, .state_cell.ISOLATED {
     background-image: linear-gradient(165deg, white, var(--fatal-color), var(--fatal-color), white);
     color: black;
 }
 
-.state_column.UNKNOWN, .state_column.ISOLATED, .state_column.disabled {
+.state_cell.UNKNOWN, .state_cell.disabled {
     background-image: linear-gradient(165deg, white, grey, grey, white);
     color: black;
 }

@@ -59,7 +59,7 @@ nav li:before {
     transition: 0.5s;
 }
 
-nav li:hover {
+nav li:has(> a.on):hover {
     padding-left: 8px;
 }
 
@@ -68,11 +68,11 @@ nav li:hover:before {
     right: 10px;
 }
 
-nav li:active {
+nav li:has(> a.on):active {
     background-color: var(--dark2-color);
 }
 
-nav .UNKNOWN, nav .ISOLATED {
+nav .UNKNOWN {
     background-image: radial-gradient(ellipse 75% 170% at center right, grey 20%, transparent 30%);
 }
 
@@ -104,7 +104,7 @@ nav .RUNNING.active, nav .CHECKED.active {
     background-image: radial-gradient(circle at center left, var(--running-color), transparent 50%);
 }
 
-nav .FAILED {
+nav .ISOLATED {
     background-image: radial-gradient(ellipse 75% 170% at center right, var(--fatal-color) 20%, transparent 30%);
 }
 
