@@ -70,7 +70,7 @@ def test_write_status(mocker, supvisors, view):
     """ Test the write_header method. """
     # patch context
     mocker.patch.object(view.sup_ctx, 'get_state_modes',
-                        return_value={'fsm_statename': SupvisorsStates.DEPLOYMENT.name,
+                        return_value={'fsm_statename': SupvisorsStates.DISTRIBUTION.name,
                                       'starting_jobs': True, 'stopping_jobs': False})
     # build root structure
     state_mid = create_element()
@@ -83,7 +83,7 @@ def test_write_status(mocker, supvisors, view):
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
-    assert state_mid.content.call_args_list == [call('DEPLOYMENT')]
+    assert state_mid.content.call_args_list == [call('DISTRIBUTION')]
     assert starting_mid.attrib['class'] == 'blink'
     assert not starting_mid.replace.called
     assert stopping_mid.attrib['class'] == ''
@@ -96,7 +96,7 @@ def test_write_status(mocker, supvisors, view):
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
-    assert state_mid.content.call_args_list == [call('DEPLOYMENT')]
+    assert state_mid.content.call_args_list == [call('DISTRIBUTION')]
     assert starting_mid.attrib['class'] == 'blink'
     assert not starting_mid.replace.called
     assert stopping_mid.attrib['class'] == ''

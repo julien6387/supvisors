@@ -29,7 +29,7 @@ def test_supvisors_instance_states():
 
 def test_supvisors_states():
     """ Test the SupvisorsStates enumeration. """
-    expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING',
+    expected = ['OFF', 'INITIALIZATION', 'DISTRIBUTION', 'OPERATION', 'CONCILIATION', 'RESTARTING',
                 'SHUTTING_DOWN', 'FINAL']
     assert [x.name for x in SupvisorsStates] == expected
 

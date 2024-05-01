@@ -254,7 +254,7 @@ def test_initialization_state_next(mocker, supvisors, init_state):
     # set local as Master and RUNNING
     init_state.context.master_identifier = local_identifier
     init_state.context.local_status._state = SupvisorsInstanceStates.RUNNING
-    assert init_state.next() == SupvisorsStates.DEPLOYMENT
+    assert init_state.next() == SupvisorsStates.DISTRIBUTION
     assert mocked_checked.called
     assert not mocked_elect.called
     mocker.resetall()
@@ -297,7 +297,7 @@ def test_master_deployment_state(mocker, supvisors_ctx):
     # stay in DEPLOYMENT if a start sequence is in progress
     supvisors_ctx.starter.in_progress.return_value = True
     result = state.next()
-    assert result == SupvisorsStates.DEPLOYMENT
+    assert result == SupvisorsStates.DISTRIBUTION
     # return OPERATION and no start sequence is in progress
     supvisors_ctx.starter.in_progress.return_value = False
     result = state.next()
@@ -345,7 +345,7 @@ def test_master_operation_state(mocker, supvisors_ctx):
     # mark for re-deployment
     supvisors_ctx.fsm.redeploy_mark = True
     result = state.next()
-    assert result == SupvisorsStates.DEPLOYMENT
+    assert result == SupvisorsStates.DISTRIBUTION
     # transit to CONCILIATION if conflict detected
     mocked_conflict.return_value = True
     result = state.next()
@@ -610,10 +610,10 @@ def test_master_simple_set_state(fsm, mock_master_events):
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.INITIALIZATION
     # test set_state with authorized transition
-    fsm.set_state(SupvisorsStates.DEPLOYMENT)
+    fsm.set_state(SupvisorsStates.DISTRIBUTION)
     compare_calls([(0, 0, 0), (0, 0, 1), (1, 1, 0)], mock_master_events)
     assert fsm.instance is not instance_ref
-    assert fsm.state == SupvisorsStates.DEPLOYMENT
+    assert fsm.state == SupvisorsStates.DISTRIBUTION
 
 
 def test_slave_simple_set_state(fsm, mock_slave_events):
@@ -635,7 +635,7 @@ def test_slave_simple_set_state(fsm, mock_slave_events):
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.CONCILIATION
     # in SlaveMainState, automatic transition is allowed from DEPLOYMENT to CONCILIATION (Master state)
-    fsm.set_state(SupvisorsStates.DEPLOYMENT)
+    fsm.set_state(SupvisorsStates.DISTRIBUTION)
     compare_calls([(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (2, 2, 2)], mock_slave_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.CONCILIATION
@@ -649,7 +649,7 @@ def test_slave_simple_set_state(fsm, mock_slave_events):
 def test_master_complex_set_state(fsm, mock_master_events):
     """ Test multiple transitions of the Master FSM using set_state method. """
     mock_master_events[0][1][1].return_value = SupvisorsStates.INITIALIZATION
-    mock_master_events[1][1][1].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[1][1][1].return_value = SupvisorsStates.DISTRIBUTION
     mock_master_events[2][1][1].return_value = SupvisorsStates.OPERATION
     instance_ref = fsm.instance
     # test set_state with authorized transition
@@ -684,21 +684,21 @@ def test_master_no_next(fsm, mock_master_events):
 def test_master_simple_next(fsm, mock_master_events):
     """ Test single transition of the state machine using next_method. """
     mock_master_events[0][1][1].return_value = SupvisorsStates.INITIALIZATION
-    mock_master_events[1][1][1].return_value = SupvisorsStates.DEPLOYMENT
-    mock_master_events[2][1][1].return_value = SupvisorsStates.DEPLOYMENT
+    mock_master_events[1][1][1].return_value = SupvisorsStates.DISTRIBUTION
+    mock_master_events[2][1][1].return_value = SupvisorsStates.DISTRIBUTION
     instance_ref = fsm.instance
     # test set_state with authorized transition
     fsm.context.master_identifier = fsm.context.local_identifier
     fsm.next()
     compare_calls([(0, 1, 1), (1, 1, 1), (1, 1, 0)], mock_master_events)
     assert fsm.instance is not instance_ref
-    assert fsm.state == SupvisorsStates.DEPLOYMENT
+    assert fsm.state == SupvisorsStates.DISTRIBUTION
 
 
 def test_master_complex_next(fsm, mock_master_events):
     """ Test multiple transitions of the state machine using next_method. """
     mock_master_events[0][1][1].return_value = SupvisorsStates.INITIALIZATION
-    mock_master_events[1][1][1].side_effect = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.DEPLOYMENT]
+    mock_master_events[1][1][1].side_effect = [SupvisorsStates.DISTRIBUTION, SupvisorsStates.DISTRIBUTION]
     mock_master_events[2][1][1].side_effect = [SupvisorsStates.OPERATION, SupvisorsStates.OPERATION]
     mock_master_events[3][1][1].side_effect = [SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION,
                                                SupvisorsStates.RESTARTING]

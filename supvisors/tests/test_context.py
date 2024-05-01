@@ -800,19 +800,19 @@ def test_on_instance_state_event(mocker, supvisors, context):
     status_10001 = context.instances['10.0.0.1:25000']
     status_10001._state = SupvisorsInstanceStates.RUNNING
     # test with no Master in the event
-    event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT',
+    event = {'fsm_statecode': 2, 'fsm_statename': 'DISTRIBUTION',
              'discovery_mode': False,
              'master_identifier': '',
              'starting_jobs': True, 'stopping_jobs': False}
     context.on_instance_state_event(status_10001, event)
-    assert status_10001.state_modes == StateModes(SupvisorsStates.DEPLOYMENT, False, '', True, False)
+    assert status_10001.state_modes == StateModes(SupvisorsStates.DISTRIBUTION, False, '', True, False)
     expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
                 'node_name': '10.0.0.1', 'port': 25000,
                 'statecode': 3, 'statename': 'RUNNING',
                 'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
                 'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
                 'loading': 0, 'process_failure': False,
-                'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT', 'discovery_mode': False, 'master_identifier': '',
+                'fsm_statecode': 2, 'fsm_statename': 'DISTRIBUTION', 'discovery_mode': False, 'master_identifier': '',
                 'starting_jobs': True, 'stopping_jobs': False}
     assert mocked_send.call_args_list == [call(expected)]
     assert mocked_publish.called
@@ -821,12 +821,12 @@ def test_on_instance_state_event(mocker, supvisors, context):
     event['master_identifier'] = '10.0.0.2:25000'
     context.on_instance_state_event(status_10001, event)
     assert context.master_identifier == '10.0.0.2:25000'
-    assert status_10001.state_modes == StateModes(SupvisorsStates.DEPLOYMENT, False, '10.0.0.2:25000', True, False)
+    assert status_10001.state_modes == StateModes(SupvisorsStates.DISTRIBUTION, False, '10.0.0.2:25000', True, False)
     # test with Master in the event and different from the Master known by the local Supvisors instance
     event['master_identifier'] = '10.0.0.3:25000'
     context.on_instance_state_event(status_10001, event)
     assert context.master_identifier == '10.0.0.2:25000'
-    assert status_10001.state_modes == StateModes(SupvisorsStates.DEPLOYMENT, False, '10.0.0.3:25000', True, False)
+    assert status_10001.state_modes == StateModes(SupvisorsStates.DISTRIBUTION, False, '10.0.0.3:25000', True, False)
     # try the latest 2 steps with an event coming from a Supvisors instance about to restart or shut down
     event.update({'fsm_statecode': 5, 'fsm_statename': 'RESTARTING'})
     context.on_instance_state_event(status_10001, event)
@@ -1111,7 +1111,7 @@ def test_check_process_exception_closing(mocker, supvisors, context):
 def test_check_process_exception_operational(mocker, supvisors, context):
     """ Test the Context.check_process method with expected context. """
     mocked_invalid = mocker.patch.object(context, 'invalid')
-    normal_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION,
+    normal_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION,
                      SupvisorsStates.CONCILIATION]
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # test with unknown application

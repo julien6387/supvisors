@@ -104,7 +104,7 @@ class RPCInterface:
         """ Get the default strategies applied by **Supvisors**:
 
             * auto-fencing: Supvisors instance isolation if it becomes inactive ;
-            * starting: used in the ``DEPLOYMENT`` state to start applications ;
+            * starting: used in the ``DISTRIBUTION`` state to start applications ;
             * conciliation: used in the ``CONCILIATION`` state to conciliate conflicts.
 
         :return: a structure containing information about the strategies applied.
@@ -166,7 +166,7 @@ class RPCInterface:
         :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
             ``INITIALIZATION`` state.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         return [self.get_application_info(application_name)
                 for application_name in self.supvisors.context.applications.keys()]
 
@@ -180,7 +180,7 @@ class RPCInterface:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
             ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors**.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         return self._get_application(application_name).serial()
 
     def get_application_rules(self, application_name: str) -> Payload:
@@ -193,7 +193,7 @@ class RPCInterface:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
             ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors**.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         result = self._get_application(application_name).rules.serial()
         result.update({'application_name': application_name})
         return result
@@ -206,7 +206,7 @@ class RPCInterface:
         :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
             ``INITIALIZATION`` state.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         return [process.serial()
                 for application in self.supvisors.context.applications.values()
                 for process in application.processes.values()]
@@ -222,7 +222,7 @@ class RPCInterface:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         application, process = self._get_application_process(namespec)
         if process:
             return [process.serial()]
@@ -314,7 +314,7 @@ class RPCInterface:
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         application, process = self._get_application_process(namespec)
         if process:
             return [self._get_internal_process_rules(process)]
@@ -328,7 +328,7 @@ class RPCInterface:
         :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
             ``INITIALIZATION`` state,
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         return [process.serial() for process in self.supvisors.context.conflicts()]
 
     # RPC Command methods
@@ -528,7 +528,7 @@ class RPCInterface:
             ``Faults.ALREADY_STARTED`` if process is ``RUNNING`` ;
             ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
         """
-        # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT state)
+        # WARN: do NOT check OPERATION (it is used internally in DISTRIBUTION state)
         _, process = self._get_application_process(namespec)
         # update command line in process config with extra_args
         try:
@@ -1048,7 +1048,7 @@ class RPCInterface:
         return False
 
     def restart_sequence(self, wait=True) -> WaitReturnType:
-        """ Triggers the whole starting sequence by going back to the DEPLOYMENT state.
+        """ Triggers the whole starting sequence by going back to the DISTRIBUTION state.
 
         :param bool wait: if ``True``, wait for **Supvisors** to reach the OPERATION state.
         :return: always ``True`` unless error.
@@ -1061,9 +1061,9 @@ class RPCInterface:
         self.supvisors.fsm.on_restart_sequence()
         if wait:
             def onwait() -> RPCInterface.OnWaitReturnType:
-                # first wait for DEPLOYMENT state
-                if onwait.wait_state == SupvisorsStates.DEPLOYMENT:
-                    if self.supvisors.fsm.state == SupvisorsStates.DEPLOYMENT:
+                # first wait for DISTRIBUTION state
+                if onwait.wait_state == SupvisorsStates.DISTRIBUTION:
+                    if self.supvisors.fsm.state == SupvisorsStates.DISTRIBUTION:
                         onwait.wait_state = SupvisorsStates.OPERATION
                     return NOT_DONE_YET
                 else:
@@ -1073,7 +1073,7 @@ class RPCInterface:
                     return True
 
             onwait.delay = 0.5
-            onwait.wait_state = SupvisorsStates.DEPLOYMENT
+            onwait.wait_state = SupvisorsStates.DISTRIBUTION
             return onwait  # deferred
         return True
 
@@ -1085,7 +1085,7 @@ class RPCInterface:
         :raises RPCError: with code ```SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still
             in state ``INITIALIZATION`` or has no Master instance to perform the request.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         self.supvisors.fsm.on_restart()
         return True
 
@@ -1097,7 +1097,7 @@ class RPCInterface:
         :raises RPCError: with code ```SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still
             in state ``INITIALIZATION`` or has no Master instance to perform the request.
         """
-        self._check_from_deployment()
+        self._check_from_distribution()
         self.supvisors.fsm.on_shutdown()
         return True
 
@@ -1133,7 +1133,7 @@ class RPCInterface:
                             f'Supvisors instance={master} is not RUNNING ({status.state.name})')
         # checks passed so trigger the request
         self.supvisors.fsm.on_end_sync(master)
-        # decision is made NOT to implement a wait loop for DEPLOYMENT state
+        # decision is made NOT to implement a wait loop for DISTRIBUTION state
         return True
 
     def change_log_level(self, level_param: EnumParameterType) -> bool:
@@ -1275,9 +1275,9 @@ class RPCInterface:
                     f'invalid logger value={level_param} type={type(level_param)}',
                     'type string or integer expected')
 
-    def _check_from_deployment(self) -> None:
+    def _check_from_distribution(self) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
-        self._check_state([SupvisorsStates.DEPLOYMENT,
+        self._check_state([SupvisorsStates.DISTRIBUTION,
                            SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION,
                            SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN])
 

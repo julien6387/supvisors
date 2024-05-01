@@ -125,7 +125,7 @@ def test_application_info(mocker, supvisors, rpc):
     """ Test the get_application_info RPC. """
     application = create_application('TestApplication', supvisors)
     mocked_serial = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
     assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication', 'managed': False,
                                                  'major_failure': False, 'minor_failure': False,
@@ -134,13 +134,13 @@ def test_application_info(mocker, supvisors, rpc):
     assert mocked_serial.call_args_list == [call('dummy')]
 
 
-def test_all_applications_info(mocker, rpc):
+def test_all_applications_info(mocker, supvisors, rpc):
     """ Test the get_all_applications_info RPC. """
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface.get_application_info',
                               side_effect=[{'name': 'appli_1'}, {'name': 'appli_2'}])
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # prepare context
-    rpc.supvisors.context.applications = {'dummy_1': None, 'dummy_2': None}
+    supvisors.context.applications = {'dummy_1': None, 'dummy_2': None}
     # test RPC call
     assert rpc.get_all_applications_info() == [{'name': 'appli_1'}, {'name': 'appli_2'}]
     assert mocked_check.call_args_list == [call()]
@@ -154,7 +154,7 @@ def test_process_info(mocker, rpc):
                                            (Mock(**{'processes.values.return_value': [
                                                Mock(**{'serial.return_value': {'name': 'proc_1'}}),
                                                Mock(**{'serial.return_value': {'name': 'proc_2'}})]}), None)])
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test first RPC call with process namespec
     assert rpc.get_process_info('appli:proc') == [{'name': 'proc'}]
     assert mocked_check.call_args_list == [call()]
@@ -168,11 +168,11 @@ def test_process_info(mocker, rpc):
     assert mocked_get.call_args_list == [call('appli:*')]
 
 
-def test_all_process_info(mocker, rpc):
+def test_all_process_info(mocker, supvisors, rpc):
     """ Test the get_all_process_info RPC. """
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # prepare context
-    rpc.supvisors.context.applications = {
+    supvisors.context.applications = {
         'appli_1': Mock(processes={'proc_1_1': Mock(**{'serial.return_value': {'name': 'proc_1_1'}}),
                                    'proc_1_2': Mock(**{'serial.return_value': {'name': 'proc_1_2'}})}),
         'appli_2': Mock(processes={'proc_2': Mock(**{'serial.return_value': {'name': 'proc_2'}})})}
@@ -181,12 +181,12 @@ def test_all_process_info(mocker, rpc):
     assert mocked_check.call_args_list == [call()]
 
 
-def test_local_process_info(mocker, rpc):
+def test_local_process_info(mocker, supvisors, rpc):
     """ Test the get_local_process_info RPC. """
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_local_info',
                               return_value={'group': 'group', 'name': 'name'})
     # prepare context
-    supervisor_data = rpc.supvisors.supervisor_data
+    supervisor_data = supvisors.supervisor_data
     mocked_rpc = supervisor_data.supervisor_rpc_interface.getProcessInfo
     mocked_rpc.return_value = {'group': 'dummy_group', 'name': 'dummy_name'}
     # test RPC call with process namespec
@@ -279,7 +279,7 @@ def test_get_all_inner_process_info(supvisors, rpc):
 def test_application_rules(mocker, supvisors, rpc):
     """ Test the get_application_rules RPC. """
     application = create_application('TestApplication', supvisors)
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
     # test RPC call with application name and unmanaged application
     expected = {'application_name': 'appli', 'managed': False}
@@ -312,7 +312,7 @@ def test_application_rules(mocker, supvisors, rpc):
 
 def test_process_rules(mocker, rpc):
     """ Test the get_process_rules RPC. """
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application_process',
                               side_effect=[(None, '1'), (Mock(**{'processes.values.return_value': ['1', '2']}), None)])
     mocked_rules = mocker.patch('supvisors.rpcinterface.RPCInterface._get_internal_process_rules',
@@ -335,7 +335,7 @@ def test_process_rules(mocker, rpc):
 
 def test_conflicts(mocker, rpc):
     """ Test the get_conflicts RPC. """
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # prepare context
     proc_1 = Mock(**{'serial.return_value': {'name': 'proc_1'}})
     proc_3 = Mock(**{'serial.return_value': {'name': 'proc_3'}})
@@ -345,15 +345,15 @@ def test_conflicts(mocker, rpc):
     assert mocked_check.call_args_list == [call()]
 
 
-def test_start_application(mocker, rpc):
+def test_start_application(mocker, supvisors, rpc):
     """ Test the start_application RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # prepare context
-    rpc.supvisors.context.applications = {'appli_1': Mock(**{'rules.managed': True}),
-                                          'appli_2': Mock(**{'rules.managed': False})}
+    supvisors.context.applications = {'appli_1': Mock(**{'rules.managed': True}),
+                                      'appli_2': Mock(**{'rules.managed': False})}
     # get patches
-    mocked_start = rpc.supvisors.starter.start_application
-    mocked_progress = rpc.supvisors.starter.in_progress
+    mocked_start = supvisors.starter.start_application
+    mocked_progress = supvisors.starter.in_progress
     # test RPC call with unknown strategy
     with pytest.raises(RPCError) as exc:
         rpc.start_application('strategy', 'appli')
@@ -1709,15 +1709,15 @@ def test_restart_sequence(mocker, rpc):
     deferred = rpc.restart_sequence()
     # result is a function for deferred result
     assert callable(deferred)
-    assert deferred.wait_state == SupvisorsStates.DEPLOYMENT
+    assert deferred.wait_state == SupvisorsStates.DISTRIBUTION
     assert mocked_check.call_args_list == [call()]
     assert rpc.supvisors.fsm.on_restart_sequence.call_args_list == [call()]
     # test returned function: first wait for DEPLOYMENT state to be reached
     rpc.supvisors.fsm.state = SupvisorsStates.OPERATION
     assert deferred() == NOT_DONE_YET
-    assert deferred.wait_state == SupvisorsStates.DEPLOYMENT
+    assert deferred.wait_state == SupvisorsStates.DISTRIBUTION
     # test returned function: when DEPLOYMENT state reached, wait for OPERATION state to be reached
-    rpc.supvisors.fsm.state = SupvisorsStates.DEPLOYMENT
+    rpc.supvisors.fsm.state = SupvisorsStates.DISTRIBUTION
     assert deferred() == NOT_DONE_YET
     assert deferred.wait_state == SupvisorsStates.OPERATION
     assert deferred() == NOT_DONE_YET
@@ -1729,7 +1729,7 @@ def test_restart_sequence(mocker, rpc):
 
 def test_restart(mocker, rpc):
     """ Test the restart RPC. """
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
     assert rpc.restart()
     assert mocked_check.call_args_list == [call()]
@@ -1738,7 +1738,7 @@ def test_restart(mocker, rpc):
 
 def test_shutdown(mocker, rpc):
     """ Test the shutdown RPC. """
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
     assert rpc.shutdown()
     assert mocked_check.call_args_list == [call()]
@@ -1965,21 +1965,22 @@ def test_get_conciliation_strategy(rpc):
 def test_check_state(rpc):
     """ Test the RPCInterface._check_state function. """
     # prepare context
-    rpc.supvisors.fsm.state = SupvisorsStates.DEPLOYMENT
+    rpc.supvisors.fsm.state = SupvisorsStates.DISTRIBUTION
     # test there is no exception when internal state is in list
-    rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION])
+    rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION])
     # test there is an exception when internal state is not in list
     with pytest.raises(RPCError) as exc:
         rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.OPERATION])
     assert exc.value.args == (SupvisorsFaults.BAD_SUPVISORS_STATE.value,
-                              "invalid Supvisors state=DEPLOYMENT - state expected in ['INITIALIZATION', 'OPERATION']")
+                              'invalid Supvisors state=DISTRIBUTION - state expected'
+                              " in ['INITIALIZATION', 'OPERATION']")
 
 
-def test_check_from_deployment(mocker, rpc):
+def test_check_from_distribution(mocker, rpc):
     """ Test the _check_from_deployment utility. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_state')
     # test the call to _check_state
-    rpc._check_from_deployment()
+    rpc._check_from_distribution()
     excluded_states = [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION, SupvisorsStates.FINAL]
     expected = [x for x in SupvisorsStates if x not in excluded_states]
     assert mocked_check.call_args_list == [call(expected)]

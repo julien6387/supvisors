@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.18 (2024-xx-xx)
+## 0.18 (2024-05-01)
 
 * Refactoring of the **Supvisors** internal communications.
   The `internal_port` of the **Supvisors** section in the Supervisor configuration file is no longer needed.
@@ -52,6 +52,9 @@
   configuration file.
 
 * All internal identifiers are now based on the `host:http_port` format.
+
+* Rename the `DEPLOYMENT` state as `DISTRIBUTION` state to lift ambiguity ("deployment" is rather connoted when dealing
+  with the orchestration domain).
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 

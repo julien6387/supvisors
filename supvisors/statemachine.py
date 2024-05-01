@@ -245,7 +245,7 @@ class InitializationState(AbstractState):
                     self.context.elect_master()
                 # The Master can exit the INITIALIZATION state by itself
                 if self.context.is_master:
-                    return SupvisorsStates.DEPLOYMENT
+                    return SupvisorsStates.DISTRIBUTION
                 # The Slaves will follow the Master state
                 # WARN: at this point, the Master FSM state may not be known yet
                 return self.supvisors.context.supvisors_state
@@ -286,7 +286,7 @@ class MasterDeploymentState(AbstractState):
             return next_state
         # Master goes to OPERATION when starting is completed
         if self.supvisors.starter.in_progress():
-            return SupvisorsStates.DEPLOYMENT
+            return SupvisorsStates.DISTRIBUTION
         return SupvisorsStates.OPERATION
 
 
@@ -312,7 +312,7 @@ class MasterOperationState(AbstractState):
         # a redeployment mark has been set due to a new alive Supvisors instance
         # back to DEPLOYMENT state to repair what may have failed before
         if self.supvisors.fsm.redeploy_mark:
-            return SupvisorsStates.DEPLOYMENT
+            return SupvisorsStates.DISTRIBUTION
         return SupvisorsStates.OPERATION
 
 
@@ -812,7 +812,7 @@ class FiniteStateMachine:
     # Map between state enumerations and classes
     _MasterStateInstances = {SupvisorsStates.OFF: OffState,
                              SupvisorsStates.INITIALIZATION: InitializationState,
-                             SupvisorsStates.DEPLOYMENT: MasterDeploymentState,
+                             SupvisorsStates.DISTRIBUTION: MasterDeploymentState,
                              SupvisorsStates.OPERATION: MasterOperationState,
                              SupvisorsStates.CONCILIATION: MasterConciliationState,
                              SupvisorsStates.RESTARTING: MasterRestartingState,
@@ -821,7 +821,7 @@ class FiniteStateMachine:
 
     _SlaveStateInstances = {SupvisorsStates.OFF: OffState,
                             SupvisorsStates.INITIALIZATION: InitializationState,
-                            SupvisorsStates.DEPLOYMENT: SlaveMainState,
+                            SupvisorsStates.DISTRIBUTION: SlaveMainState,
                             SupvisorsStates.OPERATION: SlaveMainState,
                             SupvisorsStates.CONCILIATION: SlaveMainState,
                             SupvisorsStates.RESTARTING: SlaveRestartingState,
@@ -830,13 +830,13 @@ class FiniteStateMachine:
 
     # Transitions allowed between states
     _Transitions = {SupvisorsStates.OFF: [SupvisorsStates.INITIALIZATION],
-                    SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
-                    SupvisorsStates.DEPLOYMENT: [SupvisorsStates.INITIALIZATION,
-                                                 SupvisorsStates.OPERATION,
-                                                 SupvisorsStates.RESTARTING,
-                                                 SupvisorsStates.SHUTTING_DOWN],
+                    SupvisorsStates.INITIALIZATION: [SupvisorsStates.DISTRIBUTION],
+                    SupvisorsStates.DISTRIBUTION: [SupvisorsStates.INITIALIZATION,
+                                                   SupvisorsStates.OPERATION,
+                                                   SupvisorsStates.RESTARTING,
+                                                   SupvisorsStates.SHUTTING_DOWN],
                     SupvisorsStates.OPERATION: [SupvisorsStates.CONCILIATION,
-                                                SupvisorsStates.DEPLOYMENT,
+                                                SupvisorsStates.DISTRIBUTION,
                                                 SupvisorsStates.INITIALIZATION,
                                                 SupvisorsStates.RESTARTING,
                                                 SupvisorsStates.SHUTTING_DOWN],
