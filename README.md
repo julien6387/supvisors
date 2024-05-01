@@ -11,7 +11,7 @@
 **Supvisors** is a Control System for Distributed Applications, based on multiple instances of Supervisor
 running over multiple nodes.
 
-The main features are:
+**Supvisors** works as a Supervisor plugin and its main features are:
 * a new web-based dashboard that replaces the default dashboard of Supervisor and allows to control
   all the Supervisor instances declared,
 * an extended XML-RPC API to control applications and processes over the multiple Supervisor instances,
@@ -57,24 +57,21 @@ It will likely work fine on most UNIX systems.
 
 **Supvisors** will not run at all under any version of Windows.
 
-**Supvisors** >= 0.2 works with Python 3.6 or later.
-
-**Supvisors** 0.1 (available on PyPi) works with Python 2.7 (and former versions of Supervisor, i.e. 3.3.0)
-but is not maintained anymore.
+**Supvisors** works with `Python 3.6` to `Python 3.12`.
 
 ## Dependencies
 
 **Supvisors** has dependencies on:
 
-| Package                                           | Optional | Minimal release             |
-|---------------------------------------------------|----------|-----------------------------|
-| [Supervisor](http://supervisord.org)              |          | 4.2.4                       |
-| [psutil](https://pypi.python.org/pypi/psutil)     | X        | 5.7.3                       |
-| [matplotlib](http://matplotlib.org)               | X        | 3.3.3                       |
-| [lxml](http://lxml.de)                            | X        | 4.6.2                       |
-| [Flask-RESTX](https://flask-restx.readthedocs.io) | X        | 0.5.1 (py36), 1.1.0 (py37+) |
-| [PyZMQ](http://pyzmq.readthedocs.io)              | X        | 20.0.0                      |
-| [websockets](https://websockets.readthedocs.io)   | X        | 10.2 (py37+)                |
+| Package                                            | Optional | Minimal release             |
+|----------------------------------------------------|----------|-----------------------------|
+| [Supervisor](http://supervisord.org)               |          | 4.2.4                       |
+| [psutil](https://pypi.python.org/pypi/psutil)      | X        | 5.7.3                       |
+| [matplotlib](http://matplotlib.org)                | X        | 3.3.3                       |
+| [lxml](http://lxml.de)                             | X        | 4.6.2                       |
+| [Flask-RESTX](https://flask-restx.readthedocs.io)  | X        | 0.5.1 (py36), 1.1.0 (py37+) |
+| [PyZMQ](http://pyzmq.readthedocs.io)               | X        | 20.0.0                      |
+| [websockets](https://websockets.readthedocs.io)    | X        | 10.2 (py37+)                |
 
 Please note that some of these dependencies may have their own dependencies.
 

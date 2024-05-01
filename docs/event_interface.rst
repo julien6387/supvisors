@@ -48,7 +48,7 @@ Of course, the contents depends on the message type.
 Key	               Type               Value
 ================== ================= ==================
 'fsm_statecode'    ``int``           The state of |Supvisors|, in [0;6].
-'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``,
+'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DISTRIBUTION'``,
                                      ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
                                      ``'FINAL'`` }.
 'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.

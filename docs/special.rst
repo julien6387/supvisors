@@ -104,7 +104,7 @@ At this stage, 2 possibilities:
 What happens next will depend on the conditions selected in the ``synchro_options`` option.
 
 Whatever the number of available |Supvisors| instances, |Supvisors| elects a *Master* among the active |Supvisors|
-instances and enters the ``DEPLOYMENT`` state to start automatically the applications.
+instances and enters the ``DISTRIBUTION`` state to start automatically the applications.
 
 By default, the |Supvisors| *Master* instance is the |Supvisors| instance having the smallest deduced name among all
 the active |Supvisors| instances, unless the attribute ``core_identifiers`` is used. In the latter case, candidates
@@ -387,7 +387,7 @@ This principle is used for starting a single application using a ``supvisors.sta
 Starting all applications
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When entering the ``DEPLOYMENT`` state, all |Supvisors| instances evaluate the global start sequence using
+When entering the ``DISTRIBUTION`` state, all |Supvisors| instances evaluate the global start sequence using
 the ``start_sequence`` rule configured for the applications and processes.
 
 The global start sequence corresponds to a dictionary where:
@@ -415,15 +415,15 @@ The following pseudo-code explains the logic used:
 
 .. important::
 
-    When leaving the ``DEPLOYMENT`` state, it may happen that some applications are not started properly
+    When leaving the ``DISTRIBUTION`` state, it may happen that some applications are not started properly
     due to missing relevant |Supvisors| instances.
 
     When a |Supvisors| instance is started later and is authorized in the |Supvisors| ensemble, |Supvisors| transitions
-    back to the ``DEPLOYMENT`` state and tries to **repair** such applications. The applications are **not** restarted.
-    Only the stopped processes are considered.
+    back to the ``DISTRIBUTION`` state and tries to **repair** such applications.
+    The applications are **not** restarted. Only the stopped processes are considered.
 
-    May the new |Supvisors| instance arrive during a ``DEPLOYMENT`` or ``CONCILIATION`` phase, the transition to the
-    ``DEPLOYMENT`` state is deferred until the current deployment or conciliation jobs are completed.
+    May the new |Supvisors| instance arrive during a ``DISTRIBUTION`` or ``CONCILIATION`` phase, the transition to the
+    ``DISTRIBUTION`` state is deferred until the current distribution or conciliation jobs are completed.
     It has been chosen NOT to transition back to the ``INITIALIZATION`` state to avoid a new synchronization phase.
 
 
@@ -585,7 +585,7 @@ Stopping all applications
 
 The applications are stopped when |Supvisors| is requested to restart or shut down.
 
-When entering the ``DEPLOYMENT`` state, each |Supvisors| instance evaluates also the global stop sequence
+When entering the ``DISTRIBUTION`` state, each |Supvisors| instance evaluates also the global stop sequence
 using the ``stop_sequence`` rule configured for the applications and processes.
 
 The global stop sequence corresponds to a dictionary where:

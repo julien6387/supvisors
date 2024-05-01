@@ -8,11 +8,6 @@ Overview
 
 |Supvisors| is a control system for distributed applications over multiple |Supervisor| instances.
 
-A few definitions first:
-
-    * The term "Application" here refers to a group of programs designed to carry out a specific task.
-    * The term "Node" here refers to an operating system having a dedicated host name and IP address.
-
 The |Supvisors| software is born from a common need in embedded systems where applications are distributed over several
 nodes. The problematic comes with the following challenges:
 
@@ -31,20 +26,52 @@ nodes. The problematic comes with the following challenges:
 
 As a bonus:
 
-    * it should be free, open source, without export control,
+    * it should be free, open source, not subject to export control issues,
     * it shouldn't require specific administration rights (root).
 
 |Supervisor| can handle a part of the requirements but it only works on a single UNIX-like operating system.
 The |Supervisor| website references some `third parties <http://supervisord.org/plugins.html>`_
-that deal with multiple |Supervisor| instances but they only consist in dashboards and they focus on the nodes rather
+dealing with multiple |Supervisor| instances but they only consist in dashboards and they focus on the nodes rather
 than on the applications and their possible distribution over nodes.
 Nevertheless, the extensibility of |Supervisor| makes it possible to implement the missing requirements.
 
 |Supvisors| works as a |Supervisor| plugin and is intended for those who are already familiar with |Supervisor| or
 who have neither the time nor the resources to invest in a complex orchestration tool like Kubernetes.
 
-In the present documentation, a |Supvisors| *instance* refers to a |Supervisor| *instance* including a |Supvisors|
-extension.
+
+Definitions
+-----------
+
+Here follows a few definitions of terms are used throughout the present documentation.
+
+    The term *Node* refers to an UNIX operating system having a dedicated host name and IP address.
+
+    A |Supervisor| *instance* is a |Supervisor| damon running on a *Node*, and with a distinct HTTP configuration.
+
+    A |Supvisors| *instance* refers to a |Supervisor| *instance* including a |Supvisors| extension.
+
+    |Supvisors| corresponds to the distributed software grouping all the |Supvisors| *instances* configured to work
+    together.
+
+    Multiple |Supvisors| *instances* running on the same *Node* do not necessarily belong to the same |Supvisors|.
+
+    A |Supervisor| *Process* is a structure whose configuration is described in a |Supervisor| *Program*
+    (or *Homogeneous Process Group*). It is managed by a single |Supervisor| *instance*. |br|
+    This |Supervisor| *instance* is able to spawn a UNIX process based on this structure and to control it.
+
+    A |Supervisor| *Group* (or *Heterogeneous Process Group*) is a collection of |Supervisor| *Programs*.
+    It is also managed by a single |Supervisor| *instance*.
+
+    A |Supvisors| *Process* is the union of all |Supervisor| *Processes* sharing the name |Supervisor| *Group* name
+    and *Process* name within |Supvisors|. |br|
+    Such a |Supervisor| *Process* is not necessarily defined in all |Supervisor| *instances*.
+
+    A |Supvisors| *Application* is the collection of all |Supvisors| *Processes* sharing the name |Supervisor| *Group*
+    name within |Supvisors|.
+
+    The definitions of all |Supvisors| *Processes* and |Supvisors| *Applications* are shared across |Supvisors| and
+    all |Supvisors| *instances* have control over them, even if the process definition is unknown to their respective
+    hosting |Supervisor| *instance*.
 
 
 Platform Requirements
@@ -54,9 +81,9 @@ Platform Requirements
 
 |Supvisors| will not run at all under any version of Windows.
 
-|Supvisors| works with :command:`Python 3.6` or later but will not work under any version of :command:`Python 2`.
+|Supvisors| works with :command:`Python 3.6` to :command:`Python 3.12`.
 
-A previous release of |Supvisors| (version 0.1, available on PyPi) works with :command:`Python 2.7` (and previous
+An old release of |Supvisors| (version 0.1, available on PyPi) works with :command:`Python 2.7` (and previous
 versions of |Supervisor|, i.e. 3.3.0) but is not maintained anymore.
 
 The CSS of the Dashboard has been written for Firefox ESR 91.3.0.
@@ -120,7 +147,7 @@ Without an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 All the dependencies have to be installed prior to |Supvisors|.
-Refer to the documentation of the dependencies.
+Refer to the documentation of these dependencies.
 
 Finally, get the latest release from `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_,
 unzip the archive and enter the directory :command:`supvisors-{version}`.

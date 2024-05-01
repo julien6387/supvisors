@@ -53,7 +53,7 @@ behavior may happen. The present section details where it is applicable.
         * ``http_port`` is the port of the internet socket used to communicate with the |Supervisor| instance
           (obviously unique per node).
 
-    *Default*:  the local host name.
+    *Default*:  the host name, as given by the ``socket.gethostname()`` function.
 
     *Required*:  No.
 
@@ -61,8 +61,8 @@ behavior may happen. The present section details where it is applicable.
 
     .. note::
 
-        ``host_name`` can be the host name, as returned by the shell command :command:`hostname`, one of its declared
-        aliases or an IP address.
+        ``host_name`` can be the host name, the fully qualified domain name, one of the node aliases or IP addresses.
+        |Supvisors| uses the ``socket.gethostbyaddr(host_name)`` function to identify the |Supvisors| instance declared.
 
     .. note::
 
@@ -76,8 +76,8 @@ behavior may happen. The present section details where it is applicable.
 
     .. hint::
 
-        If the |Supvisors| is configured with at most one |Supvisors| instance per host, only the ``host_name`` may be
-        necessary.
+        If the |Supvisors| is configured with at most one |Supvisors| instance per host, the ``host_name`` is a
+        fully acceptable declaration.
 
     .. hint::
 
@@ -102,11 +102,26 @@ behavior may happen. The present section details where it is applicable.
     An optional string that will be displayed at the top of the |Supvisors| Web UI. It is intended to correspond to
     the name of the user software.
 
-    *Default*:  ''.
+    *Default*:  None.
 
     *Required*:  No.
 
     *Identical*:  No.
+
+``software_icon``
+
+    An optional image that will be displayed at the top of the |Supvisors| Web UI. It is intended to correspond to
+    the name of the user software.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+    .. hint::
+
+        ``software_icon`` are ``software_name`` can both be set and will be displayed in that order if required.
 
 ``multicast_group``
 
@@ -141,7 +156,7 @@ behavior may happen. The present section details where it is applicable.
 
     The time-to-live of a message sent on the |Supvisors| multicast interface.
 
-    *Default*:  1.
+    *Default*:  ``1``.
 
     *Required*:  No.
 
@@ -167,7 +182,7 @@ behavior may happen. The present section details where it is applicable.
     Instead of ``ini`` files, XML rules files are expected here. Their content is described in
     `Supvisors' Rules File`_. |br|
     It is highly recommended that this parameter is identical to all |Supvisors| instances or the startup sequence would
-    be different depending on which |Supvisors| instance is the *Master*.
+    be different depending on which |Supvisors| instance is given the *Master* role.
 
     *Default*:  None.
 
@@ -206,7 +221,7 @@ behavior may happen. The present section details where it is applicable.
 
 ``event_port``
 
-    The port number used to publish all |Supvisors| events (Instance, Application, Process ans Statistics events). |br|
+    The port number used to publish all |Supvisors| events (Instance, Application, Process and Statistics events). |br|
     The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  local |Supervisor| HTTP port + 1.
@@ -255,6 +270,8 @@ behavior may happen. The present section details where it is applicable.
 
     By default, a remote |Supvisors| instance is considered inactive when no tick has been received from it while 2
     ticks have been received fom the local |Supvisors| instance, which may be a bit strict in a busy network. |br|
+    This delay is also used when starting / stopping a process, considering that process events are expected in due
+    time. |br|
     This option allows to loosen the constraint. Value in [``2`` ; ``720``].
 
     *Default*:  ``2``.
@@ -262,6 +279,13 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  No.
+
+    .. note::
+
+        This option originates from a previous |Supvisors| design where the event publication mechanism did not allow
+        to assess the consideration of the request by the remote |Supvisors| instance. In the current design, an
+        inactive |Supvisors| instance is detected before a timeout is triggered on missing expected events.
+        The option has thus less interest but it is kept anyway for robustness value.
 
 ``core_identifiers``
 
@@ -364,7 +388,7 @@ behavior may happen. The present section details where it is applicable.
         using the |psutil| module. |br|
         Regardless of the number of processes to manage, the *Collector* will not take up more than one processor core.
         If there are more statistics requests than allowed by one processor core, the duration between 2 measurements
-        on the same process will increase automatically.
+        on the same process will inevitably increase.
 
         If there are *many* processes to deal with and if it is unsuitable to dedicate one whole processor core
         to process statistics, the ``stats_collecting_period`` should be increased or the process statistics
@@ -391,7 +415,8 @@ behavior may happen. The present section details where it is applicable.
 
 ``stats_histo``
 
-    The depth of the statistics history. Value in [``10`` ; ``1500``].
+    The depth of the statistics history. |br|
+    Value in [``10`` ; ``1500``].
 
     *Default*:  ``200``.
 
@@ -410,10 +435,6 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  No.
-
-The logging options are strictly identical to |Supervisor|'s. By the way, it is the same logger that is used.
-These options are more detailed in
-`supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.
 
 ``tail_limit``
 
@@ -447,6 +468,10 @@ These options are more detailed in
 
         Setting the ``tail_limit`` and ``tailf_limit`` options with very big values may block the web browser. |br|
         Moderation should be considered.
+
+The logging options are strictly identical to |Supervisor|'s. By the way, it is the same logger that is used.
+These options are more detailed in
+`supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.
 
 ``logfile``
 
@@ -536,8 +561,11 @@ Configuration File Example
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+    software_name = Supvisors Tests
+    software_icon = ../ui/img/icon.png
     supvisors_list = cliche81,<cliche82>192.168.1.49,cliche83:60000:60001,cliche84
     rules_files = ./etc/my_movies*.xml
+    stereotypes = @TEST
     auto_fence = false
     event_link = WS
     event_port = 60002
@@ -551,6 +579,8 @@ Configuration File Example
     stats_periods = 5,60,600
     stats_histo = 100
     stats_irix_mode = false
+    tail_limit = 50MB
+    tailf_limit = 50MB
     logfile = ./log/supvisors.log
     logfile_maxbytes = 50MB
     logfile_backups = 10
@@ -676,7 +706,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``start_sequence``
 
-    This element gives the starting rank of the application in the ``DEPLOYMENT`` state,
+    This element gives the starting rank of the application in the ``DISTRIBUTION`` state,
     when applications are started automatically. |br|
     When <= ``0``, the application is not started. |br|
     When > ``0``, the application is started in the given order.
@@ -806,9 +836,11 @@ Here follows the definition of the attributes and rules applicable to this eleme
 
     This element gives the list of |Supvisors| instances where the program can be started.
 
-    The names are to be taken either the names deduced from the ``supvisors_list`` option defined in the
-    `rpcinterface extension point`_, and / or from the declared `Instance aliases`_, and / or or from a stereotype
-    as provided in the ``stereotypes`` option, and separated by commas.
+    The names are separated by commas and have to be taken from:
+
+        * either the names declared in the ``supvisors_list`` option defined in the `rpcinterface extension point`_,
+        * and / or the declared `Instance aliases`_,
+        * and / or a stereotype provided in the ``stereotypes`` option.
 
     Special values can be applied. |br|
     The *wildcard symbol* ``*`` stands for all names deduced from ``supvisors_list``. |br|

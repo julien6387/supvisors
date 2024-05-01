@@ -41,7 +41,7 @@ Status
             ================== ============= ===========
             'fsm_statecode'    ``int``       The |Supvisors| state, in [0;9].
             'fsm_statename'    ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
-                                             ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                             ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
                                              ```'SHUTTING_DOWN'``, ``'FINAL'``].
             'discovery_mode'   ``bool``      True if the |Supvisors| discovery mode is activated.
             'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
@@ -58,7 +58,8 @@ Status
             'auto-fencing'     ``bool``  The application status of the auto-fencing in |Supvisors|.
             'conciliation'     ``str``   The conciliation strategy applied when |Supvisors| is in the ``CONCILIATION``
                                          state.
-            'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DEPLOYMENT`` state.
+            'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DISTRIBUTION``
+                                         state.
             ================== ========= ===========
 
         .. automethod:: get_instance_info(instance)
@@ -92,8 +93,8 @@ Status
             'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
             'fsm_statecode'           ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
             'fsm_statename'           ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
-                                                ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
-                                                ``'SHUTTING_DOWN'``, ``'FINAL'``].
+                                                ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
+                                                ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'FINAL'``].
             'starting_jobs'           ``bool``  True if the |Supvisors| instance has starting jobs in progress.
             'stopping_jobs'           ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
             ========================= ========= ===========
