@@ -439,7 +439,7 @@ class SupervisorListener:
         # check message origin validity
         status: SupvisorsInstanceStatus = self.supvisors.context.is_valid(*event_origin)
         if not status:
-            self.logger.error(f'SupervisorListener.read_notification: event from unknown Supvisors={event_origin}')
+            self.logger.debug(f'SupervisorListener.read_notification: event from unknown Supvisors={event_origin}')
             return
         # process the message depending on the event type
         if header == NotificationHeaders.AUTHORIZATION:
