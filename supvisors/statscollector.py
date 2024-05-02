@@ -39,7 +39,7 @@ NB_PROCESSORS = psutil.cpu_count()
 
 
 class StatsMsgType(Enum):
-    """ Message types used for CMD pipe. """
+    """ Message types used for PID queue. """
     ALIVE, PID, STOP, ENABLE_HOST, ENABLE_PROCESS, PERIOD = range(6)
 
 
@@ -86,6 +86,26 @@ def instant_io_statistics() -> InterfaceInstantStats:
 
 
 # Common
+class LocalNodeInfo:
+    """ Store node information to be displayed in the Supvisors Web UI. """
+
+    def __init__(self):
+        """ Get all values from psutil for once.
+        Store as strings because their only purpose is to be displayed in the Web UI. """
+        self.nb_core_physical: int = psutil.cpu_count(logical=False)
+        self.nb_core_logical: int = psutil.cpu_count()
+        # get processor frequency
+        frequency: float = psutil.cpu_freq().current  # MHz
+        self.frequency: str = f'{int(frequency)} MHz'
+        # get physical memory
+        physical_memory: int = psutil.virtual_memory().total  # bytes
+        for unit in ['KiB', 'MiB', 'GiB']:
+            physical_memory /= 1024
+            if physical_memory < 1024:
+                break
+        self.physical_memory: str = f'{physical_memory:.2f} {unit}'
+
+
 class StatisticsCollector:
     """ Base class for statistics collection. """
 
@@ -167,7 +187,7 @@ def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optio
 class ProcessStatisticsCollector(StatisticsCollector):
     """ Class holding the psutil structures for all the processes to collect statistics from. """
 
-    def __init__(self, stats_conn: multiprocessing.connection.Connection,
+    def __init__(self, stats_conn: mp.connection.Connection,
                  period: float, enabled: bool, supervisor_pid: int):
         """ Initialization of the attributes. """
         super().__init__(stats_conn, period, enabled)
@@ -278,9 +298,9 @@ class ProcessStatisticsCollector(StatisticsCollector):
         return False
 
 
-def statistics_collector_task(cmd_conn: multiprocessing.connection.Connection,
-                              host_stats_conn: multiprocessing.connection.Connection,
-                              proc_stats_conn: multiprocessing.connection.Connection,
+def statistics_collector_task(cmd_conn: mp.connection.Connection,
+                              host_stats_conn: mp.connection.Connection,
+                              proc_stats_conn: mp.connection.Connection,
                               period: float, host_stats_enabled: bool, process_stats_enabled: bool,
                               supervisor_pid: int):
     """ Statistics Collector main loop. """
@@ -328,9 +348,12 @@ class StatisticsCollectorProcess:
     STOP_TIMEOUT = 2.0
 
     def __init__(self, supvisors):
+        """ Initialization of the attributes. """
         # store the attributes
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
+        # get the node characteristics
+        self.node_info: LocalNodeInfo = LocalNodeInfo()
         # create communication pipes
         self.cmd_recv, self.cmd_send = mp.Pipe(False)  # used to /receive commands, pids and program names
         self.host_stats_recv, self.host_stats_send = mp.Pipe(False)  # used to send/receive host statistics
@@ -373,7 +396,7 @@ class StatisticsCollectorProcess:
         self.cmd_send.send((StatsMsgType.PID, (namespec, pid)))
 
     @staticmethod
-    def _get_stats(stats_conn: multiprocessing.connection.Connection) -> PayloadList:
+    def _get_stats(stats_conn: mp.connection.Connection) -> PayloadList:
         """ Get all statistics available from a given pipe connector. """
         stats = []
         while stats_conn.poll():

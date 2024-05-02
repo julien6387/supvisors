@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,8 +14,8 @@
 # limitations under the License.
 # ======================================================================
 
+from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.statscompiler import HostStatisticsInstance
-from supvisors.utils import get_stats
 from .viewcontext import *
 from .viewimage import host_cpu_img, host_mem_img, host_io_img
 from .viewinstance import SupvisorsInstanceView
@@ -26,24 +23,42 @@ from .webutils import *
 
 
 class HostInstanceView(SupvisorsInstanceView):
-    """ View renderer of the Host section of the Supvisors Instance page.
-    Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
-    Note that the inheritance of StatusView has been patched dynamically in supvisors.plugin.make_supvisors_rpcinterface
-    so that StatusView inherits from ViewHandler instead of MeldView.
-    """
+    """ View renderer of the Host section of the Supvisors Instance page. """
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, HOST_INSTANCE_PAGE)
 
-    def write_contents(self, root):
+    def write_options(self, header_elt):
+        """ Write configured periods for host statistics. """
+        # in the current design, this page should not be accessed if the host statistics are not enabled
+        # so no need to hide the period buttons in this case
+        self.write_periods(header_elt)
+        # always allow to go back to process view
+        self.write_view_switch(header_elt)
+
+    def write_view_switch(self, header_elt):
+        """ Configure the statistics view buttons. """
+        # update process button
+        elt = header_elt.findmeld('process_view_a_mid')
+        url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
+        elt.attributes(href=url)
+        # update host button
+        elt = header_elt.findmeld('host_view_a_mid')
+        elt.content(f'{self.sup_ctx.local_status.supvisors_id.host_id}')
+
+    def write_contents(self, contents_elt):
         """ Rendering of tables and figures for address statistics. """
+        # get node characteristics
+        info = self.view_ctx.get_node_characteristics()
+        if info:
+            self.write_node_characteristics(contents_elt, info)
         # get data from statistics module iaw period selection
         stats_instance: HostStatisticsInstance = self.view_ctx.get_instance_stats()
         if stats_instance:
-            self.write_processor_statistics(root, stats_instance.cpu, stats_instance.times)
-            self.write_memory_statistics(root, stats_instance.mem, stats_instance.times)
-            self.write_network_statistics(root, stats_instance.io)
+            self.write_processor_statistics(contents_elt, stats_instance.cpu, stats_instance.times)
+            self.write_memory_statistics(contents_elt, stats_instance.mem, stats_instance.times)
+            self.write_network_statistics(contents_elt, stats_instance.io)
             # write CPU / Memory / Network plots
             try:
                 self._write_cpu_image(stats_instance.cpu, stats_instance.times)
@@ -51,9 +66,20 @@ class HostInstanceView(SupvisorsInstanceView):
                 self._write_io_image(stats_instance.io)
             except ImportError:
                 # matplotlib not installed: remove figure elements
-                stats_elt = root.findmeld('stats_div_mid')
                 for mid in ['cpuimage_fig_mid', 'memimage_fig_mid', 'ioimage_fig_mid']:
-                    stats_elt.findmeld(mid).replace('')
+                    contents_elt.findmeld(mid).replace('')
+
+    def write_node_characteristics(self, contents_elt, info):
+        """ Rendering of the node characteristics. """
+        # write Node section
+        supvisors_id: SupvisorsInstanceId = self.sup_ctx.local_status.supvisors_id
+        contents_elt.findmeld('node_td_mid').content(supvisors_id.host_id)
+        contents_elt.findmeld('ipaddress_td_mid').content(supvisors_id.ip_address)
+        # write Processor section
+        contents_elt.findmeld('cpu_count_td_mid').content(f'{info.nb_core_physical} / {info.nb_core_logical}')
+        contents_elt.findmeld('cpu_freq_td_mid').content(info.frequency)
+        # write Memory section
+        contents_elt.findmeld('physical_mem_td_mid').content(info.physical_memory)
 
     def _write_processor_single_title(self, tr_elt, selected_cpu_id, cpu_id):
         """ Rendering of the title of a single core. """
@@ -68,9 +94,9 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def _write_processor_single_statistics(self, tr_elt, single_cpu_stats, timeline):
         """ Rendering of the processor statistics for a single core. """
-        self._write_common_statistics(tr_elt, single_cpu_stats, timeline,
-                                      'cpuval_td_mid', 'cpuavg_td_mid',
-                                      'cpuslope_td_mid', 'cpudev_td_mid')
+        self._write_common_detailed_statistics(tr_elt, single_cpu_stats, timeline,
+                                               'cpuval_td_mid', 'cpuavg_td_mid',
+                                               'cpuslope_td_mid', 'cpudev_td_mid')
 
     def write_processor_statistics(self, root, cpu_stats, timeline):
         """ Rendering of the processor statistics. """
@@ -86,9 +112,9 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def write_memory_statistics(self, root, mem_stats, timeline):
         """ Rendering of the memory statistics. """
-        self._write_common_statistics(root, mem_stats, timeline,
-                                      'memval_td_mid', 'memavg_td_mid',
-                                      'memslope_td_mid', 'memdev_td_mid')
+        self._write_common_detailed_statistics(root, mem_stats, timeline,
+                                               'memval_td_mid', 'memavg_td_mid',
+                                               'memslope_td_mid', 'memdev_td_mid')
 
     def _write_network_single_title(self, tr_elt, selected_intf, intf, rowspan, shaded_tr):
         """ Rendering of the title column of the network statistics. """
@@ -114,9 +140,9 @@ class HostInstanceView(SupvisorsInstanceView):
         elt = tr_elt.findmeld('intfrxtx_td_mid')
         elt.content('Rx' if rowspan else 'Tx')
         # calculate and write statistics
-        self._write_common_statistics(tr_elt, single_io_stats, timeline,
-                                      'intfval_td_mid', 'intfavg_td_mid',
-                                      'intfslope_td_mid', 'intfdev_td_mid')
+        self._write_common_detailed_statistics(tr_elt, single_io_stats, timeline,
+                                               'intfval_td_mid', 'intfavg_td_mid',
+                                               'intfslope_td_mid', 'intfdev_td_mid')
 
     def write_network_statistics(self, root, io_stats):
         """ Rendering of the network statistics. """
@@ -138,28 +164,6 @@ class HostInstanceView(SupvisorsInstanceView):
             if not rowspan:
                 shaded_tr = not shaded_tr
             rowspan = not rowspan
-
-    def _write_common_statistics(self, root, stats, timeline, val_mid, avg_mid, slope_mid, dev_mid):
-        """ Rendering of the memory statistics. """
-        if len(stats) > 0:
-            # get additional statistics
-            avg, rate, (a, b), dev = get_stats(timeline, stats)
-            # set last value
-            elt = root.findmeld(val_mid)
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            elt.content(f'{stats[-1]:.2f}')
-            # set mean value
-            elt = root.findmeld(avg_mid)
-            elt.content(f'{avg:.2f}')
-            if a is not None:
-                # set slope of linear regression
-                elt = root.findmeld(slope_mid)
-                elt.content(f'{a:.2f}')
-            if dev is not None:
-                # set standard deviation
-                elt = root.findmeld(dev_mid)
-                elt.content(f'{dev:.2f}')
 
     def _write_cpu_image(self, cpu_stats, timeline):
         """ Write CPU data into the dedicated buffer. """

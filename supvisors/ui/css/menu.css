@@ -1,18 +1,45 @@
 /*
- * Nav style
+ * Copyright 2024 Julien LE CLEACH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+/*
+ * Supvisors style for navigation menu
+ */
+nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    padding: 5px;
+    color: var(--text-color);
+}
+
 nav ul {
 	margin: 0;
 	padding-left: 0;
 	padding-right: 2px;
 	list-style: none;
+    font-size: .8em;
 }
 
 nav li {
-    background-image: linear-gradient(165deg, var(--vlight2-color) 40%, var(--vlight1-color), orange);
+    background-color: var(--navbg-color);
+    height: 32px;
     margin-bottom: 2px;
     border: 1px #111 solid;
-    border-radius: 0 6px 0 6px;
+    border-radius: 6px 50% 50% 6px;
 }
 
 nav li a {
@@ -20,11 +47,6 @@ nav li a {
     text-decoration: none;
     color: var(--text-color);
     padding: 7px 0 5px 4px;
-}
-
-nav .active {
-    background-image: linear-gradient(165deg, var(--dark2-color) 40%, var(--dark1-color), orange);
-    font-weight: bold;
 }
 
 nav li:before {
@@ -37,8 +59,8 @@ nav li:before {
     transition: 0.5s;
 }
 
-nav li:hover {
-    padding-left:8px;
+nav li:has(> a.on):hover {
+    padding-left: 8px;
 }
 
 nav li:hover:before {
@@ -46,6 +68,75 @@ nav li:hover:before {
     right: 10px;
 }
 
-nav li:active {
-    background-image: linear-gradient(165deg, var(--dark2-color) 40%, var(--dark1-color), orange);
+nav li:has(> a.on):active {
+    background-color: var(--dark2-color);
+}
+
+nav .UNKNOWN {
+    background-image: radial-gradient(ellipse 75% 170% at center right, grey 20%, transparent 30%);
+}
+
+nav .UNKNOWN.active {
+    background-image: radial-gradient(circle at center left, grey 40%, transparent 50%);
+}
+
+nav .CHECKING {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 10%, grey 20%, transparent 30%);
+}
+
+nav .CHECKING.active {
+    background-image: radial-gradient(circle at center left, grey 30%, var(--running-color) 40%, transparent 50%);
+}
+
+nav .STOPPED, nav .SILENT {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--stopped-color) 20%, transparent 30%);
+}
+
+nav .STOPPED.active, nav .SILENT.active {
+    background-image: radial-gradient(circle at center left, var(--stopped-color), transparent 50%);
+}
+
+nav .RUNNING, nav .CHECKED {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 20%, transparent 30%);
+}
+
+nav .RUNNING.active, nav .CHECKED.active {
+    background-image: radial-gradient(circle at center left, var(--running-color), transparent 50%);
+}
+
+nav .ISOLATED {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--fatal-color) 20%, transparent 30%);
+}
+
+nav .STARTING {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 10%, var(--stopped-color) 20%, transparent 30%);
+}
+
+nav .STARTING.active {
+    background-image: radial-gradient(circle at center left, var(--stopped-color) 30%, var(--running-color) 40%, transparent 50%);
+}
+
+nav .STOPPING {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--stopped-color) 10%, var(--running-color) 20%, transparent 30%);
+}
+
+nav li.STOPPING.active {
+    background-image: radial-gradient(circle at center left, var(--running-color) 30%, var(--stopped-color) 40%, transparent 50%);
+}
+
+nav li.failure::after {
+    content: url(../img/red_light_30.png);
+    float: right;
+    position: relative;
+    top: -28px;
+    right: -5px;
+}
+
+nav li.master.failure::after {
+    top: -32px;
+}
+
+nav span.master {
+    position: relative;
+    bottom: 0.1em;
 }

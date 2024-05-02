@@ -98,6 +98,7 @@ InvalidXmlTest = b'''\
     </model>
 
     <application name="dummy_application_A">
+        <operational_status>'dummy</operational_status>
     </application>
 
     <application name="dummy_application_B">
@@ -106,6 +107,7 @@ InvalidXmlTest = b'''\
         <distribution>non</distribution>
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
+        <operational_status>'dummy_program_B0' ; 'dummy_program_B2'</operational_status>
 
         <programs>
             <program name="dummy_program_B0"/>
@@ -263,8 +265,7 @@ XmlTest = b'''\
         <expected_loading>15</expected_loading>
     </model>
 
-    <application name="dummy_application_A">
-    </application>
+    <application name="dummy_application_A"/>
 
     <application name="dummy_application_B">
         <distribution>SINGLE_NODE</distribution>
@@ -273,6 +274,7 @@ XmlTest = b'''\
         <starting_strategy>CONFIG</starting_strategy>
         <starting_failure_strategy>STOP</starting_failure_strategy>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
+        <operational_status>'.*B1' and 'dummy_program_B2'</operational_status>
 
         <programs>
             <program name="dummy_program_B0"/>

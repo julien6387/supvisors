@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,7 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
-from time import time
+import time
 from typing import AbstractSet, Any, Dict, Optional, Set, Tuple
 
 from supervisor.loggers import Logger, LevelsByName
@@ -33,6 +30,7 @@ class ProcessRules:
     """ Defines the rules for starting a process, iaw rules file.
 
     Attributes are:
+        - supvisors: the Supvisors global structure ;
         - identifiers: the identifiers of the Supvisors instances where the process can be started (default: all) ;
         - at_identifiers: when @ rule is used, the process can be started on only one Supvisors instance
           but multiple processes of the same homogeneous group can be started on the same Supvisors instance ;
@@ -51,6 +49,19 @@ class ProcessRules:
           when the process crashes when the application is running.
     """
 
+    # attributes
+    supvisors: Any = None
+    identifiers: NameList = None
+    at_identifiers: NameList = None
+    hash_identifiers: NameList = None
+    start_sequence: int = 0
+    stop_sequence: int = -1
+    required: bool = False
+    wait_exit: bool = False
+    expected_load: int = 0
+    starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
+    running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
+
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
@@ -58,25 +69,22 @@ class ProcessRules:
         """
         # keep a reference to the Supvisors global structure
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
         # attributes
-        self.identifiers: NameList = [WILDCARD]
-        self.at_identifiers: NameList = []
-        self.hash_identifiers: NameList = []
-        self.start_sequence: int = 0
-        self.stop_sequence: int = -1
-        self.required: bool = False
-        self.wait_exit: bool = False
-        self.expected_load: int = 0
-        self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
-        self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
+        self.identifiers = [WILDCARD]
+        self.at_identifiers = []
+        self.hash_identifiers = []
+
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
 
     def check_at_identifiers(self, namespec: str, is_pattern: bool) -> None:
         """ When '@' is used, it must be part within a program/pattern element.
 
         :param namespec: the namespec of the program considered.
         :param is_pattern: True is the rules were taken from a pattern element.
-        :return: None
+        :return: None.
         """
         if self.at_identifiers and not is_pattern:
             self.logger.error(f'ProcessRules.check_at_identifiers: {namespec} - at_identifiers reset'
@@ -88,7 +96,7 @@ class ProcessRules:
 
         :param namespec: the namespec of the program considered.
         :param is_pattern: True is the rules were taken from a pattern element.
-        :return: None
+        :return: None.
         """
         if self.hash_identifiers and not is_pattern:
             self.logger.error(f'ProcessRules.check_hash_identifiers: {namespec} - hash_identifiers reset'
@@ -99,7 +107,7 @@ class ProcessRules:
         """ Having both '#' and '@' in the same rule does not make sense.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.at_identifiers and self.hash_identifiers:
             self.logger.error(f'ProcessRules.check_sign_identifiers: {namespec} - hash_identifiers reset'
@@ -111,7 +119,7 @@ class ProcessRules:
         so force required to False if start_sequence is not set.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.required and self.start_sequence == 0:
             self.logger.error(f'ProcessRules.check_start_sequence: {namespec} - required forced to False'
@@ -123,7 +131,7 @@ class ProcessRules:
         If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.stop_sequence < 0:
             self.logger.trace(f'ProcessRules.check_stop_sequence: {namespec}'
@@ -135,7 +143,7 @@ class ProcessRules:
         In these cases, Supvisors triggers behaviors that are different to Supervisor.
 
         :param namespec: the namespec of the program considered.
-        :return: None
+        :return: None.
         """
         if self.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
                                              RunningFailureStrategies.RESTART_APPLICATION]:
@@ -152,7 +160,7 @@ class ProcessRules:
 
         :param namespec: the namespec of the program considered.
         :param is_pattern: True is the rules were taken from a pattern element.
-        :return: None
+        :return: None.
         """
         self.check_at_identifiers(namespec, is_pattern)
         self.check_hash_identifiers(namespec, is_pattern)
@@ -164,7 +172,7 @@ class ProcessRules:
     def __str__(self) -> str:
         """ Get the process rules as string.
 
-        :return: the printable process rules
+        :return: the printable process rules.
         """
         return (f'identifiers={self.identifiers}'
                 f' at_identifiers={self.at_identifiers} hash_identifiers={self.hash_identifiers}'
@@ -177,11 +185,12 @@ class ProcessRules:
         """ Get a serializable form of the process rules.
         hash_identifiers is not exported as used internally to resolve identifiers.
 
-        :return: the process rules in a dictionary
+        :return: the process rules in a dictionary.
         """
         return {'identifiers': self.identifiers,
                 'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
-                'required': self.required,  'wait_exit': self.wait_exit, 'expected_loading': self.expected_load,
+                'required': self.required, 'wait_exit': self.wait_exit,
+                'expected_loading': self.expected_load,
                 'starting_failure_strategy': self.starting_failure_strategy.name,
                 'running_failure_strategy': self.running_failure_strategy.name}
 
@@ -190,6 +199,8 @@ class ProcessStatus:
     """ Class defining the status of a process of Supvisors.
 
     Attributes are:
+        - supvisors: the Supvisors global structure ;
+        - logger: the Supvisors global logger ;
         - application_name: the application name, or group name from a Supervisor point of view ;
         - process_name: the process name ;
         - namespec: the process namespec ;
@@ -197,7 +208,7 @@ class ProcessStatus:
         - forced_state: the state forced by Supvisors upon unexpected event ;
         - forced_reason: the reason why the state would be forced ;
         - expected_exit: a status telling if the process has exited expectantly ;
-        - last_event_time: the local date of the last information received ;
+        - last_event_time: the local monotonic time of the last information received ;
         - extra_args: the additional arguments passed to the command line ;
         - program_name: the program name, as found in the [program] section of the Supervisor configuration file ;
         - process_index: always 0 unless the process is part of a homogeneous group ;
@@ -205,6 +216,26 @@ class ProcessStatus:
         - info_map: a process info dictionary for each Supvisors identifier (running or not) ;
         - rules: the rules related to this process.
     """
+
+    supvisors: Any = None
+    # attributes
+    application_name: str = ''
+    process_name: str = ''
+    namespec: str = ''
+    _state: ProcessStates = ProcessStates.UNKNOWN
+    forced_state: Optional[ProcessStates] = None
+    forced_reason: str = ''
+    expected_exit: bool = True
+    last_event_time: float = 0.0
+    # common information across all Supvisors instances
+    _program_name: str = ''
+    _process_index: int = 0
+    _extra_args: str = ''
+    # rules part
+    rules: ProcessRules = None
+    # only one running identifier is expected for managed processes
+    running_identifiers: Set[str] = None
+    info_map: Dict[str, Payload] = None
 
     def __init__(self, application_name: str, process_name: str, rules: ProcessRules, supvisors: Any) -> None:
         """ Initialization of the attributes.
@@ -216,25 +247,20 @@ class ProcessStatus:
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        self.logger: Logger = supvisors.logger
         # attributes
-        self.application_name: str = application_name
-        self.process_name: str = process_name
+        self.application_name = application_name
+        self.process_name = process_name
         self.namespec = make_namespec(application_name, process_name)
-        self._state: ProcessStates = ProcessStates.UNKNOWN
-        self.forced_state: Optional[ProcessStates] = None
-        self.forced_reason: str = ''
-        self.expected_exit: bool = True
-        self.last_event_time: float = 0.0
-        # common information across all Supvisors instances (hopefully)
-        self._program_name: str = ''
-        self._process_index: int = 0
-        self._extra_args: str = ''
         # rules part
-        self.rules: ProcessRules = rules
+        self.rules = rules
         # one single running identifier is expected for managed processes
-        self.running_identifiers: Set[str] = set()  # identifiers
-        self.info_map: Dict[str, Payload] = {}  # identifier: process_info
+        self.running_identifiers = set()  # identifiers
+        self.info_map = {}  # identifier: process_info
+
+    @property
+    def logger(self) -> Logger:
+        """ Get the Supvisors logger. """
+        return self.supvisors.logger
 
     @property
     def state(self) -> ProcessStates:
@@ -275,14 +301,15 @@ class ProcessStatus:
         force_state = True
         # check current state on targeted identifier
         # Note: identifier may correspond to the Master identifier when it did not find any candidate Supvisors instance
-        # to start the process and this process may not be configured in the Supervisor of the Master
+        #       to start the process and this process may not be configured in the Supervisor of the Master
         identifier = event['identifier']
+        event_time = event['now_monotonic']
         if identifier in self.info_map:
             instance_info = self.info_map[identifier]
-            force_state = instance_info['event_time'] <= event['now']
+            force_state = instance_info['event_time'] <= event_time
         # apply forced state only if no event has been received since the forced state has been evaluated
         if force_state:
-            self.last_event_time = time()
+            self.last_event_time = time.monotonic()
             self.forced_state = event['state']
             self.forced_reason = event['spawnerr']
             self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.displayed_state_string()}'
@@ -497,7 +524,7 @@ class ProcessStatus:
         # search for process info where process is running
         info_map = dict(filter(lambda x: x[0] in self.running_identifiers, self.info_map.items()))
         if info_map:
-            # sort info_map them by local_time (local_time is local time of latest received event)
+            # sort info_map them by local_time (local_time is local monotonic time of latest received event)
             identifier, info = max(info_map.items(), key=lambda x: x[1]['local_time'])
             self.logger.trace(f'ProcessStatus.get_last_description: namespec={self.namespec}'
                               f' - Supvisors={identifier} [running]description={info["description"]}')
@@ -509,7 +536,8 @@ class ProcessStatus:
         # extract description from information found and add identifier
         desc = info['description']
         if desc and desc != 'Not started':
-            desc = desc + ' on ' + identifier
+            nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
+            desc = desc + ' on ' + nick_identifier
         return identifier, desc
 
     # rules consideration
@@ -561,9 +589,9 @@ class ProcessStatus:
         info = self.info_map[identifier] = payload
         # keep date of last information received
         # use local time here as there is no guarantee that Supvisors instances will be time-synchronized
-        self.last_event_time = time()
+        self.last_event_time = time.monotonic()
         info['local_time'] = self.last_event_time
-        info['event_time'] = info['now']
+        info['event_time'] = info['now_monotonic']
         self.update_uptime(info)
         # WARN: when a new Supvisors instance comes in group, extra_args is kept only if information ties in
         if self.extra_args != info['extra_args']:
@@ -600,9 +628,9 @@ class ProcessStatus:
         info.update(payload)
         # keep date of last information received
         # use local time here as there is no guarantee that Supervisors will be time synchronized
-        self.last_event_time = time()
+        self.last_event_time = time.monotonic()
         info['local_time'] = self.last_event_time
-        info['event_time'] = info['now']
+        info['event_time'] = info['now_monotonic']
         # last received extra_args are always applicable
         self.extra_args = payload['extra_args']
         # complete missing information
@@ -613,8 +641,13 @@ class ProcessStatus:
         new_state = info['state']
         if new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
             info['start'] = info['now']
-        if new_state in STOPPED_STATES:
+            info['start_monotonic'] = info['now_monotonic']
+        elif new_state == ProcessStates.FATAL:
+            # NOTE: in supervisor, FATAL does not set stop, so do the same here
+            pass
+        elif new_state in STOPPED_STATES:
             info['stop'] = info['now']
+            info['stop_monotonic'] = info['now_monotonic']
         self.update_uptime(info)
         # keep history that the process has ever crashed in the Supvisors instance
         if external:
@@ -637,15 +670,17 @@ class ProcessStatus:
         if identifier in self.info_map:
             self.info_map[identifier]['disabled'] = disabled
 
-    def update_times(self, identifier: str, remote_time: float) -> None:
+    def update_times(self, identifier: str, remote_mtime: float, remote_time: float) -> None:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance from which the tick has been received
-        :param remote_time: the TICK timestamp (seconds from Epoch) in the reference time of the Supvisors instance
-        :return: None
+        :param identifier: the identifier of the Supvisors instance from which the tick has been received.
+        :param remote_mtime: the TICK monotonic timestamp in the remote Supvisors instance time reference.
+        :param remote_time: the TICK timestamp (seconds from Epoch) in the remote Supvisors instance time reference.
+        :return: None.
         """
-        if identifier in self.info_map:
-            info = self.info_map[identifier]
+        info = self.info_map.get(identifier)
+        if info:
+            info['now_monotonic'] = remote_mtime
             info['now'] = remote_time
             self.update_uptime(info)
             # it may have an impact on the description depending on the process state
@@ -658,7 +693,7 @@ class ProcessStatus:
         :param info: the process information related to a given Supervisor
         :return: None
         """
-        info['uptime'] = ((info['now'] - info['start'])
+        info['uptime'] = ((info['now_monotonic'] - info['start_monotonic'])
                           if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING] else 0)
 
     def invalidate_identifier(self, identifier: str) -> bool:
@@ -673,8 +708,11 @@ class ProcessStatus:
         if identifier in self.running_identifiers:
             # update process status with a FATAL payload
             info = self.info_map[identifier]
-            payload = {'now': info['now'], 'state': ProcessStates.FATAL, 'extra_args': info['extra_args'],
-                       'expected': False, 'spawnerr': f'Supervisor {identifier} lost'}
+            payload = {'now': info['now'], 'now_monotonic': info['now_monotonic'],
+                       'state': ProcessStates.FATAL,
+                       'extra_args': info['extra_args'],
+                       'expected': False,
+                       'spawnerr': f'Supervisor {identifier} lost'}
             self.update_info(identifier, payload, False)
             failure = self.running_identifiers == set()
         return failure
@@ -719,8 +757,8 @@ class ProcessStatus:
                     self.state = ProcessStates.STOPPING
                     self.expected_exit = True
                 else:
-                    # for STOPPED_STATES, consider the most recent stop date
-                    info = max(self.info_map.values(), key=lambda x: x['stop'])
+                    # for STOPPED_STATES, consider the most recent event time in the local reference time
+                    info = max(self.info_map.values(), key=lambda x: x['local_time'])
                     self.state = info['state']
                     self.expected_exit = info['expected']
         # log the new status

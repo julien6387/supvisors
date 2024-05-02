@@ -40,8 +40,6 @@ def http_context(supvisors):
 @pytest.fixture
 def view(http_context):
     """ Return the instance to test. """
-    # apply the forced inheritance done in supvisors.plugin
-    StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
     return ProcInstanceView(http_context)
 
@@ -55,18 +53,85 @@ def test_init(view):
     assert view.page_name == PROC_INSTANCE_PAGE
 
 
-def test_write_periods(mocker, view):
-    """ Test the ProcInstanceView.write_periods method. """
-    mocked_period = mocker.patch.object(view, 'write_periods_availability')
-    mocked_root = Mock()
-    # test with process statistics to be displayed
-    view.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, True)]
-    mocked_period.reset_mock()
-    # test with process statistics NOT to be displayed
+def test_write_options(mocker, view):
+    """ Test the SupvisorsInstanceView.write_options method. """
+    mocked_period = mocker.patch.object(view, 'write_periods')
+    mocked_switch = mocker.patch.object(view, 'write_view_switch')
+    option_card_mid = create_element()
+    option_line_mid = create_element()
+    period_div_mid = create_element()
+    view_div_mid = create_element()
+    mocked_header = create_element({'option_card_mid': option_card_mid, 'option_line_mid': option_line_mid,
+                                    'period_div_mid': period_div_mid, 'view_div_mid': view_div_mid})
+    # test all statistics enabled
+    assert view.has_host_statistics
+    assert view.has_process_statistics
+    view.write_options(mocked_header)
+    assert mocked_period.call_args_list == [call(mocked_header)]
+    assert mocked_switch.call_args_list == [call(mocked_header)]
+    assert not mocked_header.findmeld.called
+    assert not option_card_mid.replace.called
+    assert not option_line_mid.replace.called
+    assert not period_div_mid.replace.called
+    assert not view_div_mid.replace.called
+    mocker.resetall()
+    mocked_header.reset_all()
+    # test process statistics only
+    view.has_process_statistics = True
+    view.has_host_statistics = False
+    view.write_options(mocked_header)
+    assert mocked_period.call_args_list == [call(mocked_header)]
+    assert not mocked_switch.called
+    assert mocked_header.findmeld.call_args_list == [call('view_div_mid')]
+    assert not option_card_mid.replace.called
+    assert not option_line_mid.replace.called
+    assert not period_div_mid.replace.called
+    assert view_div_mid.replace.call_args_list == [call('')]
+    mocker.resetall()
+    mocked_header.reset_all()
+    # test host statistics only
     view.has_process_statistics = False
-    view.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, False)]
+    view.has_host_statistics = True
+    view.write_options(mocked_header)
+    assert not mocked_period.called
+    assert mocked_switch.call_args_list == [call(mocked_header)]
+    assert mocked_header.findmeld.call_args_list == [call('period_div_mid')]
+    assert not option_card_mid.replace.called
+    assert not option_line_mid.replace.called
+    assert period_div_mid.replace.call_args_list == [call('')]
+    assert not view_div_mid.replace.called
+    mocker.resetall()
+    mocked_header.reset_all()
+    # test no statistics
+    view.has_process_statistics = False
+    view.has_host_statistics = False
+    view.write_options(mocked_header)
+    assert not mocked_period.called
+    assert not mocked_switch.called
+    assert mocked_header.findmeld.call_args_list == [call('option_card_mid'), call('option_line_mid')]
+    assert option_card_mid.replace.call_args_list == [call('')]
+    assert option_line_mid.replace.call_args_list == [call('')]
+    assert not period_div_mid.replace.called
+    assert not view_div_mid.replace.called
+
+
+def test_write_view_switch(supvisors, view):
+    """ Test the SupvisorsInstanceView.write_view_switch method. """
+    # set context (meant to be set through constructor and render)
+    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+    supvisors.mapper.local_identifier = '10.0.0.1:25000'
+    # build root structure
+    mocked_process_view_mid = create_element()
+    mocked_host_view_mid = create_element()
+    mocked_header = create_element({'process_view_a_mid': mocked_process_view_mid,
+                                    'host_view_a_mid': mocked_host_view_mid})
+    # test call
+    view.write_view_switch(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('host_view_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE)]
+    assert not mocked_process_view_mid.attributes.called
+    assert mocked_host_view_mid.attributes.call_args_list == [call(href='an url')]
+    assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
 
 
 def test_write_contents(mocker, view):
@@ -77,45 +142,56 @@ def test_write_contents(mocker, view):
                                       side_effect=(([{'namespec': 'dummy'}], []),
                                                    ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                                    ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
+                                                   ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                                    ([{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])))
     # patch context
     view.view_ctx = Mock(parameters={PROCESS: None}, local_identifier='10.0.0.1',
                          **{'get_process_status.return_value': None})
     # patch the meld elements
-    mocked_root = Mock()
+    contents_elt = create_element()
     # test call with no process selected
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [])]
-    assert mocked_stats.call_args_list == [call(mocked_root, {})]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [])]
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
     # test call with process selected and no corresponding status
     # process set in excluded_list but not passed to write_process_statistics because unselected due to missing status
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
     assert view.view_ctx.parameters[PROCESS] == ''
-    assert mocked_stats.call_args_list == [call(mocked_root, {})]
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
     # test call with process selected but not running on considered node
     # process set in excluded_list
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.2'})
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
     assert view.view_ctx.parameters[PROCESS] == ''
-    assert mocked_stats.call_args_list == [call(mocked_root, {})]
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
-    # test call with process selected and running
+    # test call with process selected and running but no statistics on the instance
+    view.has_process_statistics = False
     view.view_ctx.parameters[PROCESS] = 'dummy'
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.1'})
-    view.write_contents(mocked_root)
+    view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert view.view_ctx.parameters[PROCESS] == ''
+    assert mocked_stats.call_args_list == [call(contents_elt, {})]
+    mocker.resetall()
+    # test call with process selected and running, and statistics available
+    view.has_process_statistics = True
+    view.view_ctx.parameters[PROCESS] = 'dummy'
+    view.write_contents(contents_elt)
+    assert mocked_data.call_args_list == [call()]
+    assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])]
     assert view.view_ctx.parameters[PROCESS] == 'dummy'
-    assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy'})]
+    assert mocked_stats.call_args_list == [call(contents_elt, {'namespec': 'dummy'})]
 
 
 def test_get_process_data(mocker, view):
@@ -123,9 +199,9 @@ def test_get_process_data(mocker, view):
     mocker.patch.object(view, 'sort_data', side_effect=lambda x: (sorted(x, key=lambda y: y['namespec']), []))
     mocked_data = mocker.patch.object(view, 'get_supervisord_data', return_value={'namespec': 'supervisord'})
     # get context
-    instance_status = view.sup_ctx.instances['10.0.0.1']
+    instance_status = view.sup_ctx.instances['10.0.0.1:25000']
     # test with empty context
-    view.view_ctx = Mock(local_identifier='10.0.0.1',
+    view.view_ctx = Mock(local_identifier='10.0.0.1:25000',
                          **{'get_process_stats.side_effect': [(2, 'stats #1'), (1, None), (4, 'stats #3')]})
     assert view.get_process_data() == ([{'namespec': 'supervisord'}], [])
     assert mocked_data.call_args_list == [call(instance_status)]
@@ -140,7 +216,7 @@ def test_get_process_data(mocker, view):
         info['disabled'] = disabled
         process = create_process(info, view.supvisors)
         process.rules.expected_load = load
-        process.add_info('10.0.0.1', info)
+        process.add_info('10.0.0.1:25000', info)
         # add to application
         view.sup_ctx.applications[process.application_name].processes[process.namespec] = process
         # add to supvisors instance status
@@ -149,17 +225,17 @@ def test_get_process_data(mocker, view):
     sorted_data, excluded_data = view.get_process_data()
     # test intermediate list
     data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
-             'single': False, 'identifier': '10.0.0.1', 'disabled': False, 'startable': True,
+             'single': False, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': True,
              'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': True,
              'description': 'pid 80879, uptime 0:01:19',
              'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     data2 = {'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
-             'single': False, 'identifier': '10.0.0.1', 'disabled': False, 'startable': True,
+             'single': False, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': True,
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF', 'has_crashed': False,
              'description': 'Exited too quickly (process log may have details)',
              'expected_load': 17, 'nb_cores': 1, 'proc_stats': None}
     data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
-             'single': True, 'identifier': '10.0.0.1', 'disabled': True, 'startable': False,
+             'single': True, 'identifier': '10.0.0.1:25000', 'disabled': True, 'startable': False,
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED', 'has_crashed': False,
              'description': 'Sep 14 05:18 PM',
              'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
@@ -169,22 +245,23 @@ def test_get_process_data(mocker, view):
 
 def test_get_supervisord_data(view):
     """ Test the ProcInstanceView.get_supervisord_data method. """
-    view.view_ctx = Mock(local_identifier='10.0.0.1', **{'get_process_stats.return_value': (2, 'stats #1')})
+    view.view_ctx = Mock(local_identifier='10.0.0.1:25000', **{'get_process_stats.return_value': (2, 'stats #1')})
     # get context
-    instance_status = view.sup_ctx.instances['10.0.0.1']
+    instance_status = view.sup_ctx.instances['10.0.0.1:25000']
+    instance_status.times.start_local_mtime = 0
     pid = os.getpid()
     # test call on empty time values
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1', 'disabled': False, 'startable': False,
+                        'single': True, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': False,
                         'description': f'pid {pid}, uptime 0:00:00',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     assert view.get_supervisord_data(instance_status) == supervisord_info
     # test call on relevant time values
-    instance_status.start_time = 1000
-    instance_status.local_time = 185618
+    instance_status.times.start_local_mtime = 1000
+    instance_status.times.local_time = 185618
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1', 'disabled': False, 'startable': False,
+                        'single': True, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': False,
                         'description': f'pid {pid}, uptime 2 days, 3:16:58',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
@@ -558,34 +635,23 @@ def test_write_supervisord_off_button(view):
     assert not start_a_mid.attributes.called
 
 
-def test_write_total_status(mocker, view):
+def test_write_total_status(mocker, supvisors, view):
     """ Test the ProcInstanceView.write_total_status method. """
     mocked_sum = mocker.patch.object(view, 'sum_process_info', return_value=(50, 2, None))
     # patch the meld elements
-    load_elt = Mock(attrib={'class': ''})
-    mem_elt = Mock(attrib={'class': ''})
-    cpu_elt = Mock(attrib={'class': ''})
-    mid_map = {'load_total_th_mid': load_elt, 'mem_total_th_mid': mem_elt, 'cpu_total_th_mid': cpu_elt}
-    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
-    root_elt = Mock(attrib={}, **{'findmeld.return_value': None})
-    # test call with total element removed
+    load_elt = create_element()
+    mem_elt = create_element()
+    cpu_elt = create_element()
+    tr_elt = create_element({'load_total_th_mid': load_elt, 'mem_total_th_mid': mem_elt, 'cpu_total_th_mid': cpu_elt})
+    root_elt = create_element({'total_mid': tr_elt})
+    # test call
     sorted_data = [1, 2]
     excluded_data = [3, 4]
-    view.write_total_status(root_elt, sorted_data, excluded_data)
-    assert root_elt.findmeld.call_args_list == [call('total_mid')]
-    assert not tr_elt.findmeld.called
-    assert not mocked_sum.called
-    for elt in mid_map.values():
-        assert not elt.content.called
-    root_elt.findmeld.reset_mock()
-    # test call with total element present
-    root_elt.findmeld.return_value = tr_elt
-    # test call with no process stats
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]
     assert tr_elt.findmeld.call_args_list == [call('load_total_th_mid')]
-    assert load_elt.content.call_args_list == [call('50%')]
+    assert load_elt.content.call_args_list == [call('50')]
     assert not mem_elt.content.called
     assert not cpu_elt.content.called
     mocked_sum.reset_mock()
@@ -594,15 +660,15 @@ def test_write_total_status(mocker, view):
     load_elt.content.reset_mock()
     # test call with process stats and irix mode
     mocked_sum.return_value = 50, 2, Mock(cpu=[12], mem=[25])
-    view.supvisors.options.stats_irix_mode = True
+    supvisors.options.stats_irix_mode = True
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]
     assert tr_elt.findmeld.call_args_list == [call('load_total_th_mid'), call('mem_total_th_mid'),
                                               call('cpu_total_th_mid')]
-    assert load_elt.content.call_args_list == [call('50%')]
-    assert mem_elt.content.call_args_list == [call('25.00%')]
-    assert cpu_elt.content.call_args_list == [call('12.00%')]
+    assert load_elt.content.call_args_list == [call('50')]
+    assert mem_elt.content.call_args_list == [call('25.00')]
+    assert cpu_elt.content.call_args_list == [call('12.00')]
     mocked_sum.reset_mock()
     root_elt.findmeld.reset_mock()
     tr_elt.findmeld.reset_mock()
@@ -610,15 +676,15 @@ def test_write_total_status(mocker, view):
     mem_elt.content.reset_mock()
     cpu_elt.content.reset_mock()
     # test call with process stats and solaris mode
-    view.supvisors.options.stats_irix_mode = False
+    supvisors.options.stats_irix_mode = False
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]
     assert tr_elt.findmeld.call_args_list == [call('load_total_th_mid'), call('mem_total_th_mid'),
                                               call('cpu_total_th_mid')]
-    assert load_elt.content.call_args_list == [call('50%')]
-    assert mem_elt.content.call_args_list == [call('25.00%')]
-    assert cpu_elt.content.call_args_list == [call('6.00%')]
+    assert load_elt.content.call_args_list == [call('50')]
+    assert mem_elt.content.call_args_list == [call('25.00')]
+    assert cpu_elt.content.call_args_list == [call('6.00')]
 
 
 def test_make_callback(mocker, view):

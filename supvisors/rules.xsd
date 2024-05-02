@@ -77,6 +77,7 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:element type="StartingStrategy" name="starting_strategy" minOccurs="0"/>
             <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0"/>
             <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0"/>
+            <xs:element type="xs:string" name="operational_status" minOccurs="0"/>
             <xs:element type="Programs" name="programs" minOccurs="0"/>
         </xs:all>
 	    <!-- no way to check one of the two is required unless XSD 1.1 is supported -->

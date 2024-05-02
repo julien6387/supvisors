@@ -85,6 +85,16 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The getStatisticsStatus method returns the status of statistics collection in Supvisors.
+     *
+     * @return SupvisorsStatisticsStatus: Information about the statistics collection.
+     */
+    public SupvisorsStatisticsStatus getStatisticsStatus() throws XmlRpcException {
+        HashMap result = client.rpcCall(Namespace + "get_statistics_status", null, HashMap.class);
+        return new SupvisorsStatisticsStatus(result);
+    }
+
+    /**
      * The getAllInstancesInfo method returns information about all Supvisors instances.
      *
      * @return HashMap<String, SupvisorsInstanceInfo>: Information for all Supvisors instances, sorted by name.
@@ -98,13 +108,13 @@ public class SupvisorsXmlRpc {
      * The getInstanceInfo method returns information about a Supvisors instance.
      *
      * @param String identifier: The identifier of the Supvisors instance.
-     * @return SupvisorsInstanceInfo: Information about the Supvisors instance.
-     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if identifier is unknown to Supvisors.
+     * @return HashMap<String, SupvisorsInstanceInfo>: Information for the Supvisors instances, sorted by name.
+     * @throws XmlRpcException: with code BAD_NAME if identifier is unknown to Supvisors.
      */
-    public SupvisorsInstanceInfo getInstanceInfo(final String identifier) throws XmlRpcException {
+    public HashMap<String, SupvisorsInstanceInfo> getInstanceInfo(final String identifier) throws XmlRpcException {
         Object[] params = new Object[]{identifier};
-        HashMap result = client.rpcCall(Namespace + "get_instance_info", params, HashMap.class);
-        return new SupvisorsInstanceInfo(result);
+        Object[] objectsArray = client.rpcCall(Namespace + "get_instance_info", params, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsInstanceInfo.class);
     }
 
     /**
@@ -177,11 +187,11 @@ public class SupvisorsXmlRpc {
      * The getAllLocalProcessInfo method returns information about all
      * processes known to Supervisor, but as a subset of supervisor.getProcessInfo, including extra arguments.
      *
-     * @return HashMap<String, SupvisorsProcessEvent>: Information about the processes, sorted by namespec.
+     * @return HashMap<String, SupvisorsLocalProcessInfo>: Information about the processes, sorted by namespec.
      */
-    public HashMap<String, SupvisorsProcessEvent> getAllLocalProcessInfo() throws XmlRpcException {
+    public HashMap<String, SupvisorsLocalProcessInfo> getAllLocalProcessInfo() throws XmlRpcException {
         Object[] objectsArray = client.rpcCall(Namespace + "get_all_local_process_info", null, Object[].class);
-        return DataConversion.arrayToMap(objectsArray, SupvisorsProcessEvent.class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsLocalProcessInfo.class);
     }
 
     /**
@@ -189,13 +199,13 @@ public class SupvisorsXmlRpc {
      * processes known to Supervisor, but as a subset of supervisor.getProcessInfo, including extra arguments.
      *
      * @param String namespec: The name of the process (or "applicationName:processName").
-     * @return SupvisorsProcessEvent: Information about the process.
+     * @return SupvisorsLocalProcessInfo: Information about the process.
      * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
      */
-    public SupvisorsProcessEvent getLocalProcessInfo(final String namespec) throws XmlRpcException {
+    public SupvisorsLocalProcessInfo getLocalProcessInfo(final String namespec) throws XmlRpcException {
         Object[] params = new Object[]{namespec};
         HashMap result = client.rpcCall(Namespace + "get_local_process_info", params, HashMap.class);
-        return new SupvisorsProcessEvent(result);
+        return new SupvisorsLocalProcessInfo(result);
     }
 
     /**
@@ -236,12 +246,33 @@ public class SupvisorsXmlRpc {
      * @throws XmlRpcException: with code BAD_NAME if applicationName is unknown to Supvisors.
      * @throws XmlRpcException: with code NOT_MANAGED if application is not managed in Supvisors.
      * @throws XmlRpcException: with code ALREADY_STARTED if application is STARTING, STOPPING or RUNNING.
-     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if application could not be started.
+     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if the internal start request failed.
+     * @throws XmlRpcException: with code NOT_RUNNING if application could not be started.
      */
     public Boolean startApplication(final StartingStrategy strategy, final String applicationName,
             final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{strategy.ordinal(), applicationName, wait};
         return client.rpcCall(Namespace + "start_application", params, Boolean.class);
+    }
+
+    /**
+     * The testStartApplication method returns a prediction of the distribution for starting the application processes
+     * corresponding to the applicationName, in accordance with the starting strategy and the rules.
+     *
+     * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
+     * @param String applicationName: The name of the application to start.
+     * @return HashMap<String, SupvisorsDistributionInfo>: The predicted distribution of the application processes.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code BAD_NAME if applicationName is unknown to Supvisors.
+     * @throws XmlRpcException: with code NOT_MANAGED if the application is not managed in Supvisors.
+     * @throws XmlRpcException: with code ALREADY_STARTED if the application is running.
+     */
+    public HashMap<String, SupvisorsDistributionInfo> testStartApplication(final StartingStrategy strategy,
+            final String applicationName) throws XmlRpcException {
+        Object[] params = new Object[]{strategy.ordinal(), applicationName};
+        Object[] objectsArray = client.rpcCall(Namespace + "test_start_application", params, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsDistributionInfo.class);
     }
 
     /**
@@ -253,7 +284,9 @@ public class SupvisorsXmlRpc {
      * @return Boolean: Always True unless error or nothing to stop.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION or CONCILIATION.
      * @throws XmlRpcException: with code BAD_NAME if applicationName is unknown to Supvisors.
-     * @throws XmlRpcException: with code NOT_RUNNING if application is STOPPED.
+     * @throws XmlRpcException: with code NOT_MANAGED if application is not managed in Supvisors.
+     * @throws XmlRpcException: with code NOT_RUNNING if application is already STOPPED.
+     * @throws XmlRpcException: with code STILL_RUNNING if application could not be stopped.
      */
     public Boolean stopApplication(final String applicationName, final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{applicationName, wait};
@@ -269,9 +302,11 @@ public class SupvisorsXmlRpc {
      * @param Boolean wait: If true, the RPC returns only when the application is fully restarted.
      * @return Boolean: Always True unless error or nothing to start.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION.
-     * @throws XmlRpcException: with code BAD_STRATEGY if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if strategy is unknown to Supvisors.
      * @throws XmlRpcException: with code BAD_NAME if applicationName is unknown to Supvisors.
+     * @throws XmlRpcException: with code NOT_MANAGED if application is not managed in Supvisors.
      * @throws XmlRpcException: with code ABNORMAL_TERMINATION if application could not be restarted.
+     * @throws XmlRpcException: with code NOT_RUNNING if application could not be restarted.
      */
     public Boolean restartApplication(final StartingStrategy strategy, final String applicationName,
             final Boolean wait) throws XmlRpcException {
@@ -290,7 +325,6 @@ public class SupvisorsXmlRpc {
      * @param Boolean wait: If true, the RPC returns only when the process is fully started.
      * @return Boolean: Always True unless error or nothing to start.
      * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
-     * @throws XmlRpcException: with code BAD_EXTRA_ARGUMENTS if program is required or has a start sequence.
      * @throws XmlRpcException: with code DISABLED if process is disabled.
      * @throws XmlRpcException: with code ALREADY_STARTED if process is running.
      * @throws XmlRpcException: with code ABNORMAL_TERMINATION if process could not be started.
@@ -312,10 +346,11 @@ public class SupvisorsXmlRpc {
      * @param Boolean wait: If true, the RPC returns only when the process is fully started.
      * @return Boolean: Always True unless error or nothing to start.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION.
-     * @throws XmlRpcException: with code BAD_STRATEGY if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if strategy is unknown to Supvisors.
      * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
      * @throws XmlRpcException: with code ALREADY_STARTED if process is running.
-     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if process could not be started.
+     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if the internal start request failed.
+     * @throws XmlRpcException: with code NOT_RUNNING if process could not be started.
      */
     public Boolean startProcess(final StartingStrategy strategy, final String namespec,
             final String extraArgs, final Boolean wait) throws XmlRpcException {
@@ -324,8 +359,27 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The startAnyProcess method starts a process whose namespec shall match the regular expression,
-     * in accordance with the rules for the application and its processes.
+     * The testStartProcess method returns a prediction of the distribution for starting the processes corresponding
+     * to the namespec, in accordance with the starting strategy and the rules.
+     *
+     * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
+     * @param String namespec: The namespec of the process(es) to start.
+     * @return HashMap<String, SupvisorsDistributionInfo>: The predicted distribution of the processes.
+     * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
+     * @throws XmlRpcException: with code ALREADY_STARTED if process is running.
+     */
+    public HashMap<String, SupvisorsDistributionInfo> testStartProcess(final StartingStrategy strategy,
+            final String namespec) throws XmlRpcException {
+        Object[] params = new Object[]{strategy.ordinal(), namespec};
+        Object[] objectsArray = client.rpcCall(Namespace + "test_start_process", params, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsDistributionInfo.class);
+    }
+
+    /**
+     * The startAnyProcess method starts a process whose namespec matches the regular expression,
+     * in accordance with the starting strategy and the rules for the application and its processes.
      * This method makes it also possible to pass extra arguments to the program command line.
      *
      * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
@@ -334,10 +388,10 @@ public class SupvisorsXmlRpc {
      * @param Boolean wait: If true, the RPC returns only when the process is fully started.
      * @return String: The namespec of the process started, unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION.
-     * @throws XmlRpcException: with code BAD_STRATEGY if strategy is unknown to Supvisors.
-     * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
-     * @throws XmlRpcException: with code ALREADY_STARTED if process is running.
-     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if process could not be started.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code FAILED if no stopped process could be found matching the regex.
+     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if the internal start request failed.
+     * @throws XmlRpcException: with code NOT_RUNNING if the process could not be started.
      */
     public String startAnyProcess(final StartingStrategy strategy, final String regex,
             final String extraArgs, final Boolean wait) throws XmlRpcException {
@@ -353,7 +407,8 @@ public class SupvisorsXmlRpc {
      * @return Boolean: Always True unless error or nothing to stop.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION or CONCILIATION.
      * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
-     * @throws XmlRpcException: with code NOT_RUNNING if process is stopped.
+     * @throws XmlRpcException: with code NOT_RUNNING if process is already stopped.
+     * @throws XmlRpcException: with code STILL_RUNNING if process could not be stopped.
      */
     public Boolean stopProcess(final String namespec, final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{namespec, wait};
@@ -370,9 +425,10 @@ public class SupvisorsXmlRpc {
      * @param Boolean wait: If true, the RPC returns only when the process is fully restarted.
      * @return Boolean: Always True unless error or nothing to start.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state OPERATION.
-     * @throws XmlRpcException: with code BAD_STRATEGY if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if strategy is unknown to Supvisors.
      * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
-     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if process could not be restarted.
+     * @throws XmlRpcException: with code ABNORMAL_TERMINATION if the internal restart request failed.
+     * @throws XmlRpcException: with code NOT_RUNNING if process could not be restarted.
      */
     public Boolean restartProcess(final StartingStrategy strategy, final String namespec,
             final String extraArgs, final Boolean wait) throws XmlRpcException {
@@ -390,7 +446,8 @@ public class SupvisorsXmlRpc {
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state CONCILIATION.
      * @throws XmlRpcException: with code BAD_NAME if programName is unknown to Supvisors.
      * @throws XmlRpcException: with code INCORRECT_PARAMETERS if numProcs is not a strictly positive integer.
-     * @throws XmlRpcException: with code SUPVISORS_CONF_ERROR if the program is not configured using numprocs.
+     * @throws XmlRpcException: with code NOT_APPLICABLE if the program is not configured using numprocs.
+     * @throws XmlRpcException: with code STILL_RUNNING if any program process could not be stopped.
      */
     public Boolean updateNumprocs(final String programName, final Integer numProcs,
             final Boolean wait) throws XmlRpcException {
@@ -420,6 +477,7 @@ public class SupvisorsXmlRpc {
      * @return Boolean: Always True unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state CONCILIATION.
      * @throws XmlRpcException: with code BAD_NAME if programName is unknown to Supvisors.
+     * @throws XmlRpcException: with code STILL_RUNNING if any program process could not be stopped.
      */
     public Boolean disable(final String programName, final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{programName, wait};
@@ -433,7 +491,7 @@ public class SupvisorsXmlRpc {
      * @param ConciliationStrategy strategy: The strategy used for conciliation.
      * @return Boolean: Always True unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state CONCILIATION.
-     * @throws XmlRpcException: with code BAD_STRATEGY if strategy is unknown to Supvisors.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if strategy is unknown to Supvisors.
      */
     public Boolean conciliate(final ConciliationStrategy strategy) throws XmlRpcException {
         Object[] params = new Object[]{strategy.ordinal()};
@@ -467,7 +525,7 @@ public class SupvisorsXmlRpc {
      * @return Boolean: Always True unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in INITIALIZATION state,
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if the synchronization is already ending.
-     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if the synchro_options does not include USER.
+     * @throws XmlRpcException: with code NOT_APPLICABLE if the synchro_options does not include USER.
      */
     public Boolean endSynchronization() throws XmlRpcException {
         return client.rpcCall(Namespace + "end_synchro", null, Boolean.class);
@@ -480,8 +538,9 @@ public class SupvisorsXmlRpc {
      * @return Boolean: Always True unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in INITIALIZATION state,
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if the synchronization is already ending.
-     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if the synchro_options does not include USER.
+     * @throws XmlRpcException: with code NOT_APPLICABLE if the synchro_options does not include USER.
      * @throws XmlRpcException: with code BAD_NAME if master is an unknown Supvisors identifier.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if master is resolved in multiple Supvisors identifiers.
      * @throws XmlRpcException: with code NOT_RUNNING if the chosen Master Supvisors instance is not in state RUNNING.
      */
     public Boolean endSynchronization(final String master) throws XmlRpcException {
@@ -503,13 +562,51 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The enableHostStatistics method enables or disables the host statistics collection
+     * in the local Supvisors instance.
+     *
+     * @param Boolean enabled: true if the host statistics collection is enabled.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code NOT_INSTALLED if psutil is not installed.
+     */
+    public Boolean enableHostStatistics(final Boolean enabled) throws XmlRpcException {
+        Object[] params = new Object[]{enabled};
+        return client.rpcCall(Namespace + "enable_host_statistics", params, Boolean.class);
+    }
+
+    /**
+     * The enableProcessStatistics method enables or disables the process statistics collection
+     * in the local Supvisors instance.
+     *
+     * @param Boolean enabled: true if the process statistics collection is enabled.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code NOT_INSTALLED if psutil is not installed.
+     */
+    public Boolean enableProcessStatistics(final Boolean enabled) throws XmlRpcException {
+        Object[] params = new Object[]{enabled};
+        return client.rpcCall(Namespace + "enable_process_statistics", params, Boolean.class);
+    }
+
+    /**
+     * The updateCollectingPeriod method updates the host and process statistics collection period
+     * in the local Supvisors instance.
+     *
+     * @param Double period: the new statistics collection period.
+     * @return Boolean: Always True unless error.
+     * @throws XmlRpcException: with code NOT_INSTALLED if psutil is not installed.
+     */
+    public Boolean updateCollectingPeriod(final Double period) throws XmlRpcException {
+        Object[] params = new Object[]{period};
+        return client.rpcCall(Namespace + "update_collecting_period", params, Boolean.class);
+    }
+
+    /**
      * The main for Supvisors self-tests.
      *
      * @param String[] args: The arguments.
      */
     public static void main (String[] args) throws MalformedURLException, XmlRpcException {
-        // TODO: add port in parameter of ant script
-        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
+        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(Integer.parseInt(args[0]));
         SupvisorsXmlRpc supvisors = new SupvisorsXmlRpc(client);
 
         // test Supvisors log level
@@ -532,8 +629,8 @@ public class SupvisorsXmlRpc {
         System.out.println(instances);
         System.out.println("### Testing supvisors.getInstanceInfo(...) ###");
         String identifier = instances.entrySet().iterator().next().getValue().getIdentifier();
-        SupvisorsInstanceInfo instanceInfo = supvisors.getInstanceInfo(identifier);
-        System.out.println(instanceInfo);
+        instances = supvisors.getInstanceInfo(identifier);
+        System.out.println(instances);
 
         // test application status rpc
         System.out.println("### Testing supvisors.getAllApplicationInfo(...) ###");
@@ -557,10 +654,10 @@ public class SupvisorsXmlRpc {
 
         // test process local status rpc
         System.out.println("### Testing supvisors.getAllLocalProcessInfo(...) ###");
-        HashMap<String, SupvisorsProcessEvent> events = supvisors.getAllLocalProcessInfo();
+        HashMap<String, SupvisorsLocalProcessInfo> events = supvisors.getAllLocalProcessInfo();
         System.out.println(events);
         System.out.println("### Testing supvisors.getLocalProcessInfo(...) ###");
-        SupvisorsProcessEvent event = supvisors.getLocalProcessInfo(processName);
+        SupvisorsLocalProcessInfo event = supvisors.getLocalProcessInfo(processName);
         System.out.println(event);
 
         // test application rules rpc
@@ -585,12 +682,16 @@ public class SupvisorsXmlRpc {
         System.out.println(supvisors.restartApplication(StartingStrategy.LESS_LOADED, "my_movies", true));
         System.out.println("### Testing supvisors.stopApplication(...) ###");
         System.out.println(supvisors.stopApplication("my_movies", true));
+        System.out.println("### Testing supvisors.testStartApplication(...) ###");
+        System.out.println(supvisors.testStartApplication(StartingStrategy.CONFIG, "my_movies"));
         System.out.println("### Testing supvisors.startApplication(...) ###");
         System.out.println(supvisors.startApplication(StartingStrategy.CONFIG, "my_movies", false));
 
         // test process request rpc
         System.out.println("### Testing supvisors.startArgs(...) ###");
         System.out.println(supvisors.startArgs("my_movies:converter_01", "-x 3", false));
+        System.out.println("### Testing supvisors.testStartProcess(...) ###");
+        System.out.println(supvisors.testStartProcess(StartingStrategy.MOST_LOADED, "my_movies:converter_02"));
         System.out.println("### Testing supvisors.startProcess(...) with no extra args ###");
         System.out.println(supvisors.startProcess(StartingStrategy.MOST_LOADED, "my_movies:converter_02", "", true));
         System.out.println("### Testing supvisors.restartProcess(...) with no extra args ###");
@@ -610,6 +711,18 @@ public class SupvisorsXmlRpc {
         System.out.println(supvisors.disable("converter", true));
         System.out.println("### Testing supvisors.enable(...) ###");
         System.out.println(supvisors.enable("converter", true));
+
+        // test statistics options
+        System.out.println("### Testing supvisors.getStatisticsStatus(...) ###");
+        System.out.println(supvisors.getStatisticsStatus());
+        System.out.println("### Testing supvisors.enableHostStatistics(...) ###");
+        System.out.println(supvisors.enableHostStatistics(false));
+        System.out.println("### Testing supvisors.enableProcessStatistics(...) ###");
+        System.out.println(supvisors.enableProcessStatistics(false));
+        System.out.println("### Testing supvisors.updateCollectingPeriod(...) ###");
+        System.out.println(supvisors.updateCollectingPeriod(7.5));
+        System.out.println("### Testing supvisors.getStatisticsStatus(...) ###");
+        System.out.println(supvisors.getStatisticsStatus());
 
         // test supvisors request rpc
         System.out.println("### Testing supvisors.conciliate(...) ###");

@@ -57,6 +57,9 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /** The strategy applied when a process crashes at application running time. */
     private RunningFailureStrategy runningFailureStrategy;
 
+    /** The formula applied to define the application operational status. */
+    private String statusFormula;
+
     /**
      * The constructor gets all information from an HashMap.
      *
@@ -74,6 +77,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
             this.startingStrategy = StartingStrategy.valueOf((String) rulesInfo.get("starting_strategy"));
             this.startingFailureStrategy = StartingFailureStrategy.valueOf((String) rulesInfo.get("starting_failure_strategy"));
             this.runningFailureStrategy = RunningFailureStrategy.valueOf((String) rulesInfo.get("running_failure_strategy"));
+            this.statusFormula = (String) rulesInfo.get("status_formula");
         }
     }
 
@@ -172,6 +176,15 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getStatusFormula method returns the formula applied to define the application operational status.
+     *
+     * @return String: The formula for the application operational status.
+     */
+    public String getStatusFormula() {
+        return this.statusFormula;
+    }
+
+    /**
      * The toString method returns a printable form of the contents of the instance.
      *
      * @return String: The contents of the instance.
@@ -185,7 +198,8 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
                 + " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
                 + " startingStrategy=" + this.startingStrategy
                 + " startingFailureStrategy=" + this.startingFailureStrategy
-                + " runningFailureStrategy=" + this.runningFailureStrategy;
+                + " runningFailureStrategy=" + this.runningFailureStrategy
+                + " statusFormula=\"" + this.statusFormula + "\"";
         }
         rulesString += ")";
         return rulesString;

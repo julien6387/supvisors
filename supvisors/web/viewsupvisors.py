@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,12 +14,13 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict, List
+from typing import List
 
+from supvisors.application import ApplicationStatus
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions
-from supvisors.utils import simple_gmtime, simple_localtime
+from supvisors.utils import simple_duration, simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -38,10 +36,6 @@ class SupvisorsView(ViewHandler):
         - in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
     """
 
-    # Annotation types
-    ProcessCallable = Callable[[str, str], Callable]
-    ProcessCallableMap = Dict[str, ProcessCallable]
-
     def __init__(self, context):
         """ Call of the superclass constructors. """
         ViewHandler.__init__(self, context)
@@ -50,62 +44,64 @@ class SupvisorsView(ViewHandler):
         self.strategies: List[str] = [x.name.lower() for x in ConciliationStrategies]
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
-        self.global_methods: SupvisorsView.ProcessCallableMap = {'sup_sync': self.sup_sync_action,
-                                                                 'sup_restart': self.sup_restart_action,
-                                                                 'sup_shutdown': self.sup_shutdown_action}
+        self.global_methods = {'sup_sync': self.sup_sync_action,
+                               'sup_restart': self.sup_restart_action,
+                               'sup_shutdown': self.sup_shutdown_action}
         # process actions
-        self.process_methods: SupvisorsView.ProcessCallableMap = {'pstop': self.stop_action,
-                                                                  'pkeep': self.keep_action}
+        self.process_methods = {'pstop': self.stop_action,
+                                'pkeep': self.keep_action}
 
     def write_navigation(self, root) -> None:
         """ Rendering of the navigation menu. """
         self.write_nav(root)
 
-    def write_header(self, root) -> None:
+    def write_status(self, header_elt) -> None:
         """ Rendering of the header part of the Supvisors main page. """
+        # set Supvisors state & modes
         state_modes = self.sup_ctx.get_state_modes()
-        # set Supvisors state
-        elt = root.findmeld('state_mid')
-        elt.content(state_modes['fsm_statename'])
+        header_elt.findmeld('state_mid').content(state_modes['fsm_statename'])
         # set Supvisors modes
         for mid, attr in [('starting_mid', 'starting_jobs'), ('stopping_mid', 'stopping_jobs')]:
-            elt = root.findmeld(mid)
+            elt = header_elt.findmeld(mid)
             if state_modes[attr]:
                 update_attrib(elt, 'class', 'blink')
             else:
                 elt.replace('')
-        # write actions related to Supvisors
-        self.write_supvisors_actions(root)
+        # write the Master nick identifier
+        master_instance = self.sup_ctx.master_instance
+        identifier = master_instance.supvisors_id.nick_identifier if master_instance else 'none'
+        header_elt.findmeld('master_name_mid').content(identifier)
 
-    def write_supvisors_actions(self, root) -> None:
+    def write_actions(self, header_elt) -> None:
         """ Write actions related to Supvisors. """
+        super().write_actions(header_elt)
         # configure end of sync button
-        elt = root.findmeld('start_a_mid')
+        elt = header_elt.findmeld('start_a_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_sync'})
         elt.attributes(href=url)
         # configure restart button
-        elt = root.findmeld('restart_a_mid')
+        elt = header_elt.findmeld('restart_a_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'})
         elt.attributes(href=url)
         # configure shutdown button
-        elt = root.findmeld('shutdown_a_mid')
+        elt = header_elt.findmeld('shutdown_a_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})
         elt.attributes(href=url)
 
-    def write_contents(self, root) -> None:
+    def write_contents(self, contents_elt) -> None:
         """ Rendering of the contents of the Supvisors main page.
         This builds either a synoptic of the processes running on the Supvisors instances or the table of conflicts. """
         if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
             # remove Supvisors instances boxes
-            root.findmeld('boxes_div_mid').replace('')
+            contents_elt.findmeld('boxes_div_mid').replace('')
             # write conflicts
-            self.write_conciliation_strategies(root)
-            self.write_conciliation_table(root)
+            self.write_conciliation_strategies(contents_elt)
+            self.write_conciliation_table(contents_elt)
         else:
             # remove conflicts table
-            root.findmeld('conflicts_div_mid').replace('')
+            contents_elt.findmeld('conflicts_div_mid').replace('')
             # write Supvisors instances boxes
-            self.write_instance_boxes(root)
+            self.write_instance_boxes(contents_elt)
 
     # Standard part
     def _write_instance_box_title(self, instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool) -> None:
@@ -141,25 +137,24 @@ class SupvisorsView(ViewHandler):
             update_attrib(elt, 'class', 'on')
         else:
             update_attrib(elt, 'class', 'off')
-        identifier = status.identifier
-        if identifier == self.sup_ctx.master_identifier:
-            identifier = f'{MASTER_SYMBOL} {identifier}'
-        elt.content(identifier)
+        nick_identifier = status.supvisors_id.nick_identifier
+        if status.identifier == self.sup_ctx.master_identifier:
+            nick_identifier = f'{MASTER_SYMBOL} {nick_identifier}'
+        elt.content(nick_identifier)
         # set Supvisors instance state
         elt = instance_div_elt.findmeld('state_th_mid')
-        elt.attrib['class'] = status.state.name + ' state'
+        update_attrib(elt, 'class', status.state.name)
         elt.content(status.state.name)
         # set Supvisors instance current time
         elt = instance_div_elt.findmeld('time_th_mid')
         if status.has_active_state():
-            remote_time = status.get_remote_time(self.current_time)
+            remote_time = status.times.get_current_remote_time(self.current_mtime)
             elt.content(simple_localtime(remote_time))
         # set Supvisors instance current load
         elt = instance_div_elt.findmeld('percent_th_mid')
         elt.content(f'{status.get_load()}%')
 
-    @staticmethod
-    def _write_instance_box_processes(instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool):
+    def _write_instance_box_applications(self, instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool):
         """ Rendering of the Supvisors instance box running processes. """
         appli_tr_mid = instance_div_elt.findmeld('appli_tr_mid')
         running_processes = status.running_processes()
@@ -170,22 +165,42 @@ class SupvisorsView(ViewHandler):
                 # set row shading
                 apply_shade(appli_tr_elt, shaded_tr)
                 shaded_tr = not shaded_tr
-                # set application name
-                app_name_td_mid = appli_tr_elt.findmeld('app_name_td_mid')
-                app_name_td_mid.content(application_name)
-                # group cells if the User sync button is displayed
-                if user_sync:
-                    update_attrib(app_name_td_mid, 'colspan', '2')
-                # set running process list
-                process_li_mid = appli_tr_elt.findmeld('process_li_mid')
-                processes = filter(lambda x: x.application_name == application_name, running_processes)
-                for li_elt, process in process_li_mid.repeat(processes):
-                    process_a_mid = li_elt.findmeld('process_a_mid')
-                    process_a_mid.content(process.process_name)
+                # write application element
+                application = self.sup_ctx.applications[application_name]
+                self._write_instance_box_application(appli_tr_elt, status.identifier, application, user_sync,
+                                                     running_processes)
         else:
             # keep an empty line
             process_li_mid = appli_tr_mid.findmeld('process_li_mid')
             process_li_mid.replace('')
+
+    def _write_instance_box_application(self, appli_tr_elt, identifier: str, application: ApplicationStatus,
+                                        user_sync: bool, running_processes: List[ProcessStatus]):
+        """ Rendering of the application in the Supvisors instance box running processes. """
+        # set application name
+        app_name_td_mid = appli_tr_elt.findmeld('app_name_td_mid')
+        app_name_td_mid.content(application.application_name)
+        if application.rules.managed:
+            update_attrib(app_name_td_mid, 'class', 'on')
+            parameters = {APPLI: application.application_name, IDENTIFIER: identifier,
+                          STRATEGY: application.rules.starting_strategy.name}
+            url = self.view_ctx.format_url(identifier, APPLICATION_PAGE, **parameters)
+            app_name_td_mid.attributes(href=url)
+        # group cells if the User sync button is displayed
+        if user_sync:
+            update_attrib(app_name_td_mid, 'colspan', '2')
+        # set running process list
+        process_li_mid = appli_tr_elt.findmeld('process_li_mid')
+        processes = filter(lambda x: x.application_name == application.application_name,
+                           running_processes)
+        for li_elt, process in process_li_mid.repeat(processes):
+            process_a_mid = li_elt.findmeld('process_a_mid')
+            process_a_mid.content(process.process_name)
+            # write link to process page with process statistics
+            update_attrib(process_a_mid, 'class', 'on')
+            parameters = {PROCESS: process.namespec, IDENTIFIER: identifier}
+            url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE, **parameters)
+            process_a_mid.attributes(href=url)
 
     def write_instance_boxes(self, root):
         """ Rendering of the Supvisors instance boxes. """
@@ -199,14 +214,16 @@ class SupvisorsView(ViewHandler):
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
         # so let's sort them by name
         if self.supvisors.options.discovery_mode:
-            identifiers = sorted(identifiers)
+            identifiers = [status.identifier
+                           for status in sorted(self.supvisors.mapper.instances.values(),
+                                                key=lambda x: x.nick_identifier)]
         for instance_div_elt, identifier in instance_div_mid.repeat(identifiers):
             # get Supvisors instance status from Supvisors context
             status = self.sup_ctx.instances[identifier]
             # write box_title
             self._write_instance_box_title(instance_div_elt, status, user_sync)
             # fill with running processes
-            self._write_instance_box_processes(instance_div_elt, status, user_sync)
+            self._write_instance_box_applications(instance_div_elt, status, user_sync)
 
     # Conciliation part
     def write_conciliation_strategies(self, root):
@@ -278,7 +295,7 @@ class SupvisorsView(ViewHandler):
     def _write_conflict_uptime(tr_elt, info):
         """ In a conflicts table, write the uptime of the process in conflict. """
         elt = tr_elt.findmeld('uptime_td_mid')
-        elt.content(simple_gmtime(info['uptime']))
+        elt.content(simple_duration(info['uptime']))
 
     def _write_conflict_process_actions(self, tr_elt, info):
         """ In a conflicts table, write the actions that can be requested on the process in conflict. """
@@ -362,7 +379,7 @@ class SupvisorsView(ViewHandler):
         """ Stop the conflicting process. """
         # get running instances of process
         running_identifiers = self.sup_ctx.get_process(namespec).running_identifiers
-        self.supvisors.internal_com.pusher.send_stop_process(identifier, namespec)
+        self.supvisors.rpc_handler.send_stop_process(identifier, namespec)
 
         def on_wait():
             if identifier in running_identifiers:
@@ -380,7 +397,7 @@ class SupvisorsView(ViewHandler):
         identifiers = running_identifiers.copy()
         identifiers.remove(kept_identifier)
         for identifier in identifiers:
-            self.supvisors.internal_com.pusher.send_stop_process(identifier, namespec)
+            self.supvisors.rpc_handler.send_stop_process(identifier, namespec)
 
         def on_wait():
             if len(running_identifiers) > 1:

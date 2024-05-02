@@ -27,36 +27,53 @@ All pages are divided into 3 parts:
 Common Menu
 -----------
 
-.. image:: images/supvisors_menu.png
+|Supvisors|
+~~~~~~~~~~~
+
+.. figure:: images/supvisors_menu.png
     :alt: Common Menu
     :align: center
 
-Clicking on the 'Supvisors' title brings the `Main page`_ back or the `Conciliation page`_ if a red light is blinking
-next to it. The version of |Supvisors| is displayed underneath. There's also a reminder of the |Supvisors| instance
-that provides the information.
+    Common Menu
 
-Below is the **Supervisors** part that lists all the |Supvisors| instances defined in the :ref:`supvisors_section`
-of the |Supervisor| configuration file.
+Generally, clicking on the 'Supvisors' title brings the `Main page`_ back.
+
+There is an exception when conflicts are detected. In this case, a red light is blinking next to the |Supvisors| logo
+and clicking on it displays the `Conciliation page`_.
+
+The version of |Supvisors| is displayed underneath.
+
+Supervisors
+~~~~~~~~~~~
+
+Below the |Supvisors| logo is the **Supervisors** part that lists all the |Supvisors| instances defined in the :ref:`supvisors_section`
+of the |Supervisor| configuration file. |br|
 The color gives the state of the |Supvisors| instance:
 
     * grey for ``UNKNOWN`` ;
     * grey-to-green gradient for ``CHECKING`` ;
     * yellow for ``SILENT`` ;
-    * green for ``RUNNING`` ;
+    * green for ``CHECKED`` and ``RUNNING`` ;
     * red for ``ISOLATED``.
 
-The |Supvisors| instance is blinking when it is managing starting or stopping jobs.
+The |Supvisors| instance is blinking when it is handling starting or stopping jobs.
 
-Only the hyperlinks of the ``RUNNING`` |Supvisors| instances are active.
+An additional red light is displayed in the event where a process is in a crash state (``FATAL`` or unexpectedly
+``EXITED``).
+
+Only the hyperlinks of the ``CHECKED`` and ``RUNNING`` |Supvisors| instances are active.
 The browser is redirected to the `Supervisor page`_ of the targeted |Supvisors| instance.
-The |Supvisors| instance playing the role of *Master* is pointed out with the ✪ sign.
+
+The |Supvisors| instance playing the role of *Master* is pointed out with the ✪ symbol.
+
+Applications
+~~~~~~~~~~~~
 
 Below is the **Applications** part that lists all the *Managed* applications defined through the
 `group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_
 of the |Supervisor| configuration file and also declared in the |Supvisors| :ref:`rules_file`.
 The color gives the state of the Application, as seen by the |Supvisors| instance that is displaying this page:
 
-    * grey for ``UNKNOWN`` ;
     * yellow for ``STOPPED`` ;
     * yellow-to-green gradient for ``STARTING`` ;
     * green-to-yellow gradient for ``STOPPING`` ;
@@ -65,9 +82,13 @@ The color gives the state of the Application, as seen by the |Supvisors| instanc
 The application is blinking when it is part of the starting or stopping jobs managed by the local |Supvisors| instance.
 
 An additional red light is displayed in the event where a failure has been raised on the application.
+
 All hyperlinks are active. The browser is redirected to the corresponding `Application page`_ on the local Web Server.
 
-The bottom part of the menu contains a contact link and copyright information.
+Copyright
+~~~~~~~~~
+
+The bottom part of the menu contains a contact link to the |Supvisors| owner and maintainer and a copyright information.
 
 
 Common footer
@@ -76,7 +97,7 @@ Common footer
 The bottom part of all pages displays two information areas:
 
     * the acknowledgement area, used to print the result of the actions requested from the buttons of the Web UI ;
-    * the time when the page has been generated.
+    * the time when the page has been generated, and the |Supvisors| instance that provided the page.
 
 Depending on the result, the acknowledgement area may have a different background color:
 
@@ -95,14 +116,19 @@ Main Page
 
 The Main Page shows a synoptic of the |Supvisors| status.
 
-.. image:: images/supvisors_main_page.png
+.. figure:: images/supvisors_main_page.png
     :alt: Supvisors Main page
     :align: center
+
+    Supvisors Main page
 
 Main Page Header
 ~~~~~~~~~~~~~~~~
 
-The |Supvisors| state is displayed on the left side of the header:
+A first card on the left of the header may be displayed with the user software name and icon, if those are set in the
+|Supvisors| section of the |Supervisor| configuration file.
+
+The next card provides the |Supvisors| state and is displayed at the center of the header:
 
 ``OFF``
 
@@ -117,7 +143,7 @@ The |Supvisors| state is displayed on the left side of the header:
     In this state, the |Supvisors| :ref:`xml_rpc` is restricted so that only version, master and |Supvisors| instance
     information are available.
 
-``DEPLOYMENT``
+``DISTRIBUTION``
 
     In this state, |Supvisors| is automatically starting applications. Refer to the :ref:`starting_strategy` section
     for more details.
@@ -191,38 +217,42 @@ On the right side, 5 buttons are available:
 Main Page Contents
 ~~~~~~~~~~~~~~~~~~
 
-For every |Supvisors| instances, a box is displayed in the contents of the |Supvisors| Main Page.
+For every |Supvisors| instances, a card is displayed in the contents of the |Supvisors| Main Page.
 Each box contains:
 
     * (on condition) a |star| star button allowing the user to ends the |Supvisors| synchronization phase and forcing
       the corresponding |Supvisors| instance as *Master* (only when |Supvisors| is in ``INITIALIZATION`` state
       and ``USER`` is set in the ``synchro_options`` option);
-    * the |Supvisors| instance deduced name, which is a hyperlink to the corresponding `Supervisor Page`_
-      if the |Supvisors| instance is in the ``RUNNING`` state ;
+    * the |Supvisors| instance nick name, as a hyperlink to the corresponding `Supervisor Page`_
+      if the |Supvisors| instance is in the ``CHECKED`` or the ``RUNNING`` state ;
     * the |Supvisors| instance state, colored with the same rules used in the `Common Menu`_ ;
     * the |Supvisors| instance process loading ;
     * the list of all processes that are running in this |Supvisors| instance, whatever they belong to a *Managed*
       application or not.
 
-.. image:: images/supvisors_main_page_user_sync.png
+.. figure:: images/supvisors_main_page_user_sync.png
     :alt: Supvisors Main page with USER sync
     :align: center
+
+    Supvisors Main page with USER sync
 
 Conciliation Page
 -----------------
 
 If the page is refreshed when |Supvisors| is in ``CONCILIATION`` state, a red light is blinking next to the 'Supvisors'
 title in the top left of the `Common Menu`_.
+
 This situation is unlikely to happen if the ``conciliation_strategy`` chosen in the :ref:`supvisors_section`
 of the |Supervisor| configuration file is different from ``USER``, as the other values will trigger an immediate and
 automatic conciliation of the conflicts.
 
 The Conciliation Page can be reached by clicking on the 'Supvisors' title when the red blinking light is displayed.
 
-.. image:: images/supvisors_conciliation_page.png
+.. figure:: images/supvisors_conciliation_page.png
     :alt: Supvisors Conciliation Page
     :align: center
 
+    Supvisors Conciliation page
 
 Conciliation Page Header
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -265,11 +295,18 @@ that may be useful at software integration time.
 Supervisor Page Header
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The status of the |Supvisors| instance is displayed on the left side of the header:
+A first card on the left of the header may be displayed with the user software name and icon, if those are set in the
+|Supvisors| section of the |Supervisor| configuration file.
+
+The status of the |Supvisors| instance is then displayed:
 
     * the |Supvisors| instance deduced name, marked with the ✪ sign if it is the *Master* ;
     * the current loading of the processes running in this |Supvisors| instance ;
-    * the |Supvisors| instance state and modes.
+    * the |Supvisors| instance state and modes (discovery, starting, stopping).
+
+.. note::
+
+    The discovery mode is displayed when the |Supvisors| multicast interface is activated.
 
 .. note::
 
@@ -280,8 +317,7 @@ The status of the |Supvisors| instance is displayed on the left side of the head
     started or stopped on any other |Supervisor| instance managed by |Supvisors|.
 
 
-In the middle of the header, the 'Statistics View' box enables the user to choose the information presented
-on this page.
+The 'Statistics View' card enables the user to choose the information presented on this page.
 By default, the `Processes Section`_ is displayed. The other choice is the `Host Section`_. The *Host* button is named
 after the name of the node hosting the |Supvisors| instance.
 The periods can be updated in the :ref:`supvisors_section` of the |Supervisor| configuration file.
@@ -306,9 +342,11 @@ On the right side, 5 buttons are available:
 Processes Section
 ~~~~~~~~~~~~~~~~~
 
-.. image:: images/supvisors_address_process_section.png
+.. figure:: images/supvisors_address_process_section.png
     :alt: Processes Section of Supervisor Page
     :align: center
+
+    Supvisors Processes page
 
 The **Processes Section** looks like the page provided by |Supervisor|.
 Indeed, it lists the programs that are configured in |Supervisor|, it presents their current state with an associated
@@ -388,7 +426,7 @@ values. More particularly, |Supvisors| displays on the right side of the page a 
 
     * the last measure ;
     * the mean value ;
-    * the value of the slope of the linear regression built ;
+    * the value of the linear regression slope (unit is percent per period) ;
     * the value of the standard deviation.
 
 A color and a sign are associated to the last value, so that:
@@ -408,9 +446,11 @@ process:
 Host Section
 ~~~~~~~~~~~~
 
-.. image:: images/supvisors_address_host_section.png
+.. figure:: images/supvisors_address_host_section.png
     :alt: Host Section of Supervisor Page
     :align: center
+
+    Supvisors Host page
 
 The Host Section contains CPU, Memory and Network statistics for the considered node.
 
@@ -419,6 +459,10 @@ The CPU table shows statistics about the CPU on each core of the processor and a
 The Memory table shows statistics about the amount of used (and not available) memory.
 
 The Network table shows statistics about the receive and sent flows on each network interface.
+
+.. note::
+
+    A space is left for future growth and is intended to display statistics about disk usage.
 
 Clicking on a button associated to the resource displays detailed statistics (graph and table),
 similarly to the process buttons.
@@ -435,12 +479,16 @@ The Application Page of |Supvisors|:
     * enables the user to command the application and its processes ;
     * provides statistics that may be useful at software integration time.
 
-.. image:: images/supvisors_application_page.png
+.. figure:: images/supvisors_application_page.png
     :alt: Supvisors Application page
     :align: center
 
+    Supvisors Application page
+
 Application Page Header
 ~~~~~~~~~~~~~~~~~~~~~~~
+
+As per the other pages, a first card on the left of the header may be displayed with the user software name and icon.
 
 The status of the Application is displayed on the left side of the header, including:
 
@@ -453,14 +501,16 @@ The status of the Application is displayed on the left side of the header, inclu
         + orange if ``RUNNING`` and at least one minor failure is detected, and no major failure ;
         + green if ``RUNNING`` and no failure is detected.
 
-The second part of the header is the 'Starting strategy' box that enables the user to choose the strategy
+The Application operational status is evaluated against the ``status_formula`` or the ``required`` options eventually
+provided in the rules file.
+
+The next part of the header is the 'Starting strategy' box that enables the user to choose the strategy
 to start the application programs listed below.
 
 Strategies are detailed in :ref:`starting_strategy`.
 
-The third part of the header is the 'Statistics Period' box that enables the user to choose the period used
-for the statistics of this page. The periods can be updated in the :ref:`supvisors_section` of the |Supervisor|
-configuration file.
+Then follows the 'Statistics Period' box that enables the user to choose the period used for the statistics
+of this page. The periods can be updated in the :ref:`supvisors_section` of the |Supervisor| configuration file.
 
 On the right side, 4 buttons are available:
 
@@ -477,7 +527,7 @@ The table lists all the programs belonging to the application, and it shows:
 
     * the 'synthetic' state of the process (refer to this note for details about the synthesis) ;
     * the |Supvisors| instances where it runs, if appropriate ;
-    * the description (after initialization from |Supervisor|, the deduced name of the corresponding |Supvisors|
+    * the description (after initialization from |Supervisor|, the nick name of the corresponding |Supvisors|
       instance is added depending on the state) ;
     * the loading declared for the process in the rules file ;
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``) ;

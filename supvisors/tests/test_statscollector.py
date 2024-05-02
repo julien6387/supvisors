@@ -89,6 +89,34 @@ def test_instant_io_statistics():
     assert stats['lo'][0] == stats['lo'][1]
 
 
+def test_write_node_characteristics(mocker):
+    """ Test the LocalNodeInfo class method. """
+    # patch psutil functions
+    mocker.patch('psutil.cpu_count', side_effect=lambda logical=True: 8 if logical else 4)
+    mocker.patch('psutil.cpu_freq', return_value=Mock(current=3000.01))
+    mocked_ram = mocker.patch('psutil.virtual_memory', return_value=Mock(total=16123456789))
+    # test call
+    info = LocalNodeInfo()
+    assert info.nb_core_physical == 4
+    assert info.nb_core_logical == 8
+    assert info.frequency == '3000 MHz'
+    assert info.physical_memory == '15.02 GiB'
+    # test call with less RAM (even if it is very unlikely)
+    mocked_ram.return_value = Mock(total=16123456)
+    info = LocalNodeInfo()
+    assert info.nb_core_physical == 4
+    assert info.nb_core_logical == 8
+    assert info.frequency == '3000 MHz'
+    assert info.physical_memory == '15.38 MiB'
+    # test again with less RAM (even if it is VERY unlikely)
+    mocked_ram.return_value = Mock(total=16123)
+    info = LocalNodeInfo()
+    assert info.nb_core_physical == 4
+    assert info.nb_core_logical == 8
+    assert info.frequency == '3000 MHz'
+    assert info.physical_memory == '15.75 KiB'
+
+
 def test_statistics_collector():
     """ Test the StatisticsCollector base class. """
     cmd_recv, cmd_send = mp.Pipe(False)  # used to /receive commands, pids and program names

@@ -22,16 +22,18 @@ from unittest.mock import Mock
 
 from supervisor.loggers import getLogger, handle_stdout, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.states import STOPPED_STATES, SupervisorStates
+from supervisor.states import STOPPED_STATES, SupervisorStates, ProcessStates
 
 import supvisors
 from supvisors.context import Context
 from supvisors.initializer import Supvisors
-from supvisors.internal_com import SupvisorsMapper
+from supvisors.internal_com.mapper import SupvisorsMapper
+from supvisors.options import SupvisorsOptions, SupvisorsServerOptions
 from supvisors.rpcinterface import RPCInterface
 from supvisors.statscollector import StatisticsCollectorProcess
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
+from supvisors.supervisorupdater import SupervisorUpdater
 from supvisors.utils import extract_process_info
 
 
@@ -41,18 +43,18 @@ class MockedSupvisors:
     def __init__(self, supervisord, config):
         """ Use mocks when not possible to use real structures. """
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
-        from supvisors.options import SupvisorsOptions
         self.options = SupvisorsOptions(supervisord, self.logger, **config)
         self.options.rules_files = [config['rules_files']]
         # mock the supervisord source
         self.supervisor_data = SupervisorData(self, supervisord)
+        self.supervisor_updater = SupervisorUpdater(self)
         self.mapper = SupvisorsMapper(self)
         host_name = gethostname()
         fqdn = getfqdn()
         identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{fqdn}:65000:', f'<test>{fqdn}:55000:55100']
+                       f'<{host_name}>{fqdn}:25000', f'<test>{fqdn}:15000']
         self.mapper.configure(identifiers, {'supvisors_test'}, [])
-        self.server_options = Mock(process_indexes={'xclock': 2})
+        self.server_options = SupvisorsServerOptions(self)
         # set real statistics collector and compilers
         self.stats_collector = StatisticsCollectorProcess(self)
         self.host_compiler = HostStatisticsCompiler(self)
@@ -60,21 +62,23 @@ class MockedSupvisors:
         # build context from node mapper
         self.context = Context(self)
         # mock by spec
-        from supvisors.commander import Starter, Stopper
+        from supvisors.commander import Starter, Stopper, StarterModel
         from supvisors.strategy import RunningFailureHandler
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.listener import SupervisorListener
         from supvisors.sparser import Parser
-        from supvisors.internal_com import SupvisorsInternalEmitter
+        from supvisors.internal_com.rpchandler import RpcHandler
         self.starter = Mock(spec=Starter)
+        self.starter_model = Mock(spec=StarterModel)
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
         self.fsm = Mock(spec=FiniteStateMachine, redeploy_mark=False)
         self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
         # should be set in listener
-        self.internal_com = Mock(spec=SupvisorsInternalEmitter)
-        self.internal_com.__init__()
+        self.rpc_handler = Mock(spec=RpcHandler)
+        self.rpc_handler.__init__()
+        self.discovery_handler = None
         self.external_publisher = None
 
 
@@ -82,7 +86,8 @@ class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
 
     def __init__(self):
-        self.handler = Mock(rpcinterface=Mock(supervisor=Mock(rpc_name='supervisor_RPC'),
+        self.handler = Mock(rpcinterface=Mock(system=Mock(rpc_name='system_RPC'),
+                                              supervisor=Mock(rpc_name='supervisor_RPC'),
                                               supvisors=Mock(rpc_name='supvisors_RPC')))
 
 
@@ -115,7 +120,7 @@ class DummyServerOptions:
         server_config = {'section': 'inet_http_server',
                          'family': socket.AF_INET,
                          'host': gethostname(),
-                         'port': 65000,
+                         'port': 25000,
                          'username': 'user',
                          'password': 'p@$$w0rd'}
         self.configfile = 'supervisord.conf'
@@ -149,6 +154,8 @@ class DummyProcessConfig:
         self.name = name
         self.command = command
         self.autorestart = autorestart
+        self.startsecs = 5
+        self.stopwaitsecs = 10
         self.stdout_logfile = stdout_logfile
         self.stderr_logfile = stderr_logfile
 
@@ -157,16 +164,16 @@ class DummyProcess:
     """ Simple supervisor process with simple attributes. """
 
     def __init__(self, name: str, command: str, autorestart: bool, stdout_logfile: bool, stderr_logfile: bool):
-        self.state = 'STOPPED'
+        self.state = ProcessStates.STOPPED
         self.spawnerr = ''
         self.laststart = 1234
         self.config = DummyProcessConfig(name, command, autorestart, stdout_logfile, stderr_logfile)
 
     def give_up(self):
-        self.state = 'FATAL'
+        self.state = ProcessStates.FATAL
 
     def transition(self):
-        self.state = 'STARTING'
+        self.state = ProcessStates.STARTING
 
 
 class DummySupervisor:
@@ -176,7 +183,7 @@ class DummySupervisor:
         self.options = DummyServerOptions()
         dummy_process_1 = DummyProcess('dummy_process_1', 'ls', True, True, False)
         dummy_process_2 = DummyProcess('dummy_process_2', 'cat', False, False, True)
-        self.process_groups = {'dummy_application': Mock(config='dummy_application_config',
+        self.process_groups = {'dummy_application': Mock(config=Mock(name='dummy_application'),
                                                          processes={'dummy_process_1': dummy_process_1,
                                                                     'dummy_process_2': dummy_process_2})}
 
@@ -193,7 +200,7 @@ class DummyHttpContext:
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'ident': '10.0.0.4',
+                     'ident': '10.0.0.4:25000',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',

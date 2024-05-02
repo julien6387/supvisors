@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
 #
@@ -129,20 +126,16 @@ class WsEventPublisher(EventPublisherInterface):
                    if EventHeaders.APPLICATION in subscriptions]
         websockets.broadcast(clients, json.dumps((EventHeaders.APPLICATION.value, status)))
 
-    def send_process_event(self, identifier: str, event: Payload) -> None:
+    def send_process_event(self, event: Payload) -> None:
         """ Send a JSON-serialized process event through the socket.
 
-        :param identifier: the identifier used to identify the origin of the event.
         :param event: the event to publish.
         :return: None.
         """
-        # build the event before it is sent
-        evt = event.copy()
-        evt['identifier'] = identifier
-        self.logger.trace(f'WsEventPublisher.send_process_event: {evt}')
+        self.logger.trace(f'WsEventPublisher.send_process_event: {event}')
         clients = [ws for ws, subscriptions in websocket_clients.items()
                    if EventHeaders.PROCESS_EVENT in subscriptions]
-        websockets.broadcast(clients, json.dumps((EventHeaders.PROCESS_EVENT.value, evt)))
+        websockets.broadcast(clients, json.dumps((EventHeaders.PROCESS_EVENT.value, event)))
 
     def send_process_status(self, status: Payload) -> None:
         """ This method sends a serialized form of the process status through the socket.

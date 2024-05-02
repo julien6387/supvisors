@@ -42,16 +42,22 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /** The date of the last event received for this process. */
     private Double now;
 
+    /** The monotonic time of the last event received for this process. */
+    private Double now_monotonic;
+
     /** The UNIX process id of the process. */
     private Integer pid;
 
-    /** The identifier of the Supvisors instance that published the event. */
+    /** The identifier of the Supvisors instance that published the event (TBC). */
     private String identifier;
+
+    /** The description in the case of an erroneous start. */
+    private String spawnerr;
 
     /** The extra arguments passed to the command line. */
     private String extra_args;
 
-    /** A status telling if the process has been disabled. */
+    /** A status telling if the program has been disabled. */
     private Boolean disabled;
 
     /**
@@ -65,9 +71,11 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
         this.state = ProcessState.valueOf((Integer) processInfo.get("state"));
         this.expected = (Boolean) processInfo.get("expected");
         this.now = (Double) processInfo.get("now");
+        this.now_monotonic = (Double) processInfo.get("now_monotonic");
         this.pid = (Integer) processInfo.get("pid");
         // identifier is not set in this message
         this.identifier = null;
+        this.spawnerr = (String) processInfo.get("spawnerr");
         this.extra_args = (String) processInfo.get("extra_args");
         this.disabled = (Boolean) processInfo.get("disabled");
    }
@@ -119,12 +127,21 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNow method returns the date of the event.
+     * The getNow method returns the date of the last event received for this process.
      *
-     * @return Double: The date of the event.
+     * @return Double: The latest stop date.
      */
     public Double getNow() {
         return this.now;
+    }
+
+    /**
+     * The getNowMonotonic method returns the monotonic time of the last event received for this process.
+     *
+     * @return Double: The latest stop monotonic time.
+     */
+    public Double getNowMonotonic() {
+        return this.now_monotonic;
     }
 
     /**
@@ -146,13 +163,31 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getExtraArgs method returns the extra arguments passed to the
-     * command line.
+     * The getSpawnError method returns the description in the case of an erroneous start.
+     *
+     * @return String: The spawn error description.
+     */
+    public String getSpawnError() {
+        return this.spawnerr;
+    }
+
+    /**
+     * The getExtraArgs method returns the extra arguments passed to the command line.
      *
      * @return String: The arguments.
      */
     public String getExtraArgs() {
         return this.extra_args;
+    }
+
+    /**
+     * The isExpected method returns the disabled status of the program.
+     * The processes of a disabled program cannot be started.
+     *
+     * @return Boolean: The exit status.
+     */
+    public Boolean isDisabled() {
+        return this.disabled;
     }
 
     /**
@@ -163,14 +198,20 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      */
     public String toString() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String nowDate = "0";
+        if (this.now > 0) {
+            nowDate = "\"" + sdf.format(new Date(new Double(this.now * 1000L).longValue())) + "\"";
+        }
         return "SupvisorsProcessEvent(namespec=" + this.getName()
             + " group=" + this.group
             + " name=" + this.name
             + " state=" + this.state
             + " expected=" + this.expected
-            + " now=\"" + sdf.format(new Date((long) ((double) this.now * 1000L))) + "\""
+            + " now=" + nowDate
+            + " nowMonotonic=" + this.now_monotonic
             + " pid=" + this.pid
             + " identifier=" + this.identifier
+            + " spawnError=" + this.spawnerr
             + " extraArgs=\"" + this.extra_args + "\""
             + " disabled=" + this.disabled + ")";
     }

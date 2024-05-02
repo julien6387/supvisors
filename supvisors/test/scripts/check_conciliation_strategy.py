@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -312,10 +309,9 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
     def _get_movie_servers(self):
         """ Get the running status of the movie_server_0x processes. """
         process_info = self.local_supvisors.get_process_info('database:*')
-        running_processes = {info['process_name']: info['identifiers']
-                             for info in process_info
-                             if info['statecode'] == ProcessStates.RUNNING}
-        return running_processes
+        return {info['process_name']: info['identifiers']
+                for info in process_info
+                if info['statecode'] == ProcessStates.RUNNING}
 
 
 def test_suite():

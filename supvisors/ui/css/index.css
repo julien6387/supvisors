@@ -1,0 +1,78 @@
+/*
+ * Copyright 2024 Julien LE CLEACH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Supvisors Main page
+ */
+
+/* Contents part */
+#index_contents {
+    display: flex;
+    flex: 1;
+    overflow: auto;
+    padding: 10px;
+}
+
+/* Conflicts */
+#conflict_part {
+    flex: 1;
+}
+
+/* Instance boxes */
+#box_part {
+    display: flex;
+    flex: 1;
+    height: 90px;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+#box_part .card {
+    display: flex;
+    margin: auto;
+}
+
+#box_part table {
+    height: 100%;
+    margin: 10px;
+}
+
+#box_part th:not(.state_cell) {
+    height: 18px;
+    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
+}
+
+#box_part tr:first-child th {
+    border-bottom: solid 1px var(--border-color);
+}
+
+#box_part td:nth-child(1) {
+    vertical-align: center;
+}
+
+#box_part td.process_list {
+    max-width: 250px;
+}
+
+#box_part tbody .button {
+    margin-bottom: 4px;
+}
+
+/* fix state columns width */
+#box_part .state_cell {
+    width: 50px;
+}

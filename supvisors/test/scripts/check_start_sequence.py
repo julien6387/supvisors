@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -119,7 +116,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         The movie_server_xx processes are started first, then the register_movies_xx.
         FATAL process events are expected, according to the test platform. """
         # define 'import_database' application
-        application = Application('database')
+        application = Application('database', database_status_logic)
         self.context.add_application(application)
         for program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03']:
             application.add_program(Program(program_name))
@@ -131,7 +128,8 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_movie_server_starting(self):
         """ Check the starting of the movie_server programs. """
-        config = [('movie_server_01', self.HOST_01), ('movie_server_02', self.HOST_02),
+        config = [('movie_server_01', self.HOST_01),
+                  ('movie_server_02', self.HOST_02),
                   ('movie_server_03', self.HOST_03)]
         # define the expected events for the movie_server_xx programs
         application = self.context.get_application('database')

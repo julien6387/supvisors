@@ -27,8 +27,9 @@ from supervisor.options import ClientOptions, make_namespec, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
+from . import __version__
 from .plugin import expand_faults
-from .rpcinterface import API_VERSION, RPCInterface
+from .rpcinterface import RPCInterface
 from .ttypes import ConciliationStrategies, StartingStrategies, SupvisorsInstanceStates, PayloadList
 from .utils import simple_localtime
 
@@ -97,7 +98,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sversion(self):
         """ Print the help of the sversion command. """
-        self.ctl.output('sversion\t\t\t\tGet the API version of Supvisors.')
+        self.ctl.output('sversion\t\t\tGet the API version of Supvisors.')
 
     def do_sstate(self, _):
         """ Command to get the Supvisors state. """
@@ -127,7 +128,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sstate(self):
         """ Print the help of the sstate command. """
-        self.ctl.output('sstate\t\t\t\t\tGet the Supvisors state.')
+        self.ctl.output('sstate\t\t\t\tGet the Supvisors state.')
 
     def do_master(self, _):
         """ Command to get the Master Supvisors instance. """
@@ -142,7 +143,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_master(self):
         """ Print the help of the master command. """
-        self.ctl.output('master\t\t\t\t\tGet the Master Supvisors instance.')
+        self.ctl.output('master\t\t\t\tGet the Master Supvisors instance.')
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
@@ -159,7 +160,24 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_strategies(self):
         """ Print the help of the strategies command."""
-        self.ctl.output('strategies\t\t\t\t\tGet the Supvisors strategies.')
+        self.ctl.output('strategies\t\t\tGet the Supvisors strategies.')
+
+    def do_stats_status(self, _):
+        """ Command to get the Supvisors statistics collection status. """
+        if self._upcheck():
+            try:
+                status = self.supvisors().get_statistics_status()
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f"Collecting Host statistics:    {status['host_stats']}")
+                self.ctl.output(f"Collecting Process statistics: {status['process_stats']}")
+                self.ctl.output(f"Collecting statistics period:  {status['collecting_period']}")
+
+    def help_stats_status(self):
+        """ Print the help of the Supvisors statistics collection status command."""
+        self.ctl.output('stats_status\t\t\tGet the Supvisors statistics collection status.')
 
     def do_instance_status(self, arg):
         """ Command to get the status of instances known to Supvisors. """
@@ -173,16 +191,19 @@ class ControllerPlugin(ControllerPluginBase):
             else:
                 # create template. identifier has variable length
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
-                max_node_names = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
-                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_node_names}s%(port)-7s'
-                            '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s%(failure)-9s'
-                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_node_names}s'
+                max_hosts = ControllerPlugin.max_template(info_list, 'node_name', 'Host')
+                max_masters = ControllerPlugin.max_template(info_list, 'master_identifier', 'Master')
+                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_hosts}s%(port)-7s'
+                            '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
+                            '%(proc_failure)-11s'
+                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_masters}s'
                             '%(starting)-10s%(stopping)-10s')
                 # print title
-                payload = {'identifier': 'Supervisor', 'node_name': 'Node', 'port': 'Port',
+                payload = {'identifier': 'Supervisor', 'node_name': 'Host', 'port': 'Port',
                            'state': 'State', 'discovery': 'Discovery',
-                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter', 'failure': 'Failure',
-                           'fsm_state': 'FSM', 'master': 'Master', 'discovery': 'Discovery',
+                           'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
+                           'proc_failure': 'Processes',
+                           'fsm_state': 'FSM', 'master': 'Master',
                            'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
                 # check request args
@@ -197,10 +218,9 @@ class ControllerPlugin(ControllerPluginBase):
                                    'discovery': info['discovery_mode'],
                                    'load': f"{info['loading']}%",
                                    'ltime': simple_localtime(info['local_time']),
-                                   'counter': info['sequence_counter'],
-                                   'failure': info['process_failure'],
+                                   'counter': info['remote_sequence_counter'],
+                                   'proc_failure': 'error' if info['process_failure'] else 'ok',
                                    'fsm_state': info['fsm_statename'],
-                                   'discovery': info['discovery_mode'],
                                    'master': info['master_identifier'],
                                    'starting': info['starting_jobs'],
                                    'stopping': info['stopping_jobs']}
@@ -210,7 +230,7 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the instance_status command."""
         self.ctl.output('instance_status <identifier>\t\t\tGet the status of the Supvisors instance.')
         self.ctl.output('instance_status <identifier> <identifier>\tGet the status for multiple Supvisors instances')
-        self.ctl.output('instance_status\t\t\t\t\tGet the status of all remote Supvisors instances.')
+        self.ctl.output('instance_status\t\t\t\t\tGet the status of all Supvisors instances.')
 
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):
@@ -567,6 +587,71 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('start_application <strategy>\t\t\t'
                         'Start all managed applications with strategy.')
 
+    def do_test_start_application(self, arg):
+        """ Command to test the starting of Supvisors applications using a strategy and rules. """
+        if self._upcheck():
+            args = as_string(arg).split()
+            # check number of arguments
+            if len(args) != 2:
+                self.ctl.output('ERROR: test_start_application requires one strategy and one application name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_application()
+                return
+            # check strategy format
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for test_start_application.'
+                                f' use one of {[x.name for x in StartingStrategies]}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_application()
+                return
+            # get all application info
+            application_name = args[1]
+            try:
+                info = self.supvisors().get_application_info(args[1])
+            except xmlrpclib.Fault:
+                self.ctl.output(f'ERROR: unknown application "{application_name}"')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                return
+            # match with parameters
+            if not info['managed']:
+                self.ctl.output(f'ERROR: {application_name} unmanaged')
+                self.help_test_start_application()
+                return
+            # request test start for matching applications
+            try:
+                results_list = self.supvisors().test_start_application(strategy.value, application_name)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'{application_name}: ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                return
+            # print results summary
+            max_appli = ControllerPlugin.max_template(results_list, 'application_name', 'Application')
+            max_process = ControllerPlugin.max_template(results_list, 'process_name', 'Process')
+            max_identifiers = ControllerPlugin.max_template(results_list, 'running_identifiers', 'Supervisor')
+            # print title
+            template = (f'%(appli)-{max_appli}s%(proc)-{max_process}s%(state)-12s'
+                        f'%(identifiers)-{max_identifiers}s%(reason)s')
+            title = {'appli': 'Application', 'proc': 'Process', 'state': 'State',
+                     'identifiers': 'Supervisor', 'reason': 'Reason'}
+            self.ctl.output(template % title)
+            # print results
+            for results in results_list:
+                payload = {'appli': results['application_name'],
+                           'proc': results['process_name'],
+                           'identifiers': results['running_identifiers'],
+                           'state': results['state'],
+                           'reason': results['forced_reason']}
+                self.ctl.output(template % payload)
+
+    def help_test_start_application(self):
+        """ Print the help of the test_start_application command."""
+        self.ctl.output('test_start_application <strategy> <appli>\t\t'
+                        'Test the starting of the managed application named appli with strategy.')
+        self.ctl.output('test_start_application <strategy>\t\t\t'
+                        'Test the starting of all managed applications with strategy.')
+
     def do_restart_application(self, arg):
         """ Command to restart Supvisors applications using a strategy and rules. """
         if self._upcheck():
@@ -773,6 +858,54 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('start_process <strategy> <proc> <proc>\t\tStart multiple named processes with strategy.')
         self.ctl.output('start_process <strategy>\t\t\tStart all processes with strategy.')
 
+    def do_test_start_process(self, arg):
+        """ Command to test the starting of Supvisors processes using a strategy and rules. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) != 2:
+                self.ctl.output('ERROR: test_start_process requires one strategy and one namespec')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_process()
+                return
+            try:
+                strategy = StartingStrategies[args[0]]
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for test_start_process.'
+                                f' use one of {[x.name for x in StartingStrategies]}')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_test_start_process()
+                return
+            namespec = args[1]
+            try:
+                results_list = self.supvisors().test_start_process(strategy.value, namespec)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                return
+            # print results summary
+            max_appli = ControllerPlugin.max_template(results_list, 'application_name', 'Application')
+            max_process = ControllerPlugin.max_template(results_list, 'process_name', 'Process')
+            max_identifiers = ControllerPlugin.max_template(results_list, 'running_identifiers', 'Supervisor')
+            # print title
+            template = (f'%(appli)-{max_appli}s%(proc)-{max_process}s%(state)-12s'
+                        f'%(identifiers)-{max_identifiers}s%(reason)s')
+            title = {'appli': 'Application', 'proc': 'Process', 'state': 'State',
+                     'identifiers': 'Supervisor', 'reason': 'Reason'}
+            self.ctl.output(template % title)
+            # print results
+            for results in results_list:
+                payload = {'appli': results['application_name'],
+                           'proc': results['process_name'],
+                           'identifiers': results['running_identifiers'],
+                           'state': results['state'],
+                           'reason': results['forced_reason']}
+                self.ctl.output(template % payload)
+
+    def help_test_start_process(self):
+        """ Print the help of the test_start_process command."""
+        self.ctl.output('test_start_process <strategy> <proc>\t\t\tStart the process named proc with strategy.')
+        self.ctl.output('test_start_process <strategy>\t\t\tStart all processes with strategy.')
+
     def do_start_any_process(self, arg):
         """ Command to start processes using regular expressions, with a strategy and rules. """
         if self._upcheck():
@@ -969,11 +1102,44 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('{} numprocs updated: {}'.format(args[0], result))
+                self.ctl.output(f'{args[0]} numprocs updated: {result}')
 
     def help_update_numprocs(self):
         """ Print the help of the update_numprocs command. """
-        self.ctl.output('update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs.')
+        self.ctl.output('update_numprocs program_name numprocs\t\tUpdate the program numprocs.')
+
+    def do_lazy_update_numprocs(self, arg):
+        """ Command to dynamically update the numprocs of the program.
+        Implementation of Supervisor issue #177 - Dynamic numproc change.
+        The difference with update_numprocs is that the obsolete processes will be removed from the configuration
+        only when they will stop (by themselves or as a consequence of a later action).
+        """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: lazy_update_numprocs requires a program name and a numprocs values')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_lazy_update_numprocs()
+                return
+            try:
+                value = int(args[1])
+                assert value > 0
+            except (ValueError, AssertionError):
+                self.ctl.output('ERROR: numprocs must be a strictly positive integer')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_lazy_update_numprocs()
+                return
+            try:
+                result = self.supvisors().update_numprocs(args[0], value, True, True)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'{args[0]} numprocs updated: {result}')
+
+    def help_lazy_update_numprocs(self):
+        """ Print the help of the lazy_update_numprocs command. """
+        self.ctl.output('lazy_update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs (lazy mode).')
 
     def do_enable(self, arg):
         """ Command to enable the processes corresponding to the program.
@@ -1048,7 +1214,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
-        self.ctl.output('conciliate <strategy>\t\t\t\t\tConciliate process conflicts using strategy')
+        self.ctl.output('conciliate <strategy>\t\t\t\tConciliate process conflicts using strategy')
 
     def do_restart_sequence(self, _):
         """ Command to trigger the whole start sequence of Supvisors. """
@@ -1149,13 +1315,147 @@ class ControllerPlugin(ControllerPluginBase):
         values = RPCInterface.get_logger_levels().values()
         self.ctl.output(f'\t\t\t\t\tApplicable values are: {values}.')
 
+    def do_enable_stats(self, arg):
+        """ Command to enable host/process statistics collection in the local Supvisors. """
+        if self._upcheck():
+            args = arg.split()
+            enable_host_stats, enable_proc_stats = True, True
+            if args:
+                enable_host_stats, enable_proc_stats = False, False
+                error = False
+                # check request args
+                stats_types = list(map(str.lower, arg.split()))
+                for stats_type in stats_types:
+                    if stats_type == 'host':
+                        enable_host_stats = True
+                    elif stats_type == 'process':
+                        enable_proc_stats = True
+                    elif stats_type == 'all':
+                        enable_host_stats = True
+                        enable_proc_stats = True
+                    else:
+                        self.ctl.output(f'ERROR: invalid statistics type {stats_type}')
+                        error = True
+                if error:
+                    self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                    self.help_enable_stats()
+                    return
+            # disable host statistics collection
+            if enable_host_stats:
+                try:
+                    result = self.supvisors().enable_host_statistics(True)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Host statistics enabled: {result}')
+            # disable process statistics collection
+            if enable_proc_stats:
+                try:
+                    result = self.supvisors().enable_process_statistics(True)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Process statistics enabled: {result}')
+
+    def help_enable_stats(self):
+        """ Print the help of the enable_stats command."""
+        self.ctl.output('enable_stats\t\t\tEnable host and process statistics collection')
+        self.ctl.output('enable_stats all\t\tEnable host and process statistics collection')
+        self.ctl.output('enable_stats host\t\tEnable host statistics collection')
+        self.ctl.output('enable_stats process\t\tEnable process statistics collection')
+        self.ctl.output('enable_stats host process\tEnable host and process statistics collection')
+
+    def do_disable_stats(self, arg):
+        """ Command to disable host/process statistics collection in the local Supvisors. """
+        if self._upcheck():
+            args = arg.split()
+            disable_host_stats, disable_proc_stats = True, True
+            if args:
+                disable_host_stats, disable_proc_stats = False, False
+                error = False
+                # check request args
+                stats_types = list(map(str.lower, arg.split()))
+                for stats_type in stats_types:
+                    if stats_type == 'host':
+                        disable_host_stats = True
+                    elif stats_type == 'process':
+                        disable_proc_stats = True
+                    elif stats_type == 'all':
+                        disable_host_stats = True
+                        disable_proc_stats = True
+                    else:
+                        self.ctl.output(f'ERROR: invalid statistics type {stats_type}')
+                        error = True
+                if error:
+                    self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                    self.help_disable_stats()
+                    return
+            # disable host statistics collection
+            if disable_host_stats:
+                try:
+                    result = self.supvisors().enable_host_statistics(False)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Host statistics disabled: {result}')
+            # disable process statistics collection
+            if disable_proc_stats:
+                try:
+                    result = self.supvisors().enable_process_statistics(False)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output(f'ERROR ({e.faultString})')
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+                else:
+                    self.ctl.output(f'Process statistics disabled: {result}')
+
+    def help_disable_stats(self):
+        """ Print the help of the disable_stats command."""
+        self.ctl.output('disable_stats\t\t\tDisable host and process statistics collection')
+        self.ctl.output('disable_stats all\t\tDisable host and process statistics collection')
+        self.ctl.output('disable_stats host\t\tDisable host statistics collection')
+        self.ctl.output('disable_stats process\t\tDisable process statistics collection')
+        self.ctl.output('disable_stats host process\tDisable host and process statistics collection')
+
+    def do_stats_period(self, arg):
+        """ Command to enable/disable host/process statistics collection in the local Supvisors. """
+        if self._upcheck():
+            # check request args
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: stats_period requires a period')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_stats_period()
+                return
+            try:
+                value = float(args[0])
+                assert value > 0.0
+            except ValueError:
+                self.ctl.output('ERROR: stats_period requires a strictly positive period')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
+                self.help_stats_period()
+                return
+            try:
+                result = self.supvisors().update_collecting_period(value)
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                self.ctl.output(f'Statistics period updated: {result}')
+
+    def help_stats_period(self):
+        """ Print the help of the stats_period command."""
+        self.ctl.output('stats_period period\t\tUpdate the host and process statistics collection period')
+
     def _upcheck(self):
         """ Check of the API versions. """
         try:
             api = self.supvisors().get_api_version()
-            if api != API_VERSION:
+            if api != __version__:
                 self.ctl.output('ERROR: this version of supvisorsctl expects to talk to a server '
-                                'with API version %s, but the remote version is %s.' % (API_VERSION, api))
+                                'with API version %s, but the remote version is %s.' % (__version__, api))
                 self.ctl.exitstatus = LSBInitExitStatuses.NOT_INSTALLED
                 return False
         except xmlrpclib.Fault as e:

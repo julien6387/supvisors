@@ -20,18 +20,18 @@ package org.supvisors.common;
  * The SupvisorsInstanceState enumeration.
  *
  * UNKNOWN:   used at initialization, before any heartbeat message is received from this Supvisors instance.
- * CHECKING:  used when the local Supvisors checks the isolation status of this Supvisors instance.
- * RUNNING:   used when the local Supvisors receives heartbeat messages from this Supvisors instance.
+ * CHECKING:  used when the local Supvisors is checking the status of the remote Supvisors instance.
+ * CHECKED:   used when the local Supvisors has checked the status of the remote Supvisors instance.
+ * RUNNING:   used when the local Supvisors is ready to work with the remote Supvisors instance.
  * SILENT:    used when the local Supvisors does not receive any heartbeat message from this Supvisors instance.
- * ISOLATING: used when the local Supvisors is about to disconnect this Supvisors instance.
  * ISOLATED:  used when the local Supvisors has actually disconnected this Supvisors instance.
  */
 public enum SupvisorsInstanceState {
     UNKNOWN(0),
     CHECKING(1),
-    RUNNING(2),
-    SILENT(3),
-    ISOLATING(4),
+    CHECKED(2),
+    RUNNING(3),
+    SILENT(4),
     ISOLATED(5);
 
     /** The state code. */

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,13 +14,15 @@
 # limitations under the License.
 # ======================================================================
 
-from time import time
-from typing import Any, Optional
+import time
+from typing import Any, Optional, Set, Tuple
 
 from supervisor.loggers import Logger
 
 from .context import Context
+from .instancestatus import SupvisorsInstanceStatus
 from .options import SupvisorsOptions
+from .process import ProcessStatus
 from .strategy import conciliate_conflicts
 from .ttypes import (SupvisorsInstanceStates, RunningFailureStrategies, SupvisorsStates, SynchronizationOptions,
                      NameList, Payload, PayloadList, WORKING_STATES)
@@ -129,8 +128,8 @@ class OffState(AbstractState):
 
         :return: the new Supvisors state
         """
-        # The Supvisors sockets is an easy mark to know that Supervisor is running
-        if self.supvisors.internal_com:
+        # The Supvisors XML-RPC handler is an easy mark to know that Supervisor is running
+        if self.supvisors.rpc_handler:
             return SupvisorsStates.INITIALIZATION
         return SupvisorsStates.OFF
 
@@ -224,7 +223,7 @@ class InitializationState(AbstractState):
         # set all CHECKED Supvisors instances to RUNNING
         self.context.activate_checked()
         # get duration from start date
-        uptime: float = time() - self.context.start_date
+        uptime: float = time.monotonic() - self.context.start_date
         # cannot get out of this state without local Supvisors instance RUNNING
         running_identifiers = self.context.running_identifiers()
         if self.local_identifier in running_identifiers:
@@ -246,7 +245,7 @@ class InitializationState(AbstractState):
                     self.context.elect_master()
                 # The Master can exit the INITIALIZATION state by itself
                 if self.context.is_master:
-                    return SupvisorsStates.DEPLOYMENT
+                    return SupvisorsStates.DISTRIBUTION
                 # The Slaves will follow the Master state
                 # WARN: at this point, the Master FSM state may not be known yet
                 return self.supvisors.context.supvisors_state
@@ -287,7 +286,7 @@ class MasterDeploymentState(AbstractState):
             return next_state
         # Master goes to OPERATION when starting is completed
         if self.supvisors.starter.in_progress():
-            return SupvisorsStates.DEPLOYMENT
+            return SupvisorsStates.DISTRIBUTION
         return SupvisorsStates.OPERATION
 
 
@@ -313,7 +312,7 @@ class MasterOperationState(AbstractState):
         # a redeployment mark has been set due to a new alive Supvisors instance
         # back to DEPLOYMENT state to repair what may have failed before
         if self.supvisors.fsm.redeploy_mark:
-            return SupvisorsStates.DEPLOYMENT
+            return SupvisorsStates.DISTRIBUTION
         return SupvisorsStates.OPERATION
 
 
@@ -375,7 +374,7 @@ class MasterRestartingState(AbstractState):
 
     def exit(self):
         """ When exiting the RESTARTING state, request the Supervisor restart. """
-        self.supvisors.internal_com.pusher.send_restart(self.local_identifier)
+        self.supvisors.rpc_handler.send_restart(self.local_identifier)
         # Slave instances will do the same when they will transition out of their RESTARTING state
 
 
@@ -404,7 +403,7 @@ class MasterShuttingDownState(AbstractState):
 
     def exit(self):
         """ When exiting the SHUTTING_DOWN state, request the Supervisor shutdown. """
-        self.supvisors.internal_com.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
         # Slave instances will do the same when they will transition out of their SHUTTING_DOWN state
 
 
@@ -454,7 +453,7 @@ class SlaveRestartingState(AbstractState):
         NOTE: this has been moved from the former RestartState / enter because a Supvisors Slave
         could move from RESTARTING to any other state if the Master commands so,
         and it's important that Supervisor restarts at this point. """
-        self.supvisors.internal_com.pusher.send_restart(self.local_identifier)
+        self.supvisors.rpc_handler.send_restart(self.local_identifier)
 
 
 class SlaveShuttingDownState(AbstractState):
@@ -487,7 +486,7 @@ class SlaveShuttingDownState(AbstractState):
         NOTE: this has been moved from the former ShutDownState / enter because a Supvisors Slave
         could move from SHUTTING_DOWN to any other state if the Master commands so,
         and it's important that Supervisor shuts down at this point. """
-        self.supvisors.internal_com.pusher.send_shutdown(self.local_identifier)
+        self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
 
 
 class FinalState(AbstractState):
@@ -571,73 +570,75 @@ class FiniteStateMachine:
     def on_timer_event(self, event: Payload) -> None:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event trigger of this state machine. """
-        invalidated_identifiers, process_failures = self.context.on_timer_event(event)
-        self.logger.debug(f'FiniteStateMachine.on_timer_event: invalidated_identifiers={invalidated_identifiers}'
-                          f' process_failures={[process.namespec for process in process_failures]}')
+        invalidated_identifiers, failed_processes = self.context.on_timer_event(event)
+        self.handle_instance_failures(invalidated_identifiers, failed_processes)
+
+    def handle_instance_failures(self, invalidated_identifiers: NameList,
+                                 failed_processes: Set[ProcessStatus]) -> None:
+        """ Upon failure of at least one Supvisors instance.
+
+        :param invalidated_identifiers: the identifiers of the invalidated Supvisors instances.
+        :param failed_processes: the processes in failure.
+        :return: None.
+        """
+        self.logger.debug(f'FiniteStateMachine.handle_failures: invalidated_identifiers={invalidated_identifiers}'
+                          f' process_failures={[process.namespec for process in failed_processes]}')
         if invalidated_identifiers:
             # inform Starter and Stopper
             # process_failures may be removed if already in their pipes
-            self.supvisors.starter.on_instances_invalidation(invalidated_identifiers, process_failures)
-            self.supvisors.stopper.on_instances_invalidation(invalidated_identifiers, process_failures)
+            self.supvisors.starter.on_instances_invalidation(invalidated_identifiers, failed_processes)
+            self.supvisors.stopper.on_instances_invalidation(invalidated_identifiers, failed_processes)
             # deal with process_failures and isolation only if in DEPLOYMENT, OPERATION or CONCILIATION states
             if self.state in WORKING_STATES:
                 # the Master fixes failures if any (can happen after an identifier invalidation, a process crash
                 #   or a conciliation request)
                 if self.context.is_master:
-                    for process in process_failures:
+                    for process in failed_processes:
                         self.supvisors.failure_handler.add_default_job(process)
         # trigger remaining jobs in RunningFailureHandler
         if self.context.is_master:
             self.supvisors.failure_handler.trigger_jobs()
-        # check if new isolating remotes and isolate them at main loop level
-        identifiers = self.context.handle_isolation()
-        if identifiers:
-            self.supvisors.internal_com.pusher.send_isolate_instances(identifiers)
         # trigger FSM for global status re-evaluation
         # the Master may have been invalidated
         # process_failures could also positively impact the conflicts in the CONCILIATION state
         self.next()
 
     # Event handling methods
-    def on_tick_event(self, identifier: str, event: Payload) -> None:
+    def on_tick_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to refresh the data related to the Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the tick event
-        :return:
+        :param status: the Supvisors instance that sent the event.
+        :param event: the tick event.
+        :return: None.
         """
-        if self.context.is_valid(identifier, event['ip_address']):
-            # update the Supvisors instance status
-            self.context.on_tick_event(identifier, event)
+        self.context.on_tick_event(status, event)
 
-    def on_discovery_event(self, identifier: str, event: Payload) -> None:
+    def on_discovery_event(self, event: Tuple) -> None:
         """ This event is used to add new Supvisors instances into the Supvisors system.
         No need to test if the discovery mode is enabled. This is managed in the internal communication layer.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the discovery event
-        :return:
+        :param event: the discovery event.
+        :return: None.
         """
         # When Supvisors is in discovery mode, new Supvisors instances may be added on-the-fly
-        if self.context.on_discovery_event(identifier, event):
-            self.supvisors.internal_com.pusher.send_connect_instance(identifier)
+        if self.context.on_discovery_event(event[0], event[1]):
             # a DEPLOYMENT will be requested if a new Supvisors instance has been inserted
             self.redeploy_mark = True
 
-    def on_process_state_event(self, identifier: str, event: Payload) -> None:
+    def on_process_state_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event sent from the Supvisors instance.
         This event also triggers the application starter and/or stopper.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the process event
-        :return: None
+        :param status: the Supvisors instance that sent the event.
+        :param event: the process event.
+        :return: None.
         """
-        process = self.context.on_process_state_event(identifier, event)
+        process = self.context.on_process_state_event(status, event)
         # returned process may be None if the event is linked to an unknown or an isolated instance
         if process:
             # inform starter and stopper
-            self.supvisors.starter.on_event(process, identifier)
-            self.supvisors.stopper.on_event(process, identifier)
+            self.supvisors.starter.on_event(process, status.identifier)
+            self.supvisors.stopper.on_event(process, status.identifier)
             # trigger an automatic (so master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
@@ -657,48 +658,48 @@ class FiniteStateMachine:
                     if (stop_strategy or restart_strategy) and process.forced_state is None:
                         self.supvisors.failure_handler.add_default_job(process)
 
-    def on_process_added_event(self, identifier: str, event: Payload) -> None:
+    def on_process_added_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to fill the internal structures when processes have been added on a Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the process information
-        :return: None
+        :param status: the Supvisors instance that sent the event.
+        :param event: the process information.
+        :return: None.
         """
-        self.context.load_processes(identifier, [event])
+        self.context.load_processes(status, [event])
 
-    def on_process_removed_event(self, identifier: str, event: Payload) -> None:
+    def on_process_removed_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
+        :param status: the Supvisors instance that sent the event.
         :param event: the process identification
         :return: None
         """
-        self.context.on_process_removed_event(identifier, event)
+        self.context.on_process_removed_event(status, event)
 
-    def on_process_disability_event(self, identifier: str, event: Payload) -> None:
+    def on_process_disability_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to fill the internal structures when a process has been enabled or disabled
         on a Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
+        :param status: the Supvisors instance that sent the event.
         :param event: the process identification
         :return: None
         """
-        self.context.on_process_disability_event(identifier, event)
+        self.context.on_process_disability_event(status, event)
 
-    def on_state_event(self, identifier: str, event: Payload) -> None:
+    def on_state_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to get the FSM state of the master Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the state event
-        :return: None
+        :param status: the Supvisors instance that sent the event.
+        :param event: the state event.
+        :return: None.
         """
-        self.logger.debug(f'FiniteStateMachine.on_state_event: Supvisors={identifier} sent {event}')
+        self.logger.debug(f'FiniteStateMachine.on_state_event: Supvisors={status.usage_identifier} sent {event}')
         # WARN: local instance is already up-to-date, could even be a step beyond
         #   so ignore the event if it is a local event
         ref_master = self.context.master_identifier
         ref_supvisors_state = self.context.supvisors_state
         # update the Supvisors instance states and modes
-        self.context.on_instance_state_event(identifier, event)
+        self.context.on_instance_state_event(status, event)
         # check if there has been changes in Master and/or its state
         if ref_master != self.context.master_identifier:
             self.logger.info(f'FiniteStateMachine.on_state_event: new Master Supvisors={self.context.master_identifier}'
@@ -711,25 +712,35 @@ class FiniteStateMachine:
             # the Master has transitioned to another state, so trigger the FSM
             self.next()
 
-    def on_process_info(self, identifier: str, info: PayloadList) -> None:
+    def on_all_process_info(self, status: SupvisorsInstanceStatus, all_info: Optional[PayloadList]) -> None:
         """ This event is used to fill the internal structures with processes available on the Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param info: the process information
-        :return: None
+        :param status: the Supvisors instance that sent the event.
+        :param all_info: all the processes' information.
+        :return: None.
         """
-        self.context.load_processes(identifier, info)
+        self.context.load_processes(status, all_info)
 
-    def on_authorization(self, identifier: str, authorized: Optional[bool]) -> None:
+    def on_instance_failure(self, status: SupvisorsInstanceStatus) -> None:
+        """ This event is received when a Supervisor proxy raised a failure.
+
+        :param status: the Supvisors instance that sent the event.
+        :return: None.
+        """
+        process_failures: Set[ProcessStatus] = self.context.on_instance_failure(status)
+        self.handle_instance_failures([status.identifier], process_failures)
+
+    def on_authorization(self, status: SupvisorsInstanceStatus, authorized: Optional[bool]) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
         When a new Supvisors instance comes in the group, back to DEPLOYMENT for a possible deployment.
 
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param authorized: the authorization status as seen by the remote Supvisors instance
-        :return: None
+        :param status: the Supvisors instance that sent the event.
+        :param authorized: the authorization status as seen by the remote Supvisors instance.
+        :return: None.
         """
-        self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}')
-        if self.context.on_authorization(identifier, authorized):
+        self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={status.usage_identifier}'
+                          f' authorized={authorized}')
+        if self.context.on_authorization(status, authorized):
             # a new Supvisors instance comes in group
             # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing instance
             # the idea of simply going back to INITIALIZATION is rejected as it would imply a re-synchronization
@@ -739,8 +750,8 @@ class FiniteStateMachine:
                     # the DEPLOYMENT and CONCILIATION states are temporary and pending on actions to be completed
                     # so mark the context to remember that a re-DEPLOYMENT can be considered at OPERATION level
                     self.redeploy_mark = True
-                    self.logger.info(f'FiniteStateMachine.on_authorization: new Supvisors={identifier}.'
-                                     ' defer re-DEPLOYMENT')
+                    self.logger.info('FiniteStateMachine.on_authorization: defer re-DEPLOYMENT caused by new'
+                                     f' Supvisors={status.usage_identifier}')
 
     def on_restart_sequence(self) -> None:
         """ This event is used to transition the state machine to the DEPLOYMENT state.
@@ -751,7 +762,7 @@ class FiniteStateMachine:
             self.redeploy_mark = Forced
         else:
             # re-route the command to Master
-            self.supvisors.internal_com.pusher.send_restart_sequence(self.context.master_identifier)
+            self.supvisors.rpc_handler.send_restart_sequence(self.context.master_identifier)
 
     def on_restart(self) -> None:
         """ This event is used to transition the state machine to the RESTARTING state.
@@ -763,7 +774,7 @@ class FiniteStateMachine:
         else:
             if self.context.master_identifier:
                 # re-route the command to Master
-                self.supvisors.internal_com.pusher.send_restart_all(self.context.master_identifier)
+                self.supvisors.rpc_handler.send_restart_all(self.context.master_identifier)
             else:
                 message = 'no Master instance to perform the Supvisors restart request'
                 self.logger.error(f'FiniteStateMachine.on_restart: {message}')
@@ -779,7 +790,7 @@ class FiniteStateMachine:
         else:
             if self.context.master_identifier:
                 # re-route the command to Master
-                self.supvisors.internal_com.pusher.send_shutdown_all(self.context.master_identifier)
+                self.supvisors.rpc_handler.send_shutdown_all(self.context.master_identifier)
             else:
                 message = 'no Master instance to perform the Supvisors restart request'
                 self.logger.error(f'FiniteStateMachine.on_restart: {message}')
@@ -801,7 +812,7 @@ class FiniteStateMachine:
     # Map between state enumerations and classes
     _MasterStateInstances = {SupvisorsStates.OFF: OffState,
                              SupvisorsStates.INITIALIZATION: InitializationState,
-                             SupvisorsStates.DEPLOYMENT: MasterDeploymentState,
+                             SupvisorsStates.DISTRIBUTION: MasterDeploymentState,
                              SupvisorsStates.OPERATION: MasterOperationState,
                              SupvisorsStates.CONCILIATION: MasterConciliationState,
                              SupvisorsStates.RESTARTING: MasterRestartingState,
@@ -810,7 +821,7 @@ class FiniteStateMachine:
 
     _SlaveStateInstances = {SupvisorsStates.OFF: OffState,
                             SupvisorsStates.INITIALIZATION: InitializationState,
-                            SupvisorsStates.DEPLOYMENT: SlaveMainState,
+                            SupvisorsStates.DISTRIBUTION: SlaveMainState,
                             SupvisorsStates.OPERATION: SlaveMainState,
                             SupvisorsStates.CONCILIATION: SlaveMainState,
                             SupvisorsStates.RESTARTING: SlaveRestartingState,
@@ -819,13 +830,13 @@ class FiniteStateMachine:
 
     # Transitions allowed between states
     _Transitions = {SupvisorsStates.OFF: [SupvisorsStates.INITIALIZATION],
-                    SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
-                    SupvisorsStates.DEPLOYMENT: [SupvisorsStates.INITIALIZATION,
-                                                 SupvisorsStates.OPERATION,
-                                                 SupvisorsStates.RESTARTING,
-                                                 SupvisorsStates.SHUTTING_DOWN],
+                    SupvisorsStates.INITIALIZATION: [SupvisorsStates.DISTRIBUTION],
+                    SupvisorsStates.DISTRIBUTION: [SupvisorsStates.INITIALIZATION,
+                                                   SupvisorsStates.OPERATION,
+                                                   SupvisorsStates.RESTARTING,
+                                                   SupvisorsStates.SHUTTING_DOWN],
                     SupvisorsStates.OPERATION: [SupvisorsStates.CONCILIATION,
-                                                SupvisorsStates.DEPLOYMENT,
+                                                SupvisorsStates.DISTRIBUTION,
                                                 SupvisorsStates.INITIALIZATION,
                                                 SupvisorsStates.RESTARTING,
                                                 SupvisorsStates.SHUTTING_DOWN],

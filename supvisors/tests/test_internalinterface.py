@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
 #
@@ -26,36 +23,10 @@ from supvisors.internal_com.internalinterface import *
 
 def test_payload_to_bytes_to_payload(supvisors):
     """ Test the serialization and deserialization. """
-    class MsgTypeEnum(Enum):
-        TEST, TEST_2 = range(2)
-
     payload = 'a message source', {'body': 'a message body'}
-    msg_bytes = payload_to_bytes(MsgTypeEnum.TEST_2, payload)
+    msg_bytes = payload_to_bytes(payload)
     assert isinstance(msg_bytes, bytes)
-    assert bytes_to_payload(msg_bytes) == [1, ['a message source', {'body': 'a message body'}]]
-
-
-def test_internal_comm_emitter():
-    """ Test the InternalCommEmitter abstract class. """
-    abstract_emitter = InternalCommEmitter()
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.close()
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_tick_event({})
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_process_state_event({})
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_process_added_event({})
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_process_removed_event({})
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_process_disability_event({})
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_host_statistics({})
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_process_statistics({})
-    with pytest.raises(NotImplementedError):
-        abstract_emitter.send_state_event({})
+    assert bytes_to_payload(msg_bytes) == ['a message source', {'body': 'a message body'}]
 
 
 @pytest.fixture
@@ -103,7 +74,7 @@ async def test_read_stream_body_timeout(push_pull):
 
     async def write_test():
         _, writer = await asyncio.open_unix_connection(sock=push_pull[1])
-        writer.write(int.to_bytes(4, 4, byteorder='big'))
+        writer.write(int.to_bytes(0, 4, byteorder='big'))
         await writer.drain()
         await asyncio.sleep(1.5)
 

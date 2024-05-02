@@ -10,24 +10,37 @@
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
+    <link rel="stylesheet" href="css/card.css" />
+    <link rel="stylesheet" href="css/header.css" />
+    <link rel="stylesheet" href="css/message.css" />
+    <link rel="stylesheet" href="css/host_instance.css" />
+    <link rel="stylesheet" href="css/instance.css" />
     <style meld:id="style_mid"> </style>
 </head>
 
 <body>
     <div id="body_block">
 
-        <div id="left_side">
+        <div id="left_side" meld:id="menu_mid">
             <header>
-                <h1><a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a></h1>
-                <p><span meld:id="version_mid"></span></p>
-                <p>view from <span meld:id="identifier_mid"></span></p>
+                <div>
+                    <h1>
+                        <a href="index.html" meld:id="supvisors_mid"><img src="img/supvisors.png"/></a>
+                    </h1>
+                    <p><span meld:id="version_mid"></span></p>
+                </div>
             </header>
 
             <nav id="instance_list">
-                <h2>Supervisors</h2>
+                <h2 meld:id="instance_h_mid">Supervisors</h2>
                 <div>
                     <ul>
-                        <li meld:id="instance_li_mid"><a href="#" meld:id="instance_a_mid">Supervisor</a></li>
+                        <li meld:id="instance_li_mid">
+                            <a href="#" meld:id="instance_a_mid">
+                                <span class="master" meld:id="master_sp_mid"> </span>
+                                <span meld:id="instance_sp_mid">Supervisor</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </nav>
@@ -48,44 +61,70 @@
         </div>
 
         <div id="right_side">
-            <header>
-                <div>
-                    <h2><span meld:id="instance_mid">Supervisor</span> - <span meld:id="percent_mid">50%</span></h2>
-                    <div id="state_modes">
-                        <div>
-                            <h3><code meld:id="state_mid">SupvisorsStates</code></h3>
-                        </div>
-                        <div>
-                            <ul class="vertical">
-                                <li><code meld:id="starting_mid">starting</code></li>
-                                <li><code meld:id="stopping_mid">stopping</code></li>
-                            </ul>
-                        </div>
+            <header meld:id="header_mid">
+                <div class="card" meld:id="software_card_mid">
+                    <div>
+                        <img meld:id="software_icon_mid" src="software_icon.png"/>
+                    </div>
+                    <div>
+                        <h2 meld:id="software_name_mid" id="software_title"></h2>
                     </div>
                 </div>
 
-                <div meld:id="view_div_mid">
-                    <table class="optionBox">
-                        <tr><th>Statistics View</th></tr>
-                        <tr><td><ul class="linear">
-                            <li><a href="#" meld:id="process_view_a_mid" class="button on ">Processes</a></li>
-                            <li><a href="#" meld:id="host_view_a_mid" class="button off active">Host</a></li>
-                        </ul></td></tr>
+                <div class="line_separator"> </div>
+
+                <div class="card" id="instance_status">
+                    <table class="status">
+                        <tbody>
+                            <tr>
+                                <th class="table_title">
+                                    <span meld:id="master_mid" class="master"/> <img src="supervisor_icon.png"/>
+                                </th>
+                                <th colspan="3" meld:id="instance_mid" class="table_main"></th>
+                                <td/>
+                            </tr>
+                            <tr>
+                                <th class="table_title">State:</th>
+                                <td colspan="3"><code class="hstate" meld:id="state_mid"></code></td>
+                            </tr>
+                            <tr>
+                                <th class="table_title">Modes:</th>
+                                <td meld:id="discovery_mid"></td>
+                                <td><code class="hmode" meld:id="starting_mid"></code></td>
+                                <td><code class="hmode" meld:id="stopping_mid"></code></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
 
-                <div meld:id="period_div_mid">
-                    <table class="optionBox">
-                        <tr><th>Statistics Periods</th></tr>
-                        <tr><td><ul class="linear">
-                            <li meld:id="period_li_mid">
-                                <a href="#" meld:id="period_a_mid" class="button on">5</a>
-                            </li>
-                        </ul></td></tr>
-                    </table>
+                <div class="line_separator"> </div>
+
+                <div class="card" meld:id="option_card_mid">
+                    <div meld:id="view_div_mid">
+                        <table class="optionBox">
+                            <tr><th>Statistics View</th></tr>
+                            <tr><td><ul class="linear">
+                                <li><a href="#" meld:id="process_view_a_mid" class="button on ">Processes</a></li>
+                                <li><a href="#" meld:id="host_view_a_mid" class="button off active">Host</a></li>
+                            </ul></td></tr>
+                        </table>
+                    </div>
+
+                    <div meld:id="period_div_mid">
+                        <table class="optionBox">
+                            <tr><th>Statistics Periods</th></tr>
+                            <tr><td><ul class="linear">
+                                <li meld:id="period_li_mid">
+                                    <a href="#" meld:id="period_a_mid" class="button">5</a>
+                                </li>
+                            </ul></td></tr>
+                        </table>
+                    </div>
                 </div>
 
-                <div>
+                <div class="line_separator"> </div>
+
+                <div class="card">
                     <table class="buttons">
                         <tbody>
                             <tr class="action">
@@ -123,101 +162,181 @@
                 </div>
             </header>
 
-            <div id="instance_contents" meld:id="stats_div_mid">
-                <div id="rsc_grid">
-                    <figure id="mem_fig" meld:id="memimage_fig_mid">
-                        <img src="host_mem.png" alt="Host Memory Graph"/>
-                    </figure>
-                    <div id="mem_stats">
-                        <h6>Memory Statistics</h6>
+            <div id="instance_contents" meld:id="contents_mid">
+
+                <div id="characteristics">
+                    <div class="card">
                         <div>
-                            <table>
-                                <tr>
-                                    <th rowspan="2">
-                                        <a href="#" class="button off active">mem</a>
-                                    </th>
-                                    <th>Occ %</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
-                                </tr>
-                                <tr class="brightened">
-                                    <td meld:id="memval_td_mid">--</td>
-                                    <td meld:id="memavg_td_mid">--</td>
-                                    <td meld:id="memslope_td_mid">--</td>
-                                    <td meld:id="memdev_td_mid">--</td>
-                                </tr>
+                            <table class="status">
+                                <tbody>
+                                    <tr>
+                                        <th/>
+                                        <th class="table_main">Node</th>
+                                    </tr>
+                                     <tr>
+                                        <th class="table_title">Name:</th>
+                                        <td meld:id="node_td_mid">--</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="table_title">IP Address:</th>
+                                        <td meld:id="ipaddress_td_mid">--</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
-                    </div>
-                    <figure id="cpu_fig" meld:id="cpuimage_fig_mid">
-                        <img src="host_cpu.png" alt="Host CPU Graph"/>
-                    </figure>
-                    <div id="cpu_stats">
-                        <h6>Processor Statistics</h6>
+
+                        <div class="vertical_separator"> </div>
+
                         <div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Last %</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr meld:id="cpu_tr_mid" class="brightened">
-                                    <td>
-                                        <a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a>
-                                    </td>
-                                    <td meld:id="cpuval_td_mid">--</td>
-                                    <td meld:id="cpuavg_td_mid">--</td>
-                                    <td meld:id="cpuslope_td_mid">--</td>
-                                    <td meld:id="cpudev_td_mid">--</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        </div>
-                    </div>
-                    <figure id="io_fig" meld:id="ioimage_fig_mid">
-                        <img src="host_io.png" alt="Host Network Graph"/>
-                    </figure>
-                    <div id="io_stats">
-                        <h6>Network Statistics</h6>
-                        <div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Interface</th>
-                                        <th>Rx/Tx</th>
-                                        <th>Last kbit/s</th>
-                                        <th>Mean kbit/s</th>
-                                        <th>Slope %</th>
-                                        <th>SD kbit/s</th>
-                                    </tr>
-                                </thead>
+                            <table class="status">
                                 <tbody>
-                                    <tr meld:id="intf_tr_mid" class="brightened">
-                                        <td meld:id="intf_td_mid">
-                                            <a href="#" meld:id="intf_a_mid" class="button on">eth#</a>
-                                        </td>
-                                        <td meld:id="intfrxtx_td_mid">--</td>
-                                        <td meld:id="intfval_td_mid">--</td>
-                                        <td meld:id="intfavg_td_mid">--</td>
-                                        <td meld:id="intfslope_td_mid">--</td>
-                                        <td meld:id="intfdev_td_mid">--</td>
+                                    <tr>
+                                        <th/>
+                                        <th class="table_main">Processor</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="table_title">Physical / Logical cores:</th>
+                                        <td meld:id="cpu_count_td_mid">--</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="table_title">Processor frequency:</th>
+                                        <td meld:id="cpu_freq_td_mid">--</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="vertical_separator"> </div>
+
+                        <div>
+                            <table class="status">
+                                <tbody>
+                                    <tr>
+                                        <th/>
+                                        <th class="table_main">Memory</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="table_title">Physical:</th>
+                                        <td meld:id="physical_mem_td_mid">--</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
+
+                <div id="rsc_grid">
+
+                    <div id="cpu_stats" class="card">
+                        <figure meld:id="cpuimage_fig_mid">
+                            <img src="host_cpu.png" alt="Host CPU Graph"/>
+                        </figure>
+
+                        <div>
+                            <h6>Processor Statistics (%)</h6>
+                            <div class="table_stats">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Latest</th>
+                                            <th>Mean</th>
+                                            <th>Slope/P</th>
+                                            <th>StdDev</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr meld:id="cpu_tr_mid" class="brightened">
+                                            <td>
+                                                <a href="#" meld:id="cpunum_a_mid" class="button on"></a>
+                                            </td>
+                                            <td meld:id="cpuval_td_mid"></td>
+                                            <td meld:id="cpuavg_td_mid"></td>
+                                            <td meld:id="cpuslope_td_mid"></td>
+                                            <td meld:id="cpudev_td_mid"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="mem_stats" class="card">
+                        <figure meld:id="memimage_fig_mid">
+                            <img src="host_mem.png" alt="Host Memory Graph"/>
+                        </figure>
+
+                        <div>
+                            <h6>Memory Statistics (%)</h6>
+                            <div class="table_stats">
+                                <table>
+                                    <tr>
+                                        <th rowspan="2">
+                                            <a href="#" class="button off active">mem</a>
+                                        </th>
+                                        <th>Latest</th>
+                                        <th>Mean</th>
+                                        <th>Slope/P</th>
+                                        <th>StdDev</th>
+                                    </tr>
+                                    <tr class="brightened">
+                                        <td meld:id="memval_td_mid">--</td>
+                                        <td meld:id="memavg_td_mid">--</td>
+                                        <td meld:id="memslope_td_mid">--</td>
+                                        <td meld:id="memdev_td_mid">--</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="io_stats" class="card">
+                        <figure meld:id="ioimage_fig_mid">
+                            <img src="host_io.png" alt="Host Network Graph"/>
+                        </figure>
+
+                        <div>
+                            <h6>Network Statistics (kbit/s)</h6>
+                            <div class="table_stats">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Interface</th>
+                                            <th>Rx/Tx</th>
+                                            <th>Latest</th>
+                                            <th>Mean</th>
+                                            <th>Slope/P</th>
+                                            <th>StdDev</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr meld:id="intf_tr_mid" class="brightened">
+                                            <td meld:id="intf_td_mid">
+                                                <a href="#" meld:id="intf_a_mid" class="button">eth#</a>
+                                            </td>
+                                            <td meld:id="intfrxtx_td_mid">--</td>
+                                            <td meld:id="intfval_td_mid">--</td>
+                                            <td meld:id="intfavg_td_mid">--</td>
+                                            <td meld:id="intfslope_td_mid">--</td>
+                                            <td meld:id="intfdev_td_mid">--</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="disk_stats"> </div>
+
+                </div>
             </div>
 
-            <div id="statusBox">
+            <div id="statusBox" meld:id="footer_mid">
                 <div id="messageBox" meld:id="message_mid"></div>
-                <div id="timeBox" class="invInfo" meld:id="time_mid"></div>
+                <div id="timeBox" class="info">
+                    <p meld:id="time_mid"></p>
+                    <p>on <span meld:id="identifier_mid"></span></p>
+                </div>
             </div>
 
         </div>

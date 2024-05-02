@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -21,20 +18,22 @@ from enum import Enum
 from typing import Any, Dict, List, Set, Tuple, TypeVar
 
 from supervisor.events import Event
+from supervisor.options import ProcessConfig
 
 # Supvisors name
-SUPVISORS = 'Supvisors'
+SUPVISORS_PUBLICATION = 'SupvisorsPublication'
+SUPVISORS_NOTIFICATION = 'SupvisorsNotification'
 
 
 # all enumerations
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATING, ISOLATED = range(7)
+    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATED = range(6)
 
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    OFF, INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(8)
+    OFF, INITIALIZATION, DISTRIBUTION, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(8)
 
 
 class ApplicationStates(Enum):
@@ -89,10 +88,23 @@ class SynchronizationOptions(Enum):
 
 
 # for internal publish / subscribe
-class InternalEventHeaders(Enum):
-    """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    (HEARTBEAT, TICK, AUTHORIZATION, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
-     HOST_STATISTICS, PROCESS_STATISTICS, STATE, ALL_INFO, DISCOVERY) = range(12)
+class PublicationHeaders(Enum):
+    """ Enumeration class for the publication headers in messages between Listener and MainLoop. """
+    (TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
+     HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(8)
+
+
+# for deferred XML-RPC requests
+class RequestHeaders(Enum):
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to SupervisorProxyServer. """
+    (CHECK_INSTANCE,
+     START_PROCESS, STOP_PROCESS,
+     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(8)
+
+
+class NotificationHeaders(Enum):
+    """ Enumeration class for the notification headers in messages between Listener and MainLoop. """
+    AUTHORIZATION, STATE, ALL_INFO, DISCOVERY, INSTANCE_FAILURE = range(5)
 
 
 class EventHeaders(Enum):
@@ -107,20 +119,29 @@ class EventHeaders(Enum):
 
 
 # State lists commonly used
-ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
-WORKING_STATES = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
+WORKING_STATES = [SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
 CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.FINAL]
 
 
 # Exceptions
-class InvalidTransition(Exception):
-    """ Exception used for an invalid transition in state machines. """
+class SupvisorsException(Exception):
+    """ Basic exception. """
 
-    def __init__(self, value):
-        self.value = value
+    message: str = ''
+
+    def __init__(self, message):
+        self.message = message
 
     def __str__(self):
-        return self.value
+        return self.message
+
+
+class InvalidTransition(SupvisorsException):
+    """ Exception used for an invalid transition in state machines. """
+
+
+class ApplicationStatusParseError(SupvisorsException):
+    """ Exception used for errors in the evaluation of the application status. """
 
 
 # Supvisors related faults
@@ -128,7 +149,9 @@ FAULTS_OFFSET = 100
 
 
 class SupvisorsFaults(Enum):
-    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, NOT_MANAGED, DISABLED = range(FAULTS_OFFSET, FAULTS_OFFSET + 4)
+    """ The additional XML-RPC faults that complement Supervisor's Faults. """
+    (SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, NOT_MANAGED, DISABLED,
+     NOT_APPLICABLE, NOT_INSTALLED) = range(FAULTS_OFFSET, FAULTS_OFFSET + 6)
 
 
 # Additional events
@@ -160,7 +183,7 @@ class ProcessDisabledEvent(ProcessEvent):
     pass
 
 
-# Annotation types
+# General annotation types
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
 Ipv4Address = Tuple[str, int]
@@ -185,3 +208,29 @@ InterfaceHistoryStats = Dict[str, Tuple[TimesHistoryStats, BytesList, BytesList]
 ProcessStats = Tuple[float, float]  # work jiffies, memory
 ProcessCPUHistoryStats = List[float]  # in percent
 ProcessMemHistoryStats = MemHistoryStats  # in percent
+
+
+# Program config annotation types
+ProcessConfigList = List[ProcessConfig]
+GroupConfigInfo = Dict[str, ProcessConfigList]  # {group_name: [process_config]}
+ProcessConfigType = TypeVar('ProcessConfigType', bound='Type[ProcessConfig]')
+
+
+class ProgramConfig:
+    """ Class used to store program information not retained by Supervisor while parsing the configuration files. """
+
+    def __init__(self, program_name: str, klass: ProcessConfigType):
+        self.name: str = program_name
+        self.klass: ProcessConfigType = klass
+        self.numprocs: int = 1
+        self.group_config_info: GroupConfigInfo = {}
+        self.disabled: bool = False
+
+
+class SupvisorsProcessConfig:
+    """ Class used to store process configuration not retained by Supervisor while parsing the configuration files. """
+
+    def __init__(self, program_config: ProgramConfig, process_index: int, command_ref: str):
+        self.program_config: ProgramConfig = program_config
+        self.process_index: int = process_index
+        self.command_ref: str = command_ref

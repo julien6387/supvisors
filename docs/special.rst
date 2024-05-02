@@ -13,32 +13,30 @@ To that end, a communication protocol needs to be put in place place between all
 Given the objectives of |Supvisors|, a polling mechanism doesn't fit. All |Supervisor| events have to be processed, so
 an event-driven protocol is naturally considered.
 
-The XML-RPC protocol provided by |Supervisor| is discarded as it is synchronous and thus improper to deal with a system
-involving multiple clients.
-
 Communication protocols
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-2 internal communication protocols have been implemented in |Supvisors|.
+2 internal communication protocols are used in |Supvisors|.
 
-TCP Publish-Subscribe
-*********************
+XML-RPC publication
+*******************
 
-The main protocol implemented in |Supvisors| is based on a **Publish-Subscribe pattern over TCP**.
+The main protocol implemented in |Supvisors| is based on the XML-RPC protocol provided by |Supervisor|. It is used to
+share the local events to the other |Supvisors| instances.
 
-Although it was originally based on a PyZmq PUB-SUB, it has been replaced by a custom implementation to limit the
-mandatory dependencies and to have a better control over the underlying threads and sockets.
+The XML-RPC protocol was originally discarded because it led easily to deadlocks when involving requests to multiple
+|Supervisor| instances. So a first implementation has been done based on a PyZmq PUB-SUB. It then has been replaced
+by a custom implementation to limit the mandatory dependencies and to have a better control over the underlying threads
+and sockets. In both case, the events were sent over a TCP socket and posted sequentially to the local |Supervisor|
+using a ``supervisor.sendRemoteCommEvent`` XML-RPC.
 
-This protocol is initially made up of all |Supvisors| instances declared in the ``supvisors_list`` option of the
-``[supvisors]`` section in the |Supervisor| configuration file.
+Finally, with a proper understanding of the limitations brought by the XML-RPC implementation and its non-thread-safe
+nature, the |Supvisors| design has been simplified so that the local events and requests are processed in threads
+dedicated to each Supervisor proxy.
 
-Each entry in the ``supvisors_list`` option defines (even implicitly) the TCP server host and port of each |Supvisors|
-instance that the local |Supvisors| instance has to connect to publish its events.
-
-.. note::
-
-    Depending on the |Supvisors| configuration, only the TCP server host may be defined in the ``supvisors_list``,
-    in which case |Supvisors| will take the value of the ``internal_port`` option as applicable port for all TCP servers.
+The ``TICK`` events are sent to all |Supvisors| instances discovered of declared in the ``supvisors_list`` option
+of the ``[supvisors]`` section in the |Supervisor| configuration file, with the exception of ``ISOLATED`` instances.
+As soon as the |Supvisors| instance is ``CHECKED``, all other events are shared.
 
 UDP Multicast
 *************
@@ -106,7 +104,7 @@ At this stage, 2 possibilities:
 What happens next will depend on the conditions selected in the ``synchro_options`` option.
 
 Whatever the number of available |Supvisors| instances, |Supvisors| elects a *Master* among the active |Supvisors|
-instances and enters the ``DEPLOYMENT`` state to start automatically the applications.
+instances and enters the ``DISTRIBUTION`` state to start automatically the applications.
 
 By default, the |Supvisors| *Master* instance is the |Supvisors| instance having the smallest deduced name among all
 the active |Supvisors| instances, unless the attribute ``core_identifiers`` is used. In the latter case, candidates
@@ -389,7 +387,7 @@ This principle is used for starting a single application using a ``supvisors.sta
 Starting all applications
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When entering the ``DEPLOYMENT`` state, all |Supvisors| instances evaluate the global start sequence using
+When entering the ``DISTRIBUTION`` state, all |Supvisors| instances evaluate the global start sequence using
 the ``start_sequence`` rule configured for the applications and processes.
 
 The global start sequence corresponds to a dictionary where:
@@ -417,15 +415,15 @@ The following pseudo-code explains the logic used:
 
 .. important::
 
-    When leaving the ``DEPLOYMENT`` state, it may happen that some applications are not started properly
+    When leaving the ``DISTRIBUTION`` state, it may happen that some applications are not started properly
     due to missing relevant |Supvisors| instances.
 
     When a |Supvisors| instance is started later and is authorized in the |Supvisors| ensemble, |Supvisors| transitions
-    back to the ``DEPLOYMENT`` state and tries to **repair** such applications. The applications are **not** restarted.
-    Only the stopped processes are considered.
+    back to the ``DISTRIBUTION`` state and tries to **repair** such applications.
+    The applications are **not** restarted. Only the stopped processes are considered.
 
-    May the new |Supvisors| instance arrive during a ``DEPLOYMENT`` or ``CONCILIATION`` phase, the transition to the
-    ``DEPLOYMENT`` state is deferred until the current deployment or conciliation jobs are completed.
+    May the new |Supvisors| instance arrive during a ``DISTRIBUTION`` or ``CONCILIATION`` phase, the transition to the
+    ``DISTRIBUTION`` state is deferred until the current distribution or conciliation jobs are completed.
     It has been chosen NOT to transition back to the ``INITIALIZATION`` state to avoid a new synchronization phase.
 
 
@@ -505,6 +503,12 @@ Possible values are:
 
       * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
 
+.. hint::
+
+   The ``SHUTDOWN`` strategy provides an answer to the following |Supervisor| request:
+
+      * `#712 - shutdown supervisord once one of the programs is killed <https://github.com/Supervisor/supervisor/issues/712>`_
+
 
 .. _stopping_strategy:
 
@@ -581,7 +585,7 @@ Stopping all applications
 
 The applications are stopped when |Supvisors| is requested to restart or shut down.
 
-When entering the ``DEPLOYMENT`` state, each |Supvisors| instance evaluates also the global stop sequence
+When entering the ``DISTRIBUTION`` state, each |Supvisors| instance evaluates also the global stop sequence
 using the ``stop_sequence`` rule configured for the applications and processes.
 
 The global stop sequence corresponds to a dictionary where:

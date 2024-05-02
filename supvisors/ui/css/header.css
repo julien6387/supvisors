@@ -1,0 +1,113 @@
+/*
+ * Copyright 2024 Julien LE CLEACH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Supvisors common style for page header
+ */
+#right_side header {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    min-height: 100px;
+    max-height: 100px;
+    padding: 0 10px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#right_side header .card {
+    display: flex;
+    height: 95%;
+}
+
+#right_side header .line_separator {
+    flex: 1;
+    display: flex;
+    margin: 0 10px;
+    border-bottom: 2px dotted var(--text-color);
+}
+
+/* Style for user software elements */
+#right_side header .card div img {
+    max-height: 95px;
+}
+
+/* Style for instance status (applicable to SupvisorsInstanceStatus and Application) */
+#instance_status table.status {
+    border: none;
+    background: transparent;
+}
+
+#instance_status table.status th, #instance_status table.status td {
+    border: none;
+    background: transparent;
+}
+
+#instance_status table.status td {
+    text-align: center;
+}
+
+.table_main {
+    font-size: 1em;
+    text-align: center;
+}
+
+.table_title {
+    text-align: right;
+}
+
+code.hstate {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 1.6em;
+    border-radius: 6px;
+    text-shadow: 3px 3px 4px black;
+    background: var(--vlight1-color);
+}
+
+
+/* Style for optionBox */
+.optionBox {
+    margin: 0 5px;
+    border: 3px ridge var(--border-color);
+}
+
+.optionBox tr:first-child th {
+    border-top: none;
+    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
+    text-align: center;
+}
+
+.optionBox td {
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
+    text-align: center;
+}
+
+.optionBox ul {
+    text-align: center;
+}
+
+/* Style for action buttons */
+table.buttons {
+    border: none;
+    background: transparent;
+}
+
+table.buttons td {
+    border: none;
+    padding: 2px 3px;
+}
+

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,14 +14,16 @@
 # limitations under the License.
 # ======================================================================
 
-from io import BytesIO
+import io
+import os
 
+import supervisor
 from supervisor.compat import as_bytes
 from supervisor.medusa.http_server import http_date
 
 
 # exchange class for images
-class StatsImage(object):
+class StatsImage:
     """ Buffer class holding PNG contents. """
 
     def __init__(self):
@@ -33,7 +32,7 @@ class StatsImage(object):
     def new_image(self):
         if self.contents:
             self.contents.close()
-        self.contents = BytesIO()
+        self.contents = io.BytesIO()
         return self.contents
 
 
@@ -47,7 +46,7 @@ process_mem_img = StatsImage()
 
 
 # simple handlers for web images
-class ImageView(object):
+class ImageView:
     content_type = 'image/png'
     delay = .5
 
@@ -108,3 +107,47 @@ class ProcessMemoryImageView(ImageView):
     def __init__(self, context):
         """ Link to the Process Memory buffer. """
         ImageView.__init__(self, context, process_mem_img)
+
+
+# Trick to make available the Supervisor icon from Supvisors Web UI
+# There might be a better way in medusa but TBD
+def create_icon(icon_path) -> StatsImage:
+    """ Load an image into a BytesIO. """
+    icon = StatsImage()
+    with io.open(icon_path, 'rb') as fic:
+        icon.contents = io.BytesIO(fic.read())
+    return icon
+
+
+class SupervisorIconImage(ImageView):
+    """ Dummy view holding the Supervisor Icon. """
+
+    _icon: StatsImage = None
+
+    def __init__(self, context):
+        """ Link to the Process Memory buffer. """
+        ImageView.__init__(self, context, self.icon)
+
+    @property
+    def icon(self) -> StatsImage:
+        """ Load the Supervisor icon into a BytesIO. """
+        if not SupervisorIconImage._icon:
+            icon_path = os.path.join(os.path.dirname(supervisor.__file__), 'ui', 'images', 'icon.png')
+            SupervisorIconImage._icon = create_icon(icon_path)
+        return SupervisorIconImage._icon
+
+
+class SoftwareIconImage(ImageView):
+    """ Dummy view holding the Process Memory image. """
+
+    _icon: StatsImage = None
+
+    def __init__(self, context):
+        """ Link to the Process Memory buffer. """
+        ImageView.__init__(self, context, self._icon)
+
+    @staticmethod
+    def set_path(icon_path: str) -> None:
+        """ Load the user software icon into a BytesIO. """
+        if not SoftwareIconImage._icon and icon_path:
+            SoftwareIconImage._icon = create_icon(icon_path)

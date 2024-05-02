@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -18,7 +15,6 @@
 # ======================================================================
 
 import math
-from time import timezone, altzone
 
 import pytest
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
@@ -28,21 +24,20 @@ from supvisors.rpcinterface import RPCInterface
 from supvisors.utils import *
 
 
-def test_localtime():
+def test_simple_localtime():
     """ Test the display of local time. """
     # test with argument
-    time_shift = timezone if gmtime().tm_isdst else altzone
+    time_shift = time.timezone if time.gmtime().tm_isdst else time.altzone
     assert simple_localtime(1476947220.416198 + time_shift) == '07:07:00'
     # test without argument: just test output format
     assert re.match(r'\d\d:\d\d:\d\d', simple_localtime())
 
 
-def test_gmtime():
-    """ Test the display of gm time. """
-    # test with argument
-    assert simple_gmtime(1476947220.416198) == '07:07:00'
-    # test without argument: just test output format
-    assert re.match(r'\d\d:\d\d:\d\d', simple_gmtime())
+def test_simple_duration():
+    """ Test the display of duration. """
+    assert simple_duration(1476.94416198) == '0:24:36'
+    assert simple_duration(14769.4416198) == '4:06:09'
+    assert simple_duration(147694.416198) == '1 day, 17:01:34'
 
 
 def test_extract_process_info():
@@ -106,6 +101,16 @@ def test_bit_manipulation():
     for bit in range(3 * 4):
         set_bit(ba, 2 * bit, 0)
     assert ba.hex() == '000000'
+
+
+def test_get_small_value():
+    """ Test the format of float values. """
+    assert get_small_value(5.1) == '5.10'
+    assert get_small_value(-5.1) == '-5.10'
+    assert get_small_value(0.005) == '0.01'
+    assert get_small_value(-0.005) == '-0.01'
+    assert get_small_value(0.0049) == '+0.00'
+    assert get_small_value(-0.0049) == '-0.00'
 
 
 def test_linear_regression_numpy():

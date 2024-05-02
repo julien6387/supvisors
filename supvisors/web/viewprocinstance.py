@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -25,6 +22,7 @@ from supvisors.application import ApplicationStatus
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
+from supvisors.utils import get_small_value
 from .viewcontext import *
 from .viewinstance import SupvisorsInstanceView
 from .webutils import *
@@ -43,28 +41,57 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
 
-    def write_periods(self, root):
-        """ Write configured periods for statistics. """
-        self.write_periods_availability(root, self.has_process_statistics)
+    def write_options(self, header_elt):
+        """ Write configured periods for statistics.
+        Does nothing by default. To be specialized in subclasses where statistics are available. """
+        if not (self.has_process_statistics or self.has_host_statistics):
+            # hide the whole card and the following line
+            header_elt.findmeld('option_card_mid').replace('')
+            header_elt.findmeld('option_line_mid').replace('')
+        else:
+            # configure the process periods
+            if self.has_process_statistics:
+                self.write_periods(header_elt)
+            else:
+                # hide the Statistics periods box
+                header_elt.findmeld('period_div_mid').replace('')
+            # configure the view switch
+            if self.has_host_statistics:
+                self.write_view_switch(header_elt)
+            else:
+                # remove whole box if statistics are disabled
+                # Host page is useless in this case
+                header_elt.findmeld('view_div_mid').replace('')
+
+    def write_view_switch(self, header_elt):
+        """ Configure the statistics view buttons. """
+        elt = header_elt.findmeld('host_view_a_mid')
+        elt.content(f'{self.sup_ctx.local_status.supvisors_id.host_id}')
+        url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
+        elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
-    def write_contents(self, root):
+    def write_contents(self, contents_elt):
         """ Rendering of the contents part of the page. """
         sorted_data, excluded_data = self.get_process_data()
-        self.write_process_table(root, sorted_data, excluded_data)
+        self.write_process_table(contents_elt, sorted_data, excluded_data)
         # check selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
-        if namespec and namespec != 'supervisord':
-            # unselect if not running in this Supvisors instance
-            status = self.view_ctx.get_process_status(namespec)
-            if not status or self.view_ctx.local_identifier not in status.running_identifiers:
-                self.logger.warn(f'ProcInstanceView.write_contents: unselect Process Statistics for {namespec}')
-                # form parameter is not consistent. remove it
+        if namespec:
+            if not self.has_process_statistics:
+                # statistics are not available for this Supvisors instance
                 self.view_ctx.parameters[PROCESS] = ''
+            elif namespec != 'supervisord':
+                # unselect if not running in this Supvisors instance
+                status = self.view_ctx.get_process_status(namespec)
+                if not status or self.view_ctx.local_identifier not in status.running_identifiers:
+                    self.logger.warn(f'ProcInstanceView.write_contents: unselect Process Statistics for {namespec}')
+                    # former parameter is not consistent with local instance. remove it
+                    self.view_ctx.parameters[PROCESS] = ''
         # write selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
         info = next(filter(lambda x: x['namespec'] == namespec, sorted_data + excluded_data), {})
-        self.write_process_statistics(root, info)
+        self.write_process_statistics(contents_elt, info)
 
     def get_process_data(self) -> Tuple[PayloadList, PayloadList]:
         """ Collect sorted data on processes.
@@ -110,8 +137,8 @@ class ProcInstanceView(SupvisorsInstanceView):
                    'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
                    'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
-        info = {'state': ProcessStates.RUNNING, 'start': status.start_time, 'now': status.local_time,
-                'pid': os.getpid()}
+        info = {'state': ProcessStates.RUNNING, 'start': status.times.start_local_mtime,
+                'now': status.times.local_time, 'pid': os.getpid()}
         payload['description'] = ProcessStatus.update_description(info)
         return payload
 
@@ -353,23 +380,18 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: None
         """
         tr_elt = table_elt.findmeld('total_mid')
-        if tr_elt is not None:
-            # element may have been removed due to stats option disabled
-            # sum MEM and CPU stats of all processes
-            expected_load, nb_cores, appli_stats = self.sum_process_info(sorted_data + excluded_data)
-            # update Load
-            elt = tr_elt.findmeld('load_total_th_mid')
-            elt.content(f'{expected_load}%')
-            if appli_stats:
-                # update MEM
-                elt = tr_elt.findmeld('mem_total_th_mid')
-                elt.content(f'{appli_stats.mem[0]:.2f}%')
-                # update CPU
-                elt = tr_elt.findmeld('cpu_total_th_mid')
-                cpu_value = appli_stats.cpu[0]
-                if not self.supvisors.options.stats_irix_mode:
-                    cpu_value /= nb_cores
-                elt.content(f'{cpu_value:.2f}%')
+        # sum MEM and CPU stats of all processes
+        expected_load, nb_cores, appli_stats = self.sum_process_info(sorted_data + excluded_data)
+        # update Load
+        tr_elt.findmeld('load_total_th_mid').content(f'{expected_load}')
+        if appli_stats:
+            # update MEM
+            tr_elt.findmeld('mem_total_th_mid').content(get_small_value(appli_stats.mem[0]))
+            # update CPU
+            cpu_value = appli_stats.cpu[0]
+            if not self.supvisors.options.stats_irix_mode:
+                cpu_value /= nb_cores
+            tr_elt.findmeld('cpu_total_th_mid').content(get_small_value(cpu_value))
 
     # ACTION part
     def make_callback(self, namespec, action):

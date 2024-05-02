@@ -1,5 +1,66 @@
 # Change Log
 
+## 0.18 (2024-05-02)
+
+* Refactoring of the **Supvisors** internal communications.
+  The `internal_port` of the **Supvisors** section in the Supervisor configuration file is no longer needed.
+  As a consequence, the `supvisors_list` option is simplified as follows: `<identifier>host_name:http_port`. 
+  The transitional `SupvisorsInstanceStates.ISOLATING` state has been removed.
+  The remote **Supvisors** instance becomes `SILENT` as soon as the published events fails due to a transport issue.
+
+* Implement [Issue #50](https://github.com/julien6387/supvisors/issues/50).
+  A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the
+  application operational status.
+  `status_formula` is added to the result of the XML-RPC `get_application_rules`.
+
+* Implement [Issue #15](https://github.com/julien6387/supvisors/issues/15).
+  A `StarterModel` has been added to **Supvisors** to give a prediction of the application distribution when started.
+  The command is available through the new XML-RPCs `test_start_application` and `test_start_process` and have been
+  added to `supervisorctl`.
+
+* The **Supvisors** `core_identifiers` option and the **Supvisors** rules can now accept indifferently Supervisor
+  identifiers or keys with the `host:http_port` format.
+
+* Update the `get_instance_info` XML-RPC so that the function accepts a stereotype as parameter.
+  As a consequence, it now returns a list of dictionaries.
+
+* Add a `lazy` attribute to the `update_numprocs` XML-RPC, so that when set combined to a numprocs decrease,
+  **Supvisors** defers the obsolete processes deletion from the Supervisor configuration only when the processes stop
+  (exit, crash or later user request) instead of stopping them immediately.
+
+* Add monotonic time in internal model and exchanges to cope with time updates while **Supvisors** is running.
+  Impact on the XML-RPC `get_instance_info`, `get_process_info` and on the event interface for instance status
+  and process event.
+
+* Add new `get_statistics_status`, `enable_host_statistics`, `enable_process_statistics`, `update_collecting_period`
+  XML-RPCs to support the possibility to get and update the collection of host and process statistics.
+  The corresponding commands `stats_status`, `enable_stats` and `stats_period` have been added to `supervisorctl`.
+  The JAVA client includes the new XML-RPCs.
+
+* Add new `get_all_inner_process_info` and `get_inner_process_info` XML-RPCs to support debug investigation.
+  They return internal information on the processes declared on a **Supvisors** instance.
+
+* Move the host statistics collector to the statistics collector process. 
+  The option `stats_collecting_period` is now applicable to host statistics collector.
+
+* Re-apply the eventual process `extra_args` when restarting the application.
+
+* In the Supervisors navigation menu of the Web UI, add a red light to Supervisor instances having raised a failure.
+
+* Allow the display of a software name and icon at the top of the **Supvisors** Web UI.
+  The options `software_name` and `software_icon` have been added to the **Supvisors** section of the Supervisor
+  configuration file.
+
+* All internal identifiers are now based on the `host:http_port` format.
+
+* Rename the `DEPLOYMENT` state as `DISTRIBUTION` state to lift ambiguity ("deployment" is rather connoted when dealing
+  with the orchestration domain).
+
+* Rework **Supvisors** `RPCInterface` exceptions.
+
+* Rework the Web UI.
+
+
 ## 0.17.4 (2024-03-24)
 
 * Fix bug that was randomly blocking **Supvisors** on restart or shutdown, due to a stdout flush hanging in
@@ -128,7 +189,7 @@
 
 * The option `stats_periods` accepts float values, not necessarily multiples of 5.
 
-* Implement [Issue #54](https://github.com/julien6387/supvisors/issues/54).
+* Fix [Issue #54](https://github.com/julien6387/supvisors/issues/54).
   Add host and process statistics to the **Supvisors** event interface.
 
 * Fix children process CPU times in statistics.
@@ -342,7 +403,7 @@
 
 ## 0.11 (2022-01-02)
 
-* Implement [Issue #99](https://github.com/julien6387/supvisors/issues/99).
+* Fix [Issue #99](https://github.com/julien6387/supvisors/issues/99).
   Update the **Supvisors** design so that it can be used to supervise multiple Supervisor instances on multiple nodes.
   This update had a major impact on the source code. More particularly:
   - The XML-RPCs `get_master_identifier`, `get_instance_info` and `get_all_instances_info` have been added to replace
@@ -506,7 +567,7 @@
 * In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned
   by a Supervisor group.
 
-* In the application navigation menu of the Web UI, add a red light near the Applications title if any application
+* In the Applications navigation menu of the Web UI, add a red light near the Applications title if any application
   has raised a failure.
 
 * In the Application page of the Web UI, default starting strategy is the starting strategy defined
@@ -538,7 +599,7 @@
 
 * Enable stop sequence on *Unmanaged* applications.
 
-* In the application navigation menu of the Web UI, add a red light to applications having raised a failure.
+* In the Applications navigation menu of the Web UI, add a red light to applications having raised a failure.
 
 * New application rules `distributed` and `addresses` added to the **Supvisors** rules file.
   Non-distributed applications have all their processes started on the same node chosen in accordance with the
@@ -662,7 +723,7 @@
 
 ## 0.3 (2020-12-29)
 
-* Implement [Issue #81](https://github.com/julien6387/supvisors/issues/81).
+* Fix [Issue #81](https://github.com/julien6387/supvisors/issues/81).
   When **Supvisors** logfile is set to `AUTO`, **Supvisors** uses the same logger as **Supervisor**.
 
 * Fix [Issue #79](https://github.com/julien6387/supvisors/issues/79).

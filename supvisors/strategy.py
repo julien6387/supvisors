@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -294,7 +291,7 @@ def create_strategy(supvisors: Any, strategy: StartingStrategies) -> AbstractSta
 
 
 def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identifiers: NameList,
-                           expected_load: int) -> Optional[str]:
+                           expected_load: int, load_request_map: LoadMap) -> Optional[str]:
     """ Creates a strategy and let it find a Supvisors instance to start a process having a defined load.
 
     :param supvisors: the global Supvisors structure
@@ -310,9 +307,7 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
         return None
     # create the relevant strategy to choose a Supvisors instance among the candidates
     instance = create_strategy(supvisors, strategy)
-    # consider all pending starting requests into global load
-    load_request_map = supvisors.starter.get_load_requests()
-    supvisors.logger.debug(f'get_supvisors_instance: load_request_map={load_request_map}')
+    # sort the load_request_map per node
     node_load_request_map = get_node_load_request_map(supvisors.mapper, load_request_map)
     supvisors.logger.debug(f'get_supvisors_instance: node_load_request_map={node_load_request_map}')
     # get nodes load
@@ -370,6 +365,9 @@ class InfanticideStrategy(AbstractStrategy):
         """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
             # determine the process with higher uptime (the oldest)
+            for x in process.running_identifiers:
+                self.logger.info(f'InfanticideStrategy.conciliate: {process.namespec} at {x} uptime={process.info_map[x]["uptime"]}')
+
             saved_identifier = max(process.running_identifiers, key=lambda x: process.info_map[x]['uptime'])
             self.logger.warn(f'InfanticideStrategy.conciliate: keep {process.namespec} at {saved_identifier}')
             # stop other processes. work on copy as it may change during iteration

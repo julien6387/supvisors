@@ -1,4 +1,22 @@
-/* Additional resources */
+/*
+ * Copyright 2024 Julien LE CLEACH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Additional resources
+ */
 @font-face {
     font-family: 'kingthings_calligraphica_2Rg';
     src: url('Kingthings_Calligraphica_2-webfont.eot');
@@ -31,20 +49,89 @@
     --stable-color: dodgerblue;
     --error-color: #ff3333;
     --blink-color: orangered;
+    --navbg-color: #1a1a1a;
+    --stopped-color: #b3b300;
+    --running-color: green;
+    --fatal-color: #cc0000;
+    --crash-color: orange;
 }
 
+
+/*
+ * Resource common design
+*/
+header, footer {
+    padding: 5px;
+}
+
+header {
+    margin-bottom: 1em;
+}
+
+h1, h2, h3, h4, h5 {
+    font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
+}
+
+h1 {
+    text-align: left;
+    margin-top: 0.2em;
+    margin-bottom: 0.2em;
+}
+
+h2, h3 {
+    font-size: 1.2em;
+    margin: 0 0 8px 0;
+}
+
+h2 {
+    text-shadow: 3px 3px 2px black;
+}
+
+h4 {
+    font-size: .9em;
+    font-weight: bold;
+}
+
+h5 {
+    font-size: .8em;
+    text-align: right;
+    margin: 0 5px 0 0;
+}
+
+h6 {
+    padding: 0;
+    margin: 0 0 6px 0;
+    text-align: center;
+    font-size: .8em;
+    font-style: italic;
+    font-weight: normal;
+}
+
+p {
+    font-size: .8em;
+    margin-top: 0.1em;
+    margin-bottom: 0;
+}
+
+a {
+    text-decoration: none;
+    color: var(--text-color);
+}
+
+a.off {
+    cursor: not-allowed;
+}
 
 /*
  * General Layout
  */
 html, body, #body_block {
     height: 100%;
-    min-height: 700px;
+    min-height: 875px;
 }
 
 body {
     margin: auto;
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
 #body_block {
@@ -57,32 +144,46 @@ body {
  * Left Side (Menu) Layout
 */
 #left_side {
+    display: flex;
     min-width: 230px;
     max-width: 230px;
-    flex: 1;
-    display: flex;
     flex-direction: column;
-    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
+    background-image: linear-gradient(90deg, var(--dark1-color), var(--light2-color));
 }
 
-#left_side header, #left_side header a {
-   text-align: center;
-   color: var(--title-color);
+#left_side header {
+    display: flex;
+    flex-direction: row;
+    min-height: 88px;
+    max-height: 88px;
+    margin: 0 6px;
+    background-color: var(--dark1-color);
+    border-bottom-right-radius: 6px;
+    box-shadow: 4px 4px 6px black;
+    justify-content: start;
+    text-align: center;
+    color: var(--title-color);
 }
 
-nav {
-    flex: 1;
+#left_side header div {
     display: flex;
+    width: 220px;
     flex-direction: column;
-    overflow: auto;
-    color: var(--text-color);
+}
+
+#left_side header h1 {
+    height: 35px;
+}
+
+#instance_list {
+    margin-top: 10px;
 }
 
 #instance_list div, #application_list div {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden auto;
 }
 
 #left_side footer {
@@ -100,68 +201,15 @@ nav {
 
 
 /*
- * Right Side Layout
+ * Right Side (Specific) Layout
 */
 #right_side {
     flex: 1;
     display: flex;
     flex-direction: column;
     color: var(--text-color);
-}
-
-#right_side header {
-    min-height: 90px;
-    max-height: 90px;
-    padding: 0 10px;
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-#state_modes {
-    flex: 0;
-    display: flex;
-    flex-direction: row;
-    justify-content: start;
-}
-
-#state_modes div {
-    margin: auto 5px;
-}
-
-#state_modes div h3 {
-    margin: auto;
-}
-
-/* Supervisor page: Process section */
-#process_contents {
-    display: flex;
-    flex: 1;
-    flex-direction: row;
-    justify-content: space-around;
-    overflow: auto;
-    margin: 5px;
-}
-
-#process_left_side {
-    font-family: Verdana, Arial, sans-serif;
-    text-align: justify;
-    margin-right: 5px;
-}
-
-#process_right_side {
-    max-width: 500px;
-    align-items: center;
-    margin-right: 10px;
-}
-
-
-/* Supervisor page: Host section */
-#instance_contents {
-    display: flex;
-    flex: 1;
-    overflow: auto;
+    /*background-image: linear-gradient(90deg, var(--light1-color), var(--light2-color) 10%);*/
+    background-color: var(--light2-color);
 }
 
 .vertical_contents {
@@ -178,163 +226,6 @@ nav {
     justify-content: space-around;
 }
 
-.stats_contents {
-    display: flex;
-    flex: 0;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.stats_contents div>* {
-    margin-left: 5px;
-}
-
-#rsc_grid {
-    display: grid;
-    grid-template-columns: 1fr 300px 1fr;
-    grid-template-rows: 1fr 1fr;
-    grid-gap: 10px;
-}
-
-#mem_fig {
-    grid-column: 1;
-    grid-row: 2;
-}
-
-#mem_stats {
-    grid-column: 2;
-    grid-row: 2;
-    margin: auto;
-}
-
-#cpu_fig {
-    grid-column: 1;
-    grid-row: 1;
-}
-
-#cpu_stats {
-    overflow-y: auto;
-    flex-direction: column;
-    grid-column: 2;
-    grid-row: 1;
-}
-
-#cpu_stats div {
-    display: flex;
-    flex: 1;
-    overflow-y: auto;
-}
-
-#io_fig {
-    grid-column: 3;
-    grid-row: 1;
-}
-
-#io_stats {
-    overflow-y: auto;
-    flex-direction: column;
-    grid-column: 3;
-    grid-row: 2;
-}
-
-#io_stats div {
-    display: flex;
-    flex: 1;
-    overflow-y: auto;
-    margin: auto;
-}
-
-
-/* Common part: Message / Time boxes */
-#statusBox {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-around;
-}
-
-#messageBox, #timeBox {
-    min-height: 25px;
-    max-height: 25px;
-    font-size: 0.9em;
-}
-
-#messageBox {
-    width: 100%;
-    margin: 5px;
-}
-
-#timeBox {
-    min-width: 220px;
-    max-width: 220px;
-    margin: 5px 5px 5px 0;
-    text-align: right;
-}
-
-/*
- * Resource design
-*/
-header, nav, footer {
-    padding: 5px;
-}
-
-header {
-    margin-bottom: 1em;
-}
-
-h1, h2, h3, h4 {
-    font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
-}
-
-h1 {
-    text-align: left;
-    margin-top: 0.2em;
-    margin-bottom: 0.2em;
-}
-
-h2, h3 {
-    font-size: 1.2em;
-    margin: 0 0 8px 0;
-}
-
-h4 {
-    font-weight: bold;
-    text-align: center;
-    font-size: .8em;
-    padding: 5px;
-    border: 3px ridge var(--border-color);
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
-}
-
-h6 {
-    padding: 0;
-    margin: 0;
-    text-align: center;
-    font-size: .8em;
-    font-style: italic;
-    font-weight: normal;
-}
-
-h3 code {
-    display: inline-block;
-    padding: 5px 10px;
-    font-size: 16px;
-    text-shadow: 3px 3px 6px black;
-    background: var(--vlight1-color);
-}
-
-nav ul, p {
-    font-size: .8em;
-}
-
-p {
-    margin-top: 0.1em;
-    margin-bottom: 0;
-}
-
-a {
-    text-decoration: none;
-    color: var(--text-color);
-}
 
 /*
  * Blink Style
@@ -354,7 +245,7 @@ a {
  * Figure style
  */
 figure {
-    margin: 2;
+    margin: 6px;
 }
 
 figure img {
@@ -390,84 +281,10 @@ ul.vertical li {
 
 
 /*
- * Style for operational status
- */
-.status_empty, .status_green, .status_yellow, .status_red {
-    padding: 10px 100px 10px 2px;
-}
-
-.status_empty {
-    background: url(../img/leds_empty_30.png) no-repeat right;
-}
-
-.status_green {
-    background: url(../img/leds_green_30.png) no-repeat right;
-}
-
-.status_yellow{
-    background: url(../img/leds_yellow_30.png) no-repeat right;
-}
-
-.status_red {
-    background: url(../img/leds_red_30.png) no-repeat right;
-}
-
-
-/*
- * Style for status message
- */
-.empty, .info, .warn, .erro, .invInfo {
-    padding: 5px;
-    margin: 5px auto;
-    border-radius: 10px;
-}
-
-.empty {
-    background-image: linear-gradient(165deg, silver, #1a1a1a);
-    border: 1px grey inset;
-}
-
-.invInfo {
-    background-image: linear-gradient(165deg, #1a1a1a, dodgerblue);
-    border: 1px blue inset;
-}
-
-.info {
-    background-image: linear-gradient(165deg, dodgerblue, #1a1a1a);
-    border: 1px blue inset;
-}
-
-.info::before {
-    content: url(../img/info_20.png) '\00a0';
-    float: left;
-}
-
-.warn {
-    background-image: linear-gradient(165deg, #f90, #1a1a1a);
-    border: 1px orange inset;
-}
-
-.warn::before {
-    content: url(../img/warn_20.png) '\00a0';
-    float: left;
-}
-
-.erro {
-    background-image: linear-gradient(165deg, orangered, #1a1a1a);
-    border: 1px red inset;
-}
-
-.erro::before {
-    content: url(../img/erro_20.png) '\00a0';
-    float: left;
-}
-
-
-/*
  * Common Table style
  */
 table {
-    border-collapse: collapse;
+    border-collapse: separate;
     border-spacing: 0;
     caption-side: top;
     background-color: var(--tr-color);
@@ -479,39 +296,21 @@ th, td {
     font-size: .7em;
 }
 
-tr {
-    border: none;
-}
-
-tbody.hoverable tr:hover {
-    background-color: var(--dark1-color);
-    background-image: none;
-}
-
-th, td {
+tr:first-child th {
     border-top: solid 1px var(--border-color);
+}
+
+tr:last-child th {
+    border-bottom: solid 1px var(--border-color);
+}
+
+td {
     border-bottom: solid 1px var(--border-color);
 }
 
 th {
     background-color: var(--th-color);
     text-align: center;
-}
-
-table.buttons {
-    border: none;
-    background: transparent;
-}
-
-table.buttons td {
-    border: none;
-    padding: 2px 3px;
-}
-
-#process_table th {
-    position: sticky;
-    top: 0;
-    z-index: 20;
 }
 
 caption {
@@ -528,153 +327,52 @@ caption {
     background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
 }
 
-/* style for a table of processes */
-.shex {
-    vertical-align: top;
-}
-
-.centered {
-    text-align: center;
-}
-
-.expected {
-    font-style: italic;
-}
-
-/* fix some column width (button actions have a fixed content) */
-table .name {
-  width: 200px;
-}
-
-table .state {
-    width: 50px;
-}
-
-table .desc {
-  width: 250px;
-}
-
-
-/*
- * Style for optionBox
- */
-.optionBox {
-    border: 3px ridge var(--border-color);
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
-}
-
-.optionBox th {
-    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
-    text-align: center;
-}
-
-.optionBox ul {
-    text-align: center;
-}
-
-
 /*
  * State gradients
  */
-table .CHECKING {
-    background-image: linear-gradient(165deg, white, grey, green, white);
+.state_cell.CHECKING {
+    background-image: linear-gradient(165deg, white, grey, var(--running-color), white);
     color: black;
 }
 
-table .STOPPED, table .EXITED, table .SILENT {
-    background-image: linear-gradient(165deg, white, #cc0, #cc0, white);
+.state_cell.STOPPED, .state_cell.EXITED, .state_cell.SILENT {
+    background-image: linear-gradient(165deg, white, var(--stopped-color), var(--stopped-color), white);
     color: black;
 }
 
-table .STARTING, table .BACKOFF {
-    background-image: linear-gradient(165deg, white, #cc0, green, white);
+.state_cell.STARTING, .state_cell.BACKOFF {
+    background-image: linear-gradient(165deg, white, var(--stopped-color), var(--running-color), white);
     color: black;
 }
 
-table .STOPPING {
-    background-image: linear-gradient(165deg, white, green, #cc0, white);
+.state_cell.STOPPING {
+    background-image: linear-gradient(165deg, white, var(--running-color), var(--stopped-color), white);
     color: black;
 }
 
-table .RUNNING, table .CHECKED {
-    background-image: linear-gradient(165deg, white, green, green, white);
+.state_cell.RUNNING, .state_cell.CHECKED {
+    background-image: linear-gradient(165deg, white, var(--running-color), var(--running-color), white);
     color: black;
 }
 
-table .RUNNING.crashed, table .CHECKED.crashed {
-    background-image: linear-gradient(165deg, orange, green, green, orange);
+.state_cell.RUNNING.crashed, .state_cell.CHECKED.crashed {
+    background-image: linear-gradient(165deg, var(--crash-color), var(--running-color), var(--running-color), var(--crash-color));
     color: black;
 }
 
-table .FATAL, table .ISOLATED {
-    background-image: linear-gradient(165deg, white, red, red, white);
+.state_cell.FATAL, .state_cell.ISOLATED {
+    background-image: linear-gradient(165deg, white, var(--fatal-color), var(--fatal-color), white);
     color: black;
 }
 
-table .UNKNOWN, table .disabled {
+.state_cell.UNKNOWN, .state_cell.disabled {
     background-image: linear-gradient(165deg, white, grey, grey, white);
     color: black;
 }
 
-nav .UNKNOWN {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey);
-}
-
-nav .UNKNOWN.active {
-    background-image: linear-gradient(165deg, grey, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .CHECKING {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey 80%, green);
-}
-
-nav .CHECKING.active {
-    background-image: linear-gradient(165deg, green, grey 20%, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .STOPPED, nav .SILENT {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0);
-}
-
-nav .STOPPED.active {
-    background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .RUNNING, nav .CHECKED {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
-}
-
-nav .RUNNING.active, nav .CHECKED.active {
-    background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .ISOLATED {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, red);
-}
-
-nav .STARTING {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, green);
-}
-
-nav .STARTING.active {
-    background-image: linear-gradient(165deg, green, #cc0 20%, #1a1a1a 40%, #1a1a1a);
-}
-
-nav .STOPPING {
-    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green 80%, #cc0);
-}
-
-nav li.STOPPING.active {
-    background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
-}
-
-nav li.failure::after {
-    content: url(../img/red_light_30.png);
-    float: right;
-    position: relative;
-    top: -30px;
-}
-
+/*
+ * Failure LED
+ */
 h1 a.failure::after {
     content: url(../img/red_light_30.png);
     float: right;
@@ -715,4 +413,11 @@ h2.failure::after {
 
 .decrease::after {
     content: "\2198";
+}
+
+/*
+ * Hide without removing
+ */
+.invisible {
+    opacity: 0;
 }

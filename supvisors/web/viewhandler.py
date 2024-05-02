@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -24,13 +21,14 @@ from supervisor.compat import as_bytes, as_string
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
+from supvisors import __version__
 from supvisors.instancestatus import SupvisorsInstanceStatus
-from supvisors.rpcinterface import API_VERSION
+from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
-from supvisors.utils import get_stats
+from supvisors.utils import get_stats, get_small_value
 from .viewcontext import *
-from .viewimage import process_cpu_img, process_mem_img
+from .viewimage import process_cpu_img, process_mem_img, SoftwareIconImage
 from .webutils import *
 
 
@@ -41,20 +39,29 @@ class ViewHandler(MeldView):
         """ Initialization of the attributes. """
         MeldView.__init__(self, context)
         self.page_name = None
+        self.current_mtime = time.monotonic()
         self.current_time = time.time()
         # add Supvisors shortcuts
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
         # cannot store context as it is named, or it would crush the http context
         self.sup_ctx = self.supvisors.context
-        # keep reference to the local node name
-        self.local_identifier = self.supvisors.mapper.local_identifier
         # even if there is no local collector, statistics can be available from other Supvisors instances
         # where a collector is available
         self.has_host_statistics = True
         self.has_process_statistics = True
         # init view_ctx (only for tests)
         self.view_ctx = None
+
+    @property
+    def local_identifier(self):
+        """ Return the identifier of the local Supvisors instance. """
+        return self.supvisors.mapper.local_identifier
+
+    @property
+    def local_nick_identifier(self):
+        """ Return the nick identifier of the local Supvisors instance. """
+        return self.supvisors.mapper.local_nick_identifier
 
     def __call__(self):
         """ Anticipation of Supervisor#1273.
@@ -82,8 +89,12 @@ class ViewHandler(MeldView):
             self.write_style(root)
             self.write_common(root)
             self.write_navigation(root)
-            self.write_header(root)
-            self.write_contents(root)
+            # write the header section
+            header_elt = root.findmeld('header_mid')
+            self.write_header(header_elt)
+            # write the body section
+            contents_elt = root.findmeld('contents_mid')
+            self.write_contents(contents_elt)
             # send message only at the end to get all URL parameters
             self.view_ctx.fire_message()
             return as_string(root.write_xhtmlstring())
@@ -107,21 +118,11 @@ class ViewHandler(MeldView):
             elt = root.findmeld('supvisors_mid')
             update_attrib(elt, 'class', 'failure')
         # set Supvisors version
-        root.findmeld('version_mid').content(API_VERSION)
-        # set current Supvisors instance identifier
-        root.findmeld('identifier_mid').content(self.local_identifier)
-        # configure refresh button
-        elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name)
-        elt.attributes(href=url)
-        # configure auto-refresh button
-        elt = root.findmeld('autorefresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{AUTO: not auto_refresh})
-        elt.attributes(href=url)
-        if auto_refresh:
-            update_attrib(elt, 'class', 'active')
+        root.findmeld('version_mid').content(__version__)
         # set bottom message
-        print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message(), self.current_time)
+        footer_elt = root.findmeld('footer_mid')
+        print_message(footer_elt, self.view_ctx.get_gravity(), self.view_ctx.get_message(),
+                      self.current_time, self.local_nick_identifier)
 
     def write_navigation(self, root):
         """ Write the navigation menu.
@@ -133,24 +134,31 @@ class ViewHandler(MeldView):
         self.write_nav_instances(root, identifier)
         self.write_nav_applications(root, appli)
 
-    def write_nav_instances(self, root, identifier):
+    def write_nav_instances(self, root, identifier: str) -> None:
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('instance_li_mid')
         identifiers = list(self.supvisors.mapper.instances.keys())
+        any_failure = False
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance
         # so let's sort them by name
         if self.supvisors.options.discovery_mode:
-            identifiers = sorted(identifiers)
+            identifiers = [status.identifier
+                           for status in sorted(self.supvisors.mapper.instances.values(),
+                                                key=lambda x: x.nick_identifier)]
         for li_elt, item in mid_elt.repeat(identifiers):
             try:
                 status: SupvisorsInstanceStatus = self.sup_ctx.instances[item]
             except KeyError:
                 self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:
+                failure = status.has_error()
+                any_failure |= failure
                 # set element class
                 update_attrib(li_elt, 'class', status.state.name)
                 if item == identifier:
                     update_attrib(li_elt, 'class', 'active')
+                if failure:
+                    update_attrib(li_elt, 'class', 'failure')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('instance_a_mid')
                 if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
@@ -162,11 +170,17 @@ class ViewHandler(MeldView):
                     update_attrib(elt, 'class', 'on')
                 else:
                     update_attrib(elt, 'class', 'off')
-                # set content
-                identifier = item
+                # set content (master and failure symbols need a positional update against the text)
+                instance_elt = elt.findmeld('instance_sp_mid')
+                instance_elt.content(status.supvisors_id.nick_identifier)
                 if item == self.sup_ctx.master_identifier:
-                    identifier = f'{MASTER_SYMBOL} {item}'
-                elt.content(identifier)
+                    master_elt = elt.findmeld('master_sp_mid')
+                    master_elt.content(MASTER_SYMBOL)
+                    update_attrib(li_elt, 'class', 'master')
+        # warn at title level if any application has a failure
+        if any_failure:
+            elt = root.findmeld('instance_h_mid')
+            update_attrib(elt, 'class', 'failure')
 
     def write_nav_applications(self, root, appli):
         """ Write the application part of the navigation menu. """
@@ -201,35 +215,70 @@ class ViewHandler(MeldView):
             elt.content(item.application_name)
         # warn at title level if any application has a failure
         if any_failure:
-            update_attrib(root.findmeld('appli_h_mid'), 'class', 'failure')
+            elt = root.findmeld('appli_h_mid')
+            update_attrib(elt, 'class', 'failure')
 
-    def write_header(self, root):
-        """ Write the header part of the page.
-        Subclasses will define what's to be done. """
+    def write_header(self, header_elt):
+        """ Write the header common part of the page.
+        Subclasses will define what's to be done at their level. """
+        self.write_software(header_elt)
+        self.write_status(header_elt)
+        self.write_options(header_elt)
+        self.write_actions(header_elt)
+
+    def write_software(self, header_elt):
+        """ Write the user software elements. """
+        card_elt = header_elt.findmeld('software_card_mid')
+        if not (self.supvisors.options.software_name or self.supvisors.options.software_icon):
+            # remove the user software card if nothing set
+            card_elt.replace('')
+        else:
+            if self.supvisors.options.software_name:
+                # write software name
+                card_elt.findmeld('software_name_mid').content(self.supvisors.options.software_name)
+            # write user icon
+            if self.supvisors.options.software_icon:
+                SoftwareIconImage.set_path(self.supvisors.options.software_icon)
+            else:
+                card_elt.findmeld('software_icon_mid').replace('')
+
+    def write_status(self, header_elt):
+        """ Write the page instance status. """
         raise NotImplementedError
 
-    def write_periods(self, root):
+    def write_options(self, header_elt):
         """ Write configured periods for statistics.
-        By default, the periods box is visible. """
-        self.write_periods_availability(root, True)
+        Does nothing by default. To be specialized in subclasses where statistics are available. """
 
-    def write_periods_availability(self, root, available: bool) -> None:
-        """ Write configured periods for statistics. """
-        if available:
-            # write the available periods
-            mid_elt = root.findmeld('period_li_mid')
-            for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
-                # print period button
-                elt = li_elt.findmeld('period_a_mid')
-                if item == self.view_ctx.parameters[PERIOD]:
-                    update_attrib(elt, 'class', 'button off active')
-                else:
-                    url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
-                    elt.attributes(href=url)
-                elt.content(f'{item}s')
-        else:
-            # hide the Statistics periods box
-            root.findmeld('period_div_mid').replace('')
+    def write_periods(self, header_elt) -> None:
+        """ Write configured periods for statistics.
+        The update is conditioned to statistics options set in subclasses. """
+        # write the available periods
+        mid_elt = header_elt.findmeld('period_li_mid')
+        for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
+            # print period button
+            elt = li_elt.findmeld('period_a_mid')
+            if item == self.view_ctx.parameters[PERIOD]:
+                update_attrib(elt, 'class', 'off active')
+            else:
+                update_attrib(elt, 'class', 'on')
+                url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
+                elt.attributes(href=url)
+            elt.content(f'{item}s')
+
+    def write_actions(self, header_elt):
+        """ Write the common action elements. """
+        # configure refresh button
+        elt = header_elt.findmeld('refresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name)
+        elt.attributes(href=url)
+        # configure auto-refresh button
+        auto_refresh = self.view_ctx.parameters[AUTO]
+        elt = header_elt.findmeld('autorefresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{AUTO: not auto_refresh})
+        elt.attributes(href=url)
+        if auto_refresh:
+            update_attrib(elt, 'class', 'active')
 
     def write_contents(self, root):
         """ Write the contents part of the page.
@@ -255,10 +304,10 @@ class ViewHandler(MeldView):
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)
                     elt.attributes(href=url)
-                    elt.content(f'{cpuvalue:.2f}%')
+                    elt.content(get_small_value(cpuvalue))
                 else:
                     # print data with no link and button format
-                    elt.replace(f'{cpuvalue:.2f}%')
+                    elt.replace(get_small_value(cpuvalue))
             else:
                 # when no data, do not write link
                 elt.replace('--')
@@ -283,10 +332,10 @@ class ViewHandler(MeldView):
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)
                     elt.attributes(href=url)
-                    elt.content(f'{memvalue:.2f}%')
+                    elt.content(get_small_value(memvalue))
                 else:
                     # print data with no link
-                    elt.replace(f'{memvalue:.2f}%')
+                    elt.replace(get_small_value(memvalue))
             else:
                 # when no data, no not write link
                 elt.replace('--')
@@ -353,7 +402,9 @@ class ViewHandler(MeldView):
     def write_common_process_table(self, table_elt):
         """ Hide MEM+CPU head+foot cells if statistics disabled"""
         if not self.has_process_statistics:
-            for mid in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid', 'total_mid']:
+            for mid in ['mem_head_th_mid', 'cpu_head_th_mid',
+                        'mem_foot_th_mid', 'cpu_foot_th_mid',
+                        'mem_total_th_mid', 'cpu_total_th_mid']:
                 elt = table_elt.findmeld(mid)
                 if elt is not None:
                     elt.deparent()
@@ -370,14 +421,12 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'disabled')
         elt.content(info['statename'])
         # print description
-        elt = tr_elt.findmeld('desc_td_mid')
-        elt.content(info['description'])
+        tr_elt.findmeld('desc_td_mid').content(info['description'])
 
     def write_common_statistics(self, tr_elt, info: Payload) -> None:
         """ Write the common part of a process or application statistics into a table. """
         # print expected load
-        elt = tr_elt.findmeld('load_td_mid')
-        elt.content(f"{info['expected_load']}%")
+        tr_elt.findmeld('load_td_mid').content(f"{info['expected_load']}")
         # get data from statistics module iaw period selection
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
@@ -414,79 +463,66 @@ class ViewHandler(MeldView):
         self.write_process_stdout_button(tr_elt, info, check_logfiles)
         self.write_process_stderr_button(tr_elt, info, check_logfiles)
 
-    def write_detailed_process_cpu(self, stats_elt, proc_stats: ProcStatisticsInstance, nb_cores: int) -> bool:
+    def write_detailed_process_cpu(self, stats_elt, proc_stats: Optional[ProcStatisticsInstance],
+                                   nb_cores: int) -> bool:
         """ Write the CPU part of the detailed process status.
 
-        :param stats_elt: the element from which to search for
-        :param proc_stats: the process statistics
-        :param nb_cores: the number of processor cores
-        :return: True if process CPU statistics are valid
+        :param stats_elt: the element from which to search for.
+        :param proc_stats: the process statistics.
+        :param nb_cores: the number of processor cores.
+        :return: True if process CPU statistics are valid.
         """
-        if proc_stats and len(proc_stats.cpu) > 0:
-            # calculate stats
-            avg, rate, (slope, intercept), dev = get_stats(proc_stats.times, proc_stats.cpu)
-            # print last CPU value of process
-            elt = stats_elt.findmeld('pcpuval_td_mid')
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            cpuvalue = proc_stats.cpu[-1]
+        if proc_stats:
+            # if SOLARIS mode configured, update the CPU data
+            # this will be applicable to the CPU plot
             if not self.supvisors.options.stats_irix_mode:
-                cpuvalue /= nb_cores
-            elt.content(f'{cpuvalue:.2f}%')
-            # set mean value
-            elt = stats_elt.findmeld('pcpuavg_td_mid')
-            if not self.supvisors.options.stats_irix_mode:
-                avg /= nb_cores
-            elt.content(f'{avg:.2f}%')
-            if slope is not None:
-                # set slope value between last 2 values
-                elt = stats_elt.findmeld('pcpuslope_td_mid')
-                elt.content(f'{slope:.2f}')
-            if dev is not None:
-                # set standard deviation
-                elt = stats_elt.findmeld('pcpudev_td_mid')
-                elt.content(f'{dev:.2f}')
+                proc_stats.cpu = [x / nb_cores for x in proc_stats.cpu]
+            self._write_common_detailed_statistics(stats_elt, proc_stats.cpu, proc_stats.times,
+                                                   'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                   'pcpuslope_td_mid', 'pcpudev_td_mid')
             return True
 
-    def write_detailed_process_mem(self, stats_elt, proc_stats: ProcStatisticsInstance) -> bool:
+    def write_detailed_process_mem(self, stats_elt, proc_stats: Optional[ProcStatisticsInstance]) -> bool:
         """ Write the MEM part of the detailed process status.
 
-        :param stats_elt: the element from which to search for
-        :param proc_stats: the process statistics
-        :return: True if process Memory statistics are valid
+        :param stats_elt: the element from which to search for.
+        :param proc_stats: the process statistics.
+        :return: True if process Memory statistics are valid.
         """
-        if proc_stats and len(proc_stats.mem) > 0:
-            avg, rate, (a, b), dev = get_stats(proc_stats.times, proc_stats.mem)
-            # print last MEM value of process
-            elt = stats_elt.findmeld('pmemval_td_mid')
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            elt.content(f'{proc_stats.mem[-1]:.2f}%')
-            # set mean value
-            elt = stats_elt.findmeld('pmemavg_td_mid')
-            elt.content(f'{avg:.2f}%')
-            if a is not None:
-                # set slope value between last 2 values
-                elt = stats_elt.findmeld('pmemslope_td_mid')
-                elt.content(f'{a:.2f}')
-            if dev is not None:
-                # set standard deviation
-                elt = stats_elt.findmeld('pmemdev_td_mid')
-                elt.content(f'{dev:.2f}')
+        if proc_stats:
+            self._write_common_detailed_statistics(stats_elt, proc_stats.mem, proc_stats.times,
+                                                   'pmemval_td_mid', 'pmemavg_td_mid',
+                                                   'pmemslope_td_mid', 'pmemdev_td_mid')
             return True
 
-    def write_process_plots(self, proc_stats: ProcStatisticsInstance, nb_cores: int) -> bool:
+    def _write_common_detailed_statistics(self, ref_elt, stats, timeline, val_mid, avg_mid, slope_mid, dev_mid):
+        """ Rendering of the memory statistics. """
+        if len(stats) > 0:
+            # get additional statistics
+            avg, rate, (slope, _), dev = get_stats(timeline, stats)
+            # set last value
+            elt = ref_elt.findmeld(val_mid)
+            if rate is not None:
+                self.set_slope_class(elt, rate)
+            elt.content(get_small_value(stats[-1]))
+            # set mean value
+            ref_elt.findmeld(avg_mid).content(get_small_value(avg))
+            # adapt slope value iaw period selected
+            if slope is not None:
+                value = slope * self.view_ctx.parameters[PERIOD]
+                ref_elt.findmeld(slope_mid).content(get_small_value(value))
+            # set standard deviation
+            if dev is not None:
+                ref_elt.findmeld(dev_mid).content(get_small_value(dev))
+
+    def write_process_plots(self, proc_stats: ProcStatisticsInstance) -> bool:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
             from supvisors.plot import StatisticsPlot
-            # build CPU image
+            # build CPU image (if SOLARIS mode configured, CPU values have already been adjusted)
             cpu_img = StatisticsPlot(self.logger)
-            if self.supvisors.options.stats_irix_mode:
-                cpu_values = proc_stats.cpu
-            else:
-                cpu_values = [x / nb_cores for x in proc_stats.cpu]
             cpu_img.add_timeline(proc_stats.times)
-            cpu_img.add_plot('CPU', '%', cpu_values)
+            cpu_img.add_plot('CPU', '%', proc_stats.cpu)
             cpu_img.export_image(process_cpu_img)
             # build Memory image
             mem_img = StatisticsPlot(self.logger)
@@ -510,14 +546,14 @@ class ViewHandler(MeldView):
             done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats, info['nb_cores'])
             done_mem = self.write_detailed_process_mem(stats_elt, proc_stats)
             if done_cpu or done_mem:
-                # set titles
-                elt = stats_elt.findmeld('process_h_mid')
-                elt.content(namespec)
-                elt = stats_elt.findmeld('instance_fig_mid')
-                if elt is not None:
-                    elt.content(info['identifier'])
+                # set proces name
+                stats_elt.findmeld('process_td_mid').content(namespec)
+                # set node name and address
+                supvisors_id: SupvisorsInstanceId = self.supvisors.mapper.instances[info['identifier']]
+                stats_elt.findmeld('node_td_mid').content(supvisors_id.host_id)
+                stats_elt.findmeld('ipaddress_td_mid').content(supvisors_id.ip_address)
                 # write CPU / Memory plots
-                if not self.write_process_plots(proc_stats, info['nb_cores']):
+                if not self.write_process_plots(proc_stats):
                     # matplolib not installed: remove figure elements
                     for mid in ['cpuimage_fig_mid', 'memimage_fig_mid']:
                         stats_elt.findmeld(mid).replace('')

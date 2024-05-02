@@ -123,7 +123,7 @@ public class SystemXmlRpc {
      * @param String[] args: The arguments.
      */
     public static void main(String[] args) throws MalformedURLException, XmlRpcException {
-        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
+        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(Integer.parseInt(args[0]));
         SystemXmlRpc system = new SystemXmlRpc(client);
 
         // test help methods

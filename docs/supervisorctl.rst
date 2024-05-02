@@ -33,15 +33,19 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    all_start          local_status         sstate                  stop_process
-    all_start_args     loglevel             sstatus                 strategies
-    application_info   master               start_any_process       sversion
-    application_rules  process_rules        start_any_process_args  update_numprocs
-    conciliate         restart_application  start_application
-    conflicts          restart_process      start_args
-    disable            restart_sequence     start_process
-    enable             sreload              start_process_args
-    instance_status    sshutdown            stop_application
+    all_start             local_status            start_application
+    all_start_args        loglevel                start_args
+    application_info      master                  start_process
+    application_rules     process_rules           start_process_args
+    conciliate            restart_application     stats_period
+    conflicts             restart_process         stats_status
+    disable               restart_sequence        stop_application
+    disable_stats         sreload                 stop_process
+    enable                sshutdown               strategies
+    enable_stats          sstate                  sversion
+    end_sync              sstatus                 test_start_application
+    instance_status       start_any_process       test_start_process
+    lazy_update_numprocs  start_any_process_args  update_numprocs
 
 .. _extended_status:
 
@@ -156,7 +160,7 @@ Status
 .. _supvisors_control:
 
 |Supvisors| Control
----------------------
+-------------------
 
 ``loglevel level``
 
@@ -178,6 +182,36 @@ Status
 ``sshutdown``
 
     Shutdown all |Supvisors| instances.
+
+
+.. _statistics_control:
+
+Statistics Control
+------------------
+
+``stats_status``
+
+    Get the |Supvisors| statistics collection status.
+
+``enable_stats process``
+
+    Enable process statistics collection
+
+``enable_stats host process``
+
+    Enable host and process statistics collection.
+
+``disable_stats host``
+
+    Disable host statistics collection.
+
+``disable_stats all``
+
+    Disable host and process statistics collection.
+
+``stats_period period``
+
+    Update the host and process statistics collection period.
 
 
 .. _application_control:
@@ -224,6 +258,11 @@ It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL
 ``restart_application strategy appli1 appli2``
 
     Restart multiple named managed applications with a starting strategy.
+
+``test_start_application strategy appli``
+
+    Return a prediction of the distribution of the managed application named appli with a starting strategy.
+
 
 
 Process Control
@@ -279,7 +318,7 @@ Process Control
 
 ``stop_process proc``
 
-    Stop the process named appli.
+    Stop the process named proc.
 
 ``stop_process proc1 proc2``
 
@@ -289,17 +328,31 @@ Process Control
 
     Restart all processes with a starting strategy.
 
-``restart_process strategy appli``
+``restart_process strategy proc``
 
-    Restart the process named appli with a starting strategy.
+    Restart the process named proc with a starting strategy.
 
-``restart_process strategy appli1 appli2``
+``restart_process strategy proc1 proc2``
 
     Restart multiple named process with a starting strategy.
 
+``test_start_process strategy proc``
+
+    Return a prediction of the distribution of the process named proc with a starting strategy.
+
+``test_start_process strategy appli:*``
+
+    Return a prediction of the distribution of all appli application processes with a starting strategy.
+
 ``update_numprocs program_name numprocs``
 
-    Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners).
+    Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners),
+    stopping the obsolete programs immediately.
+
+``lazy_update_numprocs program_name numprocs``
+
+    Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners),
+    giving a chance to the obsolete programs to end by themselves.
 
 ``enable program_name``
 

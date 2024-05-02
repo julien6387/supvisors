@@ -41,7 +41,7 @@ Status
             ================== ============= ===========
             'fsm_statecode'    ``int``       The |Supvisors| state, in [0;9].
             'fsm_statename'    ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
-                                             ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                             ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
                                              ```'SHUTTING_DOWN'``, ``'FINAL'``].
             'discovery_mode'   ``bool``      True if the |Supvisors| discovery mode is activated.
             'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
@@ -58,36 +58,46 @@ Status
             'auto-fencing'     ``bool``  The application status of the auto-fencing in |Supvisors|.
             'conciliation'     ``str``   The conciliation strategy applied when |Supvisors| is in the ``CONCILIATION``
                                          state.
-            'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DEPLOYMENT`` state.
+            'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DISTRIBUTION``
+                                         state.
             ================== ========= ===========
 
         .. automethod:: get_instance_info(instance)
 
-            ================== ========= ===========
-            Key                Type      Description
-            ================== ========= ===========
-            'identifier'       ``str``   The deduced name of the |Supvisors| instance.
-            'node_name'        ``str``   The name of the node where the |Supvisors| instance is running.
-            'port'             ``int``   The HTTP port of the |Supvisors| instance.
-            'statecode'	       ``int``   The |Supvisors| instance state, in [0;6].
-            'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
-                                         `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
-            'discovery_mode'   ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
-            'remote_time'      ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
-                                         in the remote reference time.
-            'local_time'       ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
-                                         in the local reference time.
-            'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
-                                         instance, in [0;100]%.
-            'process_failure'  ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
-            'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
-            'fsm_statecode'    ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
-            'fsm_statename'    ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
-                                         ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
-                                         ``'SHUTTING_DOWN'``, ``'FINAL'``].
-            'starting_jobs'    ``bool``  True if the |Supvisors| instance has starting jobs in progress.
-            'stopping_jobs'    ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
-            ================== ========= ===========
+            ========================= ========= ===========
+            Key                       Type      Description
+            ========================= ========= ===========
+            'identifier'              ``str``   The |Supvisors| instance identifier (``host:http_port``).
+            'nick_identifier'         ``str``   The |Supervisor| instance identifier, or a copy of the |Supvisors|
+                                                identifier if not set.
+            'node_name'               ``str``   The name of the node where the |Supvisors| instance is running.
+            'port'                    ``int``   The HTTP port of the |Supvisors| instance.
+            'statecode'	              ``int``   The |Supvisors| instance state, in [0;6].
+            'statename'	              ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
+                                                `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATED'``].
+            'discovery_mode'          ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
+            'remote_sequence_counter' ``int``   The remote TICK counter, i.e. the number of TICK events received since
+                                                the remote |Supvisors| instance is running.
+            'remote_mtime'            ``float`` The monotonic time received in the last heartbeat sent by the remote
+                                                |Supvisors| instance, in seconds since the remote host started.
+            'remote_time'             ``float`` The POSIX time received in the last heartbeat sent by the remote
+                                                |Supvisors| instance, in seconds and in the remote reference time.
+            'local_sequence_counter'  ``int``   The local TICK counter when the latest TICK was received from the remote
+                                                |Supvisors| instance.
+            'local_mtime'             ``float`` The monotonic time when the latest TICK was received from the remote
+                                                |Supvisors| instance, in seconds since the local host started.
+            'local_time'              ``float`` The POSIX time when the latest TICK was received from the remote
+                                                |Supvisors| instance, in seconds and in the local reference time.
+            'loading'                 ``int``   The sum of the expected loading of the processes running on the |Supvisors|
+                                                instance, in [0;100]%.
+            'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
+            'fsm_statecode'           ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
+            'fsm_statename'           ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
+                                                ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
+                                                ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'FINAL'``].
+            'starting_jobs'           ``bool``  True if the |Supvisors| instance has starting jobs in progress.
+            'stopping_jobs'           ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
+            ========================= ========= ===========
 
         .. automethod:: get_all_instances_info()
 
@@ -118,7 +128,8 @@ Status
                                                ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``,
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
-            'last_event_time'  ``float``       The timestamp of the last event received for this process.
+            'last_event_time'  ``float``       The local monotonic time of the last event received for this process,
+                                               in seconds.
             'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
                                                running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
@@ -157,6 +168,10 @@ Status
 
         .. automethod:: get_all_local_process_info()
 
+        .. automethod:: get_inner_process_info()
+
+        .. automethod:: get_all_inner_process_info()
+
         .. automethod:: get_application_rules(application_name)
 
             =========================== =============== ===========
@@ -165,25 +180,26 @@ Status
             'application_name'          ``str``         The Application name.
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
-            'distribution'              ``str``         The distribution rule of the application,
+            'distribution'              ``str``         The distribution rule of the Application,
                                                         in [``'ALL_INSTANCES'``, ``'SINGLE_INSTANCE'``,
                                                         ``'SINGLE_NODE'``].
             'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
-                                                        non-fully distributed application processes can be started,
+                                                        non-fully distributed Application processes can be started,
                                                         provided only if ``distribution`` is not ``ALL_INSTANCES``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
                                                         in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications,
                                                         in [0;127].
-            'starting_strategy'         ``str``         The strategy applied when starting application automatically,
+            'starting_strategy'         ``str``         The strategy applied when starting Application automatically,
                                                         in [``'CONFIG'``, ``'LESS_LOADED'``, ``'MOST_LOADED'``,
                                                         ``'LOCAL'``, ``'LESS_LOADED_NODE'``, ``'MOST_LOADED_NODE'``].
             'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting
-                                                        application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
+                                                        Application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
             'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running
-                                                        application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
+                                                        Application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
                                                         ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``,
                                                         ``'SHUTDOWN'``, ``'RESTART'``].
+            'status_formula'            ``str``         The ``operational_status`` formula set in the Application rule.
             =========================== =============== ===========
 
         .. automethod:: get_process_rules(namespec)
@@ -217,7 +233,7 @@ Status
 .. _xml_rpc_supvisors:
 
 |Supvisors| Control
----------------------
+-------------------
 
   .. autoclass:: RPCInterface
     :noindex:
@@ -233,6 +249,31 @@ Status
         .. automethod:: shutdown()
 
 
+.. _xml_rpc_statistics:
+
+|Supvisors| Statistics Status and Control
+-----------------------------------------
+
+  .. autoclass:: RPCInterface
+    :noindex:
+
+        .. automethod:: get_statistics_status()
+
+            ==================== ========= ===========
+            Key                  Type      Description
+            ==================== ========= ===========
+            'host_stats'         ``bool``  The status of Host Statistics collection in |Supvisors|.
+            'process_stats'      ``bool``  The status of Process Statistics collection in |Supvisors|.
+            'collecting_period'  ``float`` The minimum interval between 2 samples of the same statistics type.
+            ==================== ========= ===========
+
+        .. automethod:: enable_host_statistics(enable_host)
+
+        .. automethod:: enable_process_statistics(enable_process)
+
+        .. automethod:: update_collecting_period(collecting_period)
+
+
 .. _xml_rpc_application:
 
 Application Control
@@ -246,6 +287,8 @@ Application Control
         .. automethod:: stop_application(application_name, wait=True)
 
         .. automethod:: restart_application(strategy, application_name, wait=True)
+
+        .. automethod:: test_start_application(strategy, application_name)
 
 
 .. _xml_rpc_process:
@@ -266,7 +309,9 @@ Process Control
 
         .. automethod:: restart_process(strategy, namespec, extra_args='', wait=True)
 
-        .. automethod:: update_numprocs(program_name, numprocs, wait=True)
+        .. automethod:: test_start_process(strategy, namespec)
+
+        .. automethod:: update_numprocs(program_name, numprocs, wait=True, lazy=False)
 
             .. hint::
 
@@ -322,8 +367,10 @@ but they are configured to communicate with the local |Supervisor| instance.
 If the :program:`Python` client has to communicate with another |Supervisor| instance, the parameters must be set
 accordingly.
 
->>> from supervisor.childutils import getRPCInterface
->>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://cliche81:60000'})
+The ``ServerProxy`` of the ``xmlrpc`` module can also be used.
+
+>>> from xmlrpc.client import ServerProxy
+>>> proxy = ServerProxy('http://cliche81:60000')
 >>> proxy.supvisors.get_supvisors_state()
 {'fsm_statecode': 3, 'fsm_statename': 'OPERATION', 'starting_jobs': [], 'stopping_jobs': []}
 

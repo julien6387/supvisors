@@ -48,7 +48,7 @@ Of course, the contents depends on the message type.
 Key	               Type               Value
 ================== ================= ==================
 'fsm_statecode'    ``int``           The state of |Supvisors|, in [0;6].
-'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``,
+'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DISTRIBUTION'``,
                                      ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
                                      ``'FINAL'`` }.
 'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
@@ -60,22 +60,31 @@ Key	               Type               Value
 |Supvisors| instance status
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-================== ================= ==================
-Key	               Type              Value
-================== ================= ==================
-'identifier'       ``str``           The deduced name of the |Supvisors| instance.
-'node_name'        ``str``           The name of the node where the |Supvisors| instance is running.
-'port'             ``int``           The HTTP port of the |Supvisors| instance.
-'statecode'        ``int``           The |Supvisors| instance state, in [0;6].
-'statename'        ``str``           The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``,
-                                     `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
-'discovery_mode'   ``bool``          True if the discovery mode is activated in the |Supvisors| instance.
-'sequence_counter' ``int``           The TICK counter, i.e. the number of Tick events received since it is running.
-'remote_time'      ``float``         The date of the last ``TICK`` event received from this node, in ms.
-'local_time'       ``float``         The local date of the last ``TICK`` event received from this node, in ms.
-'loading'          ``int``           The sum of the expected loading of the processes running on the node, in [0;100]%.
-'process_failure'  ``bool``          True if one of the local processes has crashed or has exited unexpectedly.
-================== ================= ==================
+========================= ========== ==================
+Key	                      Type       Value
+========================= ========== ==================
+'identifier'              ``str``    The deduced name of the |Supvisors| instance.
+'node_name'               ``str``    The name of the node where the |Supvisors| instance is running.
+'port'                    ``int``    The HTTP port of the |Supvisors| instance.
+'statecode'               ``int``    The |Supvisors| instance state, in [0;6].
+'statename'               ``str``    The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``,
+                                     `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'FAILED'``, ``'ISOLATED'`` }.
+'discovery_mode'          ``bool``   True if the discovery mode is activated in the |Supvisors| instance.
+'remote_sequence_counter' ``int``    The remote TICK counter, i.e. the number of TICK events received since
+                                     the remote |Supvisors| instance is running.
+'remote_mtime'            ``float``  The monotonic time received in the last heartbeat sent by the remote
+                                     |Supvisors| instance, in seconds since the remote host started.
+'remote_time'             ``float``  The POSIX time received in the last heartbeat sent by the remote
+                                     |Supvisors| instance, in seconds and in the remote reference time.
+'local_sequence_counter'  ``int``    The local TICK counter when the latest TICK was received from the remote
+                                     |Supvisors| instance.
+'local_mtime'             ``float``  The monotonic time when the latest TICK was received from the remote
+                                     |Supvisors| instance, in seconds since the local host started.
+'local_time'              ``float``  The POSIX time when the latest TICK was received from the remote
+                                     |Supvisors| instance, in seconds and in the local reference time.
+'loading'                 ``int``    The sum of the expected loading of the processes running on the node, in [0;100]%.
+'process_failure'         ``bool``   True if one of the local processes has crashed or has exited unexpectedly.
+========================= ========== ==================
 
 
 Application status
@@ -135,7 +144,7 @@ Key                Type              Value
                                      A special value -1 means that the process has been deleted as a consequence
                                      of an XML-RPC ``update_numprocs``.
 'expected'         ``bool``          True if the exit status is expected (only when state is 100 - ``EXITED``).
-'now'              ``float``         The date of the event in the reference time of the node.
+'now'              ``float``         The monotonic time of the event in the reference time of the host.
 'pid'              ``int``           The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
 'identifier'       ``str``           The deduced name of the |Supvisors| instance that sent the initial event.
 'extra_args'       ``str``           The additional arguments passed to the command line of the process.

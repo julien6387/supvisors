@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -26,13 +23,13 @@ from supvisors.ttypes import *
 
 def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
-    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
+    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'ISOLATED']
     assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
 def test_supvisors_states():
     """ Test the SupvisorsStates enumeration. """
-    expected = ['OFF', 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING',
+    expected = ['OFF', 'INITIALIZATION', 'DISTRIBUTION', 'OPERATION', 'CONCILIATION', 'RESTARTING',
                 'SHUTTING_DOWN', 'FINAL']
     assert [x.name for x in SupvisorsStates] == expected
 
@@ -97,11 +94,24 @@ def test_synchronization_options():
     assert [x.name for x in SynchronizationOptions] == expected
 
 
-def test_internal_event_headers():
-    """ Test the InternalEventHeaders enumeration. """
-    expected = ['HEARTBEAT', 'TICK', 'AUTHORIZATION', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED',
-                'PROCESS_DISABILITY', 'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE', 'ALL_INFO', 'DISCOVERY']
-    assert [x.name for x in InternalEventHeaders] == expected
+def test_publication_headers():
+    """ Test the PublicationHeaders enumeration. """
+    expected = ['TICK', 'PROCESS', 'PROCESS_ADDED', 'PROCESS_REMOVED',
+                'PROCESS_DISABILITY', 'HOST_STATISTICS', 'PROCESS_STATISTICS', 'STATE']
+    assert [x.name for x in PublicationHeaders] == expected
+
+
+def test_request_headers():
+    """ Test the RequestHeaders enumeration. """
+    expected = ['CHECK_INSTANCE', 'START_PROCESS', 'STOP_PROCESS',
+                'RESTART', 'SHUTDOWN', 'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
+    assert [x.name for x in RequestHeaders] == expected
+
+
+def test_notification_headers():
+    """ Test the NotificationHeaders enumeration. """
+    expected = ['AUTHORIZATION', 'STATE', 'ALL_INFO', 'DISCOVERY', 'INSTANCE_FAILURE']
+    assert [x.name for x in NotificationHeaders] == expected
 
 
 def test_event_headers():
@@ -111,7 +121,7 @@ def test_event_headers():
     assert [x.name for x in EventHeaders] == expected
 
 
-def test_exception():
+def test_invalid_transition():
     """ Test the exception InvalidTransition. """
     # test with unknown attributes
     with pytest.raises(InvalidTransition) as exc:
@@ -119,11 +129,20 @@ def test_exception():
     assert 'invalid transition' == str(exc.value)
 
 
+def test_parse_error():
+    """ Test the exception ApplicationStatusParseError. """
+    # test with unknown attributes
+    with pytest.raises(ApplicationStatusParseError) as exc:
+        raise ApplicationStatusParseError('parse error')
+    assert 'parse error' == str(exc.value)
+
+
 def test_supvisors_faults():
     """ Test the SupvisorsFaults enumeration. """
-    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED', 'DISABLED']
+    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED', 'DISABLED',
+                'NOT_APPLICABLE', 'NOT_INSTALLED']
     assert [x.name for x in SupvisorsFaults] == expected
-    assert [x.value for x in SupvisorsFaults] == list(range(100, 104))
+    assert [x.value for x in SupvisorsFaults] == list(range(100, 106))
 
 
 def test_process_event():
@@ -149,3 +168,19 @@ def test_process_event():
     event = ProcessRemovedEvent(process)
     assert isinstance(event, ProcessEvent)
     assert event.payload() == 'processname:dummy_process groupname:dummy_group '
+
+
+def test_supvisors_process_config():
+    """ Test the SupvisorsProcessConfig class. """
+    # first test the ProgramConfig class
+    program_config = ProgramConfig('dummy_program', ProgramConfig)
+    assert program_config.name == 'dummy_program'
+    assert program_config.klass is ProgramConfig
+    assert program_config.numprocs == 1
+    assert program_config.group_config_info == {}
+    assert not program_config.disabled
+    # now test the SupvisorsProcessConfig class
+    process_config = SupvisorsProcessConfig(program_config, 4, '-s test')
+    assert process_config.program_config is program_config
+    assert process_config.process_index == 4
+    assert process_config.command_ref == '-s test'

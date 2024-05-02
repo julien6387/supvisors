@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -87,25 +84,21 @@ class ZmqEventPublisher(EventPublisherInterface):
         self.socket.send_string(EventHeaders.APPLICATION.value, zmq.SNDMORE)
         self.socket.send_json(status)
 
-    def send_process_event(self, identifier: str, event: Payload) -> None:
+    def send_process_event(self, event: Payload) -> None:
         """ Send a JSON-serialized process event through the socket.
 
-        :param identifier: the identifier used to identify the origin of the event
-        :param event: the event to publish
-        :return: None
+        :param event: the event to publish.
+        :return: None.
         """
-        # build the event before it is sent
-        evt = event.copy()
-        evt['identifier'] = identifier
-        self.logger.trace(f'ZmqEventPublisher.send_process_event: {evt}')
+        self.logger.trace(f'ZmqEventPublisher.send_process_event: {event}')
         self.socket.send_string(EventHeaders.PROCESS_EVENT.value, zmq.SNDMORE)
-        self.socket.send_json(evt)
+        self.socket.send_json(event)
 
     def send_process_status(self, status: Payload) -> None:
         """ This method sends a serialized form of the process status through the socket.
 
-        :param status: the status to publish
-        :return: None
+        :param status: the status to publish.
+        :return: None.
         """
         self.logger.trace(f'ZmqEventPublisher.send_process_status: {status}')
         self.socket.send_string(EventHeaders.PROCESS_STATUS.value, zmq.SNDMORE)
@@ -114,8 +107,8 @@ class ZmqEventPublisher(EventPublisherInterface):
     def send_host_statistics(self, statistics: Payload) -> None:
         """ This method sends host statistics through the socket.
 
-        :param statistics: the statistics to publish
-        :return: None
+        :param statistics: the statistics to publish.
+        :return: None.
         """
         self.logger.trace(f'ZmqEventPublisher.send_host_statistics: {statistics}')
         self.socket.send_string(EventHeaders.HOST_STATISTICS.value, zmq.SNDMORE)
@@ -124,8 +117,8 @@ class ZmqEventPublisher(EventPublisherInterface):
     def send_process_statistics(self, statistics: Payload) -> None:
         """ This method sends process statistics through the socket.
 
-        :param statistics: the statistics to publish
-        :return: None
+        :param statistics: the statistics to publish.
+        :return: None.
         """
         self.logger.trace(f'ZmqEventPublisher.send_process_statistics: {statistics}')
         self.socket.send_string(EventHeaders.PROCESS_STATISTICS.value, zmq.SNDMORE)
@@ -157,11 +150,11 @@ class ZmqEventSubscriber(EventSubscriber):
                  node_name: str, event_port: int, logger: Logger) -> None:
         """ Initialization of the attributes.
 
-        :param zmq_context: the PyZmq context instance
-        :param intf: the event subscriber interface used to provide the messages received
-        :param node_name: the node name of the Supvisors instance that publishes events
-        :param event_port: the port used by the Supvisors instance to publish events from the node
-        :param logger: the Supvisors logger
+        :param zmq_context: the PyZmq context instance.
+        :param intf: the event subscriber interface used to provide the messages received.
+        :param node_name: the node name of the Supvisors instance that publishes events.
+        :param event_port: the port used by the Supvisors instance to publish events from the node.
+        :param logger: the Supvisors logger.
         """
         super().__init__(intf, node_name, event_port, logger)
         self.zmq_context = zmq_context

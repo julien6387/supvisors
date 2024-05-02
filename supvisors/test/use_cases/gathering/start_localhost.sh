@@ -24,4 +24,4 @@ export IDENTIFIER=console_1
 supervisord -c etc/supervisord_console_localhost.conf -i $IDENTIFIER
 
 # start firefox to get the Web UI
-firefox http://localhost:61000 &
+firefox http://localhost:61000?auto=true &

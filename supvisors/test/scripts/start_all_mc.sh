@@ -23,7 +23,7 @@ do
       echo "start Supervisor on $host"
       ping -c 1 $host 2>&1 >/dev/null && ssh $host "cd $TEST_DIR ; rm -rf log/*
       export DISPLAY=:0
-      supervisord -c etc/supervisord_alt_mc.conf"
+      supervisord -c etc/supervisord_mc.conf"
     fi
 done
 

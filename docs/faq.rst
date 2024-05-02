@@ -7,8 +7,8 @@ This section deals with frequent problems that could happen when experiencing |S
 
 It is assumed that |Supervisor| is operational without the |Supvisors| plugin.
 
-Cannot be resolved
-------------------
+Error: ... cannot be resolved
+-----------------------------
 
 .. code-block:: bash
 
@@ -104,8 +104,8 @@ Incorrect UNIX permissions
     [bash] > supervisord
 
 
-Could not make supvisors rpc interface
---------------------------------------
+Error: Could not make supvisors rpc interface
+---------------------------------------------
 
 At this stage, there must be some log traces available.
 If the startup of |Supervisor| ends with the following lines, there must be an issue with the |Supvisors| configuration,
@@ -226,8 +226,8 @@ elements to be used in ``supvisors_list``.
     'rocky51.cliche.bzh'
 
 
-Local Supvisors not found
-~~~~~~~~~~~~~~~~~~~~~~~~~
+could not find local the local Supvisors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Issue:* The option ``supvisors_list`` does not include any host name or IP address corresponding to the local host.
 
@@ -268,8 +268,8 @@ if |Supervisor| is started from a host that is not present in this list, the fol
     For help, use /usr/local/bin/supervisord -h
 
 
-Multiple candidates
-~~~~~~~~~~~~~~~~~~~
+multiple candidates for the local Supvisors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Issue:* This happens when multiple |Supvisors| instances have to be started on the same host. In that case, the option
 ``supvisors_list`` includes at least 2 host names or IP addresses referring to the same host and that have not been
@@ -327,51 +327,18 @@ Then |Supervisor| shall be started by passing this identification to the :progra
     [bash] > supervisord -ni supv-01
 
 
-TCP port already bound
-~~~~~~~~~~~~~~~~~~~~~~
-
-*Issue:* The |Supvisors| state is stuck to the ``INITIALIZATION`` state on a host.
-
-*Solution:* Check that the ``internal_port`` set in the |Supvisors| communication is not already used. If confirmed,
-free the port or update the |Supvisors| configuration with an unused port.
-
-|Supvisors| uses TCP to exchange data between |Supvisors| instances.
-If the TCP communication fails on the host internal link, this is very likely because the TCP server could not bind on
-the port specified. In such a case, the following log trace should be displayed:
-
-.. code-block:: bash
-
-    [bash] > supervisord -n
-    [...]
-    2022-11-18 12:21:49,026;CRIT;PublisherServer._bind: failed to bind the Supvisors publisher on port 60000
-    [...]
-
-
 Remote host ``SILENT``
 ----------------------
 
 A remote |Supvisors| instance may be declared ``SILENT``, although :program:`supervisord` is running on the remote host.
 
-The first thing to check is the |Supvisors| state on the remote host.
-
-If the remote |Supvisors| instance is stuck in the ``INITIALIZATION`` state, it is very likely due to the problem
-described just above in `TCP port already bound`_.
-
-However, if the remote |Supvisors| instance is in the ``OPERATIONAL`` state, then there are 2 main causes.
-
-
-Firewall configuration
-~~~~~~~~~~~~~~~~~~~~~~
-
-The first cause is a very frequent problem: the firewall of the hosts. By default, a firewall is configured to block
-almost everything. TCP ports have to be explicitly allowed in the firewall configuration.
+There is likely an issue with the firewall of the hosts. By default, a firewall is configured to block
+almost everything. The |Supervisor| HTTP ports have to be explicitly allowed in the firewall configuration.
 
 *Issue:* Without the |Supvisors| plugin, accessing the remote |Supervisor| web page using its URL is rejected.
-For the sake of completeness, a test using the |Supvisors| ``internal_port`` as |Supervisor| INET HTTP port should be
-done as well.
 
-*Solution:* Use TCP ports that are allowed by the firewall or ask the UNIX administrator to enable the TCP ports used
-by the |Supervisor| / |Supvisors| configuration.
+*Solution:* Use HTTP ports that are allowed by the firewall or ask the UNIX administrator to enable the HTTP ports used
+by the |Supervisor| configuration.
 
 
 Inconsistent |Supvisors| configuration

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -337,30 +334,30 @@ def test_process_possible_identifiers(supvisors):
     """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
     process = create_process(info, supvisors)
-    process.add_info('10.0.0.2', info)
-    process.add_info('10.0.0.4', info.copy())
+    process.add_info('10.0.0.2:25000', info)
+    process.add_info('10.0.0.4:25000', info.copy())
     # default identifiers is '*' in process rules and all are enabled
-    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
+    assert process.possible_identifiers() == ['10.0.0.2:25000', '10.0.0.4:25000']
     # set a subset of identifiers in process rules so that there's no intersection with received status
-    process.rules.identifiers = ['10.0.0.1', '10.0.0.3']
+    process.rules.identifiers = ['10.0.0.1:25000', '10.0.0.3:25000']
     assert process.possible_identifiers() == []
     # increase received status
-    process.add_info('10.0.0.3', info.copy())
-    assert process.possible_identifiers() == ['10.0.0.3']
+    process.add_info('10.0.0.3:25000', info.copy())
+    assert process.possible_identifiers() == ['10.0.0.3:25000']
     # disable program on '10.0.0.3'
-    process.update_disability('10.0.0.3', True)
+    process.update_disability('10.0.0.3:25000', True)
     assert process.possible_identifiers() == []
     # reset rules
     process.rules.identifiers = ['*']
-    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
+    assert process.possible_identifiers() == ['10.0.0.2:25000', '10.0.0.4:25000']
     # test with full status and all instances in rules + re-enable on '10.0.0.3'
-    process.update_disability('10.0.0.3', False)
+    process.update_disability('10.0.0.3:25000', False)
     for identifier in supvisors.mapper.instances:
         process.add_info(identifier, info.copy())
     assert process.possible_identifiers() == list(supvisors.mapper.instances.keys())
     # restrict again instances in rules
-    process.rules.identifiers = ['10.0.0.5']
-    assert process.possible_identifiers() == ['10.0.0.5']
+    process.rules.identifiers = ['10.0.0.5:25000']
+    assert process.possible_identifiers() == ['10.0.0.5:25000']
 
 
 def test_status_stopped_process(supvisors):
@@ -380,7 +377,8 @@ def test_status_stopped_process(supvisors):
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.2', 'now': time(), 'spawnerr': ''}
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.2', 'spawnerr': '',
+             'now': time.time(), 'now_monotonic': time.monotonic()}
     assert process.force_state(event)
     assert process.state == ProcessStates.STOPPED
     assert process.state_string() == 'STOPPED'
@@ -434,7 +432,8 @@ def test_status_backoff_process(supvisors):
     assert process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'spawnerr': '',
+             'now': time.time(), 'now_monotonic': time.time() - 1e6}
     assert process.force_state(event)
     assert process.state == ProcessStates.BACKOFF
     assert process.state_string() == 'BACKOFF'
@@ -478,7 +477,8 @@ def test_status_running_process(supvisors):
     assert not process.running_on('10.0.0.2')
     # test again with forced state
     # here, the stored event is more recent so the forced state is ignored
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': 0, 'spawnerr': ''}
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'spawnerr': '',
+             'now': time.time(), 'now_monotonic': 0}
     assert not process.force_state(event)
     assert process.state == ProcessStates.RUNNING
     assert process.state_string() == 'RUNNING'
@@ -511,7 +511,8 @@ def test_status_stopping_process(supvisors):
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'spawnerr': '',
+             'now': time.time(), 'now_monotonic': time.time() - 1e6}
     assert process.force_state(event)
     assert process.state == ProcessStates.STOPPING
     assert process.state_string() == 'STOPPING'
@@ -554,7 +555,8 @@ def test_status_fatal_process(supvisors):
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1', 'spawnerr': '',
+             'now': time.time(), 'now_monotonic': time.time() - 1e6}
     assert process.force_state(event)
     assert process.state == ProcessStates.FATAL
     assert process.state_string() == 'FATAL'
@@ -612,7 +614,8 @@ def test_status_exited_process(supvisors):
     assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': ''}
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'spawnerr': '',
+             'now': time.time(), 'now_monotonic': time.time() - 1e6}
     assert process.force_state(event)
     assert process.state == ProcessStates.EXITED
     assert process.state_string() == 'EXITED'
@@ -688,7 +691,8 @@ def test_serialization(supvisors):
     loaded = pickle.loads(dumped)
     assert loaded == serialized
     # test again with forced state
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': 'anything'}
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'spawnerr': 'anything',
+             'now': time.time(), 'now_monotonic': time.time() - 1e6}
     assert process.force_state(event)
     assert process._state == ProcessStates.STOPPED
     serialized = process.serial()
@@ -701,23 +705,24 @@ def test_get_last_description(supvisors):
     """ Test the ViewContext.get_process_last_desc method. """
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
-    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0,
-                                     'now': 50, 'event_time': 50},
-                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started',
-                                     'now': 55, 'event_time': 50},
-                        '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3',
-                                     'now': 53, 'event_time': 50}}
+    process.info_map = {'10.0.0.1:25000': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0,
+                                           'now': 50, 'event_time': 50},
+                        '10.0.0.2:25000': {'local_time': 30, 'stop': 12, 'description': 'Not started',
+                                           'now': 55, 'event_time': 50},
+                        '10.0.0.3:25000': {'local_time': 20, 'stop': 22, 'description': 'desc3',
+                                           'now': 53, 'event_time': 50}}
     # state is not forced by default
     # test method return on non-running process
-    assert process.get_last_description() == ('10.0.0.1', 'desc1 on 10.0.0.1')
+    assert process.get_last_description() == ('10.0.0.1:25000', 'desc1 on 10.0.0.1')
     # test method return on running process
-    process.running_identifiers.add('10.0.0.3')
-    assert process.get_last_description() == ('10.0.0.3', 'desc3 on 10.0.0.3')
+    process.running_identifiers.add('10.0.0.3:25000')
+    assert process.get_last_description() == ('10.0.0.3:25000', 'desc3 on 10.0.0.3')
     # test method return on multiple running processes
-    process.running_identifiers.add('10.0.0.2')
-    assert process.get_last_description() == ('10.0.0.2', 'Not started')
+    process.running_identifiers.add('10.0.0.2:25000')
+    assert process.get_last_description() == ('10.0.0.2:25000', 'Not started')
     # test again with forced state
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': 50, 'spawnerr': 'global crash'}
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1:25000',
+             'now_monotonic': 50, 'spawnerr': 'global crash'}
     assert process.force_state(event)
     assert process.get_last_description() == (None, 'global crash')
     process.running_identifiers = set()
@@ -738,7 +743,7 @@ def test_add_info(supvisors):
     assert process.last_event_time > 0.0
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check contents
     assert len(process.info_map) == 1
     assert process.info_map['10.0.0.1'] is info
@@ -754,7 +759,8 @@ def test_add_info(supvisors):
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason == ''
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': 'failure'}
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'spawnerr': 'failure',
+             'now': time.time(), 'now_monotonic': time.time() - 1e6}
     assert process.force_state(event)
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
@@ -768,7 +774,7 @@ def test_add_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check contents
     assert len(process.info_map) == 1
     assert process.info_map['10.0.0.1'] is info
@@ -789,7 +795,7 @@ def test_add_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check contents
     assert len(process.info_map) == 2
     assert process.info_map['10.0.0.2'] is info
@@ -810,7 +816,7 @@ def test_update_info(supvisors):
     assert process.last_event_time > 0
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check changes on status
     assert process.info_map['10.0.0.1']['state'] == ProcessStates.STOPPED
     assert process.state == ProcessStates.STOPPED
@@ -819,12 +825,13 @@ def test_update_info(supvisors):
     assert not process.has_crashed()
     assert not process.running_identifiers
     # 3. update with a STARTING event
-    process.update_info('10.0.0.1', {'state': ProcessStates.STARTING, 'now': 10, 'extra_args': '-x dummy'})
+    process.update_info('10.0.0.1', {'state': ProcessStates.STARTING, 'extra_args': '-x dummy',
+                                     'now': 10, 'now_monotonic': 5})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check changes on status
     info = process.info_map['10.0.0.1']
     assert info['state'] == ProcessStates.STARTING
@@ -834,16 +841,18 @@ def test_update_info(supvisors):
     assert not process.has_crashed()
     assert process.running_identifiers == {'10.0.0.1'}
     assert info['now'] == 10
+    assert info['now_monotonic'] == 5
     assert info['start'] == 10
+    assert info['start_monotonic'] == 5
     assert info['uptime'] == 0
     # 4. update with a RUNNING event
-    process.update_info('10.0.0.1', {'state': ProcessStates.RUNNING, 'now': 15, 'pid': 1234,
-                                     'extra_args': '-z another'})
+    process.update_info('10.0.0.1', {'state': ProcessStates.RUNNING, 'now': 15, 'now_monotonic': 10,
+                                     'pid': 1234, 'extra_args': '-z another'})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check changes
     assert info['state'] == ProcessStates.RUNNING
     assert process.state == ProcessStates.RUNNING
@@ -853,12 +862,15 @@ def test_update_info(supvisors):
     assert not process.has_crashed()
     assert info['pid'] == 1234
     assert info['now'] == 15
+    assert info['now_monotonic'] == 10
     assert info['start'] == 10
+    assert info['start_monotonic'] == 5
     assert info['uptime'] == 5
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason == ''
-    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'now': time(), 'spawnerr': 'failure'}
+    event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1', 'spawnerr': 'failure',
+             'now': time.time(), 'now_monotonic': time.time() - 1e6}
     assert process.force_state(event)
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
@@ -871,7 +883,7 @@ def test_update_info(supvisors):
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     assert process.state == ProcessStates.RUNNING
     assert process.displayed_state == ProcessStates.FATAL
     # extra_args has been reset
@@ -879,13 +891,15 @@ def test_update_info(supvisors):
     assert not info['has_crashed']
     assert not process.has_crashed()
     # 5.b update with STARTING / RUNNING events
-    process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 20, 'extra_args': '-x dummy'})
-    process.update_info('10.0.0.2', {'state': ProcessStates.RUNNING, 'now': 25, 'pid': 4321, 'extra_args': ''})
+    process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 20, 'now_monotonic': 15,
+                                     'extra_args': '-x dummy'})
+    process.update_info('10.0.0.2', {'state': ProcessStates.RUNNING, 'now': 25, 'now_monotonic': 20,
+                                     'pid': 4321, 'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check state and addresses
     assert process.state == ProcessStates.RUNNING
     assert process.extra_args == ''
@@ -894,12 +908,13 @@ def test_update_info(supvisors):
     assert process.running_identifiers == {'10.0.0.1', '10.0.0.2'}
     # 6. update with an EXITED event
     info = process.info_map['10.0.0.1']
-    process.update_info('10.0.0.1', {'state': ProcessStates.EXITED, 'now': 30, 'expected': False, 'extra_args': ''})
+    process.update_info('10.0.0.1', {'state': ProcessStates.EXITED, 'now': 30, 'now_monotonic': 25,
+                                     'expected': False, 'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check changes
     assert info['state'] == ProcessStates.EXITED
     assert process.state == ProcessStates.RUNNING
@@ -909,17 +924,20 @@ def test_update_info(supvisors):
     assert process.running_identifiers == {'10.0.0.2'}
     assert info['pid'] == 1234
     assert info['now'] == 30
-    assert info['start'] == 10
+    assert info['now_monotonic'] == 25
+    assert info['stop'] == 30
+    assert info['stop_monotonic'] == 25
     assert info['uptime'] == 0
     assert not info['expected']
     # 7. update with an STOPPING event
     info = process.info_map['10.0.0.2']
-    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPING, 'now': 35, 'extra_args': ''})
+    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPING, 'now': 25, 'now_monotonic': 30,
+                                     'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check changes
     assert info['state'] == ProcessStates.STOPPING
     assert process.state == ProcessStates.STOPPING
@@ -928,17 +946,20 @@ def test_update_info(supvisors):
     assert process.has_crashed()
     assert process.running_identifiers == {'10.0.0.2'}
     assert info['pid'] == 4321
-    assert info['now'] == 35
+    assert info['now'] == 25
+    assert info['now_monotonic'] == 30
     assert info['start'] == 20
+    assert info['start_monotonic'] == 15
     assert info['uptime'] == 15
     assert info['expected']
     # 8. update with an STOPPED event
-    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED, 'now': 40, 'extra_args': ''})
+    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED, 'now': 26, 'now_monotonic': 35,
+                                     'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
-    assert info['event_time'] == info['now']
+    assert info['event_time'] == info['now_monotonic']
     # check changes
     assert info['state'] == ProcessStates.STOPPED
     assert process.state == ProcessStates.STOPPED
@@ -947,8 +968,10 @@ def test_update_info(supvisors):
     assert process.has_crashed()
     assert not process.running_identifiers
     assert info['pid'] == 4321
-    assert info['now'] == 40
-    assert info['start'] == 20
+    assert info['now'] == 26
+    assert info['now_monotonic'] == 35
+    assert info['stop'] == 26
+    assert info['stop_monotonic'] == 35
     assert info['uptime'] == 0
     assert info['expected']
 
@@ -989,30 +1012,36 @@ def test_update_times(supvisors):
     process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
     # get their time values
     now_1 = process.info_map['10.0.0.1']['now']
+    mono_1 = process.info_map['10.0.0.1']['now_monotonic']
     uptime_1 = process.info_map['10.0.0.1']['uptime']
     now_2 = process.info_map['10.0.0.2']['now']
+    mono_2 = process.info_map['10.0.0.2']['now_monotonic']
     # update times on identifier 2
-    process.update_times('10.0.0.2', now_2 + 10)
+    process.update_times('10.0.0.2', mono_2 + 10, now_2 + 10)
     # check that nothing changed for identifier 1
     assert process.info_map['10.0.0.1']['now'] == now_1
+    assert process.info_map['10.0.0.1']['now_monotonic'] == mono_1
     assert process.info_map['10.0.0.1']['uptime'] == uptime_1
     # check that times changed for address 2 (uptime excepted)
     assert process.info_map['10.0.0.2']['now'] == now_2 + 10
+    assert process.info_map['10.0.0.2']['now_monotonic'] == mono_2 + 10
     assert process.info_map['10.0.0.2']['uptime'] == 0
     # update times on identifier 1
-    process.update_times('10.0.0.1', now_1 + 20)
+    process.update_times('10.0.0.1', mono_1 + 10, now_1 + 20)
     # check that times changed for identifier 1 (including uptime)
     assert process.info_map['10.0.0.1']['now'] == now_1 + 20
-    assert process.info_map['10.0.0.1']['uptime'] == uptime_1 + 20
+    assert process.info_map['10.0.0.1']['now_monotonic'] == mono_1 + 10
+    assert process.info_map['10.0.0.1']['uptime'] == uptime_1 + 10
     # check that nothing changed for identifier 2
     assert process.info_map['10.0.0.2']['now'] == now_2 + 10
+    assert process.info_map['10.0.0.2']['now_monotonic'] == mono_2 + 10
     assert process.info_map['10.0.0.2']['uptime'] == 0
 
 
 def test_update_uptime():
     """ Test the update of uptime entry in a Process info dictionary. """
     # check times on a RUNNING process info
-    info = {'start': 50, 'now': 75}
+    info = {'start_monotonic': 50, 'now_monotonic': 75}
     for state in _process_states_by_code:
         info['state'] = state
         ProcessStatus.update_uptime(info)
@@ -1074,57 +1103,73 @@ def test_remove_node(supvisors):
 
 def test_update_status(supvisors):
     """ Test the update of state and running Supvisors instances. """
+    # force local monotonic time to same value as the proces info
     # increase logger level to hit special log traces
     supvisors.logger.level = LevelsByName.BLAT
     # update_status is called in the construction
     info = any_process_info_by_state(ProcessStates.FATAL)
     process = create_process(info, supvisors)
     process.add_info('10.0.0.3', info)
+    process.info_map['10.0.0.3']['local_time'] = 10
     assert process.running_identifiers == set()
     assert process.state == ProcessStates.FATAL
     assert not process.expected_exit
     # add a STOPPED process info
-    process.info_map['10.0.0.1'] = any_process_info_by_state(ProcessStates.STOPPED)
+    info = any_process_info_by_state(ProcessStates.STOPPED)
+    process.add_info('10.0.0.1', info)
+    process.info_map['10.0.0.1']['local_time'] = 5
     process.update_status('10.0.0.1', ProcessStates.STOPPED)
     assert process.running_identifiers == set()
-    assert process.state == ProcessStates.STOPPED
-    assert process.expected_exit
+    assert process.state == ProcessStates.FATAL  # FATAL info above is more recent
+    assert not process.expected_exit
     # replace with an EXITED process info
-    process.info_map['10.0.0.1'] = any_process_info_by_state(ProcessStates.EXITED)
-    process.update_status('10.0.0.1', ProcessStates.EXITED)
+    info = any_process_info_by_state(ProcessStates.EXITED)
+    process.update_info('10.0.0.3', info)
+    process.info_map['10.0.0.3']['local_time'] = 15
+    process.update_status('10.0.0.3', ProcessStates.EXITED)
     assert process.running_identifiers == set()
     assert process.state == ProcessStates.EXITED
     assert process.expected_exit
     # add a STARTING process info
-    process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.STARTING)
+    info = any_process_info_by_state(ProcessStates.STARTING)
+    process.add_info('10.0.0.2', info)
+    process.info_map['10.0.0.2']['local_time'] = 20
     process.update_status('10.0.0.2', ProcessStates.STARTING)
     assert process.running_identifiers == {'10.0.0.2'}
     assert process.state == ProcessStates.STARTING
     assert process.expected_exit
-    # add a BACKOFF process info
-    process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.BACKOFF)
-    process.update_status('10.0.0.3', ProcessStates.STARTING)
+    # replace a BACKOFF process info
+    info = any_process_info_by_state(ProcessStates.BACKOFF)
+    process.update_info('10.0.0.3', info)
+    process.info_map['10.0.0.3']['local_time'] = 20
+    process.update_status('10.0.0.3', ProcessStates.BACKOFF)
     assert process.running_identifiers == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.BACKOFF
     assert process.expected_exit
     # replace STARTING process info with RUNNING
-    process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.RUNNING)
+    info = any_process_info_by_state(ProcessStates.RUNNING)
+    process.update_info('10.0.0.2', info)
+    process.info_map['10.0.0.2']['local_time'] = 25
     process.update_status('10.0.0.2', ProcessStates.RUNNING)
     assert process.running_identifiers == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
     assert process.expected_exit
     # replace BACKOFF process info with FATAL
-    process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.FATAL)
+    info = any_process_info_by_state(ProcessStates.FATAL)
+    process.update_info('10.0.0.3', info)
+    process.info_map['10.0.0.3']['local_time'] = 25
     process.update_status('10.0.0.3', ProcessStates.FATAL)
     assert process.running_identifiers == {'10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
     assert process.expected_exit
     # replace RUNNING process info with STOPPED
     # in ProcessInfoDatabase, EXITED processes have a stop date later than STOPPED processes
-    process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.STOPPED)
+    info = any_process_info_by_state(ProcessStates.STOPPED)
+    process.update_info('10.0.0.2', info)
+    process.info_map['10.0.0.2']['local_time'] = 30
     process.update_status('10.0.0.2', ProcessStates.STOPPED)
     assert not process.running_identifiers
-    assert process.state == ProcessStates.EXITED
+    assert process.state == ProcessStates.STOPPED
     assert process.expected_exit
 
 

@@ -1,0 +1,98 @@
+/*
+ * Copyright 2024 Julien LE CLEACH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Supvisors style for Message / Time boxes
+ */
+
+#statusBox {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+#messageBox, #timeBox {
+    min-height: 33px;
+    max-height: 33px;
+}
+
+#messageBox {
+    display: flex;
+    align-items: center;
+    font-size: 0.9em;
+    width: 100%;
+    margin: 5px;
+}
+
+#timeBox {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    max-width: 200px;
+    margin: 5px 5px 5px 0;
+    text-align: right;
+}
+
+#timeBox p {
+    font-size: 0.8em;
+}
+
+.empty, .info, .warn, .erro {
+    padding: 5px;
+    margin: 5px auto;
+    border-radius: 10px;
+}
+
+.empty {
+    background-image: linear-gradient(165deg, var(--navbg-color), silver);
+    border: 1px grey inset;
+}
+
+.info {
+    background-image: linear-gradient(165deg, var(--navbg-color), dodgerblue);
+    border: 1px blue inset;
+}
+
+#messageBox.info::before {
+    content: url(../img/info_20.png) '\00a0';
+    float: left;
+    position: relative;
+    top: 2px;
+}
+
+.warn {
+    background-image: linear-gradient(165deg, var(--navbg-color), #f90);
+    border: 1px orange inset;
+}
+
+.warn::before {
+    content: url(../img/warn_20.png) '\00a0';
+    float: left;
+    position: relative;
+    top: 2px;
+}
+
+.erro {
+    background-image: linear-gradient(165deg, var(--navbg-color), orangered);
+    border: 1px red inset;
+}
+
+.erro::before {
+    content: url(../img/erro_20.png) '\00a0';
+    float: left;
+    position: relative;
+    top: 2px;
+}

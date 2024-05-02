@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -61,17 +58,15 @@ class ApplicationView(ViewHandler):
         self.write_nav(root, appli=self.application_name)
 
     # RIGHT SIDE / HEADER part
-    def write_header(self, root):
+    def write_status(self, header_elt):
         """ Rendering of the header part of the Supvisors Application page. """
         if self.application:
             # set application name
-            elt = root.findmeld('application_mid')
-            elt.content(self.application_name)
+            header_elt.findmeld('application_mid').content(self.application_name)
             # set application state
-            elt = root.findmeld('state_mid')
-            elt.content(self.application.state.name)
+            header_elt.findmeld('state_mid').content(self.application.state.name)
             # set LED iaw major/minor failures
-            elt = root.findmeld('state_led_mid')
+            elt = header_elt.findmeld('state_led_mid')
             if self.application.major_failure:
                 elt.attrib['class'] = 'status_red'
             elif self.application.minor_failure:
@@ -80,54 +75,56 @@ class ApplicationView(ViewHandler):
                 elt.attrib['class'] = 'status_green'
             else:
                 elt.attrib['class'] = 'status_empty'
-            # write options
-            self.write_starting_strategy(root)
-            self.write_periods(root)
-            # write actions related to application
-            self.write_application_actions(root)
 
-    def write_periods(self, root):
-        """ Write configured periods for statistics. """
-        self.write_periods_availability(root, self.has_process_statistics)
+    def write_options(self, header_elt):
+        """ Write application options. """
+        self.write_starting_strategy(header_elt)
+        if self.has_process_statistics:
+            self.write_periods(header_elt)
+        else:
+            # hide the Statistics periods box
+            header_elt.findmeld('period_div_mid').replace('')
 
-    def write_starting_strategy(self, root):
+    def write_starting_strategy(self, header_elt):
         """ Write applicable starting strategies. """
         # get the current strategy
         selected_strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
         for strategy in StartingStrategies:
-            elt = root.findmeld('%s_a_mid' % strategy.name.lower())
+            elt = header_elt.findmeld('%s_a_mid' % strategy.name.lower())
             if selected_strategy == strategy.name:
-                elt.attrib['class'] = 'button off active'
+                update_attrib(elt, 'class', 'off active')
             else:
+                update_attrib(elt, 'class', 'on')
                 url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy.name})
                 elt.attributes(href=url)
 
-    def write_application_actions(self, root):
+    def write_actions(self, header_elt):
         """ Write actions related to the application. """
+        super().write_actions(header_elt)
         # configure start application button
-        elt = root.findmeld('startapp_a_mid')
+        elt = header_elt.findmeld('startapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'startapp'})
         elt.attributes(href=url)
         # configure stop application button
-        elt = root.findmeld('stopapp_a_mid')
+        elt = header_elt.findmeld('stopapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopapp'})
         elt.attributes(href=url)
         # configure restart application button
-        elt = root.findmeld('restartapp_a_mid')
+        elt = header_elt.findmeld('restartapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartapp'})
         elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
-    def write_contents(self, root) -> None:
+    def write_contents(self, contents_elt) -> None:
         """ Rendering of the contents part of the page.
 
-        :param root: the root element of the page
-        :return: None
+        :param contents_elt: the root element of the page.
+        :return: None.
         """
         if self.application:
             data = self.get_process_data()
-            self.write_process_table(root, data)
+            self.write_process_table(contents_elt, data)
             # check selected Process Statistics
             namespec = self.view_ctx.parameters[PROCESS]
             if namespec:
@@ -139,7 +136,7 @@ class ApplicationView(ViewHandler):
             # write selected Process Statistics
             namespec = self.view_ctx.parameters[PROCESS]
             info = next(filter(lambda x: x['namespec'] == namespec, data), {})
-            self.write_process_statistics(root, info)
+            self.write_process_statistics(contents_elt, info)
 
     def get_process_last_desc(self, namespec: str) -> Tuple[Optional[str], str]:
         """ Get the latest description received from the process across all instances.
@@ -150,19 +147,19 @@ class ApplicationView(ViewHandler):
     def get_process_data(self) -> PayloadList:
         """ Collect sorted data on processes.
 
-        :return: information about the application processes
+        :return: information about the application processes.
         """
         data = []
         for process in self.application.processes.values():
             namespec = process.namespec
-            node_name, description = self.get_process_last_desc(namespec)
+            identifier, description = self.get_process_last_desc(namespec)
             unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
+            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
             data.append({'application_name': process.application_name, 'process_name': process.process_name,
-                         'namespec': namespec, 'identifier': node_name,
+                         'namespec': namespec, 'identifier': identifier,
                          'disabled': process.disabled(), 'startable': len(process.possible_identifiers()) > 0,
                          'statename': process.displayed_state_string(), 'statecode': process.displayed_state,
-                         'gravity': 'FATAL' if unexpected_exit else process.state_string(),
+                         'gravity': 'FATAL' if unexpected_exit else process.displayed_state_string(),
                          'has_crashed': process.has_crashed(),
                          'running_identifiers': list(process.running_identifiers),
                          'description': description,
@@ -191,15 +188,16 @@ class ApplicationView(ViewHandler):
 
     def write_process(self, tr_elt, info):
         """ Rendering of the cell corresponding to the process running instances. """
-        running_nodes = info['running_identifiers']
-        if running_nodes:
+        running_identifiers = info['running_identifiers']
+        if running_identifiers:
             running_li_mid = tr_elt.findmeld('running_li_mid')
-            for li_elt, node_name in running_li_mid.repeat(running_nodes):
+            for li_elt, identifier in running_li_mid.repeat(running_identifiers):
+                nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
                 elt = li_elt.findmeld('running_a_mid')
-                elt.content(node_name)
-                url = self.view_ctx.format_url(node_name, PROC_INSTANCE_PAGE)
+                elt.content(nick_identifier)
+                url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE)
                 elt.attributes(href=url)
-                if node_name == info['identifier']:
+                if identifier == info['identifier']:
                     update_attrib(elt, 'class', 'active')
         else:
             elt = tr_elt.findmeld('running_ul_mid')
@@ -234,8 +232,8 @@ class ApplicationView(ViewHandler):
         """ Start the application iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for starting the application
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for starting the application.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('start_application', (strategy.value, self.application_name, wait),
@@ -245,8 +243,8 @@ class ApplicationView(ViewHandler):
         """ Restart the application iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for restarting the application
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for restarting the application.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('restart_application', (strategy.value, self.application_name, wait),
@@ -256,7 +254,7 @@ class ApplicationView(ViewHandler):
         """ Stop the application.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :return: a callable for deferred result
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('stop_application', (self.application_name, wait),
@@ -267,9 +265,9 @@ class ApplicationView(ViewHandler):
         """ Start the process named namespec iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for starting the process
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for starting the process.
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('start_process', (strategy.value, namespec, '', wait),
@@ -279,9 +277,9 @@ class ApplicationView(ViewHandler):
         """ Restart the process named namespec iaw the strategy.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param strategy: the strategy to apply for restarting the process
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param strategy: the strategy to apply for restarting the process.
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('restart_process', (strategy.value, namespec, '', wait),
@@ -291,8 +289,8 @@ class ApplicationView(ViewHandler):
         """ Stop the process named namespec.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         wait = not self.view_ctx.parameters[AUTO]
         return self.supvisors_rpc_action('stop_process', (namespec, wait), f'Process {namespec} stopped')
@@ -301,7 +299,7 @@ class ApplicationView(ViewHandler):
         """ Can't call supervisor StatusView source code from application view.
         Just do the same job.
 
-        :param namespec: the process namespec
-        :return: a callable for deferred result
+        :param namespec: the process namespec.
+        :return: a callable for deferred result.
         """
         return self.supervisor_rpc_action('clearProcessLogs', (namespec,), f'Log for {namespec} cleared')

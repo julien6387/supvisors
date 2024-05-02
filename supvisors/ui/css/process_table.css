@@ -1,0 +1,129 @@
+/*
+ * Copyright 2024 Julien LE CLEACH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Supvisors style for pages displaying a process table
+ */
+
+#process_contents {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    justify-content: space-around;
+    overflow: auto;
+    margin: 5px;
+}
+
+/* process table */
+#process_left_side {
+    font-family: Verdana, Arial, sans-serif;
+    text-align: justify;
+    margin-right: 5px;
+    overflow-y: auto;
+}
+
+#process_left_side
+process_table thead, .process_table thead tr {
+    border: solid 1px var(--border-color);
+}
+
+.process_table thead tr {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.process_table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.process_table tfoot th {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+}
+
+.process_table tfoot>tr:nth-child(1) th {
+    bottom: 21px;
+}
+
+table .name {
+    width: 200px;
+}
+
+table .state {
+    width: 50px;
+}
+
+table .desc {
+  width: 250px;
+}
+
+.shex {
+    vertical-align: top;
+}
+
+.centered {
+    text-align: center;
+}
+
+.expected {
+    font-style: italic;
+}
+
+tbody.hoverable tr:hover {
+    background-color: var(--navbg-color);
+    background-image: none;
+}
+
+/*
+ * Related to the detailed statistics
+ */
+#process_right_side {
+    max-width: 500px;
+    align-items: center;
+    margin-right: 10px;
+}
+
+#process_right_side div.card {
+    text-align: center;
+    width: 400px;
+    margin-top: 6px;
+    margin-bottom: 10px;
+    box-shadow: 0px 0px 6px black;
+}
+
+#process_right_side div.card .selected {
+    color: var(--selected-color);
+}
+
+
+.stats_contents {
+    flex: 0;
+    display: flex;
+    width: 450px;
+    margin-bottom: 10px;
+    flex-direction: row;
+    justify-content: space-evenly;
+}
+
+.stats_contents div>* {
+    margin-left: 5px;
+}
+
+.stats_contents td {
+    text-align: center;
+}

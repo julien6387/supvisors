@@ -16,10 +16,11 @@
 
 import pickle
 import random
-import time
+import socket
 from unittest.mock import call, Mock
 
 import pytest
+from supervisor.compat import xmlrpclib
 from supervisor.states import ProcessStates
 
 from supvisors.instancestatus import *
@@ -87,15 +88,80 @@ def test_state_modes():
 
 
 @pytest.fixture
+def supvisors_times(supvisors):
+    """ Create a SupvisorsTimes. """
+    return SupvisorsTimes('10.0.0.1', supvisors.logger)
+
+
+def test_times(mocker, supvisors, supvisors_times):
+    """ Test the SupvisorsTimes. """
+    mocker.patch('time.time', return_value=1250.3)
+    mocker.patch('time.monotonic', return_value=125.9)
+    # test creation
+    assert supvisors_times.identifier == '10.0.0.1'
+    assert supvisors_times.logger is supvisors.logger
+    assert supvisors_times.remote_sequence_counter == 0
+    assert supvisors_times.remote_mtime == 0.0
+    assert supvisors_times.remote_time == 0.0
+    assert supvisors_times.local_sequence_counter == 0
+    assert supvisors_times.local_mtime == 0.0
+    assert supvisors_times.local_time == 0.0
+    assert supvisors_times.start_local_mtime == -1.0
+    # test normal local update
+    supvisors_times.update(2, 100, 1000, -1)
+    assert supvisors_times.remote_sequence_counter == 2
+    assert supvisors_times.remote_mtime == 100
+    assert supvisors_times.remote_time == 1000
+    assert supvisors_times.local_sequence_counter == 2
+    assert supvisors_times.local_mtime == 100
+    assert supvisors_times.local_time == 1000
+    assert supvisors_times.start_local_mtime == 90
+    # test normal remote update
+    supvisors_times.update(3, 200, 1100, 2)
+    assert supvisors_times.remote_sequence_counter == 3
+    assert supvisors_times.remote_mtime == 200
+    assert supvisors_times.remote_time == 1100
+    assert supvisors_times.local_sequence_counter == 2
+    assert supvisors_times.local_mtime == 125.9
+    assert supvisors_times.local_time == 1250.3
+    assert supvisors_times.start_local_mtime == 90
+    # test stealth update
+    supvisors_times.update(1, 300.1, 1200.1, 1)
+    assert supvisors_times.remote_sequence_counter == 1
+    assert supvisors_times.remote_mtime == 300.1
+    assert supvisors_times.remote_time == 1200.1
+    assert supvisors_times.local_sequence_counter == 0
+    assert supvisors_times.local_mtime == 125.9
+    assert supvisors_times.local_time == 1250.3
+    assert supvisors_times.start_local_mtime == 120.9
+    # test getters
+    assert supvisors_times.capped_remote_time == 1200
+    assert supvisors_times.capped_local_time == 1250
+    assert supvisors_times.get_current_uptime() == 5.0  # 125.9 - 120.9
+    assert supvisors_times.get_current_remote_time(132.9) == 1207.1  # 1200.1 + (132.9 - 125.9)
+    # test capped values
+    supvisors_times.remote_time = xmlrpclib.MAXINT + 100
+    supvisors_times.local_time = xmlrpclib.MAXINT + 1000
+    assert supvisors_times.capped_remote_time == xmlrpclib.MAXINT
+    assert supvisors_times.capped_local_time == xmlrpclib.MAXINT
+    supvisors_times.remote_time = 1200.1
+    # test serial
+    expected = {'local_sequence_counter': 0, 'local_mtime': 125.9, 'local_time': xmlrpclib.MAXINT,
+                'remote_sequence_counter': 1, 'remote_mtime': 300.1, 'remote_time': 1200}
+    assert supvisors_times.serial() == expected
+
+
+@pytest.fixture
 def supvisors_id(supvisors):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId('<supvisors>10.0.0.1:65000:65001', supvisors)
+    return SupvisorsInstanceId('<supvisors>10.0.0.1:25000', supvisors)
 
 
 @pytest.fixture
 def local_supvisors_id(supvisors):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId(f'<{supvisors.mapper.local_identifier}>10.0.0.1:65000:65001', supvisors)
+    item = f'<supvisors>{socket.getfqdn()}:25000'
+    return SupvisorsInstanceId(item, supvisors)
 
 
 @pytest.fixture
@@ -125,13 +191,20 @@ def test_create_no_collector(supvisors, supvisors_id, status):
     assert status.supvisors is supvisors
     assert status.logger is supvisors.logger
     assert status.supvisors_id is supvisors_id
-    assert status.identifier == 'supvisors'
+    assert status.identifier == '10.0.0.1:25000'
+    assert status.usage_identifier == '<supvisors>10.0.0.1:25000'
     assert status.state == SupvisorsInstanceStates.UNKNOWN
+    assert not status.isolated
     assert status.sequence_counter == 0
-    assert status.local_sequence_counter == 0
-    assert status.start_time == 0.0
-    assert status.remote_time == 0.0
-    assert status.local_time == 0.0
+    assert status.times.identifier == '10.0.0.1:25000'
+    assert status.times.logger is supvisors.logger
+    assert status.times.remote_sequence_counter == 0
+    assert status.times.remote_mtime == 0.0
+    assert status.times.remote_time == 0.0
+    assert status.times.local_sequence_counter == 0
+    assert status.times.local_mtime == 0.0
+    assert status.times.local_time == 0.0
+    assert status.times.start_local_mtime == -1.0
     assert status.processes == {}
     assert status.state_modes == StateModes()
     # process_collector is None because local_identifier is different in supvisors_mapper and in SupvisorsInstanceId
@@ -145,11 +218,15 @@ def test_create_collector(supvisors, local_supvisors_id, local_status):
     assert local_status.supvisors_id is local_supvisors_id
     assert local_status.identifier == supvisors.mapper.local_identifier
     assert local_status.state == SupvisorsInstanceStates.UNKNOWN
-    assert local_status.sequence_counter == 0
-    assert local_status.local_sequence_counter == 0
-    assert local_status.start_time == 0.0
-    assert local_status.remote_time == 0.0
-    assert local_status.local_time == 0.0
+    assert local_status.times.identifier == supvisors.mapper.local_identifier
+    assert local_status.times.logger is supvisors.logger
+    assert local_status.times.remote_sequence_counter == 0
+    assert local_status.times.remote_mtime == 0.0
+    assert local_status.times.remote_time == 0.0
+    assert local_status.times.local_sequence_counter == 0
+    assert local_status.times.local_mtime == 0.0
+    assert local_status.times.local_time == 0.0
+    assert local_status.times.start_local_mtime == -1.0
     assert local_status.processes == {}
     assert local_status.state_modes == StateModes()
     # process_collector is set as SupvisorsInstanceId and supvisors_mapper's local_identifier are identical
@@ -162,33 +239,43 @@ def test_reset(status):
     """ Test the SupvisorsInstanceStatus.reset method. """
     for state in SupvisorsInstanceStates:
         status._state = state
-        status.local_sequence_counter = 10
-        status.remote_time = 28.452
-        status.local_time = 27.456
+        status.times.remote_sequence_counter = 10
+        status.times.remote_mtime = 11.1
+        status.times.remote_time = 28.452
+        status.times.local_sequence_counter = 10
+        status.times.local_mtime = 100.7
+        status.times.local_time = 27.456
+        status.times.start_local_mtime = 0.7
         status.reset()
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
                      SupvisorsInstanceStates.RUNNING]:
             assert status.state == SupvisorsInstanceStates.UNKNOWN
         else:
             assert status.state == state
-        assert status.local_sequence_counter == 0
-        assert status.remote_time == 0.0
-        assert status.local_time == 0.0
+        assert status.times.remote_sequence_counter == 0
+        assert status.times.remote_mtime == 0.0
+        assert status.times.remote_time == 0.0
+        assert status.times.local_sequence_counter == 0
+        assert status.times.local_mtime == 0.0
+        assert status.times.local_time == 0.0
+        assert status.times.start_local_mtime == -1.0
 
 
-def test_serialization(status):
+def test_serialization(mocker, status):
     """ Test the serial method used to get a serializable form of SupvisorsInstanceStatus. """
+    mocker.patch('time.time', return_value=19413.5)
+    mocker.patch('time.monotonic', return_value=13.5)
     status._state = SupvisorsInstanceStates.RUNNING
-    status.checked = True
-    status.sequence_counter = 28
-    status.remote_time = 50
-    status.local_time = 60
+    status.rpc_failure = True
+    status.times.update(28, 10.5, 50.2, 17)
     # test to_json method
     serialized = status.serial()
-    assert serialized == {'identifier': 'supvisors', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0,
+    assert serialized == {'identifier': '10.0.0.1:25000', 'nick_identifier': 'supvisors',
+                          'node_name': '10.0.0.1', 'port': 25000, 'loading': 0,
                           'statecode': 3, 'statename': 'RUNNING', 'discovery_mode': False,
-                          'remote_time': 50, 'local_time': 60,
-                          'sequence_counter': 28, 'process_failure': False,
+                          'remote_sequence_counter': 28, 'remote_mtime': 10.5, 'remote_time': 50,
+                          'local_sequence_counter': 17, 'local_mtime': 13.5, 'local_time': 19413,
+                          'process_failure': False,
                           'fsm_statecode': 0, 'fsm_statename': 'OFF',
                           'master_identifier': '',
                           'starting_jobs': False, 'stopping_jobs': False}
@@ -200,8 +287,7 @@ def test_serialization(status):
 
 def test_transitions(status):
     """ Test the state transitions of SupvisorsInstanceStatus. """
-    silent_states = [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATING,
-                     SupvisorsInstanceStates.ISOLATED]
+    silent_states = [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]
     for state1 in SupvisorsInstanceStates:
         for state2 in SupvisorsInstanceStates:
             # check all possible transitions from each state
@@ -271,12 +357,12 @@ def test_has_active_state(status):
 def test_inactive(status):
     """ Test the SupvisorsInstanceStatus.is_inactive method. """
     # test active
-    status.local_sequence_counter = 8
+    status.times.local_sequence_counter = 8
     for state in SupvisorsInstanceStates:
         status._state = state
         assert not status.is_inactive(10)
     # test not active
-    status.local_sequence_counter = 7
+    status.times.local_sequence_counter = 7
     for state in SupvisorsInstanceStates:
         status._state = state
         if state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
@@ -287,13 +373,11 @@ def test_inactive(status):
 
 
 def test_isolation(status):
-    """ Test the SupvisorsInstanceStatus.in_isolation method. """
+    """ Test the SupvisorsInstanceStatus.isolated property. """
     for state in SupvisorsInstanceStates:
         status._state = state
-        assert (status.in_isolation() and
-                state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED] or
-                not status.in_isolation() and state not in [SupvisorsInstanceStates.ISOLATING,
-                                                            SupvisorsInstanceStates.ISOLATED])
+        assert (status.isolated and state == SupvisorsInstanceStates.ISOLATED or
+                not status.isolated and state != SupvisorsInstanceStates.ISOLATED)
 
 
 def test_process_no_collector(supvisors, status):
@@ -394,56 +478,35 @@ def test_add_process_stopped_collector(supvisors, local_status):
     assert local_status.stats_collector.send_pid.call_args_list == [call(process.namespec, info['pid'])]
 
 
-def test_update_tick(filled_status):
+def test_update_tick(mocker, filled_status):
     """ Test the SupvisorsInstanceStatus.update_tick method. """
-    now = time.time()
-    # get current process times
-    ref_data = {process.namespec: (process.state, info['now'], info['uptime'])
-                for process in filled_status.processes.values()
-                for info in [process.info_map['supvisors']]}
-    # update times and check with normal counter
-    filled_status.sequence_counter = 25
-    filled_status.update_tick(28, now + 10, 27, now)
-    ref_start_time = now - 28 * TICK_PERIOD
-    assert filled_status.sequence_counter == 28
-    assert filled_status.local_sequence_counter == 27
-    assert filled_status.start_time == ref_start_time
-    assert filled_status.remote_time == now + 10
-    assert filled_status.local_time == now
-    # test process times: only RUNNING and STOPPING have a positive uptime
-    new_data = {process.namespec: (process.state, info['now'], info['uptime'])
-                for process in filled_status.processes.values()
-                for info in [process.info_map['supvisors']]}
-    for namespec, new_info in new_data.items():
-        ref_info = ref_data[namespec]
-        assert new_info[0] == ref_info[0]
-        assert new_info[1] > ref_info[1]
-        if new_info[0] in [ProcessStates.RUNNING, ProcessStates.STOPPING]:
-            assert new_info[2] > ref_info[2]
-        else:
-            assert new_info[2] == ref_info[2]
-    # update times aa second time to check that start_time hasn't changed
-    filled_status.update_tick(29, now + 15, 28, now + 5)
-    assert filled_status.sequence_counter == 29
-    assert filled_status.local_sequence_counter == 28
-    assert filled_status.start_time == ref_start_time
-    assert filled_status.remote_time == now + 15
-    assert filled_status.local_time == now + 5
-    # test counter issue (going backwards)
-    filled_status.update_tick(28, now + 10, 27, now)
-    assert filled_status.sequence_counter == 28
-    assert filled_status.local_sequence_counter == 0
-    assert filled_status.start_time == ref_start_time
-    assert filled_status.remote_time == now + 10
-    assert filled_status.local_time == now
-
-
-def test_get_remote_time(filled_status):
-    """ Test the SupvisorsInstanceStatus.get_remote_time method. """
-    # update times and check
-    filled_status.remote_time = 10
-    filled_status.local_time = 5
-    assert filled_status.get_remote_time(15) == 20
+    mocked_proc_times = [mocker.patch.object(process, 'update_times')
+                         for process in filled_status.processes.values()]
+    # check calls for local tick
+    now, now_mono = time.time(), time.monotonic()
+    filled_status.update_tick(25, now_mono, now)
+    assert filled_status.times.remote_sequence_counter == 25
+    assert filled_status.times.remote_mtime == now_mono
+    assert filled_status.times.remote_time == now
+    assert filled_status.times.local_sequence_counter == 25
+    assert filled_status.times.local_mtime == now_mono
+    assert filled_status.times.local_time == now
+    for mocked in mocked_proc_times:
+        assert mocked.call_args_list == [call(filled_status.identifier, filled_status.times.remote_mtime,
+                                              filled_status.times.remote_time)]
+    mocker.resetall()
+    # check calls for remote tick
+    now, now_mono = time.time(), time.monotonic()
+    filled_status.update_tick(27, now_mono, now, 25)
+    assert filled_status.times.remote_sequence_counter == 27
+    assert filled_status.times.remote_mtime == now_mono
+    assert filled_status.times.remote_time == now
+    assert filled_status.times.local_sequence_counter == 25
+    assert filled_status.times.local_mtime >= now_mono
+    assert filled_status.times.local_time >= now
+    for mocked in mocked_proc_times:
+        assert mocked.call_args_list == [call(filled_status.identifier, filled_status.times.remote_mtime,
+                                              filled_status.times.remote_time)]
 
 
 def test_running_process(filled_status):

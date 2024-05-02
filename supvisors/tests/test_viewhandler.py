@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import socket
 import time
 from unittest.mock import call, Mock
 
@@ -21,7 +22,7 @@ import pytest
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, ProcessStates
 
-from supvisors.rpcinterface import API_VERSION
+from supvisors import __version__
 from supvisors.ttypes import ApplicationStates, StartingStrategies, SupvisorsStates, SupvisorsInstanceStates
 from supvisors.web.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
 from supvisors.web.viewhandler import ViewHandler
@@ -56,7 +57,9 @@ def test_init(http_context, handler):
     # test ViewHandler initialization
     assert handler.page_name is None
     current_time = time.time()
+    current_mtime = time.monotonic()
     assert current_time - 1 < handler.current_time < current_time
+    assert current_mtime - 1 < handler.current_mtime < current_mtime
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
     assert handler.local_identifier == handler.supvisors.mapper.local_identifier
@@ -78,13 +81,16 @@ def test_render_action_in_progress(mocker, handler):
     """ Test the render method when Supervisor is in RUNNING state and when an action is in progress. """
     mocked_style = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_style')
     mocked_common = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_common')
-    mocked_contents = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_contents')
-    mocked_header = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
     mocked_nav = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_navigation')
+    mocked_header = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_header')
+    mocked_contents = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_contents')
     mocked_clone = mocker.patch('supervisor.web.MeldView.clone')
     mocked_action = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_action')
     # build xml template
-    mocked_root = Mock(**{'write_xhtmlstring.return_value': 'xhtml'})
+    header_elt = create_element()
+    contents_elt = create_element()
+    mocked_root = create_element({'header_mid': header_elt, 'contents_mid': contents_elt})
+    mocked_root.write_xhtmlstring.return_value = 'xhtml'
     mocked_clone.return_value = mocked_root
     # patch context
     handler.supvisors.context.get_all_namespecs = Mock(return_value=[])
@@ -120,21 +126,21 @@ def test_render_action_in_progress(mocker, handler):
     assert mocked_clone.call_args_list == [call()]
     assert mocked_style.call_args_list == [call(mocked_root)]
     assert mocked_common.call_args_list == [call(mocked_root)]
-    assert mocked_header.call_args_list == [call(mocked_root)]
+    assert mocked_header.call_args_list == [call(header_elt)]
     assert mocked_nav.call_args_list == [call(mocked_root)]
-    assert mocked_contents.call_args_list == [call(mocked_root)]
+    assert mocked_contents.call_args_list == [call(contents_elt)]
 
 
-def test_handle_parameters(handler):
+def test_handle_parameters(supvisors, handler):
     """ Test the handle_parameters method. """
-    handler.supvisors.context.get_all_namespecs = Mock(return_value=[])
+    supvisors.context.get_all_namespecs = Mock(return_value=[])
     assert handler.view_ctx is None
     handler.handle_parameters()
     assert handler.view_ctx is not None
     assert isinstance(handler.view_ctx, ViewContext)
 
 
-def test_write_common(mocker, handler):
+def test_write_common(mocker, supvisors, handler):
     """ Test the write_common method. """
     mocked_msg = mocker.patch('supvisors.web.viewhandler.print_message')
     # patch context
@@ -143,56 +149,37 @@ def test_write_common(mocker, handler):
                                                         'get_gravity.return_value': 'severe',
                                                         'get_message.return_value': 'a message'})
     # build xml template
+    footer_mid = create_element()
     mocked_meta = create_element()
     mocked_supv = create_element()
     mocked_version = create_element()
-    mocked_identifier = create_element()
-    mocked_refresh = create_element()
-    mocked_autorefresh = create_element()
-    mocked_autorefresh.attrib['class'] = 'button'
     mocked_root = create_element({'meta_mid': mocked_meta, 'supvisors_mid': mocked_supv,
-                                  'version_mid': mocked_version, 'identifier_mid': mocked_identifier,
-                                  'refresh_a_mid': mocked_refresh, 'autorefresh_a_mid': mocked_autorefresh})
+                                  'version_mid': mocked_version, 'footer_mid': footer_mid})
     # 1. test no conflict and auto-refresh
-    handler.supvisors.fsm.state = SupvisorsStates.OPERATION
+    supvisors.fsm.state = SupvisorsStates.OPERATION
     handler.write_common(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('identifier_mid'),
-                                                   call('refresh_a_mid'), call('autorefresh_a_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('footer_mid')]
     assert not mocked_meta.deparent.called
     assert 'failure' not in mocked_supv.attrib['class']
-    assert mocked_version.content.call_args_list == [call(API_VERSION)]
-    assert mocked_identifier.content.call_args_list == [call(handler.local_identifier)]
-    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attrib['class'] == 'button active'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
-                                                          call('', 'dummy.html', auto=False)]
-    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
+    assert mocked_version.content.call_args_list == [call(__version__)]
+    assert mocked_msg.call_args_list == [call(footer_mid, 'severe', 'a message',
+                                              handler.current_time, handler.local_nick_identifier)]
     # reset mocks
     mocked_root.reset_all()
-    mocked_autorefresh.attrib['class'] = 'button'
     mocked_msg.reset_mock()
     handler.view_ctx.format_url.reset_mock()
     # 2. test conflicts and no auto-refresh
-    mocked_root.findmeld.side_effect = [mocked_meta, mocked_supv, mocked_version, mocked_identifier, mocked_refresh,
-                                        mocked_autorefresh]
-    handler.supvisors.fsm.state = SupvisorsStates.CONCILIATION
+    supvisors.fsm.state = SupvisorsStates.CONCILIATION
     mocker.patch.object(handler.sup_ctx, 'conflicts', return_value=True)
     handler.view_ctx.parameters[AUTO] = False
     handler.write_common(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
-                                                   call('identifier_mid'), call('refresh_a_mid'),
-                                                   call('autorefresh_a_mid')]
+                                                   call('footer_mid')]
     assert mocked_meta.deparent.called
     assert mocked_supv.attrib == {'class': 'failure'}
-    assert mocked_version.content.call_args_list == [call(API_VERSION)]
-    assert mocked_identifier.content.call_args_list == [call(handler.local_identifier)]
-    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
-    assert mocked_autorefresh.attrib['class'] == 'button'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
-                                                          call('', 'dummy.html', auto=True)]
-    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
+    assert mocked_version.content.call_args_list == [call(__version__)]
+    assert mocked_msg.call_args_list == [call(footer_mid, 'severe', 'a message',
+                                              handler.current_time, handler.local_nick_identifier)]
 
 
 def test_write_navigation(handler):
@@ -210,10 +197,10 @@ def test_write_nav(mocker, handler):
     assert mocked_appli.call_args_list == [call('root', 'appli')]
 
 
-def test_write_nav_instances_identifier_error(handler):
+def test_write_nav_instances_identifier_error(supvisors, handler):
     """ Test the write_nav_instances method with an identifier not existing in supvisors context.
     Use discovery mode to test Supvisors instances ordering in this case. """
-    handler.supvisors.options.multicast_group = '293.0.0.1:7777'
+    supvisors.options.multicast_group = '293.0.0.1:7777'
     # patch the meld elements
     href_elt = Mock(attrib={})
     address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -222,94 +209,112 @@ def test_write_nav_instances_identifier_error(handler):
     # test call with no address status in context
     handler.write_nav_instances(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(sorted(handler.supvisors.mapper.instances.keys()))]
+    fqdn = socket.getfqdn()
+    expected = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000', '10.0.0.5:25000',
+                f'{fqdn}:25000', f'{fqdn}:15000']
+    assert mocked_mid.repeat.call_args_list == [call(expected)]
     assert address_elt.findmeld.call_args_list == []
 
 
-def test_write_nav_instances_silent_instance(handler):
+def test_write_nav_instances_silent_instance(supvisors, handler):
     """ Test the write_nav_instances method using a SILENT address. """
     # patch the meld elements
-    href_elt = Mock(attrib={})
-    address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
-    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-    # test call with address status set in context, SILENT and different from parameter
-    handler.sup_ctx.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
-    handler.write_nav_instances(mocked_root, '10.0.0.2')
-    assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(list(handler.supvisors.mapper.instances.keys()))]
-    assert address_elt.attrib['class'] == 'SILENT'
-    assert address_elt.findmeld.call_args_list == [call('instance_a_mid')]
-    assert href_elt.attrib['class'] == 'off'
-    assert href_elt.content.call_args_list == [call('10.0.0.1')]
-    mocked_root.findmeld.reset_mock()
-    mocked_mid.repeat.reset_mock()
-    address_elt.findmeld.reset_mock()
-    href_elt.content.reset_mock()
-    # test call with address status set in context, SILENT and identical to parameter
-    handler.write_nav_instances(mocked_root, '10.0.0.1')
-    assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(list(handler.supvisors.mapper.instances.keys()))]
-    assert address_elt.attrib['class'] == 'SILENT active'
-    assert address_elt.findmeld.call_args_list == [call('instance_a_mid')]
-    assert href_elt.attrib['class'] == 'off'
-    assert href_elt.content.call_args_list == [call('10.0.0.1')]
-
-
-def test_write_nav_instances_running_instance(handler):
-    """ Test the write_nav_instances method using a RUNNING instance. """
-    # patch the meld elements
-    instance_a_mid = create_element()
+    instance_sp_mid = create_element()
+    master_sp_mid = create_element()
+    instance_a_mid = create_element({'instance_sp_mid': instance_sp_mid, 'master_sp_mid': master_sp_mid})
+    instance_h_mid = create_element()
     instance_elt = create_element({'instance_a_mid': instance_a_mid})
     instance_li_mid = create_element()
-    instance_li_mid.repeat.return_value = [(instance_elt, '10.0.0.1')]
-    mocked_root = create_element({'instance_li_mid': instance_li_mid})
+    instance_li_mid.repeat.return_value = [(instance_elt, '10.0.0.1:25000')]
+    mocked_root = create_element({'instance_h_mid': instance_h_mid, 'instance_li_mid': instance_li_mid})
+    # test call with address status set in context, SILENT and different from parameter
+    handler.sup_ctx.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
+    handler.write_nav_instances(mocked_root, '10.0.0.2:25000')
+    assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
+    assert instance_li_mid.repeat.call_args_list == [call(list(supvisors.mapper.instances.keys()))]
+    assert instance_elt.attrib['class'] == 'SILENT'
+    assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
+    assert instance_a_mid.attrib['class'] == 'off'
+    assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+    assert not master_sp_mid.content.called
+    instance_elt.reset_all()
+    mocked_root.reset_all()
+    # test call with address status set in context, SILENT and identical to parameter
+    handler.write_nav_instances(mocked_root, '10.0.0.1:25000')
+    assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
+    assert instance_li_mid.repeat.call_args_list == [call(list(supvisors.mapper.instances.keys()))]
+    assert instance_elt.attrib['class'] == 'SILENT active'
+    assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
+    assert instance_a_mid.attrib['class'] == 'off'
+    assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+    assert not master_sp_mid.content.called
+
+
+def test_write_nav_instances_running_instance(mocker, supvisors, handler):
+    """ Test the write_nav_instances method using a RUNNING instance. """
+    # patch the meld elements
+    instance_sp_mid = create_element()
+    master_sp_mid = create_element()
+    instance_a_mid = create_element({'instance_sp_mid': instance_sp_mid, 'master_sp_mid': master_sp_mid})
+    instance_h_mid = create_element()
+    instance_elt = create_element({'instance_a_mid': instance_a_mid})
+    instance_li_mid = create_element()
+    instance_li_mid.repeat.return_value = [(instance_elt, '10.0.0.1:25000')]
+    mocked_root = create_element({'instance_h_mid': instance_h_mid, 'instance_li_mid': instance_li_mid})
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # loop on active states
-    status = handler.sup_ctx.instances['10.0.0.1']
-    all_identifiers = list(handler.supvisors.mapper.instances.keys())
+    status = handler.sup_ctx.instances['10.0.0.1:25000']
+    all_identifiers = list(supvisors.mapper.instances.keys())
     for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
         # set context
         status._state = state
         status.state_modes.starting_jobs = False
         handler.sup_ctx.master_identifier = ''
         # test call with address status set in context, RUNNING, different from parameter and not MASTER
-        handler.write_nav_instances(mocked_root, '10.0.0.2')
+        mocker.patch.object(status, 'has_error', return_value=False)
+        handler.write_nav_instances(mocked_root, '10.0.0.2:25000')
         assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
         assert instance_li_mid.repeat.call_args_list == [call(all_identifiers)]
         assert instance_elt.attrib['class'] == state.name
         assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
-        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'proc_instance.html')]
+        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', 'proc_instance.html')]
         assert instance_a_mid.attributes.call_args_list == [call(href='an url')]
         assert instance_a_mid.attrib['class'] == 'on'
-        assert instance_a_mid.content.call_args_list == [call('10.0.0.1')]
+        assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+        assert not master_sp_mid.content.called
         instance_elt.reset_all()
         mocked_root.reset_all()
         handler.view_ctx.format_url.reset_mock()
         # test call with address status set in context, RUNNING, identical to parameter and MASTER
+        # failure is added to the instance
+        is_running = state == SupvisorsInstanceStates.RUNNING
+        mocker.patch.object(status, 'has_error', return_value=is_running)
         status.state_modes.starting_jobs = True
-        handler.sup_ctx.master_identifier = '10.0.0.1'
-        handler.write_nav_instances(mocked_root, '10.0.0.1')
-        assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
+        handler.sup_ctx.master_identifier = '10.0.0.1:25000'
+        handler.write_nav_instances(mocked_root, '10.0.0.1:25000')
+        expected = [call('instance_li_mid')] + ([call('instance_h_mid')] if is_running else [])
+        assert mocked_root.findmeld.call_args_list == expected
         assert instance_li_mid.repeat.call_args_list == [call(all_identifiers)]
-        assert instance_elt.attrib['class'] == state.name + ' active'
+        assert instance_elt.attrib['class'] == state.name + ' active' + (' failure' if is_running else '') + ' master'
         assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
-        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'proc_instance.html')]
+        assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', 'proc_instance.html')]
         assert instance_a_mid.attributes.call_args_list == [call(href='an url')]
         assert instance_a_mid.attrib['class'] == 'blink on'
-        assert instance_a_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
+        assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+        assert master_sp_mid.content.call_args_list == [call(MASTER_SYMBOL)]
+        assert instance_h_mid.attrib['class'] == ('failure' if is_running else '')
         instance_elt.reset_all()
         mocked_root.reset_all()
         handler.view_ctx.format_url.reset_mock()
 
 
-def test_write_nav_applications_initialization(handler):
+def test_write_nav_applications_initialization(supvisors, handler):
     """ Test the write_nav_applications method with Supvisors in its INITIALIZATION state. """
-    handler.supvisors.fsm.state = SupvisorsStates.INITIALIZATION
-    dummy_appli = create_application('dummy_appli', handler.supvisors)
+    supvisors.fsm.state = SupvisorsStates.INITIALIZATION
+    dummy_appli = create_application('dummy_appli', supvisors)
     dummy_appli._state = ApplicationStates.RUNNING
-    handler.supvisors.starter.get_application_job_names.return_value = set()
-    handler.supvisors.stopper.get_application_job_names.return_value = set()
+    supvisors.starter.get_application_job_names.return_value = set()
+    supvisors.stopper.get_application_job_names.return_value = set()
     # patch the meld elements
     appli_a_mid = create_element()
     appli_elt = create_element({'appli_a_mid': appli_a_mid})
@@ -331,7 +336,7 @@ def test_write_nav_applications_initialization(handler):
     mocked_root.reset_all()
     appli_elt.reset_all()
     # test call with application name identical to parameter and add a failure
-    handler.supvisors.starter.get_application_job_names.return_value = {'dummy_appli'}
+    supvisors.starter.get_application_job_names.return_value = {'dummy_appli'}
     dummy_appli.minor_failure = True
     handler.write_nav_applications(mocked_root, 'dummy_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid'), call('appli_h_mid')]
@@ -344,14 +349,14 @@ def test_write_nav_applications_initialization(handler):
     assert appli_h_mid.attrib['class'] == 'failure'
 
 
-def test_write_nav_applications_operation(handler):
+def test_write_nav_applications_operation(supvisors, handler):
     """ Test the write_nav_applications method with Supvisors in its OPERATION state. """
-    handler.supvisors.fsm.state = SupvisorsStates.OPERATION
-    dummy_appli = create_application('dummy_appli', handler.supvisors)
+    supvisors.fsm.state = SupvisorsStates.OPERATION
+    dummy_appli = create_application('dummy_appli', supvisors)
     dummy_appli._state = ApplicationStates.RUNNING
     dummy_appli.rules.starting_strategy = StartingStrategies.LESS_LOADED
-    handler.supvisors.starter.get_application_job_names.return_value = set()
-    handler.supvisors.stopper.get_application_job_names.return_value = set()
+    supvisors.starter.get_application_job_names.return_value = set()
+    supvisors.stopper.get_application_job_names.return_value = set()
     # patch the meld elements
     appli_a_mid = create_element()
     appli_elt = create_element({'appli_a_mid': appli_a_mid})
@@ -376,7 +381,7 @@ def test_write_nav_applications_operation(handler):
     mocked_root.reset_all()
     appli_elt.reset_all()
     # test call with application name identical to parameter
-    handler.supvisors.stopper.get_application_job_names.return_value = {'dummy_appli'}
+    supvisors.stopper.get_application_job_names.return_value = {'dummy_appli'}
     dummy_appli.major_failure = False
     handler.write_nav_applications(mocked_root, 'dummy_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
@@ -389,59 +394,139 @@ def test_write_nav_applications_operation(handler):
     assert appli_a_mid.content.call_args_list == [call('dummy_appli')]
 
 
-def test_write_header(handler):
+def test_write_header(mocker, handler):
     """ Test the ViewHandler.write_header method. """
+    mocked_software = mocker.patch.object(handler, 'write_software')
+    mocked_status = mocker.patch.object(handler, 'write_status')
+    mocked_options = mocker.patch.object(handler, 'write_options')
+    mocked_actions = mocker.patch.object(handler, 'write_actions')
+    mocked_header = create_element()
+    handler.write_header(mocked_header)
+    assert mocked_software.call_args_list == [call(mocked_header)]
+    assert mocked_status.call_args_list == [call(mocked_header)]
+    assert mocked_options.call_args_list == [call(mocked_header)]
+    assert mocked_actions.call_args_list == [call(mocked_header)]
+
+
+def test_write_software(mocker, supvisors, handler):
+    """ Test the ViewHandler.write_software method. """
+    mocked_path = mocker.patch('supvisors.web.viewimage.SoftwareIconImage.set_path')
+    mocked_name = create_element()
+    mocked_icon = create_element()
+    mocked_card = create_element({'software_icon_mid': mocked_icon, 'software_name_mid': mocked_name})
+    mocked_header = create_element({'software_card_mid': mocked_card})
+    # 1. test user software name but no icon
+    assert supvisors.options.software_name
+    assert not supvisors.options.software_icon
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert not mocked_card.replace.called
+    assert mocked_card.findmeld.call_args_list == [call('software_name_mid'), call('software_icon_mid')]
+    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
+    assert mocked_icon.replace.call_args_list == [call('')]
+    assert not mocked_path.called
+    # reset mocks
+    mocked_header.reset_all()
+    # 2. test both user software name & icon set
+    supvisors.options.software_icon = '/tmp/an_icon.png'
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert not mocked_card.replace.called
+    assert mocked_card.findmeld.call_args_list == [call('software_name_mid')]
+    assert mocked_name.content.call_args_list == [call('Supvisors tests')]
+    assert not mocked_icon.replace.called
+    assert mocked_path.call_args_list == [call('/tmp/an_icon.png')]
+    # reset mocks
+    mocked_header.reset_all()
+    mocker.resetall()
+    # 3. test no user software set
+    supvisors.options.software_name = ''
+    supvisors.options.software_icon = None
+    handler.write_software(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('software_card_mid')]
+    assert mocked_card.replace.call_args_list == [call('')]
+    assert not mocked_card.findmeld.called
+    assert not mocked_name.content.called
+    assert not mocked_icon.replace.called
+    assert not mocked_path.called
+
+
+def test_write_status(handler):
+    """ Test the ViewHandler.write_options method. """
     with pytest.raises(NotImplementedError):
-        handler.write_header(Mock())
+        handler.write_status(Mock())
 
 
-def test_write_periods(mocker, handler):
+def test_write_options(handler):
+    """ Test the ViewHandler.write_options method. """
+    handler.write_options(Mock())
+    # no implementation, no nothing to test
+    assert True
+
+
+def test_write_periods(supvisors, handler):
     """ Test the ViewHandler.write_periods method. """
-    mocked_period = mocker.patch.object(handler, 'write_periods_availability')
-    mocked_root = Mock()
-    handler.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, True)]
-
-
-def test_write_periods_availability(handler):
-    """ Test the ViewHandler.write_periods_availability method. """
     # 1. test call with period selection identical to parameter
-    mocked_mid = Mock()
-    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-    # test call when statistics are disabled
-    handler.write_periods_availability(mocked_root, False)
-    assert mocked_root.findmeld.call_args_list == [call('period_div_mid')]
-    assert mocked_mid.replace.call_args_list == [call('')]
-    # patch the meld elements
-    href_elt = Mock(attrib={'class': ''})
-    period_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(period_elt, 5)]})
-    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
+    period_a_mid = create_element()
+    period_li_elt = create_element({'period_a_mid': period_a_mid})
+    period_li_mid = create_element()
+    period_li_mid.repeat.return_value = [(period_li_elt, 5)]
+    mocked_header = create_element({'period_li_mid': period_li_mid})
     # test call with period selection identical to parameter
     handler.view_ctx = Mock(parameters={PERIOD: 5}, **{'format_url.return_value': 'an url'})
-    handler.write_periods_availability(mocked_root, True)
-    assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
-    assert period_elt.findmeld.call_args_list == [call('period_a_mid')]
-    assert href_elt.attrib['class'] == 'button off active'
+    handler.write_periods(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('period_li_mid')]
+    assert period_li_mid.repeat.call_args_list == [call(supvisors.options.stats_periods)]
+    assert period_li_elt.findmeld.call_args_list == [call('period_a_mid')]
+    assert period_a_mid.attrib['class'] == 'off active'
     assert handler.view_ctx.format_url.call_args_list == []
-    assert href_elt.attributes.call_args_list == []
-    assert href_elt.content.call_args_list == [call('5s')]
-    mocked_root.findmeld.reset_mock()
-    mocked_mid.repeat.reset_mock()
-    period_elt.findmeld.reset_mock()
-    href_elt.content.reset_mock()
-    href_elt.attrib['class'] = ''
+    assert period_a_mid.attributes.call_args_list == []
+    assert period_a_mid.content.call_args_list == [call('5s')]
+    mocked_header.reset_all()
+    period_li_elt.reset_all()
+    period_a_mid.attrib['class'] = ''
     # 2. test call with period selection different from parameter
     handler.view_ctx.parameters[PERIOD] = 10
-    handler.write_periods_availability(mocked_root, True)
-    assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
-    assert period_elt.findmeld.call_args_list == [call('period_a_mid')]
-    assert href_elt.attrib['class'] == ''
+    handler.write_periods(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('period_li_mid')]
+    assert period_li_mid.repeat.call_args_list == [call(handler.supvisors.options.stats_periods)]
+    assert period_li_elt.findmeld.call_args_list == [call('period_a_mid')]
+    assert period_a_mid.attrib['class'] == 'on'
     assert handler.view_ctx.format_url.call_args_list == [call('', None, period=5)]
-    assert href_elt.attributes.call_args_list == [call(href='an url')]
-    assert href_elt.content.call_args_list == [call('5s')]
+    assert period_a_mid.attributes.call_args_list == [call(href='an url')]
+    assert period_a_mid.content.call_args_list == [call('5s')]
+
+
+def test_write_actions(mocker, handler):
+    """ Test the ViewHandler.write_header method. """
+    handler.page_name = 'dummy.html'
+    handler.view_ctx = Mock(parameters={AUTO: True}, **{'format_url.return_value': 'an url'})
+    mocked_refresh = create_element()
+    mocked_autorefresh = create_element()
+    mocked_autorefresh.attrib['class'] = 'button'
+    mocked_header = create_element({'refresh_a_mid': mocked_refresh, 'autorefresh_a_mid': mocked_autorefresh})
+    # 1. test auto-refresh
+    handler.write_actions(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('refresh_a_mid'), call('autorefresh_a_mid')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
+                                                          call('', 'dummy.html', auto=False)]
+    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attrib['class'] == 'button active'
+    # reset mocks and context
+    mocker.resetall()
+    mocked_header.reset_all()
+    handler.view_ctx.format_url.reset_mock()
+    mocked_autorefresh.attrib['class'] = 'button'
+    # 2. test no auto-refresh
+    handler.view_ctx.parameters[AUTO] = False
+    handler.write_actions(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('refresh_a_mid'), call('autorefresh_a_mid')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'dummy.html'),
+                                                          call('', 'dummy.html', auto=True)]
+    assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
+    assert mocked_autorefresh.attrib['class'] == 'button'
 
 
 def test_write_contents(handler):
@@ -450,7 +535,7 @@ def test_write_contents(handler):
         handler.write_contents(Mock())
 
 
-def test_write_common_process_cpu(handler):
+def test_write_common_process_cpu(supvisors, handler):
     """ Test the write_common_process_cpu method. """
     # patch the view context
     handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'}, **{'format_url.return_value': 'an url'})
@@ -479,7 +564,7 @@ def test_write_common_process_cpu(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with filled stats on selected process, irix mode
-    handler.supvisors.options.stats_irix_mode = True
+    supvisors.options.stats_irix_mode = True
     info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20]), 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
@@ -487,7 +572,7 @@ def test_write_common_process_cpu(handler):
     assert not cell_elt.replace.called
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, ident='10.0.0.1')]
     assert cell_elt.attrib['class'] == 'button on active'
-    assert cell_elt.content.call_args_list == [call('20.00%')]
+    assert cell_elt.content.call_args_list == [call('20.00')]
     # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.content.reset_mock()
@@ -495,13 +580,13 @@ def test_write_common_process_cpu(handler):
     cell_elt.attributes.reset_mock()
     del cell_elt.attrib['class']
     # test with filled stats on not selected process, solaris mode
-    handler.supvisors.options.stats_irix_mode = False
+    supvisors.options.stats_irix_mode = False
     info = {'namespec': 'dummy', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20, 30]), 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
-    assert cell_elt.content.call_args_list == [call('15.00%')]
+    assert cell_elt.content.call_args_list == [call('15.00')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', ident='10.0.0.1')]
     assert cell_elt.attributes.call_args_list == [call(href='an url')]
     assert cell_elt.attrib['class'] == 'button on'
@@ -517,7 +602,7 @@ def test_write_common_process_cpu(handler):
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.deparent.called
-    assert cell_elt.replace.call_args_list == [call('15.00%')]
+    assert cell_elt.replace.call_args_list == [call('15.00')]
     assert not cell_elt.content.called
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.attributes.called
@@ -571,7 +656,7 @@ def test_write_common_process_mem(handler):
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
-    assert cell_elt.content.call_args_list == [call('20.00%')]
+    assert cell_elt.content.call_args_list == [call('20.00')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, ident='10.0.0.2')]
     assert cell_elt.attrib['class'] == 'button on active'
     # reset context
@@ -586,7 +671,7 @@ def test_write_common_process_mem(handler):
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
-    assert cell_elt.content.call_args_list == [call('30.00%')]
+    assert cell_elt.content.call_args_list == [call('30.00')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', ident='10.0.0.2')]
     assert cell_elt.attributes.call_args_list == [call(href='an url')]
     assert cell_elt.attrib['class'] == 'button on'
@@ -596,13 +681,12 @@ def test_write_common_process_mem(handler):
     handler.view_ctx.format_url.reset_mock()
     cell_elt.attributes.reset_mock()
     del cell_elt.attrib['class']
-    # test with filled stats on application (so non process), solaris mode
-    handler.supvisors.options.stats_irix_mode = False
+    # test with filled stats on application (so non process)
     info = {'namespec': None, 'identifier': '10.0.0.2', 'proc_stats': Mock(mem=[10, 20, 30])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert not cell_elt.deparent.called
-    assert cell_elt.replace.call_args_list == [call('30.00%')]
+    assert cell_elt.replace.call_args_list == [call('30.00')]
     assert not cell_elt.content.called
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.attributes.called
@@ -744,13 +828,15 @@ def test_write_process_button(handler):
 
 def test_write_common_process_table(handler):
     """ Test the write_common_process_table method. """
-    mem_head_elt = Mock()
-    mem_foot_elt = Mock()
-    cpu_head_elt = Mock()
-    cpu_foot_elt = Mock()
-    mid_map = {'mem_head_th_mid': mem_head_elt, 'cpu_head_th_mid': cpu_head_elt,
-               'mem_foot_th_mid': mem_foot_elt, 'cpu_foot_th_mid': cpu_foot_elt, 'total_mid': None}
-    root = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
+    mem_head_elt = create_element()
+    mem_foot_elt = create_element()
+    mem_total_elt = create_element()
+    cpu_head_elt = create_element()
+    cpu_foot_elt = create_element()
+    cpu_total_elt = create_element()
+    root = create_element({'mem_head_th_mid': mem_head_elt, 'cpu_head_th_mid': cpu_head_elt,
+                           'mem_foot_th_mid': mem_foot_elt, 'cpu_foot_th_mid': cpu_foot_elt,
+                           'mem_total_th_mid': mem_total_elt, 'cpu_total_th_mid': cpu_total_elt})
     # test with statistics enabled
     handler.has_process_statistics = True
     handler.write_common_process_table(root)
@@ -763,7 +849,8 @@ def test_write_common_process_table(handler):
     handler.has_process_statistics = False
     handler.write_common_process_table(root)
     assert root.findmeld.call_args_list == [call('mem_head_th_mid'), call('cpu_head_th_mid'),
-                                            call('mem_foot_th_mid'), call('cpu_foot_th_mid'), call('total_mid')]
+                                            call('mem_foot_th_mid'), call('cpu_foot_th_mid'),
+                                            call('mem_total_th_mid'), call('cpu_total_th_mid')]
     assert mem_head_elt.deparent.call_args_list == [call()]
     assert mem_foot_elt.deparent.call_args_list == [call()]
     assert cpu_head_elt.deparent.call_args_list == [call()]
@@ -806,7 +893,7 @@ def test_write_common_statistics(mocker, handler):
              'has_crashed': False, 'description': 'something'}
     handler.write_common_statistics(tr_elt, param)
     assert tr_elt.findmeld.call_args_list == [call('load_td_mid')]
-    assert load_elt.content.call_args_list == [call('35%')]
+    assert load_elt.content.call_args_list == [call('35')]
     assert mocked_cpu.call_args_list == [call(tr_elt, param)]
     assert mocked_mem.call_args_list == [call(tr_elt, param)]
 
@@ -887,60 +974,106 @@ def test_write_common_process_status(mocker, handler):
     assert mocked_stderr.call_args_list == [call(tr_elt, param, False)]
 
 
-def test_write_detailed_process_cpu(handler):
+def test_write_detailed_process_cpu(mocker, supvisors, handler):
     """ Test the write_detailed_process_cpu method. """
-    # patch the meld elements
-    val_elt = Mock(attrib={'class': ''})
-    avg_elt, slope_elt, dev_elt = Mock(), Mock(), Mock()
-    stats_elt = Mock(**{'findmeld.side_effect': [val_elt, avg_elt, slope_elt, dev_elt] * 2})
+    mocked_common = mocker.patch.object(handler, '_write_common_detailed_statistics')
     # create fake stats
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 13])
-    # test call with empty stats
+    # context
+    stats_elt = create_element()
+    supvisors.options.stats_irix_mode = True
+    # test call with no stats
     assert not handler.write_detailed_process_cpu(stats_elt, None, 4)
-    assert not handler.write_detailed_process_cpu(stats_elt, Mock(cpu=[]), 4)
+    # test call with empty stats
+    for mode in [True, False]:
+        supvisors.options.stats_irix_mode = mode
+        assert handler.write_detailed_process_cpu(stats_elt, Mock(cpu=[], times=[]), 4)
+        assert mocked_common.call_args_list == [call(stats_elt, [], [],
+                                                     'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                     'pcpuslope_td_mid', 'pcpudev_td_mid')]
+        mocked_common.reset_mock()
     # test call with irix mode
-    handler.supvisors.options.stats_irix_mode = True
+    supvisors.options.stats_irix_mode = True
     assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
-    assert val_elt.attrib['class'] == 'decrease'
-    assert val_elt.content.call_args_list == [call('13.00%')]
-    assert avg_elt.content.call_args_list == [call('13.00%')]
-    assert slope_elt.content.call_args_list == [call('1.50')]
-    assert dev_elt.content.call_args_list == [call('2.45')]
-    val_elt.content.reset_mock()
-    avg_elt.content.reset_mock()
-    slope_elt.content.reset_mock()
-    dev_elt.content.reset_mock()
-    del val_elt.attrib['class']
+    assert mocked_common.call_args_list == [call(stats_elt, [10, 16, 13], [1, 2, 3],
+                                                 'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                 'pcpuslope_td_mid', 'pcpudev_td_mid')]
+    mocked_common.reset_mock()
     # test call with solaris mode
-    proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 24])
-    handler.supvisors.options.stats_irix_mode = False
+    supvisors.options.stats_irix_mode = False
     assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
-    assert val_elt.attrib['class'] == 'increase'
-    assert val_elt.content.call_args_list == [call('6.00%')]
-    assert avg_elt.content.call_args_list == [call('4.17%')]
-    assert slope_elt.content.call_args_list == [call('7.00')]
-    assert dev_elt.content.call_args_list == [call('5.73')]
+    assert mocked_common.call_args_list == [call(stats_elt, [2.5, 4, 3.25], [1, 2, 3],
+                                                 'pcpuval_td_mid', 'pcpuavg_td_mid',
+                                                 'pcpuslope_td_mid', 'pcpudev_td_mid')]
 
 
-def test_write_detailed_process_mem(handler):
+def test_write_detailed_process_mem(mocker, handler):
     """ Test the write_detailed_process_mem method. """
-    # patch the meld elements
-    val_elt = Mock(attrib={'class': ''})
-    avg_elt, slope_elt, dev_elt = Mock(), Mock(), Mock()
-    stats_elt = Mock(**{'findmeld.side_effect': [val_elt, avg_elt, slope_elt, dev_elt] * 2})
+    mocked_common = mocker.patch.object(handler, '_write_common_detailed_statistics')
     # create fake stats
     proc_stats = Mock(times=[1, 2, 3], mem=[20, 32, 32])
-    # test call with empty stats
+    # context
+    stats_elt = create_element()
+    # test call with no stats
     assert not handler.write_detailed_process_mem(stats_elt, None)
-    assert not handler.write_detailed_process_mem(stats_elt, Mock(mem=[]))
-    # test call with irix mode
-    handler.supvisors.options.stats_irix_mode = True
+    # test call with empty stats
+    assert handler.write_detailed_process_mem(stats_elt, Mock(mem=[], times=[]))
+    assert mocked_common.call_args_list == [call(stats_elt, [], [],
+                                                 'pmemval_td_mid', 'pmemavg_td_mid',
+                                                 'pmemslope_td_mid', 'pmemdev_td_mid')]
+    mocked_common.reset_mock()
+    # test call stats
     assert handler.write_detailed_process_mem(stats_elt, proc_stats)
-    assert val_elt.attrib['class'] == 'stable'
-    assert val_elt.content.call_args_list == [call('32.00%')]
-    assert avg_elt.content.call_args_list == [call('28.00%')]
-    assert slope_elt.content.call_args_list == [call('6.00')]
-    assert dev_elt.content.call_args_list == [call('5.66')]
+    assert mocked_common.call_args_list == [call(stats_elt, [20, 32, 32], [1, 2, 3],
+                                                 'pmemval_td_mid', 'pmemavg_td_mid',
+                                                 'pmemslope_td_mid', 'pmemdev_td_mid')]
+
+
+def test_write_common_detailed_statistics(mocker, handler):
+    """ Test the _write_common_detailed_statistics method. """
+    mocked_class = mocker.patch.object(handler, 'set_slope_class')
+    mocked_stats = mocker.patch('supvisors.web.viewhandler.get_stats',
+                                side_effect=[(10.231, None, (None, 2), None), (8.999, 2, (-1.1, 4), 5.72)])
+    handler.view_ctx = Mock(parameters={PERIOD: 10})
+    # replace root structure
+    mocked_val_mid = create_element()
+    mocked_avg_mid = create_element()
+    mocked_slope_mid = create_element()
+    mocked_dev_mid = create_element()
+    mocked_tr = create_element({'val_mid': mocked_val_mid, 'avg_mid': mocked_avg_mid,
+                                'slope_mid': mocked_slope_mid, 'dev_mid': mocked_dev_mid})
+    # in first call, test empty stats
+    handler._write_common_detailed_statistics(mocked_tr, [], [],
+                                              'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
+    assert not mocked_tr.findmeld.called
+    assert not mocked_stats.called
+    assert not mocked_class.called
+    assert not mocked_val_mid.called
+    assert not mocked_avg_mid.called
+    assert not mocked_slope_mid.called
+    assert not mocked_dev_mid.called
+    # in second call, test no rate, slope and standard deviation
+    handler._write_common_detailed_statistics(mocked_tr, [1.523, 2.456], [1, 2],
+                                              'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
+    assert mocked_tr.findmeld.call_args_list == [call('val_mid'), call('avg_mid')]
+    assert mocked_stats.call_args_list == [call([1, 2], [1.523, 2.456])]
+    assert not mocked_class.called
+    assert mocked_val_mid.content.call_args_list == [call('2.46')]
+    assert mocked_avg_mid.content.call_args_list == [call('10.23')]
+    assert not mocked_slope_mid.called
+    assert not mocked_dev_mid.called
+    mocker.resetall()
+    mocked_tr.reset_all()
+    # in third call, test no rate, slope and standard deviation
+    handler._write_common_detailed_statistics(mocked_tr, [1.523, 2.456], [1, 2],
+                                              'val_mid', 'avg_mid', 'slope_mid', 'dev_mid')
+    assert mocked_stats.call_args_list == [call([1, 2], [1.523, 2.456])]
+    assert mocked_class.call_args_list == [call(mocked_val_mid, 2)]
+    assert mocked_tr.findmeld.call_args_list == [call('val_mid'), call('avg_mid'), call('slope_mid'), call('dev_mid')]
+    assert mocked_val_mid.content.call_args_list == [call('2.46')]
+    assert mocked_avg_mid.content.call_args_list == [call('9.00')]
+    assert mocked_slope_mid.content.call_args_list == [call('-11.00')]  # impact of PERIOD
+    assert mocked_dev_mid.content.call_args_list == [call('5.72')]
 
 
 def test_write_process_plots_no_plot(mocker, handler):
@@ -948,12 +1081,12 @@ def test_write_process_plots_no_plot(mocker, handler):
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     mocker.patch.dict('sys.modules', {'supvisors.plot': None})
     # test call
-    assert not handler.write_process_plots([], 0)
+    assert not handler.write_process_plots([])
     # test that plot methods are not called
     assert not mocked_export.called
 
 
-def test_write_process_plots(mocker, handler):
+def test_write_process_plots(mocker, supvisors, handler):
     """ Test the write_process_plots method. """
     # skip test if matplotlib is not installed
     pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
@@ -961,16 +1094,9 @@ def test_write_process_plots(mocker, handler):
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
     mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
-    # test call with dummy stats and Solaris mode
+    # test call with dummy stats
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 24], mem=[20, 32, 32])
-    assert handler.write_process_plots(proc_stats, 2)
-    assert mocked_time.call_args_list == [call([1, 2, 3]), call([1, 2, 3])]
-    assert mocked_plot.call_args_list == [call('CPU', '%', [5, 8, 12]), call('MEM', '%', [20, 32, 32])]
-    assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
-    mocker.resetall()
-    # test call with dummy stats and IRIX mode
-    handler.supvisors.options.stats_irix_mode = True
-    assert handler.write_process_plots(proc_stats, 2)
+    assert handler.write_process_plots(proc_stats)
     assert mocked_time.call_args_list == [call([1, 2, 3]), call([1, 2, 3])]
     assert mocked_plot.call_args_list == [call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])]
     assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
@@ -984,11 +1110,13 @@ def test_write_process_statistics(mocker, handler):
     # patch the view context
     handler.view_ctx = Mock(parameters={PROCESS: None})
     # patch the meld elements
-    process_h_mid = create_element()
-    instance_fig_mid = create_element()
+    process_td_mid = create_element()
+    node_td_mid = create_element()
+    ipaddress_td_mid = create_element()
     cpuimage_fig_mid = create_element()
     memimage_fig_mid = create_element()
-    stats_elt = create_element({'process_h_mid': process_h_mid, 'instance_fig_mid': instance_fig_mid,
+    stats_elt = create_element({'process_td_mid': process_td_mid, 'node_td_mid': node_td_mid,
+                                'ipaddress_td_mid': ipaddress_td_mid,
                                 'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid})
     root_elt = create_element({'pstats_div_mid': stats_elt})
     # test call with no namespec selection
@@ -999,22 +1127,24 @@ def test_write_process_statistics(mocker, handler):
     assert not stats_elt.findmeld.called
     assert not mocked_cpu.called
     assert not mocked_mem.called
-    assert not process_h_mid.content.called
-    assert not instance_fig_mid.content.called
+    assert not process_td_mid.content.called
+    assert not node_td_mid.content.called
+    assert not ipaddress_td_mid.content.called
     assert not cpuimage_fig_mid.replace.called
     assert not memimage_fig_mid.replace.called
     assert not mocked_plots.called
     root_elt.reset_all()
     # test call with namespec selection and no stats found
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1:25000', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert not stats_elt.replace.called
     assert not stats_elt.findmeld.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert not process_h_mid.content.called
-    assert not instance_fig_mid.content.called
+    assert not process_td_mid.content.called
+    assert not node_td_mid.content.called
+    assert not ipaddress_td_mid.content.called
     assert not cpuimage_fig_mid.replace.called
     assert not memimage_fig_mid.replace.called
     assert not mocked_plots.called
@@ -1024,31 +1154,33 @@ def test_write_process_statistics(mocker, handler):
     mocked_cpu.return_value = True
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
-    assert stats_elt.findmeld.call_args_list == [call('process_h_mid'), call('instance_fig_mid')]
+    assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid')]
     assert not stats_elt.replace.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert process_h_mid.content.call_args_list == [call('dummy_proc')]
-    assert instance_fig_mid.content.call_args_list == [call('10.0.0.1')]
+    assert process_td_mid.content.call_args_list == [call('dummy_proc')]
+    assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
+    assert ipaddress_td_mid.content.call_args_list == [call('10.0.0.1')]
     assert not cpuimage_fig_mid.replace.called
     assert not memimage_fig_mid.replace.called
-    assert mocked_plots.call_args_list == [call('dummy_stats', 8)]
+    assert mocked_plots.call_args_list == [call('dummy_stats')]
     root_elt.reset_all()
     mocker.resetall()
     # test again with matplotlib import failure
     mocked_plots.return_value = False
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
-    assert stats_elt.findmeld.call_args_list == [call('process_h_mid'), call('instance_fig_mid'),
+    assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid'),
                                                  call('cpuimage_fig_mid'), call('memimage_fig_mid')]
     assert not stats_elt.replace.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
-    assert process_h_mid.content.call_args_list == [call('dummy_proc')]
-    assert instance_fig_mid.content.call_args_list == [call('10.0.0.1')]
+    assert process_td_mid.content.call_args_list == [call('dummy_proc')]
+    assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
+    assert ipaddress_td_mid.content.call_args_list == [call('10.0.0.1')]
     assert cpuimage_fig_mid.replace.call_args_list == [call('')]
     assert memimage_fig_mid.replace.call_args_list == [call('')]
-    assert mocked_plots.call_args_list == [call('dummy_stats', 8)]
+    assert mocked_plots.call_args_list == [call('dummy_stats')]
 
 
 def test_handle_action(handler):

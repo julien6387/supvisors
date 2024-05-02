@@ -34,16 +34,19 @@ def test_creation(mocker):
     assert mocked_options.called
     assert mocked_parser.called
     # test instances
-    assert supv.internal_com is None
+    assert supv.rpc_handler is None
+    assert supv.discovery_handler is None
     assert supv.external_publisher is None
     assert isinstance(supv.options, SupvisorsOptions)
     assert mocked_srv_options.realize.called
     assert isinstance(supv.logger, Logger)
     assert isinstance(supv.supervisor_data, SupervisorData)
+    assert isinstance(supv.supervisor_updater, SupervisorUpdater)
     assert isinstance(supv.mapper, SupvisorsMapper)
     assert isinstance(supv.stats_collector, StatisticsCollectorProcess)
     assert isinstance(supv.context, Context)
     assert isinstance(supv.starter, Starter)
+    assert isinstance(supv.starter_model, StarterModel)
     assert isinstance(supv.stopper, Stopper)
     assert isinstance(supv.host_compiler, HostStatisticsCompiler)
     assert isinstance(supv.process_compiler, ProcStatisticsCompiler)

@@ -28,35 +28,8 @@ import java.util.List;
  */
 public class SupvisorsStatus {
 
-    /**
-     * The State enumeration for Supvisors.
-     *
-     * INITIALIZATION is used when Supvisors is synchronizing with all other Supvisors instances.
-     * DEPLOYMENT is used when Supvisors is starting applications automatically.
-     * OPERATION is used when Supvisors is working normally.
-     * CONCILIATION is used when Supvisors is conciliating conflicts due to multiple instance of the same process.
-     */
-    public enum State {
-        INITIALIZATION(0),
-        DEPLOYMENT(1),
-        OPERATION(2),
-        CONCILIATION(3),
-        RESTARTING(4),
-        RESTART(5),
-        SHUTTING_DOWN(6),
-        SHUTDOWN(7);
-
-        /** The state code. */
-        private int stateCode;
-
-        /** The constructor links the state code to the state name. */
-        private State(final int stateCode) {
-            this.stateCode = stateCode;
-        }
-    }
-
     /** The Supvisors state. */
-    private State fsm_statename;
+    private SupvisorsState fsm_statename;
 
     /** The instance discovery mode. */
     private Boolean discovery_mode;
@@ -73,7 +46,7 @@ public class SupvisorsStatus {
      * @param HashMap stateInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsStatus(HashMap stateInfo)  {
-        this.fsm_statename = State.valueOf((String) stateInfo.get("fsm_statename"));
+        this.fsm_statename = SupvisorsState.valueOf((String) stateInfo.get("fsm_statename"));
         this.discovery_mode = (Boolean) stateInfo.get("discovery_mode");
         Object[] startingJobs = (Object[]) stateInfo.get("starting_jobs");
         this.starting_jobs = Arrays.asList(startingJobs);
@@ -82,11 +55,11 @@ public class SupvisorsStatus {
     }
 
     /**
-     * The getState method returns the state of supervisor.
+     * The getState method returns the state of Supvisors.
      *
-     * @return State: The state of the supervisor.
+     * @return SupvisorsState: The state of Supvisors.
      */
-    public State getState() {
+    public SupvisorsState getState() {
         return this.fsm_statename;
     }
 

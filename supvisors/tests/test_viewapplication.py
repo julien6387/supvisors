@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
 #
@@ -83,11 +80,8 @@ def test_write_navigation(mocker, view):
     assert mocked_handle.call_args_list == [call('root', appli='dummy_appli')]
 
 
-def test_write_header(mocker, view):
-    """ Test the write_header method. """
-    mocked_action = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_application_actions')
-    mocked_period = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_periods')
-    mocked_strategy = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_starting_strategy')
+def test_write_status(mocker, view):
+    """ Test the write_status method. """
     view.application_name = 'dummy_appli'
     view.application = Mock(state=ApplicationStates.STOPPED, major_failure=False, minor_failure=False,
                             **{'running.return_value': False})
@@ -95,63 +89,61 @@ def test_write_header(mocker, view):
     led_mid = create_element()
     state_mid = create_element()
     application_mid = create_element()
-    mocked_root = create_element({'application_mid': application_mid, 'state_mid': state_mid, 'state_led_mid': led_mid})
+    mocked_header = create_element({'application_mid': application_mid, 'state_mid': state_mid,
+                                    'state_led_mid': led_mid})
     # test call with stopped application
-    view.write_header(mocked_root)
+    view.write_status(mocked_header)
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STOPPED')]
     assert led_mid.attrib['class'] == 'status_empty'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
-    mocked_root.reset_all()
+    mocked_header.reset_all()
     mocker.resetall()
     # test call with running application and no failure
     view.application = Mock(state=ApplicationStates.STARTING, major_failure=False, minor_failure=False,
                             **{'running.return_value': True})
-    view.write_header(mocked_root)
+    view.write_status(mocked_header)
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_green'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
-    mocked_root.reset_all()
+    mocked_header.reset_all()
     mocker.resetall()
     # test call with running application and minor failure
     view.application.minor_failure = True
-    view.write_header(mocked_root)
+    view.write_status(mocked_header)
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_yellow'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
-    mocked_root.reset_all()
+    mocked_header.reset_all()
     mocker.resetall()
     # test call with running application and major failure
     view.application.major_failure = True
-    view.write_header(mocked_root)
+    view.write_status(mocked_header)
     assert application_mid.content.call_args_list == [call('dummy_appli')]
     assert state_mid.content.call_args_list == [call('STARTING')]
     assert led_mid.attrib['class'] == 'status_red'
-    assert mocked_strategy.call_args_list == [call(mocked_root)]
-    assert mocked_period.call_args_list == [call(mocked_root)]
-    assert mocked_action.call_args_list == [call(mocked_root)]
 
 
-def test_write_periods(mocker, view):
-    """ Test the ApplicationView.write_periods method. """
-    mocked_period = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_periods_availability')
-    mocked_root = Mock()
+def test_write_options(mocker, view):
+    """ Test the ApplicationView.test_write_options method. """
+    mocked_strategy = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_starting_strategy')
+    mocked_period = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_periods')
+    period_div_mid = create_element()
+    mocked_header = create_element({'period_div_mid': period_div_mid})
     # test with process statistics to be displayed
-    view.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, True)]
-    mocked_period.reset_mock()
+    assert view.has_process_statistics
+    view.write_options(mocked_header)
+    assert mocked_strategy.call_args_list == [call(mocked_header)]
+    assert mocked_period.call_args_list == [call(mocked_header)]
+    assert not mocked_header.findmeld.called
+    assert not period_div_mid.replace.called
+    mocker.resetall()
     # test with process statistics NOT to be displayed
     view.has_process_statistics = False
-    view.write_periods(mocked_root)
-    assert mocked_period.call_args_list == [call(mocked_root, False)]
+    view.write_options(mocked_header)
+    assert mocked_strategy.call_args_list == [call(mocked_header)]
+    assert not mocked_period.called
+    assert mocked_header.findmeld.call_args_list == [call('period_div_mid')]
+    assert period_div_mid.replace.call_args_list == [call('')]
 
 
 def test_write_starting_strategy(view):
@@ -170,31 +162,36 @@ def test_write_starting_strategy(view):
             idx = strategy2.value
             if strategy2.value == strategy.value:
                 # strategy_mid at same index is selected
-                assert strategy_mids[idx].attrib['class'] == 'button off active'
+                assert strategy_mids[idx].attrib['class'] == 'off active'
                 assert strategy_mids[idx].attributes.call_args_list == []
             else:
-                assert strategy_mids[idx].attrib['class'] == ''
+                assert strategy_mids[idx].attrib['class'] == 'on'
                 assert strategy_mids[idx].attributes.call_args_list == [call(href='an url')]
             # reset mocks
             strategy_mids[idx].attrib['class'] = ''
             strategy_mids[idx].attributes.reset_mock()
 
 
-def test_write_application_actions(view):
-    """ Test the write_application_actions method. """
+def test_write_actions(mocker, view):
+    """ Test the write_actions method. """
+    mocked_super = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_actions')
     # patch the view context
     view.view_ctx = Mock(**{'format_url.side_effect': ['a start url', 'a stop url', 'a restart url']})
     # patch the meld elements
-    actions_mid = (Mock(), Mock(), Mock())
-    mocked_root = Mock(**{'findmeld.side_effect': actions_mid})
+    startapp_a_mid = create_element()
+    stopapp_a_mid = create_element()
+    restartapp_a_mid = create_element()
+    mocked_header = create_element({'startapp_a_mid': startapp_a_mid, 'stopapp_a_mid': stopapp_a_mid,
+                                    'restartapp_a_mid': restartapp_a_mid})
     # test call
-    view.write_application_actions(mocked_root)
+    view.write_actions(mocked_header)
+    assert mocked_super.call_args_list == [call(mocked_header)]
     assert view.view_ctx.format_url.call_args_list == [call('', APPLICATION_PAGE, action='startapp'),
                                                        call('', APPLICATION_PAGE, action='stopapp'),
                                                        call('', APPLICATION_PAGE, action='restartapp')]
-    assert actions_mid[0].attributes.call_args_list == [call(href='a start url')]
-    assert actions_mid[1].attributes.call_args_list == [call(href='a stop url')]
-    assert actions_mid[2].attributes.call_args_list == [call(href='a restart url')]
+    assert startapp_a_mid.attributes.call_args_list == [call(href='a start url')]
+    assert stopapp_a_mid.attributes.call_args_list == [call(href='a stop url')]
+    assert restartapp_a_mid.attributes.call_args_list == [call(href='a restart url')]
 
 
 def test_write_contents(mocker, view):
@@ -315,14 +312,14 @@ def test_write_process(view):
     """ Test the write_process method. """
     # create a process-like dict
     info = {'process_name': 'proc1', 'namespec': 'dummy_appli:dummy_proc',
-            'running_identifiers': [], 'identifier': '10.0.0.2'}
+            'running_identifiers': [], 'identifier': '10.0.0.2:25000'}
     # patch the view context
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # patch the meld elements
     running_ul_mid = Mock()
     running_a_mid = Mock(attrib={'class': 'button'})
     running_li_elt = Mock(**{'findmeld.return_value': running_a_mid})
-    running_li_mid = Mock(**{'repeat.return_value': [(running_li_elt, '10.0.0.1')]})
+    running_li_mid = Mock(**{'repeat.return_value': [(running_li_elt, '10.0.0.1:25000')]})
     tr_elt = Mock(**{'findmeld.side_effect': [running_ul_mid, running_li_mid]})
     # test call with stopped process
     view.write_process(tr_elt, info)
@@ -334,8 +331,8 @@ def test_write_process(view):
     view.view_ctx.format_url.reset_mock()
     running_ul_mid.replace.reset_mock()
     # test call with running process
-    info['running_identifiers'] = {'10.0.0.1'}
-    info['identifier'] = '10.0.0.1'
+    info['running_identifiers'] = {'10.0.0.1:25000'}
+    info['identifier'] = '10.0.0.1:25000'
     view.write_process(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('running_ul_mid'), call('running_li_mid')]
     assert running_ul_mid.replace.call_args_list == []

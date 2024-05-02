@@ -21,7 +21,7 @@ from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 
 from supvisors.internal_com.mapper import SupvisorsMapper
-from .commander import Starter, Stopper
+from .commander import Starter, Stopper, StarterModel
 from .context import Context
 from .listener import SupervisorListener
 from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic, get_logger_configuration
@@ -30,6 +30,7 @@ from .statemachine import FiniteStateMachine
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .strategy import RunningFailureHandler
 from .supervisordata import SupervisorData
+from .supervisorupdater import SupervisorUpdater
 from .ttypes import Payload
 
 
@@ -76,7 +77,8 @@ class Supvisors:
         """
         # WARN: The Supvisors communication objects cannot be created at this level.
         #       Before running, Supervisor forks when daemonized and the sockets would be lost.
-        self.internal_com = None
+        self.rpc_handler = None
+        self.discovery_handler = None
         self.external_publisher = None
         # create logger using option from config
         logger_config = get_logger_configuration(**config)
@@ -84,10 +86,11 @@ class Supvisors:
         # get options from config
         self.options = SupvisorsOptions(supervisor, self.logger, **config)
         # re-realize configuration to get process configuration not stored within Supervisor options
-        self.server_options = SupvisorsServerOptions(self.logger)
+        self.server_options = SupvisorsServerOptions(self)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor data wrapper
         self.supervisor_data = SupervisorData(self, supervisor)
+        self.supervisor_updater = SupervisorUpdater(self)
         # get declared Supvisors instances and check local identifier
         self.mapper = SupvisorsMapper(self)
         try:
@@ -112,6 +115,8 @@ class Supvisors:
         # create application starter and stopper
         self.starter = Starter(self)
         self.stopper = Stopper(self)
+        # create application starter model
+        self.starter_model = StarterModel(self)
         # create the failure handler of crashing processes
         # WARN: must be created before the state machine
         self.failure_handler = RunningFailureHandler(self)

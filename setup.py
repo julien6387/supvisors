@@ -56,7 +56,7 @@ CLASSIFIERS = [
     "Topic :: System :: Software Distribution"
 ]
 
-version_txt = os.path.join(here, 'supvisors/version.txt')
+version_txt = os.path.join(here, 'supvisors', 'version.txt')
 supvisors_version = open(version_txt).read().split('=')[1].strip()
 
 setup(name='supvisors',
@@ -86,7 +86,6 @@ setup(name='supvisors',
                       'testing': testing_extras},
       include_package_data=True,
       zip_safe=False,
-      namespace_packages=['supvisors'],
       test_suite="supvisors.tests",
       entry_points={'console_scripts': ['supvisorsctl = supvisors.supvisorsctl:main',
                                         'supvisors_breed = supvisors.tools.breed:main',

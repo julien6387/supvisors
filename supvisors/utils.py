@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -18,8 +15,9 @@
 # ======================================================================
 
 import re
+import time
+from datetime import timedelta
 from math import sqrt
-from time import gmtime, localtime, strftime, time
 from typing import Dict, List
 from urllib.parse import urlparse
 
@@ -38,15 +36,13 @@ ATSIGN = '@'
 def simple_localtime(now=None):
     """ Returns the local time as a string, without the date. """
     if now is None:
-        now = time()
-    return strftime("%H:%M:%S", localtime(now))
+        now = time.time()
+    return time.strftime("%H:%M:%S", time.localtime(now))
 
 
-def simple_gmtime(now=None):
-    """ Returns the UTC time as a string, without the date. """
-    if now is None:
-        now = time()
-    return strftime("%H:%M:%S", gmtime(now))
+def simple_duration(duration: float):
+    """ Returns the duration as days / hours / minutes / seconds. """
+    return str(timedelta(seconds=int(duration)))
 
 
 # Keys of information kept from Supervisor
@@ -107,6 +103,15 @@ def set_bit(data, num, value):
         data[base] |= 0x1 << shift
     else:
         data[base] &= ~(0x1 << shift)
+
+
+# to display small float values
+def get_small_value(value) -> str:
+    """ Segregate small values from 0.
+    For small negative values, the display is already suitable. """
+    if 0 < value < 0.005:
+        return f'+0.00'
+    return f'{value:.2f}'
 
 
 # linear regression
@@ -189,9 +194,9 @@ def parse_docstring(comment: str) -> List:
         result = SUPERVISOR_RETURN_FORMAT.match(stripped_line)
         if result:
             match = True
-            # Supervisor does not always provides a return name (e.g. signalProcess)
+            # Supervisor does not always provide a return name (e.g. signalProcess)
             name = result.group('name') or ''
-            # Supervisor does not always provides a return description (e.g. getPID)
+            # Supervisor does not always provide a return description (e.g. getPID)
             desc = result.group('desc')
             returns = [idx, 'return', result.group('type'), name, [desc] if desc else []]
             current_struct = returns

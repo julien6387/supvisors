@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
 #
@@ -17,13 +14,14 @@
 # limitations under the License.
 # ======================================================================
 
+import socket
 from unittest.mock import call, Mock
 
 import pytest
 from supervisor.states import RUNNING_STATES
 
 from supvisors.commander import *
-from supvisors.ttypes import ApplicationStates, StartingStrategies, StartingFailureStrategies
+from supvisors.ttypes import ApplicationStates, SupvisorsInstanceStates, StartingStrategies, StartingFailureStrategies
 from .base import any_process_info_by_state, process_info_by_name
 from .conftest import create_any_process, create_application, create_process
 
@@ -70,13 +68,13 @@ def test_command_update(supvisors):
     """ Test the ProcessCommand.update_identifier and update_sequence_counter methods. """
     process = create_any_process(supvisors)
     command = ProcessCommand(process)
-    command.update_identifier('10.0.0.1')
-    assert command.identifier == '10.0.0.1'
-    assert command.instance_status is supvisors.context.instances['10.0.0.1']
+    command.update_identifier('10.0.0.1:25000')
+    assert command.identifier == '10.0.0.1:25000'
+    assert command.instance_status is supvisors.context.instances['10.0.0.1:25000']
     command.update_sequence_counter()
     assert command.request_sequence_counter == 0
     # update instance counter
-    supvisors.context.instances['10.0.0.1'].sequence_counter = 1234
+    supvisors.context.instances['10.0.0.1:25000'].times.remote_sequence_counter = 1234
     assert command.request_sequence_counter == 0
     command.update_sequence_counter()
     assert command.request_sequence_counter == 1234
@@ -89,8 +87,8 @@ def test_command_get_instance_info(supvisors):
     command = ProcessCommand(process)
     assert command.get_instance_info() is None
     # add info to process
-    process.add_info('10.0.0.1', info)
-    command.update_identifier('10.0.0.1')
+    process.add_info('10.0.0.1:25000', info)
+    command.update_identifier('10.0.0.1:25000')
     assert {'group': 'sample_test_1', 'name': 'xclock'}.items() < command.get_instance_info().items()
 
 
@@ -114,8 +112,9 @@ def start_command(supvisors):
     """ Create a ProcessStartCommand instance. """
     info = process_info_by_name('xclock')
     info['startsecs'] = 18
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
+    process: ProcessStatus = create_process(info, supvisors)
+    process.add_info('10.0.0.1:25000', info)
+    process.extra_args = '--help'
     return ProcessStartCommand(process, StartingStrategies.MOST_LOADED)
 
 
@@ -129,7 +128,7 @@ def test_start_command_create(start_command):
     assert start_command._wait_ticks == ProcessCommand.DEFAULT_TICK_TIMEOUT
     assert start_command.strategy == StartingStrategies.MOST_LOADED
     assert not start_command.ignore_wait_exit
-    assert start_command.extra_args == ''
+    assert start_command.extra_args == '--help'
 
 
 def test_start_command_str(start_command):
@@ -143,19 +142,19 @@ def test_start_command_str(start_command):
 
 def test_start_command_update_identifier(supvisors, start_command):
     """ Test the ProcessStartCommand.update_identifier method. """
-    start_command.update_identifier('10.0.0.1')
-    assert start_command.identifier == '10.0.0.1'
-    assert start_command.instance_status is supvisors.context.instances['10.0.0.1']
+    start_command.update_identifier('10.0.0.1:25000')
+    assert start_command.identifier == '10.0.0.1:25000'
+    assert start_command.instance_status is supvisors.context.instances['10.0.0.1:25000']
     assert start_command.wait_ticks == 6
 
 
 def test_start_command_on_event(start_command):
     """ Test the ProcessStartCommand.on_event method. """
     # prepare context
-    start_command.update_identifier('10.0.0.1')
+    start_command.update_identifier('10.0.0.1:25000')
     assert start_command.request_sequence_counter == 0
     process_info = start_command.get_instance_info()
-    start_command.instance_status.sequence_counter = 27
+    start_command.instance_status.times.remote_sequence_counter = 27
     # 1. call method for STOPPED, STOPPING and UNKNOWN states
     for state in [ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN]:
         process_info['state'] = state
@@ -213,33 +212,33 @@ def test_start_command_on_event(start_command):
 def test_start_command_timed_out(start_command):
     """ Test the ProcessStartCommand.timed_out method. """
     # prepare context
-    start_command.update_identifier('10.0.0.1')
+    start_command.update_identifier('10.0.0.1:25000')
     start_command.request_sequence_counter = 10
     assert start_command.wait_ticks == 6
     process_info = start_command.get_instance_info()
-    process_info['now'] = 1234
+    process_info['event_time'] = 1234
     # check call with process state BACKOFF or STARTING on the node
     for state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
         process_info['state'] = state
-        start_command.instance_status.sequence_counter = 16
+        start_command.instance_status.times.remote_sequence_counter = 16
         assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.IN_PROGRESS, 1234)
-        start_command.instance_status.sequence_counter = 17
+        start_command.instance_status.times.remote_sequence_counter = 17
         assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.TIMED_OUT, 1234)
     # check call with process state RUNNING on the node / wait_exit not expected
     process_info['state'] = ProcessStates.RUNNING
-    start_command.instance_status.sequence_counter = 100
+    start_command.instance_status.times.remote_sequence_counter = 100
     assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.SUCCESS, 1234)
     # check call with process state RUNNING on the node / wait_exit expected
     start_command.process.rules.wait_exit = True
     process_info['state'] = ProcessStates.RUNNING
-    start_command.instance_status.sequence_counter = 100
+    start_command.instance_status.times.remote_sequence_counter = 100
     assert start_command.timed_out() == (ProcessStates.EXITED, ProcessRequestResult.IN_PROGRESS, 1234)
     # check call with process state in STOPPED_STATES or STOPPING on the node
     for state in [ProcessStates.STOPPING] + list(STOPPED_STATES):
         process_info['state'] = state
-        start_command.instance_status.sequence_counter = 12
+        start_command.instance_status.times.remote_sequence_counter = 12
         assert start_command.timed_out() == (ProcessStates.STARTING, ProcessRequestResult.IN_PROGRESS, 1234)
-        start_command.instance_status.sequence_counter = 13
+        start_command.instance_status.times.remote_sequence_counter = 13
         assert start_command.timed_out() == (ProcessStates.STARTING, ProcessRequestResult.TIMED_OUT, 1234)
 
 
@@ -250,23 +249,23 @@ def stop_command(supvisors):
     info = process_info_by_name('xfontsel')
     info['stopwaitsecs'] = 7
     process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    return ProcessStopCommand(process, '10.0.0.1')
+    process.add_info('10.0.0.1:25000', info)
+    return ProcessStopCommand(process, '10.0.0.1:25000')
 
 
 def test_stop_command_create(supvisors, stop_command):
     """ Test the values set at construction of ProcessStopCommand. """
     # test strategy in parameter
     assert stop_command.process.namespec == 'sample_test_1:xfontsel'
-    assert stop_command.identifier == '10.0.0.1'
-    assert stop_command.instance_status is supvisors.context.instances['10.0.0.1']
+    assert stop_command.identifier == '10.0.0.1:25000'
+    assert stop_command.instance_status is supvisors.context.instances['10.0.0.1:25000']
     assert stop_command.request_sequence_counter == 0
     assert stop_command._wait_ticks == 4
 
 
 def test_stop_command_str(stop_command):
     """ Test the output string of the ProcessStopCommand. """
-    assert str(stop_command) == ('process=sample_test_1:xfontsel state=RUNNING identifier=10.0.0.1'
+    assert str(stop_command) == ('process=sample_test_1:xfontsel state=RUNNING identifier=10.0.0.1:25000'
                                  ' request_sequence_counter=0 wait_ticks=4')
 
 
@@ -295,23 +294,23 @@ def test_stop_command_timed_out(stop_command):
     # check call with process state STOPPING on the node
     process_info['state'] = ProcessStates.STOPPING
     process_info['event_time'] = 1234
-    stop_command.instance_status.sequence_counter = 14
+    stop_command.instance_status.times.remote_sequence_counter = 14
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.IN_PROGRESS, 1234)
-    stop_command.instance_status.sequence_counter = 15
+    stop_command.instance_status.times.remote_sequence_counter = 15
     assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.TIMED_OUT, 1234)
     # check call for all stopped states
     for state in STOPPED_STATES:
         process_info['state'] = state
-        stop_command.instance_status.sequence_counter = 12
+        stop_command.instance_status.times.remote_sequence_counter = 12
         assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
-        stop_command.instance_status.sequence_counter = 13
+        stop_command.instance_status.times.remote_sequence_counter = 13
         assert stop_command.timed_out() == (state, ProcessRequestResult.SUCCESS, 1234)
     # check call for all other states
     for state in RUNNING_STATES:
         process_info['state'] = state
-        stop_command.instance_status.sequence_counter = 12
+        stop_command.instance_status.times.remote_sequence_counter = 12
         assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.IN_PROGRESS, 1234)
-        stop_command.instance_status.sequence_counter = 13
+        stop_command.instance_status.times.remote_sequence_counter = 13
         assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.TIMED_OUT, 1234)
 
 
@@ -329,7 +328,7 @@ def sample_test_1(supvisors) -> ApplicationJobs.CommandList:
         info = process_info_by_name(process_name)
         info.update({'startsecs': 12, 'stopwaitsecs': 7})
         command = create_process_command(info, supvisors)
-        command.process.add_info('10.0.0.1', info)
+        command.process.add_info('10.0.0.1:25000', info)
         cmd_list.append(command)
     return cmd_list
 
@@ -342,7 +341,7 @@ def sample_test_2(supvisors) -> ApplicationJobs.CommandList:
         info = process_info_by_name(process_name)
         info.update({'startsecs': 9, 'stopwaitsecs': 3})
         command = create_process_command(info, supvisors)
-        command.process.add_info('10.0.0.2', info)
+        command.process.add_info('10.0.0.2:25000', info)
         cmd_list.append(command)
     return cmd_list
 
@@ -667,7 +666,7 @@ def start_sample_test_1(supvisors) -> ApplicationJobs.CommandList:
         info = process_info_by_name(process_name)
         command = create_process_start_command(info, supvisors)
         command.process.rules.expected_load = load
-        command.process.add_info('10.0.0.1', info)
+        command.process.add_info('10.0.0.1:25000', info)
         cmd_list.append(command)
     return cmd_list
 
@@ -716,20 +715,22 @@ def test_application_start_job_on_command_added(mocker, supvisors, application_s
         assert xclock.identifier is None
         assert not mocked_get_instance.called
         # set application identifier and retry
-        application_start_job_1.identifiers = ['10.0.0.1']
+        application_start_job_1.identifiers = ['10.0.0.1:25000']
         # this case corresponds to a non-distributed application for which a node has been found and the job has been
         # added in superclass (otherwise command identifiers would be set)
         # first, consider that there's no resource available anymore
         mocked_get_instance.return_value = None
         application_start_job_1.on_command_added(xclock)
         assert xclock.identifier is None
-        assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
+        assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                           ['10.0.0.1:25000'], 7, {})]
         mocked_get_instance.reset_mock()
         # then, consider that the node can accept the additional loading
-        mocked_get_instance.return_value = '10.0.0.1'
+        mocked_get_instance.return_value = '10.0.0.1:25000'
         application_start_job_1.on_command_added(xclock)
-        assert xclock.identifier == '10.0.0.1'
-        assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
+        assert xclock.identifier == '10.0.0.1:25000'
+        assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                           ['10.0.0.1:25000'], 7, {})]
         mocked_get_instance.reset_mock()
         xclock.identifier = None
 
@@ -757,7 +758,8 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
     """ Test the ApplicationStartJobs.distribute_to_single_node method. """
     mocked_get_node = mocker.patch('supvisors.commander.get_node')
     mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
-    possible_identifiers = ['10.0.0.1', '10.0.0.2', supvisors.mapper.local_identifier, 'test']
+    test_identifier = f'{socket.getfqdn()}:15000'
+    possible_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', supvisors.mapper.local_identifier, test_identifier]
     mocker.patch.object(application_start_job_1.application, 'possible_node_identifiers',
                         return_value=possible_identifiers)
     mocker.patch.object(application_start_job_1.application, 'get_start_sequence_expected_load', return_value=27)
@@ -775,18 +777,18 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
                for command in sequence)
     mocker.resetall()
     # test resource found
-    mocked_get_node.return_value = supvisors.mapper.instances['test'].host_id
-    mocked_get_instance.return_value = '10.0.0.1'
+    mocked_get_node.return_value = supvisors.mapper.instances[test_identifier].host_id
+    mocked_get_instance.return_value = '10.0.0.1:25000'
     application_start_job_1.distribute_to_single_node()
-    expected_identifiers = [supvisors.mapper.local_identifier, 'test']
+    expected_identifiers = [supvisors.mapper.local_identifier, test_identifier]
     assert application_start_job_1.identifiers == expected_identifiers
     assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
-    expected = [call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 10),
-                call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 20),
-                call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 30)]
+    expected = [call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 10, {}),
+                call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 20, {}),
+                call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 30, {})]
     assert mocked_get_instance.call_args_list == expected
     # check commands
-    assert all(command.identifier == '10.0.0.1'
+    assert all(command.identifier == '10.0.0.1:25000'
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
 
@@ -796,7 +798,7 @@ def test_application_start_job_distribute_to_single_instance(mocker, supvisors, 
     """ Test the ApplicationStartJobs.distribute_to_single_instance method. """
     mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocker.patch.object(application_start_job_1.application, 'possible_identifiers',
-                        return_value=['10.0.0.1', '10.0.0.2'])
+                        return_value=['10.0.0.1:25000', '10.0.0.2:25000'])
     mocker.patch.object(application_start_job_1.application, 'get_start_sequence_expected_load', return_value=27)
     # set context
     application_start_job_1.distribution = DistributionRules.SINGLE_NODE
@@ -805,20 +807,20 @@ def test_application_start_job_distribute_to_single_instance(mocker, supvisors, 
     application_start_job_1.distribute_to_single_instance()
     assert application_start_job_1.identifiers == []
     assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
-                                                       ['10.0.0.1', '10.0.0.2'], 27)]
+                                                       ['10.0.0.1:25000', '10.0.0.2:25000'], 27, {})]
     # check commands
     assert all(command.identifier is None
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
     mocker.resetall()
     # test resource found
-    mocked_get_instance.return_value = '10.0.0.1'
+    mocked_get_instance.return_value = '10.0.0.1:25000'
     application_start_job_1.distribute_to_single_instance()
-    assert application_start_job_1.identifiers == ['10.0.0.1']
+    assert application_start_job_1.identifiers == ['10.0.0.1:25000']
     assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
-                                                       ['10.0.0.1', '10.0.0.2'], 27)]
+                                                       ['10.0.0.1:25000', '10.0.0.2:25000'], 27, {})]
     # check commands
-    assert all(command.identifier == '10.0.0.1'
+    assert all(command.identifier == '10.0.0.1:25000'
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
 
@@ -848,13 +850,13 @@ def test_application_start_job_before(mocker, supvisors, application_start_job_1
 def test_application_start_job_process_job(mocker, supvisors, application_start_job_1, start_sample_test_1):
     """ Test the ApplicationStartJobs.process_job method. """
     # get patches
-    mocker.patch('time.time', return_value=1234.56)
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors.listener.force_process_state
-    mocked_pusher = supvisors.internal_com.pusher.send_start_process
+    mocked_pusher = supvisors.rpc_handler.send_start_process
     mocked_failure = mocker.patch.object(application_start_job_1, 'process_failure')
     # test with a possible starting address
-    mocked_node_getter.return_value = '10.0.0.1'
+    mocked_node_getter.return_value = '10.0.0.1:25000'
     # 1. xfontsel is running
     command = start_sample_test_1[2]
     assert not application_start_job_1.process_job(command)
@@ -877,10 +879,10 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     mocked_force.reset_mock()
     mocked_failure.reset_mock()
     # 2.b node has been found earlier
-    command.update_identifier('10.0.0.1')
+    command.update_identifier('10.0.0.1:25000')
     assert application_start_job_1.process_job(command)
     assert not mocked_node_getter.called
-    assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
+    assert mocked_pusher.call_args_list == [call('10.0.0.1:25000', 'sample_test_1:xlogo', '')]
     assert not mocked_force.called
     assert not mocked_failure.called
     mocked_pusher.reset_mock()
@@ -889,9 +891,10 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     command.identifier = None
     # 3.a test with node found by get_supvisors_instance
     assert application_start_job_1.process_job(command)
-    assert command.identifier == '10.0.0.1'
-    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 20)]
-    assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
+    assert command.identifier == '10.0.0.1:25000'
+    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED,
+                                                      ['10.0.0.1:25000'], 20, {})]
+    assert mocked_pusher.call_args_list == [call('10.0.0.1:25000', 'sample_test_1:xlogo', '')]
     assert not mocked_force.called
     assert not mocked_failure.called
     mocked_node_getter.reset_mock()
@@ -902,7 +905,8 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     # call the process_jobs
     assert not application_start_job_1.process_job(command)
     command.identifier = None
-    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 20)]
+    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED,
+                                                      ['10.0.0.1:25000'], 20, {})]
     assert not mocked_pusher.called
     assert mocked_force.call_args_list == [call(command.process, '', 1234.56,
                                                 ProcessStates.FATAL, 'no resource available')]
@@ -970,8 +974,8 @@ def create_process_stop_command(info, supvisors):
     """ Create a ProcessStopCommand from process info. """
     info['stopwaitsecs'] = 7
     process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    return ProcessStopCommand(process, '10.0.0.1')
+    process.add_info('10.0.0.1:25000', info)
+    return ProcessStopCommand(process, '10.0.0.1:25000')
 
 
 @pytest.fixture
@@ -1006,23 +1010,23 @@ def test_application_stop_job_creation(supvisors, application_stop_job_1, stop_s
     assert application_stop_job_1.failure_state == ProcessStates.STOPPED
 
 
-def test_application_stop_job_process_job(application_stop_job_1, stop_sample_test_1):
+def test_application_stop_job_process_job(supvisors, application_stop_job_1, stop_sample_test_1):
     """ Test the ApplicationStopJobs.process_job method. """
-    mocked_pusher = application_stop_job_1.supvisors.internal_com.pusher.send_stop_process
+    mocked_stop = supvisors.rpc_handler.send_stop_process
     # set context
-    application_stop_job_1.supvisors.context.instances['10.0.0.1'].sequence_counter = 14
+    supvisors.context.instances['10.0.0.1:25000'].times.remote_sequence_counter = 14
     # test with stopped process
     xlogo = stop_sample_test_1[1]
-    assert xlogo.identifier == '10.0.0.1'
+    assert xlogo.identifier == '10.0.0.1:25000'
     assert not application_stop_job_1.process_job(xlogo)
-    assert not mocked_pusher.called
+    assert not mocked_stop.called
     assert xlogo.request_sequence_counter == 0
     # test with running process
     xfontsel = stop_sample_test_1[2]
-    assert xfontsel.identifier == '10.0.0.1'
-    xfontsel.process.running_identifiers = ['10.0.0.1', '10.0.0.2']
+    assert xfontsel.identifier == '10.0.0.1:25000'
+    xfontsel.process.running_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000']
     assert application_stop_job_1.process_job(xfontsel)
-    assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xfontsel')]
+    assert mocked_stop.call_args_list == [call('10.0.0.1:25000', 'sample_test_1:xfontsel')]
     assert xfontsel.request_sequence_counter == 14
 
 
@@ -1119,7 +1123,7 @@ def test_commander_abort(commander, application_job_1, application_job_2):
     assert commander.current_jobs == {}
 
 
-def test_commander_next(mocker, commander, application_job_1, application_job_2):
+def test_commander_next(mocker, supvisors, commander, application_job_1, application_job_2):
     """ Test the Commander.next method. """
     mocked_job1_before = mocker.patch.object(application_job_1, 'before')
     mocked_job1_next = mocker.patch.object(application_job_1, 'next')
@@ -1143,7 +1147,7 @@ def test_commander_next(mocker, commander, application_job_1, application_job_2)
     assert not mocked_job2_next.called
     assert not mocked_job2_progress.called
     assert not mocked_after.called
-    assert commander.supvisors.context.local_status.state_modes.starting_jobs
+    assert supvisors.context.local_status.state_modes.starting_jobs
     mocker.resetall()
     # set application_job_1 not in progress anymore
     # will be removed from current_jobs and application_job_2
@@ -1159,7 +1163,7 @@ def test_commander_next(mocker, commander, application_job_1, application_job_2)
     assert mocked_job2_next.called
     assert mocked_job2_progress.called
     assert mocked_after.call_args_list == [call(application_job_1), call(application_job_2)]
-    assert not commander.supvisors.context.local_status.state_modes.starting_jobs
+    assert not supvisors.context.local_status.state_modes.starting_jobs
 
 
 def test_commander_check(mocker, commander, application_job_1, application_job_2):
@@ -1244,14 +1248,14 @@ def test_starter_create(starter):
     assert starter.pickup_logic is min
 
 
-def test_starter_store_application_separate(starter, sample_test_1, sample_test_2):
+def test_starter_store_application_separate(supvisors, starter, sample_test_1, sample_test_2):
     """ Test the Starter.store_application method.
     sample_test_1 and sample_test_2 applications are in a different sequence. """
     # create 2 application
-    appli1 = create_application('sample_test_1', starter.supvisors)
+    appli1 = create_application('sample_test_1', supvisors)
     appli1.rules.start_sequence = 1
     appli1.rules.starting_strategy = StartingStrategies.LESS_LOADED
-    appli2 = create_application('sample_test_2', starter.supvisors)
+    appli2 = create_application('sample_test_2', supvisors)
     appli2.rules.start_sequence = 2
     appli2.rules.starting_strategy = StartingStrategies.MOST_LOADED
     # call method and check result
@@ -1301,17 +1305,17 @@ def test_starter_store_application_separate(starter, sample_test_1, sample_test_
     assert app_job_2_1.current_jobs == []
 
 
-def test_starter_store_application_mixed(starter, sample_test_1, sample_test_2):
+def test_starter_store_application_mixed(supvisors, starter, sample_test_1, sample_test_2):
     """ Test the Starter.store_application method.
     sample_test_1 and sample_test_2 applications are in the same sequence. """
     # create 2 application start_sequences
-    appli1 = create_application('sample_test_1', starter.supvisors)
+    appli1 = create_application('sample_test_1', supvisors)
     appli1.rules.start_sequence = 2
     appli1.rules.starting_strategy = StartingStrategies.LESS_LOADED
     for command in sample_test_1:
         appli1.add_process(command.process)
         appli1.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
-    appli2 = create_application('sample_test_2', starter.supvisors)
+    appli2 = create_application('sample_test_2', supvisors)
     appli2.rules.start_sequence = 2
     appli2.rules.starting_strategy = StartingStrategies.MOST_LOADED
     for command in sample_test_2:
@@ -1364,13 +1368,13 @@ def test_starter_start_process_running(mocker, starter, sample_test_1):
     assert not mocked_next.called
 
 
-def test_starter_start_process_stopped(mocker, starter, sample_test_1):
+def test_starter_start_process_stopped(mocker, supvisors, starter, sample_test_1):
     """ Test the Starter.start_process method when process is stopped. """
     mocked_next = mocker.patch.object(starter, 'next')
     # add application to context
-    appli1 = create_application('sample_test_1', starter.supvisors)
+    appli1 = create_application('sample_test_1', supvisors)
     appli1.rules.start_sequence = 7
-    starter.supvisors.context.applications['sample_test_1'] = appli1
+    supvisors.context.applications['sample_test_1'] = appli1
     # Step 1. start process in a context where no corresponding application job exists
     xlogo = sample_test_1[1]
     xlogo.process.rules.start_sequence = 10
@@ -1461,13 +1465,13 @@ def test_starter_start_process_stopped(mocker, starter, sample_test_1):
     assert mocked_next.called
 
 
-def test_starter_default_start_process(mocker, starter):
+def test_starter_default_start_process(mocker, supvisors, starter):
     """ Test the Starter.default_start_process method. """
     mocked_start = mocker.patch.object(starter, 'start_process')
     # test that default_start_process just calls start_process with the default strategy
-    dummy_application = create_application('dummy_application', starter.supvisors)
+    dummy_application = create_application('dummy_application', supvisors)
     dummy_application.rules.starting_strategy = StartingStrategies.LOCAL
-    starter.supvisors.context.applications['dummy_application'] = dummy_application
+    supvisors.context.applications['dummy_application'] = dummy_application
     process = Mock(application_name='dummy_application')
     # test without trigger argument
     starter.default_start_process(process)
@@ -1478,12 +1482,12 @@ def test_starter_default_start_process(mocker, starter):
     assert mocked_start.call_args_list == [call(StartingStrategies.LOCAL, process, trigger=False)]
 
 
-def test_starter_start_application(mocker, starter):
+def test_starter_start_application(mocker, supvisors, starter):
     """ Test the Starter.start_application method. """
     mocked_store = mocker.patch.object(starter, 'store_application')
     mocked_next = mocker.patch.object(starter, 'next')
     # create application start_sequence
-    appli = create_application('sample_test_1', starter.supvisors)
+    appli = create_application('sample_test_1', supvisors)
     # test start_application on a running application
     for state in [ApplicationStates.RUNNING, ApplicationStates.STARTING, ApplicationStates.STOPPING]:
         appli._state = state
@@ -1497,11 +1501,11 @@ def test_starter_start_application(mocker, starter):
     assert mocked_next.called
 
 
-def test_starter_default_start_application(mocker, starter):
+def test_starter_default_start_application(mocker, supvisors, starter):
     """ Test the Starter.default_start_application method. """
     mocked_start = mocker.patch.object(starter, 'start_application')
     # test that default_start_application just calls start_application with the default strategy
-    appli = create_application('sample_test_1', starter.supvisors)
+    appli = create_application('sample_test_1', supvisors)
     appli.rules.starting_strategy = StartingStrategies.MOST_LOADED
     # test without trigger argument
     starter.default_start_application(appli)
@@ -1512,14 +1516,14 @@ def test_starter_default_start_application(mocker, starter):
     assert mocked_start.call_args_list == [call(StartingStrategies.MOST_LOADED, appli, False)]
 
 
-def test_starter_start_applications(mocker, starter, sample_test_2):
+def test_starter_start_applications(mocker, supvisors, starter, sample_test_2):
     """ Test the Starter.start_applications method. """
     mocked_store = mocker.patch.object(starter, 'store_application')
     mocked_next = mocker.patch.object(starter, 'next')
     # create one stopped application with a start_sequence == 0
-    service = create_application('service', starter.supvisors)
+    service = create_application('service', supvisors)
     service.rules.start_sequence = 0
-    starter.supvisors.context.applications['service'] = service
+    supvisors.context.applications['service'] = service
     # call starter start_applications and check nothing is triggered
     starter.start_applications(False)
     assert not mocked_store.called
@@ -1532,48 +1536,48 @@ def test_starter_start_applications(mocker, starter, sample_test_2):
     assert mocked_next.call_args_list == [call()]
     mocker.resetall()
     # create one running application
-    sample_test_1 = create_application('sample_test_1', starter.supvisors)
-    sample_test_1.rules.start_sequence = 1
-    sample_test_1._state = ApplicationStates.RUNNING
-    starter.supvisors.context.applications['sample_test_1'] = sample_test_1
+    sample_1 = create_application('sample_test_1', supvisors)
+    sample_1.rules.start_sequence = 1
+    sample_1._state = ApplicationStates.RUNNING
+    supvisors.context.applications['sample_test_1'] = sample_1
     info = any_process_info_by_state(ProcessStates.RUNNING)
-    process = create_process(info, starter.supvisors)
-    process.add_info('10.0.0.1', info)
-    sample_test_1.add_process(process)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1:25000', info)
+    sample_1.add_process(process)
     # create one running application with major failure - add FATAL process
-    sample_test_major = create_application('sample_test_major', starter.supvisors)
+    sample_test_major = create_application('sample_test_major', supvisors)
     sample_test_major._state = ApplicationStates.RUNNING
     sample_test_major.rules.start_sequence = 3
     sample_test_major.major_failure = True
-    starter.supvisors.context.applications['sample_test_major'] = sample_test_major
+    supvisors.context.applications['sample_test_major'] = sample_test_major
     info = any_process_info_by_state(ProcessStates.FATAL)
-    process = create_process(info, starter.supvisors)
-    process.add_info('10.0.0.1', info)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1:25000', info)
     sample_test_major.add_process(process)
     # create one running application with minor failure - add EXITED process
-    sample_test_minor = create_application('sample_test_minor', starter.supvisors)
+    sample_test_minor = create_application('sample_test_minor', supvisors)
     sample_test_minor._state = ApplicationStates.RUNNING
     sample_test_minor.rules.start_sequence = 3
     sample_test_minor.minor_failure = True
-    starter.supvisors.context.applications['sample_test_minor'] = sample_test_minor
+    supvisors.context.applications['sample_test_minor'] = sample_test_minor
     info = any_process_info_by_state(ProcessStates.EXITED)
-    process = create_process(info, starter.supvisors)
-    process.add_info('10.0.0.1', info)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1:25000', info)
     sample_test_minor.add_process(process)
     # create one stopped application with a start_sequence > 0
-    appli_2 = create_application('sample_test_2', starter.supvisors)
+    appli_2 = create_application('sample_test_2', supvisors)
     appli_2.rules.start_sequence = 2
     for command in sample_test_2:
         if command.process.application_name == 'sample_test_2':
             appli_2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
-    starter.supvisors.context.applications['sample_test_2'] = appli_2
+    supvisors.context.applications['sample_test_2'] = appli_2
     # create one stopped / never started application with a start_sequence > 0
-    stopped_app = create_application('stopped_app', starter.supvisors)
+    stopped_app = create_application('stopped_app', supvisors)
     stopped_app.rules.start_sequence = 3
-    starter.supvisors.context.applications['stopped_app'] = stopped_app
+    supvisors.context.applications['stopped_app'] = stopped_app
     info = any_process_info_by_state(ProcessStates.STOPPED)
-    process = create_process(info, starter.supvisors)
-    process.add_info('10.0.0.1', info)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1:25000', info)
     stopped_app.add_process(process)
     # call starter start_applications and check what is triggered
     starter.start_applications(False)
@@ -1589,9 +1593,9 @@ def test_starter_start_applications(mocker, starter, sample_test_2):
     assert mocked_next.call_args_list == [call()]
 
 
-def test_starter_after(mocker, starter, application_start_job_1):
+def test_starter_after(mocker, supvisors, starter, application_start_job_1):
     """ Test the Starter.after method. """
-    mocked_stop = mocker.patch.object(starter.supvisors.stopper, 'stop_application')
+    mocked_stop = mocker.patch.object(supvisors.stopper, 'stop_application')
     # test with application_stop_requests empty
     assert not application_start_job_1.stop_request
     starter.after(application_start_job_1)
@@ -1636,15 +1640,15 @@ def test_stopper_create(stopper):
     assert stopper.process_start_requests == {}
 
 
-def test_stopper_store_application_separate(stopper, sample_test_1, sample_test_2):
+def test_stopper_store_application_separate(supvisors, stopper, sample_test_1, sample_test_2):
     """ Test the Stopper.store_application method.
     sample_test_1 and sample_test_2 applications are in a different sequence. """
     # create 2 application stop sequences
-    appli1 = create_application('sample_test_1', stopper.supvisors)
+    appli1 = create_application('sample_test_1', supvisors)
     appli1.rules.stop_sequence = 1
     for command in sample_test_1:
         appli1.stop_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
-    appli2 = create_application('sample_test_2', stopper.supvisors)
+    appli2 = create_application('sample_test_2', supvisors)
     appli2.rules.stop_sequence = 2
     for command in sample_test_2:
         appli2.stop_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
@@ -1680,15 +1684,15 @@ def test_stopper_store_application_separate(stopper, sample_test_1, sample_test_
     assert app_job_2_1.current_jobs == []
 
 
-def test_stopper_store_application_mixed(stopper, sample_test_1, sample_test_2):
+def test_stopper_store_application_mixed(supvisors, stopper, sample_test_1, sample_test_2):
     """ Test the Stopper.store_application method.
     sample_test_1 and sample_test_2 applications are in the same sequence. """
     # create 2 application stop sequences
-    appli1 = create_application('sample_test_1', stopper.supvisors)
+    appli1 = create_application('sample_test_1', supvisors)
     appli1.rules.stop_sequence = 2
     for command in sample_test_1:
         appli1.stop_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
-    appli2 = create_application('sample_test_2', stopper.supvisors)
+    appli2 = create_application('sample_test_2', supvisors)
     appli2.rules.stop_sequence = 2
     for command in sample_test_2:
         appli2.stop_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
@@ -1735,18 +1739,18 @@ def test_stopper_stop_process_stopped(mocker, stopper, sample_test_1):
     assert not mocked_next.called
 
 
-def test_stopper_stop_process_running(mocker, stopper, sample_test_1):
+def test_stopper_stop_process_running(mocker, supvisors, stopper, sample_test_1):
     """ Test the Starter.start_process method when process is running. """
     mocked_next = mocker.patch.object(stopper, 'next')
     # add application to context
-    appli1 = create_application('sample_test_1', stopper.supvisors)
+    appli1 = create_application('sample_test_1', supvisors)
     appli1.rules.stop_sequence = 7
-    stopper.supvisors.context.applications['sample_test_1'] = appli1
+    supvisors.context.applications['sample_test_1'] = appli1
     # Step 1. stop process in a context where no corresponding application job exists
     xlogo = sample_test_1[1]
     xlogo.process.rules.stop_sequence = 10
     xlogo.process._state = ProcessStates.RUNNING
-    xlogo.process.running_identifiers.add('10.0.0.1')
+    xlogo.process.running_identifiers.add('10.0.0.1:25000')
     stopper.stop_process(xlogo.process)
     # check the planned_jobs contents
     assert list(stopper.planned_jobs.keys()) == [7]
@@ -1769,7 +1773,7 @@ def test_stopper_stop_process_running(mocker, stopper, sample_test_1):
     xclock = sample_test_1[0]
     xclock.process.rules.stop_sequence = 5
     xclock.process._state = ProcessStates.STARTING
-    xclock.process.running_identifiers.add('10.0.0.1')
+    xclock.process.running_identifiers.add('10.0.0.1:25000')
     stopper.stop_process(xclock.process)
     # check the planned_jobs contents
     assert list(stopper.planned_jobs.keys()) == [7]
@@ -1823,11 +1827,11 @@ def test_stopper_stop_process_running(mocker, stopper, sample_test_1):
     assert mocked_next.called
 
 
-def test_default_restart_process(mocker, stopper):
+def test_default_restart_process(mocker, supvisors, stopper):
     """ Test the Stopper.default_restart_process method. """
     mocked_restart = mocker.patch.object(stopper, 'restart_process')
-    appli = create_application('appli_1', stopper.supvisors)
-    stopper.supvisors.context.applications['appli_1'] = appli
+    appli = create_application('appli_1', supvisors)
+    supvisors.context.applications['appli_1'] = appli
     process = Mock(application_name='appli_1')
     # test without trigger argument
     appli.rules.starting_strategy = StartingStrategies.LESS_LOADED
@@ -1840,10 +1844,10 @@ def test_default_restart_process(mocker, stopper):
     assert mocked_restart.call_args_list == [call(StartingStrategies.LOCAL, process, trigger=False)]
 
 
-def test_stopper_restart_process(mocker, stopper, sample_test_1):
+def test_stopper_restart_process(mocker, supvisors, stopper, sample_test_1):
     """ Test the Stopper.restart_process method when the process is already stopped. """
     mocked_stop = mocker.patch.object(stopper, 'stop_process')
-    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_process')
+    mocked_start = mocker.patch.object(supvisors.starter, 'start_process')
     # check initial condition
     assert stopper.process_start_requests == {}
     # test restart call with process stopped
@@ -1863,12 +1867,12 @@ def test_stopper_restart_process(mocker, stopper, sample_test_1):
     assert stopper.process_start_requests == {'sample_test_1': [start_parameters]}
 
 
-def test_stopper_stop_application(mocker, stopper):
+def test_stopper_stop_application(mocker, supvisors, stopper):
     """ Test the Stopper.stop_application method. """
     mocked_store = mocker.patch.object(stopper, 'store_application')
     mocked_next = mocker.patch.object(stopper, 'next')
     # create application
-    appli = create_application('sample_test_1', stopper.supvisors)
+    appli = create_application('sample_test_1', supvisors)
     mocked_running = mocker.patch.object(appli, 'has_running_processes', return_value=False)
     # test stop_application on a stopped application
     stopper.stop_application(appli)
@@ -1882,7 +1886,7 @@ def test_stopper_stop_application(mocker, stopper):
     assert mocked_next.called
 
 
-def test_stopper_stop_applications(mocker, stopper):
+def test_stopper_stop_applications(mocker, supvisors, stopper):
     """ Test the Stopper.stop_applications method. """
     mocked_store = mocker.patch.object(stopper, 'store_application')
     mocked_next = mocker.patch.object(stopper, 'next')
@@ -1892,23 +1896,23 @@ def test_stopper_stop_applications(mocker, stopper):
     assert mocked_next.called
     mocker.resetall()
     # create one running application
-    appli1 = create_application('sample_test_1', stopper.supvisors)
+    appli1 = create_application('sample_test_1', supvisors)
     mocker.patch.object(appli1, 'has_running_processes', return_value=True)
-    stopper.supvisors.context.applications['sample_test_1'] = appli1
+    supvisors.context.applications['sample_test_1'] = appli1
     # create one stopped application
-    appli2 = create_application('sample_test_2', stopper.supvisors)
+    appli2 = create_application('sample_test_2', supvisors)
     mocker.patch.object(appli2, 'has_running_processes', return_value=False)
-    stopper.supvisors.context.applications['sample_test_2'] = appli2
+    supvisors.context.applications['sample_test_2'] = appli2
     # call starter stop_applications and check that only sample_test_1 is triggered
     stopper.stop_applications()
     assert mocked_store.call_args_list == [call(appli1)]
     assert mocked_next.called
 
 
-def test_default_restart_application(mocker, stopper):
+def test_default_restart_application(mocker, supvisors, stopper):
     """ Test the Stopper.default_restart_application method. """
     mocked_restart = mocker.patch.object(stopper, 'restart_application')
-    appli = create_application('appli_1', stopper.supvisors)
+    appli = create_application('appli_1', supvisors)
     # test without trigger argument
     appli.rules.starting_strategy = StartingStrategies.LESS_LOADED
     stopper.default_restart_application(appli)
@@ -1920,14 +1924,14 @@ def test_default_restart_application(mocker, stopper):
     assert mocked_restart.call_args_list == [call(StartingStrategies.LOCAL, appli, False)]
 
 
-def test_stopper_restart_application(mocker, stopper):
+def test_stopper_restart_application(mocker, supvisors, stopper):
     """ Test the Stopper.restart_application method. """
     mocked_stop = mocker.patch.object(stopper, 'stop_application')
-    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_application')
+    mocked_start = mocker.patch.object(supvisors.starter, 'start_application')
     # check initial condition
     assert stopper.application_start_requests == {}
     # test restart call with stopped application
-    appli = create_application('appli_1', stopper.supvisors)
+    appli = create_application('appli_1', supvisors)
     start_parameters = (StartingStrategies.CONFIG, appli)
     stopper.restart_application(*start_parameters)
     assert mocked_start.call_args_list == [call(*start_parameters, True)]
@@ -1942,15 +1946,15 @@ def test_stopper_restart_application(mocker, stopper):
     assert stopper.application_start_requests == {'appli_1': start_parameters}
 
 
-def test_stopper_after(mocker, stopper, sample_test_1):
+def test_stopper_after(mocker, supvisors, stopper, sample_test_1):
     """ Test the Stopper.after method. """
-    mocked_start_app = mocker.patch.object(stopper.supvisors.starter, 'start_application')
-    mocked_start_proc = mocker.patch.object(stopper.supvisors.starter, 'start_process')
+    mocked_start_app = mocker.patch.object(supvisors.starter, 'start_application')
+    mocked_start_proc = mocker.patch.object(supvisors.starter, 'start_process')
     # patch context
-    appli_1 = create_application('appli_1', stopper.supvisors)
-    appli_2 = create_application('appli_2', stopper.supvisors)
-    appli_3 = create_application('appli_3', stopper.supvisors)
-    stopper.supvisors.context.applications = {'appli_1': appli_1, 'appli_2': appli_2, 'appli_3': appli_3}
+    appli_1 = create_application('appli_1', supvisors)
+    appli_2 = create_application('appli_2', supvisors)
+    appli_3 = create_application('appli_3', supvisors)
+    supvisors.context.applications = {'appli_1': appli_1, 'appli_2': appli_2, 'appli_3': appli_3}
     # add pending requests
     xclock = sample_test_1[0].process
     xlogo = sample_test_1[1].process
@@ -1976,3 +1980,118 @@ def test_stopper_after(mocker, stopper, sample_test_1):
     assert mocked_start_app.call_args_list == [call(StartingStrategies.LESS_LOADED, appli_3)]
     assert stopper.application_start_requests == {}
     assert not mocked_start_proc.called
+
+
+def test_process_start_command_model(supvisors):
+    """ Test the ProcessStartCommandModel class. """
+    # get patches
+    mocked_start = supvisors.rpc_handler.send_start_process
+    supvisors.starter_model.event_list = []
+    # test creation
+    info = process_info_by_name('xlogo')
+    info['startsecs'] = 18
+    process: ProcessStatus = create_process(info, supvisors)
+    process.add_info('10.0.0.1:25000', info)
+    process.extra_args = '--help'
+    command_model = ProcessStartCommandModel(process, StartingStrategies.MOST_LOADED)
+    assert command_model.process is not process
+    assert command_model.process.supvisors is supvisors
+    assert command_model.process.application_name == process.application_name
+    assert command_model.process.process_name == process.process_name
+    assert command_model.process.rules is process.rules
+    assert command_model.process.state == ProcessStates.STOPPED
+    assert command_model.process.state == process.state
+    assert command_model.process.info_map == process.info_map
+    assert command_model.process.info_map is not process.info_map
+    assert command_model.process.running_identifiers == set()
+    # test overriden start
+    command_model.update_identifier('10.0.0.1:25000')
+    command_model.start()
+    assert not mocked_start.called
+    assert command_model.request_sequence_counter == 0
+    assert command_model.process.running_identifiers == {'10.0.0.1:25000'}
+    assert command_model.process.state == ProcessStates.STOPPED
+    assert supvisors.starter_model.event_list == [(command_model.process, '10.0.0.1:25000', ProcessStates.STARTING),
+                                                  (command_model.process, '10.0.0.1:25000', ProcessStates.RUNNING)]
+    supvisors.starter_model.event_list = []
+    # test overriden start with wait_exit rule
+    command_model.process.rules.wait_exit = True
+    command_model.update_identifier('10.0.0.1:25000')
+    command_model.start()
+    assert not mocked_start.called
+    assert supvisors.starter_model.event_list == [(command_model.process, '10.0.0.1:25000', ProcessStates.STARTING),
+                                                  (command_model.process, '10.0.0.1:25000', ProcessStates.RUNNING),
+                                                  (command_model.process, '10.0.0.1:25000', ProcessStates.EXITED)]
+
+
+def test_application_start_jobs_model(supvisors, start_command, start_sample_test_1):
+    """ Test the ApplicationStartJobsModel class. """
+    # get patches
+    mocked_force = supvisors.listener.force_process_state
+    # test creation
+    application = create_application('dummy_application', supvisors)
+    supvisors.context.applications['dummy_application'] = application
+    jobs = {0: start_sample_test_1[0:2], 1: start_sample_test_1[2:]}
+    jobs_model = ApplicationStartJobsModel(application, jobs, StartingStrategies.LESS_LOADED, supvisors)
+    # test overriden fail command
+    ref_time = start_command.process.info_map['10.0.0.1:25000']['event_time']
+    jobs_model.fail_command(start_command.process, '10.0.0.1:25000', ref_time + 1.0, 'error')
+    assert not mocked_force.called
+    assert start_command.process.forced_state == ProcessStates.FATAL
+    assert start_command.process.forced_reason == 'error'
+
+
+def test_starter_model(mocker, supvisors, start_command, sample_test_1):
+    """ Test the StarterModel class. """
+    # get patches
+    mocked_publish = mocker.patch.object(supvisors.context, 'publish_state_modes')
+    # test creation
+    supvisors.starter_model = starter = StarterModel(supvisors)
+    assert starter.supvisors is supvisors
+    assert starter.command_class is ProcessStartCommandModel
+    assert starter.job_class is ApplicationStartJobsModel
+    assert starter.event_list is None
+    assert starter.process_list is None
+    # test start application with empty application
+    application = create_application('sample_test_1', supvisors)
+    application.rules.start_sequence = 1
+    for command in sample_test_1:
+        application.add_process(command.process)
+        command.process.info_map['10.0.0.1:25000']['state'] = ProcessStates.STOPPED
+        command.process._state = ProcessStates.STOPPED
+        application.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
+    # update global context
+    supvisors.context.applications['sample_test_1'] = application
+    # test call
+    expected = [{'application_name': 'sample_test_1',  'process_name': 'xclock',
+                 'state': 'FATAL', 'forced_reason': 'no resource available', 'running_identifiers': []},
+                {'application_name': 'sample_test_1', 'process_name': 'xfontsel',
+                 'state': 'FATAL', 'forced_reason': 'no resource available', 'running_identifiers': []},
+                {'application_name': 'sample_test_1', 'process_name': 'xlogo',
+                 'state': 'FATAL', 'forced_reason': 'no resource available', 'running_identifiers': []}]
+    assert starter.test_start_application(StartingStrategies.CONFIG, application) == expected
+    assert starter.process_list == []
+    assert not mocked_publish.called
+    # update global context
+    supvisors.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
+    # test call
+    expected = [{'application_name': 'sample_test_1', 'process_name': 'xclock',
+                 'state': 'RUNNING', 'forced_reason': '', 'running_identifiers': ['10.0.0.1:25000']},
+                {'application_name': 'sample_test_1', 'process_name': 'xfontsel',
+                 'state': 'RUNNING', 'forced_reason': '', 'running_identifiers': ['10.0.0.1:25000']},
+                {'application_name': 'sample_test_1', 'process_name': 'xlogo',
+                 'state': 'RUNNING', 'forced_reason': '', 'running_identifiers': ['10.0.0.1:25000']}]
+    assert starter.test_start_application(StartingStrategies.CONFIG, application) == expected
+    assert starter.process_list == []
+    assert not mocked_publish.called
+    # test start process
+    application.processes['xfontsel']._state = ProcessStates.STOPPED
+    assert starter.test_start_processes(StartingStrategies.CONFIG, application.processes.values()) == expected
+    assert starter.process_list == []
+    assert not mocked_publish.called
+    # test feed model
+    assert starter.feed_model() == []
+    assert not mocked_publish.called
+    # test publication
+    starter.publish_state_modes()
+    assert not mocked_publish.called

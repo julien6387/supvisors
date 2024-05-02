@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -17,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import socket
 from unittest.mock import Mock, call
 
 import pytest
@@ -38,12 +36,12 @@ def filled_instances(mocker, supvisors):
     local_identifier = supvisors.mapper.local_identifier
     instances = supvisors.context.instances
     mock_instance(mocker, instances[local_identifier], SupvisorsInstanceStates.RUNNING, 50)
-    mock_instance(mocker, instances['10.0.0.1'], SupvisorsInstanceStates.SILENT, 0)
-    mock_instance(mocker, instances['10.0.0.2'], SupvisorsInstanceStates.ISOLATED, 0)
-    mock_instance(mocker, instances['10.0.0.3'], SupvisorsInstanceStates.RUNNING, 20)
-    mock_instance(mocker, instances['10.0.0.4'], SupvisorsInstanceStates.UNKNOWN, 0)
-    mock_instance(mocker, instances['10.0.0.5'], SupvisorsInstanceStates.RUNNING, 80)
-    mock_instance(mocker, instances['test'], SupvisorsInstanceStates.RUNNING, 10)
+    mock_instance(mocker, instances['10.0.0.1:25000'], SupvisorsInstanceStates.SILENT, 0)
+    mock_instance(mocker, instances['10.0.0.2:25000'], SupvisorsInstanceStates.ISOLATED, 0)
+    mock_instance(mocker, instances['10.0.0.3:25000'], SupvisorsInstanceStates.RUNNING, 20)
+    mock_instance(mocker, instances['10.0.0.4:25000'], SupvisorsInstanceStates.UNKNOWN, 0)
+    mock_instance(mocker, instances['10.0.0.5:25000'], SupvisorsInstanceStates.RUNNING, 80)
+    mock_instance(mocker, instances[f'{socket.getfqdn()}:15000'], SupvisorsInstanceStates.RUNNING, 10)
     return supvisors
 
 
@@ -51,7 +49,7 @@ def filled_instances(mocker, supvisors):
 def load_details(supvisors):
     local_identifier = supvisors.mapper.local_identifier
     local_node_name = supvisors.mapper.instances[local_identifier].host_id
-    return ({local_identifier: 0, '10.0.0.3': 10, '10.0.0.5': 20, 'test': 10},
+    return ({local_identifier: 0, '10.0.0.3:25000': 10, '10.0.0.5:25000': 20, f'{socket.getfqdn()}:15000': 10},
             {local_node_name: 50, '10.0.0.3': 20, '10.0.0.5': 80},
             {local_node_name: 10, '10.0.0.3': 10, '10.0.0.5': 20})
 
@@ -67,12 +65,12 @@ def test_is_loading_valid(starting_strategy, load_details):
     local_identifier = starting_strategy.supvisors.mapper.local_identifier
     # test loaded RUNNING instances
     assert starting_strategy.is_loading_valid(local_identifier, 55, load_details) == (False, 60, 50)
-    assert starting_strategy.is_loading_valid('10.0.0.3', 85, load_details) == (False, 30, 30)
-    assert starting_strategy.is_loading_valid('10.0.0.5', 25, load_details) == (False, 100, 100)
+    assert starting_strategy.is_loading_valid('10.0.0.3:25000', 85, load_details) == (False, 30, 30)
+    assert starting_strategy.is_loading_valid('10.0.0.5:25000', 25, load_details) == (False, 100, 100)
     # test not loaded RUNNING instances
     assert starting_strategy.is_loading_valid(local_identifier, 40, load_details) == (True, 60, 50)
-    assert starting_strategy.is_loading_valid('10.0.0.3', 65, load_details) == (True, 30, 30)
-    assert starting_strategy.is_loading_valid('10.0.0.5', 0, load_details) == (True, 100, 100)
+    assert starting_strategy.is_loading_valid('10.0.0.3:25000', 65, load_details) == (True, 30, 30)
+    assert starting_strategy.is_loading_valid('10.0.0.5:25000', 0, load_details) == (True, 100, 100)
 
 
 def test_get_loading_and_validity(starting_strategy, load_details):
@@ -81,20 +79,24 @@ def test_get_loading_and_validity(starting_strategy, load_details):
     local_identifier = starting_strategy.supvisors.mapper.local_identifier
     identifiers = list(load_details[0].keys())
     # first test
-    expected = {local_identifier: (True, 60, 50), '10.0.0.3': (True, 30, 30), '10.0.0.5': (False, 100, 100),
-                'test': (True, 60, 20)}
+    expected = {local_identifier: (True, 60, 50), '10.0.0.3:25000': (True, 30, 30),
+                '10.0.0.5:25000': (False, 100, 100),
+                f'{socket.getfqdn()}:15000': (True, 60, 20)}
     assert starting_strategy.get_loading_and_validity(identifiers, 15, load_details) == expected
     # second test
-    expected = {local_identifier: (False, 60, 50), '10.0.0.3': (True, 30, 30), '10.0.0.5': (False, 100, 100),
-                'test': (False, 60, 20)}
+    expected = {local_identifier: (False, 60, 50), '10.0.0.3:25000': (True, 30, 30),
+                '10.0.0.5:25000': (False, 100, 100),
+                f'{socket.getfqdn()}:15000': (False, 60, 20)}
     assert starting_strategy.get_loading_and_validity(identifiers, 45, load_details) == expected
     # third test
-    expected = {local_identifier: (False, 60, 50), '10.0.0.3': (True, 30, 30), '10.0.0.5': (False, 100, 100)}
-    assert starting_strategy.get_loading_and_validity([local_identifier, '10.0.0.3', '10.0.0.5'], 65,
+    expected = {local_identifier: (False, 60, 50), '10.0.0.3:25000': (True, 30, 30),
+                '10.0.0.5:25000': (False, 100, 100)}
+    assert starting_strategy.get_loading_and_validity([local_identifier, '10.0.0.3:25000', '10.0.0.5:25000'], 65,
                                                       load_details) == expected
     # fourth test
-    expected = {local_identifier: (False, 60, 50), '10.0.0.3': (False, 30, 30), '10.0.0.5': (False, 100, 100)}
-    assert starting_strategy.get_loading_and_validity([local_identifier, '10.0.0.3', '10.0.0.5'], 85,
+    expected = {local_identifier: (False, 60, 50), '10.0.0.3:25000': (False, 30, 30),
+                '10.0.0.5:25000': (False, 100, 100)}
+    assert starting_strategy.get_loading_and_validity([local_identifier, '10.0.0.3:25000', '10.0.0.5:25000'], 85,
                                                       load_details) == expected
 
 
@@ -125,11 +127,12 @@ def test_config_strategy(filled_instances, load_details):
     strategy = ConfigStrategy(filled_instances)
     # test CONFIG strategy with different values
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
     assert strategy.get_supvisors_instance(instances, 0, load_details) == local_identifier
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
-    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3:25000'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3:25000'
     assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
@@ -138,11 +141,12 @@ def test_less_loaded_strategy(filled_instances, load_details):
     strategy = LessLoadedStrategy(filled_instances)
     # test LESS_LOADED strategy with different values
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
-    assert strategy.get_supvisors_instance(instances, 0, load_details) == 'test'
-    assert strategy.get_supvisors_instance(instances, 15, load_details) == 'test'
-    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == test_identifier
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == test_identifier
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3:25000'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3:25000'
     assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
@@ -151,11 +155,12 @@ def test_less_loaded_node_strategy(filled_instances, load_details):
     strategy = LessLoadedNodeStrategy(filled_instances)
     # test LESS_LOADED strategy with different values
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
-    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 15, load_details) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.3:25000'
+    assert strategy.get_supvisors_instance(instances, 15, load_details) == '10.0.0.3:25000'
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3:25000'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3:25000'
     assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
@@ -164,11 +169,12 @@ def test_most_loaded_strategy(filled_instances, load_details):
     strategy = MostLoadedStrategy(filled_instances)
     # test MOST_LOADED strategy with different values
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
-    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5'
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5:25000'
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
-    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3:25000'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3:25000'
     assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
@@ -177,11 +183,12 @@ def test_most_loaded_node_strategy(filled_instances, load_details):
     strategy = MostLoadedNodeStrategy(filled_instances)
     # test MOST_LOADED strategy with different values
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
-    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5'
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
+    assert strategy.get_supvisors_instance(instances, 0, load_details) == '10.0.0.5:25000'
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
-    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3'
-    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 45, load_details) == '10.0.0.3:25000'
+    assert strategy.get_supvisors_instance(instances, 65, load_details) == '10.0.0.3:25000'
     assert strategy.get_supvisors_instance(instances, 85, load_details) is None
 
 
@@ -190,58 +197,60 @@ def test_local_strategy(filled_instances, load_details):
     strategy = LocalStrategy(filled_instances)
     # test LOCAL strategy with different values
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
     assert strategy.supvisors.mapper.local_identifier == local_identifier
     assert strategy.get_supvisors_instance(instances, 0, load_details) == local_identifier
     assert strategy.get_supvisors_instance(instances, 15, load_details) == local_identifier
     assert strategy.get_supvisors_instance(instances, 45, load_details) is None
     # test with local Supvisors instance not in candidates
-    instances = ['10.0.0.3', '10.0.0.5', 'test']
+    instances = ['10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
     assert strategy.get_supvisors_instance(instances, 0, load_details) is None
 
 
 def test_get_supvisors_instance_no_candidate(supvisors):
     """ Test the choice of a Supvisors instance according to a strategy when no candidate is available. """
     local_identifier = supvisors.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
-    assert get_supvisors_instance(supvisors, StartingStrategies.CONFIG, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED_NODE, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED_NODE, instances, 0) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LOCAL, instances, 0) is None
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:6500', test_identifier]
+    assert get_supvisors_instance(supvisors, StartingStrategies.CONFIG, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED_NODE, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED_NODE, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors, StartingStrategies.LOCAL, instances, 0, {}) is None
 
 
 def test_get_supvisors_instance(filled_instances, load_details):
     """ Test the choice of a Supvisors instance according to a strategy. """
-    filled_instances.starter.get_load_requests.return_value = load_details[0]
     # context
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
     # test CONFIG strategy
     strategy = StartingStrategies.CONFIG
-    for load, result in [(0, local_identifier), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+    for load, result in [(0, local_identifier), (15, local_identifier), (65, '10.0.0.3:25000'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test LESS_LOADED strategy
     strategy = StartingStrategies.LESS_LOADED
-    for load, result in [(0, 'test'), (15, 'test'), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+    for load, result in [(0, test_identifier), (15, test_identifier), (65, '10.0.0.3:25000'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test MOST_LOADED strategy
     strategy = StartingStrategies.MOST_LOADED
-    for load, result in [(0, '10.0.0.5'), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+    for load, result in [(0, '10.0.0.5:25000'), (15, local_identifier), (65, '10.0.0.3:25000'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test LESS_LOADED_NODE strategy
     strategy = StartingStrategies.LESS_LOADED_NODE
-    for load, result in [(0, '10.0.0.3'), (15, '10.0.0.3'), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+    for load, result in [(0, '10.0.0.3:25000'), (15, '10.0.0.3:25000'), (65, '10.0.0.3:25000'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test MOST_LOADED_NODE strategy
     strategy = StartingStrategies.MOST_LOADED_NODE
-    for load, result in [(0, '10.0.0.5'), (15, local_identifier), (65, '10.0.0.3'), (85, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+    for load, result in [(0, '10.0.0.5:25000'), (15, local_identifier), (65, '10.0.0.3:25000'), (85, None)]:
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
     # test LOCAL strategy
     strategy = StartingStrategies.LOCAL
     for load, result in [(0, local_identifier), (15, local_identifier), (65, None)]:
-        assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
+        assert get_supvisors_instance(filled_instances, strategy, instances, load, load_details[0]) == result
 
 
 def test_get_node(mocker, filled_instances):
@@ -249,12 +258,13 @@ def test_get_node(mocker, filled_instances):
     mocked_get_instance = mocker.patch('supvisors.strategy.get_supvisors_instance', return_value=None)
     # context
     local_identifier = filled_instances.mapper.local_identifier
-    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    test_identifier = f'{socket.getfqdn()}:15000'
+    instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
     # test with no instance found
     strategy = StartingStrategies.CONFIG
     assert get_node(filled_instances, strategy, instances, 27) is None
     # test with no instance found
-    mocked_get_instance.return_value = 'test'
+    mocked_get_instance.return_value = test_identifier
     strategy = StartingStrategies.CONFIG
     local_instance = filled_instances.mapper.instances[local_identifier]
     assert get_node(filled_instances, strategy, instances, 27) == local_instance.host_id
@@ -303,7 +313,7 @@ def test_user_strategy(supvisors, conflicts):
     strategy.conciliate(conflicts)
     # check that processes are NOT requested to stop
     assert not supvisors.stopper.stop_process.called
-    assert not supvisors.internal_com.pusher.send_stop_process.called
+    assert not supvisors.rpc_handler.send_stop_process.called
 
 
 def test_stop_strategy(supvisors, conflicts):
@@ -326,7 +336,7 @@ def test_restart_strategy(supvisors, conflicts):
     strategy.conciliate(conflicts)
     # check that all processes are NOT requested to stop directly
     assert not supvisors.stopper.stop_process.called
-    assert not supvisors.internal_com.pusher.send_stop_process.called
+    assert not supvisors.rpc_handler.send_stop_process.called
     # test failure_handler call
     assert mocked_restart.call_args_list == [call(conflicts[0], False), call(conflicts[1], False)]
     assert mocked_next.called

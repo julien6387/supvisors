@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -44,7 +41,7 @@ class ProcessStateEvent:
 
     @property
     def statename(self):
-        if type(self.statecode) == list:
+        if type(self.statecode) is list:
             return [getProcessStateDescription(statecode) for statecode in self.statecode]
         return getProcessStateDescription(self.statecode)
 
@@ -57,7 +54,7 @@ class ProcessStateEvent:
         return 'statename={} statecode={}'.format(self.statename, self.statecode)
 
 
-class Program(object):
+class Program:
     """ Simple definition of a program. """
 
     def __init__(self, program_name, required=False, wait_exit=False):
@@ -78,18 +75,42 @@ class Program(object):
         """ Pop an event from the list of expected events. """
         return self.state_events.pop(0)
 
+    def __str__(self):
+        """ Return a printable form. """
+        return f'Program(program_name={self.program_name} state={self.state} identifiers={self.identifiers})'
+
+
+def database_status_logic(app):
+    # specific major failure
+    for proc_name in ['register_movies_01', 'register_movies_02', 'register_movies_03']:
+        process = app.programs[proc_name]
+        if not ((process.state in RUNNING_STATES)
+                or (process.state == ProcessStates.EXITED and process.expected_exit)):
+            return True
+    any_movie_server = False
+    for proc_name in ['movie_server_01', 'movie_server_02', 'movie_server_03']:
+        process = app.programs[proc_name]
+        if (process.state in RUNNING_STATES
+                or (process.state == ProcessStates.EXITED and process.expected_exit)):
+            any_movie_server = True
+    return not any_movie_server
+
 
 class Application:
     """ Simple definition of an application. """
 
-    def __init__(self, application_name):
+    def __init__(self, application_name, status_logic=None):
         """ Initialization of the attributes. """
         self.application_name = application_name
-        self.managed = True
-        # create dict of states / process_names
-        self.major_failure, self.minor_failure = (False,) * 2
+        # failure handling
+        self.status_logic = status_logic
         # event dictionary
         self.programs = {}
+
+    def __str__(self):
+        """ Return a printable form. """
+        return (f'Application(application_name={self.application_name}'
+                f' programs={[str(prg) for prg in self.programs.values()]})')
 
     def add_program(self, program):
         """ Add a program to the list. """
@@ -101,42 +122,38 @@ class Application:
 
     def is_starting(self):
         """ Return True if the application has a starting program. """
-        if self.managed:
-            for program in self.programs.values():
-                if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
-                    return True
+        for program in self.programs.values():
+            if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
+                return True
         return False
 
     def is_stopping(self):
         """ Return True if the application has a stopping program and no starting program. """
         stopping = False
-        if self.managed:
-            for program in self.programs.values():
-                if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
-                    return False
-                if program.state == ProcessStates.STOPPING:
-                    stopping = True
+        for program in self.programs.values():
+            if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
+                return False
+            if program.state == ProcessStates.STOPPING:
+                stopping = True
         return stopping
 
     def is_running(self):
         """ Return True if the application has a running program and no starting or stopping program. """
         running = False
-        if self.managed:
-            for program in self.programs.values():
-                if program.state in (ProcessStates.STARTING,
-                                     ProcessStates.BACKOFF,
-                                     ProcessStates.STOPPING):
-                    return False
-                if program.state == ProcessStates.RUNNING:
-                    running = True
+        for program in self.programs.values():
+            if program.state in (ProcessStates.STARTING,
+                                 ProcessStates.BACKOFF,
+                                 ProcessStates.STOPPING):
+                return False
+            if program.state == ProcessStates.RUNNING:
+                running = True
         return running
 
     def is_stopped(self):
         """ Return True if the application has only stopped programs. """
-        if self.managed:
-            for program in self.programs.values():
-                if program.state in [ProcessStates.STOPPING] + list(RUNNING_STATES):
-                    return False
+        for program in self.programs.values():
+            if program.state in [ProcessStates.STOPPING] + list(RUNNING_STATES):
+                return False
         return True
 
     def has_major_failure(self):
@@ -154,6 +171,20 @@ class Application:
                                           not program.expected_exit)):
                 return True
         return False
+
+    def get_failures(self):
+        # formula case
+        if self.status_logic:
+            major_failure = self.status_logic(self)
+            minor_failure = False
+            if not major_failure:
+                for program in self.programs.values():
+                    if (program.state == ProcessStates.FATAL or
+                            (program.state == ProcessStates.EXITED and not program.expected_exit)):
+                        major_failure = True
+            return major_failure, minor_failure
+        # required case
+        return self.has_major_failure(), self.has_minor_failure()
 
 
 class Context:
@@ -230,13 +261,13 @@ class SequenceChecker(SupvisorsEventQueues):
 class CheckSequenceTest(unittest.TestCase):
     """ Common class used to check starting and stopping sequences. """
 
-    TEST_IDENTIFIERS = ['supv-01', 'rocky52:60000', 'supv-03', 'rocky54']
+    HOST_01 = 'rocky51:60000'
+    HOST_02 = 'rocky52:60000'
+    HOST_03 = '192.168.1.70:30000'
+    HOST_04 = 'rocky54:60000'
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
-        # get the instances
-        for idx, identifier in enumerate(CheckSequenceTest.TEST_IDENTIFIERS):
-            setattr(self, f'HOST_{idx+1:02d}', identifier)
         # create a context
         self.context = Context()
         # create the thread of event subscriber
@@ -269,7 +300,7 @@ class CheckSequenceTest(unittest.TestCase):
                 data = self.evloop.process_queue.get(True, 40)
             except Empty:
                 self.fail('failed to get the expected events for this process')
-            self.check_process_event(data)
+            self.check_process_status(data)
             # wait for an application event
             try:
                 data = self.evloop.application_queue.get(True, 2)
@@ -277,9 +308,9 @@ class CheckSequenceTest(unittest.TestCase):
                 self.fail(f'failed to get the expected events for application={application_name}')
             self.check_application_event(data)
 
-    def check_process_event(self, event):
+    def check_process_status(self, event):
         """ Check if the received process event corresponds to expectation. """
-        self.evloop.logger.info('Checking process event: {}'.format(event))
+        self.evloop.logger.info(f'Checking process status: {event}')
         # check that event corresponds to an expected application
         application_name = event['application_name']
         application = self.context.get_application(application_name)
@@ -293,7 +324,7 @@ class CheckSequenceTest(unittest.TestCase):
         state_event = program.pop_event()
         self.assertIsNotNone(state_event)
         # check the process' state
-        if type(state_event.statecode) == list:
+        if type(state_event.statecode) is list:
             assert event['statename'] in state_event.statename
             assert event['statecode'] in state_event.statecode
         else:
@@ -303,9 +334,9 @@ class CheckSequenceTest(unittest.TestCase):
         if state_event.statecode in [ProcessStates.STOPPING] + list(RUNNING_STATES):
             if state_event.identifiers:
                 self.assertEqual(sorted(state_event.identifiers), sorted(event['identifiers']))
-            program.identifiers.update(state_event.identifiers)
+        program.identifiers = event['identifiers']
         # update program state
-        program.state = state_event.statecode
+        program.state = event['statecode']
         program.expected_exit = event['expected_exit']
 
     def check_application_event(self, event):
@@ -314,7 +345,7 @@ class CheckSequenceTest(unittest.TestCase):
         application_name = event['application_name']
         application = self.context.get_application(application_name)
         self.assertIsNotNone(application)
-        self.evloop.logger.info(f'Checking application event={event} against {application.__dict__}')
+        self.evloop.logger.info(f'Checking application event={event} against {str(application)}')
         # check event contents in accordance with context
         if application.is_starting():
             self.assertDictContainsSubset({'statename': 'STARTING', 'statecode': ApplicationStates.STARTING.value},
@@ -328,8 +359,7 @@ class CheckSequenceTest(unittest.TestCase):
         else:
             self.assertDictContainsSubset({'statename': 'STOPPED', 'statecode': ApplicationStates.STOPPED.value},
                                           event)
-        self.assertEqual(application.has_major_failure(), event['major_failure'])
-        self.assertEqual(application.has_minor_failure(), event['minor_failure'])
+        self.assertEqual(application.get_failures(), (event['major_failure'], event['minor_failure']))
 
     def assertItemsEqual(self, lst1, lst2):
         """ Two lists are equal when they have the same size and when all elements of one are in the other one. """
