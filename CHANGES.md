@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.18 (2024-05-01)
+## 0.18 (2024-05-02)
 
 * Refactoring of the **Supvisors** internal communications.
   The `internal_port` of the **Supvisors** section in the Supervisor configuration file is no longer needed.
