@@ -18,8 +18,6 @@ from threading import Thread
 from unittest.mock import call, Mock
 
 import pytest
-from psutil._common import sdiskpart, sdiskusage, snicstats, NicDuplex, snetio
-from psutil._pslinux import scputimes, sdiskio, svmem
 
 from supvisors.statscollector import *
 
@@ -48,14 +46,15 @@ def proc_collector(pipes) -> ProcessStatisticsCollector:
 
 def test_instant_all_cpu_statistics(mocker):
     """ Test the instant CPU statistics. """
-    cpu = [scputimes(user=65919.51, nice=18.99, system=13700.28, idle=766409.77, iowait=157.04, irq=2131.91,
-                     softirq=873.11, steal=0.0, guest=0.0, guest_nice=0.0),
-           scputimes(user=67098.83, nice=32.07, system=14033.5, idle=764931.07, iowait=161.46, irq=1691.57,
-                     softirq=290.4, steal=0.0, guest=0.0, guest_nice=0.0),
-           scputimes(user=66759.99, nice=29.7, system=14034.68, idle=764897.24, iowait=206.5, irq=1990.81,
-                     softirq=288.8, steal=0.0, guest=0.0, guest_nice=0.0),
-           scputimes(user=66319.0, nice=31.91, system=13768.55, idle=766044.51, iowait=155.29, irq=1606.98,
-                     softirq=484.09, steal=0.0, guest=0.0, guest_nice=0.0)]
+    # psutil scputimes is platform-dependent, so Mock needed to pass GitHub actions
+    cpu = [Mock(user=65919.51, nice=18.99, system=13700.28, idle=766409.77, iowait=157.04, irq=2131.91,
+                softirq=873.11, steal=0.0, guest=0.0, guest_nice=0.0),
+           Mock(user=67098.83, nice=32.07, system=14033.5, idle=764931.07, iowait=161.46, irq=1691.57,
+                softirq=290.4, steal=0.0, guest=0.0, guest_nice=0.0),
+           Mock(user=66759.99, nice=29.7, system=14034.68, idle=764897.24, iowait=206.5, irq=1990.81,
+                softirq=288.8, steal=0.0, guest=0.0, guest_nice=0.0),
+           Mock(user=66319.0, nice=31.91, system=13768.55, idle=766044.51, iowait=155.29, irq=1606.98,
+                softirq=484.09, steal=0.0, guest=0.0, guest_nice=0.0)]
     mocker.patch('psutil.cpu_times', return_value=cpu)
     stats = instant_all_cpu_statistics()
     assert stats == [(82776.17000000001, 765740.72),
@@ -67,9 +66,10 @@ def test_instant_all_cpu_statistics(mocker):
 
 def test_instant_memory_statistics(mocker):
     """ Test the instant memory statistics. """
-    mem = svmem(total=16481181696, available=9487249408, percent=42.4, used=6530781184, free=541007872,
-                active=2982461440, inactive=11854032896, buffers=3313664, cached=9406078976, shared=117649408,
-                slab=643690496)
+    # psutil svmem is platform-dependent, so Mock needed to pass GitHub actions
+    mem = Mock(total=16481181696, available=9487249408, percent=42.4, used=6530781184, free=541007872,
+               active=2982461440, inactive=11854032896, buffers=3313664, cached=9406078976, shared=117649408,
+               slab=643690496)
     mocker.patch('psutil.virtual_memory', return_value=mem)
     stats = instant_memory_statistics()
     assert stats == 42.4
@@ -77,18 +77,20 @@ def test_instant_memory_statistics(mocker):
 
 def test_instant_net_io_statistics(mocker):
     """ Test the instant network I/O statistics. """
-    if_stats = {'lo': snicstats(isup=True, duplex=NicDuplex.NIC_DUPLEX_UNKNOWN, speed=0, mtu=65536),
-                'ens33': snicstats(isup=True, duplex=NicDuplex.NIC_DUPLEX_FULL, speed=1000, mtu=1500),
-                'virbr0': snicstats(isup=False, duplex=NicDuplex.NIC_DUPLEX_UNKNOWN, speed=65535, mtu=1500)}
-    io_counters = {'lo': snetio(bytes_sent=5278203410, bytes_recv=5278203410,
-                                packets_sent=10515881, packets_recv=10515881,
-                                errin=0, errout=0, dropin=0, dropout=0),
-                   'ens33': snetio(bytes_sent=2661175503, bytes_recv=3224236577,
-                                   packets_sent=6483142, packets_recv=7750813,
-                                   errin=0, errout=0, dropin=55057, dropout=0),
-                   'virbr0': snetio(bytes_sent=0, bytes_recv=0,
-                                    packets_sent=0, packets_recv=0,
-                                    errin=0, errout=0, dropin=0, dropout=0)}
+    # psutil snicstats is platform-dependent, so Mock needed to pass GitHub actions
+    if_stats = {'lo': Mock(isup=True, duplex=0, speed=0, mtu=65536),
+                'ens33': Mock(isup=True, duplex=2, speed=1000, mtu=1500),
+                'virbr0': Mock(isup=False, duplex=0, speed=65535, mtu=1500)}
+    # psutil snetio is platform-dependent, so Mock needed to pass GitHub actions
+    io_counters = {'lo': Mock(bytes_sent=5278203410, bytes_recv=5278203410,
+                              packets_sent=10515881, packets_recv=10515881,
+                              errin=0, errout=0, dropin=0, dropout=0),
+                   'ens33': Mock(bytes_sent=2661175503, bytes_recv=3224236577,
+                                 packets_sent=6483142, packets_recv=7750813,
+                                 errin=0, errout=0, dropin=55057, dropout=0),
+                   'virbr0': Mock(bytes_sent=0, bytes_recv=0,
+                                  packets_sent=0, packets_recv=0,
+                                  errin=0, errout=0, dropin=0, dropout=0)}
     mocker.patch('psutil.net_if_stats', return_value=if_stats)
     mocker.patch('psutil.net_io_counters', return_value=io_counters)
     stats = instant_net_io_statistics()
@@ -97,15 +99,16 @@ def test_instant_net_io_statistics(mocker):
 
 def test_instant_disk_io_statistics(mocker):
     """ Test the instant disk I/O statistics. """
-    io_counters = {'sda': sdiskio(read_count=124912, write_count=2988960, read_bytes=5147740160,
-                                  write_bytes=65686229504, read_time=2705493, write_time=7443910,
-                                  read_merged_count=558, write_merged_count=203120, busy_time=3683152),
-                   'sda1': sdiskio(read_count=180, write_count=56, read_bytes=18583552, write_bytes=29582848,
-                                   read_time=51, write_time=11996, read_merged_count=0, write_merged_count=8,
-                                   busy_time=1097),
-                   'sda2': sdiskio(read_count=124676, write_count=2988904, read_bytes=5127436288,
-                                   write_bytes=65656646656, read_time=2705435, write_time=7431913,
-                                   read_merged_count=558, write_merged_count=203112, busy_time=3682449)}
+    # psutil sdiskio is platform-dependent, so Mock needed to pass GitHub actions
+    io_counters = {'sda': Mock(read_count=124912, write_count=2988960, read_bytes=5147740160,
+                               write_bytes=65686229504, read_time=2705493, write_time=7443910,
+                               read_merged_count=558, write_merged_count=203120, busy_time=3683152),
+                   'sda1': Mock(read_count=180, write_count=56, read_bytes=18583552, write_bytes=29582848,
+                                read_time=51, write_time=11996, read_merged_count=0, write_merged_count=8,
+                                busy_time=1097),
+                   'sda2': Mock(read_count=124676, write_count=2988904, read_bytes=5127436288,
+                                write_bytes=65656646656, read_time=2705435, write_time=7431913,
+                                read_merged_count=558, write_merged_count=203112, busy_time=3682449)}
     mocker.patch('psutil.disk_io_counters', return_value=io_counters)
     stats = instant_disk_io_statistics()
     assert stats == {'sda': (5147740160, 65686229504),
@@ -115,14 +118,16 @@ def test_instant_disk_io_statistics(mocker):
 
 def test_instant_disk_usage_statistics(mocker):
     """ Test the instant disk usage statistics. """
-    partitions = [sdiskpart(device='/dev/mapper/rl_rocky51-root', mountpoint='/', fstype='xfs',
-                            opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
-                            maxfile=255,  maxpath=4096),
-                  sdiskpart(device='/dev/sda1', mountpoint='/boot', fstype='xfs',
-                            opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
-                            maxfile=255, maxpath=4096)]
-    usage = {'/': sdiskusage(total=37625499648, used=22722027520, free=14903472128, percent=60.4),
-             '/boot': sdiskusage(total=1063256064, used=453169152, free=610086912, percent=42.6)}
+    # psutil sdiskpart is platform-dependent, so Mock needed to pass GitHub actions
+    partitions = [Mock(device='/dev/mapper/rl_rocky51-root', mountpoint='/', fstype='xfs',
+                       opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
+                       maxfile=255, maxpath=4096),
+                  Mock(device='/dev/sda1', mountpoint='/boot', fstype='xfs',
+                       opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
+                       maxfile=255, maxpath=4096)]
+    # psutil sdiskusage is platform-dependent, so Mock needed to pass GitHub actions
+    usage = {'/': Mock(total=37625499648, used=22722027520, free=14903472128, percent=60.4),
+             '/boot': Mock(total=1063256064, used=453169152, free=610086912, percent=42.6)}
     mocker.patch('psutil.disk_partitions', return_value=partitions)
     mocker.patch('psutil.disk_usage', side_effect=lambda x: usage[x])
     stats = instant_disk_usage_statistics()
