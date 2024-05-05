@@ -105,12 +105,14 @@ def update_views() -> None:
     VIEWS['application.html'] = {'template': os.path.join(here, 'ui/application.html'), 'view': ApplicationView}
     # set main tail page (reuse of Supervisor tail.html)
     VIEWS['maintail.html'] = {'template': 'ui/tail.html', 'view': MainTailView}
-    # set fake page to export images
+    # set fake pages to export images
     VIEWS['process_cpu.png'] = {'template': None, 'view': ProcessCpuImageView}
     VIEWS['process_mem.png'] = {'template': None, 'view': ProcessMemoryImageView}
     VIEWS['host_cpu.png'] = {'template': None, 'view': HostCpuImageView}
     VIEWS['host_mem.png'] = {'template': None, 'view': HostMemoryImageView}
-    VIEWS['host_io.png'] = {'template': None, 'view': HostNetworkImageView}
+    VIEWS['host_net_io.png'] = {'template': None, 'view': HostNetworkIoImageView}
+    VIEWS['host_disk_io.png'] = {'template': None, 'view': HostDiskIoImageView}
+    VIEWS['host_disk_usage.png'] = {'template': None, 'view': HostDiskUsageImageView}
     VIEWS['supervisor_icon.png'] = {'template': None, 'view': SupervisorIconImage}
     VIEWS['software_icon.png'] = {'template': None, 'view': SoftwareIconImage}
 

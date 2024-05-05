@@ -517,7 +517,7 @@ def test_write_application_status(mocker, view):
     assert shex_a_mid.content.call_args_list == [call('[+]')]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
     assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='010'),
-                                                       call('', 'application.html', appliname='dummy_appli')]
+                                                       call('', 'application.html', appname='dummy_appli')]
     assert name_a_mid.content.call_args_list == [call('dummy_appli')]
     assert name_a_mid.attributes.call_args_list == [call(href='an url')]
     assert clear_td_mid.attrib['colspan'] == '3'
@@ -536,7 +536,7 @@ def test_write_application_status(mocker, view):
     assert shex_a_mid.content.call_args_list == [call('[\u2013]')]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
     assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='101'),
-                                                       call('', 'application.html', appliname='dummy_appli')]
+                                                       call('', 'application.html', appname='dummy_appli')]
     assert name_a_mid.content.call_args_list == [call('dummy_appli')]
     assert name_a_mid.attributes.call_args_list == [call(href='an url')]
     assert clear_td_mid.attrib['colspan'] == '3'

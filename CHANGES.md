@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.19 (2024-xx-xx)
+
+* Add disk usage and read/write statistics to the **Supvisors** Web UI.
+
+
 ## 0.18 (2024-05-02)
 
 * Refactoring of the **Supvisors** internal communications.
@@ -58,7 +63,7 @@
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 
-* Rework the Web UI.
+* Rework the **Supvisors** Web UI.
 
 
 ## 0.17.4 (2024-03-24)

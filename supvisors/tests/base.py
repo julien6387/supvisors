@@ -205,10 +205,12 @@ class DummyHttpContext:
                      'gravity': 'none',
                      'namespec': 'dummy_proc',
                      'processname': 'dummy_proc',
-                     'appliname': 'dummy_appli',
-                     'intfname': 'eth0',
+                     'appname': 'dummy_appli',
+                     'nic': 'eth0',
                      'period': 5.1,
-                     'auto': 'false'}
+                     'auto': 'false',
+                     'diskstats': 'io',
+                     'partition': '/', 'device': 'sda'}
         self.response = {'headers': {'Location': None}}
 
 

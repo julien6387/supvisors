@@ -335,7 +335,7 @@ def test_write_instance_box_application(supvisors, view):
     view._write_instance_box_application(appli_tr_elt, '10.0.0.1', application, True, [])
     # test elements
     assert appli_tr_elt.findmeld.call_args_list == [call('app_name_td_mid'), call('process_li_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1', APPLICATION_PAGE, appliname='dummy_appli',
+    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1', APPLICATION_PAGE, appname='dummy_appli',
                                                             ident='10.0.0.1', strategy='CONFIG')]
     assert app_name_td_mid.content.call_args_list == [call('dummy_appli')]
     assert app_name_td_mid.attributes.call_args_list == [call(href='an url')]

@@ -46,8 +46,9 @@ def test_init(http_context, ctx):
     assert ctx.supvisors is http_context.supervisord.supvisors
     assert ctx.local_identifier == ctx.supvisors.mapper.local_identifier
     assert ctx.parameters == {'ident': '10.0.0.4:25000', 'namespec': None, 'period': 5,
-                              'appliname': None, 'processname': None, 'cpuid': 0,
-                              'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
+                              'appname': None, 'processname': None, 'cpuid': 0,
+                              'nic': None, 'auto': False, 'strategy': 'CONFIG', 'shex': '',
+                              'diskstats': 'io', 'partition': None, 'device': None}
     # errors must be set due to dummy values
     assert isinstance(ctx.store_message, tuple)
     assert len(ctx.store_message) == 2
@@ -78,48 +79,53 @@ def test_get_gravity(ctx):
 def test_url_parameters(ctx):
     """ Test the ViewContext.url_parameters method. """
     # test default
-    assert ctx.url_parameters(False) == 'ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
-    assert ctx.url_parameters(True) == 'ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
+    assert ctx.url_parameters(False) == 'diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
+    assert ctx.url_parameters(True) == 'diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
     # update internal parameters
     ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'ident': '10.0.0.1:25000', 'cpuid': 3,
-                           'intfname': 'eth0', 'appliname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG',
-                           'shex': '10101'})
+                           'appname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG', 'shex': '10101',
+                           'nic': 'eth0', 'diskstats': 'usage', 'partition': '/', 'device': 'sda'})
     # test without additional parameters
     # don't reset shex
     url = ctx.url_parameters(False)
     # result depends on dict contents so ordering is unreliable
-    regexp = r'&'.join([url_attr_template for _ in range(9)])
+    regexp = r'&'.join([url_attr_template for _ in range(12)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1%3A25000', 'cpuid=3',
-                       'intfname=eth0', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG', 'shex=10101'))
+                       'nic=eth0', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG', 'shex=10101',
+                       'diskstats=usage', 'partition=/', 'device=sda'))
     assert sorted(matches.groups()) == expected
     # reset shex
     url = ctx.url_parameters(True)
     # result depends on dict contents so ordering is unreliable
-    regexp = r'&'.join([url_attr_template for _ in range(8)])
+    regexp = r'&'.join([url_attr_template for _ in range(11)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1%3A25000', 'cpuid=3',
-                       'intfname=eth0', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
+                       'nic=eth0', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG',
+                       'diskstats=usage', 'partition=/', 'device=sda'))
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # don't reset shex
-    url = ctx.url_parameters(False, **{'ident': '127.0.0.1:25000', 'intfname': 'lo', 'shex': 'args'})
-    regexp = r'&'.join([url_attr_template for _ in range(9)])
+    url = ctx.url_parameters(False, **{'ident': '127.0.0.1:25000', 'nic': 'lo', 'shex': 'args',
+                                       'diskstats': 'io', 'partition': '/boot', 'device': 'sdb'})
+    regexp = r'&'.join([url_attr_template for _ in range(12)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1%3A25000', 'cpuid=3',
-                       'intfname=lo', 'shex=args', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
+                       'nic=lo', 'shex=args', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG',
+                       'diskstats=io', 'partition=/boot', 'device=sdb'))
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # reset shex
-    url = ctx.url_parameters(True, **{'ident': '127.0.0.1:25000', 'intfname': 'lo', 'shex': 'args'})
-    regexp = r'&'.join([url_attr_template for _ in range(8)])
+    url = ctx.url_parameters(True, **{'ident': '127.0.0.1:25000', 'nic': 'lo', 'shex': 'args'})
+    regexp = r'&'.join([url_attr_template for _ in range(11)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1%3A25000', 'cpuid=3',
-                       'intfname=lo', 'appliname=dummy_appli', 'period=8', 'strategy=CONFIG'))
+                       'nic=lo', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG',
+                       'diskstats=usage', 'partition=/', 'device=sda'))
     assert sorted(matches.groups()) == expected
 
 
@@ -388,45 +394,96 @@ def test_update_cpu_id(mocker, ctx):
     assert mocked_update.call_args_list == [call(CPU, [0, 1, 2])]
 
 
-def test_update_interface_name(mocker, ctx):
-    """ Test the ViewContext.update_interface_name method. """
-    mocked_stats = mocker.patch('supvisors.web.viewcontext.ViewContext.get_instance_stats', return_value=None)
-    ctx = ViewContext(ctx.http_context)
+def test_update_nic_name(mocker, ctx):
+    """ Test the ViewContext.update_nic_name method. """
+    mocked_stats = mocker.patch.object(ctx, 'get_instance_stats', return_value=None)
     # reset parameter because called in constructor
-    del ctx.parameters[INTF]
-    # test call in case of address stats are not found
-    ctx.update_interface_name()
-    assert ctx.parameters[INTF] is None
+    del ctx.parameters[NIC]
+    # test call in case of host stats are not found
+    ctx.update_nic_name()
+    assert ctx.parameters[NIC] is None
     # reset parameter
-    del ctx.parameters[INTF]
-    # test call when address stats are found and process in list
-    mocked_stats.return_value = Mock(io={'lo': None})
-    ctx.update_interface_name()
-    assert ctx.parameters[INTF] == 'lo'
+    del ctx.parameters[NIC]
+    # test call when host stats are found and network interface not in list
+    mocked_stats.return_value = Mock(net_io={'lo': None})
+    ctx.update_nic_name()
+    assert ctx.parameters[NIC] == 'lo'
     # reset parameter
-    del ctx.parameters[INTF]
+    del ctx.parameters[NIC]
+    # test call when host stats are found and network interface  in list
+    mocked_stats.return_value = Mock(net_io={'lo': None, 'eth0': None})
+    ctx.update_nic_name()
+    assert ctx.parameters[NIC] == 'eth0'
+
+
+def test_update_disk_stats_choice(ctx):
+    """ Test the ViewContext.update_disk_stats_choice method. """
+    del ctx.parameters[DISK_STATS]
+    ctx.update_disk_stats_choice()
+    assert ctx.parameters[DISK_STATS] == 'io'
+
+
+def test_update_partition_name(mocker, ctx):
+    """ Test the ViewContext.update_partition_name method. """
+    mocked_stats = mocker.patch.object(ctx, 'get_instance_stats', return_value=None)
+    # reset parameter because called in constructor
+    del ctx.parameters[PARTITION]
+    # test call in case of host stats are not found
+    ctx.update_partition_name()
+    assert ctx.parameters[PARTITION] is None
+    # reset parameter
+    del ctx.parameters[PARTITION]
+    # test call when host stats are found and process not in list
+    mocked_stats.return_value = Mock(disk_usage={'/boot': None})
+    ctx.update_partition_name()
+    assert ctx.parameters[PARTITION] == '/boot'
+    # reset parameter
+    del ctx.parameters[PARTITION]
     # test call when address stats are found and process not in list
-    mocked_stats.return_value = Mock(io={'lo': None, 'eth0': None})
-    ctx.update_interface_name()
-    assert ctx.parameters[INTF] == 'eth0'
+    mocked_stats.return_value = Mock(disk_usage={'/': None, '/boot': None})
+    ctx.update_partition_name()
+    assert ctx.parameters[PARTITION] == '/'
+
+
+def test_update_device_name(mocker, ctx):
+    """ Test the ViewContext.update_device_name method. """
+    mocked_stats = mocker.patch.object(ctx, 'get_instance_stats', return_value=None)
+    # reset parameter because called in constructor
+    del ctx.parameters[DEVICE]
+    # test call in case of host stats are not found
+    ctx.update_device_name()
+    assert ctx.parameters[DEVICE] is None
+    # reset parameter
+    del ctx.parameters[DEVICE]
+    # test call when host stats are found and process in list
+    mocked_stats.return_value = Mock(disk_io={'sdb': None})
+    ctx.update_device_name()
+    assert ctx.parameters[DEVICE] == 'sdb'
+    # reset parameter
+    del ctx.parameters[DEVICE]
+    # test call when address stats are found and process not in list
+    mocked_stats.return_value = Mock(disk_io={'sdb': None, 'sda': None})
+    ctx.update_device_name()
+    assert ctx.parameters[DEVICE] == 'sda'
 
 
 def test_format_url(supvisors, ctx):
     """ Test the ViewContext.format_url method. """
     # test without node and arguments
-    assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
+    expected = 'index.html?diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
+    assert ctx.format_url(None, 'index.html') == expected
     # test with local node and arguments
     local_instance = supvisors.mapper.local_instance
     base_address = f'http://{local_instance.host_id}:25000/index.html?'
     url = ctx.format_url(ctx.local_identifier, 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
-    expected = 'appliname=dummy_appli&ident=10.0.0.4%3A25000&period=10&shex=args&strategy=CONFIG'
+    expected = 'appliname=dummy_appli&diskstats=io&ident=10.0.0.4%3A25000&period=10&shex=args&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
     url = ctx.format_url('10.0.0.1:25000', 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     base_address = 'http://10.0.0.1:25000/index.html?'
-    expected = 'appliname=dummy_appli&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
+    expected = 'appliname=dummy_appli&diskstats=io&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
     assert url == base_address + expected
 
 
@@ -437,7 +494,8 @@ def test_fire_message(ctx):
     # result depends on dict contents so ordering is unreliable
     url = ctx.http_context.response['headers']['Location']
     base_address = 'http://10.0.0.1:7777/index.html?'
-    expected = 'gravity=warning&ident=10.0.0.4%3A25000&message=not%20as%20expected&period=5.0&strategy=CONFIG'
+    expected = ('diskstats=io&gravity=warning&ident=10.0.0.4%3A25000&message=not%20as%20expected&period=5.0'
+                '&strategy=CONFIG')
     assert url == base_address + expected
 
 

@@ -39,7 +39,9 @@ class StatsImage:
 # instance for image buffers
 host_cpu_img = StatsImage()
 host_mem_img = StatsImage()
-host_io_img = StatsImage()
+host_net_io_img = StatsImage()
+host_disk_io_img = StatsImage()
+host_disk_usage_img = StatsImage()
 
 process_cpu_img = StatsImage()
 process_mem_img = StatsImage()
@@ -70,27 +72,43 @@ class ImageView:
 
 
 class HostCpuImageView(ImageView):
-    """ Dummy view holding the Address CPU image. """
+    """ Dummy view holding the Host CPU image. """
 
     def __init__(self, context):
-        """ Link to the Address CPU buffer. """
+        """ Link to the Host CPU buffer. """
         ImageView.__init__(self, context, host_cpu_img)
 
 
 class HostMemoryImageView(ImageView):
-    """ Dummy view holding the Address Memory image. """
+    """ Dummy view holding the Host Memory image. """
 
     def __init__(self, context):
-        """ Link to the Address Memory buffer. """
+        """ Link to the Host Memory buffer. """
         ImageView.__init__(self, context, host_mem_img)
 
 
-class HostNetworkImageView(ImageView):
-    """ Dummy view holding the Address Network image. """
+class HostNetworkIoImageView(ImageView):
+    """ Dummy view holding the Host Network IO image. """
 
     def __init__(self, context):
-        """ Link to the Address Network buffer. """
-        ImageView.__init__(self, context, host_io_img)
+        """ Link to the Host Network IO buffer. """
+        ImageView.__init__(self, context, host_net_io_img)
+
+
+class HostDiskIoImageView(ImageView):
+    """ Dummy view holding the Host Disk IO image. """
+
+    def __init__(self, context):
+        """ Link to the Host Network buffer. """
+        ImageView.__init__(self, context, host_disk_io_img)
+
+
+class HostDiskUsageImageView(ImageView):
+    """ Dummy view holding the Host Disk usage image. """
+
+    def __init__(self, context):
+        """ Link to the Host Disk usage buffer. """
+        ImageView.__init__(self, context, host_disk_usage_img)
 
 
 class ProcessCpuImageView(ImageView):

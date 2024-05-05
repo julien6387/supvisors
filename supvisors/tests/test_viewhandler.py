@@ -372,7 +372,7 @@ def test_write_nav_applications_operation(supvisors, handler):
     assert appli_elt.attrib['class'] == 'RUNNING failure'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert appli_a_mid.attrib['class'] == 'on'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli',
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appname='dummy_appli',
                                                                strategy='LESS_LOADED')]
     assert appli_a_mid.attributes.call_args_list == [call(href='an url')]
     assert appli_a_mid.content.call_args_list == [call('dummy_appli')]
@@ -388,7 +388,7 @@ def test_write_nav_applications_operation(supvisors, handler):
     assert appli_elt.attrib['class'] == 'RUNNING active'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert appli_a_mid.attrib['class'] == 'blink on'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli',
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appname='dummy_appli',
                                                                strategy='LESS_LOADED')]
     assert appli_a_mid.attributes.call_args_list == [call(href='an url')]
     assert appli_a_mid.content.call_args_list == [call('dummy_appli')]

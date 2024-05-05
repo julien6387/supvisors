@@ -70,3 +70,21 @@
     box-shadow: 0 2px #666;
     transform: translateY(-1px);
 }
+
+/* Button group based on button definition above */
+.button_group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.button_group .button:not(:first-child) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    margin-left: 1px;
+}
+
+.button_group .button:not(:last-child) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}

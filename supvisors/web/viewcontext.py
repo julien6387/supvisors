@@ -30,7 +30,7 @@ SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
 IDENTIFIER = 'ident'  # navigation
-APPLI = 'appliname'  # navigation
+APPLI = 'appname'  # navigation
 
 ACTION = 'action'
 NAMESPEC = 'namespec'   # used for actions
@@ -39,7 +39,10 @@ PROCESS = 'processname'  # used to tail (but also to display statistics)
 PERIOD = 'period'
 STRATEGY = 'strategy'
 CPU = 'cpuid'
-INTF = 'intfname'
+NIC = 'nic'
+DISK_STATS = 'diskstats'
+PARTITION = 'partition'
+DEVICE = 'device'
 AUTO = 'auto'  # auto-refresh
 LIMIT = 'limit'
 
@@ -80,7 +83,10 @@ class ViewContext:
         self.update_shrink_expand()
         self.update_period()
         self.update_cpu_id()
-        self.update_interface_name()
+        self.update_nic_name()
+        self.update_disk_stats_choice()
+        self.update_partition_name()
+        self.update_device_name()
 
     def get_action(self):
         """ Extract action requested in context form. """
@@ -149,13 +155,33 @@ class ViewContext:
         """ Extract CPU id from context. """
         self._update_integer(CPU, list(range(self.get_nb_cores() + 1)))
 
-    def update_interface_name(self) -> None:
+    def update_nic_name(self) -> None:
+        """ Extract network interface name from context.
+        Only the HostInstanceView displays interface data, so it's local. """
+        stats_instance = self.get_instance_stats()
+        interfaces = stats_instance.net_io.keys() if stats_instance else []
+        default_value = next(iter(interfaces), None)
+        self._update_string(NIC, interfaces, default_value)
+
+    def update_disk_stats_choice(self) -> None:
+        """ Extract the disk stats choice. """
+        self._update_string(DISK_STATS, ['usage', 'io'], 'io')
+
+    def update_partition_name(self) -> None:
         """ Extract interface name from context.
         Only the HostInstanceView displays interface data, so it's local. """
         stats_instance = self.get_instance_stats()
-        interfaces = stats_instance.io.keys() if stats_instance else []
-        default_value = next(iter(interfaces), None)
-        self._update_string(INTF, interfaces, default_value)
+        partitions = stats_instance.disk_usage.keys() if stats_instance else []
+        default_value = next(iter(partitions), None)
+        self._update_string(PARTITION, partitions, default_value)
+
+    def update_device_name(self) -> None:
+        """ Extract interface name from context.
+        Only the HostInstanceView displays interface data, so it's local. """
+        stats_instance = self.get_instance_stats()
+        devices = stats_instance.disk_io.keys() if stats_instance else []
+        default_value = next(iter(devices), None)
+        self._update_string(DEVICE, devices, default_value)
 
     def get_default_shex(self, expanded: bool) -> bytearray:
         """ Get a default shex bytearray filled with 1 if expanded.

@@ -496,13 +496,13 @@ class ViewHandler(MeldView):
             return True
 
     def _write_common_detailed_statistics(self, ref_elt, stats, timeline, val_mid, avg_mid, slope_mid, dev_mid):
-        """ Rendering of the memory statistics. """
+        """ Common rendering of statistics. """
         if len(stats) > 0:
             # get additional statistics
             avg, rate, (slope, _), dev = get_stats(timeline, stats)
             # set last value
             elt = ref_elt.findmeld(val_mid)
-            if rate is not None:
+            if rate is not None and not math.isinf(rate):
                 self.set_slope_class(elt, rate)
             elt.content(get_small_value(stats[-1]))
             # set mean value

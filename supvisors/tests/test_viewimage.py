@@ -43,8 +43,12 @@ def test_host_instances():
     assert host_cpu_img.contents is None
     assert host_mem_img is not None
     assert host_mem_img.contents is None
-    assert host_io_img is not None
-    assert host_io_img.contents is None
+    assert host_net_io_img is not None
+    assert host_net_io_img.contents is None
+    assert host_disk_io_img is not None
+    assert host_disk_io_img.contents is None
+    assert host_disk_usage_img is not None
+    assert host_disk_usage_img.contents is None
 
 
 def test_process_instances():
@@ -93,10 +97,22 @@ def test_host_memory_image_view():
     assert view.buffer is host_mem_img
 
 
-def test_host_network_image_view():
-    """ Test the HostNetworkImageView class. """
-    view = HostNetworkImageView(DummyHttpContext())
-    assert view.buffer is host_io_img
+def test_host_network_io_image_view():
+    """ Test the HostNetworkIoImageView class. """
+    view = HostNetworkIoImageView(DummyHttpContext())
+    assert view.buffer is host_net_io_img
+
+
+def test_host_disk_io_image_view():
+    """ Test the HostDiskIoImageView class. """
+    view = HostDiskIoImageView(DummyHttpContext())
+    assert view.buffer is host_disk_io_img
+
+
+def test_host_disk_usage_image_view():
+    """ Test the HostDiskUsageImageView class. """
+    view = HostDiskUsageImageView(DummyHttpContext())
+    assert view.buffer is host_disk_usage_img
 
 
 def test_process_cpu_image_view():
