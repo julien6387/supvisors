@@ -91,13 +91,14 @@ class ApplicationView(ViewHandler):
         selected_strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
         for strategy in StartingStrategies:
-            elt = header_elt.findmeld('%s_a_mid' % strategy.name.lower())
+            button_elt = header_elt.findmeld('%s_div_mid' % strategy.name.lower())
+            href_elt = button_elt.findmeld('%s_a_mid' % strategy.name.lower())
             if selected_strategy == strategy.name:
-                update_attrib(elt, 'class', 'off active')
+                update_attrib(button_elt, 'class', 'off active')
             else:
-                update_attrib(elt, 'class', 'on')
+                update_attrib(button_elt, 'class', 'on')
                 url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: strategy.name})
-                elt.attributes(href=url)
+                href_elt.attributes(href=url)
 
     def write_actions(self, header_elt):
         """ Write actions related to the application. """

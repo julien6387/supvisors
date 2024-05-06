@@ -150,26 +150,33 @@ def test_write_starting_strategy(view):
     """ Test the write_starting_strategy method. """
     # patch the view context
     view.view_ctx = Mock(parameters={STRATEGY: 'CONFIG'}, **{'format_url.return_value': 'an url'})
-    # patch the meld elements
-    strategy_mids = [Mock(attrib={'class': ''}) for _ in StartingStrategies]
-    mocked_root = Mock(**{'findmeld.side_effect': strategy_mids * len(strategy_mids)})
+    # create the xhtml structure
+    strategy_button_mids, strategy_href_mids = {}, {}
+    for strategy in StartingStrategies:
+        # create hyperlink element
+        href_elt = create_element()
+        href_name = '%s_a_mid' % strategy.name.lower()
+        strategy_href_mids[href_name] = href_elt
+        # create button element
+        button_elt = create_element({href_name: href_elt})
+        button_name = '%s_div_mid' % strategy.name.lower()
+        strategy_button_mids[button_name] = button_elt
+    header_elt = create_element(strategy_button_mids)
     # test all strategies in loop
     for strategy in StartingStrategies:
         view.view_ctx.parameters[STRATEGY] = strategy.name
-        view.write_starting_strategy(mocked_root)
+        view.write_starting_strategy(header_elt)
         # other strategy_mids are not selected
         for strategy2 in StartingStrategies:
-            idx = strategy2.value
+            button_name = '%s_div_mid' % strategy2.name.lower()
+            href_name = '%s_a_mid' % strategy2.name.lower()
             if strategy2.value == strategy.value:
-                # strategy_mid at same index is selected
-                assert strategy_mids[idx].attrib['class'] == 'off active'
-                assert strategy_mids[idx].attributes.call_args_list == []
+                assert strategy_button_mids[button_name].attrib['class'] == 'off active'
+                assert strategy_href_mids[href_name].attributes.call_args_list == []
             else:
-                assert strategy_mids[idx].attrib['class'] == 'on'
-                assert strategy_mids[idx].attributes.call_args_list == [call(href='an url')]
-            # reset mocks
-            strategy_mids[idx].attrib['class'] = ''
-            strategy_mids[idx].attributes.reset_mock()
+                assert strategy_button_mids[button_name].attrib['class'] == 'on'
+                assert strategy_href_mids[href_name].attributes.call_args_list == [call(href='an url')]
+        header_elt.reset_all()
 
 
 def test_write_actions(mocker, view):

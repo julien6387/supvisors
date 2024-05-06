@@ -18,7 +18,7 @@
  * Supvisors Instance pages style
  */
 
-/* Header part */
+/* Header status part */
 #instance_status table.status img {
     width: 25px;
     position: relative;
@@ -34,4 +34,3 @@
 .hmode {
     font-size: 1.2em;
 }
-

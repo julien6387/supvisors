@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="css/card.css" />
     <link rel="stylesheet" href="css/header.css" />
     <link rel="stylesheet" href="css/message.css" />
-    <link rel="stylesheet" href="css/host_instance.css" />
     <link rel="stylesheet" href="css/instance.css" />
+    <link rel="stylesheet" href="css/host_instance.css" />
     <style meld:id="style_mid"> </style>
 </head>
 
@@ -101,24 +101,22 @@
 
                 <div class="card" meld:id="option_card_mid">
                     <div meld:id="view_div_mid">
-                        <table class="optionBox">
-                            <tr><th>Statistics View</th></tr>
-                            <tr><td><ul class="linear">
-                                <li><a href="#" meld:id="process_view_a_mid" class="button on ">Processes</a></li>
-                                <li><a href="#" meld:id="host_view_a_mid" class="button off active">Host</a></li>
-                            </ul></td></tr>
-                        </table>
+                        <div class="option_box">
+                            <div class="option_title">Statistics View</div>
+                            <div class="button_group">
+                                <div class="button on"><a href="#" meld:id="process_view_a_mid">Processes</a></div>
+                                <div class="button off active" meld:id="host_view_a_mid">--</div>
+                            </div>
+                        </div>
                     </div>
 
                     <div meld:id="period_div_mid">
-                        <table class="optionBox">
-                            <tr><th>Statistics Periods</th></tr>
-                            <tr><td><ul class="linear">
-                                <li meld:id="period_li_mid">
-                                    <a href="#" meld:id="period_a_mid" class="button">5</a>
-                                </li>
-                            </ul></td></tr>
-                        </table>
+                        <div class="option_box">
+                            <div class="option_title">Statistics Periods</div>
+                            <div class="button_group">
+                                <div class="button" meld:id="period_li_mid"><a href="#" meld:id="period_a_mid">--</a></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

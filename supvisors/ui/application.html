@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="css/card.css" />
     <link rel="stylesheet" href="css/header.css" />
     <link rel="stylesheet" href="css/message.css" />
-    <link rel="stylesheet" href="css/application.css" />
     <link rel="stylesheet" href="css/process_table.css" />
+    <link rel="stylesheet" href="css/application.css" />
     <style meld:id="style_mid"> </style>
 </head>
 
@@ -95,52 +95,30 @@
 
                 <div class="card" meld:id="option_card_mid">
                     <div>
-                        <table class="optionBox" id="strategies">
-                            <thead>
-                                <tr>
-                                    <th>Starting strategies</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <ul class="linear">
-                                            <li><a href="#" meld:id="config_a_mid" class="button">CONFIG</a></li>
-                                            <li><a href="#" meld:id="most_loaded_a_mid" class="button">MOST_LOADED</a></li>
-                                            <li><a href="#" meld:id="less_loaded_a_mid" class="button">LESS_LOADED</a></li>
-                                            <li><a href="#" meld:id="local_a_mid" class="button">LOCAL</a></li>
-                                        </ul>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <ul class="linear">
-                                            <li><a href="#" meld:id="most_loaded_node_a_mid" class="button">MOST_LOADED_NODE</a></li>
-                                            <li><a href="#" meld:id="less_loaded_node_a_mid" class="button">LESS_LOADED_NODE</a></li>
-                                        </ul>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="option_box">
+                            <div class="option_title">Starting strategies</div>
+                            <div id="strategies">
+                                <div class="button_group">
+                                    <div class="button" meld:id="config_div_mid"><a href="#" meld:id="config_a_mid">CONFIG</a></div>
+                                    <div class="button" meld:id="most_loaded_div_mid"><a href="#" meld:id="most_loaded_a_mid">MOST_LOADED</a></div>
+                                    <div class="button" meld:id="less_loaded_div_mid"><a href="#" meld:id="less_loaded_a_mid">LESS_LOADED</a></div>
+                                    <div class="button" meld:id="local_div_mid"><a href="#" meld:id="local_a_mid">LOCAL</a></div>
+                                </div>
+                                <div class="button_group">
+                                    <div class="button" meld:id="most_loaded_node_div_mid"><a href="#" meld:id="most_loaded_node_a_mid">MOST_LOADED_NODE</a></div>
+                                    <div class="button" meld:id="less_loaded_node_div_mid"><a href="#" meld:id="less_loaded_node_a_mid">LESS_LOADED_NODE</a></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div meld:id="period_div_mid">
-                        <table class="optionBox">
-                            <thead>
-                                <tr>
-                                    <th>Statistics Periods</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <ul class="linear">
-                                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button">Period</a></li>
-                                        </ul>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="option_box">
+                            <div class="option_title">Statistics Periods</div>
+                            <div class="button_group">
+                                <div class="button" meld:id="period_li_mid"><a href="#" meld:id="period_a_mid">--</a></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
