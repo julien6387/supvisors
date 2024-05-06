@@ -35,17 +35,17 @@ public class SupvisorsHostStatistics {
      */
      public class IOBytes {
 
-        /** The number of bytes received on the interface. */
+        /** The number of bytes received/read on the interface. */
         private float recvBytes;
 
-        /** The number of bytes sent on the interface. */
+        /** The number of bytes sent/written on the interface. */
         private float sentBytes;
 
     /**
      * The IOBytes constructor.
      *
-     * @param float recvBytes: The number of received bytes.
-     * @param float sentBytes: The number of sent bytes.
+     * @param float recvBytes: The number of received/read bytes.
+     * @param float sentBytes: The number of sent/written bytes.
      */
      public IOBytes(float recvBytes, float sentBytes) {
             this.recvBytes = recvBytes;
@@ -68,8 +68,14 @@ public class SupvisorsHostStatistics {
     /** The current Memory occupation on the host. */
     private Float mem;
 
-    /** The IO statistics. */
-    private HashMap<String, List<Float>> io;
+    /** The Network IO statistics. */
+    private HashMap<String, List<Float>> net_io;
+
+    /** The Disk IO statistics. */
+    private HashMap<String, List<Float>> disk_io;
+
+    /** The Disk usage statistics. */
+    private HashMap<String, Float> disk_usage;
 
     /**
      * This constructor gets all information from a HashMap.
@@ -84,7 +90,9 @@ public class SupvisorsHostStatistics {
         this.period = DataConversion.arrayToFloatList((Object[]) statsInfo.get("period"));
         this.cpu = DataConversion.arrayToFloatList((Object[]) statsInfo.get("cpu"));
         this.mem = (Float) statsInfo.get("memory");
-        this.io = (HashMap<String, List<Float>>) statsInfo.get("io");
+        this.net_io = (HashMap<String, List<Float>>) statsInfo.get("net_io");
+        this.disk_io = (HashMap<String, List<Float>>) statsInfo.get("disk_io");
+        this.disk_usage = (HashMap<String, Float>) statsInfo.get("disk_usage");
     }
 
     /**
@@ -153,21 +161,39 @@ public class SupvisorsHostStatistics {
     }
 
     /**
-     * The getIO method returns the number of received and sent bytes on every network interfaces.
+     * The getNetworkIO method returns the number of received and sent bytes on every network interfaces.
      *
      * @return HashMap<String, List<Float>: The number of received and sent bytes per network interface.
      */
-    public HashMap<String, List<Float>> getIO() {
-        return this.io;
+    public HashMap<String, List<Float>> getNetworkIO() {
+        return this.net_io;
     }
 
     /**
-     * The getInterfaces method returns the network interfaces names.
+     * The getDiskIO method returns the number of received and sent bytes on every physical devices.
+     *
+     * @return HashMap<String, List<Float>: The number of read and written bytes per physical device.
+     */
+    public HashMap<String, List<Float>> getDiskIO() {
+        return this.disk_io;
+    }
+
+    /**
+     * The getDiskUsage method returns the occupation percentage on every physical partitions.
+     *
+     * @return HashMap<String, Float: The occupation percentage per physical partition.
+     */
+    public HashMap<String, Float> getDiskUsage() {
+        return this.disk_usage;
+    }
+
+    /**
+     * The getNetworkInterfaces method returns the network interfaces names.
      *
      * @return Set<String>: The network interfaces names.
      */
-    Set<String> getInterfaces() {
-        return this.io.keySet();
+    Set<String> getNetworkInterfaces() {
+        return this.net_io.keySet();
     }
 
     /**
@@ -177,7 +203,7 @@ public class SupvisorsHostStatistics {
      * @return IOBytes: The number of received and sent bytes on the network interface.
      */
     IOBytes getInterfaceBytes(final String interfaceName) {
-        List<Float> bytesList = this.io.get(interfaceName);
+        List<Float> bytesList = this.net_io.get(interfaceName);
         return new IOBytes(bytesList.get(0).floatValue(), bytesList.get(1).floatValue());
     }
 
@@ -193,8 +219,10 @@ public class SupvisorsHostStatistics {
             + " startPeriod=" + this.getStartPeriod()
             + " endPeriod=" + this.getEndPeriod()
             + " cpu=" + this.getAverageCPU()
-            + " memory=" + this.getMemory()
-            + " io=" + this.getIO()
+            + " memory=" + this.mem
+            + " netIO=" + this.net_io
+            + " diskIO=" + this.disk_io
+            + " diskUsage=" + this.disk_usage
              + ")";
     }
 

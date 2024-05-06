@@ -63,7 +63,7 @@ Key	               Type               Value
 ========================= ========== ==================
 Key	                      Type       Value
 ========================= ========== ==================
-'identifier'              ``str``    The deduced name of the |Supvisors| instance.
+'identifier'              ``str``    The identifier of the |Supvisors| instance.
 'node_name'               ``str``    The name of the node where the |Supvisors| instance is running.
 'port'                    ``int``    The HTTP port of the |Supvisors| instance.
 'statecode'               ``int``    The |Supvisors| instance state, in [0;6].
@@ -121,7 +121,7 @@ Key	               Type              Value
 'expected_exit'    ``bool``          True if the exit status is expected (only when state is ``'EXITED'``).
 'last_event_time'  ``float``         The date of the last process event received for this process, regardless
                                      of the originating |Supvisors| instance.
-'identifiers'      ``list(str)``     The deduced names of the |Supvisors| instances where the process is running.
+'identifiers'      ``list(str)``     The identifiers of the |Supvisors| instances where the process is running.
 'extra_args'       ``str``           The additional arguments passed to the command line of the process.
 ================== ================= ==================
 
@@ -146,7 +146,7 @@ Key                Type              Value
 'expected'         ``bool``          True if the exit status is expected (only when state is 100 - ``EXITED``).
 'now'              ``float``         The monotonic time of the event in the reference time of the host.
 'pid'              ``int``           The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
-'identifier'       ``str``           The deduced name of the |Supvisors| instance that sent the initial event.
+'identifier'       ``str``           The identifier of the |Supvisors| instance that sent the initial event.
 'extra_args'       ``str``           The additional arguments passed to the command line of the process.
 'disabled'         ``bool``          True if the process is disabled on the |Supvisors| instance.
 ================== ================= ==================
@@ -158,14 +158,17 @@ Host statistics
 ================== ========================= ==================
 Key                Type                      Value
 ================== ========================= ==================
-'identifier'       ``str``                   The deduced name of the |Supvisors| instance.
-'target_period'    ``float``                 The configured integration period.
-'period'           ``list(float)``           The start and end uptimes of the integration period, as a list of 2 values.
-'cpu'              ``list(float)``           The CPU (IRIX mode) on the node.
+'identifier'       ``str``                   The identifier of the |Supvisors| instance.
+'target_period'    ``float``                 The configured integration period, in seconds.
+'period'           ``list(float)``           The start and end uptimes of the integration period, as a list of 2 values
+                                             in seconds.
+'cpu'              ``list(float)``           The CPU (IRIX mode) on the node, in percent.
                                              The first element of the list is the average CPU.
                                              The following elements correspond to the CPU on every processor core.
-'mem'              ``float``                 The memory occupation on the node.
-'io'               ``dict(str,list(float)``  The Process namespec.
+'mem'              ``float``                 The memory occupation on the node, in percent.
+'net_io'           ``dict(str, list(float)`` The received and sent bytes per network interface.
+'disk_io'          ``dict(str, list(float)`` The read and written bytes per physical device.
+'disk_usage'       ``dict(str, float)``      The usage per physical partition, in percent.
 ================== ========================= ==================
 
 
@@ -176,11 +179,11 @@ Process statistics
 Key                Type              Value
 ================== ================= ==================
 'namespec'         ``str``           The Process namespec.
-'identifier'       ``str``           The deduced name of the |Supvisors| instance.
-'target_period'    ``float``         The configured integration period.
-'period'           ``list(float)``   The start and end uptimes of the integration period, as a list of 2 values.
-'cpu'              ``float``         The CPU (IRIX mode) of the process on the node.
-'mem'              ``float``         The memory occupation of the process on the node.
+'identifier'       ``str``           The identifier of the |Supvisors| instance.
+'target_period'    ``float``         The configured integration period, in seconds.
+'period'           ``list(float)``   The start and end uptimes of the integration period, as a list of 2 values in seconds.
+'cpu'              ``float``         The CPU (IRIX mode) of the process on the node, in percent.
+'mem'              ``float``         The memory occupation of the process on the node, in percent.
 ================== ================= ==================
 
 

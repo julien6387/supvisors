@@ -180,7 +180,7 @@ class HostStatisticsInstance:
                           'mem': mem,
                           'net_io': net_io.copy(),
                           'disk_io': disk_io.copy(),
-                          'disk_usage': disk_usage.copy()}
+                          'disk_usage': {k: v[0] for k, v in disk_usage.items()}}
                 # add new values
                 self._push_times_stats(uptime)
                 self._push_cpu_stats(cpu)

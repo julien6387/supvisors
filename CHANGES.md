@@ -3,6 +3,7 @@
 ## 0.19 (2024-xx-xx)
 
 * Add disk usage and read/write statistics to the **Supvisors** Web UI.
+  Disk statistics are published to the event interface and the JAVA client has been updated accordingly.
 
 
 ## 0.18 (2024-05-02)
@@ -11,7 +12,7 @@
   The `internal_port` of the **Supvisors** section in the Supervisor configuration file is no longer needed.
   As a consequence, the `supvisors_list` option is simplified as follows: `<identifier>host_name:http_port`. 
   The transitional `SupvisorsInstanceStates.ISOLATING` state has been removed.
-  The remote **Supvisors** instance becomes `SILENT` as soon as the published events fails due to a transport issue.
+  The remote **Supvisors** instance becomes `SILENT` as soon as the event publication fails due to a transport issue.
 
 * Implement [Issue #50](https://github.com/julien6387/supvisors/issues/50).
   A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the
