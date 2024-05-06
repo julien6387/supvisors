@@ -24,7 +24,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from supervisor.childutils import getRPCInterface
 from supervisor.compat import xmlrpclib
-from supervisor.loggers import Logger
+from supervisor.loggers import Logger, LevelsByName
 from supervisor.xmlrpc import RPCError
 
 from supvisors.instancestatus import SupvisorsInstanceStatus
@@ -91,10 +91,11 @@ class SupervisorProxy:
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
         except (OSError, HTTPException) as exc:
             # transport issue due to network or remote Supervisor failure (includes a bunch of exceptions, such as
-            # socket.gaierror, ConnectionResetError, CannotSendRequest, IncompleteRead, etc.)
-            # the proxy is not operational
-            self.logger.error(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier} not reachable'
-                              f' - {str(exc)}')
+            # socket.gaierror, ConnectionResetError, ConnectionRefusedError, CannotSendRequest, IncompleteRead, etc.)
+            # the proxy is not operational - error log only if instance is active
+            log_level = LevelsByName.ERRO if self.status.has_active_state() else LevelsByName.DEBG
+            message = f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier} not reachable - {str(exc)}'
+            self.logger.log(log_level, message)
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
             raise SupervisorProxyException
         except xmlrpclib.Fault as exc:
