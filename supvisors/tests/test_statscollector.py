@@ -47,21 +47,22 @@ def proc_collector(pipes) -> ProcessStatisticsCollector:
 def test_instant_all_cpu_statistics(mocker):
     """ Test the instant CPU statistics. """
     # psutil scputimes is platform-dependent, so Mock needed to pass GitHub actions
-    cpu = [Mock(user=65919.51, nice=18.99, system=13700.28, idle=766409.77, iowait=157.04, irq=2131.91,
-                softirq=873.11, steal=0.0, guest=0.0, guest_nice=0.0),
-           Mock(user=67098.83, nice=32.07, system=14033.5, idle=764931.07, iowait=161.46, irq=1691.57,
-                softirq=290.4, steal=0.0, guest=0.0, guest_nice=0.0),
-           Mock(user=66759.99, nice=29.7, system=14034.68, idle=764897.24, iowait=206.5, irq=1990.81,
-                softirq=288.8, steal=0.0, guest=0.0, guest_nice=0.0),
-           Mock(user=66319.0, nice=31.91, system=13768.55, idle=766044.51, iowait=155.29, irq=1606.98,
-                softirq=484.09, steal=0.0, guest=0.0, guest_nice=0.0)]
+    # use only integers to avoid comparison on floating values
+    cpu = [Mock(user=65919, nice=19, system=13700, idle=766409, iowait=157, irq=2131,
+                softirq=873, steal=0, guest=0, guest_nice=0),
+           Mock(user=67098, nice=32, system=14033, idle=764931, iowait=161, irq=1691,
+                softirq=290, steal=0, guest=0, guest_nice=0),
+           Mock(user=66759, nice=29, system=14034, idle=764897, iowait=206, irq=1990,
+                softirq=288, steal=0, guest=0, guest_nice=0),
+           Mock(user=66319, nice=31, system=13768, idle=766044, iowait=155, irq=1606,
+                softirq=484, steal=0, guest=0, guest_nice=0)]
     mocker.patch('psutil.cpu_times', return_value=cpu)
     stats = instant_all_cpu_statistics()
-    assert stats == [(82776.17000000001, 765740.72),
-                     (82643.8, 766566.81),
-                     (83146.37000000001, 765092.5299999999),
-                     (83103.98, 765103.74),
-                     (82210.53, 766199.8)]
+    assert stats == [(82773.5, 765740.0),
+                     (82642, 766566),
+                     (83144, 765092),
+                     (83100, 765103),
+                     (82208, 766199)]
 
 
 def test_instant_memory_statistics(mocker):

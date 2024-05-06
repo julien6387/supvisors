@@ -265,7 +265,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
               'disk_io': {'sda': [], 'sda1': []},
               'disk_usage': {'/': [], '/boot': []}}
     mocked_stats.return_value = (12.2, ['cpu_stats 3'], 76.1, {'net_io_stats 3': []},
-                                 {'disk_io_stats 3': []}, {'disk_usage_stats 3': []})
+                                 {'disk_io_stats 3': []}, {'disk_usage_stats 3': [75]})
     result = host_statistics_instance.push_statistics(stats3)
     # this update is taken into account
     assert result == {'identifier': '10.0.0.1',
@@ -275,7 +275,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
                       'mem': 76.1,
                       'net_io': {'net_io_stats 3': []},
                       'disk_io': {'disk_io_stats 3': []},
-                      'disk_usage': {'disk_usage_stats 3': []}}
+                      'disk_usage': {'disk_usage_stats 3': 75}}
     # check evolution of instance
     assert host_statistics_instance.ref_start_time == 1.0
     assert host_statistics_instance.ref_stats is stats3
@@ -285,7 +285,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     assert mocked_mem.call_args_list == [call(76.1)]
     assert mocked_net_io.call_args_list == [call({'net_io_stats 3': []}, 12.2)]
     assert mocked_disk_io.call_args_list == [call({'disk_io_stats 3': []}, 12.2)]
-    assert mocked_disk_usage.call_args_list == [call({'disk_usage_stats 3': []}, 12.2)]
+    assert mocked_disk_usage.call_args_list == [call({'disk_usage_stats 3': [75]}, 12.2)]
     mocker.resetall()
     # push fourth set of measures (reuse stats2)
     result = host_statistics_instance.push_statistics(stats2)
@@ -306,7 +306,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
               'disk_io': {'sda': [], 'sda1': []},
               'disk_usage': {'/': [], '/boot': []}}
     mocked_stats.return_value = (38.5, ['cpu_stats 5'], 75.9, {'net_io_stats 5': []},
-                                 {'disk_io_stats 5': []}, {'disk_usage_stats 5': []})
+                                 {'disk_io_stats 5': []}, {'disk_usage_stats 5': [68]})
     result = host_statistics_instance.push_statistics(stats5)
     # this update is taken into account
     assert result == {'identifier': '10.0.0.1',
@@ -316,7 +316,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
                       'mem': 75.9,
                       'net_io': {'net_io_stats 5': []},
                       'disk_io': {'disk_io_stats 5': []},
-                      'disk_usage': {'disk_usage_stats 5': []}}
+                      'disk_usage': {'disk_usage_stats 5': 68}}
     # check evolution of instance
     assert host_statistics_instance.ref_start_time == 1.0
     assert host_statistics_instance.ref_stats is stats5
@@ -326,7 +326,8 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     assert mocked_mem.call_args_list == [call(75.9)]
     assert mocked_net_io.call_args_list == [call({'net_io_stats 5': []}, 38.5)]
     assert mocked_disk_io.call_args_list == [call({'disk_io_stats 5': []}, 38.5)]
-    assert mocked_disk_usage.call_args_list == [call({'disk_usage_stats 5': []}, 38.5)]
+    assert mocked_disk_usage.call_args_list == [call({'disk_usage_stats 5': [68]}, 38.5)]
+
 
 @pytest.fixture
 def host_statistics_compiler(supvisors):
