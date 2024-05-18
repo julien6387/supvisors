@@ -33,6 +33,9 @@ from .supervisordata import SupervisorData
 from .supervisorupdater import SupervisorUpdater
 from .ttypes import Payload
 
+# use ';' in logger output as separator as easier to cut
+LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
+
 
 def create_logger(supervisor: Supervisor, logger_config: Payload) -> Logger:
     """ Create the logger that will be used in Supvisors.
@@ -44,7 +47,7 @@ def create_logger(supervisor: Supervisor, logger_config: Payload) -> Logger:
         # use Supervisord logger but patch format anyway
         logger = supervisor.options.logger
         for handler in logger.handlers:
-            handler.setFormat(Supvisors.LOGGER_FORMAT)
+            handler.setFormat(LOGGER_FORMAT)
         return logger
     # else create own Logger using Supervisor functions
     nodaemon = supervisor.options.nodaemon
@@ -54,10 +57,8 @@ def create_logger(supervisor: Supervisor, logger_config: Payload) -> Logger:
     # when not tagged, Supervisor closes it
     logger.SUPVISORS = True
     if nodaemon and not silent:
-        handle_stdout(logger, Supvisors.LOGGER_FORMAT)
-    handle_file(logger,
-                logfile,
-                Supvisors.LOGGER_FORMAT,
+        handle_stdout(logger, LOGGER_FORMAT)
+    handle_file(logger, logfile, LOGGER_FORMAT,
                 rotating=not not logger_config['logfile_maxbytes'],
                 maxbytes=logger_config['logfile_maxbytes'],
                 backups=logger_config['logfile_backups'])
@@ -66,9 +67,6 @@ def create_logger(supervisor: Supervisor, logger_config: Payload) -> Logger:
 
 class Supvisors:
     """ The Supvisors class used as a global structure passed to most Supvisors objects. """
-
-    # use ';' in logger output as separator as easier to cut
-    LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
 
     def __init__(self, supervisor: Supervisor, **config) -> None:
         """ Instantiation of all the Supvisors objects.

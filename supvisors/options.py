@@ -41,8 +41,8 @@ def get_logger_configuration(**config) -> Payload:
         - logfile_backups: number of Supvisors backup log files ;
         - loglevel: logging level.
 
-    :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section
-    :return: a dictionary containing the logger parameters
+    :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section.
+    :return: a dictionary containing the logger parameters.
     """
     return {'logfile': logfile_name(config.get('logfile', Automatic)),
             'logfile_maxbytes': byte_size(config.get('logfile_maxbytes', '50MB')),
@@ -232,11 +232,11 @@ class SupvisorsOptions:
     def _get_value(self, config: Payload, attr: str, default_value, fct=None):
         """ Read and convert the option.
 
-        :param config: the option dictionary
-        :param attr: the option considered
-        :param default_value: the default value to apply if not found in config or erroneous
-        :param fct: the optional conversion function to apply to the string value
-        :return:
+        :param config: the option dictionary.
+        :param attr: the option considered.
+        :param default_value: the default value to apply if not found in config or erroneous.
+        :param fct: the optional conversion function to apply to the string value.
+        :return: the option with the requested type.
         """
         if attr not in config:
             return default_value

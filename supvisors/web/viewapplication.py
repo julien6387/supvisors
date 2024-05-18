@@ -17,7 +17,7 @@
 from supervisor.states import ProcessStates
 
 from supvisors.application import ApplicationStatus
-from supvisors.ttypes import PayloadList
+from supvisors.ttypes import PayloadList, Payload
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -41,7 +41,7 @@ class ApplicationView(ViewHandler):
         """
         ViewHandler.handle_parameters(self)
         # check if application name is available
-        self.application_name = self.view_ctx.parameters[APPLI]
+        self.application_name = self.view_ctx.application_name
         try:
             # store application
             self.application = self.sup_ctx.applications[self.application_name]
@@ -88,12 +88,12 @@ class ApplicationView(ViewHandler):
     def write_starting_strategy(self, header_elt):
         """ Write applicable starting strategies. """
         # get the current strategy
-        selected_strategy = self.view_ctx.parameters[STRATEGY]
+        selected_strategy = self.view_ctx.strategy
         # set hyperlinks for strategy actions
         for strategy in StartingStrategies:
             button_elt = header_elt.findmeld('%s_div_mid' % strategy.name.lower())
             href_elt = button_elt.findmeld('%s_a_mid' % strategy.name.lower())
-            if selected_strategy == strategy.name:
+            if selected_strategy == strategy:
                 update_attrib(button_elt, 'class', 'off active')
             else:
                 update_attrib(button_elt, 'class', 'on')
@@ -127,23 +127,17 @@ class ApplicationView(ViewHandler):
             data = self.get_process_data()
             self.write_process_table(contents_elt, data)
             # check selected Process Statistics
-            namespec = self.view_ctx.parameters[PROCESS]
+            namespec = self.view_ctx.process_name
             if namespec:
                 status = self.view_ctx.get_process_status(namespec)
                 if not status or status.stopped() or status.application_name != self.application_name:
                     self.logger.warn(f'ApplicationView.write_contents: unselect Process Statistics for {namespec}')
                     # form parameter is not consistent. remove it
-                    self.view_ctx.parameters[PROCESS] = ''
+                    self.view_ctx.process_name = ''
             # write selected Process Statistics
-            namespec = self.view_ctx.parameters[PROCESS]
+            namespec = self.view_ctx.process_name
             info = next(filter(lambda x: x['namespec'] == namespec, data), {})
             self.write_process_statistics(contents_elt, info)
-
-    def get_process_last_desc(self, namespec: str) -> Tuple[Optional[str], str]:
-        """ Get the latest description received from the process across all instances.
-        A priority is given to the info coming from a node where the process is running. """
-        status = self.view_ctx.get_process_status(namespec)
-        return status.get_last_description()
 
     def get_process_data(self) -> PayloadList:
         """ Collect sorted data on processes.
@@ -153,63 +147,141 @@ class ApplicationView(ViewHandler):
         data = []
         for process in self.application.processes.values():
             namespec = process.namespec
-            identifier, description = self.get_process_last_desc(namespec)
+            # add the process synthesis
+            possible_identifiers = process.possible_identifiers()
+            identifier, description = process.get_description()
             unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
-            data.append({'application_name': process.application_name, 'process_name': process.process_name,
+            data.append({'row_type': ProcessRowTypes.APPLICATION_PROCESS,
+                         'application_name': process.application_name, 'process_name': process.process_name,
                          'namespec': namespec, 'identifier': identifier,
-                         'disabled': process.disabled(), 'startable': len(process.possible_identifiers()) > 0,
+                         'disabled': process.disabled(), 'startable': len(possible_identifiers) > 0, 'stoppable': True,
                          'statename': process.displayed_state_string(), 'statecode': process.displayed_state,
                          'gravity': 'FATAL' if unexpected_exit else process.displayed_state_string(),
                          'has_crashed': process.has_crashed(),
                          'running_identifiers': list(process.running_identifiers),
                          'description': description,
-                         'expected_load': process.rules.expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})
+                         'main': True, 'nb_items': len(process.info_map),
+                         'expected_load': process.rules.expected_load,
+                         'nb_cores': nb_cores, 'proc_stats': proc_stats,
+                         'has_stdout': len(process.running_identifiers) <= 1,  # TODO: best guess
+                         'has_stderr': len(process.running_identifiers) <= 1})
+            # add data depending on the process shex
+            process_shex, _ = self.view_ctx.get_process_shex(process.process_name)
+            if process_shex:
+                # add the process details (name is not needed)
+                # NOTE: start / restart actions are not allowed
+                for identifier, info in process.info_map.items():
+                    crashed = ProcessStatus.is_crashed_event(info)
+                    nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
+                    data.append({'row_type': ProcessRowTypes.INSTANCE_PROCESS, 'namespec': namespec,
+                                 'application_name': info['group'], 'process_name': '',
+                                 'identifier': identifier,
+                                 'disabled': info['disabled'], 'startable': False, 'stoppable': False,
+                                 'statename': info['statename'], 'statecode': info['state'],
+                                 'gravity': 'FATAL' if crashed else info['statename'],
+                                 'has_crashed': info['has_crashed'],
+                                 'running_identifiers': [identifier],  # used to allow button but not necessarily running
+                                 'description': info['description'],
+                                 'main': False, 'nb_items': 0,
+                                 'expected_load': process.rules.expected_load,
+                                 'nb_cores': nb_cores, 'proc_stats': proc_stats,
+                                 'has_stdout': True,  # TODO: best guess. add to local_process_info
+                                 'has_stderr': True})
         # re-arrange data using alphabetical order
-        return sorted(data, key=lambda x: x['process_name'])
+        return sorted(data, key=lambda x: (x['namespec'], -x['row_type'].value, x['identifier']))
 
-    def write_process_table(self, root, data):
-        """ Rendering of the application processes managed through Supervisor. """
+    def write_process_table(self, contents_elt, data: PayloadList):
+        """ Rendering of the application processes managed through Supervisor.
+
+        :param contents_elt: the root element of the page.
+        :param data: the process data to be displayed.
+        :return: None.
+        """
+        table_elt = contents_elt.findmeld('table_mid')
         if data:
-            self.write_common_process_table(root)
+            self.write_process_global_shex(table_elt)
+            # remove stats columns if statistics are disabled
+            self.write_common_process_table(table_elt)
             # loop on all processes
-            iterator = root.findmeld('tr_mid').repeat(data)
-            shaded_tr = False  # used to invert background style
-            for tr_elt, info in iterator:
+            shaded_proc_tr, shaded_detail_tr = False, False  # used to invert background style
+            for tr_elt, info in table_elt.findmeld('tr_mid').repeat(data):
                 # write common status (shared between this application view and node view)
-                self.write_common_process_status(tr_elt, info, False)
+                self.write_common_process_status(tr_elt, info)
                 # print process name and running instances
                 self.write_process(tr_elt, info)
-                # set line background and invert
-                apply_shade(tr_elt, shaded_tr)
-                shaded_tr = not shaded_tr
+                # specific updates
+                if info['row_type'] == ProcessRowTypes.INSTANCE_PROCESS:
+                    # remove shex td
+                    tr_elt.findmeld('shex_td_mid').replace('')
+                    # set line background and invert
+                    apply_shade(tr_elt, shaded_detail_tr)
+                    shaded_detail_tr = not shaded_detail_tr
+                elif info['row_type'] == ProcessRowTypes.APPLICATION_PROCESS:
+                    # print process shex
+                    self.write_process_shex(tr_elt, info, shaded_proc_tr)
+                    # set line background and invert
+                    apply_shade(tr_elt, shaded_proc_tr)
+                    shaded_proc_tr = not shaded_proc_tr
+                    shaded_detail_tr = shaded_proc_tr
         else:
-            table = root.findmeld('table_mid')
-            table.replace('No programs to manage')
+            table_elt.replace('No programs to display')
+
+    def write_process_global_shex(self, table_elt) -> None:
+        """ Write global shrink / expand buttons.
+
+        :param table_elt: the process table element.
+        :return: None.
+        """
+        shex = self.view_ctx.process_shex
+        expand_shex = self.view_ctx.get_default_process_shex(self.application_name, True)
+        shrink_shex = self.view_ctx.get_default_process_shex(self.application_name, False)
+        self.write_global_shex(table_elt, PROC_SHRINK_EXPAND, shex, expand_shex, shrink_shex)
+
+    def write_process_shex(self, tr_elt, info: Payload, shaded_tr: bool):
+        """ Write the application process section into a table. """
+        elt = tr_elt.findmeld('shex_td_mid')
+        process_name = info['process_name']
+        process_shex, inverted_shex = self.view_ctx.get_process_shex(process_name)
+        self.logger.trace(f'ApplicationView.write_process_shex: process_name={process_name}'
+                          f' process_shex={process_shex} inverted_shex={inverted_shex}')
+        if process_shex:
+            elt.attrib['rowspan'] = str(info['nb_items'] + 1)
+            apply_shade(elt, shaded_tr)
+        elt = elt.findmeld('shex_a_mid')
+        elt.content(f'{SHEX_SHRINK if process_shex else SHEX_EXPAND}')
+        url = self.view_ctx.format_url('', self.page_name, **{PROC_SHRINK_EXPAND: inverted_shex})
+        elt.attributes(href=url)
 
     def write_process(self, tr_elt, info):
         """ Rendering of the cell corresponding to the process running instances. """
+        running_a_elt = tr_elt.findmeld('running_a_mid')
         running_identifiers = info['running_identifiers']
-        if running_identifiers:
-            running_li_mid = tr_elt.findmeld('running_li_mid')
-            for li_elt, identifier in running_li_mid.repeat(running_identifiers):
-                nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
-                elt = li_elt.findmeld('running_a_mid')
-                elt.content(nick_identifier)
-                url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE)
-                elt.attributes(href=url)
-                if identifier == info['identifier']:
-                    update_attrib(elt, 'class', 'active')
+        if len(running_identifiers) == 0:
+            # no running instance: empty cell
+            running_a_elt.replace('')
         else:
-            elt = tr_elt.findmeld('running_ul_mid')
-            elt.replace('')
+            running_span_elt = running_a_elt.findmeld('running_span_mid')
+            if len(running_identifiers) == 1:
+                # one running instance: use button to navigate to the process page
+                identifier = running_identifiers[0]
+                nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
+                running_span_elt.content(nick_identifier)
+                url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE)
+                running_a_elt.attributes(href=url)
+            else:
+                # multiple running instances: conflict
+                running_span_elt.content('Conciliate')
+                update_attrib(running_span_elt, 'class', 'blink')
+                url = self.view_ctx.format_url('', SUPVISORS_PAGE)
+                running_a_elt.attributes(href=url)
 
     # ACTIONS
     def make_callback(self, namespec: str, action: str):
         """ Triggers processing iaw action requested. """
         if self.application:
             # get current strategy
-            strategy = StartingStrategies[self.view_ctx.parameters[STRATEGY]]
+            strategy = self.view_ctx.strategy
             if action == 'startapp':
                 return self.start_application_action(strategy)
             if action == 'stopapp':
@@ -218,7 +290,7 @@ class ApplicationView(ViewHandler):
                 return self.restart_application_action(strategy)
             if namespec:
                 if self.view_ctx.get_process_status(namespec) is None:
-                    return delayed_error('No such process named %s' % namespec)
+                    return delayed_error(f'No such process named {namespec}')
                 if action == 'start':
                     return self.start_process_action(strategy, namespec)
                 if action == 'stop':
@@ -236,7 +308,7 @@ class ApplicationView(ViewHandler):
         :param strategy: the strategy to apply for starting the application.
         :return: a callable for deferred result.
         """
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supvisors_rpc_action('start_application', (strategy.value, self.application_name, wait),
                                          f'Application {self.application_name} started')
 
@@ -247,7 +319,7 @@ class ApplicationView(ViewHandler):
         :param strategy: the strategy to apply for restarting the application.
         :return: a callable for deferred result.
         """
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supvisors_rpc_action('restart_application', (strategy.value, self.application_name, wait),
                                          f'Application {self.application_name} restarted')
 
@@ -257,7 +329,7 @@ class ApplicationView(ViewHandler):
 
         :return: a callable for deferred result.
         """
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supvisors_rpc_action('stop_application', (self.application_name, wait),
                                          f'Application {self.application_name} stopped')
 
@@ -270,7 +342,7 @@ class ApplicationView(ViewHandler):
         :param namespec: the process namespec.
         :return: a callable for deferred result.
         """
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supvisors_rpc_action('start_process', (strategy.value, namespec, '', wait),
                                          f'Process {namespec} started')
 
@@ -282,7 +354,7 @@ class ApplicationView(ViewHandler):
         :param namespec: the process namespec.
         :return: a callable for deferred result.
         """
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supvisors_rpc_action('restart_process', (strategy.value, namespec, '', wait),
                                          f'Process {namespec} restarted')
 
@@ -293,7 +365,7 @@ class ApplicationView(ViewHandler):
         :param namespec: the process namespec.
         :return: a callable for deferred result.
         """
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supvisors_rpc_action('stop_process', (namespec, wait), f'Process {namespec} stopped')
 
     def clearlog_process_action(self, namespec: str) -> Callable:

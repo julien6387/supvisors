@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 # 
@@ -17,6 +14,8 @@
 # limitations under the License.
 # ======================================================================
 
+import os
+
 from sys import stderr
 from tkinter import *
 
@@ -28,18 +27,18 @@ class ProcessAppTk(Tk):
     def __init__(self, namespec, description):
         """ Initialization of the attributes. """
         Tk.__init__(self, None)
-        print('Starting %s' % namespec)
-        self.title(u'Supvisors')
+        print(f'Starting {namespec} in {os.getenv("SUPERVISOR_SERVER_URL")}')
+        self.title('Supvisors')
         self.grid()
         # create main form
         form_window = PanedWindow(self, orient=VERTICAL)
         # display namespec into a PanedWindow
         main_window = PanedWindow(form_window, orient=VERTICAL)
-        main_window.add(Label(main_window, text=u'Supvisors namespec: {}'.format(namespec)))
+        main_window.add(Label(main_window, text=f'Supvisors namespec: {namespec}'))
         if description:
-            main_window.add(Label(main_window, text=u'Supvisors description: {}'.format(description)))
+            main_window.add(Label(main_window, text=f'Supvisors description: {description}'))
         # talk action
-        main_window.add(Button(self, text=u"Talk", command=self.talk))
+        main_window.add(Button(self, text='Talk', command=self.talk))
         # add window to form and pack it
         form_window.add(main_window)
         form_window.pack()
@@ -52,7 +51,7 @@ class ProcessAppTk(Tk):
     @staticmethod
     def talk():
         print('Talking seq=%d' % ProcessAppTk.cpt, flush=True)
-        print('Talking seq=%d' % ProcessAppTk.cpt, file=stderr, flush=True)
+        print('[ERR] Talking seq=%d' % ProcessAppTk.cpt, file=stderr, flush=True)
         ProcessAppTk.cpt = ProcessAppTk.cpt + 1
 
     def quit(self):

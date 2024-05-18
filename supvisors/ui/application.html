@@ -100,13 +100,13 @@
                             <div id="strategies">
                                 <div class="button_group">
                                     <div class="button" meld:id="config_div_mid"><a href="#" meld:id="config_a_mid">CONFIG</a></div>
-                                    <div class="button" meld:id="most_loaded_div_mid"><a href="#" meld:id="most_loaded_a_mid">MOST_LOADED</a></div>
-                                    <div class="button" meld:id="less_loaded_div_mid"><a href="#" meld:id="less_loaded_a_mid">LESS_LOADED</a></div>
+                                    <div class="button" meld:id="most_loaded_div_mid"><a href="#" meld:id="most_loaded_a_mid">MOST LOADED</a></div>
+                                    <div class="button" meld:id="less_loaded_div_mid"><a href="#" meld:id="less_loaded_a_mid">LESS LOADED</a></div>
                                     <div class="button" meld:id="local_div_mid"><a href="#" meld:id="local_a_mid">LOCAL</a></div>
                                 </div>
                                 <div class="button_group">
-                                    <div class="button" meld:id="most_loaded_node_div_mid"><a href="#" meld:id="most_loaded_node_a_mid">MOST_LOADED_NODE</a></div>
-                                    <div class="button" meld:id="less_loaded_node_div_mid"><a href="#" meld:id="less_loaded_node_a_mid">LESS_LOADED_NODE</a></div>
+                                    <div class="button" meld:id="most_loaded_node_div_mid"><a href="#" meld:id="most_loaded_node_a_mid">MOST LOADED NODE</a></div>
+                                    <div class="button" meld:id="less_loaded_node_div_mid"><a href="#" meld:id="less_loaded_node_a_mid">LESS LOADED NODE</a></div>
                                 </div>
                             </div>
                         </div>
@@ -147,6 +147,10 @@
                     <table id="process_table" meld:id="table_mid">
                         <thead>
                             <tr>
+                                <th class="shex">
+                                    <a href="#" meld:id="expand_a_mid"></a>
+                                    <a href="#" meld:id="shrink_a_mid"></a>
+                                </th>
                                 <th class="name">Name</th>
                                 <th class="state">State</th>
                                 <th class="instance">Supervisor</th>
@@ -160,7 +164,7 @@
                         </thead>
                         <tfoot>
                             <tr>
-                                <th class="name">Name</th>
+                                <th class="name" colspan="2">Name</th>
                                 <th class="state">State</th>
                                 <th class="instance">Supervisor</th>
                                 <th class="desc">Description</th>
@@ -173,17 +177,14 @@
                         </tfoot>
                         <tbody class="hoverable">
                             <tr meld:id="tr_mid">
-                                <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid">Name</a></td>
-                                <td meld:id="state_td_mid" class="state_cell centered">State</td>
-                                <td meld:id="running_td_mid">
-                                    <ul meld:id="running_ul_mid" class="linear">
-                                        <li meld:id="running_li_mid">
-                                            <a href="#" meld:id="running_a_mid" class="button on">Supervisor</a>
-                                        </li>
-                                    </ul>
-                                </td>
-                                <td meld:id="desc_td_mid">Description</td>
-                                <td meld:id="load_td_mid" class="centered expected">5%</td>
+                                <td meld:id="shex_td_mid" class="shex centered"><a href="#" meld:id="shex_a_mid"></a></td>
+                                <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid">--</a></td>
+                                <td meld:id="state_td_mid" class="state_cell centered"><span meld:id="state_span_mid">--</span></td>
+                                <td meld:id="running_td_mid"><a href="#" meld:id="running_a_mid" class="button on">
+                                    <span meld:id="running_span_mid">--</span>
+                                </a></td>
+                                <td meld:id="desc_td_mid">--</td>
+                                <td meld:id="load_td_mid" class="centered expected">--</td>
                                 <td class="centered" meld:id="pcpu_td_mid"><a href="#" meld:id="pcpu_a_mid">--</a></td>
                                 <td class="centered" meld:id="pmem_td_mid"><a href="#" meld:id="pmem_a_mid">--</a></td>
                                 <td class="action" meld:id="start_td_mid"><a href="#" meld:id="start_a_mid">Start</a></td>

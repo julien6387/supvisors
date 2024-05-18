@@ -84,7 +84,7 @@ table .desc {
     font-style: italic;
 }
 
-tbody.hoverable tr:hover {
+tbody.hoverable tr:hover, tbody.hoverable tr:hover td:not(.state_cell) {
     background-color: var(--navbg-color);
     background-image: none;
 }

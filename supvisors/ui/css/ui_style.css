@@ -237,7 +237,9 @@ body {
 }
 
 @keyframes blinker {
-    50% { opacity: 0.0; }
+    30% { opacity: 1.0; }
+    75% { opacity: 0.5; }
+    90% { opacity: 0.2; }
 }
 
 

@@ -104,7 +104,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def write_processor_statistics(self, root, cpu_stats, timeline):
         """ Rendering of the processor statistics. """
-        selected_cpu_id = self.view_ctx.parameters[CPU]
+        selected_cpu_id = self.view_ctx.cpu_id
         iterator = root.findmeld('cpu_tr_mid').repeat(cpu_stats)
         shaded_tr = False
         for cpu_id, (tr_elt, single_cpu_stats) in enumerate(iterator):
@@ -150,7 +150,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def write_network_io_statistics(self, root, io_stats):
         """ Rendering of the network IO statistics. """
-        selected_nic = self.view_ctx.parameters[NIC]
+        selected_nic = self.view_ctx.nic_name
         # display io statistics
         flatten_io_stats = []
         for nic, (uptimes, [recv_stats, sent_stats]) in io_stats.items():
@@ -199,7 +199,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def write_disk_io_statistics(self, contents_elt, io_stats):
         """ Rendering of the disk IO statistics. """
-        selected_device = self.view_ctx.parameters[DEVICE]
+        selected_device = self.view_ctx.device
         # display io device statistics
         flatten_io_stats = []
         for device, (uptimes, [read_stats, write_stats]) in io_stats.items():
@@ -237,7 +237,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def write_disk_usage_statistics(self, contents_elt, usage_stats: InterfaceHistoryStats):
         """ Rendering of the network statistics. """
-        selected_partition = self.view_ctx.parameters[PARTITION]
+        selected_partition = self.view_ctx.partition
         iterator = contents_elt.findmeld('disk_usage_tr_mid').repeat(usage_stats.items())
         shaded_tr = False
         for tr_elt, (partition, (uptimes, [single_usage_stats])) in iterator:
@@ -249,7 +249,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def write_disk_statistics(self, contents_elt, stats_instance: HostStatisticsInstance):
         """ Rendering the relevant Disk statistics depending on the display choice. """
-        if self.view_ctx.parameters[DISK_STATS] == 'usage':
+        if self.view_ctx.disk_stats == 'usage':
             # update Disk usage stats and hide Disk IO stats
             self.write_disk_usage_statistics(contents_elt, stats_instance.disk_usage)
             contents_elt.findmeld('disk_io_div_mid').replace('')
@@ -268,7 +268,7 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Write CPU data into the dedicated buffer. """
         from supvisors.plot import StatisticsPlot
         # get CPU data
-        cpu_id = self.view_ctx.parameters[CPU]
+        cpu_id = self.view_ctx.cpu_id
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
         cpu_data = cpu_stats[cpu_id]
         # build image from data
@@ -290,7 +290,7 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Write Network IO data into the dedicated buffer. """
         from supvisors.plot import StatisticsPlot
         # get IO data
-        nic_name = self.view_ctx.parameters[NIC]
+        nic_name = self.view_ctx.nic_name
         if nic_name:
             timeline, [recv_data, sent_data] = net_io_stats[nic_name]
             # build image from data
@@ -302,7 +302,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def _write_disk_image(self, stats_instance: HostStatisticsInstance):
         """ Update the relevant Disk image depending on the display choice. """
-        if self.view_ctx.parameters[DISK_STATS] == 'usage':
+        if self.view_ctx.disk_stats == 'usage':
             # update Disk usage image
             self._write_disk_usage_image(stats_instance.disk_usage)
         else:
@@ -313,7 +313,7 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Write Disk IO data into the dedicated buffer. """
         from supvisors.plot import StatisticsPlot
         # get IO data
-        device_name = self.view_ctx.parameters[DEVICE]
+        device_name = self.view_ctx.device
         if device_name:
             timeline, [read_data, write_data] = disk_io_stats[device_name]
             # build image from data
@@ -327,7 +327,7 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Write Disk usage data into the dedicated buffer. """
         from supvisors.plot import StatisticsPlot
         # get usage data
-        partition = self.view_ctx.parameters[PARTITION]
+        partition = self.view_ctx.partition
         if partition:
             timeline, [usage_stats] = usage_stats[partition]
             # build image from data

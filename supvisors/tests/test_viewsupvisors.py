@@ -785,7 +785,7 @@ def test_make_callback(mocker, view):
         view.process_methods[action_name] = Mock(return_value='%s called' % action_name)
     mocked_sync = mocker.patch.object(view, 'sup_sync_action', return_value='sup_master_sync called')
     # patch context
-    view.view_ctx = Mock(**{'get_identifier.return_value': '10.0.0.2'})
+    view.view_ctx = Mock(identifier='10.0.0.2')
     # test strategies but USER
     for strategy in view.strategies:
         assert view.make_callback('dummy_namespec', strategy) == 'conciliation called'

@@ -19,7 +19,7 @@ from unittest.mock import call, Mock
 import pytest
 
 from supvisors.statscollector import LocalNodeInfo
-from supvisors.web.viewcontext import CPU, DEVICE, DISK_STATS, NIC, PARTITION, ViewContext
+from supvisors.web.viewcontext import ViewContext
 from supvisors.web.viewhostinstance import HostInstanceView
 from supvisors.web.viewimage import (host_cpu_img, host_net_io_img, host_mem_img,
                                      host_disk_io_img, host_disk_usage_img)
@@ -241,7 +241,7 @@ def test_write_processor_statistics(mocker, view):
     mocked_stats = mocker.patch.object(view, '_write_processor_single_statistics')
     mocked_title = mocker.patch.object(view, '_write_processor_single_title')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={CPU: 1})
+    view.view_ctx = Mock(cpu_id=1)
     # build root structure
     mocked_trs = [Mock(attrib={}) for _ in range(2)]
     mocked_mid = Mock(**{'repeat.return_value': [(mocked_trs[0], 'cpu stats 0'), (mocked_trs[1], 'cpu stats 1')]})
@@ -332,7 +332,7 @@ def test_write_network_io_statistics(mocker, view):
     mocked_stats = mocker.patch.object(view, '_write_network_io_single_statistics')
     mocked_title = mocker.patch.object(view, '_write_network_io_single_title')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={NIC: 'eth0'})
+    view.view_ctx = Mock(nic_name='eth0')
     # build root structure
     net_io_tr_elts = [create_element() for _ in range(4)]
     net_io_tr_mid = create_element()
@@ -429,7 +429,7 @@ def test_write_disk_io_statistics(mocker, view):
     mocked_stats = mocker.patch.object(view, '_write_disk_io_single_statistics')
     mocked_title = mocker.patch.object(view, '_write_disk_io_single_title')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={DEVICE: 'sdb'})
+    view.view_ctx = Mock(device='sdb')
     # build root structure
     disk_io_tr_elts = [create_element() for _ in range(4)]
     disk_io_tr_mid = create_element()
@@ -499,7 +499,7 @@ def test_write_disk_usage_statistics(mocker, view):
     mocked_stats = mocker.patch.object(view, '_write_disk_usage_single_statistics')
     mocked_title = mocker.patch.object(view, '_write_disk_usage_single_title')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={PARTITION: '/root'})
+    view.view_ctx = Mock(partition='/root')
     # build root structure
     disk_usage_tr_elts = [create_element() for _ in range(2)]
     disk_usage_tr_mid = create_element()
@@ -530,7 +530,7 @@ def test_write_disk_statistics(mocker, view):
     contents_elt = create_element({'disk_io_div_mid': disk_io_div_mid, 'disk_usage_div_mid': disk_usage_div_mid,
                                    'disk_io_view_mid': disk_io_view_mid, 'disk_usage_view_mid': disk_usage_view_mid})
     # Disk IO selection
-    view.view_ctx = Mock(parameters={DISK_STATS: 'io'}, **{'format_url.return_value': 'an url'})
+    view.view_ctx = Mock(disk_stats='io', **{'format_url.return_value': 'an url'})
     view.write_disk_statistics(contents_elt, stats)
     assert mocked_io.call_args_list == [call(contents_elt, 'disk io')]
     assert not mocked_usage.called
@@ -542,7 +542,7 @@ def test_write_disk_statistics(mocker, view):
     mocker.resetall()
     contents_elt.reset_all()
     # Disk IO selection
-    view.view_ctx.parameters[DISK_STATS] = 'usage'
+    view.view_ctx.disk_stats = 'usage'
     view.write_disk_statistics(contents_elt, stats)
     assert mocked_usage.call_args_list == [call(contents_elt, 'disk usage')]
     assert not mocked_io.called
@@ -559,7 +559,7 @@ def test_write_cpu_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={CPU: 0}, **{'cpu_id_to_string.return_value': ViewContext.cpu_id_to_string(0)})
+    view.view_ctx = Mock(cpu_id=0, **{'cpu_id_to_string.return_value': ViewContext.cpu_id_to_string(0)})
     # just test calls to StatisticsPlot
     dummy_cpu_stats = ['#all stats', '#0 stats', '#1 stats']
     dummy_times_stats = [1, 2, 3]
@@ -589,7 +589,7 @@ def test_write_net_io_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={NIC: 'eth0'})
+    view.view_ctx = Mock(nic_name='eth0')
     # just test calls to StatisticsPlot
     dummy_io_stats = {'lo': [[1, 2, 3, 4], ['lo recv', 'lo sent']],
                       'eth0': [[2, 3, 4], ['eth0 recv', 'eth0 sent']]}
@@ -607,13 +607,13 @@ def test_write_disk_image(mocker, view):
     # set context (meant to be set through render)
     stats = Mock(disk_usage='disk usage', disk_io='disk io')
     # Disk IO selection
-    view.view_ctx = Mock(parameters={DISK_STATS: 'io'})
+    view.view_ctx = Mock(disk_stats='io')
     view._write_disk_image(stats)
     assert mocked_io.call_args_list == [call('disk io')]
     assert not mocked_usage.called
     mocker.resetall()
     # Disk IO selection
-    view.view_ctx.parameters[DISK_STATS] = 'usage'
+    view.view_ctx.disk_stats = 'usage'
     view._write_disk_image(stats)
     assert mocked_usage.call_args_list == [call('disk usage')]
     assert not mocked_io.called
@@ -625,7 +625,7 @@ def test_write_disk_io_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={DEVICE: 'sda'})
+    view.view_ctx = Mock(device='sda')
     # just test calls to StatisticsPlot
     dummy_io_stats = {'sda': [[1, 2, 3, 4], ['sda read', 'sda written']],
                       'sdb': [[2, 3, 4], ['sdb read', 'sdb written']]}
@@ -642,7 +642,7 @@ def test_write_disk_usage_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(parameters={PARTITION: '/root'})
+    view.view_ctx = Mock(partition='/root')
     # just test calls to StatisticsPlot
     dummy_io_stats = {'/': [[1, 2, 3, 4], ['/ percent']],
                       '/root': [[2, 3, 4], ['/root percent']]}

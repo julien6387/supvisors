@@ -26,7 +26,7 @@ from supervisor.states import STOPPED_STATES, SupervisorStates, ProcessStates
 
 import supvisors
 from supvisors.context import Context
-from supvisors.initializer import Supvisors
+from supvisors.initializer import LOGGER_FORMAT
 from supvisors.internal_com.mapper import SupvisorsMapper
 from supvisors.options import SupvisorsOptions, SupvisorsServerOptions
 from supvisors.rpcinterface import RPCInterface
@@ -136,7 +136,7 @@ class DummyServerOptions:
         # add silent logger to test create_logger
         self.logfile = 'supervisor.log'
         self.logger = getLogger()
-        handle_stdout(self.logger, Supvisors.LOGGER_FORMAT)
+        handle_stdout(self.logger, LOGGER_FORMAT)
         self.logger.log = Mock()
         # build a fake http config
         self.httpservers = [(server_config, self.httpserver)]

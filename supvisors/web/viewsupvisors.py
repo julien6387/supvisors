@@ -341,11 +341,11 @@ class SupvisorsView(ViewHandler):
             return self.conciliation_action(namespec, action.upper())
         # process actions
         if action in self.process_methods:
-            identifier = self.view_ctx.get_identifier()
+            identifier = self.view_ctx.identifier
             return self.process_methods[action](namespec, identifier)
         # user sync action
         if action == 'sup_master_sync':
-            identifier = self.view_ctx.get_identifier()
+            identifier = self.view_ctx.identifier
             return self.sup_sync_action(identifier)
 
     def sup_sync_action(self, master_identifier: str = ''):

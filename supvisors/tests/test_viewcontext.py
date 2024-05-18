@@ -27,7 +27,7 @@ url_attr_template = r'(.+=.+)'
 
 
 @pytest.fixture
-def http_context(supvisors):
+def http_context(supvisors) -> DummyHttpContext:
     """ Fixture for Dummy HTTP Context. """
     http_context = DummyHttpContext('')
     http_context.supervisord.supvisors = supvisors
@@ -35,19 +35,19 @@ def http_context(supvisors):
 
 
 @pytest.fixture
-def ctx(http_context):
+def ctx(http_context) -> ViewContext:
     """ Fixture for the instance to test. """
     return ViewContext(http_context)
 
 
-def test_init(http_context, ctx):
+def test_init(http_context, supvisors, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
-    assert ctx.local_identifier == ctx.supvisors.mapper.local_identifier
-    assert ctx.parameters == {'ident': '10.0.0.4:25000', 'namespec': None, 'period': 5,
+    assert ctx.local_identifier == supvisors.mapper.local_identifier
+    assert ctx.parameters == {'ident': '10.0.0.4:25000', 'namespec': None, 'period': 5.0,
                               'appname': None, 'processname': None, 'cpuid': 0,
-                              'nic': None, 'auto': False, 'strategy': 'CONFIG', 'shex': '',
+                              'nic': None, 'auto': False, 'strategy': 'CONFIG', 'ashex': '',
                               'diskstats': 'io', 'partition': None, 'device': None}
     # errors must be set due to dummy values
     assert isinstance(ctx.store_message, tuple)
@@ -56,24 +56,28 @@ def test_init(http_context, ctx):
     assert not ctx.redirect
 
 
-def test_get_action(ctx):
-    """ Test the ViewContext.get_action method. """
-    assert ctx.get_action() == 'test'
-
-
-def test_get_node_name(ctx):
-    """ Test the ViewContext.get_identifier method. """
-    assert ctx.get_identifier() == '10.0.0.4:25000'
-
-
-def test_get_message(ctx):
-    """ Test the ViewContext.get_message method. """
-    assert ctx.get_message() == 'hi chaps'
-
-
-def test_get_gravity(ctx):
-    """ Test the ViewContext.get_gravity method. """
-    assert ctx.get_gravity() == 'none'
+def test_properties(ctx):
+    """ Test the ViewContext properties. """
+    assert ctx.strategy == StartingStrategies.CONFIG
+    assert not ctx.auto_refresh
+    assert ctx.identifier == '10.0.0.4:25000'
+    assert ctx.application_name is None
+    assert ctx.process_name is None
+    ctx.process_name = 'dummy_process_1'
+    assert ctx.process_name == 'dummy_process_1'
+    assert ctx.namespec is None
+    assert ctx.application_shex == ''
+    with pytest.raises(KeyError):
+        ctx.process_shex
+    assert ctx.period == 5.0
+    assert ctx.cpu_id == 0
+    assert ctx.nic_name is None
+    assert ctx.device is None
+    assert ctx.partition is None
+    assert ctx.disk_stats == 'io'
+    assert ctx.action == 'test'
+    assert ctx.message == 'hi chaps'
+    assert ctx.gravity == 'none'
 
 
 def test_url_parameters(ctx):
@@ -83,7 +87,7 @@ def test_url_parameters(ctx):
     assert ctx.url_parameters(True) == 'diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
     # update internal parameters
     ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'ident': '10.0.0.1:25000', 'cpuid': 3,
-                           'appname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG', 'shex': '10101',
+                           'appname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG', 'ashex': '10101',
                            'nic': 'eth0', 'diskstats': 'usage', 'partition': '/', 'device': 'sda'})
     # test without additional parameters
     # don't reset shex
@@ -93,7 +97,7 @@ def test_url_parameters(ctx):
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=10.0.0.1%3A25000', 'cpuid=3',
-                       'nic=eth0', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG', 'shex=10101',
+                       'nic=eth0', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG', 'ashex=10101',
                        'diskstats=usage', 'partition=/', 'device=sda'))
     assert sorted(matches.groups()) == expected
     # reset shex
@@ -108,18 +112,18 @@ def test_url_parameters(ctx):
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # don't reset shex
-    url = ctx.url_parameters(False, **{'ident': '127.0.0.1:25000', 'nic': 'lo', 'shex': 'args',
+    url = ctx.url_parameters(False, **{'ident': '127.0.0.1:25000', 'nic': 'lo', 'ashex': 'args',
                                        'diskstats': 'io', 'partition': '/boot', 'device': 'sdb'})
     regexp = r'&'.join([url_attr_template for _ in range(12)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'ident=127.0.0.1%3A25000', 'cpuid=3',
-                       'nic=lo', 'shex=args', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG',
+                       'nic=lo', 'ashex=args', 'appname=dummy_appli', 'period=8', 'strategy=CONFIG',
                        'diskstats=io', 'partition=/boot', 'device=sdb'))
     assert sorted(matches.groups()) == expected
     # test with additional parameters
     # reset shex
-    url = ctx.url_parameters(True, **{'ident': '127.0.0.1:25000', 'nic': 'lo', 'shex': 'args'})
+    url = ctx.url_parameters(True, **{'ident': '127.0.0.1:25000', 'nic': 'lo', 'ashex': 'args'})
     regexp = r'&'.join([url_attr_template for _ in range(11)])
     matches = re.match(regexp, url)
     assert matches is not None
@@ -476,12 +480,12 @@ def test_format_url(supvisors, ctx):
     local_instance = supvisors.mapper.local_instance
     base_address = f'http://{local_instance.host_id}:25000/index.html?'
     url = ctx.format_url(ctx.local_identifier, 'index.html',
-                         **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
-    expected = 'appliname=dummy_appli&diskstats=io&ident=10.0.0.4%3A25000&period=10&shex=args&strategy=CONFIG'
+                         **{'period': 10, 'appliname': 'dummy_appli', 'ashex': 'args'})
+    expected = 'appliname=dummy_appli&ashex=args&diskstats=io&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
     url = ctx.format_url('10.0.0.1:25000', 'index.html',
-                         **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
+                         **{'period': 10, 'appliname': 'dummy_appli', 'ashex': 'args'})
     base_address = 'http://10.0.0.1:25000/index.html?'
     expected = 'appliname=dummy_appli&diskstats=io&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
     assert url == base_address + expected
@@ -585,49 +589,100 @@ def test_get_process_status(mocker, ctx):
 
 
 def test_get_default_shex(ctx):
-    """ Test the ViewContext.get_default_shex method. """
-    ctx.supvisors.context.applications = {f'appli_{x}': Mock() for x in range(15)}
-    assert ctx.get_default_shex(True).hex() == 'ffff'
-    assert ctx.get_default_shex(False).hex() == '0000'
+    """ Test the ViewContext._get_default_shex method. """
+    assert ctx._get_default_shex(25, True).hex() == 'ffffffff'
+    assert ctx._get_default_shex(16, True).hex() == 'ffff'
+    assert ctx._get_default_shex(11, False).hex() == '0000'
+    assert ctx._get_default_shex(7, False).hex() == '00'
 
 
-def test_update_shrink_expand(ctx):
-    """ Test the ViewContext.update_shrink_expand method. """
+def test_get_default_application_shex(supvisors, ctx):
+    """ Test the ViewContext.get_default_application_shex method. """
+    supvisors.context.applications = {f'appli_{x}': Mock() for x in range(15)}
+    assert ctx.get_default_application_shex(True).hex() == 'ffff'
+    assert ctx.get_default_application_shex(False).hex() == '0000'
+
+
+def test_get_default_process_shex(supvisors, ctx):
+    """ Test the ViewContext.get_default_process_shex method. """
+    supvisors.context.applications = {'dummy_appli': Mock(processes=list(range(17)))}
+    assert ctx.get_default_process_shex('dummy_appli', True).hex() == 'ffffff'
+    assert ctx.get_default_process_shex('dummy_appli', False).hex() == '000000'
+
+
+def test_update_application_shrink_expand(supvisors, ctx):
+    """ Test the ViewContext.update_application_shrink_expand method. """
     # check default
-    assert ctx.parameters[SHRINK_EXPAND] == ''
-    assert SHRINK_EXPAND not in ctx.http_context.form
+    assert ctx.application_shex == ''
+    assert APP_SHRINK_EXPAND not in ctx.http_context.form
     # test with applications in the context
-    ctx.supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
+    supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
     # test with unknown parameter and no default value
-    ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
+    ctx.update_application_shrink_expand()
+    assert ctx.application_shex == 'ff'
     # add unexpected value in form (there should be only even number of hexadecimal chars)
-    ctx.http_context.form[SHRINK_EXPAND] = '12A'
-    ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
-    ctx.http_context.form[SHRINK_EXPAND] = '12AG'
-    ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
+    ctx.http_context.form[APP_SHRINK_EXPAND] = '12A'
+    ctx.update_application_shrink_expand()
+    assert ctx.application_shex == 'ff'
+    ctx.http_context.form[APP_SHRINK_EXPAND] = '12AG'
+    ctx.update_application_shrink_expand()
+    assert ctx.application_shex == 'ff'
     # update form with unexpected value (string length should be equal to the number of applications)
-    ctx.http_context.form[SHRINK_EXPAND] = '0101'
-    ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
+    ctx.http_context.form[APP_SHRINK_EXPAND] = '0101'
+    ctx.update_application_shrink_expand()
+    assert ctx.application_shex == 'ff'
     # update form with valid value
-    ctx.http_context.form[SHRINK_EXPAND] = '9a'
-    ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '9a'
+    ctx.http_context.form[APP_SHRINK_EXPAND] = '9a'
+    ctx.update_application_shrink_expand()
+    assert ctx.application_shex == '9a'
 
 
-def test_get_application_shex(ctx):
+def test_update_process_shrink_expand(supvisors, ctx):
+    """ Test the ViewContext.update_process_shrink_expand method. """
+    # check default
+    assert not ctx.application_name
+    assert PROC_SHRINK_EXPAND not in ctx.parameters
+    assert PROC_SHRINK_EXPAND not in ctx.http_context.form
+    # test with no application set
+    ctx.update_process_shrink_expand()
+    assert PROC_SHRINK_EXPAND not in ctx.parameters
+    # test with applications in the context, but still no application set in context form
+    supvisors.context.applications['dummy_appli'] = Mock(processes={'abc': [], 'def': [], 'ghi': []})
+    ctx.update_process_shrink_expand()
+    assert PROC_SHRINK_EXPAND not in ctx.parameters
+    # set the application in the context form
+    ctx.http_context.form[APPLI] = 'dummy_appli'
+    ctx.update_application_name()
+    # test with unknown parameter and no default value
+    ctx.update_process_shrink_expand()
+    assert ctx.process_shex == '00'
+    # add unexpected value in form (there should be only even number of hexadecimal chars)
+    ctx.http_context.form[PROC_SHRINK_EXPAND] = '12A'
+    ctx.update_process_shrink_expand()
+    assert ctx.process_shex == '00'
+    ctx.http_context.form[PROC_SHRINK_EXPAND] = '12AG'
+    ctx.update_process_shrink_expand()
+    assert ctx.process_shex == '00'
+    # update form with unexpected value (string length should be equal to the number of processes)
+    ctx.http_context.form[PROC_SHRINK_EXPAND] = '0101'
+    ctx.update_process_shrink_expand()
+    assert ctx.process_shex == '00'
+    # update form with valid value
+    ctx.http_context.form[PROC_SHRINK_EXPAND] = '9a'
+    ctx.update_process_shrink_expand()
+    assert ctx.process_shex == '9a'
+
+
+def test_get_application_shex(supvisors, ctx):
     """ Test the ViewContext.get_application_shex method. """
     # patch the context
-    ctx.supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
+    supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
     # only 'def' is visible
     ba = bytearray([0xff])
     set_bit(ba, 0, 0)
     set_bit(ba, 2, 0)
     assert ba.hex() == 'fa'
-    ctx.parameters[SHRINK_EXPAND] = 'fa'
+    ctx.parameters[APP_SHRINK_EXPAND] = 'fa'
     # test calls and inversion
     assert ctx.get_application_shex('abc') == (False, 'fb')
     assert get_bit(ba.fromhex('fb'), 0)
@@ -638,6 +693,34 @@ def test_get_application_shex(ctx):
     assert not get_bit(ba.fromhex('f8'), 1)
     assert not get_bit(ba.fromhex('f8'), 2)
     assert ctx.get_application_shex('ghi') == (False, 'fe')
+    assert not get_bit(ba.fromhex('fe'), 0)
+    assert get_bit(ba.fromhex('fe'), 1)
+    assert get_bit(ba.fromhex('fe'), 2)
+
+
+def test_get_process_shex(supvisors, ctx):
+    """ Test the ViewContext.get_process_shex method. """
+    # patch the context
+    supvisors.context.applications['dummy_appli'] = Mock(processes={'abc': [], 'def': [], 'ghi': []})
+    # set the application in the context form
+    ctx.http_context.form[APPLI] = 'dummy_appli'
+    ctx.update_application_name()
+    # only 'def' is visible
+    ba = bytearray([0xff])
+    set_bit(ba, 0, 0)
+    set_bit(ba, 2, 0)
+    assert ba.hex() == 'fa'
+    ctx.parameters[PROC_SHRINK_EXPAND] = 'fa'
+    # test calls and inversion
+    assert ctx.get_process_shex('abc') == (False, 'fb')
+    assert get_bit(ba.fromhex('fb'), 0)
+    assert get_bit(ba.fromhex('fb'), 1)
+    assert not get_bit(ba.fromhex('fb'), 2)
+    assert ctx.get_process_shex('def') == (True, 'f8')
+    assert not get_bit(ba.fromhex('f8'), 0)
+    assert not get_bit(ba.fromhex('f8'), 1)
+    assert not get_bit(ba.fromhex('f8'), 2)
+    assert ctx.get_process_shex('ghi') == (False, 'fe')
     assert not get_bit(ba.fromhex('fe'), 0)
     assert get_bit(ba.fromhex('fe'), 1)
     assert get_bit(ba.fromhex('fe'), 2)

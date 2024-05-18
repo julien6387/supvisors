@@ -51,7 +51,7 @@ class ViewHandler(MeldView):
         self.has_host_statistics = True
         self.has_process_statistics = True
         # init view_ctx (only for tests)
-        self.view_ctx = None
+        self.view_ctx: Optional[ViewContext] = None
 
     @property
     def local_identifier(self):
@@ -102,7 +102,7 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
-        self.logger.debug('New context: {}'. format(self.view_ctx.parameters))
+        self.logger.debug(f'ViewHandler.handle_parameters: new context {self.view_ctx.parameters}')
 
     def write_style(self, root):
         """ Entry point for additional style instructions. """
@@ -110,7 +110,7 @@ class ViewHandler(MeldView):
     def write_common(self, root):
         """ Common rendering of the Supvisors pages. """
         # set auto-refresh status on page
-        auto_refresh = self.view_ctx.parameters[AUTO]
+        auto_refresh = self.view_ctx.auto_refresh
         if not auto_refresh:
             root.findmeld('meta_mid').deparent()
         # blink main title in conciliation state
@@ -121,7 +121,7 @@ class ViewHandler(MeldView):
         root.findmeld('version_mid').content(__version__)
         # set bottom message
         footer_elt = root.findmeld('footer_mid')
-        print_message(footer_elt, self.view_ctx.get_gravity(), self.view_ctx.get_message(),
+        print_message(footer_elt, self.view_ctx.gravity, self.view_ctx.message,
                       self.current_time, self.local_nick_identifier)
 
     def write_navigation(self, root):
@@ -258,7 +258,7 @@ class ViewHandler(MeldView):
         for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
             # print period button
             elt = li_elt.findmeld('period_a_mid')
-            if item == self.view_ctx.parameters[PERIOD]:
+            if item == self.view_ctx.period:
                 update_attrib(li_elt, 'class', 'off active')
             else:
                 update_attrib(li_elt, 'class', 'on')
@@ -273,7 +273,7 @@ class ViewHandler(MeldView):
         url = self.view_ctx.format_url('', self.page_name)
         elt.attributes(href=url)
         # configure auto-refresh button
-        auto_refresh = self.view_ctx.parameters[AUTO]
+        auto_refresh = self.view_ctx.auto_refresh
         elt = header_elt.findmeld('autorefresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{AUTO: not auto_refresh})
         elt.attributes(href=url)
@@ -284,6 +284,34 @@ class ViewHandler(MeldView):
         """ Write the contents part of the page.
         Subclasses will define what's to be done. """
         raise NotImplementedError
+
+    def write_global_shex(self, table_elt, param: str, shex: str,
+                          expand_shex: bytearray, shrink_shex: bytearray) -> None:
+        """ Write global shrink / expand buttons.
+
+        :param table_elt: the table element.
+        :param param: the URL attribute for shex action.
+        :param shex: the current shex from context form.
+        :param expand_shex: the shex key to expand all items.
+        :param shrink_shex: the shex key to shrink all items.
+        :return: None.
+        """
+        # write expand button
+        elt = table_elt.findmeld('expand_a_mid')
+        if shex == expand_shex.hex():
+            elt.replace('')
+        else:
+            elt.content(SHEX_EXPAND)
+            url = self.view_ctx.format_url('', self.page_name, **{param: expand_shex.hex()})
+            elt.attributes(href=url)
+        # write shrink button
+        elt = table_elt.findmeld('shrink_a_mid')
+        if shex == shrink_shex.hex():
+            elt.replace('')
+        else:
+            elt.content(SHEX_SHRINK)
+            url = self.view_ctx.format_url('', self.page_name, **{param: shrink_shex.hex()})
+            elt.attributes(href=url)
 
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
@@ -299,7 +327,7 @@ class ViewHandler(MeldView):
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
                     parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
-                    if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                    if self.view_ctx.process_name == info['namespec']:
                         update_attrib(elt, 'class', 'active')
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)
@@ -327,7 +355,7 @@ class ViewHandler(MeldView):
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
                     parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
-                    if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                    if self.view_ctx.process_name == info['namespec']:
                         update_attrib(elt, 'class', 'active')
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)
@@ -346,47 +374,46 @@ class ViewHandler(MeldView):
     def write_process_start_button(self, tr_elt, info):
         """ Write the configuration of the start button of a process.
         The action will be handled by the local Supvisors instance. """
-        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name, 'start', info['namespec'],
+        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name,
+                                   'start', info['namespec'],
                                    info['startable'] and info['statecode'] in STOPPED_STATES)
 
     def write_process_stop_button(self, tr_elt, info):
         """ Write the configuration of the stop button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name, 'stop', info['namespec'],
-                                   info['statecode'] in RUNNING_STATES)
+        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name,
+                                   'stop', info['namespec'],
+                                   info['stoppable'] and info['statecode'] in RUNNING_STATES)
 
     def write_process_restart_button(self, tr_elt, info):
         """ Write the configuration of the restart button of a process.
         The action will be handled by the local supvisors. """
-        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name, 'restart', info['namespec'],
+        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name,
+                                   'restart', info['namespec'],
                                    info['startable'] and info['statecode'] in RUNNING_STATES)
 
-    def write_process_clear_button(self, tr_elt, info, check_logfiles: bool):
+    def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant node. """
         namespec = info['namespec']
-        has_stdout = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
-        has_stderr = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         self._write_process_button(tr_elt, 'clear_a_mid', info['identifier'], self.page_name,
-                                   'clearlog', namespec, has_stdout or has_stderr)
+                                   'clearlog', namespec, info['has_stdout'] or info['has_stderr'])
 
-    def write_process_stdout_button(self, tr_elt, info, check_logfiles: bool):
+    def write_process_stdout_button(self, tr_elt, info):
         """ Write the configuration of the tail stdout button of a process.
         This action must be sent to the relevant node. """
         namespec = info['namespec']
-        has_stdout = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
-                                   STDOUT_PAGE % quote(namespec or ''), '', namespec, has_stdout)
+                                   STDOUT_PAGE % quote(namespec or ''), '', namespec, info['has_stdout'])
 
-    def write_process_stderr_button(self, tr_elt, info, check_logfiles: bool):
+    def write_process_stderr_button(self, tr_elt, info):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant node. """
         namespec = info['namespec']
-        has_stderr = not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
-                                   STDERR_PAGE % quote(namespec or ''), '', namespec, has_stderr)
+                                   STDERR_PAGE % quote(namespec or ''), '', namespec, info['has_stderr'])
 
     def _write_process_button(self, tr_elt, elt_name: str, identifier: str, page: str, action: str, namespec: str,
                               active: bool = True):
@@ -412,14 +439,17 @@ class ViewHandler(MeldView):
     @staticmethod
     def write_common_state(tr_elt, info: Payload) -> None:
         """ Write the common part of a process state into a table. """
-        # print state
-        elt = tr_elt.findmeld('state_td_mid')
-        update_attrib(elt, 'class', info['gravity'])
+        # print state in cell
+        td_elt = tr_elt.findmeld('state_td_mid')
+        span_elt = td_elt.findmeld('state_span_mid')
+        update_attrib(td_elt, 'class', info['gravity'])
         if info['has_crashed']:
-            update_attrib(elt, 'class', 'crashed')
+            update_attrib(td_elt, 'class', 'crashed')
         if info['disabled']:
-            update_attrib(elt, 'class', 'disabled')
-        elt.content(info['statename'])
+            update_attrib(td_elt, 'class', 'disabled')
+        if len(info.get('running_identifiers', [])) > 1:
+            update_attrib(span_elt, 'class', 'blink')
+        span_elt.content(info['statename'])
         # print description
         tr_elt.findmeld('desc_td_mid').content(info['description'])
 
@@ -431,7 +461,7 @@ class ViewHandler(MeldView):
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
 
-    def write_common_process_status(self, tr_elt, info: Payload, check_logfiles: bool = True) -> None:
+    def write_common_process_status(self, tr_elt, info: Payload) -> None:
         """ Write the common part of a process status into a table. """
         # print common status
         self.write_common_state(tr_elt, info)
@@ -439,13 +469,13 @@ class ViewHandler(MeldView):
         # print process name
         # add break character only to processes belonging to an application
         process_name = info['process_name']
-        if 'single' not in info or not info['single']:
-            process_name = '\u21B3 ' + process_name
+        if info.get('nb_items', 0) == 0:
+            process_name = f'{SUB_SYMBOL} {process_name}'
         name_elt = tr_elt.findmeld('name_td_mid')
         # tail hyperlink depends on logfile availability
         namespec = info['namespec']
         # for application page, cannot state if logfile is there
-        if not check_logfiles or self.supvisors.supervisor_data.has_logfile(namespec, 'stdout'):
+        if info['has_stdout']:
             elt = name_elt.findmeld('name_a_mid')
             elt.content(process_name)
             url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE,
@@ -459,9 +489,9 @@ class ViewHandler(MeldView):
         self.write_process_stop_button(tr_elt, info)
         self.write_process_restart_button(tr_elt, info)
         # manage log actions
-        self.write_process_clear_button(tr_elt, info, check_logfiles)
-        self.write_process_stdout_button(tr_elt, info, check_logfiles)
-        self.write_process_stderr_button(tr_elt, info, check_logfiles)
+        self.write_process_clear_button(tr_elt, info)
+        self.write_process_stdout_button(tr_elt, info)
+        self.write_process_stderr_button(tr_elt, info)
 
     def write_detailed_process_cpu(self, stats_elt, proc_stats: Optional[ProcStatisticsInstance],
                                    nb_cores: int) -> bool:
@@ -509,7 +539,7 @@ class ViewHandler(MeldView):
             ref_elt.findmeld(avg_mid).content(get_small_value(avg))
             # adapt slope value iaw period selected
             if slope is not None:
-                value = slope * self.view_ctx.parameters[PERIOD]
+                value = slope * self.view_ctx.period
                 ref_elt.findmeld(slope_mid).content(get_small_value(value))
             # set standard deviation
             if dev is not None:
@@ -567,10 +597,10 @@ class ViewHandler(MeldView):
         :return: NOT_DONE_YET if action is deferred, None otherwise
         """
         # check if any action is requested
-        action = self.view_ctx.get_action()
+        action = self.view_ctx.action
         if action:
             # trigger deferred action and wait
-            namespec = self.view_ctx.parameters[NAMESPEC]
+            namespec = self.view_ctx.namespec
             if not self.callback:
                 self.callback = self.make_callback(namespec, action)
             # immediate check

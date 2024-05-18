@@ -5,6 +5,9 @@
 * Add disk usage and read/write statistics to the **Supvisors** Web UI.
   Disk statistics are published to the event interface and the JAVA client has been updated accordingly.
 
+* In the Application page of the **Supvisors** Web UI, add the possibility to expand the process information
+  from all **Supvisors** instances where it is configured. 
+
 
 ## 0.18 (2024-05-02)
 

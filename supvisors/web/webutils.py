@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+from enum import Enum
 from time import ctime
 from typing import Any, Callable, Tuple
 
@@ -42,8 +40,15 @@ Error = 'erro'
 
 # Web UI symbols
 MASTER_SYMBOL = '\u272A'
+SUB_SYMBOL = '\u21B3'
 SHEX_SHRINK = '[\u2013]'
 SHEX_EXPAND = '[+]'
+
+
+# entry types in a Process table
+class ProcessRowTypes(Enum):
+    """ Used to sort entries in a process table. """
+    INSTANCE_PROCESS, SUPERVISOR_PROCESS, APPLICATION_PROCESS, APPLICATION = range(4)
 
 
 def format_gravity_message(message):
