@@ -352,7 +352,7 @@ The **Processes Section** looks like the page provided by |Supervisor|.
 Indeed, it lists the programs that are configured in |Supervisor|, it presents their current state with an associated
 description and enables the user to perform some actions on them:
 
-    * Log tail (with a refresh button, click on the program name itself) ;
+    * Log tail (with a refresh button, click on the process name itself) ;
     * Start ;
     * Stop ;
     * Restart ;
@@ -400,8 +400,8 @@ Here is the color code used for process states:
     +------------------------------------+-------------------------------------------+
 
 All processes are grouped by their application name and |Supvisors| provides expand / shrink actions per application
-to enable the user to show / hide blocks of processes. Global expand / shrink actions are provided too in the top left
-cell of the table.
+to enable the user to show / hide blocks of processes. |br|
+Global expand / shrink actions are provided too in the top left cell of the table.
 
 Considering the application processes that are running in this |Supvisors| instance, the application line displays:
 
@@ -526,7 +526,7 @@ Application Page Contents
 The table lists all the programs belonging to the application, and it shows:
 
     * the 'synthetic' state of the process (refer to this note for details about the synthesis) ;
-    * the |Supvisors| instances where it runs, if appropriate ;
+    * the |Supvisors| instance where it runs, if appropriate ;
     * the description (after initialization from |Supervisor|, the nick name of the corresponding |Supvisors|
       instance is added depending on the state) ;
     * the loading declared for the process in the rules file ;
@@ -548,11 +548,18 @@ Indeed, |Supvisors| uses the rules of the program (as defined in the rules file)
 in the header part to choose a relevant |Supvisors| instance. If no rule is defined for the program, the Start button
 will be disabled.
 
-The availability of the logs is not tested in this page.
-
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process. And unlike
 the `Supervisor page`_, statistics information are not hidden in this page because they may have been collected
 on the other nodes (due to a different configuration) and thus can be made available here.
+
+|Supvisors| provides expand / shrink actions per process to enable the user to show / hide the process status
+on all |Supvisors| instances where it is configured. |br|
+Global expand / shrink actions are provided too in the top left cell of the table.
+
+.. note::
+
+    The Start, Stop and Restart actions are not allowed on the expanded rows.
+    Only the Stop button may be considered in a later version.
 
 
 .. include:: common.rst
