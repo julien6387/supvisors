@@ -100,7 +100,8 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: the sorted data and the excluded data.
         """
         # extract what is useful to display
-        status: SupvisorsInstanceStatus = self.sup_ctx.instances[self.view_ctx.local_identifier]
+        local_identifier = self.view_ctx.local_identifier
+        status: SupvisorsInstanceStatus = self.sup_ctx.instances[local_identifier]
         data = []
         for namespec, process in status.processes.items():
             # a 'main' process has the same name as its namespec
@@ -110,7 +111,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
                        'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
-                       'main': main, 'identifier': self.view_ctx.local_identifier,
+                       'main': main, 'identifier': local_identifier,
                        'disabled': info['disabled'], 'startable': not info['disabled'], 'stoppable': True,
                        'statename': info['statename'], 'statecode': info['state'],
                        'gravity': 'FATAL' if crashed else info['statename'],
@@ -118,8 +119,8 @@ class ProcInstanceView(SupvisorsInstanceView):
                        'description': info['description'],
                        'expected_load': process.rules.expected_load,
                        'nb_cores': nb_cores, 'proc_stats': proc_stats,
-                       'has_stdout': self.supvisors.supervisor_data.has_logfile(namespec, 'stdout'),
-                       'has_stderr': self.supvisors.supervisor_data.has_logfile(namespec, 'stderr')}
+                       'has_stdout': process.has_stdout(local_identifier),
+                       'has_stderr': process.has_stderr(local_identifier)}
             data.append(payload)
         # re-arrange data
         sorted_data, excluded_data = self.sort_data(data)

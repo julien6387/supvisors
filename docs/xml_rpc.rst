@@ -156,14 +156,22 @@ Status
             'group'            ``str``         The Application name the process belongs to.
             'name'             ``str``         The Process name.
             'state'            ``int``         The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
-            'start'            ``int``         The Process start date.
-            'now'              ``float``       The Process current date.
+            'start'            ``int``         The Process start time.
+            'start_monotonic'  ``float``       The Process monotonic start time.
+            'stop'             ``int``         The Process stop time.
+            'stop_monotonic'   ``float``       The Process monotonic stop time.
+            'now'              ``float``       The Process current time.
+            'now_monotonic'    ``float``       The Process monotonic current time.
             'pid'              ``int``         The UNIX process identifier.
             'startsecs'        ``int``         The configured duration between process STARTING and RUNNING.
-            'stopwaitsecs'     ``int``         The configured duration between process STOPPING and STOPPED.
+            'stopwaitsecs'     ``int``         The configured duration in STOPPING before sending a KILL signal.
             'pid'              ``int``         The UNIX process identifier.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             'disabled'         ``bool``        A status telling if the process is disabled.
+            'program_name'     ``str``         The program name in |Supervisor| configuration.
+            'process_index'    ``int``         The process index in the case of a homogeneous group.
+            'has_stdout'       ``bool``        True if a stdout log file is configured in the |Supervisor| program.
+            'has_stderr'       ``bool``        True if a stderr log file is configured in the |Supervisor| program.
             ================== =============== ===========
 
         .. automethod:: get_all_local_process_info()

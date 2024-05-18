@@ -196,7 +196,6 @@ def test_write_contents(mocker, view):
 
 def test_get_process_data(mocker, supvisors, view):
     """ Test the ProcInstanceView.get_process_data method. """
-    mocker.patch.object(supvisors.supervisor_data, 'has_logfile', side_effect=lambda x, y: y == 'stdout')
     mocker.patch.object(view, 'sort_data', side_effect=lambda x: (sorted(x, key=lambda y: y['namespec']), []))
     mocked_data = mocker.patch.object(view, 'get_supervisord_data', return_value={'namespec': 'supervisord'})
     # get context
@@ -215,6 +214,8 @@ def test_get_process_data(mocker, supvisors, view):
         info = process_info_by_name(process_name)
         info['has_crashed'] = has_crashed
         info['disabled'] = disabled
+        info['has_stdout'] = True
+        info['has_stderr'] = False
         process = create_process(info, supvisors)
         process.rules.expected_load = load
         process.add_info('10.0.0.1:25000', info)

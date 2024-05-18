@@ -267,14 +267,17 @@ def test_get_process_data(mocker, view):
     """ Test the ViewApplication.get_process_data method. """
     # patch the selected application
     process_1_10001 = {'group': 'appli_1', 'disabled': False, 'statename': 'STOPPED', 'state': 0,
-                       'has_crashed': False, 'description': 'process_1 on 10.0.0.1'}
+                       'has_crashed': False, 'description': 'process_1 on 10.0.0.1',
+                       'has_stdout': False, 'has_stderr': True}
     process_1 = Mock(application_name='appli_1', process_name='process_1', namespec='namespec_1',
                      state=ProcessStates.EXITED, displayed_state=ProcessStates.STOPPED, expected_exit=False,
                      running_identifiers=set(), rules=Mock(expected_load=20),
                      info_map={'10.0.0.1': process_1_10001},
                      **{'state_string.return_value': 'STOPPED',
                         'displayed_state_string.return_value': 'STOPPED',
-                        'get_description.return_value': ('', 'stopped'),
+                        'get_applicable_details.return_value': ('', 'stopped', True, False),
+                        'has_stdout.return_value': False,
+                        'has_stderr.return_value': True,
                         'has_crashed.return_value': False,
                         'disabled.return_value': True,
                         'possible_identifiers.return_value': []})
@@ -285,8 +288,10 @@ def test_get_process_data(mocker, view):
                      info_map={'10.0.0.1': {}, '10.0.0.2': {}, '10.0.0.3': {}, '10.0.0.4': {}},
                      **{'state_string.return_value': 'RUNNING',
                         'displayed_state_string.return_value': 'RUNNING',
-                        'get_description.return_value': (['10.0.0.1', '10.0.0.3'], 'conflict'),
+                        'get_applicable_details.return_value': (['10.0.0.1', '10.0.0.3'], 'conflict', False, False),
                         'has_crashed.return_value': True,
+                        'has_stdout.return_value': True,
+                        'has_stderr.return_value': False,
                         'disabled.return_value': False,
                         'possible_identifiers.return_value': ['10.0.0.1']})
     view.application = Mock(processes={process_1.process_name: process_1, process_2.process_name: process_2})
@@ -302,7 +307,7 @@ def test_get_process_data(mocker, view):
               'has_crashed': False, 'running_identifiers': [], 'description': 'stopped',
               'main': True, 'nb_items': 1,
               'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats,
-              'has_stdout': True, 'has_stderr': True}
+              'has_stdout': True, 'has_stderr': False}
     data_1_1 = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
                 'application_name': 'appli_1', 'process_name': '', 'namespec': 'namespec_1',
                 'identifier': '10.0.0.1', 'disabled': False, 'startable': False, 'stoppable': False,
@@ -310,7 +315,7 @@ def test_get_process_data(mocker, view):
                 'has_crashed': False, 'running_identifiers': ['10.0.0.1'], 'description': 'process_1 on 10.0.0.1',
                 'main': False, 'nb_items': 0,
                 'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats,
-                'has_stdout': True, 'has_stderr': True}
+                'has_stdout': False, 'has_stderr': True}
     data_2 = {'row_type': ProcessRowTypes.APPLICATION_PROCESS,
               'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
               'identifier': ['10.0.0.1', '10.0.0.3'], 'disabled': False, 'startable': True, 'stoppable': True,

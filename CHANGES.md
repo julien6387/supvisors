@@ -8,6 +8,9 @@
 * In the Application page of the **Supvisors** Web UI, add the possibility to expand the process information
   from all **Supvisors** instances where it is configured. 
 
+* Share the configuration of `stdout` and `stderr` log files between all **Supvisors** instances. 
+  `has_stdout` and `has_stderr` are added to the result of the XML-RPC `get_local_process_info`.
+
 * When the `software_name` option is set, it is used as a prefix in all log traces.
 
 

@@ -330,7 +330,8 @@ def test_get_process_info(mocker, source):
                 'process_index': 0,
                 'program_name': 'dummy_program',
                 'start_monotonic': 0.0, 'stop_monotonic': 0.0,
-                'startsecs': 5, 'stopwaitsecs': 10}
+                'startsecs': 5, 'stopwaitsecs': 10,
+                'has_stderr': True, 'has_stdout': True}
     assert source.get_process_info('dummy_application:dummy_process_1') == expected
 
 

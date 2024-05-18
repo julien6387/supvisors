@@ -149,7 +149,7 @@ class ApplicationView(ViewHandler):
             namespec = process.namespec
             # add the process synthesis
             possible_identifiers = process.possible_identifiers()
-            identifier, description = process.get_description()
+            identifier, description, has_stdout, has_stderr = process.get_applicable_details()
             unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
             data.append({'row_type': ProcessRowTypes.APPLICATION_PROCESS,
@@ -164,8 +164,7 @@ class ApplicationView(ViewHandler):
                          'main': True, 'nb_items': len(process.info_map),
                          'expected_load': process.rules.expected_load,
                          'nb_cores': nb_cores, 'proc_stats': proc_stats,
-                         'has_stdout': len(process.running_identifiers) <= 1,  # TODO: best guess
-                         'has_stderr': len(process.running_identifiers) <= 1})
+                         'has_stdout': has_stdout, 'has_stderr': has_stderr})
             # add data depending on the process shex
             process_shex, _ = self.view_ctx.get_process_shex(process.process_name)
             if process_shex:
@@ -181,13 +180,13 @@ class ApplicationView(ViewHandler):
                                  'statename': info['statename'], 'statecode': info['state'],
                                  'gravity': 'FATAL' if crashed else info['statename'],
                                  'has_crashed': info['has_crashed'],
-                                 'running_identifiers': [identifier],  # used to allow button but not necessarily running
+                                 'running_identifiers': [identifier],  # used for button but not necessarily running
                                  'description': info['description'],
                                  'main': False, 'nb_items': 0,
                                  'expected_load': process.rules.expected_load,
                                  'nb_cores': nb_cores, 'proc_stats': proc_stats,
-                                 'has_stdout': True,  # TODO: best guess. add to local_process_info
-                                 'has_stderr': True})
+                                 'has_stdout': process.has_stdout(identifier),
+                                 'has_stderr': process.has_stderr(identifier)})
         # re-arrange data using alphabetical order
         return sorted(data, key=lambda x: (x['namespec'], -x['row_type'].value, x['identifier']))
 

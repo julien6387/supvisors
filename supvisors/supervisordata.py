@@ -19,6 +19,7 @@ import socket
 import time
 from typing import Any, Dict, List, Optional
 
+from supervisor.datatypes import Syslog
 from supervisor.events import notify
 from supervisor.http import supervisor_auth_handler, logtail_handler, mainlogtail_handler
 from supervisor.loggers import Logger
@@ -317,14 +318,16 @@ class SupervisorData:
                 'stopwaitsecs': process.config.stopwaitsecs,
                 'process_index': process.supvisors_config.process_index,
                 'program_name': process.supvisors_config.program_config.name,
-                'disabled': process.supvisors_config.program_config.disabled}
+                'disabled': process.supvisors_config.program_config.disabled,
+                'has_stdout': process.config.stdout_logfile not in [None, Syslog],
+                'has_stderr': process.config.stderr_logfile not in [None, Syslog]}
 
     def has_logfile(self, namespec: str, channel: str) -> bool:
         """ Return True if the process has a logfile configuration on the channel.
 
-        :param namespec: the program namespec
-        :param channel: the logfile channel (stdout or stderr)
-        :return: True if the process has a logfile configured on the channel
+        :param namespec: the program namespec.
+        :param channel: the logfile channel (stdout or stderr).
+        :return: True if the process has a logfile configured on the channel.
         """
         process_config = self._get_process_config(namespec)
         return getattr(process_config, '%s_logfile' % channel)
