@@ -8,6 +8,8 @@
 * In the Application page of the **Supvisors** Web UI, add the possibility to expand the process information
   from all **Supvisors** instances where it is configured. 
 
+* When the `software_name` option is set, it is used as a prefix in all log traces.
+
 
 ## 0.18 (2024-05-02)
 

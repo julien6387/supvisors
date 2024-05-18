@@ -63,10 +63,14 @@ def test_create_logger():
     logger_config = get_logger_configuration()
     logger_config['logfile'] = Automatic
     assert create_logger(supervisor, logger_config) is supervisor.options.logger
+    assert supervisor.options.logger.handlers[0].fmt == LOGGER_FORMAT
     # test defined logfile
+    logger_config['prefix'] = 'Supvisors'
     logger_config['logfile'] = '/tmp/dummy.log'
     logger = create_logger(supervisor, logger_config)
     assert logger is not supervisor.options.logger
+    assert supervisor.options.logger.handlers[0].fmt == LOGGER_FORMAT
+    assert logger.handlers[0].fmt == f'Supvisors;{LOGGER_FORMAT}'
 
 
 def test_identifier_exception(mocker):

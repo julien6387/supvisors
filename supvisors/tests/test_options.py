@@ -69,7 +69,8 @@ def server_opt(supvisors):
 
 def test_empty_logger_configuration():
     """ Test the logger configuration with empty config. """
-    assert get_logger_configuration() == {'logfile': Automatic,
+    assert get_logger_configuration() == {'prefix': '',
+                                          'logfile': Automatic,
                                           'logfile_backups': 10,
                                           'logfile_maxbytes': 50 * 1024 * 1024,
                                           'loglevel': LevelsByName.INFO}
@@ -77,7 +78,8 @@ def test_empty_logger_configuration():
 
 def test_filled_logger_configuration(config):
     """ Test the logger configuration with empty config. """
-    assert get_logger_configuration(**config) == {'logfile': '/tmp/supvisors.log',
+    assert get_logger_configuration(**config) == {'prefix': 'Supvisors tests',
+                                                  'logfile': '/tmp/supvisors.log',
                                                   'logfile_backups': 5,
                                                   'logfile_maxbytes': 50 * 1024,
                                                   'loglevel': LevelsByName.ERRO}

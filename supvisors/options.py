@@ -36,6 +36,7 @@ def get_logger_configuration(**config) -> Payload:
     """ Extract the logger parameters from the config structure.
 
     Returns a dictionary with the following entries:
+        - software_name: the optional software name, used as a prefix in log traces ;
         - logfile: absolute or relative path of the Supvisors log file ;
         - logfile_maxbytes: maximum size of the Supvisors log file ;
         - logfile_backups: number of Supvisors backup log files ;
@@ -44,7 +45,8 @@ def get_logger_configuration(**config) -> Payload:
     :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section.
     :return: a dictionary containing the logger parameters.
     """
-    return {'logfile': logfile_name(config.get('logfile', Automatic)),
+    return {'prefix': config.get('software_name', ''),
+            'logfile': logfile_name(config.get('logfile', Automatic)),
             'logfile_maxbytes': byte_size(config.get('logfile_maxbytes', '50MB')),
             'logfile_backups': integer(config.get('logfile_backups', 10)),
             'loglevel': logging_level(config.get('loglevel', 'info'))}
