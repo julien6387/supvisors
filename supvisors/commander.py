@@ -997,7 +997,7 @@ class Commander:
             self.logger.debug(f'{self.class_name}.next: sequence={sequence_number}'
                               f' current_jobs={self.current_jobs}')
             # iterate on copy to avoid problems with key deletions
-            for application_name, application_job in self.current_jobs.copy().items():
+            for application_name, application_job in list(self.current_jobs.items()):
                 self.logger.info(f'{self.class_name}.next: start processing {application_name}')
                 application_job.before()
                 application_job.next()
@@ -1020,7 +1020,7 @@ class Commander:
 
         :return: None
         """
-        for application_job in self.current_jobs.values():
+        for application_job in list(self.current_jobs.values()):
             application_job.check()
         # trigger jobs
         self.next()
@@ -1064,11 +1064,11 @@ class Commander:
         :return: None
         """
         # clear the invalidated Supvisors instances from the pending requests
-        for application_jobs in self.current_jobs.values():
+        for application_jobs in list(self.current_jobs.values()):
             application_jobs.on_instances_invalidation(invalidated_identifiers, failed_processes)
         # perform some cleaning based on the planned jobs too
-        for application_jobs_map in self.planned_jobs.values():
-            for application_jobs in application_jobs_map.values():
+        for application_jobs_map in list(self.planned_jobs.values()):
+            for application_jobs in list(application_jobs_map.values()):
                 application_jobs.on_instances_invalidation(invalidated_identifiers, failed_processes)
         # trigger jobs
         self.next()
@@ -1236,7 +1236,8 @@ class Starter(Commander):
 
         :return: the additional loading per Supvisors instance
         """
-        load_requests = [application_job.get_load_requests() for application_job in self.current_jobs.values()]
+        load_requests = [application_job.get_load_requests()
+                         for application_job in self.current_jobs.values()]
         # get all identifiers found
         identifiers = {identifier for load_request in load_requests for identifier in load_request}
         # sum the loadings per identifier
