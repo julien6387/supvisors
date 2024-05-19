@@ -108,7 +108,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             main = process.process_name == namespec
             info = process.info_map[self.view_ctx.local_identifier]
             crashed = ProcessStatus.is_crashed_event(info)
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
+            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, local_identifier)
             payload = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
                        'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'main': main, 'identifier': local_identifier,
@@ -134,10 +134,11 @@ class ProcInstanceView(SupvisorsInstanceView):
         :param status: the local Supvisors instance
         :return: the supervisord data.
         """
-        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
+        local_identifier = self.view_ctx.local_identifier
+        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord', local_identifier)
         payload = {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
                    'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                   'main': True, 'identifier': self.view_ctx.local_identifier,
+                   'main': True, 'identifier': local_identifier,
                    'disabled': False, 'startable': False, 'stoppable': True,
                    'statename': 'RUNNING', 'statecode': 20,
                    'gravity': 'RUNNING', 'has_crashed': False,

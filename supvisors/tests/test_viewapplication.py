@@ -275,7 +275,7 @@ def test_get_process_data(mocker, view):
                      info_map={'10.0.0.1': process_1_10001},
                      **{'state_string.return_value': 'STOPPED',
                         'displayed_state_string.return_value': 'STOPPED',
-                        'get_applicable_details.return_value': ('', 'stopped', True, False),
+                        'get_applicable_details.return_value': ('10.0.0.1', 'stopped', True, False),
                         'has_stdout.return_value': False,
                         'has_stderr.return_value': True,
                         'has_crashed.return_value': False,
@@ -288,7 +288,7 @@ def test_get_process_data(mocker, view):
                      info_map={'10.0.0.1': {}, '10.0.0.2': {}, '10.0.0.3': {}, '10.0.0.4': {}},
                      **{'state_string.return_value': 'RUNNING',
                         'displayed_state_string.return_value': 'RUNNING',
-                        'get_applicable_details.return_value': (['10.0.0.1', '10.0.0.3'], 'conflict', False, False),
+                        'get_applicable_details.return_value': (None, 'conflict', False, False),
                         'has_crashed.return_value': True,
                         'has_stdout.return_value': True,
                         'has_stderr.return_value': False,
@@ -302,7 +302,7 @@ def test_get_process_data(mocker, view):
     # test call
     data_1 = {'row_type': ProcessRowTypes.APPLICATION_PROCESS,
               'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1',
-              'identifier': '', 'disabled': True, 'startable': False, 'stoppable': True,
+              'identifier': '10.0.0.1', 'disabled': True, 'startable': False, 'stoppable': True,
               'statename': 'STOPPED', 'statecode': ProcessStates.STOPPED, 'gravity': 'FATAL',
               'has_crashed': False, 'running_identifiers': [], 'description': 'stopped',
               'main': True, 'nb_items': 1,
@@ -318,11 +318,11 @@ def test_get_process_data(mocker, view):
                 'has_stdout': False, 'has_stderr': True}
     data_2 = {'row_type': ProcessRowTypes.APPLICATION_PROCESS,
               'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
-              'identifier': ['10.0.0.1', '10.0.0.3'], 'disabled': False, 'startable': True, 'stoppable': True,
+              'identifier': None, 'disabled': False, 'startable': True, 'stoppable': True,
               'statename': 'RUNNING', 'statecode': ProcessStates.RUNNING, 'gravity': 'RUNNING',
               'has_crashed': True, 'running_identifiers': ['10.0.0.1', '10.0.0.3'], 'description': 'conflict',
               'main': True, 'nb_items': 4,
-              'expected_load': 1, 'nb_cores': 4, 'proc_stats': mocked_stats,
+              'expected_load': 1, 'nb_cores': 0, 'proc_stats': None,
               'has_stdout': False, 'has_stderr': False}
     assert view.get_process_data() == [data_1, data_1_1, data_2]
 

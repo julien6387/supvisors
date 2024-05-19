@@ -719,8 +719,8 @@ def test_get_applicable_details(supvisors):
     assert process.get_applicable_details() == ('10.0.0.3:25000', 'desc3 on 10.0.0.3', True, True)
     # test method return on multiple running processes
     process.running_identifiers.add('10.0.0.2:25000')
-    possible_results = [(['10.0.0.3:25000', '10.0.0.2:25000'], 'conflict on 10.0.0.3, 10.0.0.2', False, False),
-                        (['10.0.0.2:25000', '10.0.0.3:25000'], 'conflict on 10.0.0.2, 10.0.0.3', False, False)]
+    possible_results = [(None, 'conflict on 10.0.0.3, 10.0.0.2', False, False),
+                        (None, 'conflict on 10.0.0.2, 10.0.0.3', False, False)]
     assert process.get_applicable_details() in possible_results
     # test again with forced state
     event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1:25000',

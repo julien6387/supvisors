@@ -217,7 +217,7 @@ class ViewContext:
 
     def update_cpu_id(self) -> None:
         """ Extract CPU id from context. """
-        self._update_integer(CPU, list(range(self.get_nb_cores() + 1)))
+        self._update_integer(CPU, list(range(self.get_nb_cores(self.local_identifier) + 1)))
 
     def update_nic_name(self) -> None:
         """ Extract network interface name from context.
@@ -405,13 +405,12 @@ class ViewContext:
             self.http_context.response[HEADERS][LOCATION] = location
 
     # Statistics
-    def get_nb_cores(self, identifier: str = None) -> int:
+    def get_nb_cores(self, identifier: str) -> int:
         """ Get the number of processors of the host where the Supvisors instance is running. """
-        stats_identifier = identifier or self.local_identifier
         # 2 chances to get the value
-        nb_cores = self.supvisors.host_compiler.get_nb_cores(stats_identifier)
+        nb_cores = self.supvisors.host_compiler.get_nb_cores(identifier)
         if not nb_cores:
-            nb_cores = self.supvisors.process_compiler.get_nb_cores(stats_identifier)
+            nb_cores = self.supvisors.process_compiler.get_nb_cores(identifier)
         return nb_cores
 
     def get_node_characteristics(self):
@@ -427,13 +426,10 @@ class ViewContext:
         period = self.parameters.get(PERIOD)
         return self.supvisors.host_compiler.get_stats(stats_identifier, period)
 
-    def get_process_stats(self, namespec: str, identifier: str = None):
+    def get_process_stats(self, namespec: str, identifier: str):
         """ Get the statistics structure related to the process and the period selected.
         Get also the number of cores available where this Supvisors instance runs (useful for process CPU IRIX mode).
         """
-        # use local identifier if not provided
-        if not identifier:
-            identifier = self.local_identifier
         # get the number of cores for Solaris mode
         nb_cores = self.get_nb_cores(identifier)
         # return the process statistics for this process

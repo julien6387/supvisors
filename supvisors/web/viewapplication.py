@@ -148,10 +148,13 @@ class ApplicationView(ViewHandler):
         for process in self.application.processes.values():
             namespec = process.namespec
             # add the process synthesis
+            unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
             possible_identifiers = process.possible_identifiers()
             identifier, description, has_stdout, has_stderr = process.get_applicable_details()
-            unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
+            # get_applicable_details may return a list of identifiers
+            nb_cores, proc_stats = 0, None
+            if identifier:
+                nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
             data.append({'row_type': ProcessRowTypes.APPLICATION_PROCESS,
                          'application_name': process.application_name, 'process_name': process.process_name,
                          'namespec': namespec, 'identifier': identifier,

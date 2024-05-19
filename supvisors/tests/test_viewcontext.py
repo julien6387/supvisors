@@ -506,12 +506,12 @@ def test_fire_message(ctx):
 def test_get_nb_cores(ctx):
     """ Test the ViewContext.get_nb_cores method. """
     # test default
-    assert ctx.get_nb_cores() == 0
+    assert ctx.get_nb_cores(ctx.local_identifier) == 0
     # mock the structure
     stats = ctx.http_context.supervisord.supvisors.host_compiler
     stats.nb_cores[ctx.local_identifier] = 4
     # test new call
-    assert ctx.get_nb_cores() == 4
+    assert ctx.get_nb_cores(ctx.local_identifier) == 4
     # test with unknown address
     assert ctx.get_nb_cores('10.0.0.1:25000') == 0
     # test with known address
@@ -551,7 +551,7 @@ def test_get_process_stats(mocker, supvisors, ctx):
     """ Test the ViewContext.get_process_stats method. """
     mocked_core = mocker.patch('supvisors.web.viewcontext.ViewContext.get_nb_cores', return_value=4)
     # test no result as no data stored
-    assert ctx.get_process_stats('dummy_proc') == (4, None)
+    assert ctx.get_process_stats('dummy_proc', ctx.local_identifier) == (4, None)
     mocked_core.reset_mock()
     # fill some internal structures
     mocked_stats = mocker.patch.object(supvisors.process_compiler, 'get_stats', return_value='mock stats')

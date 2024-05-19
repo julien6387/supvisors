@@ -536,9 +536,9 @@ class ProcessStatus:
                 has_stderr = info['has_stderr']
             else:
                 # multiple instances. conflict
-                identifier = list(self.running_identifiers)
+                identifiers = list(self.running_identifiers)
                 nick_identifiers = [self.supvisors.mapper.get_nick_identifier(identifier)
-                                    for identifier in identifier]
+                                    for identifier in identifiers]
                 desc = f"conflict on {', '.join(nick_identifiers)}"
             self.logger.trace(f'ProcessStatus.get_applicable_details: namespec={self.namespec}'
                               f' - Supvisors={identifier} [running]description={desc}')
