@@ -769,7 +769,8 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
     mocked_get_node.return_value = None
     application_start_job_1.distribute_to_single_node()
     assert application_start_job_1.identifiers == []
-    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
+    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                   possible_identifiers, 27, {})]
     assert not mocked_get_instance.called
     # check commands
     assert all(command.identifier is None
@@ -782,7 +783,8 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
     application_start_job_1.distribute_to_single_node()
     expected_identifiers = [supvisors.mapper.local_identifier, test_identifier]
     assert application_start_job_1.identifiers == expected_identifiers
-    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
+    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                   possible_identifiers, 27, {})]
     expected = [call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 10, {}),
                 call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 20, {}),
                 call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 30, {})]

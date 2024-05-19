@@ -2,6 +2,8 @@
 
 ## 0.19 (2024-xx-xx)
 
+* Fix regression using the `SINGLE_NODE` distribution rule.
+
 * Add disk usage and read/write statistics to the **Supvisors** Web UI.
   Disk statistics are published to the event interface and the JAVA client has been updated accordingly.
 

@@ -743,8 +743,9 @@ class ApplicationStartJobs(ApplicationJobs):
         # find the applicable Supvisors instances iaw strategy
         application_load = self.application.get_start_sequence_expected_load()
         identifiers = self.application.possible_node_identifiers()
+        load_request_map = self.get_load_requests()
         # choose the node that can support the application load
-        node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load)
+        node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load, load_request_map)
         # intersect the identifiers running on the node and the application possible identifiers
         # comprehension based on iteration over application possible identifiers to keep the CONFIG order
         node_identifiers = list(self.supvisors.mapper.nodes.get(node_name, []))
