@@ -36,10 +36,7 @@ Common Menu
 
     Common Menu
 
-Generally, clicking on the 'Supvisors' title brings the `Main page`_ back.
-
-There is an exception when conflicts are detected. In this case, a red light is blinking next to the |Supvisors| logo
-and clicking on it displays the `Conciliation page`_.
+Clicking on the 'Supvisors' title brings the `Main page`_ back.
 
 The version of |Supvisors| is displayed underneath.
 
@@ -169,8 +166,16 @@ The next card provides the |Supvisors| state and is displayed at the center of t
     |Supvisors| is either solving conflicts itself or waiting for the user to do it.
     Refer to the :ref:`conciliation` section for more details.
 
+    When conflicts are detected, the state button is blinking and clicking on it displays the `Conciliation page`_.
+
     The |Supvisors| :ref:`xml_rpc` is restricted in this state. It is possible to stop applications and processes
     but the start requests are rejected.
+
+.. note::
+
+    It may happen that |Supvisors| is temporarily in ``CONCILIATION`` state without any remaining conflict.
+    There is indeed a short moment (less than 5 seconds) between the last conflict conciliation and the |Supvisors|
+    state transition.
 
 ``RESTARTING``
 
@@ -229,6 +234,12 @@ Each box contains:
     * the |Supvisors| instance process loading ;
     * the list of all processes that are running in this |Supvisors| instance, whatever they belong to a *Managed*
       application or not.
+
+.. hint::
+
+    Clicking on a |Supvisors| instance displays the corresponding `Processes Section`_. |br|
+    Clicking on an application displays the corresponding `Application Page`_. |br|
+    Clicking on a process displays the corresponding `Processes Section`_, with its statistics selected.
 
 .. figure:: images/supvisors_main_page_user_sync.png
     :alt: Supvisors Main page with USER sync

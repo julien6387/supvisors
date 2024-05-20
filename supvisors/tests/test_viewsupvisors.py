@@ -220,16 +220,20 @@ def test_write_instance_box_applications(mocker, supvisors, view):
 
 def test_write_instance_box_application(supvisors, view):
     """ Test the _write_instance_box_application method. """
-    mocked_process_1 = Mock(namespec='dummy_appli:dummy_proc', process_name='dummy_proc')
-    mocked_process_2 = Mock(namespec='other_appli:other_proc', process_name='other_proc')
+    mocked_process_1 = Mock(namespec='dummy_appli:dummy_proc', process_name='dummy_proc',
+                            **{'conflicting.return_value': False})
+    mocked_process_2 = Mock(namespec='other_appli:other_proc', process_name='other_proc',
+                            **{'conflicting.return_value': False})
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     application = create_application('dummy_appli', supvisors)
     running_processes = [mocked_process_1, mocked_process_2]
     # build xhtml structure
     app_name_a_mid = create_element()
     app_name_td_mid = create_element({'app_name_a_mid': app_name_a_mid})
-    process_a_mid_1 = create_element()
-    process_a_mid_2 = create_element()
+    process_span_mid_1 = create_element()
+    process_span_mid_2 = create_element()
+    process_a_mid_1 = create_element({'process_span_mid': process_span_mid_1})
+    process_a_mid_2 = create_element({'process_span_mid': process_span_mid_2})
     process_li_elt_1 = create_element({'process_a_mid': process_a_mid_1})
     process_li_elt_2 = create_element({'process_a_mid': process_a_mid_2})
     process_li_mid = create_element()
@@ -248,19 +252,22 @@ def test_write_instance_box_application(supvisors, view):
     assert app_name_td_mid.attrib == {'class': '', 'colspan': '2'}
     assert not process_li_mid.repeat.call_args_list == [call([])]
     assert not process_li_elt_1.findmeld.called
-    assert not process_a_mid_1.content.called
+    assert not process_span_mid_1.content.called
     assert not process_a_mid_1.attributes.called
     assert process_a_mid_1.attrib['class'] == ''
+    assert process_span_mid_1.attrib['class'] == ''
     assert not process_li_elt_2.findmeld.called
-    assert not process_a_mid_2.content.called
+    assert not process_span_mid_2.content.called
     assert not process_a_mid_2.attributes.called
     assert process_a_mid_2.attrib['class'] == ''
+    assert process_span_mid_2.attrib['class'] == ''
     view.view_ctx.format_url.reset_mock()
     appli_tr_elt.reset_all()
     # 2. test call with unmanaged application, multiple running process on node and no user sync
     process_li_mid.repeat.return_value = [(process_li_elt_1, mocked_process_1),
                                           (process_li_elt_2, mocked_process_2)]
     application.rules.managed = False
+    mocked_process_2.conflicting.return_value = True
     view._write_instance_box_application(appli_tr_elt, '10.0.0.1', application, False, running_processes)
     # test elements
     assert appli_tr_elt.findmeld.call_args_list == [call('app_name_td_mid'), call('process_li_mid')]
@@ -272,13 +279,43 @@ def test_write_instance_box_application(supvisors, view):
                                                             processname='other_appli:other_proc', ident='10.0.0.1')]
     assert not process_li_mid.repeat.call_args_list == [call(running_processes)]
     assert process_li_elt_1.findmeld.call_args_list == [call('process_a_mid')]
-    assert process_a_mid_1.content.call_args_list == [call('dummy_proc')]
+    assert process_span_mid_1.content.call_args_list == [call('dummy_proc')]
     assert process_a_mid_1.attributes.call_args_list == [call(href='an url')]
     assert process_a_mid_1.attrib['class'] == 'on'
+    assert process_span_mid_1.attrib['class'] == ''
     assert process_li_elt_2.findmeld.call_args_list == [call('process_a_mid')]
-    assert process_a_mid_2.content.call_args_list == [call('other_proc')]
+    assert process_span_mid_2.content.call_args_list == [call('other_proc')]
     assert process_a_mid_2.attributes.call_args_list == [call(href='an url')]
     assert process_a_mid_2.attrib['class'] == 'on'
+    assert process_span_mid_2.attrib['class'] == ''
+    view.view_ctx.format_url.reset_mock()
+    appli_tr_elt.reset_all()
+    process_li_elt_1.reset_all()
+    process_li_elt_2.reset_all()
+    # 3. test call with managed application, multiple running process on node and no user sync
+    application.rules.managed = True
+    view._write_instance_box_application(appli_tr_elt, '10.0.0.1', application, False, running_processes)
+    # test elements
+    assert appli_tr_elt.findmeld.call_args_list == [call('app_name_td_mid'), call('process_li_mid')]
+    assert app_name_a_mid.content.call_args_list == [call('dummy_appli')]
+    assert app_name_a_mid.attrib == {'class': 'on'}
+    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1', APPLICATION_PAGE, appname='dummy_appli',
+                                                            ident='10.0.0.1', strategy='CONFIG'),
+                                                       call('10.0.0.1', PROC_INSTANCE_PAGE,
+                                                            processname='dummy_appli:dummy_proc', ident='10.0.0.1'),
+                                                       call('10.0.0.1', PROC_INSTANCE_PAGE,
+                                                            processname='other_appli:other_proc', ident='10.0.0.1')]
+    assert not process_li_mid.repeat.call_args_list == [call(running_processes)]
+    assert process_li_elt_1.findmeld.call_args_list == [call('process_a_mid')]
+    assert process_span_mid_1.content.call_args_list == [call('dummy_proc')]
+    assert process_a_mid_1.attributes.call_args_list == [call(href='an url')]
+    assert process_a_mid_1.attrib['class'] == 'on'
+    assert process_span_mid_1.attrib['class'] == ''
+    assert process_li_elt_2.findmeld.call_args_list == [call('process_a_mid')]
+    assert process_span_mid_2.content.call_args_list == [call('other_proc')]
+    assert process_a_mid_2.attributes.call_args_list == [call(href='an url')]
+    assert process_a_mid_2.attrib['class'] == 'on'
+    assert process_span_mid_2.attrib['class'] == 'blink'
 
 
 def test_write_node_boxes(mocker, supvisors, view):

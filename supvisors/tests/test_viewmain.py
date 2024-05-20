@@ -18,7 +18,6 @@ from unittest.mock import call, Mock
 
 import pytest
 
-from supvisors.ttypes import SupvisorsStates
 from supvisors.web.viewmain import *
 from .conftest import create_element, to_simple_url
 
@@ -50,20 +49,25 @@ def test_write_status(mocker, supvisors, view):
     """ Test the MainView.write_status method. """
     # patch context
     mocker.patch.object(view.sup_ctx, 'get_state_modes',
-                        return_value={'fsm_statename': SupvisorsStates.DISTRIBUTION.name,
+                        return_value={'fsm_statecode': SupvisorsStates.DISTRIBUTION.value,
+                                      'fsm_statename': SupvisorsStates.DISTRIBUTION.name,
                                       'starting_jobs': True, 'stopping_jobs': False})
+    mocker.patch.object(view.sup_ctx, 'conflicting', return_value=False)
     # build root structure
-    state_mid = create_element()
+    state_a_mid = create_element()
     starting_mid = create_element()
     stopping_mid = create_element()
     master_mid = create_element()
-    mocked_header = create_element({'state_mid': state_mid, 'master_name_mid': master_mid,
+    mocked_header = create_element({'state_a_mid': state_a_mid, 'master_name_mid': master_mid,
                                     'starting_mid': starting_mid, 'stopping_mid': stopping_mid})
-    # test call with no master
+    # test call with no master, starting jobs and not in CONCILIATION
     view.write_status(mocked_header)
-    assert mocked_header.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid'),
+    assert mocked_header.findmeld.call_args_list == [call('state_a_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
-    assert state_mid.content.call_args_list == [call('DISTRIBUTION')]
+    assert state_a_mid.replace.call_args_list == [call('DISTRIBUTION')]
+    assert not state_a_mid.attributes.called
+    assert not state_a_mid.content.called
+    assert state_a_mid.attrib['class'] == ''
     assert starting_mid.attrib['class'] == 'blink'
     assert not starting_mid.replace.called
     assert stopping_mid.attrib['class'] == ''
@@ -71,16 +75,38 @@ def test_write_status(mocker, supvisors, view):
     assert master_mid.content.call_args_list == [call('none')]
     mocked_header.reset_all()
     mocker.resetall()
-    # test call with master
+    # test call with master, in CONCILIATION, but without conflicts (expected solved)
+    view.sup_ctx.get_state_modes.return_value = {'fsm_statecode': SupvisorsStates.CONCILIATION.value,
+                                                 'fsm_statename': SupvisorsStates.CONCILIATION.name,
+                                                 'starting_jobs': False, 'stopping_jobs': True}
     supvisors.context.local_status.state_modes.master_identifier = '10.0.0.1:25000'
     view.write_status(mocked_header)
-    assert mocked_header.findmeld.call_args_list == [call('state_mid'), call('starting_mid'), call('stopping_mid'),
+    assert mocked_header.findmeld.call_args_list == [call('state_a_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
-    assert state_mid.content.call_args_list == [call('DISTRIBUTION')]
-    assert starting_mid.attrib['class'] == 'blink'
-    assert not starting_mid.replace.called
-    assert stopping_mid.attrib['class'] == ''
-    assert stopping_mid.replace.call_args_list == [call('')]
+    assert state_a_mid.content.call_args_list == [call('CONCILIATION')]
+    assert state_a_mid.attributes.call_args_list == [call(href=CONCILIATION_PAGE)]
+    assert not state_a_mid.replace.called
+    assert state_a_mid.attrib['class'] == ''
+    assert starting_mid.attrib['class'] == ''
+    assert starting_mid.replace.call_args_list == [call('')]
+    assert stopping_mid.attrib['class'] == 'blink'
+    assert not stopping_mid.replace.called
+    assert master_mid.content.call_args_list == [call('10.0.0.1')]
+    mocked_header.reset_all()
+    mocker.resetall()
+    # test call with master, in CONCILIATION, and with conflicts
+    view.sup_ctx.conflicting.return_value = True
+    view.write_status(mocked_header)
+    assert mocked_header.findmeld.call_args_list == [call('state_a_mid'), call('starting_mid'), call('stopping_mid'),
+                                                     call('master_name_mid')]
+    assert state_a_mid.content.call_args_list == [call('CONCILIATION')]
+    assert state_a_mid.attributes.call_args_list == [call(href=CONCILIATION_PAGE)]
+    assert not state_a_mid.replace.called
+    assert state_a_mid.attrib['class'] == 'on blink'
+    assert starting_mid.attrib['class'] == ''
+    assert starting_mid.replace.call_args_list == [call('')]
+    assert stopping_mid.attrib['class'] == 'blink'
+    assert not stopping_mid.replace.called
     assert master_mid.content.call_args_list == [call('10.0.0.1')]
 
 

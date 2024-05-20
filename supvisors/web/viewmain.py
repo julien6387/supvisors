@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+from supvisors.ttypes import SupvisorsStates
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -42,7 +43,15 @@ class MainView(ViewHandler):
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state & modes
         state_modes = self.sup_ctx.get_state_modes()
-        header_elt.findmeld('state_mid').content(state_modes['fsm_statename'])
+        elt = header_elt.findmeld('state_a_mid')
+        if state_modes['fsm_statecode'] == SupvisorsStates.CONCILIATION.value:
+            elt.attributes(href=CONCILIATION_PAGE)
+            elt.content(state_modes['fsm_statename'])
+            # blinking state until full conciliation performed
+            if self.sup_ctx.conflicting():
+                update_attrib(elt, 'class', 'on blink')
+        else:
+            elt.replace(state_modes['fsm_statename'])
         # set Supvisors modes
         for mid, attr in [('starting_mid', 'starting_jobs'), ('stopping_mid', 'stopping_jobs')]:
             elt = header_elt.findmeld(mid)

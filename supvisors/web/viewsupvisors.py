@@ -147,12 +147,15 @@ class SupvisorsView(MainView):
                            running_processes)
         for li_elt, process in process_li_mid.repeat(processes):
             process_a_mid = li_elt.findmeld('process_a_mid')
-            process_a_mid.content(process.process_name)
+            process_span_mid = process_a_mid.findmeld('process_span_mid')
+            process_span_mid.content(process.process_name)
             # write link to process page with process statistics
             update_attrib(process_a_mid, 'class', 'on')
             parameters = {PROCESS: process.namespec, IDENTIFIER: identifier}
             url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE, **parameters)
             process_a_mid.attributes(href=url)
+            if process.conflicting() and application.rules.managed:
+                update_attrib(process_span_mid, 'class', 'blink')
 
     def write_instance_boxes(self, root):
         """ Rendering of the Supvisors instance boxes. """

@@ -112,11 +112,9 @@ class ViewHandler(MeldView):
         if not auto_refresh:
             root.findmeld('meta_mid').deparent()
         # blink main title in conciliation state
-        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
+        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION:
             elt = root.findmeld('supvisors_mid')
             update_attrib(elt, 'class', 'failure')
-            # replace link to conciliation page
-            elt.attributes(href=CONCILIATION_PAGE)
         # set Supvisors version
         root.findmeld('version_mid').content(__version__)
         # set bottom message

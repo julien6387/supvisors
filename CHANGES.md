@@ -4,18 +4,25 @@
 
 * Fix regression using the `SINGLE_NODE` distribution rule.
 
-* Add disk usage and read/write statistics to the **Supvisors** Web UI.
-  Disk statistics are published to the event interface and the JAVA client has been updated accordingly.
-
-* In the Application page of the **Supvisors** Web UI, add the possibility to expand the process information
-  from all **Supvisors** instances where it is configured. 
-
 * Share the configuration of `stdout` and `stderr` log files between all **Supvisors** instances. 
   `has_stdout` and `has_stderr` are added to the result of the XML-RPC `get_local_process_info`.
 
 * When the `software_name` option is set, it is used as a prefix in all log traces.
 
+* Add disk usage and read/write statistics to the **Supvisors** Web UI.
+  Disk statistics are published to the event interface and the JAVA client has been updated accordingly.
+
+* In the Application page of the **Supvisors** Web UI, add the possibility to expand the process information
+  from all **Supvisors** instances where it is configured.
+  In the event of a process conflict, a `Conciliate` button is displayed instead od a list of **Supvisors** instances.
+  Clicking on this button displays the Conciliation page.
+
 * Split the Main and Conciliation pages of the **Supvisors** Web UI.
+
+* The conflicting processes are highlighted in the Main page of the **Supvisors** Web UI.
+
+* Change the access of the Conciliation page of the **Supvisors** Web UI, by clicking on the `CONCILIATION` state.
+  A click on the **Supvisors** logo always brings back the Main page.
 
 
 ## 0.18 (2024-05-02)
@@ -76,7 +83,7 @@
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 
-* Rework the **Supvisors** Web UI.
+* Rework the style of the **Supvisors** Web UI.
 
 
 ## 0.17.4 (2024-03-24)
