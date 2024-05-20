@@ -275,7 +275,7 @@ class ApplicationView(ViewHandler):
                 # multiple running instances: conflict
                 running_span_elt.content('Conciliate')
                 update_attrib(running_span_elt, 'class', 'blink')
-                url = self.view_ctx.format_url('', SUPVISORS_PAGE)
+                url = self.view_ctx.format_url('', CONCILIATION_PAGE)
                 running_a_elt.attributes(href=url)
 
     # ACTIONS
@@ -301,6 +301,7 @@ class ApplicationView(ViewHandler):
                     return self.restart_process_action(strategy, namespec)
                 if action == 'clearlog':
                     return self.clearlog_process_action(namespec)
+        return delayed_error('No application selected')
 
     # Application actions
     def start_application_action(self, strategy: StartingStrategies) -> Callable:

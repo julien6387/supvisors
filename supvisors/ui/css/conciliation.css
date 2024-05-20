@@ -15,52 +15,13 @@
  */
 
 /*
- * Supvisors Main page
+ * Supvisors Conciliation page
  */
 
 /* Contents part */
 #index_contents {
     display: flex;
     flex: 1;
-    justify-content: space-evenly;
-    flex-wrap: wrap;
-    gap: 13px;
     overflow: auto;
     padding: 10px;
-}
-
-#index_contents .card {
-    display: flex;
-    margin: auto;
-}
-
-#index_contents table {
-    height: 100%;
-    margin: 10px;
-}
-
-#index_contents th:not(.state_cell) {
-    height: 18px;
-    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
-}
-
-#index_contents tr:first-child th {
-    border-bottom: solid 1px var(--border-color);
-}
-
-#index_contents td:nth-child(1) {
-    vertical-align: center;
-}
-
-#index_contents td.process_list {
-    max-width: 250px;
-}
-
-#index_contents tbody .button {
-    margin-bottom: 4px;
-}
-
-/* fix state columns width */
-#index_contents .state_cell {
-    width: 50px;
 }

@@ -484,6 +484,10 @@ def test_make_callback(mocker, view):
     mocked_start_app = mocker.patch.object(view, 'start_application_action', return_value='Start application')
     # patch view context
     view.view_ctx = Mock(strategy=StartingStrategies.LOCAL, **{'get_process_status.return_value': None})
+    # test with no application set
+    for action in ['startapp', 'stopapp', 'restartapp', 'anything', 'start', 'stop', 'restart', 'clearlog']:
+        assert view.make_callback('dummy', action) == 'Delayed'
+    # test with application set
     view.application = Mock()
     # test calls for different actions
     assert view.make_callback('', 'startapp') == 'Start application'

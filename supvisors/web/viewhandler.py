@@ -18,7 +18,7 @@ import time
 from typing import Type
 
 from supervisor.compat import as_bytes, as_string
-from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
+from supervisor.states import RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
 from supvisors import __version__
@@ -75,29 +75,27 @@ class ViewHandler(MeldView):
 
     def render(self):
         """ Handle the rendering of the Supvisors pages. """
+        # manage parameters
+        self.handle_parameters()
+        # manage action
+        message = self.handle_action()
+        if message is NOT_DONE_YET:
+            return NOT_DONE_YET
         # clone the template and set navigation menu
-        if self.supvisors.supervisor_data.supervisor_state == SupervisorStates.RUNNING:
-            # manage parameters
-            self.handle_parameters()
-            # manage action
-            message = self.handle_action()
-            if message is NOT_DONE_YET:
-                return NOT_DONE_YET
-            # display result
-            root = self.clone()
-            # write navigation menu, page header and contents
-            self.write_style(root)
-            self.write_common(root)
-            self.write_navigation(root)
-            # write the header section
-            header_elt = root.findmeld('header_mid')
-            self.write_header(header_elt)
-            # write the body section
-            contents_elt = root.findmeld('contents_mid')
-            self.write_contents(contents_elt)
-            # send message only at the end to get all URL parameters
-            self.view_ctx.fire_message()
-            return as_string(root.write_xhtmlstring())
+        root = self.clone()
+        # write navigation menu, page header and contents
+        self.write_style(root)
+        self.write_common(root)
+        self.write_navigation(root)
+        # write the header section
+        header_elt = root.findmeld('header_mid')
+        self.write_header(header_elt)
+        # write the body section
+        contents_elt = root.findmeld('contents_mid')
+        self.write_contents(contents_elt)
+        # send message only at the end to get all URL parameters
+        self.view_ctx.fire_message()
+        return as_string(root.write_xhtmlstring())
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
@@ -117,6 +115,8 @@ class ViewHandler(MeldView):
         if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
             elt = root.findmeld('supvisors_mid')
             update_attrib(elt, 'class', 'failure')
+            # replace link to conciliation page
+            elt.attributes(href=CONCILIATION_PAGE)
         # set Supvisors version
         root.findmeld('version_mid').content(__version__)
         # set bottom message

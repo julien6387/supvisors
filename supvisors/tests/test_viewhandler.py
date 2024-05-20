@@ -94,18 +94,7 @@ def test_render_action_in_progress(mocker, handler):
     mocked_clone.return_value = mocked_root
     # patch context
     handler.supvisors.context.get_all_namespecs = Mock(return_value=[])
-    # 1. test render call when Supervisor is not RUNNING
-    handler.context.supervisord.options.mood = SupervisorStates.RESTARTING
-    assert not handler.render()
-    assert handler.view_ctx is None
-    assert not mocked_action.call_count
-    assert not handler.clone.call_count
-    assert not mocked_style.called
-    assert not mocked_common.called
-    assert not mocked_nav.called
-    assert not mocked_header.call_count
-    assert not mocked_contents.call_count
-    # 2. test render call when Supervisor is RUNNING and an action is in progress
+    # 1. test render call when an action is in progress
     handler.context.supervisord.options.mood = SupervisorStates.RUNNING
     mocked_action.return_value = NOT_DONE_YET
     assert handler.render() is NOT_DONE_YET
@@ -117,7 +106,7 @@ def test_render_action_in_progress(mocker, handler):
     assert not mocked_nav.called
     assert not mocked_header.call_count
     assert not mocked_contents.call_count
-    # 3. test render call when Supervisor is RUNNING and no action is in progress
+    # 2. test render call when no action is in progress
     mocked_action.reset_mock()
     mocked_action.return_value = None
     assert handler.render() == 'xhtml'

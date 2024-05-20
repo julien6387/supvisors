@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.19 (2024-xx-xx)
+## 0.18.1 (2024-xx-xx)
 
 * Fix regression using the `SINGLE_NODE` distribution rule.
 
@@ -14,6 +14,8 @@
   `has_stdout` and `has_stderr` are added to the result of the XML-RPC `get_local_process_info`.
 
 * When the `software_name` option is set, it is used as a prefix in all log traces.
+
+* Split the Main and Conciliation pages of the **Supvisors** Web UI.
 
 
 ## 0.18 (2024-05-02)

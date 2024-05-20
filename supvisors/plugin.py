@@ -26,6 +26,7 @@ from supervisor.web import VIEWS
 from supervisor.xmlrpc import Faults
 
 from supvisors.web.viewapplication import ApplicationView
+from supvisors.web.viewconciliation import ConciliationView
 from supvisors.web.viewhostinstance import HostInstanceView
 from supvisors.web.viewimage import *
 from supvisors.web.viewmaintail import MainTailView
@@ -63,12 +64,13 @@ def cleanup_fds(self) -> None:
 def patch_logger():
     """ Make Supervisor logger thread-safe. """
     # create global lock for all calls
-    logger_mutex = RLock()
+    Handler.logger_mutex = RLock()
 
     # use an emit method that uses the global lock
     def emit(self, record):
-        with logger_mutex:
+        with Handler.logger_mutex:
             self._emit(record)
+
     # update the Handler class
     if not hasattr(Handler, '_emit'):
         Handler._emit, Handler.emit = Handler.emit, emit
@@ -95,13 +97,11 @@ def update_views() -> None:
     """
     # replace Supervisor main entry
     here = os.path.abspath(os.path.dirname(__file__))
-    # set main page
+    # set Supvisors pages
     VIEWS['index.html'] = {'template': os.path.join(here, 'ui/index.html'), 'view': SupvisorsView}
-    # set Supvisors instance /process page
+    VIEWS['conciliation.html'] = {'template': os.path.join(here, 'ui/conciliation.html'), 'view': ConciliationView}
     VIEWS['proc_instance.html'] = {'template': os.path.join(here, 'ui/proc_instance.html'), 'view': ProcInstanceView}
-    # set Supvisors instance / host page
     VIEWS['host_instance.html'] = {'template': os.path.join(here, 'ui/host_instance.html'), 'view': HostInstanceView}
-    # set application page
     VIEWS['application.html'] = {'template': os.path.join(here, 'ui/application.html'), 'view': ApplicationView}
     # set main tail page (reuse of Supervisor tail.html)
     VIEWS['maintail.html'] = {'template': 'ui/tail.html', 'view': MainTailView}

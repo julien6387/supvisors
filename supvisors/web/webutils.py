@@ -23,6 +23,7 @@ from supervisor.xmlrpc import RPCError
 
 # HTML page names
 SUPVISORS_PAGE = 'index.html'
+CONCILIATION_PAGE = 'conciliation.html'
 HOST_INSTANCE_PAGE = 'host_instance.html'
 PROC_INSTANCE_PAGE = 'proc_instance.html'
 APPLICATION_PAGE = 'application.html'
