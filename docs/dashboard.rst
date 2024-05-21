@@ -273,7 +273,7 @@ The header of the Conciliation Page has exactly the same contents as the header 
 Conciliation Page Contents
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-On the right side of the page, the list of process conflicts is displayed into a table.
+On the left side of the page, the list of process conflicts is displayed into a table.
 A process conflict is raised when the same program is running in multiple |Supvisors| instances.
 
 So the table lists, for each conflict:
@@ -289,7 +289,7 @@ So the table lists, for each conflict:
     * for each process, a list of automatic strategies (refer to :ref:`conciliation`) helping to the solving
       of this conflict.
 
-The left side of the page contains a simple box that enables the user to perform a global conciliation on all conflicts,
+The right side of the page contains a simple box that enables the user to perform a global conciliation on all conflicts,
 using one of the automatic strategies proposed by |Supvisors|.
 
 
