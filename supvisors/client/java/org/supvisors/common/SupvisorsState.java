@@ -20,13 +20,16 @@ package org.supvisors.common;
  * The State enumeration for Supvisors.
  *
  * INITIALIZATION is used when Supvisors is synchronizing with all other Supvisors instances.
- * DEPLOYMENT is used when Supvisors is starting applications automatically.
+ * DISTRIBUTION is used when Supvisors is starting applications automatically.
  * OPERATION is used when Supvisors is working normally.
  * CONCILIATION is used when Supvisors is conciliating conflicts due to multiple instance of the same process.
+ * RESTARTING is used when Supvisors is stopping all processes before restarting all Supvisors instances.
+ * SHUTTING_DOWN is used when Supvisors is stopping all processes before shutting down all Supvisors instances.
+ * FINAL is used just before Supvisors is shut down.
  */
 public enum SupvisorsState {
     INITIALIZATION(0),
-    DEPLOYMENT(1),
+    DISTRIBUTION(1),
     OPERATION(2),
     CONCILIATION(3),
     RESTARTING(4),
