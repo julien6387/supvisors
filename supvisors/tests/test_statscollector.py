@@ -44,52 +44,98 @@ def proc_collector(pipes) -> ProcessStatisticsCollector:
     return ProcessStatisticsCollector(pipes[2][1], 5, False, os.getpid())
 
 
-def test_instant_all_cpu_statistics():
+def test_instant_all_cpu_statistics(mocker):
     """ Test the instant CPU statistics. """
+    # psutil scputimes is platform-dependent, so Mock needed to pass GitHub actions
+    # use only integers to avoid comparison on floating values
+    cpu = [Mock(user=65919, nice=19, system=13700, idle=766409, iowait=157, irq=2131,
+                softirq=873, steal=0, guest=0, guest_nice=0),
+           Mock(user=67098, nice=32, system=14033, idle=764931, iowait=161, irq=1691,
+                softirq=290, steal=0, guest=0, guest_nice=0),
+           Mock(user=66759, nice=29, system=14034, idle=764897, iowait=206, irq=1990,
+                softirq=288, steal=0, guest=0, guest_nice=0),
+           Mock(user=66319, nice=31, system=13768, idle=766044, iowait=155, irq=1606,
+                softirq=484, steal=0, guest=0, guest_nice=0)]
+    mocker.patch('psutil.cpu_times', return_value=cpu)
     stats = instant_all_cpu_statistics()
-    # test number of results (number of cores + average)
-    assert len(stats) == mp.cpu_count() + 1
-    # test average value
-    total_work = total_idle = 0
-    for cpu in stats[1:]:
-        assert len(cpu) == 2
-        work, idle = cpu
-        total_work += work
-        total_idle += idle
-    assert pytest.approx(total_work / mp.cpu_count()) == stats[0][0]
-    assert pytest.approx(total_idle / mp.cpu_count()) == stats[0][1]
+    assert stats == [(82773.5, 765740.0),
+                     (82642, 766566),
+                     (83144, 765092),
+                     (83100, 765103),
+                     (82208, 766199)]
 
 
-def test_instant_memory_statistics():
+def test_instant_memory_statistics(mocker):
     """ Test the instant memory statistics. """
+    # psutil svmem is platform-dependent, so Mock needed to pass GitHub actions
+    mem = Mock(total=16481181696, available=9487249408, percent=42.4, used=6530781184, free=541007872,
+               active=2982461440, inactive=11854032896, buffers=3313664, cached=9406078976, shared=117649408,
+               slab=643690496)
+    mocker.patch('psutil.virtual_memory', return_value=mem)
     stats = instant_memory_statistics()
-    # test bounds (percent)
-    assert type(stats) is float
-    assert stats >= 0
-    assert stats <= 100
+    assert stats == 42.4
 
 
-def test_instant_io_statistics():
-    """ Test the instant I/O statistics. """
-    stats = instant_io_statistics()
-    # test interface names
-    with open('/proc/net/dev') as netfile:
-        # two first lines are title
-        contents = netfile.readlines()[2:]
-    # test that Supvisors works on a subset
-    interfaces = {intf.strip().split(':')[0] for intf in contents}
-    assert set(stats.keys()).issubset(interfaces)
-    assert 'lo' in stats.keys()
-    # test that values are pairs
-    for intf, io_bytes in stats.items():
-        assert len(io_bytes) == 2
-        for value in io_bytes:
-            assert type(value) is int
-    # for loopback address, recv bytes equals sent bytes
-    assert stats['lo'][0] == stats['lo'][1]
+def test_instant_net_io_statistics(mocker):
+    """ Test the instant network I/O statistics. """
+    # psutil snicstats is platform-dependent, so Mock needed to pass GitHub actions
+    if_stats = {'lo': Mock(isup=True, duplex=0, speed=0, mtu=65536),
+                'ens33': Mock(isup=True, duplex=2, speed=1000, mtu=1500),
+                'virbr0': Mock(isup=False, duplex=0, speed=65535, mtu=1500)}
+    # psutil snetio is platform-dependent, so Mock needed to pass GitHub actions
+    io_counters = {'lo': Mock(bytes_sent=5278203410, bytes_recv=5278203410,
+                              packets_sent=10515881, packets_recv=10515881,
+                              errin=0, errout=0, dropin=0, dropout=0),
+                   'ens33': Mock(bytes_sent=2661175503, bytes_recv=3224236577,
+                                 packets_sent=6483142, packets_recv=7750813,
+                                 errin=0, errout=0, dropin=55057, dropout=0),
+                   'virbr0': Mock(bytes_sent=0, bytes_recv=0,
+                                  packets_sent=0, packets_recv=0,
+                                  errin=0, errout=0, dropin=0, dropout=0)}
+    mocker.patch('psutil.net_if_stats', return_value=if_stats)
+    mocker.patch('psutil.net_io_counters', return_value=io_counters)
+    stats = instant_net_io_statistics()
+    assert stats == {'ens33': (3224236577, 2661175503), 'lo': (5278203410, 5278203410)}
 
 
-def test_write_node_characteristics(mocker):
+def test_instant_disk_io_statistics(mocker):
+    """ Test the instant disk I/O statistics. """
+    # psutil sdiskio is platform-dependent, so Mock needed to pass GitHub actions
+    io_counters = {'sda': Mock(read_count=124912, write_count=2988960, read_bytes=5147740160,
+                               write_bytes=65686229504, read_time=2705493, write_time=7443910,
+                               read_merged_count=558, write_merged_count=203120, busy_time=3683152),
+                   'sda1': Mock(read_count=180, write_count=56, read_bytes=18583552, write_bytes=29582848,
+                                read_time=51, write_time=11996, read_merged_count=0, write_merged_count=8,
+                                busy_time=1097),
+                   'sda2': Mock(read_count=124676, write_count=2988904, read_bytes=5127436288,
+                                write_bytes=65656646656, read_time=2705435, write_time=7431913,
+                                read_merged_count=558, write_merged_count=203112, busy_time=3682449)}
+    mocker.patch('psutil.disk_io_counters', return_value=io_counters)
+    stats = instant_disk_io_statistics()
+    assert stats == {'sda': (5147740160, 65686229504),
+                     'sda1': (18583552, 29582848),
+                     'sda2': (5127436288, 65656646656)}
+
+
+def test_instant_disk_usage_statistics(mocker):
+    """ Test the instant disk usage statistics. """
+    # psutil sdiskpart is platform-dependent, so Mock needed to pass GitHub actions
+    partitions = [Mock(device='/dev/mapper/rl_rocky51-root', mountpoint='/', fstype='xfs',
+                       opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
+                       maxfile=255, maxpath=4096),
+                  Mock(device='/dev/sda1', mountpoint='/boot', fstype='xfs',
+                       opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
+                       maxfile=255, maxpath=4096)]
+    # psutil sdiskusage is platform-dependent, so Mock needed to pass GitHub actions
+    usage = {'/': Mock(total=37625499648, used=22722027520, free=14903472128, percent=60.4),
+             '/boot': Mock(total=1063256064, used=453169152, free=610086912, percent=42.6)}
+    mocker.patch('psutil.disk_partitions', return_value=partitions)
+    mocker.patch('psutil.disk_usage', side_effect=lambda x: usage[x])
+    stats = instant_disk_usage_statistics()
+    assert stats == {'/': 60.4, '/boot': 42.6}
+
+
+def test_local_node_info(mocker):
     """ Test the LocalNodeInfo class method. """
     # patch psutil functions
     mocker.patch('psutil.cpu_count', side_effect=lambda logical=True: 8 if logical else 4)
@@ -158,36 +204,33 @@ def test_host_statistics_collector_disabled(pipes, host_collector):
     assert not pipes[1][0].poll(timeout=0.5)
 
 
-def test_host_statistics_collector_enabled(pipes, host_collector):
+def test_host_statistics_collector_enabled(mocker, pipes, host_collector):
     """ Test the instant host statistics. """
+    cpu = [(82776.1, 765740.7), (82643.8, 766566.8), (83146.3, 765092.5), (83103.9, 765103.7), (82210.53, 766199.8)]
+    mem = 42.4
+    net_io = {'ens33': (3224236577, 2661175503), 'lo': (5278203410, 5278203410)}
+    disk_io = {'sda': (5147740160, 65686229504), 'sda1': (18583552, 29582848), 'sda2': (5127436288, 65656646656)}
+    disk_usage = {'/': 60.4, '/boot': 42.6}
+    mocker.patch('supvisors.statscollector.instant_all_cpu_statistics', return_value=cpu)
+    mocker.patch('supvisors.statscollector.instant_memory_statistics', return_value=mem)
+    mocker.patch('supvisors.statscollector.instant_net_io_statistics', return_value=net_io)
+    mocker.patch('supvisors.statscollector.instant_disk_io_statistics', return_value=disk_io)
+    mocker.patch('supvisors.statscollector.instant_disk_usage_statistics', return_value=disk_usage)
+    # test call
+    ref_time = time.monotonic()
     assert not pipes[1][0].poll(timeout=0.5)
     host_collector.enabled = True
     host_collector.collect_host_statistics()
     assert pipes[1][0].poll(timeout=0.5)
     stats = pipes[1][0].recv()
     # check result
-    assert len(stats) == 4
-    #  check time (current is greater)
-    assert time.monotonic() > stats['now']
-    # check cpu jiffies
-    cpu_stats = stats['cpu']
-    assert len(cpu_stats) == mp.cpu_count() + 1
-    for cpu in cpu_stats:
-        assert len(cpu) == 2
-        for value in cpu:
-            assert type(value) is float
-    # check memory
-    mem_stats = stats['mem']
-    assert type(mem_stats) is float
-    assert mem_stats >= 0
-    assert mem_stats < 100
-    # check io
-    io_stats = stats['io']
-    for intf, io_bytes in io_stats.items():
-        assert type(intf) is str
-        assert len(io_bytes) == 2
-        for value in io_bytes:
-            assert type(value) is int
+    assert sorted(stats.keys()) == ['cpu', 'disk_io', 'disk_usage', 'mem', 'net_io', 'now']
+    assert ref_time <= stats['now'] <= time.monotonic()
+    assert stats['cpu'] == cpu
+    assert stats['mem'] == mem
+    assert stats['net_io'] == net_io
+    assert stats['disk_io'] == disk_io
+    assert stats['disk_usage'] == disk_usage
 
 
 def test_instant_process_statistics(mocker):

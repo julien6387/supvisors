@@ -84,6 +84,12 @@ public class SupvisorsLocalProcessInfo implements SupvisorsAnyInfo {
     /** A status telling if the program has been disabled. */
     private Boolean disabled;
 
+    /** A status telling if the program is configured with a stdout log file. */
+    private Boolean has_stdout;
+
+    /** A status telling if the program is configured with a stderr log file. */
+    private Boolean has_stderr;
+
     /**
      * This constructor gets all information from an HashMap.
      *
@@ -109,6 +115,8 @@ public class SupvisorsLocalProcessInfo implements SupvisorsAnyInfo {
         this.program_name = (String) processInfo.get("program_name");
         this.process_index = (Integer) processInfo.get("process_index");
         this.disabled = (Boolean) processInfo.get("disabled");
+        this.has_stdout = (Boolean) processInfo.get("has_stdout");
+        this.has_stderr = (Boolean) processInfo.get("has_stderr");
    }
 
     /**
@@ -295,6 +303,24 @@ public class SupvisorsLocalProcessInfo implements SupvisorsAnyInfo {
     }
 
     /**
+     * The hasStdout method returns true if a stdout log file is configured in the Supervisor program.
+     *
+     * @return Boolean: The stdout status.
+     */
+    public Boolean hasStdout() {
+        return this.has_stdout;
+    }
+
+    /**
+     * The hasStderr method returns true if a stderr log file is configured in the Supervisor program.
+     *
+     * @return Boolean: The stderr status.
+     */
+    public Boolean hasStderr() {
+        return this.has_stderr;
+    }
+
+    /**
      * The toString method returns a printable form of the contents
      * of the instance.
      *
@@ -333,7 +359,9 @@ public class SupvisorsLocalProcessInfo implements SupvisorsAnyInfo {
             + " extraArgs=\"" + this.extra_args + "\""
             + " programName=" + this.program_name
             + " processIndex=" + this.process_index
-            + " disabled=" + this.disabled + ")";
+            + " disabled=" + this.disabled
+            + " hasStdout=" + this.has_stdout
+            + " hasStderr=" + this.has_stderr + ")";
     }
 
 }

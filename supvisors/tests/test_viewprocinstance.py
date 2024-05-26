@@ -145,7 +145,7 @@ def test_write_contents(mocker, view):
                                                    ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                                    ([{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])))
     # patch context
-    view.view_ctx = Mock(parameters={PROCESS: None}, local_identifier='10.0.0.1',
+    view.view_ctx = Mock(process_name=None, local_identifier='10.0.0.1',
                          **{'get_process_status.return_value': None})
     # patch the meld elements
     contents_elt = create_element()
@@ -157,44 +157,44 @@ def test_write_contents(mocker, view):
     mocker.resetall()
     # test call with process selected and no corresponding status
     # process set in excluded_list but not passed to write_process_statistics because unselected due to missing status
-    view.view_ctx.parameters[PROCESS] = 'dummy_proc'
+    view.view_ctx.process_name = 'dummy_proc'
     view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
     assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
-    assert view.view_ctx.parameters[PROCESS] == ''
+    assert view.view_ctx.process_name == ''
     assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
     # test call with process selected but not running on considered node
     # process set in excluded_list
-    view.view_ctx.parameters[PROCESS] = 'dummy_proc'
+    view.view_ctx.process_name = 'dummy_proc'
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.2'})
     view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
     assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
-    assert view.view_ctx.parameters[PROCESS] == ''
+    assert view.view_ctx.process_name == ''
     assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
     # test call with process selected and running but no statistics on the instance
     view.has_process_statistics = False
-    view.view_ctx.parameters[PROCESS] = 'dummy'
+    view.view_ctx.process_name = 'dummy'
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.1'})
     view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
     assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
-    assert view.view_ctx.parameters[PROCESS] == ''
+    assert view.view_ctx.process_name == ''
     assert mocked_stats.call_args_list == [call(contents_elt, {})]
     mocker.resetall()
     # test call with process selected and running, and statistics available
     view.has_process_statistics = True
-    view.view_ctx.parameters[PROCESS] = 'dummy'
+    view.view_ctx.process_name = 'dummy'
     view.write_contents(contents_elt)
     assert mocked_data.call_args_list == [call()]
     assert mocked_table.call_args_list == [call(contents_elt, [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])]
-    assert view.view_ctx.parameters[PROCESS] == 'dummy'
+    assert view.view_ctx.process_name == 'dummy'
     assert mocked_stats.call_args_list == [call(contents_elt, {'namespec': 'dummy'})]
 
 
-def test_get_process_data(mocker, view):
+def test_get_process_data(mocker, supvisors, view):
     """ Test the ProcInstanceView.get_process_data method. """
     mocker.patch.object(view, 'sort_data', side_effect=lambda x: (sorted(x, key=lambda y: y['namespec']), []))
     mocked_data = mocker.patch.object(view, 'get_supervisord_data', return_value={'namespec': 'supervisord'})
@@ -207,14 +207,16 @@ def test_get_process_data(mocker, view):
     assert mocked_data.call_args_list == [call(instance_status)]
     # patch context
     for application_name in ['sample_test_1', 'crash', 'firefox']:
-        view.sup_ctx.applications[application_name] = create_application(application_name, view.supvisors)
+        view.sup_ctx.applications[application_name] = create_application(application_name, supvisors)
     process_data = [('xfontsel', 8, True, False), ('segv', 17, False, False), ('firefox', 26, False, True)]
     for process_name, load, has_crashed, disabled in process_data:
         # create process
         info = process_info_by_name(process_name)
         info['has_crashed'] = has_crashed
         info['disabled'] = disabled
-        process = create_process(info, view.supvisors)
+        info['has_stdout'] = True
+        info['has_stderr'] = False
+        process = create_process(info, supvisors)
         process.rules.expected_load = load
         process.add_info('10.0.0.1:25000', info)
         # add to application
@@ -224,21 +226,30 @@ def test_get_process_data(mocker, view):
     # test normal behavior
     sorted_data, excluded_data = view.get_process_data()
     # test intermediate list
-    data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
-             'single': False, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': True,
+    data1 = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+             'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
+             'main': False, 'identifier': '10.0.0.1:25000', 'disabled': False,
+             'startable': True, 'stoppable': True,
              'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': True,
              'description': 'pid 80879, uptime 0:01:19',
-             'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
-    data2 = {'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
-             'single': False, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': True,
+             'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1',
+             'has_stdout': True, 'has_stderr': False}
+    data2 = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+             'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
+             'main': False, 'identifier': '10.0.0.1:25000', 'disabled': False,
+             'startable': True, 'stoppable': True,
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF', 'has_crashed': False,
              'description': 'Exited too quickly (process log may have details)',
-             'expected_load': 17, 'nb_cores': 1, 'proc_stats': None}
-    data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
-             'single': True, 'identifier': '10.0.0.1:25000', 'disabled': True, 'startable': False,
+             'expected_load': 17, 'nb_cores': 1, 'proc_stats': None,
+             'has_stdout': True, 'has_stderr': False}
+    data3 = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+             'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
+             'main': True, 'identifier': '10.0.0.1:25000', 'disabled': True,
+             'startable': False, 'stoppable': True,
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED', 'has_crashed': False,
              'description': 'Sep 14 05:18 PM',
-             'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
+             'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3',
+             'has_stdout': True, 'has_stderr': False}
     assert sorted_data == [data2, data3, data1, {'namespec': 'supervisord'}]
     assert excluded_data == []
 
@@ -251,8 +262,10 @@ def test_get_supervisord_data(view):
     instance_status.times.start_local_mtime = 0
     pid = os.getpid()
     # test call on empty time values
-    supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': False,
+    supervisord_info = {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
+                        'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                        'main': True, 'identifier': '10.0.0.1:25000', 'disabled': False,
+                        'startable': False, 'stoppable': True,
                         'description': f'pid {pid}, uptime 0:00:00',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
@@ -260,8 +273,10 @@ def test_get_supervisord_data(view):
     # test call on relevant time values
     instance_status.times.start_local_mtime = 1000
     instance_status.times.local_time = 185618
-    supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                        'single': True, 'identifier': '10.0.0.1:25000', 'disabled': False, 'startable': False,
+    supervisord_info = {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
+                        'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                        'main': True, 'identifier': '10.0.0.1:25000', 'disabled': False,
+                        'startable': False, 'stoppable': True,
                         'description': f'pid {pid}, uptime 2 days, 3:16:58',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
                         'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
@@ -277,7 +292,7 @@ def test_sort_data(mocker, view):
     view.view_ctx = Mock(local_identifier='10.0.0.1', **{'get_process_stats.return_value': (2, 'stats #1')})
     # build process list
     processes = [{'application_name': info['group'], 'process_name': info['name'],
-                  'single': info['group'] == info['name']}
+                  'main': info['group'] == info['name']}
                  for info in ProcessInfoDatabase]
     shuffle(processes)
     # patch context
@@ -286,33 +301,33 @@ def test_sort_data(mocker, view):
     # test ordering
     actual, excluded = view.sort_data(processes)
     assert actual == [{'application_name': 'crash', 'process_name': None},
-                      {'application_name': 'crash', 'process_name': 'late_segv', 'single': False},
-                      {'application_name': 'crash', 'process_name': 'segv', 'single': False},
-                      {'application_name': 'firefox', 'process_name': 'firefox', 'single': True},
+                      {'application_name': 'crash', 'process_name': 'late_segv', 'main': False},
+                      {'application_name': 'crash', 'process_name': 'segv', 'main': False},
+                      {'application_name': 'firefox', 'process_name': 'firefox', 'main': True},
                       {'application_name': 'sample_test_1', 'process_name': None},
-                      {'application_name': 'sample_test_1', 'process_name': 'xclock', 'single': False},
-                      {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'single': False},
-                      {'application_name': 'sample_test_1', 'process_name': 'xlogo', 'single': False},
+                      {'application_name': 'sample_test_1', 'process_name': 'xclock', 'main': False},
+                      {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'main': False},
+                      {'application_name': 'sample_test_1', 'process_name': 'xlogo', 'main': False},
                       {'application_name': 'sample_test_2', 'process_name': None},
-                      {'application_name': 'sample_test_2', 'process_name': 'sleep', 'single': False},
-                      {'application_name': 'sample_test_2', 'process_name': 'yeux_00', 'single': False},
-                      {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'single': False}]
+                      {'application_name': 'sample_test_2', 'process_name': 'sleep', 'main': False},
+                      {'application_name': 'sample_test_2', 'process_name': 'yeux_00', 'main': False},
+                      {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'main': False}]
     assert excluded == []
     # test with some shex on applications
     actual, excluded = view.sort_data(processes)
     assert actual == [{'application_name': 'crash', 'process_name': None},
-                      {'application_name': 'crash', 'process_name': 'late_segv', 'single': False},
-                      {'application_name': 'crash', 'process_name': 'segv', 'single': False},
-                      {'application_name': 'firefox', 'process_name': 'firefox', 'single': True},
+                      {'application_name': 'crash', 'process_name': 'late_segv', 'main': False},
+                      {'application_name': 'crash', 'process_name': 'segv', 'main': False},
+                      {'application_name': 'firefox', 'process_name': 'firefox', 'main': True},
                       {'application_name': 'sample_test_1', 'process_name': None},
                       {'application_name': 'sample_test_2', 'process_name': None}]
     sorted_excluded = sorted(excluded, key=lambda x: x['process_name'])
-    assert sorted_excluded == [{'application_name': 'sample_test_2', 'process_name': 'sleep', 'single': False},
-                               {'application_name': 'sample_test_1', 'process_name': 'xclock', 'single': False},
-                               {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'single': False},
-                               {'application_name': 'sample_test_1', 'process_name': 'xlogo', 'single': False},
-                               {'application_name': 'sample_test_2', 'process_name': 'yeux_00', 'single': False},
-                               {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'single': False}]
+    assert sorted_excluded == [{'application_name': 'sample_test_2', 'process_name': 'sleep', 'main': False},
+                               {'application_name': 'sample_test_1', 'process_name': 'xclock', 'main': False},
+                               {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'main': False},
+                               {'application_name': 'sample_test_1', 'process_name': 'xlogo', 'main': False},
+                               {'application_name': 'sample_test_2', 'process_name': 'yeux_00', 'main': False},
+                               {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'main': False}]
 
 
 def test_get_application_summary(mocker, view):
@@ -325,20 +340,21 @@ def test_get_application_summary(mocker, view):
     # prepare parameters
     proc_1, proc_2, proc_3, proc_4 = Mock(), Mock(), Mock(), Mock()
     # test with empty list of processes
-    expected = {'application_name': 'dummy_appli', 'process_name': None, 'namespec': None,
-                'disabled': False, 'startable': False,
+    expected = {'row_type': ProcessRowTypes.APPLICATION,
+                'application_name': 'dummy_appli', 'process_name': None, 'namespec': None,
+                'disabled': False, 'startable': False, 'stoppable': True,
                 'identifier': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2, 'gravity': 'RUNNING',
-                'has_crashed': False, 'description': 'good', 'nb_processes': 0,
+                'has_crashed': False, 'description': 'good', 'nb_items': 0,
                 'expected_load': 0, 'nb_cores': 0, 'proc_stats': None}
     mocked_sum.return_value = 0, 0, None
     assert view.get_application_summary('dummy_appli', []) == expected
     # test with non-running processes
-    expected.update({'nb_processes': 1})
+    expected.update({'nb_items': 1})
     assert view.get_application_summary('dummy_appli', [proc_4]) == expected
     # test with a mix of running and non-running processes
     appli_stats = Mock()
     mocked_sum.return_value = 27, 8, appli_stats
-    expected.update({'nb_processes': 4, 'expected_load': 27, 'nb_cores': 8, 'proc_stats': appli_stats})
+    expected.update({'nb_items': 4, 'expected_load': 27, 'nb_cores': 8, 'proc_stats': appli_stats})
     assert view.get_application_summary('dummy_appli', [proc_1, proc_2, proc_3, proc_4]) == expected
 
 
@@ -367,7 +383,7 @@ def test_sum_process_info():
 
 def test_write_process_table(mocker, view):
     """ Test the ProcInstanceView.write_process_table method. """
-    mocked_shex = mocker.patch.object(view, 'write_global_shex')
+    mocked_shex = mocker.patch.object(view, 'write_application_global_shex')
     mocked_total = mocker.patch.object(view, 'write_total_status')
     mocked_appli = mocker.patch.object(view, 'write_application_status')
     mocked_common = mocker.patch.object(view, 'write_common_process_status')
@@ -379,18 +395,24 @@ def test_write_process_table(mocker, view):
     tr_elt_3 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_4 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_5 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
-    tr_mid = Mock(**{'repeat.return_value': [(tr_elt_0, {'process_name': 'info_0', 'single': True}),
-                                             (tr_elt_1, {'process_name': None}),
-                                             (tr_elt_2, {'process_name': 'info_2', 'single': False}),
-                                             (tr_elt_3, {'process_name': 'info_3', 'single': False}),
-                                             (tr_elt_4, {'process_name': None}),
-                                             (tr_elt_5, {'process_name': 'supervisord', 'single': True})]})
+    tr_mid = Mock(**{'repeat.return_value': [(tr_elt_0, {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+                                                         'process_name': 'info_0', 'main': True}),
+                                             (tr_elt_1, {'row_type': ProcessRowTypes.APPLICATION,
+                                                         'process_name': None}),
+                                             (tr_elt_2, {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+                                                         'process_name': 'info_2', 'main': False}),
+                                             (tr_elt_3, {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+                                                         'process_name': 'info_3', 'main': False}),
+                                             (tr_elt_4, {'row_type': ProcessRowTypes.APPLICATION,
+                                                         'process_name': None}),
+                                             (tr_elt_5, {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
+                                                         'process_name': 'supervisord', 'main': True})]})
     table_mid = Mock(**{'findmeld.return_value': tr_mid})
     mocked_root = Mock(**{'findmeld.return_value': table_mid})
     # test call with no data
     sorted_data, excluded_data = Mock(), Mock()
     view.write_process_table(mocked_root, [], excluded_data)
-    assert table_mid.replace.call_args_list == [call('No programs to manage')]
+    assert table_mid.replace.call_args_list == [call('No programs to display')]
     assert not mocked_shex.called
     assert not mocked_common.called
     assert not mocked_total.called
@@ -412,12 +434,18 @@ def test_write_process_table(mocker, view):
     view.write_process_table(mocked_root, sorted_data, excluded_data)
     assert not table_mid.replace.called
     assert mocked_shex.call_args_list == [call(table_mid)]
-    assert mocked_common.call_args_list == [call(tr_elt_0, {'process_name': 'info_0', 'single': True}),
-                                            call(tr_elt_2, {'process_name': 'info_2', 'single': False}),
-                                            call(tr_elt_3, {'process_name': 'info_3', 'single': False})]
-    assert mocked_supervisord.call_args_list == [call(tr_elt_5, {'process_name': 'supervisord', 'single': True})]
-    assert mocked_appli.call_args_list == [call(tr_elt_1, {'process_name': None}, True),
-                                           call(tr_elt_4, {'process_name': None}, False)]
+    assert mocked_common.call_args_list == [call(tr_elt_0, {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+                                                            'process_name': 'info_0', 'main': True}),
+                                            call(tr_elt_2, {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+                                                            'process_name': 'info_2', 'main': False}),
+                                            call(tr_elt_3, {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+                                                            'process_name': 'info_3', 'main': False})]
+    assert mocked_supervisord.call_args_list == [call(tr_elt_5, {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
+                                                                 'process_name': 'supervisord', 'main': True})]
+    assert mocked_appli.call_args_list == [call(tr_elt_1, {'row_type': ProcessRowTypes.APPLICATION,
+                                                           'process_name': None}, True),
+                                           call(tr_elt_4, {'row_type': ProcessRowTypes.APPLICATION,
+                                                           'process_name': None}, False)]
     assert not tr_elt_0.findmeld.return_value.replace.called
     assert not tr_elt_1.findmeld.return_value.replace.called
     assert tr_elt_2.findmeld.return_value.replace.call_args_list == [call('')]
@@ -433,57 +461,19 @@ def test_write_process_table(mocker, view):
     assert mocked_total.call_args_list == [call(table_mid, sorted_data, excluded_data)]
 
 
-def test_write_global_shex(view):
-    """ Test the ProcInstanceView.write_global_shex method. """
+def test_write_application_global_shex(mocker, view):
+    """ Test the ProcInstanceView.write_application_global_shex method. """
+    mocked_shex = mocker.patch.object(view, 'write_global_shex')
     # add context
     expanded = bytearray.fromhex('ffff')
     shrank = bytearray.fromhex('0000')
-    view.view_ctx = Mock(parameters={SHRINK_EXPAND: 'ffff'},
-                         **{'get_default_shex.side_effect': lambda x: expanded if x else shrank,
-                            'format_url.return_value': 'an url'})
-    # build HTML structure
-    expand_elt = Mock()
-    shrink_elt = Mock()
-    mid_map = {'expand_a_mid': expand_elt, 'shrink_a_mid': shrink_elt}
-    table_elt = Mock(**{'findmeld.side_effect': lambda x: mid_map[x]})
-    # test with fully expanded shex
-    view.write_global_shex(table_elt)
-    assert expand_elt.replace.call_args_list == [call('')]
-    assert not expand_elt.content.called
-    assert not expand_elt.attributes.called
-    assert not shrink_elt.replace.called
-    assert shrink_elt.content.call_args_list == [call(SHEX_SHRINK)]
-    assert shrink_elt.attributes.call_args_list == [call(href='an url')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='0000')]
-    expand_elt.replace.reset_mock()
-    shrink_elt.content.reset_mock()
-    shrink_elt.attributes.reset_mock()
-    view.view_ctx.format_url.reset_mock()
-    # test with fully shrank shex
-    view.view_ctx.parameters[SHRINK_EXPAND] = '0000'
-    view.write_global_shex(table_elt)
-    assert not expand_elt.replace.called
-    assert expand_elt.content.call_args_list == [call(SHEX_EXPAND)]
-    assert expand_elt.attributes.call_args_list == [call(href='an url')]
-    assert shrink_elt.replace.call_args_list == [call('')]
-    assert not shrink_elt.content.called
-    assert not shrink_elt.attributes.called
-    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='ffff')]
-    expand_elt.content.reset_mock()
-    expand_elt.attributes.reset_mock()
-    shrink_elt.replace.reset_mock()
-    view.view_ctx.format_url.reset_mock()
-    # test with fully mixed shex
-    view.view_ctx.parameters[SHRINK_EXPAND] = '1234'
-    view.write_global_shex(table_elt)
-    assert not expand_elt.replace.called
-    assert expand_elt.content.call_args_list == [call(SHEX_EXPAND)]
-    assert expand_elt.attributes.call_args_list == [call(href='an url')]
-    assert not shrink_elt.replace.called
-    assert shrink_elt.content.call_args_list == [call(SHEX_SHRINK)]
-    assert shrink_elt.attributes.call_args_list == [call(href='an url')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='ffff'),
-                                                       call('', 'proc_instance.html', shex='0000')]
+    view.view_ctx = Mock(application_shex='1234',
+                         **{'get_default_application_shex.side_effect': lambda x: expanded if x else shrank})
+    # build XHTML structure
+    table_elt = create_element()
+    # test call
+    view.write_application_global_shex(table_elt)
+    assert mocked_shex.call_args_list == [call(table_elt, APP_SHRINK_EXPAND, '1234', expanded, shrank)]
 
 
 def test_write_application_status(mocker, view):
@@ -508,7 +498,7 @@ def test_write_application_status(mocker, view):
                                   'clear_td_mid': clear_td_mid,
                                   'tailout_td_mid': tailout_td_mid, 'tailerr_td_mid': tailerr_td_mid})
     # prepare parameters
-    info = {'application_name': 'dummy_appli', 'nb_processes': 4}
+    info = {'application_name': 'dummy_appli', 'nb_items': 4}
     # test call with application processes hidden
     view.write_application_status(mocked_root, info, True)
     assert mocked_common.call_args_list == [call(mocked_root, info)]
@@ -516,8 +506,8 @@ def test_write_application_status(mocker, view):
     assert shex_td_mid.attrib['class'] == ''
     assert shex_a_mid.content.call_args_list == [call('[+]')]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='010'),
-                                                       call('', 'application.html', appliname='dummy_appli')]
+    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', ashex='010'),
+                                                       call('', 'application.html', appname='dummy_appli')]
     assert name_a_mid.content.call_args_list == [call('dummy_appli')]
     assert name_a_mid.attributes.call_args_list == [call(href='an url')]
     assert clear_td_mid.attrib['colspan'] == '3'
@@ -535,8 +525,8 @@ def test_write_application_status(mocker, view):
     assert shex_td_mid.attrib['class'] == 'brightened'
     assert shex_a_mid.content.call_args_list == [call('[\u2013]')]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='101'),
-                                                       call('', 'application.html', appliname='dummy_appli')]
+    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', ashex='101'),
+                                                       call('', 'application.html', appname='dummy_appli')]
     assert name_a_mid.content.call_args_list == [call('dummy_appli')]
     assert name_a_mid.attributes.call_args_list == [call(href='an url')]
     assert clear_td_mid.attrib['colspan'] == '3'
@@ -752,13 +742,13 @@ def test_start_group_action(mocker, view):
     """ Test the start_group_action method. """
     mocked_action = mocker.patch.object(view, 'supervisor_rpc_action')
     # test without auto-refresh
-    view.view_ctx = Mock(parameters={AUTO: False})
+    view.view_ctx = Mock(auto_refresh=False)
     view.start_group_action('dummy_proc:*')
     assert mocked_action.call_args_list == [call('startProcess', ('dummy_proc:*', True),
                                                  'Group dummy_proc:* started')]
     mocker.resetall()
     # test with auto-refresh
-    view.view_ctx.parameters[AUTO] = True
+    view.view_ctx.auto_refresh = True
     view.start_group_action('dummy_proc:*')
     assert mocked_action.call_args_list == [call('startProcess', ('dummy_proc:*', False),
                                                  'Group dummy_proc:* started')]
@@ -768,13 +758,13 @@ def test_stop_group_action(mocker, view):
     """ Test the stop_group_action method. """
     mocked_action = mocker.patch.object(view, 'supervisor_rpc_action')
     # test without auto-refresh
-    view.view_ctx = Mock(parameters={AUTO: False})
+    view.view_ctx = Mock(auto_refresh=False)
     view.stop_group_action('dummy_proc:*')
     assert mocked_action.call_args_list == [call('stopProcess', ('dummy_proc:*', True),
                                                  'Group dummy_proc:* stopped')]
     mocker.resetall()
     # test with auto-refresh
-    view.view_ctx.parameters[AUTO] = True
+    view.view_ctx.auto_refresh = True
     view.stop_group_action('dummy_proc:*')
     assert mocked_action.call_args_list == [call('stopProcess', ('dummy_proc:*', False),
                                                  'Group dummy_proc:* stopped')]
@@ -784,14 +774,14 @@ def test_restart_group_action(mocker, view):
     """ Test the restart_group_action method. """
     mocked_action = mocker.patch.object(view, 'multicall_rpc_action')
     # test without auto-refresh
-    view.view_ctx = Mock(parameters={AUTO: False})
+    view.view_ctx = Mock(auto_refresh=False)
     view.restart_group_action('dummy_proc:*')
     multicall = [{'methodName': 'supervisor.stopProcess', 'params': ['dummy_proc:*']},
                  {'methodName': 'supervisor.startProcess', 'params': ['dummy_proc:*', True]}]
     assert mocked_action.call_args_list == [call(multicall, 'Group dummy_proc:* restarted')]
     mocker.resetall()
     # test with auto-refresh
-    view.view_ctx.parameters[AUTO] = True
+    view.view_ctx.auto_refresh = True
     view.restart_group_action('dummy_proc:*')
     multicall[1]['params'][1] = False
     assert mocked_action.call_args_list == [call(multicall, 'Group dummy_proc:* restarted')]

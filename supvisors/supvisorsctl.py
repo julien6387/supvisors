@@ -190,16 +190,19 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 # create template. identifier has variable length
-                max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
+                max_nick_identifiers = ControllerPlugin.max_template(info_list, 'nick_identifier', 'Nickname')
+                max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supvisors identifier')
                 max_hosts = ControllerPlugin.max_template(info_list, 'node_name', 'Host')
                 max_masters = ControllerPlugin.max_template(info_list, 'master_identifier', 'Master')
-                template = (f'%(identifier)-{max_identifiers}s%(node_name)-{max_hosts}s%(port)-7s'
+                template = (f'%(nick_identifier)-{max_nick_identifiers}s%(identifier)-{max_identifiers}s'
+                            f'%(node_name)-{max_hosts}s%(port)-7s'
                             '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
                             '%(proc_failure)-11s'
                             f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_masters}s'
                             '%(starting)-10s%(stopping)-10s')
                 # print title
-                payload = {'identifier': 'Supervisor', 'node_name': 'Host', 'port': 'Port',
+                payload = {'nick_identifier': 'Nickname', 'identifier': 'Supvisors identifier',
+                           'node_name': 'Host', 'port': 'Port',
                            'state': 'State', 'discovery': 'Discovery',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
                            'proc_failure': 'Processes',
@@ -212,7 +215,8 @@ class ControllerPlugin(ControllerPluginBase):
                 # print filtered payloads
                 for info in info_list:
                     if output_all or info['identifier'] in identifiers:
-                        payload = {'identifier': info['identifier'],
+                        payload = {'nick_identifier': info['nick_identifier'],
+                                   'identifier': info['identifier'],
                                    'node_name': info['node_name'], 'port': info['port'],
                                    'state': info['statename'],
                                    'discovery': info['discovery_mode'],
@@ -813,7 +817,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_all_start_args(self):
         """ Print the help of the all_start_args command."""
-        self.ctl.output('all_start_args <proc> <arg_list>\t\t\t'
+        self.ctl.output('all_start_args <proc> <arg_list>\t\t'
                         'Start the process named proc on all RUNNING Supvisors instances'
                         ' with additional arguments arg_list.')
 
@@ -1162,7 +1166,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_enable(self):
         """ Print the help of the enable command. """
-        self.ctl.output('enable program_name\t\t\t\tEnable the program.')
+        self.ctl.output('enable program_name\t\t\tEnable the program.')
 
     def do_disable(self, arg):
         """ Command to disable the processes corresponding to the program.
@@ -1185,7 +1189,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_disable(self):
         """ Print the help of the disable command. """
-        self.ctl.output('disable program_name\t\t\t\tDisable the program.')
+        self.ctl.output('disable program_name\t\t\tDisable the program.')
 
     def do_conciliate(self, arg):
         """ Command to conciliate conflicts (applicable with default USER strategy). """
@@ -1214,7 +1218,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
-        self.ctl.output('conciliate <strategy>\t\t\t\tConciliate process conflicts using strategy')
+        self.ctl.output('conciliate <strategy>\t\t\tConciliate process conflicts using strategy')
 
     def do_restart_sequence(self, _):
         """ Command to trigger the whole start sequence of Supvisors. """
@@ -1247,7 +1251,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('sreload\t\t\t\t\tRestart Supvisors on all instances')
 
     def do_sshutdown(self, _):
-        """ Command to shutdown Supvisors on all instances. """
+        """ Command to shut down Supvisors on all instances. """
         if self._upcheck():
             try:
                 result = self.supvisors().shutdown()

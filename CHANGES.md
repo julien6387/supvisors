@@ -1,12 +1,41 @@
 # Change Log
 
+## 0.18.1 (2024-05-26)
+
+* Fix the different perception of **Supvisors** instances about a process whose state is forced.
+
+* Fix regression using the `SINGLE_NODE` distribution rule.
+
+* Share the configuration of `stdout` and `stderr` log files between all **Supvisors** instances. 
+  `has_stdout` and `has_stderr` are added to the result of the XML-RPC `get_local_process_info`.
+
+* When the `software_name` option is set, it is used as a prefix in all log traces.
+
+* Add disk usage and read/write statistics to the **Supvisors** Web UI.
+  Disk statistics are published to the event interface and the JAVA client has been updated accordingly.
+
+* In the Application page of the **Supvisors** Web UI, add the possibility to expand the process information
+  from all **Supvisors** instances where it is configured.
+  In the event of a process conflict, a `Conciliate` button is displayed instead od a list of **Supvisors** instances.
+  Clicking on this button displays the Conciliation page.
+
+* Split the Main and Conciliation pages of the **Supvisors** Web UI.
+
+* The conflicting processes are highlighted in the Main page of the **Supvisors** Web UI.
+
+* Change the access of the Conciliation page of the **Supvisors** Web UI, by clicking on the `CONCILIATION` state.
+  A click on the **Supvisors** logo always brings back the Main page.
+
+* Fix the renaming of `DEPLOYMENT` state as `DISTRIBUTION` in the JAVA client.
+
+
 ## 0.18 (2024-05-02)
 
 * Refactoring of the **Supvisors** internal communications.
   The `internal_port` of the **Supvisors** section in the Supervisor configuration file is no longer needed.
   As a consequence, the `supvisors_list` option is simplified as follows: `<identifier>host_name:http_port`. 
   The transitional `SupvisorsInstanceStates.ISOLATING` state has been removed.
-  The remote **Supvisors** instance becomes `SILENT` as soon as the published events fails due to a transport issue.
+  The remote **Supvisors** instance becomes `SILENT` as soon as the event publication fails due to a transport issue.
 
 * Implement [Issue #50](https://github.com/julien6387/supvisors/issues/50).
   A new tag `operational_status` in the Application rules allows to declare the formula applicable to evaluate the
@@ -58,7 +87,7 @@
 
 * Rework **Supvisors** `RPCInterface` exceptions.
 
-* Rework the Web UI.
+* Rework the style of the **Supvisors** Web UI.
 
 
 ## 0.17.4 (2024-03-24)

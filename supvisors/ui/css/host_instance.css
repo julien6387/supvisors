@@ -17,7 +17,6 @@
 /*
  * Supvisors Host page style
  */
-
 #instance_contents {
     display: flex;
     flex: 1;
@@ -79,12 +78,17 @@
     grid-row: 1;
 }
 
-#io_stats {
+#net_io_stats {
     grid-column: 1;
     grid-row: 2;
 }
 
-#disk_stats {
+#disk_io_stats {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+#disk_usage_stats {
     grid-column: 2;
     grid-row: 2;
 }
@@ -102,7 +106,7 @@
     margin-right: 10px;
 }
 
-#rsc_grid .card div {
+#rsc_grid .card div:nth-child(2) {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -127,6 +131,26 @@ td {
     text-align: center;
 }
 
+/* specific to Memory stats */
 #mem_stats tr:first-child th {
     border-bottom: solid 1px var(--border-color);
+}
+
+/* specific for Disk IO stats */
+#disk_io_stats > div:first-child, #disk_usage_stats > div:first-child {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#disk_io_stats .button_group, #disk_usage_stats .button_group {
+    width: 40%;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+#disk_io_stats .button_group .button, #disk_usage_stats .button_group .button {
+    min-width: 50%;
+    max-width: 50%;
 }

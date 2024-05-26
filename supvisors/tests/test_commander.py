@@ -769,7 +769,8 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
     mocked_get_node.return_value = None
     application_start_job_1.distribute_to_single_node()
     assert application_start_job_1.identifiers == []
-    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
+    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                   possible_identifiers, 27, {})]
     assert not mocked_get_instance.called
     # check commands
     assert all(command.identifier is None
@@ -782,7 +783,8 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
     application_start_job_1.distribute_to_single_node()
     expected_identifiers = [supvisors.mapper.local_identifier, test_identifier]
     assert application_start_job_1.identifiers == expected_identifiers
-    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
+    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                   possible_identifiers, 27, {})]
     expected = [call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 10, {}),
                 call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 20, {}),
                 call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 30, {})]
@@ -874,7 +876,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
     assert mocked_force.call_args_list == [call(command.process, '', 1234.56,
-                                                ProcessStates.FATAL, 'no resource available')]
+                                                ProcessStates.FATAL, 'No resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
     mocked_force.reset_mock()
     mocked_failure.reset_mock()
@@ -909,7 +911,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
                                                       ['10.0.0.1:25000'], 20, {})]
     assert not mocked_pusher.called
     assert mocked_force.call_args_list == [call(command.process, '', 1234.56,
-                                                ProcessStates.FATAL, 'no resource available')]
+                                                ProcessStates.FATAL, 'No resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
 
 
@@ -2064,11 +2066,11 @@ def test_starter_model(mocker, supvisors, start_command, sample_test_1):
     supvisors.context.applications['sample_test_1'] = application
     # test call
     expected = [{'application_name': 'sample_test_1',  'process_name': 'xclock',
-                 'state': 'FATAL', 'forced_reason': 'no resource available', 'running_identifiers': []},
+                 'state': 'FATAL', 'forced_reason': 'No resource available', 'running_identifiers': []},
                 {'application_name': 'sample_test_1', 'process_name': 'xfontsel',
-                 'state': 'FATAL', 'forced_reason': 'no resource available', 'running_identifiers': []},
+                 'state': 'FATAL', 'forced_reason': 'No resource available', 'running_identifiers': []},
                 {'application_name': 'sample_test_1', 'process_name': 'xlogo',
-                 'state': 'FATAL', 'forced_reason': 'no resource available', 'running_identifiers': []}]
+                 'state': 'FATAL', 'forced_reason': 'No resource available', 'running_identifiers': []}]
     assert starter.test_start_application(StartingStrategies.CONFIG, application) == expected
     assert starter.process_list == []
     assert not mocked_publish.called

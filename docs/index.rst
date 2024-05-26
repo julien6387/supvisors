@@ -15,6 +15,7 @@
     supervisorctl.rst
     event_interface.rst
     special.rst
+    troubleshooting.rst
     faq.rst
 
 .. toctree::

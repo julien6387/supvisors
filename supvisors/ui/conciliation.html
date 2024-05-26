@@ -13,7 +13,8 @@
     <link rel="stylesheet" href="css/card.css" />
     <link rel="stylesheet" href="css/header.css" />
     <link rel="stylesheet" href="css/message.css" />
-    <link rel="stylesheet" href="css/index.css" />
+    <link rel="stylesheet" href="css/process_table.css" />
+    <link rel="stylesheet" href="css/conciliation.css" />
     <style meld:id="style_mid"> </style>
 </head>
 
@@ -35,7 +36,7 @@
                 <div>
                     <ul>
                         <li meld:id="instance_li_mid">
-                            <a href="#" meld:id="instance_a_mid">
+                            <a meld:id="instance_a_mid">
                                 <span class="master" meld:id="master_sp_mid"> </span>
                                 <span meld:id="instance_sp_mid">Supervisor</span>
                             </a>
@@ -49,7 +50,7 @@
                 <div>
                     <ul>
                         <li meld:id="appli_li_mid">
-                            <a href="#" meld:id="appli_a_mid">Application</a>
+                            <a meld:id="appli_a_mid">Application</a>
                         </li>
                     </ul>
                 </div>
@@ -105,30 +106,24 @@
                         <tbody>
                             <tr class="action">
                                 <td>
-                                    <a href="#" meld:id="start_a_mid" class="on">
-                                        <img src="img/start_40.png" alt="End Sync" title="Sync Supvisors"/>
-                                    </a>
-                                </td>
-                                <td>
-                                    <a href="#" meld:id="restart_a_mid" class="on">
+                                    <a meld:id="restart_a_mid" class="on">
                                         <img src="img/restart_40.png" alt="Restart" title="Restart Supvisors"/>
                                     </a>
                                 </td>
                                 <td>
-                                    <a href="#" meld:id="shutdown_a_mid" class="on">
+                                    <a meld:id="shutdown_a_mid" class="on">
                                         <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supvisors"/>
                                     </a>
                                 </td>
                             </tr>
                             <tr>
-                                <td/>
                                 <td>
-                                    <a href="#" meld:id="refresh_a_mid" class="button on">
+                                    <a meld:id="refresh_a_mid" class="button on">
                                         <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/>
                                     </a>
                                 </td>
                                 <td>
-                                    <a href="#" meld:id="autorefresh_a_mid" class="button on">
+                                    <a meld:id="autorefresh_a_mid" class="button on">
                                         <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/>
                                     </a>
                                 </td>
@@ -138,39 +133,72 @@
                 </div>
             </header>
 
-            <div id="index_contents" meld:id="contents_mid">
-                <div meld:id="instance_div_mid" class="card">
-                    <table>
+            <div id="index_contents" meld:id="contents_mid" class="horizontal_contents">
+                <div meld:id="conflicts_div_mid">
+                    <table id="process_table">
                         <thead>
                             <tr>
-                                <th meld:id="user_sync_th_mid" rowspan="2">
-                                    <a href="#" meld:id="user_sync_a_mid" class="button"></a>
-                                </th>
-                                <th meld:id="identifier_th_mid" class="identifier_cell" rowspan="2">
-                                    <a href="#" meld:id="identifier_a_mid"></a>
-                                </th>
-                                <th rowspan="2" meld:id="state_th_mid" class="state_cell"></th>
-                                <th meld:id="time_th_mid">--:--:--</th>
-                            </tr>
-                            <tr>
-                                <th meld:id="percent_th_mid">70%</th>
+                                <th class="name" colspan="2">Name</th>
+                                <th class="instance">Supervisor</th>
+                                <th class="date">Uptime</th>
+                                <th colspan="2">Actions</th>
+                                <th>Strategy</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr meld:id="appli_tr_mid">
-                                <td meld:id="app_name_td_mid">
-                                    <a href="#" meld:id="app_name_a_mid"></a>
-                                </td>
-                                <td colspan="2" class="process_list">
-                                    <span meld:id="process_li_mid">
-                                        <a href="#" meld:id="process_a_mid" class="button">
-                                            <span meld:id="process_span_mid"></span>
-                                        </a>
-                                    </span>
+                        <tfoot>
+                            <tr>
+                                <th class="name" colspan="2">Name</th>
+                                <th class="instance">Supervisor</th>
+                                <th class="date">Uptime</th>
+                                <th colspan="2">Actions</th>
+                                <th>Strategy</th>
+                            </tr>
+                        </tfoot>
+                        <tbody class="hoverable">
+                            <tr meld:id="conflict_tr_mid">
+                                <td meld:id="section_td_mid"></td>
+                                <td meld:id="process_td_mid"></td>
+                                <td meld:id="conflict_instance_td_mid"><a meld:id="conflict_instance_a_mid" class="button on"></a></td>
+                                <td meld:id="uptime_td_mid"></td>
+                                <td meld:id="pstop_td_mid"><a meld:id="pstop_a_mid" class="button on">Stop</a></td>
+                                <td meld:id="pkeep_td_mid"><a meld:id="pkeep_a_mid" class="button on">Keep</a></td>
+                                <td meld:id="strategy_td_mid" class="local_strategies_td">
+                                    <div class="local_strategies">
+                                    <div class="button_group">
+                                        <div class="button on"><a meld:id="infanticide_local_strategy_a_mid">Infanticide</a></div>
+                                        <div class="button on"><a meld:id="senicide_local_strategy_a_mid">Senicide</a></div>
+                                    </div>
+                                    <div class="button_group">
+                                        <div class="button on"><a meld:id="stop_local_strategy_a_mid">Stop</a></div>
+                                        <div class="button on"><a meld:id="restart_local_strategy_a_mid">Restart</a></div>
+                                    </div>
+                                    <div class="button_group">
+                                        <div class="button on"><a meld:id="running_failure_local_strategy_a_mid">Running Failure</a></div>
+                                    </div>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <div>
+                    <div class="option_box">
+                        <div class="option_title">Global Conciliation Strategies</div>
+                        <div class="strategies">
+                            <div class="button_group">
+                                <div class="button on"><a meld:id="infanticide_strategy_a_mid">Infanticide</a></div>
+                                <div class="button on"><a meld:id="senicide_strategy_a_mid">Senicide</a></div>
+                            </div>
+                            <div class="button_group">
+                                <div class="button on"><a meld:id="stop_strategy_a_mid">Stop</a></div>
+                                <div class="button on"><a meld:id="restart_strategy_a_mid">Restart</a></div>
+                            </div>
+                            <div class="button_group">
+                                <div class="button on"><a meld:id="running_failure_strategy_a_mid">Running Failure</a></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

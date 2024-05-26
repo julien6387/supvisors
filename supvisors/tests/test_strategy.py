@@ -262,12 +262,12 @@ def test_get_node(mocker, filled_instances):
     instances = [local_identifier, '10.0.0.3:25000', '10.0.0.5:25000', test_identifier]
     # test with no instance found
     strategy = StartingStrategies.CONFIG
-    assert get_node(filled_instances, strategy, instances, 27) is None
+    assert get_node(filled_instances, strategy, instances, 27, {}) is None
     # test with no instance found
     mocked_get_instance.return_value = test_identifier
     strategy = StartingStrategies.CONFIG
     local_instance = filled_instances.mapper.instances[local_identifier]
-    assert get_node(filled_instances, strategy, instances, 27) == local_instance.host_id
+    assert get_node(filled_instances, strategy, instances, 27, {}) == local_instance.host_id
 
 
 def create_process_status(name, timed_identifiers):

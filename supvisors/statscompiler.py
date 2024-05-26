@@ -16,8 +16,9 @@
 
 from typing import Dict, List, Optional, Tuple
 
-from .ttypes import (CPUHistoryStats, CPUInstantStats, JiffiesList, InterfaceHistoryStats, InterfaceInstantStats,
-                     InterfaceIntegratedStats,
+from .ttypes import (CPUHistoryStats, CPUInstantStats,
+                     JiffiesList,
+                     InterfaceHistoryStats, InterfaceInstantStats, InterfaceIntegratedStats,
                      MemHistoryStats, TimesHistoryStats,
                      ProcessCPUHistoryStats, ProcessMemHistoryStats,
                      Payload, PayloadList)
@@ -25,7 +26,8 @@ from .ttypes import (CPUHistoryStats, CPUInstantStats, JiffiesList, InterfaceHis
 # additional annotation types
 FloatList = List[float]
 IntegratedProcessStats = Tuple[float, float, float]  # cpu, mem, seconds
-IntegratedHostStatistics = Tuple[float, CPUInstantStats, float, InterfaceIntegratedStats]
+IntegratedHostStatistics = Tuple[float, CPUInstantStats, float, InterfaceIntegratedStats,
+                                 InterfaceIntegratedStats, InterfaceIntegratedStats]
 
 
 # CPU statistics
@@ -41,22 +43,24 @@ def cpu_statistics(latest_values: JiffiesList, ref_values: JiffiesList) -> CPUIn
     return cpu
 
 
-# Network statistics
+# Network / Disk statistics
 def io_statistics(last_values: InterfaceInstantStats, ref_values: InterfaceInstantStats,
                   duration: float) -> InterfaceIntegratedStats:
-    """ Return the rate of receive / sent bytes per second per network interface. """
+    """ Return the rate of 'in' (read/receive) bytes and 'out' (write/sent) bytes per second per interface
+    (network or device). """
     io_stats = {}
-    for intf, (last_recv, last_sent) in last_values.items():
+    for intf, (last_in, last_out) in last_values.items():
         if intf in ref_values.keys():
-            ref_recv, ref_sent = ref_values[intf]
-            # Warning taken from psutil documentation (https://pythonhosted.org/psutil/#network)
-            # on some systems such as Linux, on a very busy or long-lived system these numbers may wrap
-            # (restart from zero), see issues #802. Applications should be prepared to deal with that.
-            if ref_recv <= last_recv and ref_sent <= last_sent:
-                recv_bytes = last_recv - ref_recv
-                sent_bytes = last_sent - ref_sent
+            ref_in, ref_out = ref_values[intf]
+            # WARN: taken from psutil documentation (https://pythonhosted.org/psutil/#network)
+            #       On some systems such as Linux, on a very busy or long-lived system these numbers may wrap
+            #       (restart from zero), see issues #802. Applications should be prepared to deal with that.
+            #       Same logic applies to Disk IO counters.
+            if ref_in <= last_in and ref_out <= last_out:
+                in_bytes = last_in - ref_in
+                out_bytes = last_out - ref_out
                 # result in kilo bits per second (bytes / 1024 * 8)
-                io_stats[intf] = recv_bytes / duration / 128, sent_bytes / duration / 128
+                io_stats[intf] = [in_bytes / duration / 128, out_bytes / duration / 128]
     return io_stats
 
 
@@ -85,7 +89,9 @@ class HostStatisticsInstance:
         self.times: TimesHistoryStats = []
         self.cpu: CPUHistoryStats = []
         self.mem: MemHistoryStats = []
-        self.io: InterfaceHistoryStats = {}
+        self.net_io: InterfaceHistoryStats = {}  # {interface: ([uptimes], [[recv_bytes], [sent_bytes]])}
+        self.disk_io: InterfaceHistoryStats = {}  # {interface: ([uptimes], [[read_bytes], [write_bytes]])}
+        self.disk_usage: InterfaceHistoryStats = {}  # {interface: ([uptimes], [[percent]])}
 
     def _push_times_stats(self, time_value: float) -> None:
         """ Add new Times statistics. """
@@ -103,37 +109,48 @@ class HostStatisticsInstance:
         self.mem.append(mem_value)
         trunc_depth(self.mem, self.depth)
 
-    def _push_io_stats(self, io_stats: InterfaceIntegratedStats, uptime: float) -> None:
-        """ Add new IO statistics.
-        Unlike CPU and Mem, IO may be variable in time, depending on the actions on the network configuration.
-        So the time_value must be associated with the IO values. """
-        # on certain node configurations, interface list may be dynamic
-        # unlike processes, it is interesting to log when it happens
+    def _push_net_io_stats(self, net_io_stats: InterfaceIntegratedStats, uptime: float) -> None:
+        """ Add new network IO statistics. """
+        self._push_timed_stats(self.net_io, net_io_stats, 'nic', uptime)
+
+    def _push_disk_io_stats(self, disk_io_stats: InterfaceIntegratedStats, uptime: float) -> None:
+        """ Add new disk IO statistics. """
+        self._push_timed_stats(self.disk_io, disk_io_stats, 'device', uptime)
+
+    def _push_disk_usage_stats(self, disk_usage_stats: InterfaceIntegratedStats, uptime: float) -> None:
+        """ Add new disk IO statistics. """
+        self._push_timed_stats(self.disk_usage, disk_usage_stats, 'partition', uptime)
+
+    def _push_timed_stats(self, ref_stats: InterfaceHistoryStats, io_stats: InterfaceIntegratedStats,
+                          name: str, uptime: float) -> None:
+        """ Add statistics variable in time (network IO, disk IO or disk usage).
+
+        Unlike CPU and Mem, Network and Disk data may be variable in time, depending on the actions
+        on the operating system, so the time_value must be associated with the values. """
         destroy_list = []
-        for intf, (uptimes, recv_stats, sent_stats) in self.io.items():
-            new_bytes = io_stats.pop(intf, None)
-            if new_bytes is None:
+        for intf, (uptimes, ref_bytes) in ref_stats.items():
+            new_bytes_list = io_stats.pop(intf, None)
+            if new_bytes_list is None:
                 # element is obsolete
                 destroy_list.append(intf)
             else:
-                recv_bytes, sent_bytes = new_bytes
+                # add new uptime value and clean
                 uptimes.append(uptime)
-                recv_stats.append(recv_bytes)
-                sent_stats.append(sent_bytes)
-                # remove too old values when max depth is reached
                 trunc_depth(uptimes, self.depth)
-                trunc_depth(recv_stats, self.depth)
-                trunc_depth(sent_stats, self.depth)
+                # add new bytes rate values and clean
+                for new_data_bytes, ref_bytes_list in zip(new_bytes_list, ref_bytes):
+                    ref_bytes_list.append(new_data_bytes)
+                    trunc_depth(ref_bytes_list, self.depth)
         # destroy obsolete elements
         for intf in destroy_list:
-            self.logger.warn(f'StatisticsInstance.push_io_stats: obsolete interface={intf} on {self.identifier}'
+            self.logger.warn(f'StatisticsInstance._push_timed_stats: obsolete {name}={intf} on {self.identifier}'
                              f' (period={self.period})')
-            del self.io[intf]
+            del ref_stats[intf]
         # add new elements
-        for intf, (recv_bytes, sent_bytes) in io_stats.items():
-            self.logger.warn(f'StatisticsInstance.push_io_stats: new interface={intf} on {self.identifier}'
+        for intf, new_bytes_list in io_stats.items():
+            self.logger.warn(f'StatisticsInstance._push_timed_stats: new {name}={intf} on {self.identifier}'
                              f' (period={self.period})')
-            self.io[intf] = [uptime], [recv_bytes], [sent_bytes]
+            ref_stats[intf] = [uptime], [[new_data_bytes] for new_data_bytes in new_bytes_list]
 
     def integrate(self, last: Payload) -> IntegratedHostStatistics:
         """ Return resources' statistics from two series of measures. """
@@ -141,8 +158,10 @@ class HostStatisticsInstance:
         duration: float = last['now'] - self.ref_stats['now']
         cpu: CPUInstantStats = cpu_statistics(last['cpu'], self.ref_stats['cpu'])
         mem: float = last['mem']
-        io: InterfaceIntegratedStats = io_statistics(last['io'], self.ref_stats['io'], duration)
-        return last['now'] - self.ref_start_time, cpu, mem, io
+        net_io: InterfaceIntegratedStats = io_statistics(last['net_io'], self.ref_stats['net_io'], duration)
+        disk_io: InterfaceIntegratedStats = io_statistics(last['disk_io'], self.ref_stats['disk_io'], duration)
+        disk_usage: InterfaceIntegratedStats = {k: [v] for k, v in last['disk_usage'].items()}
+        return last['now'] - self.ref_start_time, cpu, mem, net_io, disk_io, disk_usage
 
     def push_statistics(self, stats: Payload) -> Payload:
         """ Calculate new statistics given a new series of measures.
@@ -151,20 +170,24 @@ class HostStatisticsInstance:
         if self.ref_stats:
             if stats['now'] - self.ref_stats['now'] >= self.period:
                 # rearrange data so that there is less processing afterward
-                uptime, cpu, mem, io = self.integrate(stats)
-                # create the result structure (use a copy as the _push functions will pop)
+                uptime, cpu, mem, net_io, disk_io, disk_usage = self.integrate(stats)
+                # create the result structure (use a copy as the _push functions will pop the original data)
                 result = {'identifier': self.identifier,
                           'target_period': self.period,
                           'period': (self.ref_stats['now'] - self.ref_start_time,
                                      stats['now'] - self.ref_start_time),
                           'cpu': cpu.copy(),
                           'mem': mem,
-                          'io': io.copy()}
+                          'net_io': net_io.copy(),
+                          'disk_io': disk_io.copy(),
+                          'disk_usage': {k: v[0] for k, v in disk_usage.items()}}
                 # add new values
                 self._push_times_stats(uptime)
                 self._push_cpu_stats(cpu)
                 self._push_mem_stats(mem)
-                self._push_io_stats(io, uptime)
+                self._push_net_io_stats(net_io, uptime)
+                self._push_disk_io_stats(disk_io, uptime)
+                self._push_disk_usage_stats(disk_usage, uptime)
                 # new stats become the reference stats for next integration
                 self.ref_stats = stats
         else:
@@ -173,7 +196,12 @@ class HostStatisticsInstance:
             self.ref_start_time = stats['now']
             # init some data structures
             self.cpu = [[] for _ in stats['cpu']]
-            self.io = {intf: ([], [], []) for intf in stats['io']}
+            self.net_io = {intf: ([], [[], []])
+                           for intf in stats['net_io']}
+            self.disk_io = {device: ([], [[], []])
+                            for device in stats['disk_io']}
+            self.disk_usage = {partition: ([], [[]])
+                               for partition in stats['disk_usage']}
         return result
 
 

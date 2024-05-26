@@ -30,7 +30,7 @@ SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
 IDENTIFIER = 'ident'  # navigation
-APPLI = 'appliname'  # navigation
+APPLI = 'appname'  # navigation
 
 ACTION = 'action'
 NAMESPEC = 'namespec'   # used for actions
@@ -39,14 +39,18 @@ PROCESS = 'processname'  # used to tail (but also to display statistics)
 PERIOD = 'period'
 STRATEGY = 'strategy'
 CPU = 'cpuid'
-INTF = 'intfname'
+NIC = 'nic'
+DISK_STATS = 'diskstats'
+PARTITION = 'partition'
+DEVICE = 'device'
 AUTO = 'auto'  # auto-refresh
 LIMIT = 'limit'
 
 MESSAGE = 'message'
 GRAVITY = 'gravity'
 
-SHRINK_EXPAND = 'shex'
+APP_SHRINK_EXPAND = 'ashex'
+PROC_SHRINK_EXPAND = 'pshex'
 
 # response parameters
 HEADERS = 'headers'
@@ -77,27 +81,93 @@ class ViewContext:
         self.update_application_name()
         self.update_process_name()
         self.update_namespec()
-        self.update_shrink_expand()
+        self.update_application_shrink_expand()
+        self.update_process_shrink_expand()
         self.update_period()
         self.update_cpu_id()
-        self.update_interface_name()
+        self.update_nic_name()
+        self.update_disk_stats_choice()
+        self.update_partition_name()
+        self.update_device_name()
 
-    def get_action(self):
+    # information extracted
+    @property
+    def strategy(self) -> StartingStrategies:
+        return StartingStrategies[self.parameters[STRATEGY]]
+
+    @property
+    def auto_refresh(self) -> bool:
+        return self.parameters[AUTO]
+
+    @property
+    def identifier(self) -> str:
+        return self.parameters[IDENTIFIER]
+
+    @property
+    def application_name(self) -> str:
+        return self.parameters[APPLI]
+
+    @property
+    def process_name(self) -> str:
+        return self.parameters[PROCESS]
+
+    @process_name.setter
+    def process_name(self, proc_name: str) -> None:
+        self.parameters[PROCESS] = proc_name
+
+    @property
+    def namespec(self) -> str:
+        return self.parameters[NAMESPEC]
+
+    @property
+    def application_shex(self) -> str:
+        return self.parameters[APP_SHRINK_EXPAND]
+
+    @property
+    def process_shex(self) -> str:
+        return self.parameters[PROC_SHRINK_EXPAND]
+
+    @property
+    def period(self) -> float:
+        return self.parameters[PERIOD]
+
+    @property
+    def cpu_id(self) -> int:
+        return self.parameters[CPU]
+
+    @property
+    def nic_name(self) -> str:
+        return self.parameters[NIC]
+
+    @property
+    def device(self) -> str:
+        return self.parameters[DEVICE]
+
+    @property
+    def partition(self) -> str:
+        return self.parameters[PARTITION]
+
+    @property
+    def disk_stats(self) -> str:
+        return self.parameters[DISK_STATS]
+
+    # simple extraction from context form
+    @property
+    def action(self) -> str:
         """ Extract action requested in context form. """
         return self.http_context.form.get(ACTION)
 
-    def get_identifier(self):
-        """ Extract identifier from context form. """
-        return self.http_context.form.get(IDENTIFIER)
-
-    def get_message(self):
-        """ Extract message from context form. """
+    @property
+    def message(self) -> str:
+        """ Extract message text from context form. """
         return self.http_context.form.get(MESSAGE)
 
-    def get_gravity(self):
-        """ Extract message from context form. """
+    @property
+    def gravity(self) -> str:
+        """ Extract message gravity from context form. """
         return self.http_context.form.get(GRAVITY)
 
+    # complex extraction from context form
     def update_period(self) -> None:
         """ Extract period from context. """
         default_value = next(iter(self.supvisors.options.stats_periods))
@@ -147,138 +217,96 @@ class ViewContext:
 
     def update_cpu_id(self) -> None:
         """ Extract CPU id from context. """
-        self._update_integer(CPU, list(range(self.get_nb_cores() + 1)))
+        self._update_integer(CPU, list(range(self.get_nb_cores(self.local_identifier) + 1)))
 
-    def update_interface_name(self) -> None:
+    def update_nic_name(self) -> None:
+        """ Extract network interface name from context.
+        Only the HostInstanceView displays interface data, so it's local. """
+        stats_instance = self.get_instance_stats()
+        interfaces = stats_instance.net_io.keys() if stats_instance else []
+        default_value = next(iter(interfaces), None)
+        self._update_string(NIC, interfaces, default_value)
+
+    def update_disk_stats_choice(self) -> None:
+        """ Extract the disk stats choice. """
+        self._update_string(DISK_STATS, ['usage', 'io'], 'io')
+
+    def update_partition_name(self) -> None:
         """ Extract interface name from context.
         Only the HostInstanceView displays interface data, so it's local. """
         stats_instance = self.get_instance_stats()
-        interfaces = stats_instance.io.keys() if stats_instance else []
-        default_value = next(iter(interfaces), None)
-        self._update_string(INTF, interfaces, default_value)
+        partitions = stats_instance.disk_usage.keys() if stats_instance else []
+        default_value = next(iter(partitions), None)
+        self._update_string(PARTITION, partitions, default_value)
 
-    def get_default_shex(self, expanded: bool) -> bytearray:
+    def update_device_name(self) -> None:
+        """ Extract interface name from context.
+        Only the HostInstanceView displays interface data, so it's local. """
+        stats_instance = self.get_instance_stats()
+        devices = stats_instance.disk_io.keys() if stats_instance else []
+        default_value = next(iter(devices), None)
+        self._update_string(DEVICE, devices, default_value)
+
+    @staticmethod
+    def _get_default_shex(nb_items: int, expanded: bool) -> bytearray:
         """ Get a default shex bytearray filled with 1 if expanded.
 
-        :param expanded: a status telling if the bytearray should be filled with 0 or 1
-        :return: the shex bytearray
+        :param nb_items: the number of items in the shex.
+        :param expanded: a status telling if the bytearray should be filled with 0 or 1.
+        :return: the application shex bytearray.
+        """
+        base_value = 0xff if expanded else 0
+        return bytearray([base_value] * math.ceil(nb_items / 8))
+
+    def get_default_application_shex(self, expanded: bool) -> bytearray:
+        """ Get a default application shex bytearray filled with 1 if expanded.
+
+        :param expanded: a status telling if the bytearray should be filled with 0 or 1.
+        :return: the application shex bytearray.
         """
         nb_applications = len(self.supvisors.context.applications)
-        base_value = 0xff if expanded else 0
-        return bytearray([base_value] * math.ceil(nb_applications / 8))
+        return ViewContext._get_default_shex(nb_applications, expanded)
 
-    def update_shrink_expand(self):
-        """ Extract process display choices from context. """
-        # default is expanded
-        ba = self.get_default_shex(True)
+    def get_default_process_shex(self, application_name: str, expanded: bool) -> bytearray:
+        """ Get a default process shex bytearray filled with 1 if expanded, for the considered application.
+
+        :param application_name: the application name to get the processes from.
+        :param expanded: a status telling if the bytearray should be filled with 0 or 1.
+        :return: the process shex bytearray.
+        """
+        nb_processes = len(self.supvisors.context.applications[application_name].processes)
+        return ViewContext._get_default_shex(nb_processes, expanded)
+
+    def update_application_shrink_expand(self):
+        """ Extract process display choices from context.
+        By default, all are displayed. """
+        ba = self.get_default_application_shex(True)
+        self._update_shex(APP_SHRINK_EXPAND, ba)
+
+    def update_process_shrink_expand(self):
+        """ Extract instance process display choices from context.
+        By default, all are hidden. """
+        if self.application_name:
+            ba = self.get_default_process_shex(self.application_name, False)
+            self._update_shex(PROC_SHRINK_EXPAND, ba)
+
+    def _update_shex(self, param: str, default_ba: bytearray) -> None:
+        """ Extract shex from context. """
         # extract mask from context
-        str_value = self.http_context.form.get(SHRINK_EXPAND)
+        str_value = self.http_context.form.get(param)
         if str_value:
             # check that value has correct format (only hex and size twice the size of the bytearray)
             try:
                 value = bytearray.fromhex(str_value)
             except ValueError as exc:
-                self.logger.error(f'ViewContext.update_shrink_expand: non-hexadecimal SHRINK_EXPAND={exc}')
+                self.logger.error(f'ViewContext._update_shex: non-hexadecimal {param}')
             else:
-                if len(ba) != len(value):
-                    self.logger.error('ViewContext.update_shrink_expand: SHRINK_EXPAND does not fit with the number'
-                                      ' of applications')
+                if len(default_ba) != len(value):
+                    self.logger.error(f'ViewContext._update_shex: {param} does not fit with the number of items')
                 else:
-                    ba = value
-        self.logger.debug(f'ViewContext.update_shrink_expand: SHRINK_EXPAND set to {ba.hex()}')
-        self.parameters[SHRINK_EXPAND] = ba.hex()
-
-    def url_parameters(self, reset_shex, **kwargs):
-        """ Return the list of parameters for a URL. """
-        parameters = dict(self.parameters, **kwargs)
-        if reset_shex:
-            del parameters[SHRINK_EXPAND]
-        return '&'.join([f'{key}={quote(str(value))}'
-                         for key, value in sorted(parameters.items()) if value])
-
-    def format_url(self, identifier: str, page: str, **kwargs):
-        """ Format URL from parameters. """
-        netloc = ''
-        # build network location if identifier is provided
-        if identifier:
-            instance = self.supvisors.mapper.instances[identifier]
-            netloc = f'http://{quote(instance.host_id)}:{instance.http_port}/'
-        # shex must be reset if the Supvisors instance changes
-        local_identifier = not identifier or identifier == self.local_identifier
-        # build URL from netloc, page and attributes
-        return f'{netloc}{page}?{self.url_parameters(not local_identifier, **kwargs)}'
-
-    def fire_message(self) -> None:
-        """ Set message in context response to be displayed at next refresh. """
-        if self.store_message:
-            args = {MESSAGE: self.store_message[1], GRAVITY: self.store_message[0]}
-            form = self.http_context.form
-            # if redirect requested, go back to main page
-            path_translated = '/' + SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
-            location = f'{form[SERVER_URL]}{path_translated}?{self.url_parameters(False, **args)}'
-            self.http_context.response[HEADERS][LOCATION] = location
-
-    def get_nb_cores(self, identifier: str = None) -> int:
-        """ Get the number of processors of the host where the Supvisors instance is running. """
-        stats_identifier = identifier or self.local_identifier
-        # 2 chances to get the value
-        nb_cores = self.supvisors.host_compiler.get_nb_cores(stats_identifier)
-        if not nb_cores:
-            nb_cores = self.supvisors.process_compiler.get_nb_cores(stats_identifier)
-        return nb_cores
-
-    def get_node_characteristics(self):
-        """ Get the node characteristics from the stats collector. """
-        if self.supvisors.stats_collector:
-            return self.supvisors.stats_collector.node_info
-        return None
-
-    def get_instance_stats(self, identifier: str = None):
-        """ Get the statistics structure related to the identifier and the period selected.
-        If no identifier is specified, local identifier is used. """
-        stats_identifier = identifier or self.local_identifier
-        period = self.parameters.get(PERIOD)
-        return self.supvisors.host_compiler.get_stats(stats_identifier, period)
-
-    def get_process_stats(self, namespec: str, identifier: str = None):
-        """ Get the statistics structure related to the process and the period selected.
-        Get also the number of cores available where this Supvisors instance runs (useful for process CPU IRIX mode).
-        """
-        # use local identifier if not provided
-        if not identifier:
-            identifier = self.local_identifier
-        # get the number of cores for Solaris mode
-        nb_cores = self.get_nb_cores(identifier)
-        # return the process statistics for this process
-        period = self.parameters.get(PERIOD)
-        stats_instance = self.supvisors.process_compiler.get_stats(namespec, identifier, period)
-        return nb_cores, stats_instance
-
-    def get_process_status(self, namespec: str = None) -> Optional[ProcessStatus]:
-        """ Get the ProcessStatus instance related to the process named namespec.
-        If none specified, the form namespec is used. """
-        namespec = namespec or self.parameters[NAMESPEC]
-        if namespec:
-            try:
-                return self.supvisors.context.get_process(namespec)
-            except KeyError:
-                self.logger.debug(f'ViewContext.get_process_status: failed to get ProcessStatus from {namespec}')
-
-    def get_application_shex(self, application_name: str) -> Tuple[bool, str]:
-        """ Get the expand / shrink value of the application and the shex string to invert it.
-
-        :param application_name: the application name
-        :return: the application shex and the inverted shex
-        """
-        shex = self.parameters[SHRINK_EXPAND]
-        ba = bytearray.fromhex(shex)
-        # get the index of the application in context
-        idx = list(self.supvisors.context.applications).index(application_name)
-        # get application shex value
-        application_shex = bool(get_bit(ba, idx))
-        # get new shex with inverted value for application
-        set_bit(ba, idx, not application_shex)
-        return application_shex, ba.hex()
+                    default_ba = value
+        self.logger.debug(f'ViewContext._update_shex: {param} set to {default_ba.hex()}')
+        self.parameters[param] = default_ba.hex()
 
     def _update_string(self, param: str, check_list: NameList, default_value: str = None):
         """ Extract information from context based on allowed values in check_list. """
@@ -345,7 +373,113 @@ class ViewContext:
         self.logger.trace(f'ViewContext._update_boolean: {param} set to {value}')
         self.parameters[param] = value
 
+    # URL formatting
+    def url_parameters(self, reset_shex, **kwargs):
+        """ Return the list of parameters for a URL. """
+        parameters = dict(self.parameters, **kwargs)
+        if reset_shex:
+            del parameters[APP_SHRINK_EXPAND]
+        return '&'.join([f'{key}={quote(str(value))}'
+                         for key, value in sorted(parameters.items()) if value])
+
+    def format_url(self, identifier: str, page: str, **kwargs):
+        """ Format URL from parameters. """
+        netloc = ''
+        # build network location if identifier is provided
+        if identifier:
+            instance = self.supvisors.mapper.instances[identifier]
+            netloc = f'http://{quote(instance.host_id)}:{instance.http_port}/'
+        # shex must be reset if the Supvisors instance changes
+        local_identifier = not identifier or identifier == self.local_identifier
+        # build URL from netloc, page and attributes
+        return f'{netloc}{page}?{self.url_parameters(not local_identifier, **kwargs)}'
+
+    def fire_message(self) -> None:
+        """ Set message in context response to be displayed at next refresh. """
+        if self.store_message:
+            args = {MESSAGE: self.store_message[1], GRAVITY: self.store_message[0]}
+            form = self.http_context.form
+            # if redirect requested, go back to main page
+            path_translated = '/' + SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
+            location = f'{form[SERVER_URL]}{path_translated}?{self.url_parameters(False, **args)}'
+            self.http_context.response[HEADERS][LOCATION] = location
+
+    # Statistics
+    def get_nb_cores(self, identifier: str) -> int:
+        """ Get the number of processors of the host where the Supvisors instance is running. """
+        # 2 chances to get the value
+        nb_cores = self.supvisors.host_compiler.get_nb_cores(identifier)
+        if not nb_cores:
+            nb_cores = self.supvisors.process_compiler.get_nb_cores(identifier)
+        return nb_cores
+
+    def get_node_characteristics(self):
+        """ Get the node characteristics from the stats collector. """
+        if self.supvisors.stats_collector:
+            return self.supvisors.stats_collector.node_info
+        return None
+
+    def get_instance_stats(self, identifier: str = None):
+        """ Get the statistics structure related to the identifier and the period selected.
+        If no identifier is specified, local identifier is used. """
+        stats_identifier = identifier or self.local_identifier
+        period = self.parameters.get(PERIOD)
+        return self.supvisors.host_compiler.get_stats(stats_identifier, period)
+
+    def get_process_stats(self, namespec: str, identifier: str):
+        """ Get the statistics structure related to the process and the period selected.
+        Get also the number of cores available where this Supvisors instance runs (useful for process CPU IRIX mode).
+        """
+        # get the number of cores for Solaris mode
+        nb_cores = self.get_nb_cores(identifier)
+        # return the process statistics for this process
+        period = self.parameters.get(PERIOD)
+        stats_instance = self.supvisors.process_compiler.get_stats(namespec, identifier, period)
+        return nb_cores, stats_instance
+
+    def get_process_status(self, namespec: str = None) -> Optional[ProcessStatus]:
+        """ Get the ProcessStatus instance related to the process named namespec.
+        If none specified, the form namespec is used. """
+        namespec = namespec or self.namespec
+        if namespec:
+            try:
+                return self.supvisors.context.get_process(namespec)
+            except KeyError:
+                self.logger.debug(f'ViewContext.get_process_status: failed to get ProcessStatus from {namespec}')
+
+    # shex access
+    def get_application_shex(self, application_name: str) -> Tuple[bool, str]:
+        """ Get the expand / shrink value of the application and the shex string to invert it.
+
+        :param application_name: the application name.
+        :return: the application shex and the inverted shex.
+        """
+        ba = bytearray.fromhex(self.application_shex)
+        # get the index of the application in context
+        idx = sorted(self.supvisors.context.applications).index(application_name)
+        # get application shex value
+        application_shex = bool(get_bit(ba, idx))
+        # get new shex with inverted value for application
+        set_bit(ba, idx, not application_shex)
+        return application_shex, ba.hex()
+
+    def get_process_shex(self, process_name: str) -> Tuple[bool, str]:
+        """ Get the expand / shrink value of the process and the shex string to invert it.
+
+        :param process_name: the process name.
+        :return: the process shex and the inverted shex.
+        """
+        ba = bytearray.fromhex(self.process_shex)
+        # get the index of the application in context
+        idx = sorted(self.supvisors.context.applications[self.application_name].processes).index(process_name)
+        # get application shex value
+        process_shex = bool(get_bit(ba, idx))
+        # get new shex with inverted value for application
+        set_bit(ba, idx, not process_shex)
+        return process_shex, ba.hex()
+
     @staticmethod
     def cpu_id_to_string(idx):
         """ Get a printable form of cpu index. """
-        return '{}'.format(idx - 1) if idx > 0 else 'all'
+        return f'{idx - 1}' if idx > 0 else 'all'
+

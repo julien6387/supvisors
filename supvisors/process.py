@@ -506,8 +506,10 @@ class ProcessStatus:
         # IDE warning on first parameter but ignored as the Supervisor function should have been set as staticmethod
         return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, info)
 
-    def get_last_description(self) -> Tuple[Optional[str], str]:
-        """ Get the latest description received from the process across all Supvisors instances.
+    # for display in Web UI
+    def get_applicable_details(self) -> Tuple[Optional[str], str, bool, bool]:
+        """ Get the process synthesis received from the process across all Supvisors instances.
+
         Priority is taken in the following order:
             1. the forced state ;
             2. the information coming from a Supervisor where the process is running ;
@@ -515,30 +517,64 @@ class ProcessStatus:
 
         :return: the identifier of the Supervisor where the description comes, the process state description
         """
-        self.logger.trace(f'ProcessStatus.get_last_description: START namespec={self.namespec}')
+        self.logger.trace(f'ProcessStatus.get_applicable_details: START namespec={self.namespec}')
+        identifier, desc, has_stdout, has_stderr = None, '', False, False
         # if the state is forced, return the reason why
         if self.forced_state is not None:
-            self.logger.trace(f'ProcessStatus.get_last_description: namespec={self.namespec}'
+            self.logger.trace(f'ProcessStatus.get_applicable_details: namespec={self.namespec}'
                               f' - Supvisors=None [FORCED]description={self.forced_reason}')
-            return None, self.forced_reason
+            return identifier, self.forced_reason, has_stdout, has_stderr
         # search for process info where process is running
         info_map = dict(filter(lambda x: x[0] in self.running_identifiers, self.info_map.items()))
         if info_map:
-            # sort info_map them by local_time (local_time is local monotonic time of latest received event)
-            identifier, info = max(info_map.items(), key=lambda x: x[1]['local_time'])
-            self.logger.trace(f'ProcessStatus.get_last_description: namespec={self.namespec}'
-                              f' - Supvisors={identifier} [running]description={info["description"]}')
+            if len(info_map) == 1:
+                # single instance
+                identifier, info = next(iter(info_map.items()))
+                nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
+                desc = info['description'] + ' on ' + nick_identifier
+                has_stdout = info['has_stdout']
+                has_stderr = info['has_stderr']
+            else:
+                # multiple instances. conflict
+                identifiers = list(self.running_identifiers)
+                nick_identifiers = [self.supvisors.mapper.get_nick_identifier(identifier)
+                                    for identifier in identifiers]
+                desc = f"conflict on {', '.join(nick_identifiers)}"
+            self.logger.trace(f'ProcessStatus.get_applicable_details: namespec={self.namespec}'
+                              f' - Supvisors={identifier} [running]description={desc}')
         else:
-            # none running. sort info_map them by stop date
+            # none running. sort info_map them by stop date to give the origin of the last stop
             identifier, info = max(self.info_map.items(), key=lambda x: x[1]['stop'])
-            self.logger.trace(f'ProcessStatus.get_last_description: namespec={self.namespec}'
-                              f' - Supvisors={identifier} [stopped]description={info["description"]}')
-        # extract description from information found and add identifier
-        desc = info['description']
-        if desc and desc != 'Not started':
-            nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
-            desc = desc + ' on ' + nick_identifier
-        return identifier, desc
+            desc = info['description']
+            # get additional info if the process has been started at least once
+            if info['start'] > 0:
+                nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
+                desc += ' on ' + nick_identifier
+                has_stdout = info['has_stdout']
+                has_stderr = info['has_stderr']
+            self.logger.trace(f'ProcessStatus.get_description: namespec={self.namespec}'
+                              f' - Supvisors={identifier} [stopped]description={desc}')
+        return identifier, desc, has_stdout, has_stderr
+
+    def has_stdout(self, identifier: str) -> bool:
+        """ Consider that a process has stdout logs on a given Supvisors instance if configured so
+        and if it has been started at least once.
+
+        :param identifier: the identifier where the process is configured.
+        :return: True if a stdout log file can be expected.
+        """
+        info = self.info_map[identifier]
+        return info['has_stdout'] and info['start'] > 0
+
+    def has_stderr(self, identifier: str) -> bool:
+        """ Consider that a process has stderr logs on a given Supvisors instance if configured so
+        and if it has been started at least once.
+
+        :param identifier: the identifier where the process is configured.
+        :return: True if a stderr log file can be expected.
+        """
+        info = self.info_map[identifier]
+        return info['has_stderr'] and info['start'] > 0
 
     # rules consideration
     def possible_identifiers(self) -> NameList:

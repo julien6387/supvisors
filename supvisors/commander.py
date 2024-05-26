@@ -58,7 +58,7 @@ class ProcessCommand:
         #       of active (i.e. non isolated) Supvisors instances
         # based on a real case with +30 Supvisors instances, 1s per 10 Supvisors instances is being considered
         # the worst case is during a full restart with a minimal set of core identifiers
-        # the DEPLOYMENT phase is in progress while there are still lots to Supvisors instances in CHECKING state
+        # the DISTRIBUTION phase is in progress while there are still lots to Supvisors instances in CHECKING state
         self.minimum_ticks = max(ProcessCommand.DEFAULT_TICK_TIMEOUT,
                                  len(self.supvisors.context.valid_instances()) // 10)
         self._wait_ticks: int = self.minimum_ticks
@@ -210,7 +210,7 @@ class ProcessStartCommand(ProcessCommand):
         """ Evaluate the result of the Process start request against the current state of the Process on the Supvisors
         instance where the request has been sent.
 
-        :return: the request status
+        :return: the request status.
         """
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
@@ -743,8 +743,9 @@ class ApplicationStartJobs(ApplicationJobs):
         # find the applicable Supvisors instances iaw strategy
         application_load = self.application.get_start_sequence_expected_load()
         identifiers = self.application.possible_node_identifiers()
+        load_request_map = self.get_load_requests()
         # choose the node that can support the application load
-        node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load)
+        node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load, load_request_map)
         # intersect the identifiers running on the node and the application possible identifiers
         # comprehension based on iteration over application possible identifiers to keep the CONFIG order
         node_identifiers = list(self.supvisors.mapper.nodes.get(node_name, []))
@@ -835,7 +836,7 @@ class ApplicationStartJobs(ApplicationJobs):
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.fail_command(command.process, '', time.monotonic(), 'no resource available')
+                self.fail_command(command.process, '', time.monotonic(), 'No resource available')
                 self.process_failure(process)
         # return True when the job is queued
         return queued
@@ -996,7 +997,7 @@ class Commander:
             self.logger.debug(f'{self.class_name}.next: sequence={sequence_number}'
                               f' current_jobs={self.current_jobs}')
             # iterate on copy to avoid problems with key deletions
-            for application_name, application_job in self.current_jobs.copy().items():
+            for application_name, application_job in list(self.current_jobs.items()):
                 self.logger.info(f'{self.class_name}.next: start processing {application_name}')
                 application_job.before()
                 application_job.next()
@@ -1019,7 +1020,7 @@ class Commander:
 
         :return: None
         """
-        for application_job in self.current_jobs.values():
+        for application_job in list(self.current_jobs.values()):
             application_job.check()
         # trigger jobs
         self.next()
@@ -1063,11 +1064,11 @@ class Commander:
         :return: None
         """
         # clear the invalidated Supvisors instances from the pending requests
-        for application_jobs in self.current_jobs.values():
+        for application_jobs in list(self.current_jobs.values()):
             application_jobs.on_instances_invalidation(invalidated_identifiers, failed_processes)
         # perform some cleaning based on the planned jobs too
-        for application_jobs_map in self.planned_jobs.values():
-            for application_jobs in application_jobs_map.values():
+        for application_jobs_map in list(self.planned_jobs.values()):
+            for application_jobs in list(application_jobs_map.values()):
                 application_jobs.on_instances_invalidation(invalidated_identifiers, failed_processes)
         # trigger jobs
         self.next()
@@ -1235,7 +1236,8 @@ class Starter(Commander):
 
         :return: the additional loading per Supvisors instance
         """
-        load_requests = [application_job.get_load_requests() for application_job in self.current_jobs.values()]
+        load_requests = [application_job.get_load_requests()
+                         for application_job in self.current_jobs.values()]
         # get all identifiers found
         identifiers = {identifier for load_request in load_requests for identifier in load_request}
         # sum the loadings per identifier

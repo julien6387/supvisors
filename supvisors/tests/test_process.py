@@ -701,32 +701,53 @@ def test_serialization(supvisors):
                           'last_event_time': process.last_event_time, 'identifiers': [], 'extra_args': ''}
 
 
-def test_get_last_description(supvisors):
-    """ Test the ViewContext.get_process_last_desc method. """
+def test_get_applicable_details(supvisors):
+    """ Test the ViewContext.get_applicable_details method. """
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
-    process.info_map = {'10.0.0.1:25000': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0,
-                                           'now': 50, 'event_time': 50},
-                        '10.0.0.2:25000': {'local_time': 30, 'stop': 12, 'description': 'Not started',
-                                           'now': 55, 'event_time': 50},
-                        '10.0.0.3:25000': {'local_time': 20, 'stop': 22, 'description': 'desc3',
-                                           'now': 53, 'event_time': 50}}
+    process.info_map = {'10.0.0.1:25000': {'local_time': 10, 'start': 25, 'stop': 32, 'description': 'desc1', 'state': 0,
+                                           'now': 50, 'event_time': 50, 'has_stdout': True, 'has_stderr': False},
+                        '10.0.0.2:25000': {'local_time': 30, 'start': 0, 'stop': 0, 'description': 'Not started',
+                                           'now': 55, 'event_time': 50, 'has_stdout': False, 'has_stderr': False},
+                        '10.0.0.3:25000': {'local_time': 20, 'start': 5, 'stop': 22, 'description': 'desc3',
+                                           'now': 53, 'event_time': 50, 'has_stdout': True, 'has_stderr': True}}
     # state is not forced by default
     # test method return on non-running process
-    assert process.get_last_description() == ('10.0.0.1:25000', 'desc1 on 10.0.0.1')
+    assert process.get_applicable_details() == ('10.0.0.1:25000', 'desc1 on 10.0.0.1',  True, False)
     # test method return on running process
     process.running_identifiers.add('10.0.0.3:25000')
-    assert process.get_last_description() == ('10.0.0.3:25000', 'desc3 on 10.0.0.3')
+    assert process.get_applicable_details() == ('10.0.0.3:25000', 'desc3 on 10.0.0.3', True, True)
     # test method return on multiple running processes
     process.running_identifiers.add('10.0.0.2:25000')
-    assert process.get_last_description() == ('10.0.0.2:25000', 'Not started')
+    possible_results = [(None, 'conflict on 10.0.0.3, 10.0.0.2', False, False),
+                        (None, 'conflict on 10.0.0.2, 10.0.0.3', False, False)]
+    assert process.get_applicable_details() in possible_results
     # test again with forced state
     event = {'state': ProcessStates.FATAL, 'identifier': '10.0.0.1:25000',
              'now_monotonic': 50, 'spawnerr': 'global crash'}
     assert process.force_state(event)
-    assert process.get_last_description() == (None, 'global crash')
+    assert process.get_applicable_details() == (None, 'global crash', False, False)
     process.running_identifiers = set()
-    assert process.get_last_description() == (None, 'global crash')
+    assert process.get_applicable_details() == (None, 'global crash', False, False)
+
+
+def test_has_stdout_stderr(supvisors):
+    """ Test the ViewContext.has_stdout and has_stderrmethods. """
+    # create ProcessStatus instance
+    process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
+    process.info_map = {'10.0.0.1:25000': {'start': 25, 'has_stdout': True, 'has_stderr': False},
+                        '10.0.0.2:25000': {'start': 0, 'has_stdout': False, 'has_stderr': False},
+                        '10.0.0.3:25000': {'start': 5, 'has_stdout': False, 'has_stderr': True},
+                        '10.0.0.4:25000': {'start': 0, 'has_stdout': True, 'has_stderr': True}}
+    # test calls
+    assert process.has_stdout('10.0.0.1:25000')
+    assert not process.has_stderr('10.0.0.1:25000')
+    assert not process.has_stdout('10.0.0.2:25000')
+    assert not process.has_stderr('10.0.0.2:25000')
+    assert not process.has_stdout('10.0.0.3:25000')
+    assert process.has_stderr('10.0.0.3:25000')
+    assert not process.has_stdout('10.0.0.4:25000')
+    assert not process.has_stderr('10.0.0.4:25000')
 
 
 def test_add_info(supvisors):

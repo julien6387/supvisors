@@ -15,22 +15,31 @@
  */
 
 /*
- * Supvisors Instance pages style
+ * Supvisors Conciliation page
  */
 
-/* Header status part */
-#instance_status table.status img {
-    width: 25px;
-    position: relative;
-    top: 3px;
+/* Contents part */
+#index_contents {
+    display: flex;
+    flex: 1;
+    overflow: auto;
+    padding: 10px;
 }
 
-#instance_status th span.master {
-    font-size: 1.6em;
-    position: relative;
-    bottom: 0.1em;
+/* update the background of the global strategies box */
+div.strategies {
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
-.hmode {
-    font-size: 1.2em;
+div.strategies div.button_group {
+    background-image: none;
+}
+
+div.strategies div.button_group:not(:first-child) {
+    padding-top: 0;
+}
+
+/* update the area of the local strategies box */
+div.local_strategies div {
+    padding: 1px 3px;
 }

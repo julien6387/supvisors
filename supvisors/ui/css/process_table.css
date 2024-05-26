@@ -28,15 +28,14 @@
 }
 
 /* process table */
-#process_left_side {
+.process_table {
     font-family: Verdana, Arial, sans-serif;
     text-align: justify;
     margin-right: 5px;
     overflow-y: auto;
 }
 
-#process_left_side
-process_table thead, .process_table thead tr {
+.process_table thead, .process_table thead tr {
     border: solid 1px var(--border-color);
 }
 
@@ -84,7 +83,7 @@ table .desc {
     font-style: italic;
 }
 
-tbody.hoverable tr:hover {
+tbody.hoverable tr:hover, tbody.hoverable tr:hover td:not(.state_cell) {
     background-color: var(--navbg-color);
     background-image: none;
 }
@@ -109,7 +108,6 @@ tbody.hoverable tr:hover {
 #process_right_side div.card .selected {
     color: var(--selected-color);
 }
-
 
 .stats_contents {
     flex: 0;

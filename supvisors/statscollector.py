@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import psutil
 from supervisor.loggers import Logger
 
-from .ttypes import JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
+from .ttypes import DiskUsage, JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
 from .utils import mean
 
 # Default sleep time when nothing to do
@@ -72,17 +72,28 @@ def instant_memory_statistics() -> float:
 
 
 # Network statistics
-def instant_io_statistics() -> InterfaceInstantStats:
+def instant_net_io_statistics() -> InterfaceInstantStats:
     """ Return the instant values of receive / sent bytes per network interface. """
-    result: InterfaceInstantStats = {}
     # get active interfaces
-    active_nics = [key for key, value in psutil.net_if_stats().items() if value.isup]
+    active_nics = [key for key, value in psutil.net_if_stats().items()
+                   if value.isup]
     # IO details (only if active)
-    io_stats = psutil.net_io_counters(pernic=True)
-    for nic, io_stat in io_stats.items():
-        if nic in active_nics:
-            result[nic] = io_stat.bytes_recv, io_stat.bytes_sent
-    return result
+    return {nic: (io_stat.bytes_recv, io_stat.bytes_sent)
+            for nic, io_stat in psutil.net_io_counters(pernic=True).items()
+            if nic in active_nics}
+
+
+# Disk statistics
+def instant_disk_usage_statistics() -> DiskUsage:
+    """ Return the instant value of the disk occupation per physical partition. """
+    return {partition.mountpoint: psutil.disk_usage(partition.mountpoint).percent
+            for partition in psutil.disk_partitions()}
+
+
+def instant_disk_io_statistics() -> InterfaceInstantStats:
+    """ Return the instant values of read / write bytes per device. """
+    return {disk: (disk_stat.read_bytes, disk_stat.write_bytes)
+            for disk, disk_stat in psutil.disk_io_counters(perdisk=True).items()}
 
 
 # Common
@@ -139,7 +150,9 @@ class HostStatisticsCollector(StatisticsCollector):
                     stats = {'now': current_time,
                              'cpu': instant_all_cpu_statistics(),
                              'mem': instant_memory_statistics(),
-                             'io': instant_io_statistics()}
+                             'net_io': instant_net_io_statistics(),
+                             'disk_usage': instant_disk_usage_statistics(),
+                             'disk_io': instant_disk_io_statistics()}
                 except OSError:
                     # possibly Too many open files: '/proc/stat'
                     # still unclear why it happens

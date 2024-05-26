@@ -21,7 +21,7 @@ from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.application import ApplicationRules, ApplicationStatus
 from supvisors.process import ProcessRules, ProcessStatus
-from .base import DummySupervisor, MockedSupvisors, any_process_info
+from .base import DummyHttpContext, DummySupervisor, MockedSupvisors, any_process_info
 
 
 # Easy Application / Process creation
@@ -82,6 +82,15 @@ def supervisor():
 def supvisors(mocker, supervisor, dict_options):
     mocker.patch('supvisors.internal_com.mapper.get_addresses', side_effect=lambda x, y: (x, [x], [x]))
     return MockedSupvisors(supervisor, dict_options)
+
+
+@pytest.fixture
+def http_context(supvisors):
+    """ Fixture for a consistent mocked HTTP context provided by Supervisor. """
+    http_context = DummyHttpContext('ui/index.html')
+    http_context.supervisord.supvisors = supvisors
+    supvisors.supervisor_data.supervisord = http_context.supervisord
+    return http_context
 
 
 # Easy XHTML element creation

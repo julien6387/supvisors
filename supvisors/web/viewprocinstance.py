@@ -18,7 +18,6 @@ import os
 
 from supervisor.states import ProcessStates, RUNNING_STATES
 
-from supvisors.application import ApplicationStatus
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
@@ -76,20 +75,20 @@ class ProcInstanceView(SupvisorsInstanceView):
         sorted_data, excluded_data = self.get_process_data()
         self.write_process_table(contents_elt, sorted_data, excluded_data)
         # check selected Process Statistics
-        namespec = self.view_ctx.parameters[PROCESS]
+        namespec = self.view_ctx.process_name
         if namespec:
             if not self.has_process_statistics:
                 # statistics are not available for this Supvisors instance
-                self.view_ctx.parameters[PROCESS] = ''
+                self.view_ctx.process_name = ''
             elif namespec != 'supervisord':
                 # unselect if not running in this Supvisors instance
                 status = self.view_ctx.get_process_status(namespec)
                 if not status or self.view_ctx.local_identifier not in status.running_identifiers:
                     self.logger.warn(f'ProcInstanceView.write_contents: unselect Process Statistics for {namespec}')
                     # former parameter is not consistent with local instance. remove it
-                    self.view_ctx.parameters[PROCESS] = ''
+                    self.view_ctx.process_name = ''
         # write selected Process Statistics
-        namespec = self.view_ctx.parameters[PROCESS]
+        namespec = self.view_ctx.process_name
         info = next(filter(lambda x: x['namespec'] == namespec, sorted_data + excluded_data), {})
         self.write_process_statistics(contents_elt, info)
 
@@ -101,23 +100,27 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: the sorted data and the excluded data.
         """
         # extract what is useful to display
-        status: SupvisorsInstanceStatus = self.sup_ctx.instances[self.view_ctx.local_identifier]
+        local_identifier = self.view_ctx.local_identifier
+        status: SupvisorsInstanceStatus = self.sup_ctx.instances[local_identifier]
         data = []
         for namespec, process in status.processes.items():
-            expected_load = process.rules.expected_load
-            application: ApplicationStatus = self.sup_ctx.applications[process.application_name]
-            # a 'single' process has the same name as its application and the application contains only one process
-            single = process.process_name == process.application_name and len(application.processes) == 1
+            # a 'main' process has the same name as its namespec
+            main = process.process_name == namespec
             info = process.info_map[self.view_ctx.local_identifier]
             crashed = ProcessStatus.is_crashed_event(info)
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
-            payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
-                       'single': single, 'identifier': self.view_ctx.local_identifier,
-                       'disabled': info['disabled'], 'startable': not info['disabled'],
+            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, local_identifier)
+            payload = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
+                       'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
+                       'main': main, 'identifier': local_identifier,
+                       'disabled': info['disabled'], 'startable': not info['disabled'], 'stoppable': True,
                        'statename': info['statename'], 'statecode': info['state'],
-                       'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': info['has_crashed'],
-                       'description': info['description'], 'expected_load': expected_load,
-                       'nb_cores': nb_cores, 'proc_stats': proc_stats}
+                       'gravity': 'FATAL' if crashed else info['statename'],
+                       'has_crashed': info['has_crashed'],
+                       'description': info['description'],
+                       'expected_load': process.rules.expected_load,
+                       'nb_cores': nb_cores, 'proc_stats': proc_stats,
+                       'has_stdout': process.has_stdout(local_identifier),
+                       'has_stderr': process.has_stderr(local_identifier)}
             data.append(payload)
         # re-arrange data
         sorted_data, excluded_data = self.sort_data(data)
@@ -131,10 +134,14 @@ class ProcInstanceView(SupvisorsInstanceView):
         :param status: the local Supvisors instance
         :return: the supervisord data.
         """
-        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
-        payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
-                   'single': True, 'identifier': self.view_ctx.local_identifier, 'disabled': False, 'startable': False,
-                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
+        local_identifier = self.view_ctx.local_identifier
+        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord', local_identifier)
+        payload = {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
+                   'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
+                   'main': True, 'identifier': local_identifier,
+                   'disabled': False, 'startable': False, 'stoppable': True,
+                   'statename': 'RUNNING', 'statecode': 20,
+                   'gravity': 'RUNNING', 'has_crashed': False,
                    'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
         info = {'state': ProcessStates.RUNNING, 'start': status.times.start_local_mtime,
@@ -156,16 +163,17 @@ class ProcInstanceView(SupvisorsInstanceView):
             application_map.setdefault(info['application_name'], []).append(info)
         # sort applications alphabetically
         for application_name, application_processes in sorted(application_map.items()):
-            single = len(application_processes) == 1 and application_processes[0]['single']
+            main = len(application_processes) == 1 and application_processes[0]['main']
             application_shex = True
-            if not single:
+            if not main:
                 # add entry for application
                 sorted_data.append(self.get_application_summary(application_name, application_processes))
                 # filter data depending on their application shex
                 application_shex, _ = self.view_ctx.get_application_shex(application_name)
             if application_shex:
                 # add processes using the alphabetical ordering
-                sorted_list = sorted([info for info in application_processes], key=lambda x: x['process_name'])
+                sorted_list = sorted([info for info in application_processes],
+                                     key=lambda x: x['process_name'])
                 sorted_data.extend(sorted_list)
             else:
                 # push to excluded data
@@ -182,12 +190,14 @@ class ProcInstanceView(SupvisorsInstanceView):
         expected_load, nb_cores, appli_stats = self.sum_process_info(application_processes)
         # create application payload
         application = self.sup_ctx.applications[application_name]
-        payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
-                   'identifier': self.view_ctx.local_identifier, 'disabled': False, 'startable': False,
+        payload = {'row_type': ProcessRowTypes.APPLICATION,
+                   'application_name': application_name, 'process_name': None, 'namespec': None,
+                   'identifier': self.view_ctx.local_identifier,
+                   'disabled': False, 'startable': False, 'stoppable': True,
                    'statename': application.state.name, 'statecode': application.state.value,
                    'gravity': application.state.name, 'has_crashed': False,
                    'description': application.get_operational_status(),
-                   'nb_processes': len(application_processes), 'expected_load': expected_load,
+                   'nb_items': len(application_processes), 'expected_load': expected_load,
                    'nb_cores': nb_cores, 'proc_stats': appli_stats}
         return payload
 
@@ -221,80 +231,66 @@ class ProcInstanceView(SupvisorsInstanceView):
             appli_stats.mem = [mem]
         return expected_load, nb_cores, appli_stats
 
-    def write_process_table(self, root, sorted_data: PayloadList, excluded_data: PayloadList) -> None:
+    def write_process_table(self, contents_elt, sorted_data: PayloadList, excluded_data: PayloadList) -> None:
         """ Rendering of the processes managed in Supervisor.
 
-        :param root: the root element of the page
-        :param sorted_data: the process data displayed
-        :param excluded_data: the process data not displayed
-        :return: None
+        :param contents_elt: the root element of the page.
+        :param sorted_data: the process data displayed.
+        :param excluded_data: the process data not displayed.
+        :return: None.
         """
-        table_elt = root.findmeld('table_mid')
+        table_elt = contents_elt.findmeld('table_mid')
         if sorted_data:
-            self.write_global_shex(table_elt)
+            self.write_application_global_shex(table_elt)
             # remove stats columns if statistics are disabled
             self.write_common_process_table(table_elt)
             # loop on all processes
-            iterator = table_elt.findmeld('tr_mid').repeat(sorted_data)
             shaded_appli_tr, shaded_proc_tr = False, False  # used to invert background style
-            for tr_elt, info in iterator:
-                if info['process_name']:
+            for tr_elt, info in table_elt.findmeld('tr_mid').repeat(sorted_data):
+                if info['row_type'] == ProcessRowTypes.INSTANCE_PROCESS:
                     # this is a process row
-                    if info['single']:
-                        # single line background follows the same logic as applications
+                    if info['main']:
+                        # write common status (shared between this process view and application view)
+                        self.write_common_process_status(tr_elt, info)
+                        # main row background follows the same logic as applications
                         apply_shade(tr_elt, shaded_appli_tr)
                         shaded_appli_tr = not shaded_appli_tr
                     else:
                         # remove shex td
                         tr_elt.findmeld('shex_td_mid').replace('')
+                        # write common status (shared between this process view and application view)
+                        self.write_common_process_status(tr_elt, info)
                         # set line background and invert
                         apply_shade(tr_elt, shaded_proc_tr)
                         shaded_proc_tr = not shaded_proc_tr
-                    # supervisord line is a bit different
-                    if info['process_name'] == 'supervisord':
-                        self.write_supervisord_status(tr_elt, info)
-                    else:
-                        # write common status (shared between this process view and application view)
-                        self.write_common_process_status(tr_elt, info)
-                else:
+                elif info['row_type'] == ProcessRowTypes.SUPERVISOR_PROCESS:
+                    # supervisord row has a slightly different format
+                    self.write_supervisord_status(tr_elt, info)
+                    # set line background and invert
+                    apply_shade(tr_elt, shaded_appli_tr)
+                    shaded_appli_tr = not shaded_appli_tr
+                elif info['row_type'] == ProcessRowTypes.APPLICATION:
                     # this is an application row
-                    # force next proc shade
-                    shaded_proc_tr = not shaded_appli_tr
-                    # write application status
                     self.write_application_status(tr_elt, info, shaded_appli_tr)
                     # set line background and invert
                     apply_shade(tr_elt, shaded_appli_tr)
                     shaded_appli_tr = not shaded_appli_tr
+                    shaded_proc_tr = shaded_appli_tr
             # writes the total statistics line
             self.write_total_status(table_elt, sorted_data, excluded_data)
         else:
-            table_elt.replace('No programs to manage')
+            table_elt.replace('No programs to display')
 
-    def write_global_shex(self, table_elt) -> None:
+    def write_application_global_shex(self, table_elt) -> None:
         """ Write global shrink / expand buttons.
 
-        :param table_elt: the table element
-        :return: None
+        :param table_elt: the process table element.
+        :return: None.
         """
-        shex = self.view_ctx.parameters[SHRINK_EXPAND]
-        expand_shex = self.view_ctx.get_default_shex(True)
-        shrink_shex = self.view_ctx.get_default_shex(False)
-        # write expand button
-        elt = table_elt.findmeld('expand_a_mid')
-        if shex == expand_shex.hex():
-            elt.replace('')
-        else:
-            elt.content(f'{SHEX_EXPAND}')
-            url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: expand_shex.hex()})
-            elt.attributes(href=url)
-        # write shrink button
-        elt = table_elt.findmeld('shrink_a_mid')
-        if shex == shrink_shex.hex():
-            elt.replace('')
-        else:
-            elt.content(f'{SHEX_SHRINK}')
-            url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: shrink_shex.hex()})
-            elt.attributes(href=url)
+        shex = self.view_ctx.application_shex
+        expand_shex = self.view_ctx.get_default_application_shex(True)
+        shrink_shex = self.view_ctx.get_default_application_shex(False)
+        self.write_global_shex(table_elt, APP_SHRINK_EXPAND, shex, expand_shex, shrink_shex)
 
     def write_application_status(self, tr_elt, info, shaded_tr):
         """ Write the application section into a table. """
@@ -303,13 +299,13 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt = tr_elt.findmeld('shex_td_mid')
         application_shex, inverted_shex = self.view_ctx.get_application_shex(application_name)
         if application_shex:
-            elt.attrib['rowspan'] = str(info['nb_processes'] + 1)
+            elt.attrib['rowspan'] = str(info['nb_items'] + 1)
             apply_shade(elt, shaded_tr)
         elt = elt.findmeld('shex_a_mid')
         self.logger.trace(f'ProcInstanceView.write_application_status: application_name={application_name}'
                           f' application_shex={application_shex} inverted_shex={inverted_shex}')
         elt.content(f'{SHEX_SHRINK if application_shex else SHEX_EXPAND}')
-        url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: inverted_shex})
+        url = self.view_ctx.format_url('', self.page_name, **{APP_SHRINK_EXPAND: inverted_shex})
         elt.attributes(href=url)
         # print application name (covers state and description)
         elt = tr_elt.findmeld('name_td_mid')
@@ -348,14 +344,13 @@ class ProcInstanceView(SupvisorsInstanceView):
         # print common status
         self.write_common_state(tr_elt, info)
         self.write_common_statistics(tr_elt, info)
-        # manage actions
+        # manage actions (start not applicable)
+        self._write_supervisord_off_button(tr_elt, 'start_a_mid')
         self._write_supervisord_button(tr_elt, 'stop_a_mid', self.page_name, **{ACTION: 'shutdownsup'})
         self._write_supervisord_button(tr_elt, 'restart_a_mid', self.page_name, **{ACTION: 'restartsup'})
-        # manage log actions
+        # manage log actions (stderr not applicable)
         self._write_supervisord_button(tr_elt, 'clear_a_mid', self.page_name, **{ACTION: 'mainclearlog'})
         self._write_supervisord_button(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)
-        # start and tail stderr are not applicable
-        self._write_supervisord_off_button(tr_elt, 'start_a_mid')
         self._write_supervisord_off_button(tr_elt, 'tailerr_a_mid')
 
     def _write_supervisord_button(self, tr_elt, mid: str, page: str, **action) -> None:
@@ -406,9 +401,9 @@ class ProcInstanceView(SupvisorsInstanceView):
             return self.clear_log_action()
         result = super().make_callback(namespec, action)
         # WARN: this ugly part is necessary to handle the DISABLED exception that can be raised from Supervisor
-        #  startProcess. It is not possible to patch Supervisor make_callback without copying a huge piece of source
-        #  code from Supervisor, so here is an inspection of the make_callback result to check for a callable declaring
-        #  an 'unexpected rpc fault [103]'
+        #       startProcess. It is not possible to patch Supervisor make_callback without copying a huge piece
+        #       of source code from Supervisor, so here is an inspection of the make_callback result to check
+        #       for a callable declaring an 'unexpected rpc fault [103]'
         if callable(result):
             message = result()
             if type(message) is str and f'[{SupvisorsFaults.DISABLED.value}]' in message:
@@ -423,7 +418,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: a callable for deferred result
         """
         self.logger.debug(f'ProcInstanceView.start_group_action: group_name={namespec}')
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supervisor_rpc_action('startProcess', (f'{namespec}', wait), f'Group {namespec} started')
 
     def stop_group_action(self, namespec: str) -> Callable:
@@ -434,7 +429,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: a callable for deferred result
         """
         self.logger.debug(f'ProcInstanceView.stop_group_action: group_name={namespec}')
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         return self.supervisor_rpc_action('stopProcess', (f'{namespec}', wait), f'Group {namespec} stopped')
 
     def restart_group_action(self, namespec: str) -> Callable:
@@ -445,7 +440,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: a callable for deferred result
         """
         self.logger.debug(f'ProcInstanceView.restart_group_action: group_name={namespec}')
-        wait = not self.view_ctx.parameters[AUTO]
+        wait = not self.view_ctx.auto_refresh
         multicall = [{'methodName': 'supervisor.stopProcess', 'params': [f'{namespec}']},
                      {'methodName': 'supervisor.startProcess', 'params': [f'{namespec}', wait]}]
         return self.multicall_rpc_action(multicall, f'Group {namespec} restarted')

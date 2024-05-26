@@ -101,42 +101,22 @@
 
                 <div class="card" meld:id="option_card_mid">
                     <div meld:id="view_div_mid">
-                        <table class="optionBox">
-                            <thead>
-                                <tr>
-                                    <th>Statistics View</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <ul class="linear">
-                                            <li><a href="#" meld:id="process_view_a_mid" class="button off active">Processes</a></li>
-                                            <li><a href="#" meld:id="host_view_a_mid" class="button on">Host</a></li>
-                                        </ul>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="option_box">
+                            <div class="option_title">Statistics View</div>
+                            <div class="button_group">
+                                <div class="button off active" meld:id="process_view_a_mid">Processes</div>
+                                <div class="button on"><a href="#" meld:id="host_view_a_mid">--</a></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div meld:id="period_div_mid">
-                        <table class="optionBox">
-                            <thead>
-                                <tr>
-                                    <th>Statistics Periods</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <ul class="linear">
-                                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button">Period</a></li>
-                                        </ul>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="option_box">
+                            <div class="option_title">Statistics Periods</div>
+                            <div class="button_group">
+                                <div class="button" meld:id="period_li_mid"><a href="#" meld:id="period_a_mid">--</a></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -201,9 +181,11 @@
                         <tbody class="hoverable">
                             <tr meld:id="tr_mid">
                                 <td meld:id="shex_td_mid" class="shex centered"><a href="#" meld:id="shex_a_mid"></a></td>
-                                <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid">Name</a></td>
-                                <td meld:id="state_td_mid" class="state_cell centered">State</td>
-                                <td meld:id="desc_td_mid">Description</td>
+                                <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid">--</a></td>
+                                <td meld:id="state_td_mid" class="state_cell centered">
+                                    <span meld:id="state_span_mid">--</span>
+                                </td>
+                                <td meld:id="desc_td_mid">--</td>
                                 <td meld:id="load_td_mid" class="centered expected">--</td>
                                 <td class="centered" meld:id="pcpu_td_mid"><a href="#" meld:id="pcpu_a_mid">--</a></td>
                                 <td class="centered" meld:id="pmem_td_mid"><a href="#" meld:id="pmem_a_mid">--</a></td>

@@ -23,6 +23,12 @@ from supvisors.web.webutils import *
 from .conftest import create_element
 
 
+def test_process_row_types():
+    """ Test the ProcessRowTypes enumeration. """
+    expected = ['INSTANCE_PROCESS', 'SUPERVISOR_PROCESS', 'APPLICATION_PROCESS', 'APPLICATION']
+    assert [x.name for x in ProcessRowTypes] == expected
+
+
 def test_format_gravity_message():
     """ Test the formatting of web messages. """
     # test Supervisor information message

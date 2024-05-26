@@ -294,11 +294,12 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
                            expected_load: int, load_request_map: LoadMap) -> Optional[str]:
     """ Creates a strategy and let it find a Supvisors instance to start a process having a defined load.
 
-    :param supvisors: the global Supvisors structure
-    :param strategy: the strategy used to choose a Supvisors instance
-    :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective)
-    :param expected_load: the load of the program to be started
-    :return: the identifier of the Supvisors instance that can support the additional load
+    :param supvisors: the global Supvisors structure.
+    :param strategy: the strategy used to choose a Supvisors instance.
+    :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective).
+    :param expected_load: the load of the program to be started.
+    :param load_request_map: the load of the requests in progress.
+    :return: the identifier of the Supvisors instance that can support the additional load.
     """
     # restrict the candidate Supvisors instances to those that are actually running
     running_identifiers = supvisors.context.running_identifiers()
@@ -318,19 +319,21 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
                                            (load_request_map, node_load_request_map, node_load_map))
 
 
-def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList, expected_load: int) -> Optional[str]:
+def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList,
+             expected_load: int, load_request_map: LoadMap) -> Optional[str]:
     """ Creates a strategy and let it find the node to start a process having a defined load.
 
-    :param supvisors: the global Supvisors structure
-    :param strategy: the strategy used to choose a Supvisors instance
-    :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective)
-    :param expected_load: the load of the program to be started
-    :return: the IP address of the node that can support the additional load
+    :param supvisors: the global Supvisors structure.
+    :param strategy: the strategy used to choose a Supvisors instance.
+    :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective).
+    :param expected_load: the load of the program to be started.
+    :param load_request_map: the load of the requests in progress.
+    :return: the IP address of the node that can support the additional load.
     """
-    # Note: the node load is the sum of the load of its instances
-    # the selection of an instance is conditioned to the fact that the node can support the additional load
-    # if the node can support, there must be one of its instance that can support
-    identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load)
+    # Note: The node load is the sum of the load of its instances.
+    #       The selection of an instance is conditioned to the fact that the node can support the additional load.
+    #       If the node can support, there must be one of its instances that can support too.
+    identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load, load_request_map)
     # get the corresponding IP address
     if identifier:
         return supvisors.mapper.instances[identifier].ip_address
