@@ -46,10 +46,12 @@ class MainView(ViewHandler):
         elt = header_elt.findmeld('state_a_mid')
         if state_modes['fsm_statecode'] == SupvisorsStates.CONCILIATION.value:
             elt.attributes(href=CONCILIATION_PAGE)
-            elt.content(state_modes['fsm_statename'])
+            statename = state_modes['fsm_statename']
             # blinking state until full conciliation performed
             if self.sup_ctx.conflicting():
+                statename += ' >>'
                 update_attrib(elt, 'class', 'on blink')
+            elt.content(statename)
         else:
             elt.replace(state_modes['fsm_statename'])
         # set Supvisors modes
