@@ -817,7 +817,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_all_start_args(self):
         """ Print the help of the all_start_args command."""
-        self.ctl.output('all_start_args <proc> <arg_list>\t\t\t'
+        self.ctl.output('all_start_args <proc> <arg_list>\t\t'
                         'Start the process named proc on all RUNNING Supvisors instances'
                         ' with additional arguments arg_list.')
 
@@ -1166,7 +1166,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_enable(self):
         """ Print the help of the enable command. """
-        self.ctl.output('enable program_name\t\t\t\tEnable the program.')
+        self.ctl.output('enable program_name\t\t\tEnable the program.')
 
     def do_disable(self, arg):
         """ Command to disable the processes corresponding to the program.
@@ -1189,7 +1189,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_disable(self):
         """ Print the help of the disable command. """
-        self.ctl.output('disable program_name\t\t\t\tDisable the program.')
+        self.ctl.output('disable program_name\t\t\tDisable the program.')
 
     def do_conciliate(self, arg):
         """ Command to conciliate conflicts (applicable with default USER strategy). """
@@ -1218,7 +1218,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
-        self.ctl.output('conciliate <strategy>\t\t\t\tConciliate process conflicts using strategy')
+        self.ctl.output('conciliate <strategy>\t\t\tConciliate process conflicts using strategy')
 
     def do_restart_sequence(self, _):
         """ Command to trigger the whole start sequence of Supvisors. """
@@ -1251,7 +1251,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('sreload\t\t\t\t\tRestart Supvisors on all instances')
 
     def do_sshutdown(self, _):
-        """ Command to shutdown Supvisors on all instances. """
+        """ Command to shut down Supvisors on all instances. """
         if self._upcheck():
             try:
                 result = self.supvisors().shutdown()
