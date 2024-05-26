@@ -326,13 +326,15 @@ def test_sstate(controller, plugin, mocked_check):
 def test_instance_status(controller, plugin, mocked_check):
     """ Test the instance_status request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
-    mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 60000,
+    mocked_rpc.return_value = [{'nick_identifier': '10.0.0.1', 'identifier': '10.0.0.1:60000',
+                                'node_name': '10.0.0.1', 'port': 60000,
                                 'statename': 'running', 'discovery_mode': False,
                                 'loading': 10, 'local_time': 1500, 'remote_sequence_counter': 12,
                                 'process_failure': False,
                                 'fsm_statename': 'OPERATION', 'master_identifier': '10.0.0.1',
                                 'starting_jobs': True, 'stopping_jobs': False},
-                               {'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 60000,
+                               {'nick_identifier': '10.0.0.2', 'identifier': '10.0.0.2:60000',
+                                'node_name': '10.0.0.2', 'port': 60000,
                                 'statename': 'stopped', 'discovery_mode': True,
                                 'loading': 0, 'local_time': 100, 'remote_sequence_counter': 15,
                                 'process_failure': True,
