@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.18.2 (2024-xx-xx)
+
+* ...
+
+
 ## 0.18.1 (2024-05-26)
 
 * Fix the different perception of **Supvisors** instances about a process whose state is forced.

@@ -463,17 +463,19 @@ Host Section
 
     Supvisors Host page
 
-The Host Section contains CPU, Memory and Network statistics for the considered node.
+The Host Section contains CPU, Memory, Network and Disk statistics for the considered node.
 
-The CPU table shows statistics about the CPU on each core of the processor and about the average CPU of the processor.
+The CPU card shows statistics about the CPU on each core of the processor and about the average CPU of the processor.
 
-The Memory table shows statistics about the amount of used (and not available) memory.
+The Memory card shows statistics about the amount of used (and not available) memory.
 
-The Network table shows statistics about the receive and sent flows on each network interface.
+The Network card shows statistics about the receive and sent flows on each network interface.
 
-.. note::
+The Disk card shows 2 different kinds of statistics:
 
-    A space is left for future growth and is intended to display statistics about disk usage.
+    * Disk usage: the occupation percentage on every physical partitions ;
+    * Disk I/O: the read and written flows on every physical devices.
+
 
 Clicking on a button associated to the resource displays detailed statistics (graph and table),
 similarly to the process buttons.
