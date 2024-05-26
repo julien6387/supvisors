@@ -58,7 +58,7 @@ class ProcessCommand:
         #       of active (i.e. non isolated) Supvisors instances
         # based on a real case with +30 Supvisors instances, 1s per 10 Supvisors instances is being considered
         # the worst case is during a full restart with a minimal set of core identifiers
-        # the DEPLOYMENT phase is in progress while there are still lots to Supvisors instances in CHECKING state
+        # the DISTRIBUTION phase is in progress while there are still lots to Supvisors instances in CHECKING state
         self.minimum_ticks = max(ProcessCommand.DEFAULT_TICK_TIMEOUT,
                                  len(self.supvisors.context.valid_instances()) // 10)
         self._wait_ticks: int = self.minimum_ticks
@@ -210,7 +210,7 @@ class ProcessStartCommand(ProcessCommand):
         """ Evaluate the result of the Process start request against the current state of the Process on the Supvisors
         instance where the request has been sent.
 
-        :return: the request status
+        :return: the request status.
         """
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
