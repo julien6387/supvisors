@@ -26,6 +26,8 @@
 * Change the access of the Conciliation page of the **Supvisors** Web UI, by clicking on the `CONCILIATION` state.
   A click on the **Supvisors** logo always brings back the Main page.
 
+* Fix the renaming of `DEPLOYMENT` state as `DISTRIBUTION` in the JAVA client.
+
 
 ## 0.18 (2024-05-02)
 
