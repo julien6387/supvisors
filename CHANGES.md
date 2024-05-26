@@ -2,6 +2,8 @@
 
 ## 0.18.1 (2024-05-26)
 
+* Fix the different perception of **Supvisors** instances about a process whose state is forced.
+
 * Fix regression using the `SINGLE_NODE` distribution rule.
 
 * Share the configuration of `stdout` and `stderr` log files between all **Supvisors** instances. 

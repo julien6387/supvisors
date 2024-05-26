@@ -799,6 +799,8 @@ class Context:
                                       f' considered={updated}')
                     if updated:
                         # remove the 'forced' status before publication
+                        # NOTE: use a copy so that the caller is not impacted by the payload change
+                        event = event.copy()
                         event['state'] = process.displayed_state
                         del event['forced']
                 else:
