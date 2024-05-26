@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.18.1 (2024-xx-xx)
+## 0.18.1 (2024-05-26)
 
 * Fix regression using the `SINGLE_NODE` distribution rule.
 

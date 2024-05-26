@@ -313,7 +313,7 @@ class ViewHandler(MeldView):
 
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
-        Statistics data comes from node. """
+        Statistics data comes from the node. """
         if self.has_process_statistics:
             proc_stats: ProcStatisticsInstance = info['proc_stats']
             elt = tr_elt.findmeld('pcpu_a_mid')
@@ -325,7 +325,8 @@ class ViewHandler(MeldView):
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
                     parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
-                    if self.view_ctx.process_name == info['namespec']:
+                    if (self.view_ctx.process_name == info['namespec']
+                            and self.view_ctx.identifier == info['identifier']):
                         update_attrib(elt, 'class', 'active')
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)
@@ -353,7 +354,8 @@ class ViewHandler(MeldView):
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
                     parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
-                    if self.view_ctx.process_name == info['namespec']:
+                    if (self.view_ctx.process_name == info['namespec']
+                            and self.view_ctx.identifier == info['identifier']):
                         update_attrib(elt, 'class', 'active')
                         parameters[PROCESS] = None
                     url = self.view_ctx.format_url('', self.page_name, **parameters)

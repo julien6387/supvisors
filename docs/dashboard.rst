@@ -537,7 +537,8 @@ Application Page Contents
 The table lists all the programs belonging to the application, and it shows:
 
     * the 'synthetic' state of the process (refer to this note for details about the synthesis) ;
-    * the |Supvisors| instance where it runs, if appropriate ;
+    * the |Supvisors| instance where it runs, if appropriate, and a click on the button redirects
+      to the corresponding `Supervisor page`_ ;
     * the description (after initialization from |Supervisor|, the nick name of the corresponding |Supvisors|
       instance is added depending on the state) ;
     * the loading declared for the process in the rules file ;
@@ -572,6 +573,20 @@ Global expand / shrink actions are provided too in the top left cell of the tabl
     The Start, Stop and Restart actions are not allowed on the expanded rows.
     Only the Stop button may be considered in a later version.
 
+In the event of a process conflict where the process is running on multiple |Supvisors| instances, the following
+applies:
+
+    * the 'synthetic' state of the process - expected `RUNNING` - is blinking ;
+    * the instance button is replaced by a Conciliate blinking button, redirecting to the `Conciliation page`_ ;
+    * the description lists all |Supvisors| instances where the process is running ;
+    * no process statistics are made available on the 'synthetic' row, but are still available on the detailed rows ;
+    * the log buttons are disabled, again still available on the detailed rows if applicable.
+
+.. figure:: images/supvisors_conflict_application_page.png
+    :alt: Supvisors Application page with conflicts
+    :align: center
+
+    Supvisors Application page with conflicts
 
 .. include:: common.rst
 

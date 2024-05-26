@@ -99,7 +99,7 @@ def test_write_status(mocker, supvisors, view):
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_a_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
-    assert state_a_mid.content.call_args_list == [call('CONCILIATION')]
+    assert state_a_mid.content.call_args_list == [call('CONCILIATION >>')]
     assert state_a_mid.attributes.call_args_list == [call(href=CONCILIATION_PAGE)]
     assert not state_a_mid.replace.called
     assert state_a_mid.attrib['class'] == 'on blink'

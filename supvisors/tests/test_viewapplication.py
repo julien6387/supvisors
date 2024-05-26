@@ -202,13 +202,16 @@ def test_write_contents(mocker, view):
     mocked_stats = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_process_statistics')
     mocked_table = mocker.patch('supvisors.web.viewapplication.ApplicationView.write_process_table')
     mocked_data = mocker.patch('supvisors.web.viewapplication.ApplicationView.get_process_data',
-                               side_effect=([{'namespec': 'dummy'}], [{'namespec': 'dummy'}],
-                                            [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}],
-                                            [{'namespec': 'dummy_proc'}]))
+                               side_effect=([{'namespec': 'dummy'}],
+                                            [{'namespec': 'dummy'}],
+                                            [{'namespec': 'dummy'}],
+                                            [{'namespec': 'dummy_proc'}],
+                                            [{'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}]))
     view.application_name = 'dummy_appli'
     view.application = Mock()
     # patch context
-    view.view_ctx = Mock(process_name=None, **{'get_process_status.return_value': None})
+    view.view_ctx = Mock(process_name=None, identifier='10.0.0.1',
+                         **{'get_process_status.return_value': None})
     # patch the meld elements
     mocked_root = Mock()
     # test call with no process selected
@@ -258,9 +261,9 @@ def test_write_contents(mocker, view):
                                                          **{'stopped.return_value': False})
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}])]
     assert view.view_ctx.process_name == 'dummy_proc'
-    assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy_proc'})]
+    assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'})]
 
 
 def test_get_process_data(mocker, view):

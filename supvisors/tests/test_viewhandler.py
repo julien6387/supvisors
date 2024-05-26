@@ -571,93 +571,88 @@ def test_write_global_shex(handler):
 def test_write_common_process_cpu(supvisors, handler):
     """ Test the write_common_process_cpu method. """
     # patch the view context
-    handler.view_ctx = Mock(process_name='dummy_proc', **{'format_url.return_value': 'an url'})
+    handler.view_ctx = Mock(process_name='dummy_proc', identifier='10.0.0.1',
+                            **{'format_url.return_value': 'an url'})
     # patch the meld elements
-    cell_elt = Mock(attrib={'class': ''})
-    tr_elt = Mock(attrib={}, **{'findmeld.return_value': cell_elt})
+    pcpu_a_mid = create_element()
+    pcpu_td_mid = create_element()
+    tr_elt = create_element({'pcpu_a_mid': pcpu_a_mid, 'pcpu_td_mid': pcpu_td_mid})
     # test with no stats
     info = {'proc_stats': None}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
-    assert not cell_elt.deparent.called
-    assert cell_elt.replace.call_args_list == [call('--')]
+    assert not pcpu_a_mid.deparent.called
+    assert pcpu_a_mid.replace.call_args_list == [call('--')]
     assert not handler.view_ctx.format_url.called
-    assert not cell_elt.content.called
+    assert not pcpu_a_mid.content.called
     # reset context
     tr_elt.findmeld.reset_mock()
-    cell_elt.replace.reset_mock()
+    pcpu_a_mid.replace.reset_mock()
     # test with empty stats
     info = {'proc_stats': Mock(cpu=[])}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
-    assert not cell_elt.deparent.called
-    assert cell_elt.replace.call_args_list == [call('--')]
+    assert not pcpu_a_mid.deparent.called
+    assert pcpu_a_mid.replace.call_args_list == [call('--')]
     assert not handler.view_ctx.format_url.called
-    assert not cell_elt.content.called
-    tr_elt.findmeld.reset_mock()
-    cell_elt.replace.reset_mock()
+    assert not pcpu_a_mid.content.called
+    tr_elt.reset_all()
     # test with filled stats on selected process, irix mode
     supvisors.options.stats_irix_mode = True
     info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20]), 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
-    assert not cell_elt.deparent.called
-    assert not cell_elt.replace.called
+    assert not pcpu_a_mid.deparent.called
+    assert not pcpu_a_mid.replace.called
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, ident='10.0.0.1')]
-    assert cell_elt.attrib['class'] == 'button on active'
-    assert cell_elt.content.call_args_list == [call('20.00')]
+    assert pcpu_a_mid.attrib['class'] == 'button on active'
+    assert pcpu_a_mid.content.call_args_list == [call('20.00')]
     # reset context
-    tr_elt.findmeld.reset_mock()
-    cell_elt.content.reset_mock()
+    tr_elt.reset_all()
     handler.view_ctx.format_url.reset_mock()
-    cell_elt.attributes.reset_mock()
-    del cell_elt.attrib['class']
     # test with filled stats on not selected process, solaris mode
     supvisors.options.stats_irix_mode = False
     info = {'namespec': 'dummy', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20, 30]), 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
-    assert not cell_elt.deparent.called
-    assert not cell_elt.replace.called
-    assert cell_elt.content.call_args_list == [call('15.00')]
+    assert not pcpu_a_mid.deparent.called
+    assert not pcpu_a_mid.replace.called
+    assert pcpu_a_mid.content.call_args_list == [call('15.00')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', ident='10.0.0.1')]
-    assert cell_elt.attributes.call_args_list == [call(href='an url')]
-    assert cell_elt.attrib['class'] == 'button on'
+    assert pcpu_a_mid.attributes.call_args_list == [call(href='an url')]
+    assert pcpu_a_mid.attrib['class'] == 'button on'
     # reset context
-    tr_elt.findmeld.reset_mock()
-    cell_elt.content.reset_mock()
+    tr_elt.reset_all()
     handler.view_ctx.format_url.reset_mock()
-    cell_elt.attributes.reset_mock()
-    del cell_elt.attrib['class']
     # test with filled stats on application (so non process), solaris mode
     handler.supvisors.options.stats_irix_mode = False
     info = {'namespec': None, 'ident': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20, 30]), 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
-    assert not cell_elt.deparent.called
-    assert cell_elt.replace.call_args_list == [call('15.00')]
-    assert not cell_elt.content.called
+    assert not pcpu_a_mid.deparent.called
+    assert pcpu_a_mid.replace.call_args_list == [call('15.00')]
+    assert not pcpu_a_mid.content.called
     assert not handler.view_ctx.format_url.called
-    assert not cell_elt.attributes.called
-    assert 'class' not in cell_elt.attrib
+    assert not pcpu_a_mid.attributes.called
+    assert pcpu_a_mid.attrib['class'] == ''
     # reset context
-    tr_elt.findmeld.reset_mock()
-    cell_elt.replace.reset_mock()
+    tr_elt.reset_all()
     # test with statistics disabled
     handler.has_process_statistics = False
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_td_mid')]
-    assert cell_elt.deparent.call_args_list == [call()]
-    assert not cell_elt.replace.called
-    assert not cell_elt.content.called
+    assert pcpu_td_mid.deparent.call_args_list == [call()]
+    assert not pcpu_a_mid.replace.called
+    assert not pcpu_a_mid.content.called
     assert not handler.view_ctx.format_url.called
-    assert not cell_elt.attributes.called
+    assert not pcpu_a_mid.attributes.called
 
 
 def test_write_common_process_mem(handler):
     """ Test the write_common_process_mem method. """
     # patch the view context
-    handler.view_ctx = Mock(process_name='dummy_proc', **{'format_url.return_value': 'an url'})
+    handler.view_ctx = Mock(process_name='dummy_proc', identifier='10.0.0.2',
+                            **{'format_url.return_value': 'an url'})
     # patch the meld elements
     pmem_a_mid = create_element()
     pmem_td_mid = create_element()

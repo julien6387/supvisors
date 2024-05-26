@@ -128,7 +128,8 @@ class ApplicationView(ViewHandler):
             self.write_process_table(contents_elt, data)
             # check selected Process Statistics
             namespec = self.view_ctx.process_name
-            if namespec:
+            identifier = self.view_ctx.identifier
+            if namespec and identifier:
                 status = self.view_ctx.get_process_status(namespec)
                 if not status or status.stopped() or status.application_name != self.application_name:
                     self.logger.warn(f'ApplicationView.write_contents: unselect Process Statistics for {namespec}')
@@ -136,7 +137,7 @@ class ApplicationView(ViewHandler):
                     self.view_ctx.process_name = ''
             # write selected Process Statistics
             namespec = self.view_ctx.process_name
-            info = next(filter(lambda x: x['namespec'] == namespec, data), {})
+            info = next(filter(lambda x: (x['namespec'] == namespec and x['identifier'] == identifier), data), {})
             self.write_process_statistics(contents_elt, info)
 
     def get_process_data(self) -> PayloadList:
