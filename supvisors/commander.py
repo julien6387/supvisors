@@ -836,7 +836,7 @@ class ApplicationStartJobs(ApplicationJobs):
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.fail_command(command.process, '', time.monotonic(), 'no resource available')
+                self.fail_command(command.process, '', time.monotonic(), 'No resource available')
                 self.process_failure(process)
         # return True when the job is queued
         return queued
