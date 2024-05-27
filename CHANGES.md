@@ -4,7 +4,7 @@
 
 * Handle PermissionError exception when trying to get disk usage.
 
-* Update CSS for disk statistics with many partitions in the **Supvisors** Web UI.
+* Update CSS for overflow parts in the **Supvisors** Web UI.
 
 
 ## 0.18.1 (2024-05-26)
