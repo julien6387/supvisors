@@ -27,19 +27,24 @@
     margin: 5px;
 }
 
+#process_left_side {
+    overflow: auto;
+    padding-right: 12px;
+}
+
 /* process table */
 .process_table {
     font-family: Verdana, Arial, sans-serif;
     text-align: justify;
     margin-right: 5px;
-    overflow-y: auto;
+    overflow: auto;
 }
 
 .process_table thead, .process_table thead tr {
     border: solid 1px var(--border-color);
 }
 
-.process_table thead tr {
+.process_table thead th {
     position: sticky;
     top: 0;
     z-index: 20;
@@ -53,10 +58,6 @@
     position: sticky;
     bottom: 0;
     z-index: 20;
-}
-
-.process_table tfoot>tr:nth-child(1) th {
-    bottom: 21px;
 }
 
 table .name {

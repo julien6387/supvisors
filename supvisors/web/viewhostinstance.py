@@ -55,7 +55,7 @@ class HostInstanceView(SupvisorsInstanceView):
             self.write_node_characteristics(contents_elt, info)
         # get data from statistics module iaw period selection
         stats_instance: HostStatisticsInstance = self.view_ctx.get_instance_stats()
-        if stats_instance:
+        if stats_instance and stats_instance.times:
             self.write_processor_statistics(contents_elt, stats_instance.cpu, stats_instance.times)
             self.write_memory_statistics(contents_elt, stats_instance.mem, stats_instance.times)
             self.write_network_io_statistics(contents_elt, stats_instance.net_io)
