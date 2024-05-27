@@ -125,12 +125,20 @@ def test_instant_disk_usage_statistics(mocker):
                        maxfile=255, maxpath=4096),
                   Mock(device='/dev/sda1', mountpoint='/boot', fstype='xfs',
                        opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
+                       maxfile=255, maxpath=4096),
+                  Mock(device='/dev/sdb', mountpoint='/mnt', fstype='xfs',
+                       opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
                        maxfile=255, maxpath=4096)]
+    mocker.patch('psutil.disk_partitions', return_value=partitions)
     # psutil sdiskusage is platform-dependent, so Mock needed to pass GitHub actions
     usage = {'/': Mock(total=37625499648, used=22722027520, free=14903472128, percent=60.4),
              '/boot': Mock(total=1063256064, used=453169152, free=610086912, percent=42.6)}
-    mocker.patch('psutil.disk_partitions', return_value=partitions)
-    mocker.patch('psutil.disk_usage', side_effect=lambda x: usage[x])
+
+    def get_usage(x):
+        if x in usage:
+            return usage[x]
+        raise PermissionError
+    mocker.patch('psutil.disk_usage', side_effect=get_usage)
     stats = instant_disk_usage_statistics()
     assert stats == {'/': 60.4, '/boot': 42.6}
 

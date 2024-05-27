@@ -1,8 +1,10 @@
 # Change Log
 
-## 0.18.2 (2024-xx-xx)
+## 0.18.2 (2024-05-27)
 
-* ...
+* Handle PermissionError exception when trying to get disk usage.
+
+* Update CSS for disk statistics with many partitions in the **Supvisors** Web UI.
 
 
 ## 0.18.1 (2024-05-26)

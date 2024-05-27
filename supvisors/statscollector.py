@@ -86,8 +86,14 @@ def instant_net_io_statistics() -> InterfaceInstantStats:
 # Disk statistics
 def instant_disk_usage_statistics() -> DiskUsage:
     """ Return the instant value of the disk occupation per physical partition. """
-    return {partition.mountpoint: psutil.disk_usage(partition.mountpoint).percent
-            for partition in psutil.disk_partitions()}
+    result = {}
+    for partition in psutil.disk_partitions():
+        try:
+            result[partition.mountpoint] = psutil.disk_usage(partition.mountpoint).percent
+        except PermissionError:
+            # can happen when the disk is not ready
+            pass
+    return result
 
 
 def instant_disk_io_statistics() -> InterfaceInstantStats:
