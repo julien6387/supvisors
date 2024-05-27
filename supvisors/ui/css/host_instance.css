@@ -60,7 +60,7 @@
 /* Statistics part */
 #rsc_grid {
     display: grid;
-    flex: 1;
+    width: 95%;
     height: 83%;
     grid-template-rows: 49% 49%;
     grid-gap: 10px;
@@ -95,7 +95,6 @@
 
 #rsc_grid .card {
     display: flex;
-    flex: 1;
     height: 100%;
     flex-direction: row;
     align-items: center;
@@ -106,19 +105,19 @@
     margin-right: 10px;
 }
 
-#rsc_grid .card div:nth-child(2) {
+#rsc_grid .card .div_stats {
     display: flex;
     flex: 1;
     flex-direction: column;
-    height: 90%;
+    max-height: 90%;
 }
 
 .table_stats {
     display: flex;
-    flex: 1;
     height: 90%;
-    overflow-y: auto;
-    margin: auto;
+    overflow: clip auto;
+    margin: 0 auto;
+    padding-right: 15px;
 }
 
 .table_stats th {
