@@ -115,7 +115,8 @@
 .table_stats {
     display: flex;
     height: 90%;
-    overflow: clip auto;
+    overflow-x: clip;
+    overflow-y: auto;
     margin: 0 auto;
     padding-right: 15px;
 }
