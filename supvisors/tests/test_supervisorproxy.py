@@ -16,7 +16,6 @@
 
 import http.client
 import socket
-import time
 from unittest.mock import call, patch, Mock, DEFAULT
 
 import pytest
@@ -66,11 +65,31 @@ def test_proxy_creation(mocked_rpc, proxy, supvisors):
     assert proxy.supvisors is supvisors
     assert proxy.status is supvisors.context.instances['10.0.0.1:25000']
     assert proxy.proxy is not None
+    assert 0.0 < proxy.last_used < time.monotonic()
     assert proxy.logger is supvisors.logger
     assert proxy.local_identifier == supvisors.mapper.local_identifier
     assert mocked_rpc.call_args_list == [call({'SUPERVISOR_SERVER_URL': 'http://10.0.0.1:25000',
                                                'SUPERVISOR_USERNAME': 'user',
                                                'SUPERVISOR_PASSWORD': 'p@$$w0rd'})]
+
+
+def test_proxy_proxy(supvisors, proxy):
+    """ Test the SupvisorsProxy proxy property. """
+    # test with non-local proxy
+    assert proxy.status.supvisors_id.identifier != proxy.local_identifier
+    ref_proxy = proxy._proxy
+    ref_usage = proxy.last_used
+    assert proxy.proxy is ref_proxy
+    assert proxy.last_used == ref_usage
+    # test with local proxy and recent usage
+    proxy.status = supvisors.context.local_status
+    assert proxy.status.supvisors_id.identifier == proxy.local_identifier
+    assert proxy.proxy is ref_proxy
+    assert proxy.last_used == ref_usage
+    # test with local proxy and old usage (cannot test everything due to patch)
+    proxy.last_used = time.monotonic() - LOCAL_PROXY_DURATION - 1
+    assert proxy.proxy
+    assert proxy.last_used > ref_usage
 
 
 def test_get_origin(supvisors, proxy):
@@ -82,21 +101,30 @@ def test_get_origin(supvisors, proxy):
 
 def test_proxy_xml_rpc(supvisors, proxy):
     """ Test the SupervisorProxy function to send any XML-RPC to a Supervisor instance. """
+    ref_usage = proxy.last_used
     mocked_fct = Mock()
     # test no error
     proxy.xml_rpc('normal', mocked_fct, ())
     assert mocked_fct.call_args_list == [call()]
+    assert proxy.last_used > ref_usage
+    ref_usage = proxy.last_used
     mocked_fct.reset_mock()
     proxy.xml_rpc('normal', mocked_fct, ('hello',))
     assert mocked_fct.call_args_list == [call('hello')]
+    assert proxy.last_used > ref_usage
+    ref_usage = proxy.last_used
     mocked_fct.reset_mock()
     proxy.xml_rpc('normal', mocked_fct, ('hello', 28))
     assert mocked_fct.call_args_list == [call('hello', 28)]
+    assert proxy.last_used > ref_usage
+    ref_usage = proxy.last_used
     mocked_fct.reset_mock()
     # test minor exception (remote Supvisors instance is operational)
     mocked_fct.side_effect = RPCError(code=58)
     proxy.xml_rpc('normal', mocked_fct, ('hello', 28))
     assert mocked_fct.call_args_list == [call('hello', 28)]
+    assert proxy.last_used > ref_usage
+    ref_usage = proxy.last_used
     mocked_fct.reset_mock()
     # test major exception (remote Supvisors instance is NOT operational)
     for exc_class in [OSError, HTTPException, xmlrpclib.Fault(77, 'fault'), KeyError, ValueError, TypeError]:
@@ -104,6 +132,8 @@ def test_proxy_xml_rpc(supvisors, proxy):
         with pytest.raises(SupervisorProxyException):
             proxy.xml_rpc('normal', mocked_fct, ('hello',))
         assert mocked_fct.call_args_list == [call('hello')]
+        assert proxy.last_used > ref_usage
+        ref_usage = proxy.last_used
         mocked_fct.reset_mock()
 
 
