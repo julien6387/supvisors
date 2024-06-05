@@ -17,6 +17,7 @@
 import json
 import queue
 import threading
+import time
 import traceback
 from enum import Enum
 from http.client import HTTPException
@@ -35,6 +36,10 @@ from supvisors.utils import SupervisorServerUrl
 
 # List of keys useful to build a SupvisorsState event
 StateModesKeys = ['fsm_statecode', 'discovery_mode', 'master_identifier', 'starting_jobs', 'stopping_jobs']
+
+# life expectation for the local proxy
+# Supervisor close any HTTP channel after 30 minutes without activity
+LOCAL_PROXY_DURATION = 20 * 60
 
 
 class InternalEventHeaders(Enum):
@@ -55,7 +60,8 @@ class SupervisorProxy:
         self.status: SupvisorsInstanceStatus = status
         self.supvisors = supvisors
         # create an XML-RPC client to the local Supervisor instance
-        self.proxy = self._get_proxy()
+        self._proxy = self._get_proxy()
+        self.last_used: float = time.monotonic()
 
     @property
     def logger(self) -> Logger:
@@ -66,6 +72,23 @@ class SupervisorProxy:
     def local_identifier(self) -> str:
         """ Get the local Supvisors instance identifier. """
         return self.supvisors.mapper.local_identifier
+
+    @property
+    def proxy(self) -> Logger:
+        """ Get the Supervisor proxy.
+
+        WARN: The proxy to the local Supervisor is a LOT less used than the others and is really subject to be broken
+              by the http_channel.kill_zombies (supervisor/medusa/http_server.py) that will close the channel after
+              30 minutes of inactivity (magic number).
+              Let's re-create the local proxy once every 20 minutes.
+              All other proxies will be maintained through to the TICK publication.
+        """
+        if self.status.supvisors_id.identifier == self.local_identifier:
+            if time.monotonic() - self.last_used > LOCAL_PROXY_DURATION:
+                self.logger.debug(f'SupervisorProxy.proxy: recreate local Supervisor proxy')
+                self._proxy = self._get_proxy()
+                self.last_used = time.monotonic()
+        return self._proxy
 
     def _get_proxy(self):
         """ Get the proxy corresponding to the Supervisor identifier. """
@@ -81,6 +104,9 @@ class SupervisorProxy:
 
     def xml_rpc(self, fct_name: str, fct, args):
         """ Common exception handling on XML-RPC methods. """
+        # reset the proxy usage time
+        self.last_used = time.monotonic()
+        # call the XML-RPC
         try:
             return fct(*args)
         except RPCError as exc:
@@ -92,6 +118,7 @@ class SupervisorProxy:
         except (OSError, HTTPException) as exc:
             # transport issue due to network or remote Supervisor failure (includes a bunch of exceptions, such as
             # socket.gaierror, ConnectionResetError, ConnectionRefusedError, CannotSendRequest, IncompleteRead, etc.)
+            # also raised if the HTTP channel has been closed by the Supervisor kill_zombies (30 minutes inactivity)
             # the proxy is not operational - error log only if instance is active
             log_level = LevelsByName.ERRO if self.status.has_active_state() else LevelsByName.DEBG
             message = f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier} not reachable - {str(exc)}'

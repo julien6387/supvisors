@@ -1,8 +1,18 @@
 # Change Log
 
+## 0.18.3 (2024-06-05)
+
+* Recreate the internal proxy to the local Supervisor if older than 20 minutes, in order to palliate the closure
+  of all channels inactive during 30 minutes in the Supervisor HTTP server.
+  This fixes a rare bug that has been introduced in **Supvisors** 0.17, and whose occurrence has greatly
+  increased after the refactoring of the **Supvisors** 0.18 internal communications.
+
+* Swap Memory and Network statistics cards in the **Supvisors** Web UI.
+
+
 ## 0.18.2 (2024-05-27)
 
-* Handle PermissionError exception when trying to get disk usage.
+* Handle the `PermissionError` exception when trying to get disk usage.
 
 * Update CSS for overflow parts in the **Supvisors** Web UI.
 
