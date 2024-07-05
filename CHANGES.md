@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.18.4 (2024-07-xx)
+
+* Fix the uptime of `supervisord` in the **Supvisors** Web UI.
+
+
 ## 0.18.3 (2024-06-05)
 
 * Recreate the internal proxy to the local Supervisor if older than 20 minutes, in order to palliate the closure

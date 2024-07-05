@@ -272,7 +272,7 @@ def test_get_supervisord_data(view):
     assert view.get_supervisord_data(instance_status) == supervisord_info
     # test call on relevant time values
     instance_status.times.start_local_mtime = 1000
-    instance_status.times.local_time = 185618
+    instance_status.times.local_mtime = 185618
     supervisord_info = {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
                         'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
                         'main': True, 'identifier': '10.0.0.1:25000', 'disabled': False,

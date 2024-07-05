@@ -145,7 +145,7 @@ class ProcInstanceView(SupvisorsInstanceView):
                    'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
         info = {'state': ProcessStates.RUNNING, 'start': status.times.start_local_mtime,
-                'now': status.times.local_time, 'pid': os.getpid()}
+                'now': status.times.local_mtime, 'pid': os.getpid()}
         payload['description'] = ProcessStatus.update_description(info)
         return payload
 
