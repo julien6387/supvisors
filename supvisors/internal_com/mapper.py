@@ -206,7 +206,7 @@ class SupvisorsMapper:
         """
         self.supvisors = supvisors
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
-        self._nick_identifiers: Dict[str, str] = {}
+        self._nick_identifiers: Dict[str, str] = {}  # {nick_identifier: identifier}
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
         self.local_identifier: Optional[str] = None
@@ -396,3 +396,26 @@ class SupvisorsMapper:
                 self.logger.warn(f'SupvisorsMapper.filter: identifier={identifier} invalid')
         # remove duplicates keeping the same order
         return list(OrderedDict.fromkeys(identifiers))
+
+    def check_candidate(self, identifier: str, nick_identifier: str) -> bool:
+        """ Return True if the candidate is eligible as a new Supvisors instance.
+
+        :param identifier: the candidate identifier.
+        :param nick_identifier: the candidate nick identifier.
+        :return: True if the candidate is unknown.
+        """
+        if nick_identifier in self._nick_identifiers:
+            known_identifier = self._nick_identifiers[nick_identifier]
+            if known_identifier != identifier:
+                self.logger.warn(f'SupvisorsMapper.check_candidate: candidate=<{nick_identifier}>{identifier}'
+                                 f' incompatible with the Supvisors instance known as'
+                                 f' <{nick_identifier}>{known_identifier}')
+            return False
+        if identifier in self.instances:
+            known_nick_identifier = self.get_nick_identifier(identifier)
+            if known_nick_identifier != nick_identifier:
+                self.logger.warn(f'SupvisorsMapper.check_candidate: candidate=<{nick_identifier}>{identifier}'
+                                 f' incompatible with the Supvisors instance known as'
+                                 f' <{known_nick_identifier}>{identifier}')
+            return False
+        return True

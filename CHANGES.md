@@ -2,7 +2,9 @@
 
 ## 0.18.4 (2024-07-xx)
 
-* Fix the uptime of `supervisord` in the **Supvisors** Web UI.
+* Fix `supervisord` uptime in the **Supvisors** Web UI.
+
+* In discovery mode, clarify the logs in the event where the **Supvisors** nick identifier is not unique.
 
 
 ## 0.18.3 (2024-06-05)

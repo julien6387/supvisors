@@ -471,3 +471,27 @@ def test_filter(supvisors, mapper):
     # set stereotype to one of them
     mapper.assign_stereotypes('10.0.0.2:25000', {'supervisor'})
     assert mapper.filter(identifier_list) == ['10.0.0.1:2222', f'{hostname}:60000', '10.0.0.2:25000']
+
+
+def test_check_candidate(supvisors, mapper):
+    """ Test the SupvisorsMapper.check_candidate method. """
+    # add context
+    hostname = gethostname()
+    items = ['127.0.0.1', '<host>10.0.0.1:2222', f'{hostname}:60000', '10.0.0.2']
+    for item in items:
+        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        mapper._instances[supvisors_id.identifier] = supvisors_id
+        mapper._nick_identifiers[supvisors_id.nick_identifier] = supvisors_id.identifier
+    # force host name to FQDN
+    mapper._instances[f'{hostname}:60000'].host_name = getfqdn()
+    # test existing instances
+    assert not mapper.check_candidate('127.0.0.1:25000', '127.0.0.1')
+    assert not mapper.check_candidate('10.0.0.1:2222', 'host')
+    assert not mapper.check_candidate(f'{hostname}:60000', f'{hostname}:60000')
+    assert not mapper.check_candidate('10.0.0.2:25000', '10.0.0.2')
+    # test partially known instances (this will trigger log warnings)
+    assert not mapper.check_candidate('127.0.0.1:25000', 'host')
+    assert not mapper.check_candidate(f'{hostname}:50000', '10.0.0.2')
+    # test unknown instances
+    assert mapper.check_candidate(f'{hostname}:50000', f'{hostname}:50000')
+    assert mapper.check_candidate('10.0.0.3:3333', '10.0.0.3')
