@@ -6,6 +6,8 @@
 
 * In discovery mode, clarify the logs in the event where the **Supvisors** nick identifier is not unique.
 
+* Add a section about multicast in documentation troubleshooting.
+
 
 ## 0.18.3 (2024-06-05)
 
