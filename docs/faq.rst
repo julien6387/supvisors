@@ -25,7 +25,7 @@ However, if the updates under consideration are involving ``CSS`` only, such as:
 the following hint will provide a way to do it without updating |Supvisors|, based on a simple bootstrap
 and monkeypatch.
 
-Every Supvisors ``XHTML`` pages include a style instruction that can be used to inject user ``CSS`` by code.
+Every Supvisors ``XHTML`` page include a style instruction that can be used to inject user ``CSS`` by code.
 It is placed after the inclusion of all ``CSS`` files, so that the user ``CSS`` may overwrite anything.
 
 .. code-block:: html

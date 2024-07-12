@@ -222,7 +222,7 @@ On the right side, 5 buttons are available:
 Main Page Contents
 ~~~~~~~~~~~~~~~~~~
 
-For every |Supvisors| instances, a card is displayed in the contents of the |Supvisors| Main Page.
+For every |Supvisors| instance, a card is displayed in the contents of the |Supvisors| Main Page.
 Each box contains:
 
     * (on condition) a |star| star button allowing the user to ends the |Supvisors| synchronization phase and forcing
@@ -473,8 +473,8 @@ The Network card shows statistics about the receive and sent flows on each netwo
 
 The Disk card shows 2 different kinds of statistics:
 
-    * Disk usage: the occupation percentage on every physical partitions ;
-    * Disk I/O: the read and written flows on every physical devices.
+    * Disk usage: the occupation percentage on every physical partition ;
+    * Disk I/O: the read and written flows on every physical device.
 
 
 Clicking on a button associated to the resource displays detailed statistics (graph and table),

@@ -423,10 +423,10 @@ But actually, there is a much more simple solution in the present case. Let's co
 Much shorter. Yet it does the same. For both the distributed application and the non-distributed application !
 
 The main point is that the ``identifiers`` attribute is not used at all. Clearly, this gives |Supvisors|
-the authorization to start all programs on every nodes. However |Supvisors| knows about the |Supervisor| configuration
+the authorization to start all programs on every node. However |Supvisors| knows about the |Supervisor| configuration
 in the 3 nodes. When choosing a node to start a program, |Supvisors| considers the intersection between the authorized
 nodes - all of them here - and the possible nodes, i.e. the active nodes where the program is defined in |Supervisor|.
-One of the first decisions in this use case is that every programs are known to only one |Supervisor| instance so that
+One of the first decisions in this use case is that every program is known to only one |Supervisor| instance so that
 gives |Supvisors| only one possibility.
 
 For |Req 3 abbr|, |Supvisors| provides the operational status of the application based on the status of its
