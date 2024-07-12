@@ -40,6 +40,13 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
 
+    def handle_parameters(self):
+        """ Retrieve the parameters selected on the web page. """
+        super().handle_parameters()
+        # pre-fill the message here to warn the user about the actions on this page
+        # it will always be displayed by default unless it is overwritten by another message
+        self.view_ctx.set_message_default(Warn, 'The Supvisors rules do NOT apply here')
+
     def write_options(self, header_elt):
         """ Write configured periods for statistics.
         Does nothing by default. To be specialized in subclasses where statistics are available. """

@@ -3,6 +3,10 @@
 ## 0.18.4 (2024-07-xx)
 
 * Fix `supervisord` uptime in the **Supvisors** Web UI.
+  Issue introduced in **Supvisors** 0.18 with monotonic time consideration.
+
+* Set a default warning message to state that Supvisors rules don't apply on the Supervisor page
+  of the **Supvisors** Web UI.
 
 * In discovery mode, clarify the logs in the event where the **Supvisors** nick identifier is not unique.
 
