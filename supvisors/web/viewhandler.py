@@ -129,10 +129,10 @@ class ViewHandler(MeldView):
 
     def write_nav(self, root, identifier=None, appli=None):
         """ Write the navigation menu. """
-        self.write_nav_instances(root, identifier)
+        self.write_nav_instances(root, identifier, appli is not None)
         self.write_nav_applications(root, appli)
 
-    def write_nav_instances(self, root, identifier: str) -> None:
+    def write_nav_instances(self, root, identifier: str, location: bool) -> None:
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('instance_li_mid')
         identifiers = list(self.supvisors.mapper.instances.keys())
@@ -152,9 +152,10 @@ class ViewHandler(MeldView):
                 failure = status.has_error()
                 any_failure |= failure
                 # set element class
+                self.logger.warn(f'ViewHandler.write_nav_instances: {item} {identifier} {location}')
                 update_attrib(li_elt, 'class', status.state.name)
                 if item == identifier:
-                    update_attrib(li_elt, 'class', 'active')
+                    update_attrib(li_elt, 'class', 'local' if location else 'active')
                 if failure:
                     update_attrib(li_elt, 'class', 'failure')
                 # set hyperlink attributes

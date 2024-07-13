@@ -124,6 +124,10 @@ nav li.STOPPING.active {
     background-image: radial-gradient(circle at center left, var(--running-color) 30%, var(--stopped-color) 40%, transparent 50%);
 }
 
+nav li.local a, nav li.active a {
+    color: var(--selected-color);
+}
+
 nav li.failure::after {
     content: url(../img/red_light_30.png);
     float: right;

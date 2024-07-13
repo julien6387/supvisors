@@ -55,7 +55,7 @@ class ApplicationView(ViewHandler):
 
     def write_navigation(self, root):
         """ Rendering of the navigation menu with selection of the current application. """
-        self.write_nav(root, appli=self.application_name)
+        self.write_nav(root, appli=self.application_name, identifier=self.local_identifier)
 
     # RIGHT SIDE / HEADER part
     def write_status(self, header_elt):

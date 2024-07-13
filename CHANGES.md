@@ -8,6 +8,8 @@
 * Set a default warning message to state that Supvisors rules don't apply on the Supervisor page
   of the **Supvisors** Web UI.
 
+* Emphasize the selected Supervisor instance and Application in the navigation of the **Supvisors** Web UI.
+
 * In discovery mode, clarify the logs in the event where the **Supvisors** nick identifier is not unique.
 
 * Add a section about multicast in documentation troubleshooting.
