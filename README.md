@@ -70,8 +70,8 @@ It will likely work fine on most UNIX systems.
 | [matplotlib](http://matplotlib.org)                | X        | 3.3.3                       |
 | [lxml](http://lxml.de)                             | X        | 4.6.2                       |
 | [Flask-RESTX](https://flask-restx.readthedocs.io)  | X        | 0.5.1 (py36), 1.1.0 (py37+) |
-| [PyZMQ](http://pyzmq.readthedocs.io)               | X        | 20.0.0                      |
-| [websockets](https://websockets.readthedocs.io)    | X        | 10.2 (py37+)                |
+| [PyZMQ](http://pyzmq.readthedocs.io)               | X        | 25.1.1                      |
+| [websockets](https://websockets.readthedocs.io)    | X        | 10.4 (py37+)                |
 
 Please note that some of these dependencies may have their own dependencies.
 

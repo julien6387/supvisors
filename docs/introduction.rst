@@ -109,7 +109,7 @@ Installation
 | |Flask-RESTX|  | 0.5.1 (py36) |br|  | *(optional)* Expose the Supervisor and Supvisors XML-RPC API through a REST API    |
 |                | 1.1.0 (py37+)      |                                                                                    |
 +----------------+--------------------+------------------------------------------------------------------------------------+
-| |PyZMQ|        | 22.0.3             | *(optional)* Alternative for the Supvisors Event interface                         |
+| |PyZMQ|        | 25.1.1             | *(optional)* Alternative for the Supvisors Event interface                         |
 +----------------+--------------------+------------------------------------------------------------------------------------+
 | |Websockets|   | 10.4               | *(optional)* Alternative for the Supvisors Event interface (requires Python 3.7+)  |
 +----------------+--------------------+------------------------------------------------------------------------------------+
