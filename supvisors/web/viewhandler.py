@@ -127,12 +127,13 @@ class ViewHandler(MeldView):
         Subclasses will define the write_nav parameters to be used. """
         raise NotImplementedError
 
-    def write_nav(self, root, identifier=None, appli=None):
+    def write_nav(self, root, identifier: Optional[str] = None, appli: Optional[str] = None,
+                  source: Optional[str] = None):
         """ Write the navigation menu. """
-        self.write_nav_instances(root, identifier, appli is not None)
+        self.write_nav_instances(root, identifier, source)
         self.write_nav_applications(root, appli)
 
-    def write_nav_instances(self, root, identifier: str, location: bool) -> None:
+    def write_nav_instances(self, root, identifier: Optional[str], source: Optional[str]) -> None:
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('instance_li_mid')
         identifiers = list(self.supvisors.mapper.instances.keys())
@@ -154,7 +155,9 @@ class ViewHandler(MeldView):
                 # set element class
                 update_attrib(li_elt, 'class', status.state.name)
                 if item == identifier:
-                    update_attrib(li_elt, 'class', 'local' if location else 'active')
+                    update_attrib(li_elt, 'class', 'active')
+                elif item == source:
+                    update_attrib(li_elt, 'class', 'local')
                 if failure:
                     update_attrib(li_elt, 'class', 'failure')
                 # set hyperlink attributes

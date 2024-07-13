@@ -37,7 +37,7 @@ class MainView(ViewHandler):
 
     def write_navigation(self, root) -> None:
         """ Rendering of the navigation menu. """
-        self.write_nav(root)
+        self.write_nav(root, source=self.local_identifier)
 
     def write_status(self, header_elt) -> None:
         """ Rendering of the header part of the Supvisors main page. """

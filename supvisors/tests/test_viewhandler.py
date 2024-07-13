@@ -77,7 +77,7 @@ def test_call(mocker, handler):
     assert handler.__call__() == {'body': b'html_body'}
 
 
-def test_render_action_in_progress(mocker, handler):
+def test_render_action_in_progress(mocker, supvisors, handler):
     """ Test the render method when Supervisor is in RUNNING state and when an action is in progress. """
     mocked_style = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_style')
     mocked_common = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_common')
@@ -93,7 +93,7 @@ def test_render_action_in_progress(mocker, handler):
     mocked_root.write_xhtmlstring.return_value = 'xhtml'
     mocked_clone.return_value = mocked_root
     # patch context
-    handler.supvisors.context.get_all_namespecs = Mock(return_value=[])
+    supvisors.context.get_all_namespecs = Mock(return_value=[])
     # 1. test render call when an action is in progress
     handler.context.supervisord.options.mood = SupervisorStates.RUNNING
     mocked_action.return_value = NOT_DONE_YET
@@ -180,20 +180,20 @@ def test_write_nav(mocker, handler):
     """ Test the write_nav method. """
     mocked_appli = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_nav_applications')
     mocked_instances = mocker.patch('supvisors.web.viewhandler.ViewHandler.write_nav_instances')
-    # test identifier set only
+    # test identifier set (ViewInstance cases)
     handler.write_nav('root', identifier='identifier')
-    assert mocked_instances.call_args_list == [call('root', 'identifier', False)]
+    assert mocked_instances.call_args_list == [call('root', 'identifier', None)]
     assert mocked_appli.call_args_list == [call('root', None)]
     mocker.resetall()
-    # test application set only
-    handler.write_nav('root', appli='appli')
-    assert mocked_instances.call_args_list == [call('root', None, True)]
+    # test application+source set (ViewApplication case)
+    handler.write_nav('root', appli='appli', source='10.0.0.1')
+    assert mocked_instances.call_args_list == [call('root', None, '10.0.0.1')]
     assert mocked_appli.call_args_list == [call('root', 'appli')]
     mocker.resetall()
-    # test both set
-    handler.write_nav('root', 'identifier', 'appli')
-    assert mocked_instances.call_args_list == [call('root', 'identifier', True)]
-    assert mocked_appli.call_args_list == [call('root', 'appli')]
+    # test source set (ViewMain cases)
+    handler.write_nav('root', source='10.0.0.1')
+    assert mocked_instances.call_args_list == [call('root', None, '10.0.0.1')]
+    assert mocked_appli.call_args_list == [call('root', None)]
 
 
 def test_write_nav_instances_identifier_error(supvisors, handler):
@@ -206,7 +206,7 @@ def test_write_nav_instances_identifier_error(supvisors, handler):
     mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.0')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with no address status in context
-    handler.write_nav_instances(mocked_root, '10.0.0.0', False)
+    handler.write_nav_instances(mocked_root, '10.0.0.0', None)
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
     fqdn = socket.getfqdn()
     expected = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000', '10.0.0.5:25000',
@@ -228,7 +228,7 @@ def test_write_nav_instances_silent_instance(supvisors, handler):
     mocked_root = create_element({'instance_h_mid': instance_h_mid, 'instance_li_mid': instance_li_mid})
     # test call with address status set in context, SILENT and different from parameter
     handler.sup_ctx.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
-    handler.write_nav_instances(mocked_root, '10.0.0.2:25000', False)
+    handler.write_nav_instances(mocked_root, '10.0.0.2:25000', None)
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
     assert instance_li_mid.repeat.call_args_list == [call(list(supvisors.mapper.instances.keys()))]
     assert instance_elt.attrib['class'] == 'SILENT'
@@ -239,7 +239,7 @@ def test_write_nav_instances_silent_instance(supvisors, handler):
     instance_elt.reset_all()
     mocked_root.reset_all()
     # test call with address status set in context, SILENT, identical to parameter and not marked as location
-    handler.write_nav_instances(mocked_root, '10.0.0.1:25000', False)
+    handler.write_nav_instances(mocked_root, '10.0.0.1:25000', None)
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
     assert instance_li_mid.repeat.call_args_list == [call(list(supvisors.mapper.instances.keys()))]
     assert instance_elt.attrib['class'] == 'SILENT active'
@@ -249,8 +249,8 @@ def test_write_nav_instances_silent_instance(supvisors, handler):
     assert not master_sp_mid.content.called
     instance_elt.reset_all()
     mocked_root.reset_all()
-    # test call with address status set in context, SILENT, identical to parameter and not marked as location
-    handler.write_nav_instances(mocked_root, '10.0.0.1:25000', True)
+    # test call with address status set in context, SILENT, identical to parameter and marked as location
+    handler.write_nav_instances(mocked_root, None, '10.0.0.1:25000')
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
     assert instance_li_mid.repeat.call_args_list == [call(list(supvisors.mapper.instances.keys()))]
     assert instance_elt.attrib['class'] == 'SILENT local'
@@ -283,7 +283,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         handler.sup_ctx.master_identifier = ''
         # test call with address status set in context, different from parameter and not MASTER
         mocker.patch.object(status, 'has_error', return_value=False)
-        handler.write_nav_instances(mocked_root, '10.0.0.2:25000', True)
+        handler.write_nav_instances(mocked_root, '10.0.0.2:25000', '10.0.0.2:25000')
         assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
         assert instance_li_mid.repeat.call_args_list == [call(all_identifiers)]
         assert instance_elt.attrib['class'] == state.name
@@ -302,7 +302,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         status.state_modes.starting_jobs = False
         status.state_modes.stopping_jobs = True
         handler.sup_ctx.master_identifier = '10.0.0.1:25000'
-        handler.write_nav_instances(mocked_root, '10.0.0.1:25000', False)
+        handler.write_nav_instances(mocked_root, '10.0.0.1:25000', None)
         expected = [call('instance_li_mid')]
         assert mocked_root.findmeld.call_args_list == expected
         assert instance_li_mid.repeat.call_args_list == [call(all_identifiers)]
@@ -325,7 +325,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         status.state_modes.starting_jobs = True
         status.state_modes.stopping_jobs = False
         handler.sup_ctx.master_identifier = '10.0.0.1:25000'
-        handler.write_nav_instances(mocked_root, '10.0.0.1:25000', True)
+        handler.write_nav_instances(mocked_root, None, '10.0.0.1:25000')
         expected = [call('instance_li_mid')] + ([call('instance_h_mid')] if is_running else [])
         assert mocked_root.findmeld.call_args_list == expected
         assert instance_li_mid.repeat.call_args_list == [call(all_identifiers)]

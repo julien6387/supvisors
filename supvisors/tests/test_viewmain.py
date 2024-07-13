@@ -42,7 +42,7 @@ def test_write_navigation(mocker, view):
     mocked_nav = mocker.patch.object(view, 'write_nav')
     mocked_root = create_element()
     view.write_navigation(mocked_root)
-    assert mocked_nav.call_args_list == [call(mocked_root)]
+    assert mocked_nav.call_args_list == [call(mocked_root, source=view.local_identifier)]
 
 
 def test_write_status(mocker, supvisors, view):
