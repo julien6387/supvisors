@@ -152,7 +152,6 @@ class ViewHandler(MeldView):
                 failure = status.has_error()
                 any_failure |= failure
                 # set element class
-                self.logger.warn(f'ViewHandler.write_nav_instances: {item} {identifier} {location}')
                 update_attrib(li_elt, 'class', status.state.name)
                 if item == identifier:
                     update_attrib(li_elt, 'class', 'local' if location else 'active')
