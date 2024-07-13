@@ -167,6 +167,12 @@ class ViewContext:
         """ Extract message gravity from context form. """
         return self.http_context.form.get(GRAVITY)
 
+    def set_message_default(self, message: str, gravity: str):
+        """ Set the message and gravity if there is no existing message. """
+        if not self.message:
+            self.http_context.form[GRAVITY] = gravity
+            self.http_context.form[MESSAGE] = message
+
     # complex extraction from context form
     def update_period(self) -> None:
         """ Extract period from context. """
@@ -298,7 +304,7 @@ class ViewContext:
             # check that value has correct format (only hex and size twice the size of the bytearray)
             try:
                 value = bytearray.fromhex(str_value)
-            except ValueError as exc:
+            except ValueError:
                 self.logger.error(f'ViewContext._update_shex: non-hexadecimal {param}')
             else:
                 if len(default_ba) != len(value):
@@ -482,4 +488,3 @@ class ViewContext:
     def cpu_id_to_string(idx):
         """ Get a printable form of cpu index. """
         return f'{idx - 1}' if idx > 0 else 'all'
-

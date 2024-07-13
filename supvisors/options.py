@@ -205,7 +205,7 @@ class SupvisorsOptions:
             self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options STRICT'
                              ' with no supvisors_list')
             self.synchro_options.remove(SynchronizationOptions.STRICT)
-        # finally, synchron_options must not be empty
+        # finally, synchro_options must not be empty
         if not self.synchro_options:
             raise ValueError('synchro_options must not be empty')
 

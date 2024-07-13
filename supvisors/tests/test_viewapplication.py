@@ -73,7 +73,7 @@ def test_write_navigation(mocker, view):
     view.application_name = 'dummy_appli'
     # test with no application selected
     view.write_navigation('root')
-    assert mocked_handle.call_args_list == [call('root', appli='dummy_appli')]
+    assert mocked_handle.call_args_list == [call('root', appli='dummy_appli', identifier=view.local_identifier)]
 
 
 def test_write_status(mocker, view):

@@ -53,6 +53,15 @@ def test_init(view):
     assert view.page_name == PROC_INSTANCE_PAGE
 
 
+def test_handle_parameters(mocker, view):
+    """ Test the handle_parameters method. """
+    mocked_handle = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_parameters')
+    view.view_ctx = Mock()
+    view.handle_parameters()
+    assert mocked_handle.call_args_list == [call()]
+    assert view.view_ctx.set_message_default.call_args_list == [call(Warn, 'The Supvisors rules do NOT apply here')]
+
+
 def test_write_options(mocker, view):
     """ Test the SupvisorsInstanceView.write_options method. """
     mocked_period = mocker.patch.object(view, 'write_periods')
@@ -272,7 +281,7 @@ def test_get_supervisord_data(view):
     assert view.get_supervisord_data(instance_status) == supervisord_info
     # test call on relevant time values
     instance_status.times.start_local_mtime = 1000
-    instance_status.times.local_time = 185618
+    instance_status.times.local_mtime = 185618
     supervisord_info = {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
                         'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
                         'main': True, 'identifier': '10.0.0.1:25000', 'disabled': False,

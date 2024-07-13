@@ -152,15 +152,19 @@ def test_on_discovery_event(supvisors, context):
     # store reference
     sup_id: SupvisorsInstanceId = context.instances['10.0.0.1:25000'].supvisors_id
     ref_ip_address, ref_port = sup_id.ip_address, sup_id.http_port
-    # test in discovery mode and identifier known and identical
+    # test discovery mode and identifier known and identical
     assert not context.on_discovery_event('10.0.0.1:25000', '10.0.0.1')
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
-    # test in discovery mode and identifier known and changed
+    # test discovery mode and nick identifier known and identifier different
     assert not context.on_discovery_event('10.0.0.2:6000', '10.0.0.1')
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port
-    # test in discovery mode and identifier unknown
+    # test discovery mode and identifier known and nick identifier different
+    assert not context.on_discovery_event('10.0.0.1:25000', 'supvisors')
+    assert sup_id.ip_address == ref_ip_address
+    assert sup_id.http_port == ref_port
+    # test discovery mode and identifier unknown
     assert context.on_discovery_event('192.168.1.2:5000', 'rocky52')
     assert sup_id.ip_address == ref_ip_address
     assert sup_id.http_port == ref_port

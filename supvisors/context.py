@@ -591,7 +591,7 @@ class Context:
         :param nick_identifier: the remote Supervisor identifier.
         :return: True if a new Supvisors instance has been inserted.
         """
-        if not self.supvisors.mapper.filter([identifier, nick_identifier]):
+        if self.supvisors.mapper.check_candidate(identifier, nick_identifier):
             # NOTE: use the first IP address in the list
             item = f'<{nick_identifier}>{identifier}'
             supvisors_id = self.supvisors.mapper.add_instance(item)

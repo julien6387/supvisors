@@ -20,7 +20,7 @@ from supervisor.states import ProcessStates, RUNNING_STATES
 
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.statscompiler import ProcStatisticsInstance
-from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList, ProcessCPUHistoryStats, ProcessMemHistoryStats
+from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList
 from supvisors.utils import get_small_value
 from .viewcontext import *
 from .viewinstance import SupvisorsInstanceView
@@ -34,11 +34,18 @@ class ProcInstanceView(SupvisorsInstanceView):
     so that StatusView inherits from ViewHandler instead of MeldView.
     """
 
-    ProcessStats = Tuple[int, int, Optional[Tuple[ProcessCPUHistoryStats, ProcessMemHistoryStats]]]
+    ProcessStats = Tuple[int, int, Optional[ProcStatisticsInstance]]
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
         SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
+
+    def handle_parameters(self):
+        """ Retrieve the parameters selected on the web page. """
+        super().handle_parameters()
+        # pre-fill the message here to warn the user about the actions on this page
+        # it will always be displayed by default unless it is overwritten by another message
+        self.view_ctx.set_message_default(Warn, 'The Supvisors rules do NOT apply here')
 
     def write_options(self, header_elt):
         """ Write configured periods for statistics.
@@ -145,7 +152,7 @@ class ProcInstanceView(SupvisorsInstanceView):
                    'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
         info = {'state': ProcessStates.RUNNING, 'start': status.times.start_local_mtime,
-                'now': status.times.local_time, 'pid': os.getpid()}
+                'now': status.times.local_mtime, 'pid': os.getpid()}
         payload['description'] = ProcessStatus.update_description(info)
         return payload
 
@@ -414,8 +421,8 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Start all processes in the group.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param namespec: the group processes that have to be started (expecting a form like 'group:*')
-        :return: a callable for deferred result
+        :param namespec: the group processes that have to be started (expecting a form like 'group:*').
+        :return: a callable for deferred result.
         """
         self.logger.debug(f'ProcInstanceView.start_group_action: group_name={namespec}')
         wait = not self.view_ctx.auto_refresh
@@ -425,8 +432,8 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Stop all processes in the group.
         The RPC wait parameter is linked to the auto-refresh parameter of the page.
 
-        :param namespec: the group processes that have to be stopped (expecting a form like 'group:*')
-        :return: a callable for deferred result
+        :param namespec: the group processes that have to be stopped (expecting a form like 'group:*').
+        :return: a callable for deferred result.
         """
         self.logger.debug(f'ProcInstanceView.stop_group_action: group_name={namespec}')
         wait = not self.view_ctx.auto_refresh
@@ -436,8 +443,8 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Start all processes in the group.
         The RPC wait parameter is linked to the auto-refresh parameter of the page and set only on the last call.
 
-        :param namespec: the group processes that have to be restarted (expecting a form like 'group:*')
-        :return: a callable for deferred result
+        :param namespec: the group processes that have to be restarted (expecting a form like 'group:*').
+        :return: a callable for deferred result.
         """
         self.logger.debug(f'ProcInstanceView.restart_group_action: group_name={namespec}')
         wait = not self.view_ctx.auto_refresh

@@ -222,7 +222,7 @@ On the right side, 5 buttons are available:
 Main Page Contents
 ~~~~~~~~~~~~~~~~~~
 
-For every |Supvisors| instances, a card is displayed in the contents of the |Supvisors| Main Page.
+For every |Supvisors| instance, a card is displayed in the contents of the |Supvisors| Main Page.
 Each box contains:
 
     * (on condition) a |star| star button allowing the user to ends the |Supvisors| synchronization phase and forcing
@@ -298,10 +298,24 @@ Supervisor Page
 
 The *Supervisor* Page of |Supvisors| is the page that most closely resembles the legacy |Supervisor| page,
 hence its name, although it is a bit less "sparse" than the web page provided by |Supervisor|.
+
 It shows the status of the |Supvisors| instance, as seen by the |Supvisors| instance itself as this page is always
 re-directed accordingly.
 It also enables the user to command the processes declared in this |Supvisors| instance and provides statistics
 that may be useful at software integration time.
+
+.. attention::
+
+    All the actions available from this page involve only the |Supervisor| XML-RPC API (with the exception of
+    statistics-related actions).
+
+    **!!! The Supvisors rules do NOT apply here !!!**
+
+    **!!! Supvisors does NOT interfere with Supervisor in the execution of these actions !!!**
+
+    As a consequence, it is possible to create process conflicts from this page, leading |Supvisors| to enter
+    the ``CONCILIATION`` state.
+
 
 Supervisor Page Header
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -344,9 +358,10 @@ The periods can be updated in the :ref:`supvisors_section` of the |Supervisor| c
 
 On the right side, 5 buttons are available:
 
-    * |stop| stops all the processes handled by |Supervisor| in this |Supvisors| instance ;
-    * |restart| restarts this |Supvisors| instance, including |Supervisor| ;
-    * |shutdown| shuts down this |Supvisors| instance, including |Supervisor| ;
+    * |stop| stops all the processes handled by |Supervisor| in the |Supvisors| instance
+      using a ``supervisor.stopAllProcesses`` XML-RPC ;
+    * |restart| restarts the |Supervisor| instance using a ``supervisor.restart`` XML-RPC ;
+    * |shutdown| shuts down the |Supervisor| instance using a ``supervisor.shutdown`` XML-RPC ;
     * |refresh| refreshes the current page ;
     * |autorefresh| refreshes the current page and sets a periodic 5s refresh to the page.
 
@@ -364,9 +379,10 @@ Indeed, it lists the programs that are configured in |Supervisor|, it presents t
 description and enables the user to perform some actions on them:
 
     * Log tail (with a refresh button, click on the process name itself) ;
-    * Start ;
-    * Stop ;
-    * Restart ;
+    * Start (using a ``supervisor.startProcess(namespec)`` XML-RPC);
+    * Stop (using a ``supervisor.stopProcess(namespec)`` XML-RPC);
+    * Restart (using a multicall chaining ``supervisor.stopProcess(namespec)``,
+      then ``supervisor.startProcess(namespec)`` XML-RPCs);
     * Clear log ;
     * Tail stdout log (auto-refreshed) ;
     * Tail stderr log (auto-refreshed).
@@ -422,9 +438,10 @@ Considering the application processes that are running in this |Supvisors| insta
 
 The following actions are also provided and apply to all application processes:
 
-    * Start (equivalent to :command:`supervisorctl start group:*`) ;
-    * Stop (equivalent to :command:`supervisorctl stop group:*`);
-    * Restart (a multicall chaining :command:`stop group:*` and :command:`start group:*`).
+    * Start (using a ``supervisor.startProcess('group:*')`` XML-RPC) ;
+    * Stop (using a ``supervisor.stopProcess('group:*')`` XML-RPC);
+    * Restart (using a multicall chaining ``supervisor.stopProcess('group:*')``,
+      then ``supervisor.startProcess('group:*')`` XML-RPCs).
 
 .. hint::
 
@@ -473,8 +490,8 @@ The Network card shows statistics about the receive and sent flows on each netwo
 
 The Disk card shows 2 different kinds of statistics:
 
-    * Disk usage: the occupation percentage on every physical partitions ;
-    * Disk I/O: the read and written flows on every physical devices.
+    * Disk usage: the occupation percentage on every physical partition ;
+    * Disk I/O: the read and written flows on every physical device.
 
 
 Clicking on a button associated to the resource displays detailed statistics (graph and table),

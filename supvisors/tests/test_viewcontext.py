@@ -80,6 +80,21 @@ def test_properties(ctx):
     assert ctx.gravity == 'none'
 
 
+def test_set_message_default(ctx):
+    """ Test the ViewContext.set_message_default method. """
+    assert ctx.message == 'hi chaps'
+    assert ctx.gravity == 'none'
+    # check that the message is not replaced when there is already one stored
+    ctx.set_message_default('beware of the dog', 'Warn')
+    assert ctx.message == 'hi chaps'
+    assert ctx.gravity == 'none'
+    # reset the form and retry
+    ctx.http_context.form.update({GRAVITY: '', MESSAGE: ''})
+    ctx.set_message_default('beware of the dog', 'Warn')
+    assert ctx.message == 'beware of the dog'
+    assert ctx.gravity == 'Warn'
+
+
 def test_url_parameters(ctx):
     """ Test the ViewContext.url_parameters method. """
     # test default

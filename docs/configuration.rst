@@ -71,7 +71,7 @@ behavior may happen. The present section details where it is applicable.
 
     .. attention::
 
-        The chosen host name, alias or IP address must be known to every nodes in the ``supvisors_list``
+        The chosen host name, alias or IP address must be known to every node in the ``supvisors_list``
         on the network interface considered. If it's not the case, check the network configuration.
 
     .. hint::
@@ -974,7 +974,7 @@ Here follows an example of a ``program`` definition:
 Using patterns
 ~~~~~~~~~~~~~~
 
-It may be quite tedious to give all this information to every programs, especially if multiple programs use a common
+It may be quite tedious to give all this information to every program, especially if multiple programs use a common
 set of rules. So two mechanisms are put in place to help.
 
 The first one is the ``pattern`` attribute that may be used instead of the ``name`` attribute in a ``program`` element.
@@ -1028,7 +1028,7 @@ Using patterns and signs
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The *hashtag symbol* ``#`` and *at symbol* in the program ``identifiers`` are designed for a program that is meant
-to be started on every |Supvisors| instances available, or on a subset of them.
+to be started on every |Supvisors| instance available, or on a subset of them.
 
 As an example, based on the following simplified |Supervisor| configuration:
 

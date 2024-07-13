@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.18.4 (2024-07-13)
+
+* Fix `supervisord` uptime in the **Supvisors** Web UI.
+  Issue introduced in **Supvisors** 0.18 with monotonic time consideration.
+
+* Set a default warning message to state that Supvisors rules don't apply on the Supervisor page
+  of the **Supvisors** Web UI.
+
+* Emphasize the selected Supervisor instance and Application in the navigation of the **Supvisors** Web UI.
+
+* In discovery mode, clarify the logs in the event where the **Supvisors** nick identifier is not unique.
+
+* Add a section about multicast in documentation troubleshooting.
+
+
 ## 0.18.3 (2024-06-05)
 
 * Recreate the internal proxy to the local Supervisor if older than 20 minutes, in order to palliate the closure

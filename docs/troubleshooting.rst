@@ -7,8 +7,8 @@ This section deals with frequent problems that could happen when experiencing |S
 
 It is assumed that |Supervisor| is operational without the |Supvisors| plugin.
 
-Error: ... cannot be resolved
------------------------------
+|Supvisors| plugin cannot be resolved
+-------------------------------------
 
 .. code-block:: bash
 
@@ -70,7 +70,7 @@ version used by |Supervisor|.
 Local |Supvisors| not in ``PYTHONPATH``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*Issue:* In the case where |Supvisors| is not installed in the :program:`Python` packages but used from a local
+*Issue:* In the case where |Supvisors| is not installed in the :program:`Python` packages, but used from a local
 directory, the ``PYTHONPATH`` environment variable may not include the |Supvisors| location.
 
 *Solution:* Set the |Supvisors| location in the ``PYTHONPATH`` environment variable before starting |Supervisor|.
@@ -88,7 +88,7 @@ Incorrect UNIX permissions
 
 *Issue:* The user cannot read the |Supvisors| files installed (via :command:`pip` or pointed by ``PYTHONPATH``).
 
-*Solution*: Update the UNIX permissions of the |Supvisors| package so that its files can be read by the user.
+*Solution*: Update the UNIX permissions of the |Supvisors| package so that its files can be read by any user.
 
 .. code-block:: bash
 
@@ -104,8 +104,8 @@ Incorrect UNIX permissions
     [bash] > supervisord
 
 
-Error: Could not make supvisors rpc interface
----------------------------------------------
+Could not make supvisors rpc interface
+--------------------------------------
 
 At this stage, there must be some log traces available.
 If the startup of |Supervisor| ends with the following lines, there must be an issue with the |Supvisors| configuration,
@@ -226,7 +226,7 @@ elements to be used in ``supvisors_list``.
     'rocky51.cliche.bzh'
 
 
-could not find local the local Supvisors
+Could not find local the local Supvisors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Issue:* The option ``supvisors_list`` does not include any host name or IP address corresponding to the local host.
@@ -268,7 +268,7 @@ if |Supervisor| is started from a host that is not present in this list, the fol
     For help, use /usr/local/bin/supervisord -h
 
 
-multiple candidates for the local Supvisors
+Multiple candidates for the local Supvisors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Issue:* This happens when multiple |Supvisors| instances have to be started on the same host. In that case, the option
@@ -284,7 +284,7 @@ Based on the the following |Supvisors| configuration including a host name ``roc
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
-    supvisors_list = rocky51,rocky52,192.168.1.70:30000:
+    supvisors_list = rocky51,rocky52,192.168.1.70:30000
 
 if |Supervisor| is started from the host ``rocky51``, the following traces will be displayed:
 
@@ -318,7 +318,7 @@ identifier. This is also the name that will be used for the Web UI.
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
-    supvisors_list = <supv-01>rocky51,rocky52,<supv-03>192.168.1.70:30000:
+    supvisors_list = <supv-01>rocky51,rocky52,<supv-03>192.168.1.70:30000
 
 Then |Supervisor| shall be started by passing this identification to the :program:`supervisord` program.
 
@@ -331,6 +331,9 @@ Remote host ``SILENT``
 ----------------------
 
 A remote |Supvisors| instance may be declared ``SILENT``, although :program:`supervisord` is running on the remote host.
+
+Firewall rules
+~~~~~~~~~~~~~~
 
 There is likely an issue with the firewall of the hosts. By default, a firewall is configured to block
 almost everything. The |Supervisor| HTTP ports have to be explicitly allowed in the firewall configuration.
@@ -377,6 +380,157 @@ A variety of different errors may be experienced depending on how wrong configur
     [...]
     [ERROR] failed to check Supvisors=rocky52
     [...]
+
+
+Discovery mode not working
+--------------------------
+
+When |Supvisors| is in discovery mode, it uses an UDP Multicast group to share the identification of every |Supvisors|
+instance periodically. The relevant configuration options in the |Supervisor| configuration file are:
+
+    * ``multicast_group``,
+    * ``multicast_interface``,
+    * ``multicast_ttl``.
+
+When |Supvisors| is running with a multicast group set, the following command should show the multicast address chosen.
+Based on a multicast address ``239.0.0.1`` and a multicast interface ``eth0``
+
+.. code-block:: bash
+
+    [bash] > netstat -g
+    IPv6/IPv4 Group Memberships
+    Interface       RefCnt Group
+    --------------- ------ ---------------------
+    [...]
+    eth0            2      239.0.0.1
+    [...]
+
+There are quite a number of reasons that may cause this function to not work, at OS level and in the |Supvisors|
+configuration.
+
+The consequence is always the same: the remote |Supvisors| instance is not detected, although :program:`supervisord`
+is running on the remote host.
+
+The main difficulty is that there will be no log trace to help in |Supvisors|, due to the non-connected nature of UDP.
+UDP sockets are open and eventually bound but nothing happens on them.
+
+First of all, it is absolutely mandatory that multicast is enabled in the system nodes and the hardware in-between.
+
+The aim of this section is clearly not to be a tutorial about configuring multicast in a system, which is not really
+in my area of expertise anyway. The aim is to help the |Supvisors| user and/or his favorite system administrator,
+by giving a few common hints.
+
+A basic multicast exchange using a tool like :program:`iperf` can be done in order to discharge |Supvisors|.
+
+``MULTICAST`` not activated on the network device
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Issue:* Multicast is not activated on the network device.
+
+Here are 2 unix commands that provide feedback on the multicast status of the ``eth0`` network device.
+
+.. code-block:: bash
+
+    [bash] > ifconfig eth0
+    eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    [...]
+
+    [bash] > ip addr show eth0
+    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    [...]
+
+*Solution:* If ``MULTICAST`` is not displayed for the considered network interface, the following
+command should do the trick.
+
+.. code-block:: bash
+
+    [bash] > ip link set multicast on dev eth0
+
+``IGMP`` not enabled in the firewall
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Issue:* The ``IGMP`` protocol is not enabled in the firewall daemon (default configuration).
+
+*Solution:* The following commands enable permanently ``IGMP`` for a zone:
+
+.. code-block:: bash
+
+    [bash] > firewall-cmd --permanent --zone=zone-name --add-protocol=igmp
+    [bash] > firewall-cmd --reload
+
+Multicast denied by an ACL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Issue:* Multicast is working between co-located |Supvisors| instances, but not with |Supvisors| instances located
+on remote hosts, and separated only by a network switch.
+
+*Solution:* Depending on the network configuration and hardware, multicast may also be denied by an ACL on a switch.
+This is quite specific to the firmware involved, so refer to the switch documentation.
+
+Multicast not enabled in a router
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Issue:* Multicast is working between co-located |Supvisors| instances, but not with |Supvisors| instances located
+on remote hosts, and separated by a router.
+
+*Solution:* Multicast may be disabled in the router. Again, this is quite specific to the firmware involved, so refer
+to the switch documentation.
+
+As an example, multicast can be enabled in a *CISCO* router with the following command:
+
+.. code-block:: bash
+
+    ip multicast-routing
+
+TTL too low
+~~~~~~~~~~~
+
+*Issue:* Same issue as above, despite multicast is enabled in the router.
+
+The Time-To-Live (TTL) of a multicast message is decremented everytime it passes through a router, and in accordance
+with the router threshold. When the TTL is lower than the router threshold, the message is discarded.
+
+*Solution:* The TTL value in the ``multicast_ttl`` option should be set accordingly with the configuration
+of the routers between any of the |Supvisors| instances. The router threshold could also be decreased.
+
+Incompatible candidates
+~~~~~~~~~~~~~~~~~~~~~~~
+
+*Issue:* Multicast is confirmed working (outside the scope of |Supvisors|) and the following log trace occurs:
+
+.. code-block:: bash
+
+    [bash] > supervisord -n
+    [...]
+    2024-07-05 18:24:45,204;WARN;SupvisorsMapper.check_candidate: the Supvisors instance known as <test>rocky51:60000 is incompatible with the candidate <test>rocky52:60000
+    [...]
+
+This can happen in discovery mode when at least 2 |Supvisors| instances have the same nick identifier.
+The nick identifier can be optionally set:
+
+    * either in the |Supervisor| configuration file:
+
+        .. code-block:: ini
+
+            [supervisord]
+            ...
+            identifier=test
+
+    * or when starting the :program:`supervisord` daemon:
+
+        .. code-block:: bash
+
+            [bash] > supervisord -ni test
+            [...]
+
+When this option is set, and thus different from the default value "supervisor", it MUST be unique per instance.
+
+*Solution:* There are a few alternatives:
+
+    * leave the ``identifier`` option unset and let |Supvisors| build a default ``nick_identifier`` ;
+    * ensure that :program:`supervisord` is started using the ``-i`` option and with a different parameter
+      for every |Supvisors| instance,
+    * use a different |Supervisor| configuration file per |Supvisors| instance.
 
 
 Empty Application menu
