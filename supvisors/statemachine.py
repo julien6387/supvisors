@@ -265,6 +265,15 @@ class InitializationState(AbstractState):
         :return: None
         """
         self.context.invalid_unknown()
+        # TODO 0.19: synchro_options are used only the first time
+        #       in the event of a master loss or conflict, all instances are ready to communicate
+        #       this will avoid 2 blocking states:
+        #           1) STRICT only and one node becomes missing
+        #           2) USER only and master lost (wait for user input again...)
+        #           3) CORE only and one core node lost
+        #       when it happens, applications are running and Supvisors is stuck in INIT, so impossible to act on apps
+        #       introduce degraded mode for Supvisors ?
+        #       on degraded: BLOCK, CONTINUE, STOP, SHUTDOWN
 
 
 class MasterDeploymentState(AbstractState):

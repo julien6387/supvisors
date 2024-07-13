@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.18.4 (2024-07-xx)
+## 0.18.4 (2024-07-13)
 
 * Fix `supervisord` uptime in the **Supvisors** Web UI.
   Issue introduced in **Supvisors** 0.18 with monotonic time consideration.
