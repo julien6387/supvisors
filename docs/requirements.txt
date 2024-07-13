@@ -4,3 +4,4 @@ myst-parser==2.0.0
 supervisor==4.2.5
 websockets==10.2
 pyzmq==20.0.0
+setuptools<70.0.0
