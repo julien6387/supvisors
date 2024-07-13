@@ -281,7 +281,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         status.state_modes.starting_jobs = False
         status.state_modes.stopping_jobs = False
         handler.sup_ctx.master_identifier = ''
-        # test call with address status set in context, RUNNING, different from parameter and not MASTER
+        # test call with address status set in context, different from parameter and not MASTER
         mocker.patch.object(status, 'has_error', return_value=False)
         handler.write_nav_instances(mocked_root, '10.0.0.2:25000', True)
         assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
@@ -297,9 +297,8 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         instance_elt.reset_all()
         mocked_root.reset_all()
         handler.view_ctx.format_url.reset_mock()
-        # test call with address status set in context, RUNNING, identical to parameter, not marked as location
+        # test call with address status set in context, identical to parameter, not marked as location
         # and not MASTER
-        is_running = state == SupvisorsInstanceStates.RUNNING
         status.state_modes.starting_jobs = False
         status.state_modes.stopping_jobs = True
         handler.sup_ctx.master_identifier = '10.0.0.1:25000'
@@ -319,7 +318,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors, handler):
         instance_elt.reset_all()
         mocked_root.reset_all()
         handler.view_ctx.format_url.reset_mock()
-        # test call with address status set in context, RUNNING, identical to parameter, marked as location
+        # test call with address status set in context, identical to parameter, marked as location
         # and MASTER failure is added to the instance
         is_running = state == SupvisorsInstanceStates.RUNNING
         mocker.patch.object(status, 'has_error', return_value=is_running)
