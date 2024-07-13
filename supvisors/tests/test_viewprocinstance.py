@@ -59,7 +59,7 @@ def test_handle_parameters(mocker, view):
     view.view_ctx = Mock()
     view.handle_parameters()
     assert mocked_handle.call_args_list == [call()]
-    assert view.view_ctx.set_message_default.call_args_list == [call(Warn, 'The Supvisors rules do NOT apply here')]
+    assert view.view_ctx.set_message_default.call_args_list == [call('The Supvisors rules do NOT apply here', Warn)]
 
 
 def test_write_options(mocker, view):
