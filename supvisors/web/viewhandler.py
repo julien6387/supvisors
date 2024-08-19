@@ -506,11 +506,13 @@ class ViewHandler(MeldView):
         :return: True if process CPU statistics are valid.
         """
         if proc_stats:
-            # if SOLARIS mode configured, update the CPU data
-            # this will be applicable to the CPU plot
-            if not self.supvisors.options.stats_irix_mode:
-                proc_stats.cpu = [x / nb_cores for x in proc_stats.cpu]
-            self._write_common_detailed_statistics(stats_elt, proc_stats.cpu, proc_stats.times,
+            if self.supvisors.options.stats_irix_mode:
+                cpu = proc_stats.cpu
+            else:
+                # if SOLARIS mode configured, update the CPU data
+                # this will be applicable to the CPU plot
+                cpu = [x / nb_cores for x in proc_stats.cpu]
+            self._write_common_detailed_statistics(stats_elt, cpu, proc_stats.times,
                                                    'pcpuval_td_mid', 'pcpuavg_td_mid',
                                                    'pcpuslope_td_mid', 'pcpudev_td_mid')
             return True

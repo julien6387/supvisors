@@ -1046,10 +1046,14 @@ def test_write_detailed_process_cpu(mocker, supvisors, handler):
     supvisors.options.stats_irix_mode = True
     # test call with no stats
     assert not handler.write_detailed_process_cpu(stats_elt, None, 4)
+    assert proc_stats.cpu == [10, 16, 13]
+    assert proc_stats.times == [1, 2, 3]
     # test call with empty stats
     for mode in [True, False]:
         supvisors.options.stats_irix_mode = mode
         assert handler.write_detailed_process_cpu(stats_elt, Mock(cpu=[], times=[]), 4)
+        assert proc_stats.cpu == [10, 16, 13]
+        assert proc_stats.times == [1, 2, 3]
         assert mocked_common.call_args_list == [call(stats_elt, [], [],
                                                      'pcpuval_td_mid', 'pcpuavg_td_mid',
                                                      'pcpuslope_td_mid', 'pcpudev_td_mid')]
@@ -1057,6 +1061,8 @@ def test_write_detailed_process_cpu(mocker, supvisors, handler):
     # test call with irix mode
     supvisors.options.stats_irix_mode = True
     assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
+    assert proc_stats.cpu == [10, 16, 13]
+    assert proc_stats.times == [1, 2, 3]
     assert mocked_common.call_args_list == [call(stats_elt, [10, 16, 13], [1, 2, 3],
                                                  'pcpuval_td_mid', 'pcpuavg_td_mid',
                                                  'pcpuslope_td_mid', 'pcpudev_td_mid')]
@@ -1064,6 +1070,8 @@ def test_write_detailed_process_cpu(mocker, supvisors, handler):
     # test call with solaris mode
     supvisors.options.stats_irix_mode = False
     assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
+    assert proc_stats.cpu == [10, 16, 13]
+    assert proc_stats.times == [1, 2, 3]
     assert mocked_common.call_args_list == [call(stats_elt, [2.5, 4, 3.25], [1, 2, 3],
                                                  'pcpuval_td_mid', 'pcpuavg_td_mid',
                                                  'pcpuslope_td_mid', 'pcpudev_td_mid')]
