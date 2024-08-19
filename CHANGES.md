@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.18.5 (2024-08-19)
+
+* Fix process CPU statistics when using SOLARIS mode.
+  Issue introduced in **Supvisors** 0.18 with statistics refactoring.
+
+
 ## 0.18.4 (2024-07-13)
 
 * Fix `supervisord` uptime in the **Supvisors** Web UI.
