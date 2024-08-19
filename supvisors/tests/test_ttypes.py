@@ -70,6 +70,12 @@ def test_running_failure_strategies():
     assert [x.name for x in RunningFailureStrategies] == expected
 
 
+def test_supvisors_failure_strategies():
+    """ Test the SupvisorsFailureStrategies enumeration. """
+    expected = ['BLOCK', 'CONTINUE', 'RESTART', 'SHUTDOWN']
+    assert [x.name for x in SupvisorsFailureStrategies] == expected
+
+
 def test_process_request_result():
     """ Test the ProcessRequestResult enumeration. """
     expected = ['IN_PROGRESS', 'SUCCESS', 'FAILED', 'TIMED_OUT']

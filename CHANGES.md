@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.19 (2024-xx-xx)
+
+* TODO.
+
+
 ## 0.18.4 (2024-07-13)
 
 * Fix `supervisord` uptime in the **Supvisors** Web UI.

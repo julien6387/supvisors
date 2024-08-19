@@ -14,7 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import time
 from typing import Any, Optional, Set, Tuple
 
 from supervisor.loggers import Logger
@@ -24,37 +23,24 @@ from .instancestatus import SupvisorsInstanceStatus
 from .options import SupvisorsOptions
 from .process import ProcessStatus
 from .strategy import conciliate_conflicts
-from .ttypes import (SupvisorsInstanceStates, RunningFailureStrategies, SupvisorsStates, SynchronizationOptions,
+from .ttypes import (SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions,
+                     RunningFailureStrategies, SupvisorsFailureStrategies,
                      NameList, Payload, PayloadList, WORKING_STATES)
 
 
-class Forced:
-    pass
-
-
+# FSM base states
 class AbstractState:
-    """ Base class for a state with simple entry / next / exit actions.
-
-    Attributes are:
-        - supvisors: the reference to the global Supvisors structure ;
-        - context: the reference to the context of the global Supvisors structure ;
-        - logger: the reference to the logger of the global Supvisors structure ;
-        - local_identifier: the identifier of the local Supvisors instance.
-     """
+    """ Base class for a state with simple entry / next / exit actions. """
 
     def __init__(self, supvisors: Any) -> None:
-        """ Initialization of the attributes.
-
-        :param supvisors: the global Supvisors structure
-        """
+        """ Initialization of the attributes. """
         self.supvisors = supvisors
-        self.local_identifier = supvisors.mapper.local_identifier
 
     @property
     def context(self) -> Context:
         """ Shortcut to the Supvisors context structure
 
-        :return:
+        :return: the Supvisors context.
         """
         return self.supvisors.context
 
@@ -62,71 +48,351 @@ class AbstractState:
     def logger(self) -> Logger:
         """ Shortcut to the Supvisors logger structure
 
-        :return:
+        :return: the Supvisors logger.
         """
         return self.supvisors.logger
 
+    @property
+    def local_identifier(self) -> Optional[str]:
+        """ Shortcut to local Supvisors instance identifier.
+
+        :return: the identifier of the local Supvisors instance.
+        """
+        return self.supvisors.mapper.local_identifier
+
+    # FSM actions
     def enter(self) -> None:
         """ Actions performed when entering the state.
-        May be redefined in subclasses.
 
-        :return: None
+        :return: None.
         """
 
-    def next(self) -> SupvisorsStates:
-        """ Actions performed upon reception of an event.
-        May be redefined in subclasses.
+    def next(self) -> Optional[SupvisorsStates]:
+        """ Evaluate the current Supvisors status to decide if the FSM should transition.
 
-        :return: None
+        :return: the next Supvisors state.
         """
+        next_state = self._check_instances()
+        if next_state:
+            return next_state
+        return None
 
     def exit(self) -> None:
         """ Actions performed when leaving the state.
-        May be redefined in subclasses.
 
-        :return: None
+        :return: None.
         """
 
-    def check_instances(self) -> Optional[SupvisorsStates]:
+    def _check_instances(self) -> Optional[SupvisorsStates]:
         """ Check that local and Master Supvisors instances are still RUNNING.
         If their ticks are not received anymore, back to INITIALIZATION state to force a synchronization phase.
 
-        Set CHECKED Supvisors instances to RUNNING if no start sequence is in progress (in order to avoid interference).
-
-        :return: the suggested state if local or Master Supvisors instance is not active anymore
+        :return: the suggested state if local or Master Supvisors instance is not active anymore.
         """
-        # set all CHECKED Supvisors instances to RUNNING if no starting sequence is in progress
-        if not self.supvisors.starter.in_progress():
-            self.context.activate_checked()
         # check that the local Supvisors instance is still RUNNING
         if self.context.local_status.state != SupvisorsInstanceStates.RUNNING:
+            # consequence of an internal bug
             self.logger.critical('AbstractState.check_instances: local Supvisors instance not RUNNING')
             return SupvisorsStates.INITIALIZATION
         # check that the Master Supvisors instance is still RUNNING
         master_instance = self.context.master_instance
         if not master_instance or master_instance.state != SupvisorsInstanceStates.RUNNING:
             self.logger.warn('AbstractState.check_instances: no Master Supvisors instance RUNNING')
-            # in INITIALIZATION, master_identifier is not reset (state is not re-entered)
+            # NOTE: in INITIALIZATION state, master_identifier is not reset (state is not re-entered)
             self.context.master_identifier = ''
             return SupvisorsStates.INITIALIZATION
         return None
 
-    def abort_jobs(self) -> None:
+    def _check_strict(self, sync: bool = False) -> Optional[bool]:
+        """ Return the running status of the expected Supvisors instances.
+
+        More particularly, if the STRICT option is set, return True if all the Supvisors instances declared
+        in the supvisors_list option are running, and False otherwise.
+        Return None if the STRICT option is not set. """
+        if SynchronizationOptions.STRICT in self.supvisors.options.synchro_options:
+            if self.context.initial_running():
+                if sync:
+                    # log only during the synchronization phase
+                    self.logger.info('AbstractState.check_strict: all expected Supvisors instances are RUNNING')
+                return True
+            if not sync:
+                # log only outside the synchronization phase
+                self.logger.warn('AbstractState.check_strict: at least one expected Supvisors instance is not RUNNING')
+            # TODO: set degraded ? think about unsetting it at some point
+            return False
+        return None
+
+    def _check_list(self, sync: bool = False) -> Optional[bool]:
+        """ Return the running status of the known Supvisors instances.
+
+        More particularly, if the LIST option is set, return True if all the known Supvisors instances (i.e. those
+        declared in the supvisors_list option and those discovered) are running, and False otherwise.
+        Return None if the LIST option is not set. """
+        if SynchronizationOptions.LIST in self.supvisors.options.synchro_options:
+            if self.context.all_running():
+                if sync:
+                    self.logger.info('AbstractState.check_list: all known Supvisors instances are RUNNING')
+                return True
+            if not sync:
+                # log only outside the synchronization phase
+                self.logger.warn('AbstractState.check_list: at least one known Supvisors instance is not RUNNING')
+            # TODO: set degraded ? think about unsetting it at some point
+            return False
+        return None
+
+    def _check_core(self, sync: bool = False) -> Optional[bool]:
+        """ Return the running status of the core Supvisors instances.
+
+        More particularly, if the CORE option is set, return True if all the core Supvisors instances are running,
+        and False otherwise.
+        Return None if the CORE option is not set. """
+        if SynchronizationOptions.CORE in self.supvisors.options.synchro_options:
+            if self.context.running_core_identifiers():
+                if sync:
+                    self.logger.info('AbstractState.check_core: all core Supvisors instances are RUNNING')
+                return True
+            if not sync:
+                # log only outside the synchronization phase
+                self.logger.warn('AbstractState.check_core: at least one core Supvisors instance is not RUNNING')
+            # TODO: set degraded ? think about unsetting it at some point
+            return False
+        return None
+
+    def _check_user(self) -> Optional[bool]:
+        """ Return the running status of the active Supvisors instances.
+
+        More particularly, if the USER option is set, return True if all the active Supvisors instances are running,
+        and False otherwise.
+        Return None if the USER option is not set. """
+        if SynchronizationOptions.USER in self.supvisors.options.synchro_options:
+            if self.context.failed_identifiers():
+                self.logger.warn('AbstractState.check_user: at least one Supvisors instance is not RUNNING')
+                return False
+            return True
+        return None
+
+    def _abort_jobs(self) -> None:
         """ Abort starting jobs in progress.
 
-        :return: None
+        :return: None.
         """
         self.supvisors.failure_handler.abort()
         self.supvisors.starter.abort()
         self.supvisors.stopper.abort()
 
 
+class MasterSlaveState(AbstractState):
+    """ xxx. """
+
+    def enter(self) -> None:
+        """ Actions performed when entering the state.
+        Depending on Master/Slave status, the behaviour may be different.
+
+        :return: None.
+        """
+        if self.context.is_master:
+            self._master_enter()
+        else:
+            self._slave_enter()
+
+    def _master_enter(self) -> None:
+        """ Actions performed by the Supvisors Master instance when entering the state.
+        May be redefined in subclasses.
+
+        :return: None
+        """
+
+    def _slave_enter(self) -> None:
+        """ Actions performed by a Supvisors Slave instance when entering the state.
+        May be redefined in subclasses.
+
+        :return: None
+        """
+
+    def next(self) -> SupvisorsStates:
+        """ Evaluate the current Supvisors status to decide if the FSM should transition.
+        Depending on Master/Slave status, the behaviour may be different.
+
+        :return: the next Supvisors state.
+        """
+        # common check on Master and Slaves Supvisors instances
+        next_state = self._check_instances()
+        if next_state:
+            return next_state
+        # specific behaviour
+        if self.context.is_master:
+            return self._master_next()
+        return self._slave_next()
+
+    def _master_next(self) -> SupvisorsStates:
+        """ Evaluate the current Supvisors status for the Supvisors Master instance to decide
+        if the FSM should transition.
+
+        Must be redefined in subclasses.
+        It is expected that activate_checked and invalidate_failed are called at some point.
+
+        :return: the next Supvisors state.
+        """
+        raise NotImplementedError
+
+    def _slave_next(self) -> Optional[SupvisorsStates]:
+        """ A Supvisors slave instance generally follows the Master state (that may be not defined yet).
+        May be redefined in subclasses.
+
+        :return: the Supvisors Master state.
+        """
+        # acknowledge CHECKED instances
+        self.context.activate_checked()
+        # acknowledge FAILED instances: no process failure handling in Slave
+        self.context.invalidate_failed()
+        # always return the Master state
+        return self.context.supvisors_master_state
+
+    def exit(self) -> None:
+        """ Actions performed when leaving the state.
+        Depending on Master/Slave status, the behaviour may be different.
+
+        :return: None.
+        """
+        if self.context.is_master:
+            self._master_exit()
+        else:
+            self._slave_exit()
+
+    def _master_exit(self) -> None:
+        """ Actions performed by the Supvisors Master instance when leaving the state.
+        May be redefined in subclasses.
+
+        :return: None.
+        """
+
+    def _slave_exit(self) -> None:
+        """ Actions performed by a Supvisors Slave instance when leaving the state.
+        May be redefined in subclasses.
+
+        :return: None.
+        """
+
+class WorkingState(MasterSlaveState):
+    """ Base class for working (DISTRIBUTION, OPERATION, CONCILIATION) states. """
+
+    def _check_failure_strategy(self):
+        """ Check that the initial conditions are still valid.
+
+        :return: the suggested state if an important Supvisors instance is lost.
+        """
+        # check SynchronizationOptions STRICT / LIST / CORE / USER conditions
+        # NOTE: SynchronizationOptions TIMEOUT is only managed at InitializationState level, if the Master is lost
+        strict_failure = self._check_strict() is False
+        list_failure = self._check_list() is False
+        core_failure = self._check_core() is False
+        user_failure = self._check_user() is False
+        if strict_failure or list_failure or core_failure or user_failure:
+            # TODO: set degraded ? think about unsetting it at some point
+            strategy = self.supvisors.options.supvisors_failure_strategy
+            if strategy == SupvisorsFailureStrategies.BLOCK:
+                return SupvisorsStates.INITIALIZATION
+            # NOTE: about RESTART and SHUTDOWN strategies
+            #       if self is Master, it will just drive the other Supvisors instances, as usual
+            #       if self is Slave, 2 cases:
+            #           * Master is running
+            #             Master will drive the state of all instances until FINAL
+            #           * Master is lost
+            #             next call to check_instances will return INITIALIZATION, which will trigger the FINAL state
+            if strategy == SupvisorsFailureStrategies.RESTART:
+                return SupvisorsStates.RESTARTING
+            if strategy == SupvisorsFailureStrategies.SHUTDOWN:
+                return SupvisorsStates.SHUTTING_DOWN
+            # NOTE: just let it go with SupvisorsFailureStrategies CONTINUE
+        return None
+
+    def _check_process_failures(self) -> None:
+        """ Handle process failures if a Supvisors instance is lost. """
+        # At this point, there may be a list of FAILED Supvisors instances
+        invalidated_identifiers, failed_processes = self.context.invalidate_failed()
+        self.logger.debug(f'WorkingState.check_process_failures: invalidated_identifiers={invalidated_identifiers}'
+                          f' process_failures={[process.namespec for process in failed_processes]}')
+        if invalidated_identifiers:
+            # inform Starter and Stopper because processes in failure may be removed if already in their pipes
+            self.supvisors.starter.on_instances_invalidation(invalidated_identifiers, failed_processes)
+            self.supvisors.stopper.on_instances_invalidation(invalidated_identifiers, failed_processes)
+            # the Master fixes failures if any
+            if self.context.is_master:
+                for process in failed_processes:
+                    self.supvisors.failure_handler.add_default_job(process)
+        # trigger remaining jobs in RunningFailureHandler
+        if self.context.is_master:
+            self.supvisors.failure_handler.trigger_jobs()
+
+    def _check_instances(self) -> Optional[SupvisorsStates]:
+        """ Check that local and Master Supvisors instances are still RUNNING.
+        If their ticks are not received anymore, back to INITIALIZATION state to force a synchronization phase.
+
+        :return: the suggested state if local or Master Supvisors instance is not active anymore.
+        """
+        # check that initial conditions are still valid
+        next_state: Optional[SupvisorsStates] = self._check_failure_strategy()
+        if next_state:
+            return next_state
+        # check that the local Supvisors instance is still RUNNING
+        if self.context.local_status.state != SupvisorsInstanceStates.RUNNING:
+            # consequence of an internal bug
+            self.logger.critical('AbstractState.check_instances: local Supvisors instance not RUNNING')
+            return SupvisorsStates.INITIALIZATION
+        # check that the Master Supvisors instance is still RUNNING
+        master_instance = self.context.master_instance
+        if not master_instance or master_instance.state != SupvisorsInstanceStates.RUNNING:
+            self.logger.warn('AbstractState.check_instances: no Master Supvisors instance RUNNING')
+            # NOTE: in INITIALIZATION state, master_identifier is not reset (state is not re-entered)
+            self.context.master_identifier = ''
+            return SupvisorsStates.INITIALIZATION
+        # handle process failures if a Supvisors instance other than Local / Master has been lost
+        self._check_process_failures()
+        return None
+
+
+class EndingState(MasterSlaveState):
+    """ Base class for ending (RESTARTING, SHUTTING_DOWN) states. """
+
+    def _master_enter(self) -> None:
+        """ When entering an ending state, the Supvisors Master instance aborts all pending tasks
+        and stops all applications.
+
+        :return: None.
+        """
+        self._abort_jobs()
+        self.supvisors.stopper.stop_applications()
+
+    def _slave_enter(self) -> None:
+        """ When entering an ending state, a Supvisors Slave instance aborts all pending tasks.
+
+        :return: None.
+        """
+        self._abort_jobs()
+
+    def _check_instances(self) -> Optional[SupvisorsStates]:
+        """ Force the ending process if the local or Master Supvisors instance is lost.
+
+        :return: the suggested state if a Supvisors instance is not active anymore.
+        """
+        # NOTE: no process failure handling here, as everything is going to be stopped anyway
+        next_state = super()._check_instances()
+        if next_state:
+            # even if the Master has been lost, it is excluded to transition back to INITIALIZATION state
+            # at this point, so just reach the FINAL state
+            return SupvisorsStates.FINAL
+        return None
+
+
+# FSM states
 class OffState(AbstractState):
 
     def next(self) -> SupvisorsStates:
         """ Wait for Supervisor to be RUNNING.
 
-        :return: the new Supvisors state
+        No Master / slave at this stage.
+
+        :return: the new Supvisors state.
         """
         # The Supvisors XML-RPC handler is an easy mark to know that Supervisor is running
         if self.supvisors.rpc_handler:
@@ -140,45 +406,23 @@ class InitializationState(AbstractState):
     def enter(self) -> None:
         """ When entering the INITIALIZATION state, reset the context.
 
-        :return: None
+        :return: None.
         """
         # clear any existing job
-        self.abort_jobs()
+        self._abort_jobs()
         # reset context, keeping the isolation status
         self.context.reset()
 
-    def _check_end_sync_strict(self) -> bool:
-        """ End of sync phase if all Supvisors instances declared in the supvisors_list option are running.
-        NOTE: this option is NOT allowed if the supvisors_list is empty (which is expected in discovery mode,
-        but still possible).
-        """
-        if SynchronizationOptions.STRICT in self.supvisors.options.synchro_options:
-            if self.context.initial_running():
-                self.logger.info('InitializationState._check_end_sync_list: all expected Supvisors instances'
-                                 ' are RUNNING')
-                return True
-        return False
-
-    def _check_end_sync_list(self) -> bool:
-        """ End of sync phase if all known Supvisors instances are running.
-        NOTE: this includes the Supvisors instances declared in the supvisors_list option and the discovered
-        Supvisors instances.
-        """
-        if SynchronizationOptions.LIST in self.supvisors.options.synchro_options:
-            if self.context.all_running():
-                self.logger.info('InitializationState._check_end_sync_list: all known Supvisors instances'
-                                 ' are RUNNING')
-                return True
-        return False
-
     def _check_end_sync_timeout(self, uptime: float) -> bool:
         """ End of sync phase if the uptime has exceeded the synchro_timeout. """
+        # FIXME: TBC return True if all instances NOT UNKNOWN (secured by SYNCHRO_TIMEOUT_MIN TBC)
+        #        idea is to avoid wasting time in case of re-entering this state
         if SynchronizationOptions.TIMEOUT in self.supvisors.options.synchro_options:
             synchro_timeout = self.supvisors.options.synchro_timeout
-            self.logger.debug(f'InitializationState._check_end_sync_timeout: uptime={uptime}'
+            self.logger.debug(f'InitializationState.check_end_sync_timeout: uptime={uptime}'
                               f' synchro_timeout={synchro_timeout}')
             if uptime >= synchro_timeout:
-                self.logger.info(f'InitializationState._check_end_sync_timeout: timeout {synchro_timeout} reached')
+                self.logger.info(f'InitializationState.check_end_sync_timeout: timeout {synchro_timeout} reached')
                 return True
         return False
 
@@ -187,19 +431,19 @@ class InitializationState(AbstractState):
         If the condition is reached, the DEPLOYMENT state may be reached with Supvisors instances still UNKNOWN.
         NOTE: this option is NOT allowed if the core_identifiers is empty (which is expected in discovery mode,
         but still possible). """
-        if SynchronizationOptions.CORE in self.supvisors.options.synchro_options:
-            # all core Supvisors instances must be running
+
+        core_sync = self._check_core(True)
+        if core_sync:
+            # all core Supvisors instances are running
             # in case of late start, a security limit of SYNCHRO_TIMEOUT_MIN is kept to give a chance
-            # to other Supvisors instances and limit the number of redeploy_mark
-            if uptime > SupvisorsOptions.SYNCHRO_TIMEOUT_MIN and self.context.running_core_identifiers():
+            # to other Supvisors instances and limit the number of re-distributions
+            if uptime > SupvisorsOptions.SYNCHRO_TIMEOUT_MIN:
                 # in the event where the local Supvisors instance has been started lately, there may be already
-                #   a Master Supvisors instance, in which case it must be seen as running
+                # a Master Supvisors instance, in which case it must be seen as running
                 if not self.context.master_identifier or self.context.master_identifier in running_identifiers:
-                    self.logger.info('InitializationState._check_end_sync_core: all core Supvisors instances'
-                                     ' are RUNNING')
                     return True
-                self.logger.info('InitializationState._check_end_sync_core: all core Supvisors instances'
-                                 f' are RUNNING but not the declared Master={self.context.master_identifier}')
+                self.logger.info('InitializationState.check_end_sync_core: waiting for the declared'
+                                 f' Master={self.context.master_identifier} to be RUNNING')
         return False
 
     def _check_end_sync_user(self, running_identifiers: NameList) -> bool:
@@ -218,25 +462,29 @@ class InitializationState(AbstractState):
         """ Wait for Supvisors instances to exchange their data until a condition is reached
         to end the synchronization phase.
 
-        :return: the new Supvisors state
+        No Master / slave at this stage.
+
+        :return: the new Supvisors state.
         """
-        # set all CHECKED Supvisors instances to RUNNING
+        # transition all CHECKED Supvisors instances to RUNNING
         self.context.activate_checked()
+        # TODO TBC: transition all FAILED Supvisors instances back to UNKNOWN
+        self.context.invalidate_failed()
         # get duration from start date
-        uptime: float = time.monotonic() - self.context.start_date
+        uptime: float = self.context.uptime
         # cannot get out of this state without local Supvisors instance RUNNING
         running_identifiers = self.context.running_identifiers()
         if self.local_identifier in running_identifiers:
             # check end of sync conditions
             self.logger.trace(f'InitializationState.next: synchro_options={self.supvisors.options.synchro_options}')
-            strict_sync = self._check_end_sync_strict()
-            list_sync = self._check_end_sync_list()
-            timeout_synch = self._check_end_sync_timeout(uptime)
+            strict_sync = self._check_strict(True)
+            list_sync = self._check_list(True)
+            timeout_sync = self._check_end_sync_timeout(uptime)
             core_sync = self._check_end_sync_core(uptime, running_identifiers)
             user_sync = self._check_end_sync_user(running_identifiers)
             self.logger.debug(f'InitializationState.next: strict_sync={strict_sync} list_sync={list_sync}'
-                              f' timeout_synch={timeout_synch} core_sync={core_sync} user_sync={user_sync}')
-            if strict_sync or list_sync or timeout_synch or core_sync or user_sync:
+                              f' timeout_sync={timeout_sync} core_sync={core_sync} user_sync={user_sync}')
+            if strict_sync or list_sync or timeout_sync or core_sync or user_sync:
                 if self.context.master_identifier:
                     # check Master status and reset if not running
                     if self.context.master_instance.state != SupvisorsInstanceStates.RUNNING:
@@ -248,7 +496,7 @@ class InitializationState(AbstractState):
                     return SupvisorsStates.DISTRIBUTION
                 # The Slaves will follow the Master state
                 # WARN: at this point, the Master FSM state may not be known yet
-                return self.supvisors.context.supvisors_state
+                return self.supvisors.context.master_state
         else:
             # log current status
             if uptime >= SupvisorsOptions.SYNCHRO_TIMEOUT_MIN:
@@ -264,86 +512,102 @@ class InitializationState(AbstractState):
 
         :return: None
         """
-        self.context.invalid_unknown()
-        # TODO 0.19: synchro_options are used only the first time
-        #       in the event of a master loss or conflict, all instances are ready to communicate
-        #       this will avoid 2 blocking states:
-        #           1) STRICT only and one node becomes missing
-        #           2) USER only and master lost (wait for user input again...)
-        #           3) CORE only and one core node lost
-        #       when it happens, applications are running and Supvisors is stuck in INIT, so impossible to act on apps
-        #       introduce degraded mode for Supvisors ?
-        #       on degraded: BLOCK, CONTINUE, STOP, SHUTDOWN
+        self.context.invalidate_unknown()
+        # Prepare next time entering the INITIALIZATION state
+        if self.supvisors.options.supvisors_failure_strategy == SupvisorsFailureStrategies.CONTINUE:
+            # NOTE: if the Supvisors failure strategy is CONTINUE, replace the current synchro with a minimum timeout
+            #       upon the loss of a Supvisors Master instance, the FSM re-enters this state to elect a new Master
+            #       at this stage, all instances are already ready to communicate, so it should sync fast
+            self.supvisors.options.synchro_options = SynchronizationOptions.TIMEOUT
+            self.supvisors.options.synchro_timeout = SupvisorsOptions.SYNCHRO_TIMEOUT_MIN
 
 
-class MasterDeploymentState(AbstractState):
-    """ In the DEPLOYMENT state, Supvisors starts automatically the applications having a starting model. """
+class ElectionState(AbstractState):
+    """ In the ELECTION state, a Supvisors Master instance is elected. """
 
-    def enter(self):
+    def next(self) -> Optional[SupvisorsStates]:
+        # exit only when all active Supvisors instances agree on the same identifier
+        # TODO
+        ...
+
+
+class DistributionState(AbstractState):
+    """ In the DISTRIBUTION state, Supvisors starts automatically the applications having a starting model.
+
+    The distribution jobs are driven by the Supvisors Master instance only.
+    """
+
+    def master_enter(self):
         """ Trigger the automatic start and stop. """
-        self.supvisors.starter.start_applications(self.supvisors.fsm.redeploy_mark is Forced)
-        self.supvisors.fsm.redeploy_mark = False
+        self.supvisors.starter.start_applications(self.supvisors.fsm.force_distribution)
+        self.supvisors.fsm.force_distribution = False
 
-    def next(self) -> SupvisorsStates:
+    def master_next(self) -> SupvisorsStates:
         """ Check if the starting tasks are completed.
 
-        :return: the new Supvisors state
+        :return: the next Supvisors state.
         """
-        # common check on local and Master Supvisors instances
-        next_state = self.check_instances()
-        if next_state:
-            return next_state
+        # TODO: manage invalidate_failed TBC
+        self.context.invalidate_failed()
         # Master goes to OPERATION when starting is completed
         if self.supvisors.starter.in_progress():
+            return SupvisorsStates.DISTRIBUTION
+        # new Supvisors instances may have arrived in the gap
+        checked_identifiers = self.context.activate_checked()
+        if checked_identifiers:
+            # call enter again to trigger a new distribution
+            self.logger.info('DistributionState.master_next: re-enter DISTRIBUTION because of new'
+                             f' Supvisors instances={checked_identifiers}')
+            self.master_enter()
             return SupvisorsStates.DISTRIBUTION
         return SupvisorsStates.OPERATION
 
 
-class MasterOperationState(AbstractState):
+class OperationState(AbstractState):
     """ In the OPERATION state, Supvisors is waiting for requests. """
 
-    def next(self) -> SupvisorsStates:
+    def master_next(self) -> SupvisorsStates:
         """ Check that all Supvisors instances are still active.
         Look after possible conflicts due to multiple running instances of the same process.
 
         :return: the new Supvisors state
         """
-        # common check on local and Master Supvisors instances
-        next_state = self.check_instances()
-        if next_state:
-            return next_state
+        # TODO: manage invalidate_failed TBC
+        self.context.invalidate_failed()
         # check if jobs are in progress
         if self.supvisors.starter.in_progress() or self.supvisors.stopper.in_progress():
             return SupvisorsStates.OPERATION
         # check duplicated processes
         if self.context.conflicting():
             return SupvisorsStates.CONCILIATION
-        # a redeployment mark has been set due to a new alive Supvisors instance
-        # back to DEPLOYMENT state to repair what may have failed before
-        if self.supvisors.fsm.redeploy_mark:
+        # new Supvisors instances may have arrived in the gap
+        checked_identifiers = self.context.activate_checked()
+        if checked_identifiers:
+            # back to DISTRIBUTION state to repair what may have failed before
+            self.logger.info('OperationState.master_next: transition to DISTRIBUTION because of new'
+                             f' Supvisors instances={checked_identifiers}')
             return SupvisorsStates.DISTRIBUTION
         return SupvisorsStates.OPERATION
 
 
-class MasterConciliationState(AbstractState):
-    """ In the CONCILIATION state, Supvisors conciliates the conflicts. """
+class ConciliationState(AbstractState):
+    """ In the CONCILIATION state, Supvisors conciliates the conflicts.
 
-    def enter(self) -> None:
+    The conciliation jobs are driven by the Supvisors Master instance only.
+    """
+
+    def master_enter(self) -> None:
         """ When entering the CONCILIATION state, conciliate automatically the conflicts. """
         conciliate_conflicts(self.supvisors,
                              self.supvisors.options.conciliation_strategy,
                              self.context.conflicts())
 
-    def next(self) -> SupvisorsStates:
+    def master_next(self) -> SupvisorsStates:
         """ Check that all Supvisors instances are still active.
         Wait for all conflicts to be conciliated.
 
-        :return: the new Supvisors state
+        :return: the next Supvisors state.
         """
-        # common check on local and Master Supvisors instances
-        next_state = self.check_instances()
-        if next_state:
-            return next_state
         # check if jobs are in progress
         if self.supvisors.starter.in_progress() or self.supvisors.stopper.in_progress():
             return SupvisorsStates.CONCILIATION
@@ -352,155 +616,87 @@ class MasterConciliationState(AbstractState):
             return SupvisorsStates.OPERATION
         # new conflicts may happen while conciliation is in progress
         # call enter again to trigger a new conciliation
-        self.enter()
+        self.master_enter()
         return SupvisorsStates.CONCILIATION
 
 
-class MasterRestartingState(AbstractState):
-    """ In the RESTARTING state, Supvisors stops all applications before triggering a full restart. """
+class RestartingState(EndingState):
+    """ In the RESTARTING state, Supvisors stops all applications before triggering a restart
+    of the local Supvisors instance.
 
-    def enter(self) -> None:
-        """ When entering the RESTARTING state, stop all applications.
+    The stop sequence is driven by the Master only.
+    """
 
-        :return: None
+    def master_next(self) -> SupvisorsStates:
+        """ The Master waits for all processes to be stopped.
+
+        :return: the next Supvisors state.
         """
-        self.abort_jobs()
-        self.supvisors.stopper.stop_applications()
-
-    def next(self) -> SupvisorsStates:
-        """ Wait for all processes to be stopped.
-
-        :return: the new Supvisors state
-        """
-        next_state = self.check_instances()
-        if next_state:
-            # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.FINAL
         # check if stopping jobs are in progress
         if self.supvisors.stopper.in_progress():
             return SupvisorsStates.RESTARTING
         return SupvisorsStates.FINAL
 
-    def exit(self):
-        """ When exiting the RESTARTING state, request the Supervisor restart. """
-        self.supvisors.rpc_handler.send_restart(self.local_identifier)
-        # Slave instances will do the same when they will transition out of their RESTARTING state
-
-
-class MasterShuttingDownState(AbstractState):
-    """ In the SHUTTING_DOWN state, Supvisors stops all applications before triggering a full shutdown. """
-
-    def enter(self):
-        """ When entering in the SHUTTING_DOWN state, stop all applications. """
-        self.abort_jobs()
-        self.supvisors.stopper.stop_applications()
-
-    def next(self):
+    def slave_next(self) -> SupvisorsStates:
         """ Wait for all processes to be stopped.
 
-        :return: the new Supvisors state
+        :return: the next Supvisors state.
         """
-        # check eventual jobs in progress
-        next_state = self.check_instances()
-        if next_state:
-            # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.FINAL
-        # check if stopping jobs are in progress
-        if self.supvisors.stopper.in_progress():
-            return SupvisorsStates.SHUTTING_DOWN
-        return SupvisorsStates.FINAL
-
-    def exit(self):
-        """ When exiting the SHUTTING_DOWN state, request the Supervisor shutdown. """
-        self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
-        # Slave instances will do the same when they will transition out of their SHUTTING_DOWN state
-
-
-class SlaveMainState(AbstractState):
-
-    def next(self) -> SupvisorsStates:
-        """ The non-master instances are checking if local and Master Supvisors instances are still running.
-        Local start / stop requests are evaluated too.
-
-        :return: the new Supvisors state
-        """
-        # common check on local and Master Supvisors instances
-        next_state = self.check_instances()
-        if next_state:
-            return next_state
-        # next state is the Master state (maybe None)
-        return self.supvisors.context.supvisors_state
-
-
-class SlaveRestartingState(AbstractState):
-    """ In the RESTARTING state, Supvisors stops all applications before triggering a full restart. """
-
-    def enter(self) -> None:
-        """ When entering the RESTARTING state, abort all pending tasks applications.
-
-        :return: None
-        """
-        self.abort_jobs()
-
-    def next(self) -> SupvisorsStates:
-        """ Wait for all processes to be stopped.
-
-        :return: the new Supvisors state
-        """
-        next_state = self.check_instances()
-        if next_state:
-            # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.FINAL
         # stay in RESTARTING as long as the Master does
-        if self.supvisors.context.supvisors_state == SupvisorsStates.RESTARTING:
+        if self.context.supvisors_master_state == SupvisorsStates.RESTARTING:
             return SupvisorsStates.RESTARTING
+        # the Master is expected to transition to the FINAL state
+        if self.context.supvisors_master_state != SupvisorsStates.FINAL:
+            self.logger.error('RestartingState.slave_next: unexpected transition from the Master'
+                              f' ({self.context.supvisors_master_state.name})')
         return SupvisorsStates.FINAL
 
     def exit(self):
-        """ When exiting the RESTARTING state, request the full restart.
-
-        NOTE: this has been moved from the former RestartState / enter because a Supvisors Slave
-        could move from RESTARTING to any other state if the Master commands so,
-        and it's important that Supervisor restarts at this point. """
+        """ When exiting the RESTARTING state, request the local Supervisor restart.
+        Same action for Master and Slaves. """
         self.supvisors.rpc_handler.send_restart(self.local_identifier)
 
 
-class SlaveShuttingDownState(AbstractState):
-    """ In the SHUTTING_DOWN state, Supvisors stops all applications before triggering a full shutdown. """
+class ShuttingDownState(EndingState):
+    """ In the SHUTTING_DOWN state, Supvisors stops all applications before triggering a shutdown
+    of the local Supvisors instance.
 
-    def enter(self) -> None:
-        """ When entering the SHUTTING_DOWN state, abort all pending tasks applications.
+    The stop sequence is driven by the Master only.
+    """
 
-        :return: None
+    def master_next(self) -> SupvisorsStates:
+        """ The Master waits for all processes to be stopped.
+
+        :return: the next Supvisors state.
         """
-        self.abort_jobs()
-
-    def next(self) -> SupvisorsStates:
-        """ Wait for all processes to be stopped.
-
-        :return: the new Supvisors state
-        """
-        next_state = self.check_instances()
-        if next_state:
-            # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.FINAL
-        # stay in SHUTTING_DOWN as long as the Master does
-        if self.supvisors.context.supvisors_state == SupvisorsStates.SHUTTING_DOWN:
+        # check if stopping jobs are in progress
+        if self.supvisors.stopper.in_progress():
             return SupvisorsStates.SHUTTING_DOWN
         return SupvisorsStates.FINAL
 
-    def exit(self):
-        """ When exiting the SHUTTING_DOWN state, request the Supervisor shutdown.
+    def slave_next(self) -> SupvisorsStates:
+        """ Wait for all processes to be stopped.
 
-        NOTE: this has been moved from the former ShutDownState / enter because a Supvisors Slave
-        could move from SHUTTING_DOWN to any other state if the Master commands so,
-        and it's important that Supervisor shuts down at this point. """
+        :return: the next Supvisors state.
+        """
+        # stay in RESTARTING as long as the Master does
+        if self.context.supvisors_master_state == SupvisorsStates.SHUTTING_DOWN:
+            return SupvisorsStates.SHUTTING_DOWN
+        # the Master is expected to transition to the FINAL state
+        if self.context.supvisors_master_state != SupvisorsStates.FINAL:
+            self.logger.error('ShuttingDownState.slave_next: unexpected transition from the Master'
+                              f' ({self.context.supvisors_master_state.name})')
+        return SupvisorsStates.FINAL
+
+    def exit(self):
+        """ When exiting the SHUTTING_DOWN state, request the local Supervisor shutdown.
+        Same action for Master and Slaves. """
         self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
 
 
 class FinalState(AbstractState):
     """ This is a final state for Master and Slaves.
-    Whatever it is a shutdown or a restart, the Supervisor 'session' will end. """
+    Whatever it is consecutive to a shutdown or a restart, the Supervisor 'session' will end. """
 
 
 class FiniteStateMachine:
@@ -510,7 +706,7 @@ class FiniteStateMachine:
     Attributes are:
         - state: the current state of this state machine ;
         - instance: the current state instance ;
-        - redeploy_mark: a status telling if a DEPLOYMENT state is pending.
+        - force_distribution: a status telling if a DISTRIBUTION state is pending.
     """
 
     def __init__(self, supvisors: Any) -> None:
@@ -519,9 +715,8 @@ class FiniteStateMachine:
         :param supvisors: the Supvisors global structure
         """
         self.supvisors = supvisors
-        self.state: SupvisorsStates = SupvisorsStates.OFF
         self.instance: AbstractState = OffState(supvisors)
-        self.redeploy_mark: bool = False
+        self.force_distribution: bool = False
 
     @property
     def logger(self) -> Logger:
@@ -532,6 +727,11 @@ class FiniteStateMachine:
     def context(self) -> Context:
         """ Return the Supvisors context structure. """
         return self.supvisors.context
+
+    @property
+    def state(self) -> SupvisorsStates:
+        """ Return the Supvisors context structure. """
+        return self.context.supvisors_local_state
 
     def next(self) -> None:
         """ Send the event to the state and transitions if possible.
@@ -549,10 +749,10 @@ class FiniteStateMachine:
         """ Update the current state of the state machine and transitions as long as possible.
         The transition can be forced, especially when getting the first Master state.
 
-        :param next_state: the new state
-        :return: None
+        :param next_state: the new state.
+        :return: None.
         """
-        # in the event of a Slave FSM, the master state may not be known yet, hence the test on next_state
+        # NOTE: in the event of a Slave FSM, the master state may not be known yet, hence the test on next_state
         while next_state and next_state != self.state:
             # check that the transition is allowed
             # a Slave Supvisors will always follow the Master state
@@ -562,25 +762,19 @@ class FiniteStateMachine:
                 break
             # exit the current state
             self.instance.exit()
-            # assign the new state and publish SupvisorsStatus event internally and externally
-            self.state = next_state
+            # assign the new Supvisors state
+            self.context.local_state = next_state
             self.logger.warn(f'FiniteStateMachine.set_state: Supvisors in {self.state.name}')
-            # publish the new state
-            self.supvisors.context.publish_state_modes({'fsm_state': self.state})
-            # create the new state and enters it
-            if self.context.is_master:
-                self.instance = self._MasterStateInstances[self.state](self.supvisors)
-            else:
-                self.instance = self._SlaveStateInstances[self.state](self.supvisors)
+            # create the new state and enter it
+            self.instance = self._StateInstances[self.state](self.supvisors)
             self.instance.enter()
             # evaluate current state
             next_state = self.instance.next()
 
     def on_timer_event(self, event: Payload) -> None:
-        """ Periodic task used to check if remote Supvisors instances are still active.
-        This is also the main event trigger of this state machine. """
-        invalidated_identifiers, failed_processes = self.context.on_timer_event(event)
-        self.handle_instance_failures(invalidated_identifiers, failed_processes)
+        """ Periodic task used to check if remote Supvisors instances are still active. """
+        self.context.on_timer_event(event)
+        self.next()
 
     def handle_instance_failures(self, invalidated_identifiers: NameList,
                                  failed_processes: Set[ProcessStatus]) -> None:
@@ -608,8 +802,8 @@ class FiniteStateMachine:
         if self.context.is_master:
             self.supvisors.failure_handler.trigger_jobs()
         # trigger FSM for global status re-evaluation
-        # the Master may have been invalidated
-        # process_failures could also positively impact the conflicts in the CONCILIATION state
+        #   -> the Master may have been invalidated
+        #   -> process_failures could also positively impact the conflicts in the CONCILIATION state
         self.next()
 
     # Event handling methods
@@ -629,10 +823,7 @@ class FiniteStateMachine:
         :param event: the discovery event.
         :return: None.
         """
-        # When Supvisors is in discovery mode, new Supvisors instances may be added on-the-fly
-        if self.context.on_discovery_event(event[0], event[1]):
-            # a DEPLOYMENT will be requested if a new Supvisors instance has been inserted
-            self.redeploy_mark = True
+        self.context.on_discovery_event(event[0], event[1])
 
     def on_process_state_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event sent from the Supvisors instance.
@@ -652,7 +843,6 @@ class FiniteStateMachine:
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
             if self.context.is_master and process.crashed():
-                # local variables to keep it readable
                 strategy = process.rules.running_failure_strategy
                 if strategy == RunningFailureStrategies.RESTART:
                     self.on_restart()
@@ -706,18 +896,18 @@ class FiniteStateMachine:
         # WARN: local instance is already up-to-date, could even be a step beyond
         #   so ignore the event if it is a local event
         ref_master = self.context.master_identifier
-        ref_supvisors_state = self.context.supvisors_state
+        ref_master_state = self.context.supvisors_master_state
         # update the Supvisors instance states and modes
         self.context.on_instance_state_event(status, event)
         # check if there has been changes in Master and/or its state
         if ref_master != self.context.master_identifier:
             self.logger.info(f'FiniteStateMachine.on_state_event: new Master Supvisors={self.context.master_identifier}'
-                             f' in {self.context.supvisors_state}')
-            # if there has been a Master change and the local identifier is involved, the FSM type has to change,
-            #   so it is required to go back to INITIALIZATION state
+                             f' in {self.context.supvisors_master_state}')
+            # WARN: if there has been a Master change and the local identifier is involved, the FSM type has to change,
+            #       so it is required to go back to INITIALIZATION state
             if self.context.local_identifier in [ref_master, self.context.master_identifier]:
                 self.set_state(SupvisorsStates.INITIALIZATION)
-        elif ref_supvisors_state != self.context.supvisors_state:
+        elif ref_master_state != self.context.supvisors_master_state:
             # the Master has transitioned to another state, so trigger the FSM
             self.next()
 
@@ -736,8 +926,7 @@ class FiniteStateMachine:
         :param status: the Supvisors instance that sent the event.
         :return: None.
         """
-        process_failures: Set[ProcessStatus] = self.context.on_instance_failure(status)
-        self.handle_instance_failures([status.identifier], process_failures)
+        self.context.on_instance_failure(status)
 
     def on_authorization(self, status: SupvisorsInstanceStatus, authorized: Optional[bool]) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
@@ -749,26 +938,15 @@ class FiniteStateMachine:
         """
         self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={status.usage_identifier}'
                           f' authorized={authorized}')
-        if self.context.on_authorization(status, authorized):
-            # a new Supvisors instance comes in group
-            # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing instance
-            # the idea of simply going back to INITIALIZATION is rejected as it would imply a re-synchronization
-            if self.context.is_master:
-                if self.state in WORKING_STATES:
-                    # it may not be relevant to transition directly to DEPLOYMENT from here
-                    # the DEPLOYMENT and CONCILIATION states are temporary and pending on actions to be completed
-                    # so mark the context to remember that a re-DEPLOYMENT can be considered at OPERATION level
-                    self.redeploy_mark = True
-                    self.logger.info('FiniteStateMachine.on_authorization: defer re-DEPLOYMENT caused by new'
-                                     f' Supvisors={status.usage_identifier}')
+        self.context.on_authorization(status, authorized)
 
     def on_restart_sequence(self) -> None:
         """ This event is used to transition the state machine to the DEPLOYMENT state.
 
-        :return: None
+        :return: None.
         """
         if self.context.is_master:
-            self.redeploy_mark = Forced
+            self.force_distribution = True
         else:
             # re-route the command to Master
             self.supvisors.rpc_handler.send_restart_sequence(self.context.master_identifier)
@@ -776,7 +954,7 @@ class FiniteStateMachine:
     def on_restart(self) -> None:
         """ This event is used to transition the state machine to the RESTARTING state.
 
-        :return: None
+        :return: None.
         """
         if self.context.is_master:
             self.set_state(SupvisorsStates.RESTARTING)
@@ -792,7 +970,7 @@ class FiniteStateMachine:
     def on_shutdown(self) -> None:
         """ This event is used to transition the state machine to the SHUTTING_DOWN state.
 
-        :return: None
+        :return: None.
         """
         if self.context.is_master:
             self.set_state(SupvisorsStates.SHUTTING_DOWN)
@@ -819,23 +997,14 @@ class FiniteStateMachine:
         self.next()
 
     # Map between state enumerations and classes
-    _MasterStateInstances = {SupvisorsStates.OFF: OffState,
-                             SupvisorsStates.INITIALIZATION: InitializationState,
-                             SupvisorsStates.DISTRIBUTION: MasterDeploymentState,
-                             SupvisorsStates.OPERATION: MasterOperationState,
-                             SupvisorsStates.CONCILIATION: MasterConciliationState,
-                             SupvisorsStates.RESTARTING: MasterRestartingState,
-                             SupvisorsStates.SHUTTING_DOWN: MasterShuttingDownState,
-                             SupvisorsStates.FINAL: FinalState}
-
-    _SlaveStateInstances = {SupvisorsStates.OFF: OffState,
-                            SupvisorsStates.INITIALIZATION: InitializationState,
-                            SupvisorsStates.DISTRIBUTION: SlaveMainState,
-                            SupvisorsStates.OPERATION: SlaveMainState,
-                            SupvisorsStates.CONCILIATION: SlaveMainState,
-                            SupvisorsStates.RESTARTING: SlaveRestartingState,
-                            SupvisorsStates.SHUTTING_DOWN: SlaveShuttingDownState,
-                            SupvisorsStates.FINAL: FinalState}
+    _StateInstances = {SupvisorsStates.OFF: OffState,
+                       SupvisorsStates.INITIALIZATION: InitializationState,
+                       SupvisorsStates.DISTRIBUTION: DistributionState,
+                       SupvisorsStates.OPERATION: OperationState,
+                       SupvisorsStates.CONCILIATION: ConciliationState,
+                       SupvisorsStates.RESTARTING: RestartingState,
+                       SupvisorsStates.SHUTTING_DOWN: ShuttingDownState,
+                       SupvisorsStates.FINAL: FinalState}
 
     # Transitions allowed between states
     _Transitions = {SupvisorsStates.OFF: [SupvisorsStates.INITIALIZATION],

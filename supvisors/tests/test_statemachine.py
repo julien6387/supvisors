@@ -275,15 +275,15 @@ def test_master_deployment_state(mocker, supvisors_ctx):
     # test enter method with redeploy_mark as a boolean
     mocked_starter = supvisors_ctx.starter.start_applications
     for mark in [True, False]:
-        supvisors_ctx.fsm.redeploy_mark = mark
+        supvisors_ctx.fsm.mark_for_distribution = mark
         state.enter()
-        assert not supvisors_ctx.fsm.redeploy_mark
+        assert not supvisors_ctx.fsm.mark_for_distribution
         assert mocked_starter.call_args_list == [call(False)]
         mocked_starter.reset_mock()
     # test enter method with full restart required
-    supvisors_ctx.fsm.redeploy_mark = Forced
+    supvisors_ctx.fsm.mark_for_distribution = Forced
     state.enter()
-    assert not supvisors_ctx.fsm.redeploy_mark
+    assert not supvisors_ctx.fsm.mark_for_distribution
     assert mocked_starter.call_args_list == [call(True)]
     mocked_starter.reset_mock()
     # test next method if check_instances return something
@@ -343,7 +343,7 @@ def test_master_operation_state(mocker, supvisors_ctx):
     # stay in OPERATION if no conflict
     mocked_conflict = mocker.patch.object(supvisors_ctx.context, 'conflicting', return_value=False)
     # mark for re-deployment
-    supvisors_ctx.fsm.redeploy_mark = True
+    supvisors_ctx.fsm.mark_for_distribution = True
     result = state.next()
     assert result == SupvisorsStates.DISTRIBUTION
     # transit to CONCILIATION if conflict detected
@@ -549,7 +549,7 @@ def fsm(supvisors):
 def test_creation(supvisors, fsm):
     """ Test the values set at construction. """
     assert fsm.supvisors is supvisors
-    assert not fsm.redeploy_mark
+    assert not fsm.mark_for_distribution
     # test that the INITIALIZATION state is triggered at creation
     assert fsm.state == SupvisorsStates.OFF
     assert isinstance(fsm.instance, OffState)
@@ -817,7 +817,7 @@ def test_discovery_event(mocker, fsm):
     event = '192.168.1.1:5000', 'dummy_identifier', ['10.0.0.1', 7777]
     fsm.on_discovery_event(event)
     assert mocked_evt.call_args_list == [call('192.168.1.1:5000', 'dummy_identifier')]
-    assert fsm.redeploy_mark
+    assert fsm.mark_for_distribution
 
 
 def test_process_state_event_process_not_found(mocker, fsm):
@@ -1136,7 +1136,9 @@ def test_on_state_event(mocker, supvisors, fsm):
     fsm.context.master_identifier = '10.0.0.2:25000'
     fsm.context.master_instance._state = SupvisorsInstanceStates.RUNNING
     fsm.context.master_instance.state_modes.state = SupvisorsStates.OPERATION
-    payload = {'fsm_statecode': SupvisorsStates.OPERATION, 'discovery_mode': True,
+    payload = {'fsm_statecode': SupvisorsStates.OPERATION,
+               'degraded_mode': False,
+               'discovery_mode': True,
                'master_identifier': '10.0.0.1:25000',
                'starting_jobs': False, 'stopping_jobs': False}
     status = supvisors.context.instances['10.0.0.1:25000']
@@ -1155,7 +1157,9 @@ def test_on_state_event(mocker, supvisors, fsm):
     assert not mocked_next.called
     mocker.resetall()
     # test change in the Supvisors state
-    payload = {'fsm_statecode': SupvisorsStates.CONCILIATION, 'discovery_mode': True,
+    payload = {'fsm_statecode': SupvisorsStates.CONCILIATION,
+               'degraded_mode': False,
+               'discovery_mode': True,
                'master_identifier': '10.0.0.1:25000',
                'starting_jobs': False, 'stopping_jobs': False}
     fsm.on_state_event(status, payload)
@@ -1179,7 +1183,7 @@ def test_on_authorization(mocker, supvisors, fsm):
     status = supvisors.context.instances['10.0.0.1:25000']
     fsm.on_authorization(status, False)
     assert mocked_auth.call_args_list == [call(status, False)]
-    assert not fsm.redeploy_mark
+    assert not fsm.mark_for_distribution
     mocked_auth.reset_mock()
     # test successful authorization
     mocked_auth.return_value = True
@@ -1187,21 +1191,21 @@ def test_on_authorization(mocker, supvisors, fsm):
     assert not fsm.context.is_master
     fsm.on_authorization(status, True)
     assert mocked_auth.call_args == call(status, True)
-    assert not fsm.redeploy_mark
+    assert not fsm.mark_for_distribution
     mocked_auth.reset_mock()
     # test authorization when local is master, but not in working states
     supvisors.context.master_identifier = local_identifier
     assert fsm.context.is_master
     fsm.on_authorization(status, True)
     assert mocked_auth.call_args == call(status, True)
-    assert not fsm.redeploy_mark
+    assert not fsm.mark_for_distribution
     mocked_auth.reset_mock()
     # test authorization when local is master, and in working states
     fsm.state = SupvisorsStates.OPERATION
     status = supvisors.context.instances['10.0.0.3:25000']
     fsm.on_authorization(status, True)
     assert mocked_auth.call_args == call(status, True)
-    assert fsm.redeploy_mark
+    assert fsm.mark_for_distribution
 
 
 def test_restart_sequence_event(supvisors, fsm):
@@ -1209,17 +1213,17 @@ def test_restart_sequence_event(supvisors, fsm):
     # inject restart event and test setting of redeploy_mark
     mocked_restart = supvisors.rpc_handler.send_restart_sequence
     fsm.supvisors.context.master_identifier = '10.0.0.1'
-    assert not fsm.redeploy_mark
+    assert not fsm.mark_for_distribution
     # test when not master
     fsm.on_restart_sequence()
-    assert not fsm.redeploy_mark
+    assert not fsm.mark_for_distribution
     assert mocked_restart.call_args_list == [call('10.0.0.1')]
     mocked_restart.reset_mock()
     # test when master
     fsm.context.master_identifier = fsm.context.local_identifier
     fsm.on_restart_sequence()
     assert not mocked_restart.called
-    assert fsm.redeploy_mark is Forced
+    assert fsm.mark_for_distribution is Forced
 
 
 def test_restart_event(mocker, supvisors, fsm):

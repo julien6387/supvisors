@@ -39,6 +39,7 @@ def config():
             'core_identifiers': 'cliche01,cliche03',
             'disabilities_file': '/tmp/disabilities.json',
             'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
+            'supvisors_failure_strategy': 'CONTINUE',
             'stats_enabled': 'process', 'stats_collecting_period': '2',
             'stats_periods': '5,50,77.7', 'stats_histo': '100',
             'stats_irix_mode': 'true',
@@ -103,6 +104,7 @@ def test_options_creation(opt):
     assert opt.disabilities_file is None
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
+    assert opt.supvisors_failure_strategy == SupvisorsFailureStrategies.BLOCK
     assert opt.host_stats_enabled
     assert opt.process_stats_enabled
     assert opt.collecting_period == 5
@@ -131,6 +133,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.disabilities_file == '/tmp/disabilities.json'
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
+    assert filled_opt.supvisors_failure_strategy == SupvisorsFailureStrategies.CONTINUE
     assert not filled_opt.host_stats_enabled
     assert filled_opt.process_stats_enabled
     assert filled_opt.collecting_period == 2.0
@@ -151,6 +154,7 @@ def test_str(opt):
                         " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
                         ' inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
+                        ' supvisors_failure_strategy=BLOCK'
                         ' host_stats_enabled=True process_stats_enabled=True'
                         ' collecting_period=5 stats_periods=[10] stats_histo=200'
                         ' stats_irix_mode=False tail_limit=1024 tailf_limit=1024')
@@ -173,6 +177,7 @@ def test_filled_str(filled_opt):
                           f' core_identifiers={var}'
                           ' disabilities_file=/tmp/disabilities.json'
                           ' conciliation_strategy=SENICIDE starting_strategy=MOST_LOADED'
+                          ' supvisors_failure_strategy=CONTINUE'
                           ' host_stats_enabled=False process_stats_enabled=True'
                           ' collecting_period=2.0 stats_periods=[5.0, 50.0, 77.7] stats_histo=100'
                           ' stats_irix_mode=True tail_limit=1048576 tailf_limit=512')
@@ -431,6 +436,23 @@ def test_starting_strategy():
     assert SupvisorsOptions.to_starting_strategy('CONFIG') == StartingStrategies.CONFIG
     assert SupvisorsOptions.to_starting_strategy('LESS_LOADED') == StartingStrategies.LESS_LOADED
     assert SupvisorsOptions.to_starting_strategy('MOST_LOADED') == StartingStrategies.MOST_LOADED
+
+
+def test_supvisors_failure_strategy():
+    """ Test the conversion of a string to a Supvisors failure strategy. """
+    error_message = common_error_message.format('supvisors_failure_strategy')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_supvisors_failure_strategy('123456')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_supvisors_failure_strategy('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_supvisors_failure_strategy('configs')
+    # test valid values
+    assert SupvisorsOptions.to_supvisors_failure_strategy('block') == SupvisorsFailureStrategies.BLOCK
+    assert SupvisorsOptions.to_supvisors_failure_strategy('CONTinue') == SupvisorsFailureStrategies.CONTINUE
+    assert SupvisorsOptions.to_supvisors_failure_strategy('RESTART') == SupvisorsFailureStrategies.RESTART
+    assert SupvisorsOptions.to_supvisors_failure_strategy('shutDOWN') == SupvisorsFailureStrategies.SHUTDOWN
 
 
 def test_statistics_type():

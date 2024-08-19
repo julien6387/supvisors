@@ -30,17 +30,21 @@ from .utils import TICK_PERIOD
 class StateModes:
 
     def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF,
+                 degraded_mode: bool = False,
                  discovery_mode: bool = False,
                  master_identifier: str = '',
                  starting_jobs: bool = False, stopping_jobs: bool = False):
         """ Initialization of the attributes.
 
         :param state: the FSM state.
+        :param degraded_mode: True if Supvisors is degraded (essential instance missing).
+        :param discovery_mode: True if the Supvisors discovery mode is enabled.
         :param master_identifier: the identifier of the Supvisors Master instance.
-        :param starting_jobs: the Starter progress.
-        :param stopping_jobs: the Stopper progress.
+        :param starting_jobs: True if the Starter has jobs in progress.
+        :param stopping_jobs: True if the Stopper has jobs in progress.
         """
         self.state: SupvisorsStates = state
+        self.degraded_mode: bool = degraded_mode
         self.discovery_mode: bool = discovery_mode
         self.master_identifier: str = master_identifier
         self.starting_jobs: bool = starting_jobs
@@ -49,9 +53,9 @@ class StateModes:
     def __copy__(self):
         """ Create a new StateModes object with the same attributes.
 
-        :return: a copy of this StateModes object
+        :return: a copy of this StateModes object.
         """
-        return type(self)(self.state, self.discovery_mode, self.master_identifier,
+        return type(self)(self.state, self.degraded_mode, self.discovery_mode, self.master_identifier,
                           self.starting_jobs, self.stopping_jobs)
 
     def __eq__(self, other) -> bool:
@@ -62,17 +66,20 @@ class StateModes:
         """
         if isinstance(other, StateModes):
             return (self.state == other.state
+                    and self.degraded_mode == other.degraded_mode
                     and self.discovery_mode == other.discovery_mode
                     and self.master_identifier == other.master_identifier
                     and self.starting_jobs == other.starting_jobs
                     and self.stopping_jobs == other.stopping_jobs)
         return False
 
-    def apply(self, fsm_state: SupvisorsStates = None, master_identifier: str = None,
+    def apply(self, fsm_state: SupvisorsStates = None, degraded_mode: bool = None,
+              master_identifier: str = None,
               starter: bool = None, stopper: bool = None):
         """ Get the Supvisors instance state and modes with changes applied.
 
         :param fsm_state: the new FSM state.
+        :param degraded_mode: the Supvisors degraded mode.
         :param master_identifier: the identifier of the Master Supvisors instance.
         :param starter: the Starter progress.
         :param stopper: the Stopper progress.
@@ -80,6 +87,8 @@ class StateModes:
         """
         if fsm_state is not None:
             self.state = fsm_state
+        if degraded_mode is not None:
+            self.degraded_mode = degraded_mode
         if master_identifier is not None:
             self.master_identifier = master_identifier
         if starter is not None:
@@ -90,10 +99,11 @@ class StateModes:
     def update(self, payload: Payload) -> None:
         """ Get the Supvisors instance state and modes with changes applied.
 
-        :param payload: the Supvisors instance state and modes
-        :return: None
+        :param payload: the Supvisors instance state and modes.
+        :return: None.
         """
         self.state = SupvisorsStates(payload['fsm_statecode'])
+        self.degraded_mode = payload['degraded_mode']
         self.discovery_mode = payload['discovery_mode']
         self.master_identifier = payload['master_identifier']
         self.starting_jobs = payload['starting_jobs']
@@ -102,6 +112,7 @@ class StateModes:
     def serial(self):
         """ Return a serializable form of the StatesModes. """
         return {'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
+                'degraded_mode': self.degraded_mode,
                 'discovery_mode': self.discovery_mode,
                 'master_identifier': self.master_identifier,
                 'starting_jobs': self.starting_jobs,
@@ -267,6 +278,8 @@ class SupvisorsInstanceStatus:
             self._state = SupvisorsInstanceStates.UNKNOWN
         # use a new SupvisorsTimes instance
         self.times = SupvisorsTimes(self.identifier, self.logger)
+        # reset the Master
+        self.state_modes.master_identifier = ''
 
     # accessors / mutators
     @property
@@ -281,23 +294,21 @@ class SupvisorsInstanceStatus:
 
     @property
     def state(self) -> SupvisorsInstanceStates:
-        """ Property getter for the 'state' attribute. """
+        """ Property getter for the Supvisors instance 'state' attribute. """
         return self._state
 
     @state.setter
     def state(self, new_state: SupvisorsInstanceStates):
-        """ Property setter for the 'state' attribute. """
+        """ Property setter for the Supvisors instance 'state' attribute. """
         if self._state != new_state:
             if not self.check_transition(new_state):
                 raise InvalidTransition(f'SupvisorsInstanceStatus.state: Supvisors={self.usage_identifier}'
                                         f' transition rejected from {self.state.name} to {new_state.name}')
             self._state = new_state
             self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.usage_identifier} is {self.state.name}')
-            # TODO: export status ? from context
-            if new_state in [SupvisorsInstanceStates.SILENT, SupvisorsInstanceStates.ISOLATED]:
+            if new_state in [SupvisorsInstanceStates.STOPPED, SupvisorsInstanceStates.ISOLATED]:
                 self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.usage_identifier}')
                 self.state_modes.state = SupvisorsStates.OFF
-                # TODO: export states and modes ?
 
     @property
     def isolated(self) -> bool:
@@ -348,7 +359,7 @@ class SupvisorsInstanceStatus:
         :return: the activity status.
         """
         return self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                              SupvisorsInstanceStates.RUNNING]
+                              SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]
 
     def is_inactive(self, local_sequence_counter: int) -> bool:
         """ Return True if the latest update was received more than INACTIVITY_TICKS ago.
@@ -447,18 +458,15 @@ class SupvisorsInstanceStatus:
     # dictionary for transitions
     _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,
                                                       SupvisorsInstanceStates.ISOLATED,
-                                                      SupvisorsInstanceStates.SILENT),
+                                                      SupvisorsInstanceStates.STOPPED),
                     SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.UNKNOWN,
                                                        SupvisorsInstanceStates.CHECKED,
-                                                       SupvisorsInstanceStates.ISOLATED,
-                                                       SupvisorsInstanceStates.SILENT),
+                                                       SupvisorsInstanceStates.FAILED),
                     SupvisorsInstanceStates.CHECKED: (SupvisorsInstanceStates.RUNNING,
-                                                      SupvisorsInstanceStates.ISOLATED,
-                                                      SupvisorsInstanceStates.SILENT),
-                    SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.SILENT,
-                                                      SupvisorsInstanceStates.ISOLATED,
-                                                      SupvisorsInstanceStates.CHECKING),
-                    SupvisorsInstanceStates.SILENT: (SupvisorsInstanceStates.CHECKING,
+                                                      SupvisorsInstanceStates.FAILED),
+                    SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.FAILED,),
+                    SupvisorsInstanceStates.FAILED: (SupvisorsInstanceStates.STOPPED,
                                                      SupvisorsInstanceStates.ISOLATED),
+                    SupvisorsInstanceStates.STOPPED: (SupvisorsInstanceStates.CHECKING,),
                     SupvisorsInstanceStates.ISOLATED: ()
                     }

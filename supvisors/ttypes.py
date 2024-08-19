@@ -28,7 +28,7 @@ SUPVISORS_NOTIFICATION = 'SupvisorsNotification'
 # all enumerations
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATED = range(6)
+    UNKNOWN, CHECKING, CHECKED, RUNNING, FAILED, STOPPED, ISOLATED = range(7)
 
 
 class SupvisorsStates(Enum):
@@ -47,24 +47,29 @@ class EventLinks(Enum):
 
 
 class StartingStrategies(Enum):
-    """ Applicable strategies that can be applied to start processes. """
+    """ Strategies that can be applied to start processes. """
     CONFIG, LESS_LOADED, MOST_LOADED, LOCAL, LESS_LOADED_NODE, MOST_LOADED_NODE = range(6)
 
 
 class ConciliationStrategies(Enum):
-    """ Applicable strategies that can be applied during a conciliation. """
+    """ Strategies that can be applied during a conciliation. """
     SENICIDE, INFANTICIDE, USER, STOP, RESTART, RUNNING_FAILURE = range(6)
     # TODO: change to STOP+RESTART PROCESS and add STOP+RESTART APPLICATION ?
 
 
 class StartingFailureStrategies(Enum):
-    """ Applicable strategies that can be applied on a failure of a starting application. """
+    """ Strategies that can be applied on a failure of a starting application. """
     ABORT, STOP, CONTINUE = range(3)
 
 
 class RunningFailureStrategies(Enum):
-    """ Applicable strategies that can be applied on a failure of a running application. """
+    """ Strategies that can be applied on a failure of a running application. """
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION, SHUTDOWN, RESTART = range(6)
+
+
+class SupvisorsFailureStrategies(Enum):
+    """ Applicable strategies that can be applied when re-entering the INITIALIZATION state. """
+    BLOCK, CONTINUE, RESTART, SHUTDOWN = range(4)
 
 
 class ProcessRequestResult(Enum):

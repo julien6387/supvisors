@@ -198,14 +198,14 @@ def test_is_valid(context):
     assert context.is_valid('10.0.0.4:25000', '10.0.0.4', ('10.0.0.4', 25000))
 
 
-def test_publish_state_modes(supvisors, context):
-    """ Test the Context.publish_state_modes method. """
+def test_update_state_modes(supvisors, context):
+    """ Test the Context.update_state_modes method. """
     mocked_send_state = supvisors.rpc_handler.send_state_event
     # test unchanged
-    context.publish_state_modes({'starter': False})
+    context.update_state_modes({'starter': False})
     assert not mocked_send_state.called
     # test changed
-    context.publish_state_modes({'starter': True})
+    context.update_state_modes({'starter': True})
     assert mocked_send_state.call_args_list == [call({'fsm_statecode': 0, 'fsm_statename': 'OFF',
                                                       'discovery_mode': False,
                                                       'master_identifier': '',

@@ -22,6 +22,7 @@ import traceback
 from enum import Enum
 from http.client import HTTPException
 from typing import Any, Dict, Optional, Tuple
+from xmlrpc.client import ServerProxy
 
 from supervisor.childutils import getRPCInterface
 from supervisor.compat import xmlrpclib
@@ -74,7 +75,7 @@ class SupervisorProxy:
         return self.supvisors.mapper.local_identifier
 
     @property
-    def proxy(self) -> Logger:
+    def proxy(self) -> ServerProxy:
         """ Get the Supervisor proxy.
 
         WARN: The proxy to the local Supervisor is a LOT less used than the others and is really subject to be broken
@@ -90,7 +91,7 @@ class SupervisorProxy:
                 self.last_used = time.monotonic()
         return self._proxy
 
-    def _get_proxy(self):
+    def _get_proxy(self) -> ServerProxy:
         """ Get the proxy corresponding to the Supervisor identifier. """
         instance_id = self.status.supvisors_id
         # SupervisorServerUrl contains the environment variables linked to Supervisor security access,
@@ -264,10 +265,16 @@ class SupervisorProxy:
 
     def restart(self) -> None:
         """ Restart a Supervisor instance asynchronously. """
+        # TODO: secure all app stop with stopAllProcesses ?
+        #       this will ensure a graceful stop because restart returns immediately and then kills everything
+        # self.xml_rpc('supervisor.stopAllProcesses', self.proxy.supervisor.stopAllProcesses, ())
         self.xml_rpc('supervisor.restart', self.proxy.supervisor.restart, ())
 
     def shutdown(self) -> None:
         """ Shutdown a Supervisor instance asynchronously. """
+        # TODO: secure all app stop with stopAllProcesses ?
+        #       this will ensure a graceful stop because shutdown returns immediately and then kills everything
+        # self.xml_rpc('supervisor.stopAllProcesses', self.proxy.supervisor.stopAllProcesses, ())
         self.xml_rpc('supervisor.shutdown', self.proxy.supervisor.shutdown, ())
 
     def restart_sequence(self) -> None:

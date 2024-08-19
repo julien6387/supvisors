@@ -26,7 +26,8 @@ from supervisor.loggers import Logger
 from supervisor.options import (expand, make_namespec, ServerOptions,
                                 ProcessConfig, FastCGIProcessConfig, EventListenerConfig)
 
-from .ttypes import (ConciliationStrategies, EventLinks, StartingStrategies, SynchronizationOptions,
+from .ttypes import (ConciliationStrategies, StartingStrategies, SupvisorsFailureStrategies,
+                     EventLinks, SynchronizationOptions,
                      Ipv4Address, NameList, Payload, StatisticsTypes,
                      GroupConfigInfo, ProgramConfig, SupvisorsProcessConfig)
 
@@ -75,6 +76,7 @@ class SupvisorsOptions:
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program ;
         - starting_strategy: strategy used to start processes on Supvisors instances ;
+        - supvisors_failure_strategy: strategy used when re_entering the INITIALIZATION state after a node loss ;
         - host_stats_enabled: if False, no host statistics will be collected from this Supvisors instance ;
         - proc_stats_enabled: if False, no process statistics will be collected from this Supvisors instance ;
         - collecting_period: period of the statistics collection ;
@@ -140,6 +142,9 @@ class SupvisorsOptions:
                                                      self.to_conciliation_strategy)
         self.starting_strategy = self._get_value(config, 'starting_strategy', StartingStrategies.CONFIG,
                                                  self.to_starting_strategy)
+        self.supvisors_failure_strategy = self._get_value(config, 'supvisors_failure_strategy',
+                                                          SupvisorsFailureStrategies.BLOCK,
+                                                          self.to_supvisors_failure_strategy)
         # configure statistics
         # stats_enabled is deprecated
         stats_enabled = self._get_value(config, 'stats_enabled', (True, True), self.to_statistics_type)
@@ -176,6 +181,7 @@ class SupvisorsOptions:
                 f' disabilities_file={self.disabilities_file}'
                 f' conciliation_strategy={self.conciliation_strategy.name}'
                 f' starting_strategy={self.starting_strategy.name}'
+                f' supvisors_failure_strategy={self.supvisors_failure_strategy.name}'
                 f' host_stats_enabled={self.host_stats_enabled}'
                 f' process_stats_enabled={self.process_stats_enabled}'
                 f' collecting_period={self.collecting_period}'
@@ -460,6 +466,16 @@ class SupvisorsOptions:
         except KeyError:
             raise ValueError(f'invalid value for starting_strategy: "{value}".'
                              f' expected in {[x.name for x in StartingStrategies]}')
+        return strategy
+
+    @staticmethod
+    def to_supvisors_failure_strategy(value: str) -> SupvisorsFailureStrategies:
+        """ Convert a string into a SupvisorsFailureStrategies enum. """
+        try:
+            strategy = SupvisorsFailureStrategies[value.upper()]
+        except KeyError:
+            raise ValueError(f'invalid value for supvisors_failure_strategy: "{value}".'
+                             f' expected in {[x.name for x in SupvisorsFailureStrategies]}')
         return strategy
 
     @staticmethod
