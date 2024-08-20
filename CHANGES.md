@@ -5,6 +5,19 @@
 * TODO.
 
 
+## 0.18.6 (2024-08-20)
+
+* Completion of fix about process CPU statistics when using SOLARIS mode.
+
+* Add a grid to statistics plots in the **Supvisors** Web UI.
+
+
+## 0.18.5 (2024-08-19)
+
+* Fix process CPU statistics when using SOLARIS mode.
+  Issue introduced in **Supvisors** 0.18 with statistics refactoring.
+
+
 ## 0.18.4 (2024-07-13)
 
 * Fix `supervisord` uptime in the **Supvisors** Web UI.

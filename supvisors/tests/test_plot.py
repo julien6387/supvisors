@@ -20,7 +20,7 @@ import pytest
 
 pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
 
-from supvisors.plot import *
+from supvisors.web.plot import *
 from supvisors.web.viewimage import StatsImage
 
 

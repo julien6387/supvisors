@@ -564,14 +564,11 @@ def test_get_node_stats(supvisors, ctx):
 
 def test_get_process_stats(mocker, supvisors, ctx):
     """ Test the ViewContext.get_process_stats method. """
-    mocked_core = mocker.patch('supvisors.web.viewcontext.ViewContext.get_nb_cores', return_value=4)
     # test no result as no data stored
-    assert ctx.get_process_stats('dummy_proc', ctx.local_identifier) == (4, None)
-    mocked_core.reset_mock()
+    assert ctx.get_process_stats('dummy_proc', ctx.local_identifier) is None
     # fill some internal structures
     mocked_stats = mocker.patch.object(supvisors.process_compiler, 'get_stats', return_value='mock stats')
-    assert ctx.get_process_stats('dummy_proc', '10.0.0.1') == (4, 'mock stats')
-    assert mocked_core.call_args_list == [call('10.0.0.1')]
+    assert ctx.get_process_stats('dummy_proc', '10.0.0.1') == 'mock stats'
     assert mocked_stats.call_args_list == [call('dummy_proc', '10.0.0.1', 5.0)]
 
 

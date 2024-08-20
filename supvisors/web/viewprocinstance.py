@@ -34,7 +34,7 @@ class ProcInstanceView(SupvisorsInstanceView):
     so that StatusView inherits from ViewHandler instead of MeldView.
     """
 
-    ProcessStats = Tuple[int, int, Optional[ProcStatisticsInstance]]
+    ProcessStats = Tuple[int, Optional[ProcStatisticsInstance]]
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
@@ -115,7 +115,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             main = process.process_name == namespec
             info = process.info_map[self.view_ctx.local_identifier]
             crashed = ProcessStatus.is_crashed_event(info)
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, local_identifier)
+            proc_stats = self.view_ctx.get_process_stats(namespec, local_identifier)
             payload = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
                        'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'main': main, 'identifier': local_identifier,
@@ -125,7 +125,7 @@ class ProcInstanceView(SupvisorsInstanceView):
                        'has_crashed': info['has_crashed'],
                        'description': info['description'],
                        'expected_load': process.rules.expected_load,
-                       'nb_cores': nb_cores, 'proc_stats': proc_stats,
+                       'proc_stats': proc_stats,
                        'has_stdout': process.has_stdout(local_identifier),
                        'has_stderr': process.has_stderr(local_identifier)}
             data.append(payload)
@@ -142,14 +142,14 @@ class ProcInstanceView(SupvisorsInstanceView):
         :return: the supervisord data.
         """
         local_identifier = self.view_ctx.local_identifier
-        nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord', local_identifier)
+        proc_stats = self.view_ctx.get_process_stats('supervisord', local_identifier)
         payload = {'row_type': ProcessRowTypes.SUPERVISOR_PROCESS,
                    'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
                    'main': True, 'identifier': local_identifier,
                    'disabled': False, 'startable': False, 'stoppable': True,
                    'statename': 'RUNNING', 'statecode': 20,
                    'gravity': 'RUNNING', 'has_crashed': False,
-                   'expected_load': 0, 'nb_cores': nb_cores, 'proc_stats': proc_stats}
+                   'expected_load': 0, 'proc_stats': proc_stats}
         # add description (pid / uptime) as done by Supervisor
         info = {'state': ProcessStates.RUNNING, 'start': status.times.start_local_mtime,
                 'now': status.times.local_mtime, 'pid': os.getpid()}
@@ -194,7 +194,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         :param application_processes: the subset of the application processes running on the same node
         :return: the application payload to be displayed
         """
-        expected_load, nb_cores, appli_stats = self.sum_process_info(application_processes)
+        expected_load, appli_stats = self.sum_process_info(application_processes)
         # create application payload
         application = self.sup_ctx.applications[application_name]
         payload = {'row_type': ProcessRowTypes.APPLICATION,
@@ -205,7 +205,7 @@ class ProcInstanceView(SupvisorsInstanceView):
                    'gravity': application.state.name, 'has_crashed': False,
                    'description': application.get_operational_status(),
                    'nb_items': len(application_processes), 'expected_load': expected_load,
-                   'nb_cores': nb_cores, 'proc_stats': appli_stats}
+                   'proc_stats': appli_stats}
         return payload
 
     @staticmethod
@@ -215,12 +215,11 @@ class ProcInstanceView(SupvisorsInstanceView):
         :param data: the list of process payloads
         :return: the total expected load, number of processor cores, memory and CPU
         """
-        expected_load, nb_cores, cpu, mem = 0, 0, 0, 0
+        expected_load, cpu, mem = 0, 0, 0
         reset = True
         for info in data:
             if info['statecode'] in RUNNING_STATES:
                 expected_load += info['expected_load']
-                nb_cores = info['nb_cores']
                 # sum CPU / Mem stats
                 proc_stats = info['proc_stats']
                 if proc_stats:
@@ -236,7 +235,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             appli_stats = ProcStatisticsInstance()
             appli_stats.cpu = [cpu]
             appli_stats.mem = [mem]
-        return expected_load, nb_cores, appli_stats
+        return expected_load, appli_stats
 
     def write_process_table(self, contents_elt, sorted_data: PayloadList, excluded_data: PayloadList) -> None:
         """ Rendering of the processes managed in Supervisor.
@@ -383,17 +382,13 @@ class ProcInstanceView(SupvisorsInstanceView):
         """
         tr_elt = table_elt.findmeld('total_mid')
         # sum MEM and CPU stats of all processes
-        expected_load, nb_cores, appli_stats = self.sum_process_info(sorted_data + excluded_data)
+        expected_load, appli_stats = self.sum_process_info(sorted_data + excluded_data)
         # update Load
         tr_elt.findmeld('load_total_th_mid').content(f'{expected_load}')
         if appli_stats:
-            # update MEM
+            # update MEM & CPU
             tr_elt.findmeld('mem_total_th_mid').content(get_small_value(appli_stats.mem[0]))
-            # update CPU
-            cpu_value = appli_stats.cpu[0]
-            if not self.supvisors.options.stats_irix_mode:
-                cpu_value /= nb_cores
-            tr_elt.findmeld('cpu_total_th_mid').content(get_small_value(cpu_value))
+            tr_elt.findmeld('cpu_total_th_mid').content(get_small_value(appli_stats.cpu[0]))
 
     # ACTION part
     def make_callback(self, namespec, action):
