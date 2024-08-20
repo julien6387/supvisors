@@ -1149,9 +1149,9 @@ def test_write_common_detailed_statistics(mocker, handler):
 def test_write_process_plots_no_plot(mocker, handler):
     """ Test the write_process_plots method in the event of matplotlib import error. """
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
-    mocker.patch.dict('sys.modules', {'supvisors.plot': None})
+    mocker.patch.dict('sys.modules', {'supvisors.web.plot': None})
     # test call
-    assert not handler.write_process_plots([])
+    assert not handler.write_process_plots(None)
     # test that plot methods are not called
     assert not mocked_export.called
 
@@ -1161,9 +1161,9 @@ def test_write_process_plots(mocker, supvisors, handler):
     # skip test if matplotlib is not installed
     pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
     # get patches
-    mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
-    mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
-    mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
+    mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
+    mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
+    mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
     # test call with dummy stats
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 24], mem=[20, 32, 32])
     assert handler.write_process_plots(proc_stats)

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -42,6 +39,7 @@ class StatisticsPlot(object):
         fig = plt.figure(figsize=(5.8, 3), dpi=90)
         fig.patch.set_facecolor(StatisticsPlot.BACKGROUND_COLOR)
         self.ax = fig.add_subplot(111)
+        self.ax.grid(axis='y', linestyle='dotted', alpha=.5)
         # configure axis color
         self.ax.spines['bottom'].set_color(StatisticsPlot.TEXT_COLOR)
         self.ax.spines['left'].set_color(StatisticsPlot.TEXT_COLOR)

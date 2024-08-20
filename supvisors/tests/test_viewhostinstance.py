@@ -555,9 +555,9 @@ def test_write_disk_statistics(mocker, view):
 
 def test_write_cpu_image(mocker, view):
     """ Test the _write_cpu_image method. """
-    mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
-    mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
-    mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
+    mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
+    mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
+    mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
     view.view_ctx = Mock(cpu_id=0, **{'cpu_id_to_string.return_value': ViewContext.cpu_id_to_string(0)})
     # just test calls to StatisticsPlot
@@ -571,9 +571,9 @@ def test_write_cpu_image(mocker, view):
 
 def test_write_mem_image(mocker, view):
     """ Test the _write_mem_image method. """
-    mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
-    mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
-    mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
+    mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
+    mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
+    mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # just test calls to StatisticsPlot
     dummy_mem_stats = ['mem 1', 'mem 2']
     dummy_times_stats = [1, 2, 3]
@@ -585,9 +585,9 @@ def test_write_mem_image(mocker, view):
 
 def test_write_net_io_image(mocker, view):
     """ Test the _write_net_io_image method. """
-    mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
-    mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
-    mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
+    mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
+    mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
+    mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
     view.view_ctx = Mock(nic_name='eth0')
     # just test calls to StatisticsPlot
@@ -621,9 +621,9 @@ def test_write_disk_image(mocker, view):
 
 def test_write_disk_io_image(mocker, view):
     """ Test the _write_disk_io_image method. """
-    mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
-    mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
-    mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
+    mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
+    mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
+    mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
     view.view_ctx = Mock(device='sda')
     # just test calls to StatisticsPlot
@@ -638,9 +638,9 @@ def test_write_disk_io_image(mocker, view):
 
 def test_write_disk_usage_image(mocker, view):
     """ Test the _write_disk_usage_image method. """
-    mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
-    mocked_plot = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
-    mocked_time = mocker.patch('supvisors.plot.StatisticsPlot.add_timeline')
+    mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
+    mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
+    mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
     view.view_ctx = Mock(partition='/root')
     # just test calls to StatisticsPlot

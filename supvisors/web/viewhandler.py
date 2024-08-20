@@ -553,7 +553,7 @@ class ViewHandler(MeldView):
     def write_process_plots(self, proc_stats: ProcStatisticsInstance) -> bool:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
-            from supvisors.plot import StatisticsPlot
+            from supvisors.web.plot import StatisticsPlot
             # build CPU image (if SOLARIS mode configured, CPU values have already been adjusted)
             cpu_img = StatisticsPlot(self.logger)
             cpu_img.add_timeline(proc_stats.times)
