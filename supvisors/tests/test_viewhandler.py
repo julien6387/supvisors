@@ -1132,7 +1132,7 @@ def test_write_common_detailed_statistics(mocker, handler):
 
 def test_write_process_plots_no_plot(mocker, handler):
     """ Test the write_process_plots method in the event of matplotlib import error. """
-    mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
+    mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
     mocker.patch.dict('sys.modules', {'supvisors.web.plot': None})
     # test call
     assert not handler.write_process_plots(None)
