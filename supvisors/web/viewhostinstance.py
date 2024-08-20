@@ -266,7 +266,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def _write_cpu_image(self, cpu_stats, timeline):
         """ Write CPU data into the dedicated buffer. """
-        from supvisors.plot import StatisticsPlot
+        from supvisors.web.plot import StatisticsPlot
         # get CPU data
         cpu_id = self.view_ctx.cpu_id
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
@@ -280,7 +280,7 @@ class HostInstanceView(SupvisorsInstanceView):
     def _write_mem_image(self, mem_stats, timeline):
         """ Write MEM data into the dedicated buffer. """
         # build image from data
-        from supvisors.plot import StatisticsPlot
+        from supvisors.web.plot import StatisticsPlot
         plt = StatisticsPlot(self.logger)
         plt.add_timeline(timeline)
         plt.add_plot('MEM', '%', mem_stats)
@@ -288,7 +288,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def _write_net_io_image(self, net_io_stats):
         """ Write Network IO data into the dedicated buffer. """
-        from supvisors.plot import StatisticsPlot
+        from supvisors.web.plot import StatisticsPlot
         # get IO data
         nic_name = self.view_ctx.nic_name
         if nic_name:
@@ -311,7 +311,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def _write_disk_io_image(self, disk_io_stats):
         """ Write Disk IO data into the dedicated buffer. """
-        from supvisors.plot import StatisticsPlot
+        from supvisors.web.plot import StatisticsPlot
         # get IO data
         device_name = self.view_ctx.device
         if device_name:
@@ -325,7 +325,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def _write_disk_usage_image(self, usage_stats):
         """ Write Disk usage data into the dedicated buffer. """
-        from supvisors.plot import StatisticsPlot
+        from supvisors.web.plot import StatisticsPlot
         # get usage data
         partition = self.view_ctx.partition
         if partition:

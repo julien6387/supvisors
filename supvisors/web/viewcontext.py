@@ -434,14 +434,11 @@ class ViewContext:
 
     def get_process_stats(self, namespec: str, identifier: str):
         """ Get the statistics structure related to the process and the period selected.
-        Get also the number of cores available where this Supvisors instance runs (useful for process CPU IRIX mode).
+        The process CPU is updated if SOLARIS mode is expected.
         """
-        # get the number of cores for Solaris mode
-        nb_cores = self.get_nb_cores(identifier)
         # return the process statistics for this process
         period = self.parameters.get(PERIOD)
-        stats_instance = self.supvisors.process_compiler.get_stats(namespec, identifier, period)
-        return nb_cores, stats_instance
+        return self.supvisors.process_compiler.get_stats(namespec, identifier, period)
 
     def get_process_status(self, namespec: str = None) -> Optional[ProcessStatus]:
         """ Get the ProcessStatus instance related to the process named namespec.

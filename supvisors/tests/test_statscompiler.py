@@ -533,13 +533,27 @@ def test_proc_statistics_holder_creation(supvisors, proc_statistics_holder):
 def test_proc_statistics_holder_get_stats(proc_statistics_holder):
     """ Test the search method for process statistics. """
     # change values
-    proc_statistics_holder.instance_map = {'10.0.0.1': (os.getpid(), {5: 'proc stats 5s on 10.0.0.1'})}
+    dummy_stats = ProcStatisticsInstance(identifier='10.0.0.1', period=5)
+    dummy_stats.cpu = [2, 4, 8]
+    proc_statistics_holder.instance_map = {'10.0.0.1': (os.getpid(), {5: dummy_stats})}
     # test find method with wrong identifier
-    assert proc_statistics_holder.get_stats('10.0.0.2', 5) is None
+    assert proc_statistics_holder.get_stats('10.0.0.2', 5, 1) is None
     # test find method with correct identifier and wrong period
-    assert proc_statistics_holder.get_stats('10.0.0.1', 10) is None
-    # test find method with correct identifier and period
-    assert proc_statistics_holder.get_stats('10.0.0.1', 5) == 'proc stats 5s on 10.0.0.1'
+    assert proc_statistics_holder.get_stats('10.0.0.1', 10, 1) is None
+    # test find method with correct identifier and period and irix factor
+    stats = proc_statistics_holder.get_stats('10.0.0.1', 5, 1)
+    assert stats is not None
+    assert stats is not dummy_stats
+    assert stats.identifier == ''
+    assert stats.period == 0
+    assert stats.cpu == [2, 4, 8]
+    # test find method with correct identifier and period and solaris factor
+    stats = proc_statistics_holder.get_stats('10.0.0.1', 5, 4)
+    assert stats is not None
+    assert stats is not dummy_stats
+    assert stats.identifier == ''
+    assert stats.period == 0
+    assert stats.cpu == [0.5, 1, 2]
 
 
 def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
@@ -649,18 +663,28 @@ def test_proc_statistics_compiler_creation(supvisors, proc_statistics_compiler):
     assert proc_statistics_compiler.nb_cores == {}
 
 
-def test_proc_statistics_compiler_get_stats(mocker, proc_statistics_compiler):
+def test_proc_statistics_compiler_get_stats(mocker, supvisors, proc_statistics_compiler):
     """ Test the ProcStatisticsCompiler.get_stats method """
     mocked_stats = mocker.patch('supvisors.statscompiler.ProcStatisticsHolder.get_stats')
     # test on unknown namespec
-    assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', '12.5') is None
+    assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', 12.5) is None
     assert not mocked_stats.called
     # fill some data
     mocked_holder = Mock(**{'get_stats.return_value': 'some stats'})
     proc_statistics_compiler.holder_map['dummy_proc'] = mocked_holder
-    # test on known namespec
-    assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', '12.5') == 'some stats'
-    assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', '12.5')]
+    # test on known namespec and irix mode
+    assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', 12.5) == 'some stats'
+    assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', 12.5, 1)]
+    mocked_holder.get_stats.reset_mock()
+    # test on known namespec and solaris mode (nb_cores not set)
+    supvisors.options.stats_irix_mode = False
+    assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', 12.5) == 'some stats'
+    assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', 12.5, 1)]
+    mocked_holder.get_stats.reset_mock()
+    # test on known namespec and solaris mode (nb_cores set)
+    proc_statistics_compiler.nb_cores['10.0.0.1'] = 4
+    assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', 12.5) == 'some stats'
+    assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', 12.5, 4)]
 
 
 def test_proc_statistics_compiler_get_nb_cores(proc_statistics_compiler):

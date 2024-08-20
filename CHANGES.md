@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.18.6 (2024-08-20)
+
+* Completion of fix about process CPU statistics when using SOLARIS mode.
+
+* Add a grid to statistics plots in the **Supvisors** Web UI.
+
+
 ## 0.18.5 (2024-08-19)
 
 * Fix process CPU statistics when using SOLARIS mode.

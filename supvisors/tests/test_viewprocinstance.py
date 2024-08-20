@@ -211,7 +211,7 @@ def test_get_process_data(mocker, supvisors, view):
     instance_status = view.sup_ctx.instances['10.0.0.1:25000']
     # test with empty context
     view.view_ctx = Mock(local_identifier='10.0.0.1:25000',
-                         **{'get_process_stats.side_effect': [(2, 'stats #1'), (1, None), (4, 'stats #3')]})
+                         **{'get_process_stats.side_effect': ['stats #1', None, 'stats #3']})
     assert view.get_process_data() == ([{'namespec': 'supervisord'}], [])
     assert mocked_data.call_args_list == [call(instance_status)]
     # patch context
@@ -241,7 +241,7 @@ def test_get_process_data(mocker, supvisors, view):
              'startable': True, 'stoppable': True,
              'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': True,
              'description': 'pid 80879, uptime 0:01:19',
-             'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1',
+             'expected_load': 8, 'proc_stats': 'stats #1',
              'has_stdout': True, 'has_stderr': False}
     data2 = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
              'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
@@ -249,7 +249,7 @@ def test_get_process_data(mocker, supvisors, view):
              'startable': True, 'stoppable': True,
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF', 'has_crashed': False,
              'description': 'Exited too quickly (process log may have details)',
-             'expected_load': 17, 'nb_cores': 1, 'proc_stats': None,
+             'expected_load': 17, 'proc_stats': None,
              'has_stdout': True, 'has_stderr': False}
     data3 = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
              'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
@@ -257,7 +257,7 @@ def test_get_process_data(mocker, supvisors, view):
              'startable': False, 'stoppable': True,
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED', 'has_crashed': False,
              'description': 'Sep 14 05:18 PM',
-             'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3',
+             'expected_load': 26, 'proc_stats': 'stats #3',
              'has_stdout': True, 'has_stderr': False}
     assert sorted_data == [data2, data3, data1, {'namespec': 'supervisord'}]
     assert excluded_data == []
@@ -265,7 +265,7 @@ def test_get_process_data(mocker, supvisors, view):
 
 def test_get_supervisord_data(view):
     """ Test the ProcInstanceView.get_supervisord_data method. """
-    view.view_ctx = Mock(local_identifier='10.0.0.1:25000', **{'get_process_stats.return_value': (2, 'stats #1')})
+    view.view_ctx = Mock(local_identifier='10.0.0.1:25000', **{'get_process_stats.return_value': 'stats #1'})
     # get context
     instance_status = view.sup_ctx.instances['10.0.0.1:25000']
     instance_status.times.start_local_mtime = 0
@@ -277,7 +277,7 @@ def test_get_supervisord_data(view):
                         'startable': False, 'stoppable': True,
                         'description': f'pid {pid}, uptime 0:00:00',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
-                        'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
+                        'expected_load': 0, 'proc_stats': 'stats #1'}
     assert view.get_supervisord_data(instance_status) == supervisord_info
     # test call on relevant time values
     instance_status.times.start_local_mtime = 1000
@@ -288,7 +288,7 @@ def test_get_supervisord_data(view):
                         'startable': False, 'stoppable': True,
                         'description': f'pid {pid}, uptime 2 days, 3:16:58',
                         'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
-                        'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
+                        'expected_load': 0, 'proc_stats': 'stats #1'}
     assert view.get_supervisord_data(instance_status) == supervisord_info
 
 
@@ -354,38 +354,33 @@ def test_get_application_summary(mocker, view):
                 'disabled': False, 'startable': False, 'stoppable': True,
                 'identifier': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2, 'gravity': 'RUNNING',
                 'has_crashed': False, 'description': 'good', 'nb_items': 0,
-                'expected_load': 0, 'nb_cores': 0, 'proc_stats': None}
-    mocked_sum.return_value = 0, 0, None
+                'expected_load': 0, 'proc_stats': None}
+    mocked_sum.return_value = 0, None
     assert view.get_application_summary('dummy_appli', []) == expected
     # test with non-running processes
     expected.update({'nb_items': 1})
     assert view.get_application_summary('dummy_appli', [proc_4]) == expected
     # test with a mix of running and non-running processes
     appli_stats = Mock()
-    mocked_sum.return_value = 27, 8, appli_stats
-    expected.update({'nb_items': 4, 'expected_load': 27, 'nb_cores': 8, 'proc_stats': appli_stats})
+    mocked_sum.return_value = 27, appli_stats
+    expected.update({'nb_items': 4, 'expected_load': 27, 'proc_stats': appli_stats})
     assert view.get_application_summary('dummy_appli', [proc_1, proc_2, proc_3, proc_4]) == expected
 
 
 def test_sum_process_info():
     """ Test the ProcInstanceView.sum_process_info method. """
     # prepare parameters
-    proc_1 = {'statecode': ProcessStates.RUNNING, 'expected_load': 5, 'nb_cores': 8,
-              'proc_stats': Mock(cpu=[10], mem=[5])}
-    proc_2 = {'statecode': ProcessStates.STARTING, 'expected_load': 15, 'nb_cores': 8,
-              'proc_stats': Mock(cpu=[], mem=[])}
-    proc_3 = {'statecode': ProcessStates.BACKOFF, 'expected_load': 7, 'nb_cores': 8,
-              'proc_stats': Mock(cpu=[8], mem=[22])}
-    proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'nb_cores': 8,
-              'proc_stats': None}
+    proc_1 = {'statecode': ProcessStates.RUNNING, 'expected_load': 5, 'proc_stats': Mock(cpu=[10], mem=[5])}
+    proc_2 = {'statecode': ProcessStates.STARTING, 'expected_load': 15, 'proc_stats': Mock(cpu=[], mem=[])}
+    proc_3 = {'statecode': ProcessStates.BACKOFF, 'expected_load': 7,  'proc_stats': Mock(cpu=[8], mem=[22])}
+    proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'proc_stats': None}
     # test with empty list of processes
-    assert ProcInstanceView.sum_process_info([]) == (0, 0, None)
+    assert ProcInstanceView.sum_process_info([]) == (0, None)
     # test with non-running processes
-    assert ProcInstanceView.sum_process_info([proc_4]) == (0, 0, None)
+    assert ProcInstanceView.sum_process_info([proc_4]) == (0, None)
     # test with a mix of running and non-running processes
-    expected_load, nb_cores, appli_stats = ProcInstanceView.sum_process_info([proc_1, proc_2, proc_3, proc_4])
+    expected_load, appli_stats = ProcInstanceView.sum_process_info([proc_1, proc_2, proc_3, proc_4])
     assert expected_load == 27
-    assert nb_cores == 8
     assert appli_stats.cpu == [18]
     assert appli_stats.mem == [27]
 
@@ -636,7 +631,7 @@ def test_write_supervisord_off_button(view):
 
 def test_write_total_status(mocker, supvisors, view):
     """ Test the ProcInstanceView.write_total_status method. """
-    mocked_sum = mocker.patch.object(view, 'sum_process_info', return_value=(50, 2, None))
+    mocked_sum = mocker.patch.object(view, 'sum_process_info', return_value=(50, None))
     # patch the meld elements
     load_elt = create_element()
     mem_elt = create_element()
@@ -657,9 +652,8 @@ def test_write_total_status(mocker, supvisors, view):
     root_elt.findmeld.reset_mock()
     tr_elt.findmeld.reset_mock()
     load_elt.content.reset_mock()
-    # test call with process stats and irix mode
-    mocked_sum.return_value = 50, 2, Mock(cpu=[12], mem=[25])
-    supvisors.options.stats_irix_mode = True
+    # test call with process stats
+    mocked_sum.return_value = 50, Mock(cpu=[12], mem=[25])
     view.write_total_status(root_elt, sorted_data, excluded_data)
     assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
     assert root_elt.findmeld.call_args_list == [call('total_mid')]
@@ -668,22 +662,6 @@ def test_write_total_status(mocker, supvisors, view):
     assert load_elt.content.call_args_list == [call('50')]
     assert mem_elt.content.call_args_list == [call('25.00')]
     assert cpu_elt.content.call_args_list == [call('12.00')]
-    mocked_sum.reset_mock()
-    root_elt.findmeld.reset_mock()
-    tr_elt.findmeld.reset_mock()
-    load_elt.content.reset_mock()
-    mem_elt.content.reset_mock()
-    cpu_elt.content.reset_mock()
-    # test call with process stats and solaris mode
-    supvisors.options.stats_irix_mode = False
-    view.write_total_status(root_elt, sorted_data, excluded_data)
-    assert mocked_sum.call_args_list == [call([1, 2, 3, 4])]
-    assert root_elt.findmeld.call_args_list == [call('total_mid')]
-    assert tr_elt.findmeld.call_args_list == [call('load_total_th_mid'), call('mem_total_th_mid'),
-                                              call('cpu_total_th_mid')]
-    assert load_elt.content.call_args_list == [call('50')]
-    assert mem_elt.content.call_args_list == [call('25.00')]
-    assert cpu_elt.content.call_args_list == [call('6.00')]
 
 
 def test_make_callback(mocker, view):
