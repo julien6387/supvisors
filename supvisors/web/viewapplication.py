@@ -153,9 +153,9 @@ class ApplicationView(ViewHandler):
             possible_identifiers = process.possible_identifiers()
             identifier, description, has_stdout, has_stderr = process.get_applicable_details()
             # get_applicable_details may return a list of identifiers
-            nb_cores, proc_stats = 0, None
+            proc_stats = None
             if identifier:
-                nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
+                proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
             data.append({'row_type': ProcessRowTypes.APPLICATION_PROCESS,
                          'application_name': process.application_name, 'process_name': process.process_name,
                          'namespec': namespec, 'identifier': identifier,
@@ -167,7 +167,7 @@ class ApplicationView(ViewHandler):
                          'description': description,
                          'main': True, 'nb_items': len(process.info_map),
                          'expected_load': process.rules.expected_load,
-                         'nb_cores': nb_cores, 'proc_stats': proc_stats,
+                         'proc_stats': proc_stats,
                          'has_stdout': has_stdout, 'has_stderr': has_stderr})
             # add data depending on the process shex
             process_shex, _ = self.view_ctx.get_process_shex(process.process_name)
@@ -176,7 +176,7 @@ class ApplicationView(ViewHandler):
                 # NOTE: start / restart actions are not allowed
                 for identifier, info in process.info_map.items():
                     crashed = ProcessStatus.is_crashed_event(info)
-                    nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
+                    proc_stats = self.view_ctx.get_process_stats(namespec, identifier)
                     data.append({'row_type': ProcessRowTypes.INSTANCE_PROCESS, 'namespec': namespec,
                                  'application_name': info['group'], 'process_name': '',
                                  'identifier': identifier,
@@ -188,7 +188,7 @@ class ApplicationView(ViewHandler):
                                  'description': info['description'],
                                  'main': False, 'nb_items': 0,
                                  'expected_load': process.rules.expected_load,
-                                 'nb_cores': nb_cores, 'proc_stats': proc_stats,
+                                 'proc_stats': proc_stats,
                                  'has_stdout': process.has_stdout(identifier),
                                  'has_stderr': process.has_stderr(identifier)})
         # re-arrange data using alphabetical order

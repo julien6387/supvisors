@@ -323,8 +323,6 @@ class ViewHandler(MeldView):
             if proc_stats and len(proc_stats.cpu) > 0:
                 # print last CPU value of process
                 cpuvalue = proc_stats.cpu[-1]
-                if not self.supvisors.options.stats_irix_mode:
-                    cpuvalue /= info['nb_cores']
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
                     parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
@@ -496,23 +494,15 @@ class ViewHandler(MeldView):
         self.write_process_stdout_button(tr_elt, info)
         self.write_process_stderr_button(tr_elt, info)
 
-    def write_detailed_process_cpu(self, stats_elt, proc_stats: Optional[ProcStatisticsInstance],
-                                   nb_cores: int) -> bool:
+    def write_detailed_process_cpu(self, stats_elt, proc_stats: Optional[ProcStatisticsInstance]) -> bool:
         """ Write the CPU part of the detailed process status.
 
         :param stats_elt: the element from which to search for.
         :param proc_stats: the process statistics.
-        :param nb_cores: the number of processor cores.
         :return: True if process CPU statistics are valid.
         """
         if proc_stats:
-            if self.supvisors.options.stats_irix_mode:
-                cpu = proc_stats.cpu
-            else:
-                # if SOLARIS mode configured, update the CPU data
-                # this will be applicable to the CPU plot
-                cpu = [x / nb_cores for x in proc_stats.cpu]
-            self._write_common_detailed_statistics(stats_elt, cpu, proc_stats.times,
+            self._write_common_detailed_statistics(stats_elt, proc_stats.cpu, proc_stats.times,
                                                    'pcpuval_td_mid', 'pcpuavg_td_mid',
                                                    'pcpuslope_td_mid', 'pcpudev_td_mid')
             return True
@@ -553,7 +543,7 @@ class ViewHandler(MeldView):
     def write_process_plots(self, proc_stats: ProcStatisticsInstance) -> bool:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
-            from supvisors.web.plot import StatisticsPlot
+            from .plot import StatisticsPlot
             # build CPU image (if SOLARIS mode configured, CPU values have already been adjusted)
             cpu_img = StatisticsPlot(self.logger)
             cpu_img.add_timeline(proc_stats.times)
@@ -578,7 +568,7 @@ class ViewHandler(MeldView):
         if namespec:
             # set CPU/MEM statistics
             proc_stats: ProcStatisticsInstance = info['proc_stats']
-            done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats, info['nb_cores'])
+            done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats)
             done_mem = self.write_detailed_process_mem(stats_elt, proc_stats)
             if done_cpu or done_mem:
                 # set proces name

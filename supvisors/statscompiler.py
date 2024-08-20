@@ -262,12 +262,12 @@ def cpu_process_statistics(latest: float, ref: float, host_work: float) -> float
 class ProcStatisticsInstance:
     """ This class handles statistics for a process running on a Supervisor instance and for a given period. """
 
-    def __init__(self, namespec: str = '', identifier: str = '', period: int = 0, depth: int = 0):
+    def __init__(self, namespec: str = '', identifier: str = '', period: float = 0.0, depth: int = 0):
         """ Initialization of the attributes. """
         # parameters
         self.namespec: str = namespec
         self.identifier: str = identifier
-        self.period: int = period
+        self.period: float = period
         self.depth: int = depth
         self.ref_stats: Payload = {}
         self.ref_start_time: float = 0.0
@@ -312,6 +312,14 @@ class ProcStatisticsInstance:
             self.ref_start_time = proc_stats['now']
         return result
 
+    def copy(self, cpu_factor: int):
+        """ Return a copy of the data in a new instance. """
+        instance_copy = ProcStatisticsInstance()
+        instance_copy.times = self.times.copy()
+        instance_copy.mem = self.mem.copy()
+        instance_copy.cpu = [x / cpu_factor for x in self.cpu]
+        return instance_copy
+
 
 class ProcStatisticsHolder:
     """ This class stores process statistics for a process that may be running on all Supervisor instances.
@@ -323,10 +331,10 @@ class ProcStatisticsHolder:
         - options: the Supvisors options
         - logger: the global Supvisors logger
         - instance_map: a dictionary of ProcStatisticsInstance for all Supvisors instances where the process is running
-        and for all periods.
+                        and for all periods.
     """
 
-    IdentifierInstanceMap = Dict[str, Tuple[int, Dict[int, ProcStatisticsInstance]]]
+    IdentifierInstanceMap = Dict[str, Tuple[float, Dict[int, ProcStatisticsInstance]]]
 
     def __init__(self, namespec: str, options, logger):
         """ Initialization of the attributes. """
@@ -336,11 +344,14 @@ class ProcStatisticsHolder:
         # {identifier: (pid, {period: ProcStatisticsInstance}}
         self.instance_map: ProcStatisticsHolder.IdentifierInstanceMap = {}
 
-    def get_stats(self, identifier: str, period: int) -> Optional[ProcStatisticsInstance]:
+    def get_stats(self, identifier: str, period: float, cpu_factor: int) -> Optional[ProcStatisticsInstance]:
         """ Return the ProcStatisticsInstance corresponding to a Supvisors instance and a period. """
         _, identifier_instance = self.instance_map.get(identifier, (0, None))
         if identifier_instance:
-            return identifier_instance.get(period)
+            proc_stats = identifier_instance.get(period)
+            if proc_stats:
+                return proc_stats.copy(cpu_factor)
+        return None
 
     def push_statistics(self, identifier: str, process_stats: Payload) -> PayloadList:
         """ Consider a new list of process statistics received from a Supvisors instance.
@@ -386,11 +397,15 @@ class ProcStatisticsCompiler:
         # keep a CPU core map per identifier for Solaris mode
         self.nb_cores = {}
 
-    def get_stats(self, namespec: str, identifier: str, period: int) -> Optional[ProcStatisticsInstance]:
-        """ Return the ProcStatisticsInstance corresponding to a namespec, a Supvisors instance and a period. """
+    def get_stats(self, namespec: str, identifier: str, period: float) -> Optional[ProcStatisticsInstance]:
+        """ Return a copy of the current ProcStatisticsInstance corresponding to a namespec, a Supvisors instance
+        and a period.
+        CPU values are updated if SOLARIS mode is expected.
+        """
         proc_holder = self.holder_map.get(namespec)
         if proc_holder:
-            return proc_holder.get_stats(identifier, period)
+            cpu_factor = 1 if self.options.stats_irix_mode else self.nb_cores.get(identifier, 1)
+            return proc_holder.get_stats(identifier, period, cpu_factor)
 
     def get_nb_cores(self, identifier: str) -> int:
         """ Return the number of CPU cores linked to a Supvisors instance. """

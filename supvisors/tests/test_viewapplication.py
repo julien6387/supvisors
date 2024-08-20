@@ -300,7 +300,7 @@ def test_get_process_data(mocker, view):
     view.application = Mock(processes={process_1.process_name: process_1, process_2.process_name: process_2})
     # patch context
     mocked_stats = Mock()
-    view.view_ctx = Mock(**{'get_process_stats.return_value': (4, mocked_stats),
+    view.view_ctx = Mock(**{'get_process_stats.return_value': mocked_stats,
                             'get_process_shex.side_effect': [(True, None), (False, None)]})
     # test call
     data_1 = {'row_type': ProcessRowTypes.APPLICATION_PROCESS,
@@ -309,7 +309,7 @@ def test_get_process_data(mocker, view):
               'statename': 'STOPPED', 'statecode': ProcessStates.STOPPED, 'gravity': 'FATAL',
               'has_crashed': False, 'running_identifiers': [], 'description': 'stopped',
               'main': True, 'nb_items': 1,
-              'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats,
+              'expected_load': 20, 'proc_stats': mocked_stats,
               'has_stdout': True, 'has_stderr': False}
     data_1_1 = {'row_type': ProcessRowTypes.INSTANCE_PROCESS,
                 'application_name': 'appli_1', 'process_name': '', 'namespec': 'namespec_1',
@@ -317,7 +317,7 @@ def test_get_process_data(mocker, view):
                 'statename': 'STOPPED', 'statecode': ProcessStates.STOPPED, 'gravity': 'STOPPED',
                 'has_crashed': False, 'running_identifiers': ['10.0.0.1'], 'description': 'process_1 on 10.0.0.1',
                 'main': False, 'nb_items': 0,
-                'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats,
+                'expected_load': 20, 'proc_stats': mocked_stats,
                 'has_stdout': False, 'has_stderr': True}
     data_2 = {'row_type': ProcessRowTypes.APPLICATION_PROCESS,
               'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
@@ -325,7 +325,7 @@ def test_get_process_data(mocker, view):
               'statename': 'RUNNING', 'statecode': ProcessStates.RUNNING, 'gravity': 'RUNNING',
               'has_crashed': True, 'running_identifiers': ['10.0.0.1', '10.0.0.3'], 'description': 'conflict',
               'main': True, 'nb_items': 4,
-              'expected_load': 1, 'nb_cores': 0, 'proc_stats': None,
+              'expected_load': 1, 'proc_stats': None,
               'has_stdout': False, 'has_stderr': False}
     assert view.get_process_data() == [data_1, data_1_1, data_2]
 

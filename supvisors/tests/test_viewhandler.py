@@ -644,9 +644,8 @@ def test_write_common_process_cpu(supvisors, handler):
     assert not handler.view_ctx.format_url.called
     assert not pcpu_a_mid.content.called
     tr_elt.reset_all()
-    # test with filled stats on selected process, irix mode
-    supvisors.options.stats_irix_mode = True
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20]), 'nb_cores': 2}
+    # test with filled stats on selected process
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20])}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not pcpu_a_mid.deparent.called
@@ -657,27 +656,25 @@ def test_write_common_process_cpu(supvisors, handler):
     # reset context
     tr_elt.reset_all()
     handler.view_ctx.format_url.reset_mock()
-    # test with filled stats on not selected process, solaris mode
-    supvisors.options.stats_irix_mode = False
-    info = {'namespec': 'dummy', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20, 30]), 'nb_cores': 2}
+    # test with filled stats on not selected process
+    info = {'namespec': 'dummy', 'identifier': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20, 30])}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not pcpu_a_mid.deparent.called
     assert not pcpu_a_mid.replace.called
-    assert pcpu_a_mid.content.call_args_list == [call('15.00')]
+    assert pcpu_a_mid.content.call_args_list == [call('30.00')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', ident='10.0.0.1')]
     assert pcpu_a_mid.attributes.call_args_list == [call(href='an url')]
     assert pcpu_a_mid.attrib['class'] == 'button on'
     # reset context
     tr_elt.reset_all()
     handler.view_ctx.format_url.reset_mock()
-    # test with filled stats on application (so non process), solaris mode
-    handler.supvisors.options.stats_irix_mode = False
-    info = {'namespec': None, 'ident': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20, 30]), 'nb_cores': 2}
+    # test with filled stats on application (so non process)
+    info = {'namespec': None, 'ident': '10.0.0.1', 'proc_stats': Mock(cpu=[10, 20, 30])}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not pcpu_a_mid.deparent.called
-    assert pcpu_a_mid.replace.call_args_list == [call('15.00')]
+    assert pcpu_a_mid.replace.call_args_list == [call('30.00')]
     assert not pcpu_a_mid.content.called
     assert not handler.view_ctx.format_url.called
     assert not pcpu_a_mid.attributes.called
@@ -1043,36 +1040,23 @@ def test_write_detailed_process_cpu(mocker, supvisors, handler):
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 13])
     # context
     stats_elt = create_element()
-    supvisors.options.stats_irix_mode = True
     # test call with no stats
-    assert not handler.write_detailed_process_cpu(stats_elt, None, 4)
+    assert not handler.write_detailed_process_cpu(stats_elt, None)
     assert proc_stats.cpu == [10, 16, 13]
     assert proc_stats.times == [1, 2, 3]
     # test call with empty stats
-    for mode in [True, False]:
-        supvisors.options.stats_irix_mode = mode
-        assert handler.write_detailed_process_cpu(stats_elt, Mock(cpu=[], times=[]), 4)
-        assert proc_stats.cpu == [10, 16, 13]
-        assert proc_stats.times == [1, 2, 3]
-        assert mocked_common.call_args_list == [call(stats_elt, [], [],
-                                                     'pcpuval_td_mid', 'pcpuavg_td_mid',
-                                                     'pcpuslope_td_mid', 'pcpudev_td_mid')]
-        mocked_common.reset_mock()
-    # test call with irix mode
-    supvisors.options.stats_irix_mode = True
-    assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
+    assert handler.write_detailed_process_cpu(stats_elt, Mock(cpu=[], times=[]))
     assert proc_stats.cpu == [10, 16, 13]
     assert proc_stats.times == [1, 2, 3]
-    assert mocked_common.call_args_list == [call(stats_elt, [10, 16, 13], [1, 2, 3],
+    assert mocked_common.call_args_list == [call(stats_elt, [], [],
                                                  'pcpuval_td_mid', 'pcpuavg_td_mid',
                                                  'pcpuslope_td_mid', 'pcpudev_td_mid')]
     mocked_common.reset_mock()
-    # test call with solaris mode
-    supvisors.options.stats_irix_mode = False
-    assert handler.write_detailed_process_cpu(stats_elt, proc_stats, 4)
+    # test call with filled stats
+    assert handler.write_detailed_process_cpu(stats_elt, proc_stats)
     assert proc_stats.cpu == [10, 16, 13]
     assert proc_stats.times == [1, 2, 3]
-    assert mocked_common.call_args_list == [call(stats_elt, [2.5, 4, 3.25], [1, 2, 3],
+    assert mocked_common.call_args_list == [call(stats_elt, [10, 16, 13], [1, 2, 3],
                                                  'pcpuval_td_mid', 'pcpuavg_td_mid',
                                                  'pcpuslope_td_mid', 'pcpudev_td_mid')]
 
@@ -1205,12 +1189,12 @@ def test_write_process_statistics(mocker, handler):
     assert not mocked_plots.called
     root_elt.reset_all()
     # test call with namespec selection and no stats found
-    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1:25000', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1:25000', 'proc_stats': 'dummy_stats'}
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert not stats_elt.replace.called
     assert not stats_elt.findmeld.called
-    assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
+    assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert not process_td_mid.content.called
     assert not node_td_mid.content.called
@@ -1226,7 +1210,7 @@ def test_write_process_statistics(mocker, handler):
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid')]
     assert not stats_elt.replace.called
-    assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
+    assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert process_td_mid.content.call_args_list == [call('dummy_proc')]
     assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
@@ -1243,7 +1227,7 @@ def test_write_process_statistics(mocker, handler):
     assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid'),
                                                  call('cpuimage_fig_mid'), call('memimage_fig_mid')]
     assert not stats_elt.replace.called
-    assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
+    assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert process_td_mid.content.call_args_list == [call('dummy_proc')]
     assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
