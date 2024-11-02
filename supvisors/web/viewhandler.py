@@ -24,6 +24,7 @@ from supervisor.web import MeldView
 from supvisors import __version__
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.internal_com.mapper import SupvisorsInstanceId
+from supvisors.statemodes import StateModes, SupvisorsStateModes
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
 from supvisors.utils import get_stats, get_small_value
@@ -43,9 +44,6 @@ class ViewHandler(MeldView):
         self.current_time = time.time()
         # add Supvisors shortcuts
         self.supvisors = context.supervisord.supvisors
-        self.logger = self.supvisors.logger
-        # cannot store context as it is named, or it would crush the http context
-        self.sup_ctx = self.supvisors.context
         # even if there is no local collector, statistics can be available from other Supvisors instances
         # where a collector is available
         self.has_host_statistics = True
@@ -62,6 +60,21 @@ class ViewHandler(MeldView):
     def local_nick_identifier(self):
         """ Return the nick identifier of the local Supvisors instance. """
         return self.supvisors.mapper.local_nick_identifier
+
+    @property
+    def logger(self):
+        """ Shortcut to the Supvisors logger. """
+        return self.supvisors.logger
+
+    @property
+    def sup_ctx(self):
+        """ Shortcut to the Supvisors context. """
+        return self.supvisors.context
+
+    @property
+    def state_modes(self) -> SupvisorsStateModes:
+        """ Shortcut to the Supvisors state & modes. """
+        return self.supvisors.state_modes
 
     def __call__(self):
         """ Anticipation of Supervisor#1273.
@@ -147,6 +160,7 @@ class ViewHandler(MeldView):
         for li_elt, item in mid_elt.repeat(identifiers):
             try:
                 status: SupvisorsInstanceStatus = self.sup_ctx.instances[item]
+                sm: StateModes = self.state_modes.instance_state_modes[item]
             except KeyError:
                 self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:
@@ -162,7 +176,8 @@ class ViewHandler(MeldView):
                     update_attrib(li_elt, 'class', 'failure')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('instance_a_mid')
-                if status.state_modes.starting_jobs or status.state_modes.stopping_jobs:
+                # FIXME
+                if sm.starting_jobs or sm.stopping_jobs:
                     update_attrib(elt, 'class', 'blink')
                 if status.has_active_state():
                     # go to web page located on the Supvisors instance to reuse Supervisor StatusView
@@ -205,7 +220,7 @@ class ViewHandler(MeldView):
             elt = li_elt.findmeld('appli_a_mid')
             if item.application_name in working_apps:
                 update_attrib(elt, 'class', 'blink')
-            if self.supvisors.fsm.state in [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION]:
+            if self.supvisors.fsm.state in [SupvisorsStates.OFF, SupvisorsStates.SYNCHRONIZATION]:
                 update_attrib(elt, 'class', 'off')
             else:
                 # force default application starting strategy

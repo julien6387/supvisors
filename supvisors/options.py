@@ -143,7 +143,7 @@ class SupvisorsOptions:
         self.starting_strategy = self._get_value(config, 'starting_strategy', StartingStrategies.CONFIG,
                                                  self.to_starting_strategy)
         self.supvisors_failure_strategy = self._get_value(config, 'supvisors_failure_strategy',
-                                                          SupvisorsFailureStrategies.BLOCK,
+                                                          SupvisorsFailureStrategies.CONTINUE,
                                                           self.to_supvisors_failure_strategy)
         # configure statistics
         # stats_enabled is deprecated
@@ -157,8 +157,8 @@ class SupvisorsOptions:
         # configure log tail limits
         self.tail_limit = self._get_value(config, 'tail_limit', 1024, byte_size)
         self.tailf_limit = self._get_value(config, 'tailf_limit', 1024, byte_size)
-        # check synchro options consistence
-        self.check_synchro_options()
+        # check options consistency
+        self.check_options()
 
     def __str__(self):
         """ Contents as string. """
@@ -199,21 +199,27 @@ class SupvisorsOptions:
         """
         return self.multicast_group is not None
 
-    def check_synchro_options(self):
-        """ Check the validity of the synchro_options wrt other options. """
+    def check_options(self):
+        """ Check the consistency of the options. """
         # when using CORE in synchro_options, core_identifiers cannot be empty
         if not self.core_identifiers and SynchronizationOptions.CORE in self.synchro_options:
-            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options CORE'
+            self.logger.warn('SupvisorsOptions:check_options: cancellation of synchro_options CORE'
                              ' with no core_identifiers')
             self.synchro_options.remove(SynchronizationOptions.CORE)
         # when using LIST in synchro_options, supvisors_list cannot be empty
         if not self.supvisors_list and SynchronizationOptions.STRICT in self.synchro_options:
-            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options STRICT'
+            self.logger.warn('SupvisorsOptions:check_options: cancellation of synchro_options STRICT'
                              ' with no supvisors_list')
             self.synchro_options.remove(SynchronizationOptions.STRICT)
-        # finally, synchro_options must not be empty
+        # synchro_options must not be empty
         if not self.synchro_options:
             raise ValueError('synchro_options must not be empty')
+        # using TIMEOUT in synchro_options invalidates SupvisorsFailureStrategies
+        if (SynchronizationOptions.TIMEOUT in self.synchro_options
+                and self.supvisors_failure_strategy != SupvisorsFailureStrategies.CONTINUE):
+            self.logger.warn('SupvisorsOptions:check_options: force supvisors_failure_strategy=CONTINUE'
+                             ' because it is incompatible with synchro_options=TIMEOUT')
+            self.supvisors_failure_strategy = SupvisorsFailureStrategies.CONTINUE
 
     def check_dirpath(self, file_path: str) -> str:
         """ Check if the path provided exists and create the folder tree if necessary.

@@ -27,6 +27,7 @@ from .listener import SupervisorListener
 from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic, get_logger_configuration
 from .sparser import Parser
 from .statemachine import FiniteStateMachine
+from .statemodes import SupvisorsStateModes
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .strategy import RunningFailureHandler
 from .supervisordata import SupervisorData
@@ -113,7 +114,8 @@ class Supvisors:
             self.logger.warn('Supvisors: this Supvisors instance cannot not collect statistics')
         self.host_compiler = HostStatisticsCompiler(self)
         self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
-        # create context data
+        # create Supvisors State & Modes and context
+        self.state_modes = SupvisorsStateModes(self)
         self.context = Context(self)
         # create application starter and stopper
         self.starter = Starter(self)

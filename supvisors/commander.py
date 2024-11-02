@@ -1006,13 +1006,12 @@ class Commander:
         # update context state and modes
         self.publish_state_modes()
 
-    def publish_state_modes(self):
+    def publish_state_modes(self) -> None:
         """ Triggers the publication of the states & modes status.
         This has been isolated in a separate method to avoid the publication with the StartModel.
 
         :return: None
         """
-        self.supvisors.context.publish_state_modes({self.class_name.lower(): self.in_progress()})
 
     # periodic check
     def check(self) -> None:
@@ -1244,6 +1243,14 @@ class Starter(Commander):
         return {identifier: sum(load_request.get(identifier, 0) for load_request in load_requests)
                 for identifier in identifiers}
 
+    def publish_state_modes(self) -> None:
+        """ Triggers the publication of the states & modes status.
+        This has been isolated in a separate method to avoid the publication with the StartModel.
+
+        :return: None
+        """
+        self.supvisors.state_modes.starting_jobs = self.in_progress()
+
 
 class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
@@ -1437,6 +1444,13 @@ class Stopper(Commander):
             for strategy, process, extra_args in process_list:
                 self.logger.debug(f'Stopper.after: apply pending start process={process.namespec}')
                 self.supvisors.starter.start_process(strategy, process, extra_args)
+
+    def publish_state_modes(self) -> None:
+        """ Triggers the publication of the states & modes status.
+
+        :return: None
+        """
+        self.supvisors.state_modes.stopping_jobs = self.in_progress()
 
 
 # Starter model

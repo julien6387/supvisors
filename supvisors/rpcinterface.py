@@ -90,7 +90,7 @@ class RPCInterface:
         :return: the state and modes of **Supvisors**.
         :rtype: dict[str, Any]
         """
-        return self.supvisors.context.get_state_modes()
+        return self.supvisors.state_modes.serial()
 
     def get_master_identifier(self) -> str:
         """ Get the identification of the **Supvisors** instance elected as **Supvisors** *Master*.
@@ -156,6 +156,27 @@ class RPCInterface:
             self._raise(Faults.BAD_NAME, 'get_instance_info',
                         f'identifier={identifier} is unknown to Supvisors')
         return [self.supvisors.context.instances[identifier].serial()
+                for identifier in identifiers]
+
+    # TODO: add get_all_instances_state_modes + get_instance_state_modes
+    # TODO: add to supervisorctl
+    # TODO: update pythondoc
+    def get_instance_state_modes(self, identifier: str) -> PayloadList:
+        """ Get information about the **Supvisors** instances identified by ``identifier`` (Supvisors identifier,
+        Supervisor identifier or Supvisors stereotype).
+
+        This method can return multiple results if a **Supvisors** stereotype is used as parameter.
+
+        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
+        :return: a structure containing information about the **Supvisors** instance.
+        :rtype: list[dict[str, Any]].
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
+        """
+        identifiers = self.supvisors.mapper.filter([identifier])
+        if not identifiers:
+            self._raise(Faults.BAD_NAME, 'get_instance_state_modes',
+                        f'identifier={identifier} is unknown to Supvisors')
+        return [self.supvisors.state_modes.instance_state_modes[identifier].serial()
                 for identifier in identifiers]
 
     def get_all_applications_info(self) -> PayloadList:
@@ -1114,7 +1135,7 @@ class RPCInterface:
             ``Faults.INCORRECT_PARAMETERS`` if master is resolved in multiple Supvisors identifiers ;
             ``Faults.NOT_RUNNING`` if the selected Master Supvisors instance is not in state ``RUNNING``.
         """
-        self._check_state([SupvisorsStates.INITIALIZATION])
+        self._check_state([SupvisorsStates.SYNCHRONIZATION])
         if self.supvisors.context.master_identifier:
             self._raise(SupvisorsFaults.BAD_SUPVISORS_STATE.value, 'end_sync', 'Supvisors synchronization ending')
         if SynchronizationOptions.USER not in self.supvisors.options.synchro_options:

@@ -35,9 +35,6 @@ from supvisors.ttypes import (Ipv4Address, SupvisorsInstanceStates,
                               RequestHeaders, PublicationHeaders, NotificationHeaders)
 from supvisors.utils import SupervisorServerUrl
 
-# List of keys useful to build a SupvisorsState event
-StateModesKeys = ['fsm_statecode', 'discovery_mode', 'master_identifier', 'starting_jobs', 'stopping_jobs']
-
 # life expectation for the local proxy
 # Supervisor close any HTTP channel after 30 minutes without activity
 LOCAL_PROXY_DURATION = 20 * 60
@@ -184,6 +181,9 @@ class SupervisorProxy:
     def check_instance(self) -> None:
         """ Check isolation and get all process info from the Supvisors instance.
 
+        This is needed for the local Supvisors instance too because Supervisor does not provide the initial
+        status on the local processes through the notification function.
+
         :return: None.
         """
         authorized = self._is_authorized()
@@ -225,19 +225,17 @@ class SupervisorProxy:
     def _transfer_states_modes(self) -> None:
         """ Get the states and modes from the remote Supvisors instance and post it to the local Supvisors instance.
 
-        :return: None
+        :return: None.
         """
-        remote_status = self.xml_rpc('supvisors.get_instance_info',
-                                     self.proxy.supvisors.get_instance_info,
-                                     (self.status.identifier,))
-        self.logger.debug(f'SupervisorProxy._transfer_states_modes: remote_status={remote_status}')
-        state_modes = None
-        if remote_status:
-            state_modes = {key: remote_status[0][key] for key in StateModesKeys}
+        state_modes = self.xml_rpc('supvisors.get_instance_state_modes',
+                                   self.proxy.supvisors.get_instance_state_modes,
+                                   (self.status.identifier,))
+        self.logger.debug(f'SupervisorProxy._transfer_states_modes: state_modes={state_modes}')
+        # FIXME: one element expected. what if not?
         # provide the local Supvisors with the remote Supvisors instance state and modes
         # NOTE: use the proxy server to switch to the relevant proxy thread
         origin = self._get_origin(self.status.identifier)
-        message = NotificationHeaders.STATE.value, state_modes
+        message = NotificationHeaders.STATE.value, state_modes[0]
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
     def _transfer_process_info(self) -> None:

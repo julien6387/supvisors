@@ -42,7 +42,7 @@ def supvisors_ctx(supvisors):
 
 def test_abstract_state(mocker, supvisors_ctx):
     """ Test the Abstract state of the self.fsm. """
-    state = AbstractState(supvisors_ctx)
+    state = SupvisorsBaseState(supvisors_ctx)
     # patch the context
     mocker.patch.object(supvisors_ctx.starter, 'in_progress', return_value=False)
     # check attributes at creation
@@ -76,7 +76,7 @@ def test_abstract_state(mocker, supvisors_ctx):
 def test_off_state(supvisors_ctx):
     """ Test the Initialization state of the fsm. """
     state = OffState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # 1. test enter method: no behaviour
     state.enter()
     # 2. test next method
@@ -97,7 +97,7 @@ def init_state(supvisors_ctx):
 def test_initialization_state_enter(mocker, init_state):
     """ Test the Initialization state of the FSM / enter method. """
     mocker.patch('time.monotonic', return_value=1234)
-    assert isinstance(init_state, AbstractState)
+    assert isinstance(init_state, SupvisorsBaseState)
     local_identifier = init_state.local_identifier
     # test that master and start_date are reset
     # test that all active instances have been reset to UNKNOWN
@@ -271,7 +271,7 @@ def test_initialization_state_exit(mocker, init_state):
 def test_master_deployment_state(mocker, supvisors_ctx):
     """ Test the Deployment state of the fsm. """
     state = MasterDeploymentState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # test enter method with redeploy_mark as a boolean
     mocked_starter = supvisors_ctx.starter.start_applications
     for mark in [True, False]:
@@ -312,7 +312,7 @@ def test_master_operation_state(mocker, supvisors_ctx):
     mocked_stop = supvisors_ctx.stopper.in_progress
     # create instance
     state = MasterOperationState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # 1. no enter implementation. just call it without test
     state.enter()
     # 2. test next method if check_instances return something
@@ -361,7 +361,7 @@ def test_master_conciliation_state(mocker, supvisors_ctx):
     mocked_stop = supvisors_ctx.stopper.in_progress
     # create instance
     state = MasterConciliationState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # test enter method
     mocker.patch.object(supvisors_ctx.context, 'conflicts', return_value=[1, 2, 3])
     state.enter()
@@ -409,7 +409,7 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     mocked_stopping = supvisors_ctx.stopper.in_progress
     # create instance to test
     state = MasterRestartingState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # test enter method: starting ang stopping in progress are aborted
     state.enter()
     assert mocked_starter.call_count == 1
@@ -439,7 +439,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     mocked_stopping = supvisors_ctx.stopper.in_progress
     # create instance to test
     state = MasterShuttingDownState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # test enter method: starting ang stopping in progress are aborted
     state.enter()
     assert mocked_starter.call_count == 1
@@ -465,7 +465,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
 def test_final_state(supvisors_ctx):
     """ Test the Final state of the fsm. """
     state = FinalState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # no enter / next / exit implementation. just call it without test
     state.enter()
     state.next()
@@ -478,7 +478,7 @@ def test_slave_main_state(mocker, supvisors_ctx):
     supvisors_ctx.context.master_instance.state_modes.state = SupvisorsStates.CONCILIATION
     # create instance to test
     state = SlaveMainState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # no enter implementation. just call it without test
     state.enter()
     # test next method if check_instances return something
@@ -498,7 +498,7 @@ def test_slave_restarting_state(mocker, supvisors_ctx):
     supvisors_ctx.context.master_instance.state_modes.state = SupvisorsStates.RESTARTING
     # create instance to test
     state = SlaveRestartingState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # no enter implementation. just call it without test
     state.enter()
     # test next method if check_instances return something
@@ -521,7 +521,7 @@ def test_slave_shutting_down_state(mocker, supvisors_ctx):
     supvisors_ctx.context.master_instance.state_modes.state = SupvisorsStates.SHUTTING_DOWN
     # create instance to test
     state = SlaveShuttingDownState(supvisors_ctx)
-    assert isinstance(state, AbstractState)
+    assert isinstance(state, SupvisorsBaseState)
     # no enter implementation. just call it without test
     state.enter()
     # test next method if check_instances return something

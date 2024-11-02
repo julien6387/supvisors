@@ -16,7 +16,7 @@
 
 from supervisor.web import StatusView
 
-from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.statemodes import StateModes
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -56,14 +56,14 @@ class SupvisorsInstanceView(ViewHandler, StatusView):
         # set Supvisors instance identifier
         header_elt.findmeld('instance_mid').content(self.local_nick_identifier)
         # set Supvisors instance state
-        status: SupvisorsInstanceStatus = self.sup_ctx.local_status
-        header_elt.findmeld('state_mid').content(status.state.name)
+        sm: StateModes = self.state_modes.local_state_modes
+        header_elt.findmeld('state_mid').content(sm.state.name)
         # set Supvisors discovery mode
-        if status.state_modes.discovery_mode:
+        if sm.discovery_mode:
             header_elt.findmeld('discovery_mid').content('discovery')
         # set Supvisors instance modes
-        for mid, progress in [('starting_mid', status.state_modes.starting_jobs),
-                              ('stopping_mid', status.state_modes.stopping_jobs)]:
+        for mid, progress in [('starting_mid', sm.starting_jobs),
+                              ('stopping_mid', sm.stopping_jobs)]:
             if progress:
                 elt = header_elt.findmeld(mid)
                 elt.content(mid.split('_')[0])

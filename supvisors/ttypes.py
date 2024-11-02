@@ -28,12 +28,12 @@ SUPVISORS_NOTIFICATION = 'SupvisorsNotification'
 # all enumerations
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, CHECKED, RUNNING, FAILED, STOPPED, ISOLATED = range(7)
+    STOPPED, CHECKING, CHECKED, RUNNING, FAILED, ISOLATED = range(6)
 
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    OFF, INITIALIZATION, DISTRIBUTION, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(8)
+    OFF, SYNCHRONIZATION, ELECTION, DISTRIBUTION, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(9)
 
 
 class ApplicationStates(Enum):
@@ -69,7 +69,8 @@ class RunningFailureStrategies(Enum):
 
 class SupvisorsFailureStrategies(Enum):
     """ Applicable strategies that can be applied when re-entering the INITIALIZATION state. """
-    BLOCK, CONTINUE, RESTART, SHUTDOWN = range(4)
+    CONTINUE, RESYNC, RESTART, SHUTDOWN = range(4)
+    # FIXME: RESTART = no interest (equivalent to RESYNC)
 
 
 class ProcessRequestResult(Enum):
@@ -194,6 +195,7 @@ EnumType = TypeVar('EnumType', bound='Enum')
 Ipv4Address = Tuple[str, int]
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
+NameDict = Dict[str, str]
 NameList = List[str]
 NameSet = Set[str]
 LoadMap = Dict[str, int]

@@ -15,108 +15,15 @@
 # ======================================================================
 
 import time
-from copy import copy
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
 from .internal_com.mapper import SupvisorsInstanceId
 from .process import ProcessStatus
-from .ttypes import SupvisorsInstanceStates, SupvisorsStates, InvalidTransition, Payload
+from .ttypes import SupvisorsInstanceStates, InvalidTransition, Payload
 from .utils import TICK_PERIOD
-
-
-class StateModes:
-
-    def __init__(self, state: SupvisorsStates = SupvisorsStates.OFF,
-                 degraded_mode: bool = False,
-                 discovery_mode: bool = False,
-                 master_identifier: str = '',
-                 starting_jobs: bool = False, stopping_jobs: bool = False):
-        """ Initialization of the attributes.
-
-        :param state: the FSM state.
-        :param degraded_mode: True if Supvisors is degraded (essential instance missing).
-        :param discovery_mode: True if the Supvisors discovery mode is enabled.
-        :param master_identifier: the identifier of the Supvisors Master instance.
-        :param starting_jobs: True if the Starter has jobs in progress.
-        :param stopping_jobs: True if the Stopper has jobs in progress.
-        """
-        self.state: SupvisorsStates = state
-        self.degraded_mode: bool = degraded_mode
-        self.discovery_mode: bool = discovery_mode
-        self.master_identifier: str = master_identifier
-        self.starting_jobs: bool = starting_jobs
-        self.stopping_jobs: bool = stopping_jobs
-
-    def __copy__(self):
-        """ Create a new StateModes object with the same attributes.
-
-        :return: a copy of this StateModes object.
-        """
-        return type(self)(self.state, self.degraded_mode, self.discovery_mode, self.master_identifier,
-                          self.starting_jobs, self.stopping_jobs)
-
-    def __eq__(self, other) -> bool:
-        """ Check if the other object is equivalent.
-
-        :param other: a StateModes object
-        :return:
-        """
-        if isinstance(other, StateModes):
-            return (self.state == other.state
-                    and self.degraded_mode == other.degraded_mode
-                    and self.discovery_mode == other.discovery_mode
-                    and self.master_identifier == other.master_identifier
-                    and self.starting_jobs == other.starting_jobs
-                    and self.stopping_jobs == other.stopping_jobs)
-        return False
-
-    def apply(self, fsm_state: SupvisorsStates = None, degraded_mode: bool = None,
-              master_identifier: str = None,
-              starter: bool = None, stopper: bool = None):
-        """ Get the Supvisors instance state and modes with changes applied.
-
-        :param fsm_state: the new FSM state.
-        :param degraded_mode: the Supvisors degraded mode.
-        :param master_identifier: the identifier of the Master Supvisors instance.
-        :param starter: the Starter progress.
-        :param stopper: the Stopper progress.
-        :return: True if state and modes have changed, and the changed state and modes.
-        """
-        if fsm_state is not None:
-            self.state = fsm_state
-        if degraded_mode is not None:
-            self.degraded_mode = degraded_mode
-        if master_identifier is not None:
-            self.master_identifier = master_identifier
-        if starter is not None:
-            self.starting_jobs = starter
-        if stopper is not None:
-            self.stopping_jobs = stopper
-
-    def update(self, payload: Payload) -> None:
-        """ Get the Supvisors instance state and modes with changes applied.
-
-        :param payload: the Supvisors instance state and modes.
-        :return: None.
-        """
-        self.state = SupvisorsStates(payload['fsm_statecode'])
-        self.degraded_mode = payload['degraded_mode']
-        self.discovery_mode = payload['discovery_mode']
-        self.master_identifier = payload['master_identifier']
-        self.starting_jobs = payload['starting_jobs']
-        self.stopping_jobs = payload['stopping_jobs']
-
-    def serial(self):
-        """ Return a serializable form of the StatesModes. """
-        return {'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
-                'degraded_mode': self.degraded_mode,
-                'discovery_mode': self.discovery_mode,
-                'master_identifier': self.master_identifier,
-                'starting_jobs': self.starting_jobs,
-                'stopping_jobs': self.stopping_jobs}
 
 
 class SupvisorsTimes:
@@ -238,8 +145,7 @@ class SupvisorsInstanceStatus:
         - supvisors_id: the parameters identifying where the Supvisors instance is expected to be running ;
         - state: the state of the Supvisors instance in SupvisorsInstanceStates ;
         - time: the counter, time and clock of the remote Supvisors instance associated to the local ones ;
-        - processes: the list of processes that are configured in the Supervisor of the Supvisors instance ;
-        - state_modes: the Supvisors instance state and modes.
+        - processes: the list of processes that are configured in the Supervisor of the Supvisors instance.
     """
 
     def __init__(self, supvisors_id: SupvisorsInstanceId, supvisors: Any):
@@ -247,17 +153,12 @@ class SupvisorsInstanceStatus:
         self.supvisors = supvisors
         # attributes
         self.supvisors_id: SupvisorsInstanceId = supvisors_id
-        self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.UNKNOWN
+        self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.STOPPED
         self.times: SupvisorsTimes = SupvisorsTimes(self.identifier, self.logger)
         self.processes: Dict[str, ProcessStatus] = {}
-        # state and modes
-        self.state_modes = StateModes()
         # the local instance may use the process statistics collector
         self.stats_collector = None
-        is_local = supvisors.mapper.local_identifier == self.identifier
-        if is_local:
-            # use the condition to set the local discovery mode in states / modes object
-            self.state_modes.discovery_mode = supvisors.options.discovery_mode
+        if supvisors.mapper.local_identifier == self.identifier:
             # copy the process collector reference
             if supvisors.options.process_stats_enabled:
                 self.stats_collector = supvisors.stats_collector
@@ -266,20 +167,6 @@ class SupvisorsInstanceStatus:
     def logger(self) -> Logger:
         """ Shortcut to the Supvisors logger. """
         return self.supvisors.logger
-
-    def reset(self):
-        """ Reset the contextual part of the Supvisors instance.
-        Silent and isolated Supvisors instances are not reset.
-
-        :return: None.
-        """
-        if self.has_active_state():
-            # do NOT use state setter as transition may be rejected
-            self._state = SupvisorsInstanceStates.UNKNOWN
-        # use a new SupvisorsTimes instance
-        self.times = SupvisorsTimes(self.identifier, self.logger)
-        # reset the Master
-        self.state_modes.master_identifier = ''
 
     # accessors / mutators
     @property
@@ -306,9 +193,8 @@ class SupvisorsInstanceStatus:
                                         f' transition rejected from {self.state.name} to {new_state.name}')
             self._state = new_state
             self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.usage_identifier} is {self.state.name}')
-            if new_state in [SupvisorsInstanceStates.STOPPED, SupvisorsInstanceStates.ISOLATED]:
-                self.logger.debug(f'SupvisorsInstanceStatus.state: FSM is OFF in Supvisors={self.usage_identifier}')
-                self.state_modes.state = SupvisorsStates.OFF
+            # update the information in the local state & modes
+            self.supvisors.state_modes.update_instance_state(self.identifier, new_state)
 
     @property
     def isolated(self) -> bool:
@@ -331,28 +217,9 @@ class SupvisorsInstanceStatus:
                    'loading': self.get_load(),
                    'process_failure': self.has_error()}
         payload.update(self.times.serial())
-        payload.update(self.state_modes.serial())
         return payload
 
     # methods
-    def update_state_modes(self, event: Payload) -> None:
-        """ Update the Supvisors instance state and modes.
-
-        :param event: the state or the mode updated.
-        :return: None.
-        """
-        self.state_modes.update(event)
-
-    def apply_state_modes(self, event: Payload) -> Tuple[bool, StateModes]:
-        """ Apply the change on a copy of states_modes.
-
-        :param event: the state or the mode updated.
-        :return: None.
-        """
-        ref_state_modes = copy(self.state_modes)
-        self.state_modes.apply(**event)
-        return ref_state_modes != self.state_modes, self.state_modes
-
     def has_active_state(self) -> bool:
         """ Return True if the instance status is in an active state.
 
@@ -456,10 +323,8 @@ class SupvisorsInstanceStatus:
                         for process in self.processes.values()))
 
     # dictionary for transitions
-    _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,
-                                                      SupvisorsInstanceStates.ISOLATED,
-                                                      SupvisorsInstanceStates.STOPPED),
-                    SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.UNKNOWN,
+    _Transitions = {SupvisorsInstanceStates.STOPPED: (SupvisorsInstanceStates.CHECKING,),
+                    SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.STOPPED,
                                                        SupvisorsInstanceStates.CHECKED,
                                                        SupvisorsInstanceStates.FAILED),
                     SupvisorsInstanceStates.CHECKED: (SupvisorsInstanceStates.RUNNING,
@@ -467,6 +332,5 @@ class SupvisorsInstanceStatus:
                     SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.FAILED,),
                     SupvisorsInstanceStates.FAILED: (SupvisorsInstanceStates.STOPPED,
                                                      SupvisorsInstanceStates.ISOLATED),
-                    SupvisorsInstanceStates.STOPPED: (SupvisorsInstanceStates.CHECKING,),
                     SupvisorsInstanceStates.ISOLATED: ()
                     }

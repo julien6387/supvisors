@@ -2,7 +2,8 @@
 
 ## 0.19 (2024-xx-xx)
 
-* TODO.
+* Refactoring of the *Supvisors* internal state machine
+  INITIALIZATION => SYNCHRONIZATION + ELECTION
 
 
 ## 0.18.6 (2024-08-20)

@@ -352,9 +352,9 @@ def test_instances_by_states(supvisors, context):
     assert context.isolated_instances() == []
     assert sorted(context.valid_instances()) == all_instances
     assert sorted(context.isolated_instances() + context.valid_instances()) == all_instances
-    assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == []
-    assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == []
-    assert sorted(context.instances_by_states([SupvisorsInstanceStates.UNKNOWN])) == \
+    assert context.identifiers_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == []
+    assert context.identifiers_by_states([SupvisorsInstanceStates.SILENT]) == []
+    assert sorted(context.identifiers_by_states([SupvisorsInstanceStates.UNKNOWN])) == \
            sorted(supvisors.mapper.instances.keys())
     # change states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
@@ -371,10 +371,10 @@ def test_instances_by_states(supvisors, context):
     assert sorted(context.valid_instances()) == sorted(['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.4:25000',
                                                         '10.0.0.5:25000', local_identifier, test_identifier])
     assert sorted(context.isolated_instances() + context.valid_instances()) == all_instances
-    assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == \
+    assert context.identifiers_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == \
            ['10.0.0.3:25000', '10.0.0.4:25000', local_identifier]
-    assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == ['10.0.0.1:25000']
-    assert context.instances_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5:25000', test_identifier]
+    assert context.identifiers_by_states([SupvisorsInstanceStates.SILENT]) == ['10.0.0.1:25000']
+    assert context.identifiers_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5:25000', test_identifier]
 
 
 def test_running_core_identifiers_empty(supvisors):

@@ -15,18 +15,18 @@
 # ======================================================================
 
 import re
-import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from supervisor.loggers import Logger
 from supervisor.options import make_namespec, split_namespec
 
-from supvisors.external_com.eventinterface import EventPublisherInterface
 from .application import ApplicationRules, ApplicationStatus
+from .external_com.eventinterface import EventPublisherInterface
 from .instancestatus import SupvisorsInstanceStatus
+from .internal_com.mapper import SupvisorsMapper
 from .process import ProcessRules, ProcessStatus
-from .ttypes import (ApplicationStates, SupvisorsInstanceStates, SupvisorsStates,
-                     WORKING_STATES, CLOSING_STATES,
+from .statemodes import SupvisorsStateModes
+from .ttypes import (ApplicationStates, SupvisorsInstanceStates, WORKING_STATES, CLOSING_STATES,
                      Ipv4Address, NameList, Payload, PayloadList, LoadMap)
 
 # annotation types
@@ -41,43 +41,46 @@ class Context:
         - supvisors: the Supvisors global structure ;
         - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier) ;
         - applications: the dictionary of all ApplicationStatus (key is application name) ;
-        - start_date: the date since Supvisors entered the INITIALIZATION state ;
-        - last_state_modes: the last Supvisors State and Modes published.
+        - start_date: the date since Supvisors entered the INITIALIZATION state.
     """
 
-    # attributes
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        # the Supvisors instances declared statically
+        # the Supvisors instances declared statically in the supervisor configuration file
         self.instances: InstancesMap = {identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
-                                        for identifier, supvisors_id in self.supvisors.mapper.instances.items()}
+                                        for identifier, supvisors_id in self.mapper.instances.items()}
         # the applications known to Supvisors
         self.applications: ApplicationsMap = {}
-        # misc
-        self.start_date: float = 0.0
-        self.last_state_modes: Payload = {}
 
+    # Shortcuts to Supvisors main objects
     @property
     def logger(self) -> Logger:
         """ Get the Supvisors logger. """
         return self.supvisors.logger
 
     @property
+    def mapper(self) -> SupvisorsMapper:
+        """ Get the Supvisors instances mapper. """
+        return self.supvisors.mapper
+
+    @property
+    def state_modes(self) -> SupvisorsStateModes:
+        """ Get the Supvisors instances mapper. """
+        return self.supvisors.state_modes
+
+    @property
     def external_publisher(self) -> Optional[EventPublisherInterface]:
         """ Get the Supvisors external publisher. """
         return self.supvisors.external_publisher
 
-    @property
-    def uptime(self) -> float:
-        """ Get the Supvisors external publisher. """
-        return time.monotonic() - self.start_date
+    # Easy access
 
     # Local instance status and operations
     @property
     def local_identifier(self) -> str:
         """ Get the local Supvisors instance identifier. """
-        return self.supvisors.mapper.local_identifier
+        return self.mapper.local_identifier
 
     @property
     def local_status(self) -> SupvisorsInstanceStatus:
@@ -89,27 +92,16 @@ class Context:
         """ Get last local TICK sequence counter, used for node invalidation. """
         return self.local_status.sequence_counter
 
-    @property
-    def supvisors_local_state(self) -> SupvisorsStates:
-        """ Get the Supvisors state of the local Supvisors instance. """
-        return self.local_status.state_modes.state
-
-    @supvisors_local_state.setter
-    def supvisors_local_state(self, state) -> None:
-        """ Set the Supvisors state of the local Supvisors instance. """
-        self.update_state_modes({'fsm_state': state})
+    def export_status(self, status: SupvisorsInstanceStatus) -> None:
+        """ Publish SupvisorsInstanceStatus and SupvisorsStatus to Supvisors listeners. """
+        if self.external_publisher:
+            self.external_publisher.send_instance_status(status.serial())
 
     # Master instance status and operations
     @property
     def master_identifier(self) -> str:
         """ Get the identifier of the Supvisors Master instance. """
-        return self.local_status.state_modes.master_identifier
-
-    @master_identifier.setter
-    def master_identifier(self, identifier: str) -> None:
-        """ Set the identifier of the known Supvisors Master instance. """
-        self.logger.info(f'Context.master_identifier: {identifier}')
-        self.update_state_modes({'master_identifier': identifier})
+        return self.state_modes.master_identifier
 
     @property
     def is_master(self) -> bool:
@@ -121,122 +113,18 @@ class Context:
         """ Get local Supvisors instance structure. """
         return self.instances.get(self.master_identifier)
 
-    @property
-    def supvisors_master_state(self) -> Optional[SupvisorsStates]:
-        """ Get the Supvisors state of the Supvisors Master instance. """
-        if self.master_instance:
-            return self.master_instance.state_modes.state
-        return None
-
-    def elect_master(self, running_identifiers: Optional[NameList] = None) -> None:
-        """ Select the Master Supvisors instance among the possible candidates. """
-        if not running_identifiers:
-            running_identifiers = self.running_identifiers()
-        self.logger.info(f'Context.elect_master: Supvisors Master instance election among {running_identifiers}')
-        if running_identifiers:
-            # elect master instance among working instances only if not fixed before
-            # of course, master instance must be running
-            self.logger.debug(f'Context.elect_master: master_identifier={self.master_identifier}')
-            if not self.master_identifier or self.master_identifier not in running_identifiers:
-                # NOTE: choose Master among the core instances because they are expected to be more stable
-                #       this logic is kept independently of CORE being selected as synchro_options
-                core_identifiers = self.supvisors.mapper.core_identifiers
-                self.logger.debug(f'Context.elect_master: core_identifiers={core_identifiers}')
-                if core_identifiers:
-                    running_core_identifiers = set(running_identifiers).intersection(core_identifiers)
-                    if running_core_identifiers:
-                        running_identifiers = running_core_identifiers
-                # arbitrarily choice: master instance has the 'lowest' nick_identifier among running instances
-                self.master_identifier = min(running_identifiers,
-                                             key=lambda x: self.supvisors.mapper.instances[x].nick_identifier)
-
-    # States and Modes
-    def reset(self) -> None:
-        """ Reset the context to prepare a new synchronization phase.
-
-        :return: None.
-        """
-        # TODO: set degraded ? think about unsetting it at some point
-
-        # TODO: there are only a few reasons to come back in INITIALIZATION state:
-        #        * Master lost
-        #           => new election needed among the remaining Supvisors instances
-        #           => reset the Master identifier in all SupvisorsInstanceStatus
-        #        * mandatory instances are FAILED and SupvisorsFailureStrategies BLOCK
-        #           => set instance FAILED TO UNKNOWN ? (TBC)
-        #        * Data discrepancy (quite unlikely)
-        #           => Handshake required
-        #           => the Supvisors instance involved should have been set to UNKNOWN beforehand
-        # FIXME: missing export_status
-        self.start_date = time.monotonic()
-        for status in self.instances.values():
-            status.reset()
-
-    def update_state_modes(self, event: Payload) -> None:
-        """ Update and publish the Supvisors instance state and modes.
-
-        This information is provided internally by the local Supvisors instance, and it will be published to all
-        connected Supvisors instances.
-
-        :param event: the state or the mode updated.
-        :return: None.
-        """
-        # internal update due to an update of:
-        #   * Supvisors state
-        #   * Master identifier
-        #   * or Starter / Stopper status
-        changed, state_modes = self.local_status.apply_state_modes(event)
-        if changed:
-            # on change, publish the local Supvisors state and modes to the other Supvisors instances
-            self.supvisors.rpc_handler.send_state_event(state_modes.serial())
-            # publish SupvisorsInstanceStatus and SupvisorsStatus
-            self.export_status(self.local_status)
-
-    def get_state_modes(self) -> Payload:
-        """ Get the Supvisors state and modes, based on all connected Supvisors instances.
-        Supvisors state is the FSM state and is a reflection of the Supvisors Master instance state.
-        Supvisors modes consist in the existence of starting or stopping jobs across all connected Supvisors instances.
-
-        :return: the Supvisors state and the identifiers of the Supvisors instances having starting or stopping jobs
-        """
-        payload = self.local_status.state_modes.serial()
-        # overwrite starting_jobs and starting_jobs based on a synthesis from all Supvisors instances
-        starting, stopping = [], []
-        for identifier, status in self.instances.items():
-            if status.state_modes.starting_jobs:
-                starting.append(identifier)
-            if status.state_modes.stopping_jobs:
-                stopping.append(identifier)
-        # update the payload
-        # NOTE: discovery mode is only based on the local Supvisors instance
-        #       there's no chance that Supvisors instances in discovery mode would communicate with Supvisors instances
-        #       that are NOT in discovery mode
-        payload.update({'starting_jobs': starting, 'stopping_jobs': stopping})
-        return payload
-
-    def _publish_state_mode(self) -> None:
-        """ Publish the new state and modes if it differs from the latest publication.
-
-        :return: None.
-        """
-        current_state_modes = self.get_state_modes()
-        if self.last_state_modes != current_state_modes:
-            self.last_state_modes = current_state_modes
-            self.external_publisher.send_supvisors_status(current_state_modes)
-
-    def export_status(self, status: SupvisorsInstanceStatus) -> None:
-        """ Publish SupvisorsInstanceStatus and SupvisorsStatus to Supvisors listeners. """
-        if self.external_publisher:
-            self.external_publisher.send_instance_status(status.serial())
-            self._publish_state_mode()
-
     # methods on nodes
     def is_valid(self, identifier: str, nick_identifier: str,
                  ipv4_address: Ipv4Address) -> Optional[SupvisorsInstanceStatus]:
         """ Check the validity of the message emitter.
-        Validity is ok if the identifier is known with the correct IP address and not declared isolated. """
+
+        Validity is ok if:
+            * the identifier is known (at least as a nick identifier) ;
+            * the IP address and port fit the corresponding Supvisors instance ;
+            * the corresponding Supvisors instance is not declared ISOLATED.
+        """
         ip_address, http_port = ipv4_address
-        identifiers = self.supvisors.mapper.filter([identifier, nick_identifier])
+        identifiers = self.mapper.filter([identifier, nick_identifier])
         if len(identifiers) != 1:
             # multiple resolution not expected here
             return None
@@ -253,14 +141,14 @@ class Context:
         """
         return {ip_address: sum(self.instances[identifier].get_load()
                                 for identifier in identifiers)
-                for ip_address, identifiers in self.supvisors.mapper.nodes.items()}
+                for ip_address, identifiers in self.mapper.nodes.items()}
 
     # methods on instances
     def initial_running(self) -> bool:
         """ Return True if all declared Supervisor instances are in RUNNING state. """
         return all(status.state == SupvisorsInstanceStates.RUNNING
                    for identifier, status in self.instances.items()
-                   if identifier in self.supvisors.mapper.initial_identifiers)
+                   if identifier in self.mapper.initial_identifiers)
 
     def all_running(self) -> bool:
         """ Return True if all Supervisor instances are in RUNNING state. """
@@ -269,15 +157,16 @@ class Context:
 
     def running_identifiers(self) -> NameList:
         """ Return the identifiers of the Supervisor instances in RUNNING state. """
-        return self.instances_by_states([SupvisorsInstanceStates.RUNNING])
+        return self.identifiers_by_states([SupvisorsInstanceStates.RUNNING])
 
-    def running_core_identifiers(self) -> bool:
+    def core_identifiers_running(self) -> bool:
         """ Check if core SupvisorsInstanceStatus are in RUNNING state.
 
-        :return: True if all core SupvisorsInstanceStatus are in RUNNING state.
+        :return: True if all Supvisors Core instances are in RUNNING state.
         """
-        core_identifiers = self.supvisors.mapper.core_identifiers
+        core_identifiers = self.mapper.core_identifiers
         if core_identifiers:
+            # TODO: all instances running must also see them as running
             return all(status.state == SupvisorsInstanceStates.RUNNING
                        for identifier, status in self.instances.items()
                        if identifier in core_identifiers)
@@ -285,18 +174,18 @@ class Context:
 
     def failed_identifiers(self) -> NameList:
         """ Return the identifiers of the Supervisor instances in FAILED state. """
-        return self.instances_by_states([SupvisorsInstanceStates.FAILED])
+        return self.identifiers_by_states([SupvisorsInstanceStates.FAILED])
 
     def isolated_instances(self) -> NameList:
         """ Return the identifiers of the Supervisors in ISOLATED state. """
-        return self.instances_by_states([SupvisorsInstanceStates.ISOLATED])
+        return self.identifiers_by_states([SupvisorsInstanceStates.ISOLATED])
 
     def valid_instances(self) -> NameList:
         """ Return the identifiers of the Supervisors NOT in ISOLATED state. """
-        return self.instances_by_states([x for x in SupvisorsInstanceStates
-                                         if x != SupvisorsInstanceStates.ISOLATED])
+        return self.identifiers_by_states([x for x in SupvisorsInstanceStates
+                                           if x != SupvisorsInstanceStates.ISOLATED])
 
-    def instances_by_states(self, states: List[SupvisorsInstanceStates]) -> NameList:
+    def identifiers_by_states(self, states: List[SupvisorsInstanceStates]) -> NameList:
         """ Return the Supervisor identifiers sorted by Supervisor state. """
         return [identifier for identifier, status in self.instances.items()
                 if status.state in states]
@@ -314,14 +203,6 @@ class Context:
                 self.export_status(status)
                 checked_identifiers.append(status.identifier)
         return checked_identifiers
-
-    def invalidate_unknown(self):
-        """ This can be triggered by the FSM when TIMEOUT is set in synchro_options.
-        After the synchro_timeout has passed, all UNKNOWN Supvisors instances are invalidated. """
-        for status in self.instances.values():
-            if status.state == SupvisorsInstanceStates.UNKNOWN:
-                # nothing to do on processes as none received yet
-                self.invalidate(status)
 
     def invalidate_failed(self) -> Tuple[NameList, Set[ProcessStatus]]:
         """ TODO
@@ -348,7 +229,7 @@ class Context:
         return invalidated_identifiers, failed_processes
 
     def invalidate(self, status: SupvisorsInstanceStatus, fence=None) -> None:
-        """ Declare SILENT or ISOLATED the SupvisorsInstanceStatus in parameter, according to the auto_fence option.
+        """ Declare the Supvisors instance STOPPED or ISOLATED, according to the auto_fence option.
 
         The local Supvisors instance is never set to ISOLATED, whatever the option is set or not.
         Always give it a chance to restart.
@@ -356,16 +237,12 @@ class Context:
         :param status: the Supvisors instance to invalid.
         :param fence: True when the remote Supvisors instance has isolated the local Supvisors instance.
         """
-        # FIXME: if still in INIT, back to UNKNOWN
         if status.identifier == self.local_identifier:
-            # A very few events can cause this situation:
-            # 1. a network failure (XML-RPC request)
-            # 2. a discrepancy has been detected between the internal context and the process events received
-            #    a new CHECKING phase is required
-            # NOTE: the local Supvisors instance will NEVER be ISOLATED from itself
+            # WARN: getting here would definitely be a bug
+            #       anyway, the local Supvisors instance will NEVER be ISOLATED from itself
             self.logger.critical('Context.invalid: local Supvisors instance is either SILENT or inconsistent')
             status.state = SupvisorsInstanceStates.STOPPED
-        elif fence or (self.supvisors.options.auto_fence and self.supvisors_master_state in WORKING_STATES):  # FIXME check state source
+        elif fence or (self.supvisors.options.auto_fence and self.state_modes.master_state in WORKING_STATES):
             # isolation of the remote Supvisors instance can be initiated when:
             #   - the remote Supvisors instance has isolated the local Supvisors instance (auth exchange)
             #   - the remote Supvisors instance has become non-responsive, and the option auto_fence is activated,
@@ -373,7 +250,7 @@ class Context:
             status.state = SupvisorsInstanceStates.ISOLATED
         else:
             status.state = SupvisorsInstanceStates.STOPPED
-        # publish SupvisorsInstanceStatus and SupvisorsStatus
+        # publish SupvisorsInstanceStatus
         self.export_status(status)
 
     # methods on applications / processes
@@ -507,8 +384,8 @@ class Context:
             # the remote Supvisors instance is likely starting, restarting or shutting down so defer
             self.logger.warn('Context.load_processes: failed to get all process info from'
                              f' Supvisors={status.usage_identifier}')
-            # go back to UNKNOWN to give it a chance at next TICK
-            status.state = SupvisorsInstanceStates.UNKNOWN
+            # go back to STOPPED to give it a chance at next TICK
+            status.state = SupvisorsInstanceStates.STOPPED
         else:
             # store processes into their application entry
             for info in all_info:
@@ -523,43 +400,6 @@ class Context:
                 application.update()
 
     # methods on events
-    def on_instance_state_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
-        """ Update the Supvisors instance state and modes.
-
-        :param status: the Supvisors instance that sent the event.
-        :param event: the new state and modes.
-        :return: None.
-        """
-        # ISOLATED instances are not updated anymore
-        if not status.isolated:
-            # update the Supvisors instance StateModes status
-            status.update_state_modes(event)
-            # check if a Master is known to this Supvisors instance and compare with the local's
-            # this is considered only if the remote Supvisors instance is not about to restart or shut down
-            remote_master = status.state_modes.master_identifier
-            if remote_master and status.state_modes.state not in CLOSING_STATES:
-                if not self.master_identifier:
-                    # the local Supvisors instance doesn't know about a master yet but remote Supvisors instance does
-                    # it typically happens when the local Supervisor instance has just been started whereas a Supvisors
-                    # group was already operating, so accept the remote perception
-                    self.logger.warn(f'Context.on_instance_state_event: accept Master={remote_master}'
-                                     f' declared by Supvisors={status.usage_identifier}')
-                    self.master_identifier = remote_master
-                elif remote_master != self.master_identifier:
-                    # ALERT: 2 different perceptions of the master, likely due to a split-brain situation.
-                    self.logger.warn('Context.on_instance_state_event: Master conflict. '
-                                     f' Local declares Master={self.master_identifier}'
-                                     f' - Supvisors={status.usage_identifier} declares Master={remote_master}')
-                    # WARN: resetting the Master at local level isn't enough because there may be multiple Supvisors
-                    #       instances having different perceptions, and they are still publishing at their own pace.
-                    #       So in order to avoid infinite Master conflict, adjudication is made using the same principle
-                    #       as the Master selection. This is expected to converge more quickly.
-                    candidates = [remote_master, self.master_identifier]
-                    self.master_identifier = ''
-                    self.elect_master(candidates)
-            # publish the new Instance status and Supvisors synthesis
-            self.export_status(status)
-
     def on_authorization(self, status: SupvisorsInstanceStatus, authorized: Optional[bool]) -> None:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
         authorizes the local Supvisors instance to process its events.
@@ -579,8 +419,8 @@ class Context:
                 # the remote Supvisors instance is likely starting, restarting or shutting down so defer
                 self.logger.warn('Context.on_authorization: failed to get auth status'
                                  f' from Supvisors={status.usage_identifier}')
-                # go back to UNKNOWN to give it a chance at next TICK
-                status.state = SupvisorsInstanceStates.UNKNOWN
+                # go back to STOPPED to give it a chance at next TICK
+                status.state = SupvisorsInstanceStates.STOPPED
             elif not authorized:
                 self.logger.warn('Context.on_authorization: the local Supvisors instance is isolated'
                                  f' by Supvisors={status.usage_identifier}')
@@ -605,7 +445,7 @@ class Context:
         tick_time = event['when']
         self.local_status.update_tick(counter, tick_mtime, tick_time)
         # trigger hand-shake on first TICK received
-        if self.local_status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.STOPPED]:
+        if self.local_status.state == SupvisorsInstanceStates.STOPPED:
             self.local_status.state = SupvisorsInstanceStates.CHECKING
             self.supvisors.rpc_handler.send_check_instance(self.local_identifier)
         # publish new Supvisors Instance status
@@ -627,19 +467,17 @@ class Context:
         if self.local_status.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             self.logger.debug('Context.on_tick_event: waiting for local tick first')
             return
-        # ISOLATED instances are not updated anymore
-        if not status.isolated:
-            # update the Supvisors instance with the TICK event
-            self.supvisors.mapper.assign_stereotypes(status.identifier, event['stereotypes'])
-            # for remote Supvisors instance, use local Supvisors instance data
-            status.update_tick(event['sequence_counter'], event['when_monotonic'], event['when'],
-                               self.local_sequence_counter)
-            # trigger hand-shake on first TICK received
-            if status.state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.STOPPED]:
-                status.state = SupvisorsInstanceStates.CHECKING
-                self.supvisors.rpc_handler.send_check_instance(status.identifier)
-            # publish new Supvisors Instance status
-            self.export_status(status)
+        # update the Supvisors instance with the TICK event
+        self.mapper.assign_stereotypes(status.identifier, event['stereotypes'])
+        # for remote Supvisors instance, use local Supvisors instance data
+        status.update_tick(event['sequence_counter'], event['when_monotonic'], event['when'],
+                           self.local_sequence_counter)
+        # trigger hand-shake on first TICK received
+        if status.state == SupvisorsInstanceStates.STOPPED:
+            status.state = SupvisorsInstanceStates.CHECKING
+            self.supvisors.rpc_handler.send_check_instance(status.identifier)
+        # publish new Supvisors Instance status
+        self.export_status(status)
 
     def on_discovery_event(self, identifier: str, nick_identifier: str) -> None:
         """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
@@ -647,14 +485,16 @@ class Context:
 
         :param identifier: the remote Supvisors identifier.
         :param nick_identifier: the remote Supervisor identifier.
-        :return: True if a new Supvisors instance has been inserted.
+        :return: None.
         """
-        if self.supvisors.mapper.check_candidate(identifier, nick_identifier):
+        if self.mapper.check_candidate(identifier, nick_identifier):
             # NOTE: use the first IP address in the list
             item = f'<{nick_identifier}>{identifier}'
-            supvisors_id = self.supvisors.mapper.add_instance(item)
+            supvisors_id = self.mapper.add_instance(item)
             self.logger.info(f'SupvisorsMapper.on_discovery_event: new SupvisorsInstanceId={supvisors_id}')
-            self.instances[supvisors_id.identifier] = SupvisorsInstanceStatus(supvisors_id, self.supvisors)
+            real_identifier = supvisors_id.identifier
+            self.instances[real_identifier] = SupvisorsInstanceStatus(supvisors_id, self.supvisors)
+            self.state_modes.add_instance(real_identifier)
 
     def on_timer_event(self, event: Payload) -> None:
         """ Check that all Supvisors instances are still publishing.
@@ -729,7 +569,7 @@ class Context:
                                  f' {self.supvisors.fsm.state} state')
             else:
                 # FIXME: not sure if it can really happen
-                #        CHECKING directly ? or FAILED ? or UNKNOWN ?
+                #        CHECKING directly ? or FAILED ? or STOPPED ?
                 self.logger.error(f'Context.check_process: CHECKING required due to unknown event about'
                                   f' process={namespec} received from Supvisors={status.usage_identifier}')
                 self.invalidate(status)

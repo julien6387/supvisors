@@ -162,7 +162,7 @@ class SupvisorsView(MainView):
         instance_div_mid = root.findmeld('instance_div_mid')
         # check if user end of sync is allowed
         user_sync = (SynchronizationOptions.USER in self.supvisors.options.synchro_options
-                     and self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION
+                     and self.supvisors.fsm.state == SupvisorsStates.SYNCHRONIZATION
                      and not self.sup_ctx.master_identifier)
         # create a box for every Supvisors instances
         identifiers = list(self.supvisors.mapper.instances.keys())

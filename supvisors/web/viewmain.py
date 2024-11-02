@@ -42,7 +42,8 @@ class MainView(ViewHandler):
     def write_status(self, header_elt) -> None:
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state & modes
-        state_modes = self.sup_ctx.get_state_modes()
+        # FIXME: use object attributes
+        state_modes = self.supvisors.state_modes.serial()
         elt = header_elt.findmeld('state_a_mid')
         if state_modes['fsm_statecode'] == SupvisorsStates.CONCILIATION.value:
             elt.attributes(href=CONCILIATION_PAGE)
