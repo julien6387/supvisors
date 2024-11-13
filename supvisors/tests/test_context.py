@@ -23,7 +23,7 @@ from supervisor.process import ProcessStates
 
 from supvisors.context import *
 from supvisors.external_com import EventPublisherInterface
-from supvisors.instancestatus import SupvisorsInstanceId, StateModes
+from supvisors.instancestatus import SupvisorsInstanceId
 from supvisors.ttypes import (SupvisorsInstanceStates, ApplicationStates, SupvisorsStates,
                               StartingFailureStrategies, RunningFailureStrategies)
 from .base import database_copy, any_process_info
@@ -68,37 +68,9 @@ def test_create(supvisors, context):
     assert context.applications == {}
     assert context.master_identifier == ''
     assert not context.is_master
-    assert context.start_date == 0
-
-
-def test_reset(mocker, supvisors, context):
-    """ Test the reset of Context values. """
-    mocker.patch('time.monotonic', return_value=3600)
-    # change master definition
-    local_identifier = supvisors.mapper.local_identifier
-    context.master_identifier = local_identifier
-    assert context.is_master
-    # change node states
-    context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.CHECKING
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.RUNNING
-    # add an application
-    application = create_application('dummy_appli', supvisors)
-    context.applications['dummy_appli'] = application
-    # call reset and check result
-    context.reset()
-    assert set(supvisors.mapper.instances), set(context.instances.keys())
-    context.local_status._state = SupvisorsInstanceStates.UNKNOWN
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.CHECKING
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.UNKNOWN
-    assert context.applications == {'dummy_appli': application}
-    assert context.master_identifier == ''
-    assert not context.is_master
-    assert context.start_date == 3600
+    assert context.master_instance is None
+    assert context.start_date == 0.0
+    assert context.uptime > 0.0
 
 
 def test_master_identifier(supvisors, context):
@@ -106,80 +78,23 @@ def test_master_identifier(supvisors, context):
     local_identifier = supvisors.mapper.local_identifier
     assert context.master_identifier == ''
     assert not context.is_master
-    context.master_identifier = '10.0.0.1'
-    assert context.master_identifier == '10.0.0.1'
+    assert context.master_instance is None
+    # set remote instance as Master
+    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
+    assert context.master_identifier == '10.0.0.1:25000'
     assert not context.is_master
-    context.master_identifier = local_identifier
+    assert context.master_instance is context.instances['10.0.0.1:25000']
+    # set local instance as Master
+    supvisors.state_modes.master_identifier = local_identifier
     assert context.master_identifier == local_identifier
     assert context.is_master
-
-
-def test_elect_master(supvisors, context):
-    """ Test the Context.elect_master method. """
-    assert context.master_identifier == ''
-    # test with no running Supvisors instance
-    context.elect_master()
-    assert context.master_identifier == ''
-    # test with running Supvisors instances and no known Master
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.elect_master()
-    assert context.master_identifier == '10.0.0.2:25000'
-    # test with running Supvisors instances and a known Master not RUNNING
-    context.master_identifier = '10.0.0.1:25000'
-    context.elect_master()
-    assert context.master_identifier == '10.0.0.2:25000'
-    # test with running Supvisors instances and a known Master RUNNING
-    context.elect_master()
-    assert context.master_identifier == '10.0.0.2:25000'
-    # test with running Supvisors instances, no known Master and core_identifiers not running
-    context.master_identifier = ''
-    supvisors.mapper._core_identifiers = ['10.0.0.1', '10.0.0.3']
-    context.elect_master()
-    assert context.master_identifier == '10.0.0.2:25000'
-    # test with running Supvisors instances, a known Master and one of the core_identifiers running
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.elect_master()
-    assert context.master_identifier == '10.0.0.2:25000'
-    # test with running Supvisors instances, no known Master and one of the core_identifiers running
-    context.master_identifier = ''
-    context.elect_master()
-    assert context.master_identifier == '10.0.0.3:25000'
-
-
-def test_on_discovery_event(supvisors, context):
-    """ Test the Context.on_discovery_event method. """
-    # store reference
-    sup_id: SupvisorsInstanceId = context.instances['10.0.0.1:25000'].supvisors_id
-    ref_ip_address, ref_port = sup_id.ip_address, sup_id.http_port
-    # test discovery mode and identifier known and identical
-    assert not context.on_discovery_event('10.0.0.1:25000', '10.0.0.1')
-    assert sup_id.ip_address == ref_ip_address
-    assert sup_id.http_port == ref_port
-    # test discovery mode and nick identifier known and identifier different
-    assert not context.on_discovery_event('10.0.0.2:6000', '10.0.0.1')
-    assert sup_id.ip_address == ref_ip_address
-    assert sup_id.http_port == ref_port
-    # test discovery mode and identifier known and nick identifier different
-    assert not context.on_discovery_event('10.0.0.1:25000', 'supvisors')
-    assert sup_id.ip_address == ref_ip_address
-    assert sup_id.http_port == ref_port
-    # test discovery mode and identifier unknown
-    assert context.on_discovery_event('192.168.1.2:5000', 'rocky52')
-    assert sup_id.ip_address == ref_ip_address
-    assert sup_id.http_port == ref_port
-    assert '192.168.1.2:5000' in context.instances
-    assert '192.168.1.2:5000' in supvisors.mapper.instances
-    assert 'rocky52' in supvisors.mapper._nick_identifiers
-    sup_id: SupvisorsInstanceId = context.instances['192.168.1.2:5000'].supvisors_id
-    assert sup_id.ip_address == '192.168.1.2'
-    assert sup_id.http_port == 5000
+    assert context.master_instance is context.local_status
 
 
 def test_is_valid(context):
     """ Test the Context.is_valid method. """
     # change states
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
+    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.STOPPED
     context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.RUNNING
@@ -196,98 +111,6 @@ def test_is_valid(context):
     # test known identifier not isolated, with correct IP address and HTTP port
     assert context.is_valid('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000))
     assert context.is_valid('10.0.0.4:25000', '10.0.0.4', ('10.0.0.4', 25000))
-
-
-def test_update_state_modes(supvisors, context):
-    """ Test the Context.update_state_modes method. """
-    mocked_send_state = supvisors.rpc_handler.send_state_event
-    # test unchanged
-    context.update_state_modes({'starter': False})
-    assert not mocked_send_state.called
-    # test changed
-    context.update_state_modes({'starter': True})
-    assert mocked_send_state.call_args_list == [call({'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                                                      'discovery_mode': False,
-                                                      'master_identifier': '',
-                                                      'starting_jobs': True, 'stopping_jobs': False})]
-
-
-def test_get_state_modes(context):
-    """ Test the Context.get_state_modes method. """
-    assert context.get_state_modes() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                                         'discovery_mode': False,
-                                         'master_identifier': '',
-                                         'starting_jobs': [], 'stopping_jobs': []}
-    # assign state and set some jobs
-    context.local_status.state_modes.state = SupvisorsStates.OPERATION
-    context.local_status.state_modes.discovery_mode = True
-    context.local_status.state_modes.master_identifier = '10.0.0.1:25000'
-    for idx, status in enumerate(context.instances.values()):
-        status.state_modes.starting_jobs = (idx % 3) == 0
-        status.state_modes.stopping_jobs = (idx % 4) == 0
-    assert context.get_state_modes() == {'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
-                                         'discovery_mode': True,
-                                         'master_identifier': '10.0.0.1:25000',
-                                         'starting_jobs': ['10.0.0.1:25000', '10.0.0.4:25000',
-                                                           f'{socket.getfqdn()}:15000'],
-                                         'stopping_jobs': ['10.0.0.1:25000', '10.0.0.5:25000']}
-
-
-def test_publish_state_mode(supvisors, context):
-    """ Test the Context._publish_state_mode method. """
-    supvisors.external_publisher = Mock(**{'send_supvisors_status.return_value': None})
-    mocked_send = supvisors.external_publisher.send_supvisors_status
-    # first call publishes the default
-    context._publish_state_mode()
-    assert mocked_send.call_args_list == [call({'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                                                'discovery_mode': False,
-                                                'master_identifier': '',
-                                                'starting_jobs': [], 'stopping_jobs': []})]
-    mocked_send.reset_mock()
-    # second call: no change so no publication
-    context._publish_state_mode()
-    assert not mocked_send.called
-    # for third call, assign state and set some jobs
-    context.local_status.state_modes.state = SupvisorsStates.OPERATION
-    context.local_status.state_modes.discovery_mode = True
-    context.local_status.state_modes.master_identifier = '10.0.0.1:25000'
-    for idx, status in enumerate(context.instances.values()):
-        status.state_modes.starting_jobs = (idx % 3) == 0
-        status.state_modes.stopping_jobs = (idx % 4) == 0
-    context._publish_state_mode()
-    assert mocked_send.call_args_list == [call({'fsm_statecode': 3, 'fsm_statename': 'OPERATION',
-                                                'discovery_mode': True,
-                                                'master_identifier': '10.0.0.1:25000',
-                                                'starting_jobs': ['10.0.0.1:25000', '10.0.0.4:25000',
-                                                                  f'{socket.getfqdn()}:15000'],
-                                                'stopping_jobs': ['10.0.0.1:25000', '10.0.0.5:25000']})]
-    mocked_send.reset_mock()
-    # fourth call: no change so no publication
-    context._publish_state_mode()
-    assert not mocked_send.called
-
-
-def test_export_status(mocker, supvisors, context):
-    """ Test the Context.export_status method. """
-    mocked_publish = mocker.patch.object(context, '_publish_state_mode')
-    # test with no external publisher
-    supvisors.external_publisher = None
-    context.export_status(context.local_status)
-    assert not mocked_publish.called
-    # test with external publisher
-    supvisors.external_publisher = Mock()
-    context.export_status(context.local_status)
-    expected = {'identifier': context.local_identifier,
-                'nick_identifier': context.local_status.supvisors_id.nick_identifier,
-                'node_name': context.local_status.supvisors_id.host_name,
-                'port': 25000, 'statecode': 0, 'statename': 'UNKNOWN',
-                'remote_sequence_counter': 0, 'remote_mtime': 0, 'remote_time': 0,
-                'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
-                'loading': 0, 'process_failure': False,
-                'fsm_statecode': 0, 'fsm_statename': 'OFF', 'discovery_mode': False,
-                'master_identifier': '', 'starting_jobs': False, 'stopping_jobs': False}
-    assert context.external_publisher.send_instance_status.call_args_list == [call(expected)]
-    assert mocked_publish.call_args_list == [call()]
 
 
 def test_get_nodes_load(mocker, context):
@@ -346,195 +169,175 @@ def test_instances_by_states(supvisors, context):
     # test initial states
     all_instances = sorted(supvisors.mapper.instances.keys())
     assert not context.all_running()
-    assert not context.running_core_identifiers()
     assert context.running_identifiers() == []
-    assert context.isolated_instances() == []
-    assert context.isolated_instances() == []
-    assert sorted(context.valid_instances()) == all_instances
-    assert sorted(context.isolated_instances() + context.valid_instances()) == all_instances
+    assert context.isolated_identifiers() == []
+    assert sorted(context.valid_identifiers()) == all_instances
+    assert sorted(context.isolated_identifiers() + context.valid_identifiers()) == all_instances
     assert context.identifiers_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == []
-    assert context.identifiers_by_states([SupvisorsInstanceStates.SILENT]) == []
-    assert sorted(context.identifiers_by_states([SupvisorsInstanceStates.UNKNOWN])) == \
-           sorted(supvisors.mapper.instances.keys())
+    assert sorted(context.identifiers_by_states([SupvisorsInstanceStates.STOPPED])) == all_instances
     # change states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
+    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.STOPPED
     context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.FAILED
     test_identifier = f'{socket.getfqdn()}:15000'
     # test new states
     assert not context.all_running()
-    assert not context.running_core_identifiers()
     assert context.running_identifiers() == ['10.0.0.4:25000', local_identifier]
-    assert context.isolated_instances() == ['10.0.0.3:25000']
-    assert sorted(context.valid_instances()) == sorted(['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.4:25000',
+    assert context.isolated_identifiers() == ['10.0.0.3:25000']
+    assert sorted(context.valid_identifiers()) == sorted(['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.4:25000',
                                                         '10.0.0.5:25000', local_identifier, test_identifier])
-    assert sorted(context.isolated_instances() + context.valid_instances()) == all_instances
-    assert context.identifiers_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == \
-           ['10.0.0.3:25000', '10.0.0.4:25000', local_identifier]
-    assert context.identifiers_by_states([SupvisorsInstanceStates.SILENT]) == ['10.0.0.1:25000']
-    assert context.identifiers_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5:25000', test_identifier]
-
-
-def test_running_core_identifiers_empty(supvisors):
-    """ Test if the core instances are in a RUNNING state. """
-    supvisors.mapper._core_identifiers = []
-    assert supvisors.mapper.core_identifiers == []
-    context = Context(supvisors)
-    assert not context.running_core_identifiers()
-
-
-def test_running_core_identifiers_invalid(supvisors):
-    """ Test if the core instances are in a RUNNING state. """
-    supvisors.mapper._core_identifiers = ['dummy']
-    assert supvisors.mapper.core_identifiers == []
-    context = Context(supvisors)
-    assert not context.running_core_identifiers()
-
-
-def test_running_core_identifiers(supvisors):
-    """ Test if the core instances are in a RUNNING state. """
-    supvisors.mapper._core_identifiers = ['10.0.0.1:25000', '10.0.0.4', '<10.0.0.1>10.0.0.1']
-    assert supvisors.mapper.core_identifiers == ['10.0.0.1:25000', '10.0.0.4:25000']
-    context = Context(supvisors)
-    # test initial states
-    assert not context.all_running()
-    assert not context.running_core_identifiers()
-    # change states
-    context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.CHECKING
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.RUNNING
-    # test new states
-    assert not context.all_running()
-    assert not context.running_core_identifiers()
-    # change states
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
-    # test new states
-    assert not context.all_running()
-    assert not context.running_core_identifiers()
-    # change states
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
-    # test new states
-    assert not context.all_running()
-    assert context.running_core_identifiers()
-
+    assert sorted(context.isolated_identifiers() + context.valid_identifiers()) == all_instances
+    assert context.identifiers_by_states([SupvisorsInstanceStates.RUNNING,
+                                          SupvisorsInstanceStates.ISOLATED]) == ['10.0.0.3:25000', '10.0.0.4:25000',
+                                                                                 local_identifier]
+    assert context.identifiers_by_states([SupvisorsInstanceStates.STOPPED]) == ['10.0.0.1:25000', test_identifier]
 
 def test_activate_checked(context):
     """ Test the activation of checked Supvisors instances. """
     # change node states
     context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.UNKNOWN
+    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.STOPPED
+    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.FAILED
     context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.CHECKED
     context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.CHECKING
     # check status after call to activate_checked
     context.activate_checked()
     assert context.local_status.state == SupvisorsInstanceStates.RUNNING
-    assert context.instances['10.0.0.1:25000'].state == SupvisorsInstanceStates.SILENT
-    assert context.instances['10.0.0.2:25000'].state == SupvisorsInstanceStates.UNKNOWN
+    assert context.instances['10.0.0.1:25000'].state == SupvisorsInstanceStates.STOPPED
+    assert context.instances['10.0.0.2:25000'].state == SupvisorsInstanceStates.FAILED
     assert context.instances['10.0.0.3:25000'].state == SupvisorsInstanceStates.ISOLATED
     assert context.instances['10.0.0.4:25000'].state == SupvisorsInstanceStates.RUNNING
     assert context.instances['10.0.0.5:25000'].state == SupvisorsInstanceStates.CHECKING
 
 
-def test_invalid_unknown(context):
-    """ Test the invalidation of unknown Supvisors instances. """
-    # change node states
-    context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.UNKNOWN
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.CHECKED
-    context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.CHECKING
-    # check status after call to activate_checked
-    context.invalid_unknown()
-    assert context.local_status.state == SupvisorsInstanceStates.RUNNING
-    assert context.instances['10.0.0.1:25000'].state == SupvisorsInstanceStates.SILENT
-    assert context.instances['10.0.0.2:25000'].state == SupvisorsInstanceStates.SILENT
-    assert context.instances['10.0.0.3:25000'].state == SupvisorsInstanceStates.ISOLATED
-    assert context.instances['10.0.0.4:25000'].state == SupvisorsInstanceStates.CHECKED
-    assert context.instances['10.0.0.5:25000'].state == SupvisorsInstanceStates.CHECKING
-
-
-def test_invalid_remove(supvisors, context):
-    """ Test the invalidation of a remote Supvisors instance.
-    Publication is not tested here as already done in test_invalid_local
-    and SupvisorsInstanceStatus.serial is tested elsewhere. """
-    assert supvisors.external_publisher is None
-    # check default context
-    status = context.instances['10.0.0.1:25000']
-    assert context.supvisors_state is None
-    assert status.state_modes.state == SupvisorsStates.OFF
-    # with this context, only the fence parameter makes a difference
-    for fence in [True, False]:
-        for auto_fence in [True, False]:
-            for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING,
-                          SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
-                # set context
-                supvisors.options.auto_fence = auto_fence
-                status._state = state
-                # call for invalidation
-                context.invalid(status, fence)
-                assert status.state == (SupvisorsInstanceStates.ISOLATED if fence else SupvisorsInstanceStates.SILENT)
-    # set Master
-    context.master_identifier = '10.0.0.1:25000'
-    # fence impact has been checked
-    # test auto_fence option not set / no isolation
-    supvisors.options.auto_fence = False
-    for supvisors_state in SupvisorsStates:
-        for state in [SupvisorsInstanceStates.UNKNOWN,
-                      SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                      SupvisorsInstanceStates.RUNNING]:
-            # set context
-            context.master_instance.state_modes.state = supvisors_state
-            status._state = state
-            # call for invalidation
-            context.invalid(status, fence)
-            assert status.state == SupvisorsInstanceStates.SILENT
-    # test auto_fence option set / isolation made if Supvisors is in a working state
-    supvisors.options.auto_fence = True
-    for supvisors_state in SupvisorsStates:
-        working_state = supvisors_state in WORKING_STATES
-        for state in [SupvisorsInstanceStates.UNKNOWN,
-                      SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
-                      SupvisorsInstanceStates.RUNNING]:
-            # set context
-            context.master_instance.state_modes.state = supvisors_state
-            status._state = state
-            # call for invalidation
-            context.invalid(status, fence)
-            assert status.state == (SupvisorsInstanceStates.ISOLATED if working_state
-                                    else SupvisorsInstanceStates.SILENT)
-
-
-def test_invalid_local(mocker, supvisors, context):
+def test_invalidate_local(mocker, supvisors, context):
     """ Test the invalidation of the local Supvisors instance. """
     mocked_export = mocker.patch.object(context, 'export_status')
     # get context
     status = context.local_status
     # set Master
-    context.master_identifier = '10.0.0.1:25000'
-    assert mocked_export.call_args_list == [call(status)]
-    mocked_export.reset_mock()
+    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
     # same result whatever the fence parameter, auto_fence option, Supvisors state and self FSM state
     for fence in [True, False]:
         for auto_fence in [True, False]:
             for supvisors_state in SupvisorsStates:
-                for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING,
-                              SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+                # invalidate may be called from CHECKING or FAILED only or there will be an InvalidTransition exception
+                for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.FAILED]:
                     # set context
                     supvisors.options.auto_fence = auto_fence
-                    context.master_instance.state_modes.state = supvisors_state
+                    supvisors.state_modes.master_state_modes.state = supvisors_state
                     status._state = state
                     # call for invalidation
-                    context.invalid(status, fence)
-                    assert status.state == SupvisorsInstanceStates.SILENT
+                    context.invalidate(status, fence)
+                    assert status.state == SupvisorsInstanceStates.STOPPED
                     # check publication
                     assert mocked_export.call_args_list == [call(status)]
                     mocked_export.reset_mock()
+
+
+def test_invalidate_remote(supvisors, context):
+    """ Test the invalidation of a remote Supvisors instance.
+    Publication is not tested here as already done in test_invalid_local. """
+    assert supvisors.external_publisher is None
+    # check default context
+    status = context.instances['10.0.0.1:25000']
+    sm = supvisors.state_modes.instance_state_modes['10.0.0.1:25000']
+    assert supvisors.state_modes.state == SupvisorsStates.OFF
+    assert sm.state == SupvisorsStates.OFF
+    # with this context, only the fence parameter makes a difference
+    for fence in [True, False]:
+        for auto_fence in [True, False]:
+            # invalidate may be called from CHECKING or FAILED only or there will be an InvalidTransition exception
+            for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.FAILED]:
+                # set context
+                supvisors.options.auto_fence = auto_fence
+                status._state = state
+                # call for invalidation
+                context.invalidate(status, fence)
+                assert status.state == (SupvisorsInstanceStates.ISOLATED if fence else SupvisorsInstanceStates.STOPPED)
+    # set Master
+    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
+    # fence impact has been checked
+    # test auto_fence option not set / no isolation
+    supvisors.options.auto_fence = False
+    for supvisors_state in SupvisorsStates:
+        for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.FAILED]:
+            # set context
+            supvisors.state_modes.master_state_modes.state = supvisors_state
+            status._state = state
+            # call for invalidation
+            context.invalidate(status, fence)
+            assert status.state == SupvisorsInstanceStates.STOPPED
+            # reset the Master because it is cancelled when not RUNNING anymore
+            supvisors.state_modes.master_identifier = '10.0.0.1:25000'
+    # test auto_fence option set / isolation made if Supvisors is in a working state
+    supvisors.options.auto_fence = True
+    for supvisors_state in SupvisorsStates:
+        working_state = supvisors_state in WORKING_STATES
+        for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.FAILED]:
+            # set context
+            supvisors.state_modes.master_state_modes.state = supvisors_state
+            status._state = state
+            # call for invalidation
+            context.invalidate(status, fence)
+            assert status.state == (SupvisorsInstanceStates.ISOLATED if working_state
+                                    else SupvisorsInstanceStates.STOPPED)
+            # reset the Master because it is cancelled when not RUNNING anymore
+            supvisors.state_modes.master_identifier = '10.0.0.1:25000'
+
+
+
+
+def test_invalidate_failed(mocker, supvisors, context):
+    """ Test the handling of FAILED instances. """
+    mocked_publish = mocker.patch.object(context, 'publish_process_failures')
+    supvisors.external_publisher = Mock()
+    # update context instances
+    context.local_status._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.CHECKED
+    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.STOPPED
+    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.CHECKING
+    context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.FAILED
+    context.instances[f'{socket.getfqdn()}:15000']._state = SupvisorsInstanceStates.ISOLATED
+    # patch the expected future invalidated node
+    proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_identifier.return_value': False})
+    proc_2 = Mock(rules=Mock(expected_load=12), **{'invalidate_identifier.return_value': True})
+    mocker.patch.object(context.instances['10.0.0.5:25000'], 'running_processes', return_value=[proc_1, proc_2])
+    # test when synchro_timeout has passed
+    assert context.invalidate_failed() == (['10.0.0.5:25000'], {proc_2})
+    expected_1 = {'identifier': '10.0.0.5:25000', 'nick_identifier': '10.0.0.5',
+                  'node_name': '10.0.0.5', 'port': 25000,
+                  'statecode': 0, 'statename': 'STOPPED',
+                  'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
+                  'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
+                  'loading': 15, 'process_failure': False}
+    assert supvisors.external_publisher.send_instance_status.call_args_list == [call(expected_1)]
+    assert proc_1.invalidate_identifier.call_args_list == [call('10.0.0.5:25000')]
+    assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.5:25000')]
+    assert mocked_publish.call_args_list == [call({proc_2})]
+
+
+def test_export_status(mocker, supvisors, context):
+    """ Test the Context.export_status method. """
+    # test with no external publisher
+    supvisors.external_publisher = None
+    context.export_status(context.local_status)
+    # test with external publisher
+    supvisors.external_publisher = Mock()
+    context.export_status(context.local_status)
+    expected = {'identifier': context.local_identifier,
+                'nick_identifier': context.local_status.supvisors_id.nick_identifier,
+                'node_name': context.local_status.supvisors_id.host_name,
+                'port': 25000, 'statecode': 0, 'statename': 'STOPPED',
+                'remote_sequence_counter': 0, 'remote_mtime': 0, 'remote_time': 0,
+                'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
+                'loading': 0, 'process_failure': False}
+    assert context.external_publisher.send_instance_status.call_args_list == [call(expected)]
 
 
 def test_get_managed_applications(filled_context):
@@ -720,7 +523,7 @@ def test_load_processes(mocker, supvisors, context):
     status_10001._state = SupvisorsInstanceStates.CHECKING
     # known node but empty database due to a failure in CHECKING state
     context.load_processes(status_10001, None)
-    assert status_10001.state == SupvisorsInstanceStates.UNKNOWN
+    assert status_10001.state == SupvisorsInstanceStates.STOPPED
     assert context.applications == {}
     for node in context.instances.values():
         assert node.processes == {}
@@ -776,72 +579,109 @@ def test_load_processes(mocker, supvisors, context):
                for application in context.applications.values())
 
 
-def test_on_instance_state_event_isolated(mocker, supvisors, context):
-    """ Test the Context.on_instance_state_event method with isolated supvisors instance. """
+def test_publish_process_failures(supvisors, context):
+    """ Test the publication of processes in failure. """
+    # update context applications
+    application_1_serial = {'application_name': 'dummy_application_1',
+                            'statename': 'RUNNING'}
+    application_2_serial = {'application_name': 'dummy_application_2',
+                            'statename': 'STOPPED'}
+    application_3_serial = {'application_name': 'dummy_application_3',
+                            'statename': 'STOPPING'}
+    application_1 = Mock(application_name='dummy_application_1', **{'serial.return_value': application_1_serial})
+    application_2 = Mock(application_name='dummy_application_2', **{'serial.return_value': application_2_serial})
+    application_3 = Mock(application_name='dummy_application_3', **{'serial.return_value': application_3_serial})
+    context.applications = {'dummy_application_1': application_1,
+                            'dummy_application_2': application_2,
+                            'dummy_application_3': application_3}
+    # patch the expected future invalidated node
+    proc_1_serial = {'application_name': 'dummy_application_1',
+                     'process_name': 'proc_1'}
+    proc_2_serial = {'application_name': 'dummy_application_3',
+                     'process_name': 'proc_2'}
+    proc_1 = Mock(application_name='dummy_application_1', **{'serial.return_value': proc_1_serial})
+    proc_2 = Mock(application_name='dummy_application_3', **{'serial.return_value': proc_2_serial})
+    # test with no external publisher set
+    assert supvisors.external_publisher is None
+    context.publish_process_failures({proc_2, proc_1})
+    assert application_1.update.call_args_list == [call()]
+    assert not application_2.update.called
+    assert application_3.update.call_args_list == [call()]
+    application_1.update.reset_mock()
+    application_3.update.reset_mock()
+    # test with external publisher set
     supvisors.external_publisher = Mock(spec=EventPublisherInterface)
-    mocked_send = supvisors.external_publisher.send_instance_status
-    mocked_publish = mocker.patch.object(context, '_publish_state_mode')
-    # test isolated states
-    status_10002 = context.instances['10.0.0.2:25000']
-    status_10002._state = SupvisorsInstanceStates.ISOLATED
-    event = {'fsm_statecode': 2, 'fsm_statename': 'DEPLOYMENT',
-             'discovery_mode': True,
-             'master_identifier': '',
-             'starting_jobs': True, 'stopping_jobs': False}
-    assert not context.on_instance_state_event(status_10002, event)
-    assert status_10002.state_modes == StateModes()
-    assert not mocked_publish.called
-    assert not mocked_send.called
-    assert not supvisors.external_publisher.send_instance_status.called
+    context.publish_process_failures([proc_2, proc_1])
+    assert application_1.update.call_args_list == [call()]
+    assert not application_2.update.called
+    assert application_3.update.call_args_list == [call()]
+    assert supvisors.external_publisher.send_process_status.call_args_list == [call(proc_2_serial),
+                                                                               call(proc_1_serial)]
+    supvisors.external_publisher.send_application_status.assert_has_calls([call(application_3_serial),
+                                                                           call(application_1_serial)],
+                                                                          any_order=True)
 
 
-def test_on_instance_state_event(mocker, supvisors, context):
-    """ Test the Context.on_instance_state_event method with non-isolated Supvisors instance. """
-    supvisors.external_publisher = Mock(spec=EventPublisherInterface)
-    mocked_send = supvisors.external_publisher.send_instance_status
-    mocked_publish = mocker.patch.object(context, '_publish_state_mode')
-    # test using the RUNNING state
-    status_10001 = context.instances['10.0.0.1:25000']
-    status_10001._state = SupvisorsInstanceStates.RUNNING
-    # test with no Master in the event
-    event = {'fsm_statecode': 2, 'fsm_statename': 'DISTRIBUTION',
-             'discovery_mode': False,
-             'master_identifier': '',
-             'starting_jobs': True, 'stopping_jobs': False}
-    context.on_instance_state_event(status_10001, event)
-    assert status_10001.state_modes == StateModes(SupvisorsStates.DISTRIBUTION, False, '', True, False)
-    expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
-                'node_name': '10.0.0.1', 'port': 25000,
-                'statecode': 3, 'statename': 'RUNNING',
-                'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
-                'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
-                'loading': 0, 'process_failure': False,
-                'fsm_statecode': 2, 'fsm_statename': 'DISTRIBUTION', 'discovery_mode': False, 'master_identifier': '',
-                'starting_jobs': True, 'stopping_jobs': False}
-    assert mocked_send.call_args_list == [call(expected)]
-    assert mocked_publish.called
-    # test with Master in the event and no Master known by the local Supvisors instance
-    # the Master is accepted by the local Supvisors instance
-    event['master_identifier'] = '10.0.0.2:25000'
-    context.on_instance_state_event(status_10001, event)
-    assert context.master_identifier == '10.0.0.2:25000'
-    assert status_10001.state_modes == StateModes(SupvisorsStates.DISTRIBUTION, False, '10.0.0.2:25000', True, False)
-    # test with Master in the event and different from the Master known by the local Supvisors instance
-    event['master_identifier'] = '10.0.0.3:25000'
-    context.on_instance_state_event(status_10001, event)
-    assert context.master_identifier == '10.0.0.2:25000'
-    assert status_10001.state_modes == StateModes(SupvisorsStates.DISTRIBUTION, False, '10.0.0.3:25000', True, False)
-    # try the latest 2 steps with an event coming from a Supvisors instance about to restart or shut down
-    event.update({'fsm_statecode': 5, 'fsm_statename': 'RESTARTING'})
-    context.on_instance_state_event(status_10001, event)
-    assert context.master_identifier == '10.0.0.2:25000'
-    assert status_10001.state_modes == StateModes(SupvisorsStates.RESTARTING, False, '10.0.0.3:25000', True, False)
-    # and Master is not accepted
-    context.master_identifier = ''
-    event.update({'fsm_statecode': 7, 'fsm_statename': 'FINAL'})
-    context.on_instance_state_event(status_10001, event)
-    assert context.master_identifier == ''
-    assert status_10001.state_modes == StateModes(SupvisorsStates.FINAL, False, '10.0.0.3:25000', True, False)
+def test_check_process(mocker, supvisors, context):
+    """ Test the Context.check_process method with expected context. """
+    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
+    # test with unknown application
+    assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
+    mocker.resetall()
+    # test with unknown process
+    application = context.applications['dummy_appli'] = create_application('dummy_appli', supvisors)
+    assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
+    mocker.resetall()
+    # test with no information in process for identifier
+    application.processes['dummy_process'] = create_process(event, supvisors)
+    assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
+    mocker.resetall()
+    # test with process information related to identifier
+    application = context.applications['dummy_appli'] = create_application('dummy_appli', supvisors)
+    process = application.processes['dummy_process'] = create_process(event, supvisors)
+    process.info_map['10.0.0.1:25000'] = {}
+    group_event = {'group': 'dummy_appli', 'name': '*'}
+    process_event = {'group': 'dummy_appli', 'name': 'dummy_process'}
+    # test with group and process information
+    assert context.check_process(context.instances['10.0.0.1:25000'], process_event) == (application, process)
+    # test with group information only
+    assert context.check_process(context.instances['10.0.0.1:25000'], group_event) == (application, None)
+
+
+def test_on_discovery_event(supvisors, context):
+    """ Test the Context.on_discovery_event method. """
+    # store reference
+    nb_mapper_entries = len(supvisors.mapper.instances)
+    sup_id: SupvisorsInstanceId = context.instances['10.0.0.1:25000'].supvisors_id
+    ref_ip_address, ref_port = sup_id.ip_address, sup_id.http_port
+    # test discovery mode and identifier known and identical
+    context.on_discovery_event('10.0.0.1:25000', '10.0.0.1')
+    assert sup_id.ip_address == ref_ip_address
+    assert sup_id.http_port == ref_port
+    assert nb_mapper_entries == len(supvisors.mapper.instances)
+    # test discovery mode and nick identifier known and identifier different
+    context.on_discovery_event('10.0.0.2:6000', '10.0.0.1')
+    assert sup_id.ip_address == ref_ip_address
+    assert sup_id.http_port == ref_port
+    assert nb_mapper_entries == len(supvisors.mapper.instances)
+    # test discovery mode and identifier known and nick identifier different
+    assert not context.on_discovery_event('10.0.0.1:25000', 'supvisors')
+    assert sup_id.ip_address == ref_ip_address
+    assert sup_id.http_port == ref_port
+    assert nb_mapper_entries == len(supvisors.mapper.instances)
+    # test discovery mode and identifier unknown
+    context.on_discovery_event('192.168.1.2:5000', 'rocky52')
+    assert sup_id.ip_address == ref_ip_address
+    assert sup_id.http_port == ref_port
+    assert nb_mapper_entries < len(supvisors.mapper.instances)
+    assert '192.168.1.2:5000' in context.instances
+    assert '192.168.1.2:5000' in supvisors.mapper.instances
+    assert '192.168.1.2:5000' in supvisors.state_modes.instance_state_modes
+    assert '192.168.1.2:5000' in supvisors.state_modes.local_state_modes.instance_states
+    assert 'rocky52' in supvisors.mapper._nick_identifiers
+    sup_id: SupvisorsInstanceId = context.instances['192.168.1.2:5000'].supvisors_id
+    assert sup_id.ip_address == '192.168.1.2'
+    assert sup_id.http_port == 5000
 
 
 def test_authorization_not_checking(supvisors, context):
@@ -860,24 +700,24 @@ def test_authorization_not_checking(supvisors, context):
 
 def test_authorization_checking_normal(mocker, context):
     """ Test the handling of an authorization event. """
-    mocked_invalid = mocker.patch.object(context, 'invalid')
+    mocked_invalid = mocker.patch.object(context, 'invalidate')
     # test current state not CHECKING
     status = context.instances['10.0.0.1:25000']
     status._state = SupvisorsInstanceStates.RUNNING
-    assert not context.on_authorization(status, True)
+    context.on_authorization(status, True)
     assert not mocked_invalid.called
     # test authorization None (error in handshake)
     status._state = SupvisorsInstanceStates.CHECKING
-    assert not context.on_authorization(status, None)
+    context.on_authorization(status, None)
     assert not mocked_invalid.called
-    assert status.state == SupvisorsInstanceStates.UNKNOWN
+    assert status.state == SupvisorsInstanceStates.STOPPED
     # test not authorized
     status._state = SupvisorsInstanceStates.CHECKING
-    assert not context.on_authorization(status, False)
+    context.on_authorization(status, False)
     assert mocked_invalid.call_args_list == [call(status, True)]
     mocked_invalid.reset_mock()
     # test authorized
-    assert context.on_authorization(status, True)
+    context.on_authorization(status, True)
     assert not mocked_invalid.called
 
 
@@ -889,49 +729,45 @@ def test_on_local_tick_event(mocker, supvisors, context):
     mocked_send = supvisors.external_publisher.send_instance_status
     # check the current context
     status = context.local_status
-    assert status.state == SupvisorsInstanceStates.UNKNOWN
+    assert status.state == SupvisorsInstanceStates.STOPPED
     status.times.remote_sequence_counter = 7
     status.times.local_sequence_counter = 7
     assert status.times.remote_mtime == 0.0
     assert status.times.remote_time == 0
     assert status.times.local_mtime == 0.0
     assert status.times.local_time == 0
-    # when a TICK is received from a SILENT or UNKNOWN state, check that:
+    # when a TICK is received from a STOPPED state, check that:
     #   * Supvisors instance is CHECKING
     #   * time is updated using local time
     #   * send_check_instance is called
     #   * Supvisors instance status is sent
-    for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
-        status._state = state
-        context.on_local_tick_event({'sequence_counter': 31, 'when': 1234, 'when_monotonic': 234.56})
-        assert status.state == SupvisorsInstanceStates.CHECKING
-        assert status.sequence_counter == 31
-        assert status.times.local_sequence_counter == 31  # same as sequence_counter
-        assert status.times.remote_mtime == 234.56
-        assert status.times.remote_time == 1234
-        assert status.times.local_mtime == 234.56  # same as remote_mtime
-        assert status.times.local_time == 1234  # same as remote_time
-        assert mocked_check.call_args_list == [call(context.local_identifier)]
-        expected = {'identifier': context.local_identifier,
-                    'nick_identifier': context.local_status.supvisors_id.nick_identifier,
-                    'node_name': context.local_status.supvisors_id.host_name,
-                    'port': 25000,
-                    'statecode': 1, 'statename': 'CHECKING',
-                    'remote_sequence_counter': 31, 'remote_mtime': 234.56, 'remote_time': 1234,
-                    'local_sequence_counter': 31, 'local_mtime': 234.56, 'local_time': 1234,
-                    'loading': 0, 'process_failure': False,
-                    'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                    'discovery_mode': False, 'master_identifier': '',
-                    'starting_jobs': False, 'stopping_jobs': False}
-        assert mocked_send.call_args_list == [call(expected)]
-        mocked_check.reset_mock()
-        mocked_send.reset_mock()
-    # when a TICK is received from a CHECKING / CHECKED or RUNNING state, check that:
+    context.on_local_tick_event({'sequence_counter': 31, 'when': 1234, 'when_monotonic': 234.56})
+    assert status.state == SupvisorsInstanceStates.CHECKING
+    assert status.sequence_counter == 31
+    assert status.times.local_sequence_counter == 31  # same as sequence_counter
+    assert status.times.remote_mtime == 234.56
+    assert status.times.remote_time == 1234
+    assert status.times.local_mtime == 234.56  # same as remote_mtime
+    assert status.times.local_time == 1234  # same as remote_time
+    assert mocked_check.call_args_list == [call(context.local_identifier)]
+    expected = {'identifier': context.local_identifier,
+                'nick_identifier': context.local_status.supvisors_id.nick_identifier,
+                'node_name': context.local_status.supvisors_id.host_name,
+                'port': 25000,
+                'statecode': 1, 'statename': 'CHECKING',
+                'remote_sequence_counter': 31, 'remote_mtime': 234.56, 'remote_time': 1234,
+                'local_sequence_counter': 31, 'local_mtime': 234.56, 'local_time': 1234,
+                'loading': 0, 'process_failure': False}
+    assert mocked_send.call_args_list == [call(expected)]
+    mocked_check.reset_mock()
+    mocked_send.reset_mock()
+    # when a TICK is received from a CHECKING / CHECKED / RUNNING / FAILED state, check that:
     #   * Supvisors instance state is unchanged
     #   * time is updated using local time
     #   * send_check_instance is NOT called
     #   * Supvisors instance status is sent
-    for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+    for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.CHECKED,
+                  SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.FAILED]:
         status._state = state
         context.on_local_tick_event({'sequence_counter': 57, 'when': 5678, 'when_monotonic': 678.9})
         assert status.state == state
@@ -949,16 +785,15 @@ def test_on_local_tick_event(mocker, supvisors, context):
                     'statecode': state.value, 'statename': state.name,
                     'remote_sequence_counter': 57, 'remote_mtime': 678.9, 'remote_time': 5678,
                     'local_sequence_counter': 57, 'local_mtime': 678.9, 'local_time': 5678,
-                    'loading': 0, 'process_failure': False,
-                    'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                    'discovery_mode': False, 'master_identifier': '',
-                    'starting_jobs': False, 'stopping_jobs': False}
+                    'loading': 0, 'process_failure': False}
         assert mocked_send.call_args_list == [call(expected)]
         mocked_send.reset_mock()
 
 
 def test_on_tick_event(mocker, supvisors, context):
-    """ Test the handling of a tick event from a remote Supvisors instance. """
+    """ Test the handling of a tick event from a remote Supvisors instance.
+    No test with known Supvisors instance in isolation (event filtered before).
+    """
     mocker.patch('time.time', return_value=7200)
     mocker.patch('time.monotonic', return_value=3600)
     mocked_stereotype = mocker.patch.object(supvisors.mapper, 'assign_stereotypes')
@@ -970,7 +805,7 @@ def test_on_tick_event(mocker, supvisors, context):
     context.instances[context.local_identifier].times.remote_sequence_counter = 7
     # get reference Supvisors instance (not the local one)
     status = context.instances['10.0.0.1:25000']
-    assert status.state == SupvisorsInstanceStates.UNKNOWN
+    assert status.state == SupvisorsInstanceStates.STOPPED
     assert status.sequence_counter == 0
     assert status.times.local_sequence_counter == 0
     assert status.times.remote_mtime == 0.0
@@ -978,13 +813,13 @@ def test_on_tick_event(mocker, supvisors, context):
     assert status.times.local_mtime == 0.0
     assert status.times.local_time == 0
     # check no processing as long as local Supvisors instance is not RUNNING
-    assert context.local_status.state == SupvisorsInstanceStates.UNKNOWN
+    assert context.local_status.state == SupvisorsInstanceStates.STOPPED
     event = {'sequence_counter': 31, 'when': 1234, 'when_monotonic': 234.56, 'stereotypes': {'test'}}
     context.on_tick_event(status, event)
     assert not mocked_stereotype.called
     assert not mocked_check.called
     assert not mocked_send.called
-    assert status.state == SupvisorsInstanceStates.UNKNOWN
+    assert status.state == SupvisorsInstanceStates.STOPPED
     assert status.sequence_counter == 0
     assert status.times.local_sequence_counter == 0
     assert status.times.remote_mtime == 0.0
@@ -993,49 +828,32 @@ def test_on_tick_event(mocker, supvisors, context):
     assert status.times.local_time == 0
     # set local Supvisors instance state to RUNNING
     context.local_status._state = SupvisorsInstanceStates.RUNNING
-    # check no change with known Supvisors instance in isolation
-    status._state = SupvisorsInstanceStates.ISOLATED
-    context.on_tick_event(status, event)
-    assert status.state == SupvisorsInstanceStates.ISOLATED
-    assert status.sequence_counter == 0
-    assert status.times.local_sequence_counter == 0
-    assert status.times.remote_mtime == 0.0
-    assert status.times.remote_time == 0
-    assert status.times.local_mtime == 0.0
-    assert status.times.local_time == 0
-    assert not mocked_stereotype.called
-    assert not mocked_check.called
-    assert not mocked_send.called
-    # when a TICK is received from a SILENT or UNKNOWN state on a remote Supvisors instance, check that:
+    # when a TICK is received from a STOPPED state on a remote Supvisors instance, check that:
     #   * Supvisors instance is CHECKING
     #   * time is updated using local time
     #   * send_check_instance is called
     #   * Supvisors instance status is sent
-    for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
-        status._state = state
-        context.on_tick_event(status, event)
-        assert status.state == SupvisorsInstanceStates.CHECKING
-        assert status.sequence_counter == 31
-        assert status.times.local_sequence_counter == 7
-        assert status.times.remote_mtime == 234.56
-        assert status.times.remote_time == 1234
-        assert status.times.local_mtime == 3600
-        assert status.times.local_time == 7200
-        assert mocked_stereotype.call_args_list == [call('10.0.0.1:25000', {'test'})]
-        assert mocked_check.call_args_list == [call('10.0.0.1:25000')]
-        expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
-                    'node_name': '10.0.0.1',
-                    'port': 25000, 'statecode': 1, 'statename': 'CHECKING',
-                    'remote_sequence_counter': 31, 'remote_mtime': 234.56, 'remote_time': 1234,
-                    'local_sequence_counter': 7, 'local_mtime': 3600, 'local_time': 7200,
-                    'loading': 0, 'process_failure': False,
-                    'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                    'discovery_mode': False, 'master_identifier': '',
-                    'starting_jobs': False, 'stopping_jobs': False}
-        assert mocked_send.call_args_list == [call(expected)]
-        mocked_stereotype.reset_mock()
-        mocked_check.reset_mock()
-        mocked_send.reset_mock()
+    status._state = SupvisorsInstanceStates.STOPPED
+    context.on_tick_event(status, event)
+    assert status.state == SupvisorsInstanceStates.CHECKING
+    assert status.sequence_counter == 31
+    assert status.times.local_sequence_counter == 7
+    assert status.times.remote_mtime == 234.56
+    assert status.times.remote_time == 1234
+    assert status.times.local_mtime == 3600
+    assert status.times.local_time == 7200
+    assert mocked_stereotype.call_args_list == [call('10.0.0.1:25000', {'test'})]
+    assert mocked_check.call_args_list == [call('10.0.0.1:25000')]
+    expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                'node_name': '10.0.0.1',
+                'port': 25000, 'statecode': 1, 'statename': 'CHECKING',
+                'remote_sequence_counter': 31, 'remote_mtime': 234.56, 'remote_time': 1234,
+                'local_sequence_counter': 7, 'local_mtime': 3600, 'local_time': 7200,
+                'loading': 0, 'process_failure': False}
+    assert mocked_send.call_args_list == [call(expected)]
+    mocked_stereotype.reset_mock()
+    mocked_check.reset_mock()
+    mocked_send.reset_mock()
     # check that node time is updated and node status is sent
     event = {'sequence_counter': 57, 'when': 5678, 'when_monotonic': 678.9, 'stereotypes': {'test'}}
     for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
@@ -1055,10 +873,7 @@ def test_on_tick_event(mocker, supvisors, context):
                     'statecode': state.value, 'statename': state.name,
                     'remote_sequence_counter': 57, 'remote_mtime': 678.9, 'remote_time': 5678,
                     'local_sequence_counter': 7, 'local_mtime': 3600, 'local_time': 7200,
-                    'loading': 0, 'process_failure': False,
-                    'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                    'discovery_mode': False, 'master_identifier': '',
-                    'starting_jobs': False, 'stopping_jobs': False}
+                    'loading': 0, 'process_failure': False}
         assert mocked_send.call_args_list == [call(expected)]
         mocked_stereotype.reset_mock()
         mocked_send.reset_mock()
@@ -1081,83 +896,83 @@ def test_on_tick_event(mocker, supvisors, context):
                 'statecode': state.value, 'statename': state.name,
                 'remote_sequence_counter': 2, 'remote_mtime': 789.01, 'remote_time': 6789,
                 'local_sequence_counter': 0, 'local_mtime': 3600, 'local_time': 7200,
-                'loading': 0, 'process_failure': False,
-                'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                'discovery_mode': False, 'master_identifier': '',
-                'starting_jobs': False, 'stopping_jobs': False}
+                'loading': 0, 'process_failure': False}
     mocked_stereotype.reset_mock()
     assert mocked_send.call_args_list == [call(expected)]
 
 
-def test_check_process_exception_closing(mocker, supvisors, context):
-    """ Test the Context.check_process method with expected context. """
-    mocked_invalid = mocker.patch.object(context, 'invalid')
-    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
-    # test with unknown application
-    for fsm_state in CLOSING_STATES:
-        supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
-        assert not mocked_invalid.called
-    # test with unknown process
-    application = context.applications['dummy_appli'] = create_application('dummy_appli', supvisors)
-    for fsm_state in CLOSING_STATES:
-        supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
-        assert not mocked_invalid.called
-    # test with no information in process for identifier
-    application.processes['dummy_process'] = create_process(event, supvisors)
-    for fsm_state in CLOSING_STATES:
-        supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
-        assert not mocked_invalid.called
+def test_on_timer_event(supvisors, context):
+    """ Test the handling of a timer event in the local Supvisors instance.
+    No test with known Supvisors instance in isolation (event filtered before).
+    """
+    supvisors.external_publisher = Mock()
+    # update context instances
+    context.local_status._state = SupvisorsInstanceStates.RUNNING
+    context.local_status.times.remote_sequence_counter = 31
+    context.local_status.times.local_sequence_counter = 31
+    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.1:25000'].times.local_sequence_counter = 30
+    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.2:25000'].times.local_sequence_counter = 29
+    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.STOPPED
+    context.instances['10.0.0.3:25000'].times.local_sequence_counter = 10
+    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.CHECKING
+    context.instances['10.0.0.4:25000'].times.local_sequence_counter = 0
+    context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.STOPPED
+    context.instances['10.0.0.5:25000'].times.local_sequence_counter = 0
+    context.instances[f'{socket.getfqdn()}:15000']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances[f'{socket.getfqdn()}:15000'].times.local_sequence_counter = 0
+    # test when synchro_timeout has passed
+    context.on_timer_event({'sequence_counter': 32, 'when': 3600})
+    expected_1 = {'identifier': '10.0.0.2:25000', 'nick_identifier': '10.0.0.2',
+                  'node_name': '10.0.0.2', 'port': 25000,
+                  'statecode': 4, 'statename': 'FAILED',
+                  'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
+                  'local_sequence_counter': 29, 'local_mtime': 0.0, 'local_time': 0,
+                  'loading': 0, 'process_failure': False}
+    expected_2 = {'identifier': '10.0.0.4:25000', 'nick_identifier': '10.0.0.4',
+                  'node_name': '10.0.0.4', 'port': 25000,
+                  'statecode': 4, 'statename': 'FAILED',
+                  'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
+                  'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
+                  'loading': 0, 'process_failure': False}
+    assert supvisors.external_publisher.send_instance_status.call_args_list == [call(expected_1), call(expected_2)]
+    # '10.0.0.2', '10.0.0.4' and '10.0.0.5' instances changed state
+    local_identifier = context.supvisors.mapper.local_identifier
+    for identifier, state in [(local_identifier, SupvisorsInstanceStates.RUNNING),
+                              ('10.0.0.1:25000', SupvisorsInstanceStates.RUNNING),
+                              ('10.0.0.2:25000', SupvisorsInstanceStates.FAILED),
+                              ('10.0.0.3:25000', SupvisorsInstanceStates.STOPPED),
+                              ('10.0.0.4:25000', SupvisorsInstanceStates.FAILED),
+                              ('10.0.0.5:25000', SupvisorsInstanceStates.STOPPED),
+                              (f'{socket.getfqdn()}:15000', SupvisorsInstanceStates.ISOLATED)]:
+        assert context.instances[identifier].state == state
 
 
-def test_check_process_exception_operational(mocker, supvisors, context):
-    """ Test the Context.check_process method with expected context. """
-    mocked_invalid = mocker.patch.object(context, 'invalid')
-    normal_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION,
-                     SupvisorsStates.CONCILIATION]
-    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
-    # test with unknown application
-    for fsm_state in normal_states:
-        supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
-        assert mocked_invalid.call_args_list == [call(context.instances['10.0.0.1:25000'])]
-        mocker.resetall()
-    # test with unknown process
-    application = context.applications['dummy_appli'] = create_application('dummy_appli', supvisors)
-    for fsm_state in normal_states:
-        supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
-        assert mocked_invalid.call_args_list == [call(context.instances['10.0.0.1:25000'])]
-        mocker.resetall()
-    # test with no information in process for identifier
-    application.processes['dummy_process'] = create_process(event, supvisors)
-    for fsm_state in normal_states:
-        supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1:25000'], event) is None
-        assert mocked_invalid.call_args_list == [call(context.instances['10.0.0.1:25000'])]
-        mocker.resetall()
-
-
-def test_check_process_normal(mocker, supvisors, context):
-    """ Test the Context.check_process method with expected context. """
-    mocked_invalid = mocker.patch.object(context, 'invalid')
-    # test with process information related to identifier
-    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
-    application = context.applications['dummy_appli'] = create_application('dummy_appli', supvisors)
-    process = application.processes['dummy_process'] = create_process(event, supvisors)
-    process.info_map['10.0.0.1:25000'] = {}
-    group_event = {'group': 'dummy_appli', 'name': '*'}
-    process_event = {'group': 'dummy_appli', 'name': 'dummy_process'}
-    for fsm_state in SupvisorsStates:
-        # test with group and process information
-        supvisors.fsm.state = fsm_state
-        assert context.check_process(context.instances['10.0.0.1:25000'], process_event) == (application, process)
-        assert not mocked_invalid.called
-        # test with group information only
-        assert context.check_process(context.instances['10.0.0.1:25000'], group_event) == (application, None)
-        assert not mocked_invalid.called
+def test_on_instance_failure(mocker, supvisors, context):
+    """ Test the handling of a XML-RPC failure on the Supvisors instance. """
+    mocked_export = mocker.patch.object(context, 'export_status')
+    # update context instances
+    context.local_status._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.STOPPED
+    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.CHECKING
+    context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.STOPPED
+    context.instances[f'{socket.getfqdn()}:15000']._state = SupvisorsInstanceStates.ISOLATED
+    # test when synchro_timeout has passed
+    context.on_instance_failure(context.instances['10.0.0.2:25000'])
+    assert mocked_export.call_args_list == [call(context.instances['10.0.0.2:25000'])]
+    # '10.0.0.2' instance changed state
+    local_identifier = context.supvisors.mapper.local_identifier
+    for identifier, state in [(local_identifier, SupvisorsInstanceStates.RUNNING),
+                              ('10.0.0.1:25000', SupvisorsInstanceStates.RUNNING),
+                              ('10.0.0.2:25000', SupvisorsInstanceStates.FAILED),
+                              ('10.0.0.3:25000', SupvisorsInstanceStates.STOPPED),
+                              ('10.0.0.4:25000', SupvisorsInstanceStates.CHECKING),
+                              ('10.0.0.5:25000', SupvisorsInstanceStates.STOPPED),
+                              (f'{socket.getfqdn()}:15000', SupvisorsInstanceStates.ISOLATED)]:
+        assert context.instances[identifier].state == state
 
 
 def test_process_removed_event_not_running(supvisors, context):
@@ -1601,153 +1416,3 @@ def test_on_process_state_event(mocker, supvisors, context):
     expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
                 'major_failure': False, 'minor_failure': False}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
-
-
-def test_on_timer_event(mocker, supvisors, context):
-    """ Test the handling of a timer event in the local Supvisors instance. """
-    mocked_publish = mocker.patch.object(context, 'publish_process_failures')
-    supvisors.external_publisher = Mock()
-    # update context instances
-    context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.local_status.times.remote_sequence_counter = 31
-    context.local_status.times.local_sequence_counter = 31
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000'].times.local_sequence_counter = 30
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.2:25000'].times.local_sequence_counter = 29
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.3:25000'].times.local_sequence_counter = 10
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.CHECKING
-    context.instances['10.0.0.4:25000'].times.local_sequence_counter = 0
-    context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.UNKNOWN
-    context.instances['10.0.0.5:25000'].times.local_sequence_counter = 0
-    context.instances[f'{socket.getfqdn()}:15000']._state = SupvisorsInstanceStates.ISOLATED
-    context.instances[f'{socket.getfqdn()}:15000'].times.local_sequence_counter = 0
-    # update context applications
-    application_1 = Mock()
-    context.applications['dummy_application'] = application_1
-    # patch the expected future invalidated node
-    proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_identifier.return_value': False})
-    proc_2 = Mock(application_name='dummy_application', rules=Mock(expected_load=12),
-                  **{'invalidate_identifier.return_value': True})
-    mocker.patch.object(context.instances['10.0.0.2:25000'], 'running_processes', return_value=[proc_1, proc_2])
-    # test when synchro_timeout has passed
-    expected = ['10.0.0.2:25000', '10.0.0.4:25000'], {proc_2}
-    assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == expected
-    expected_1 = {'identifier': '10.0.0.2:25000', 'nick_identifier': '10.0.0.2',
-                  'node_name': '10.0.0.2', 'port': 25000,
-                  'statecode': 4, 'statename': 'SILENT',
-                  'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
-                  'local_sequence_counter': 29, 'local_mtime': 0.0, 'local_time': 0,
-                  'loading': 15, 'process_failure': False,
-                  'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                  'discovery_mode': False, 'master_identifier': '',
-                  'starting_jobs': False, 'stopping_jobs': False}
-    expected_2 = {'identifier': '10.0.0.4:25000', 'nick_identifier': '10.0.0.4',
-                  'node_name': '10.0.0.4', 'port': 25000,
-                  'statecode': 4, 'statename': 'SILENT',
-                  'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
-                  'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
-                  'loading': 0, 'process_failure': False,
-                  'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                  'discovery_mode': False, 'master_identifier': '',
-                  'starting_jobs': False, 'stopping_jobs': False}
-    assert supvisors.external_publisher.send_instance_status.call_args_list == [call(expected_1), call(expected_2)]
-    assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.2:25000')]
-    assert mocked_publish.call_args_list == [call({proc_2})]
-    # '10.0.0.2', '10.0.0.4' and '10.0.0.5' instances changed state
-    local_identifier = context.supvisors.mapper.local_identifier
-    for identifier, state in [(local_identifier, SupvisorsInstanceStates.RUNNING),
-                              ('10.0.0.1:25000', SupvisorsInstanceStates.RUNNING),
-                              ('10.0.0.2:25000', SupvisorsInstanceStates.SILENT),
-                              ('10.0.0.3:25000', SupvisorsInstanceStates.SILENT),
-                              ('10.0.0.4:25000', SupvisorsInstanceStates.SILENT),
-                              ('10.0.0.5:25000', SupvisorsInstanceStates.UNKNOWN),
-                              (f'{socket.getfqdn()}:15000', SupvisorsInstanceStates.ISOLATED)]:
-        assert context.instances[identifier].state == state
-
-
-def test_publish_process_failures(supvisors, context):
-    """ Test the publication of processes in failure. """
-    # update context applications
-    application_1_serial = {'application_name': 'dummy_application_1',
-                            'statename': 'RUNNING'}
-    application_2_serial = {'application_name': 'dummy_application_2',
-                            'statename': 'STOPPED'}
-    application_3_serial = {'application_name': 'dummy_application_3',
-                            'statename': 'STOPPING'}
-    application_1 = Mock(application_name='dummy_application_1', **{'serial.return_value': application_1_serial})
-    application_2 = Mock(application_name='dummy_application_2', **{'serial.return_value': application_2_serial})
-    application_3 = Mock(application_name='dummy_application_3', **{'serial.return_value': application_3_serial})
-    context.applications = {'dummy_application_1': application_1,
-                            'dummy_application_2': application_2,
-                            'dummy_application_3': application_3}
-    # patch the expected future invalidated node
-    proc_1_serial = {'application_name': 'dummy_application_1',
-                     'process_name': 'proc_1'}
-    proc_2_serial = {'application_name': 'dummy_application_3',
-                     'process_name': 'proc_2'}
-    proc_1 = Mock(application_name='dummy_application_1', **{'serial.return_value': proc_1_serial})
-    proc_2 = Mock(application_name='dummy_application_3', **{'serial.return_value': proc_2_serial})
-    # test with no external publisher set
-    assert supvisors.external_publisher is None
-    context.publish_process_failures({proc_2, proc_1})
-    assert application_1.update.call_args_list == [call()]
-    assert not application_2.update.called
-    assert application_3.update.call_args_list == [call()]
-    application_1.update.reset_mock()
-    application_3.update.reset_mock()
-    # test with external publisher set
-    supvisors.external_publisher = Mock(spec=EventPublisherInterface)
-    context.publish_process_failures([proc_2, proc_1])
-    assert application_1.update.call_args_list == [call()]
-    assert not application_2.update.called
-    assert application_3.update.call_args_list == [call()]
-    assert supvisors.external_publisher.send_process_status.call_args_list == [call(proc_2_serial),
-                                                                               call(proc_1_serial)]
-    supvisors.external_publisher.send_application_status.assert_has_calls([call(application_3_serial),
-                                                                           call(application_1_serial)],
-                                                                          any_order=True)
-
-
-def test_on_instance_failure(mocker, supvisors, context):
-    """ Test the handling of an instance failure notification. """
-    mocked_publish = mocker.patch.object(context, 'publish_process_failures')
-    supvisors.external_publisher = Mock()
-    # update context instances
-    context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.CHECKED
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.SILENT
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.CHECKING
-    context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.UNKNOWN
-    context.instances[f'{socket.getfqdn()}:15000']._state = SupvisorsInstanceStates.ISOLATED
-    # patch the expected future invalidated node
-    proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_identifier.return_value': False})
-    proc_2 = Mock(rules=Mock(expected_load=12), **{'invalidate_identifier.return_value': True})
-    mocker.patch.object(context.instances['10.0.0.2:25000'], 'running_processes', return_value=[proc_1, proc_2])
-    # test when synchro_timeout has passed
-    assert context.on_instance_failure(context.instances['10.0.0.2:25000']) == {proc_2}
-    expected_1 = {'identifier': '10.0.0.2:25000', 'nick_identifier': '10.0.0.2',
-                  'node_name': '10.0.0.2', 'port': 25000,
-                  'statecode': 4, 'statename': 'SILENT',
-                  'remote_sequence_counter': 0, 'remote_mtime': 0.0, 'remote_time': 0,
-                  'local_sequence_counter': 0, 'local_mtime': 0.0, 'local_time': 0,
-                  'loading': 15, 'process_failure': False,
-                  'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                  'discovery_mode': False, 'master_identifier': '',
-                  'starting_jobs': False, 'stopping_jobs': False}
-    assert supvisors.external_publisher.send_instance_status.call_args_list == [call(expected_1)]
-    assert proc_1.invalidate_identifier.call_args_list == [call('10.0.0.2:25000')]
-    assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.2:25000')]
-    assert mocked_publish.call_args_list == [call({proc_2})]
-    # only '10.0.0.2' instance changed state
-    local_identifier = context.supvisors.mapper.local_identifier
-    for identifier, state in [(local_identifier, SupvisorsInstanceStates.RUNNING),
-                              ('10.0.0.1:25000', SupvisorsInstanceStates.RUNNING),
-                              ('10.0.0.2:25000', SupvisorsInstanceStates.SILENT),
-                              ('10.0.0.3:25000', SupvisorsInstanceStates.SILENT),
-                              ('10.0.0.4:25000', SupvisorsInstanceStates.CHECKING),
-                              ('10.0.0.5:25000', SupvisorsInstanceStates.UNKNOWN),
-                              (f'{socket.getfqdn()}:15000', SupvisorsInstanceStates.ISOLATED)]:
-        assert context.instances[identifier].state == state

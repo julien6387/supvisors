@@ -30,6 +30,7 @@ from supvisors.initializer import LOGGER_FORMAT
 from supvisors.internal_com.mapper import SupvisorsMapper
 from supvisors.options import SupvisorsOptions, SupvisorsServerOptions
 from supvisors.rpcinterface import RPCInterface
+from supvisors.statemodes import SupvisorsStateModes
 from supvisors.statscollector import StatisticsCollectorProcess
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
@@ -60,6 +61,7 @@ class MockedSupvisors:
         self.host_compiler = HostStatisticsCompiler(self)
         self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
         # build context from node mapper
+        self.state_modes = SupvisorsStateModes(self)
         self.context = Context(self)
         # mock by spec
         from supvisors.commander import Starter, Stopper, StarterModel
@@ -72,7 +74,7 @@ class MockedSupvisors:
         self.starter_model = Mock(spec=StarterModel)
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
-        self.fsm = Mock(spec=FiniteStateMachine, redeploy_mark=False)
+        self.fsm = Mock(spec=FiniteStateMachine, force_distribution=False)
         self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
         # should be set in listener

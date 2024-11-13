@@ -110,7 +110,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     mocker.resetall()
     mocked_root.reset_all()
     # test call in RUNNING state and master and not user_sync
-    view.sup_ctx.master_identifier = '10.0.0.1:25000'
+    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
     view._write_instance_box_title(mocked_root, status, False)
     # test USER sync element
     assert mocked_sync_th_mid.replace.call_args_list == [call('')]
@@ -134,7 +134,7 @@ def test_write_instance_box_title(mocker, supvisors, view):
     mocker.resetall()
     mocked_root.reset_all()
     # test call in SILENT state and user sync
-    status._state = SupvisorsInstanceStates.SILENT
+    status._state = SupvisorsInstanceStates.STOPPED
     mocker.patch.object(status, 'get_load', return_value=0)
     view._write_instance_box_title(mocked_root, status, True)
     # test USER sync element
@@ -147,8 +147,8 @@ def test_write_instance_box_title(mocker, supvisors, view):
     assert not mocked_identifier_mid.attributes.called
     assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
-    assert mocked_state_mid.attrib['class'] == 'SILENT'
-    assert mocked_state_mid.content.call_args_list == [call('SILENT')]
+    assert mocked_state_mid.attrib['class'] == 'STOPPED'
+    assert mocked_state_mid.content.call_args_list == [call('STOPPED')]
     # test time element
     assert not mocked_time_mid.content.called
     assert not mocked_time.called
@@ -343,7 +343,7 @@ def test_write_node_boxes(mocker, supvisors, view):
     mocker.resetall()
     # test call with user sync enabled
     supvisors.options.synchro_options = [SynchronizationOptions.USER]
-    supvisors.fsm.state = SupvisorsStates.INITIALIZATION
+    supvisors.fsm.state = SupvisorsStates.SYNCHRONIZATION
     view.write_instance_boxes(mocked_root)
     assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, ref_instances[local_identifier], True),
                                                call(mocked_box_mid_2, ref_instances['10.0.0.1:25000'], True)]

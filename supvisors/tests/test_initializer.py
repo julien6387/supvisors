@@ -44,6 +44,7 @@ def test_creation(mocker):
     assert isinstance(supv.supervisor_updater, SupervisorUpdater)
     assert isinstance(supv.mapper, SupvisorsMapper)
     assert isinstance(supv.stats_collector, StatisticsCollectorProcess)
+    assert isinstance(supv.state_modes, SupvisorsStateModes)
     assert isinstance(supv.context, Context)
     assert isinstance(supv.starter, Starter)
     assert isinstance(supv.starter_model, StarterModel)

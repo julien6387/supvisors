@@ -15,6 +15,7 @@
 # ======================================================================
 
 import re
+import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from supervisor.loggers import Logger
@@ -26,7 +27,7 @@ from .instancestatus import SupvisorsInstanceStatus
 from .internal_com.mapper import SupvisorsMapper
 from .process import ProcessRules, ProcessStatus
 from .statemodes import SupvisorsStateModes
-from .ttypes import (ApplicationStates, SupvisorsInstanceStates, WORKING_STATES, CLOSING_STATES,
+from .ttypes import (ApplicationStates, SupvisorsInstanceStates, WORKING_STATES,
                      Ipv4Address, NameList, Payload, PayloadList, LoadMap)
 
 # annotation types
@@ -52,6 +53,8 @@ class Context:
                                         for identifier, supvisors_id in self.mapper.instances.items()}
         # the applications known to Supvisors
         self.applications: ApplicationsMap = {}
+        # duration since the entry in Supvisors OFF state
+        self.start_date: float = 0.0
 
     # Shortcuts to Supvisors main objects
     @property
@@ -75,6 +78,10 @@ class Context:
         return self.supvisors.external_publisher
 
     # Easy access
+    @property
+    def uptime(self) -> float:
+        """ Get the uptime since Supvisors entered in SYNCHRONIZATION state. """
+        return time.monotonic() - self.start_date
 
     # Local instance status and operations
     @property
@@ -91,11 +98,6 @@ class Context:
     def local_sequence_counter(self) -> int:
         """ Get last local TICK sequence counter, used for node invalidation. """
         return self.local_status.sequence_counter
-
-    def export_status(self, status: SupvisorsInstanceStatus) -> None:
-        """ Publish SupvisorsInstanceStatus and SupvisorsStatus to Supvisors listeners. """
-        if self.external_publisher:
-            self.external_publisher.send_instance_status(status.serial())
 
     # Master instance status and operations
     @property
@@ -159,28 +161,11 @@ class Context:
         """ Return the identifiers of the Supervisor instances in RUNNING state. """
         return self.identifiers_by_states([SupvisorsInstanceStates.RUNNING])
 
-    def core_identifiers_running(self) -> bool:
-        """ Check if core SupvisorsInstanceStatus are in RUNNING state.
-
-        :return: True if all Supvisors Core instances are in RUNNING state.
-        """
-        core_identifiers = self.mapper.core_identifiers
-        if core_identifiers:
-            # TODO: all instances running must also see them as running
-            return all(status.state == SupvisorsInstanceStates.RUNNING
-                       for identifier, status in self.instances.items()
-                       if identifier in core_identifiers)
-        return False
-
-    def failed_identifiers(self) -> NameList:
-        """ Return the identifiers of the Supervisor instances in FAILED state. """
-        return self.identifiers_by_states([SupvisorsInstanceStates.FAILED])
-
-    def isolated_instances(self) -> NameList:
+    def isolated_identifiers(self) -> NameList:
         """ Return the identifiers of the Supervisors in ISOLATED state. """
         return self.identifiers_by_states([SupvisorsInstanceStates.ISOLATED])
 
-    def valid_instances(self) -> NameList:
+    def valid_identifiers(self) -> NameList:
         """ Return the identifiers of the Supervisors NOT in ISOLATED state. """
         return self.identifiers_by_states([x for x in SupvisorsInstanceStates
                                            if x != SupvisorsInstanceStates.ISOLATED])
@@ -204,12 +189,40 @@ class Context:
                 checked_identifiers.append(status.identifier)
         return checked_identifiers
 
+    def invalidate(self, status: SupvisorsInstanceStatus, fence=None) -> None:
+        """ Declare the Supvisors instance STOPPED or ISOLATED, according to the auto_fence option.
+
+        The local Supvisors instance is never set to ISOLATED, whatever the option is set or not.
+        Always give it a chance to restart.
+
+        This method is expected to be called only from CHECKING or FAILED state.
+
+        :param status: the Supvisors instance to invalid.
+        :param fence: True when the remote Supvisors instance has isolated the local Supvisors instance.
+        """
+        if status.identifier == self.local_identifier:
+            # WARN: getting here would definitely be a bug
+            #       anyway, the local Supvisors instance will NEVER be ISOLATED from itself
+            self.logger.critical('Context.invalidate: local Supvisors instance is not operational')
+            status.state = SupvisorsInstanceStates.STOPPED
+        elif fence or (self.supvisors.options.auto_fence and self.state_modes.master_state in WORKING_STATES):
+            # isolation of the remote Supvisors instance can be initiated when:
+            #   - the remote Supvisors instance has isolated the local Supvisors instance (auth exchange)
+            #   - the remote Supvisors instance has become non-responsive, and the option auto_fence is activated,
+            #     the Supvisors FSM is in WORKING_STATES.
+            status.state = SupvisorsInstanceStates.ISOLATED
+        else:
+            status.state = SupvisorsInstanceStates.STOPPED
+        # publish SupvisorsInstanceStatus
+        self.export_status(status)
+
     def invalidate_failed(self) -> Tuple[NameList, Set[ProcessStatus]]:
-        """ TODO
+        """ Identify the Supvisors instances that cannot be reached anymore, and the processes that were running
+        on them, so that they can eventually be re-distributed elsewhere.
 
         :return: the identifiers of the invalidated Supvisors instances and the processes in failure.
         """
-        invalidated_identifiers: List[str] = []
+        invalidated_identifiers: NameList = []
         failed_processes: Set[ProcessStatus] = set()
         for status in self.instances.values():
             if status.state == SupvisorsInstanceStates.FAILED:
@@ -228,30 +241,10 @@ class Context:
         #  return the identifiers of all invalidated Supvisors instances and the processes declared in failure
         return invalidated_identifiers, failed_processes
 
-    def invalidate(self, status: SupvisorsInstanceStatus, fence=None) -> None:
-        """ Declare the Supvisors instance STOPPED or ISOLATED, according to the auto_fence option.
-
-        The local Supvisors instance is never set to ISOLATED, whatever the option is set or not.
-        Always give it a chance to restart.
-
-        :param status: the Supvisors instance to invalid.
-        :param fence: True when the remote Supvisors instance has isolated the local Supvisors instance.
-        """
-        if status.identifier == self.local_identifier:
-            # WARN: getting here would definitely be a bug
-            #       anyway, the local Supvisors instance will NEVER be ISOLATED from itself
-            self.logger.critical('Context.invalid: local Supvisors instance is either SILENT or inconsistent')
-            status.state = SupvisorsInstanceStates.STOPPED
-        elif fence or (self.supvisors.options.auto_fence and self.state_modes.master_state in WORKING_STATES):
-            # isolation of the remote Supvisors instance can be initiated when:
-            #   - the remote Supvisors instance has isolated the local Supvisors instance (auth exchange)
-            #   - the remote Supvisors instance has become non-responsive, and the option auto_fence is activated,
-            #     the Supvisors FSM is in WORKING_STATES.
-            status.state = SupvisorsInstanceStates.ISOLATED
-        else:
-            status.state = SupvisorsInstanceStates.STOPPED
-        # publish SupvisorsInstanceStatus
-        self.export_status(status)
+    def export_status(self, status: SupvisorsInstanceStatus) -> None:
+        """ Publish SupvisorsInstanceStatus and SupvisorsStatus to Supvisors listeners. """
+        if self.external_publisher:
+            self.external_publisher.send_instance_status(status.serial())
 
     # methods on applications / processes
     def get_managed_applications(self) -> Dict[str, ApplicationStatus]:
@@ -399,7 +392,72 @@ class Context:
                 application.update_sequences()
                 application.update()
 
+    def publish_process_failures(self, failed_processes: Set[ProcessStatus]) -> None:
+        """ Publish the Supvisors events related with the processes failures.
+
+        :param failed_processes: the processes in failure.
+        :return: None.
+        """
+        # publish process status in failure
+        if self.external_publisher:
+            for process in failed_processes:
+                self.external_publisher.send_process_status(process.serial())
+        # update all application sequences and status
+        for application_name in {process.application_name for process in failed_processes}:
+            application = self.applications[application_name]
+            # the application sequences update is useless as long as the application.process map is not impacted
+            # (see decision comment above in on_timer_event)
+            # application.update_sequences()
+            application.update()
+            if self.external_publisher:
+                self.external_publisher.send_application_status(application.serial())
+
+    def check_process(self, status: SupvisorsInstanceStatus,
+                      event: Payload, check_source=True) -> Optional[Tuple[ApplicationStatus, ProcessStatus]]:
+        """ Check and return the internal data corresponding to the process event.
+
+        :param status: the Supvisors instance from which the event has been received.
+        :param event: the event payload.
+        :param check_source: if True, the process should contain information related to the Supvisors instance.
+        :return: None.
+        """
+        application_name, process_name = event['group'], event['name']
+        try:
+            application = self.applications[application_name]
+            if process_name == '*':
+                process = None
+            else:
+                process = application.processes[process_name]
+                assert not check_source or status.identifier in process.info_map
+            return application, process
+        except (AssertionError, KeyError):
+            # highly unexpected (process events missed somehow?)
+            # that would point out a discrepancy between the local context and the remote context
+            # as it has never been observed on target platforms so far, just log and ignore
+            # NOTE: do NOT use the invalidate method to avoid an isolation, which is not required here
+            namespec = make_namespec(application_name, process_name)
+            self.logger.error(f'Context.check_process: ignoring event about unknown process={namespec}'
+                              f' received from Supvisors={status.usage_identifier}')
+
     # methods on events
+    def on_discovery_event(self, identifier: str, nick_identifier: str) -> None:
+        """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
+
+        If this event is received, the discovery mode is enabled.
+
+        :param identifier: the remote Supvisors identifier.
+        :param nick_identifier: the remote Supervisor identifier.
+        :return: None.
+        """
+        if self.mapper.check_candidate(identifier, nick_identifier):
+            # NOTE: use the first IP address in the list
+            item = f'<{nick_identifier}>{identifier}'
+            supvisors_id = self.mapper.add_instance(item)
+            self.logger.info(f'Context.on_discovery_event: new SupvisorsInstanceId={supvisors_id}')
+            real_identifier = supvisors_id.identifier
+            self.instances[real_identifier] = SupvisorsInstanceStatus(supvisors_id, self.supvisors)
+            self.state_modes.add_instance(real_identifier)
+
     def on_authorization(self, status: SupvisorsInstanceStatus, authorized: Optional[bool]) -> None:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
         authorizes the local Supvisors instance to process its events.
@@ -424,7 +482,6 @@ class Context:
             elif not authorized:
                 self.logger.warn('Context.on_authorization: the local Supvisors instance is isolated'
                                  f' by Supvisors={status.usage_identifier}')
-                # FIXME: direct isolation ? without considering local (which would be a bug)
                 self.invalidate(status, True)
             else:
                 self.logger.info(f'Context.on_authorization: local Supvisors instance is authorized to work with'
@@ -433,11 +490,12 @@ class Context:
 
     def on_local_tick_event(self, event: Payload) -> None:
         """ Method called upon reception of a tick event from the local Supvisors instance.
+
         The method updates the times of the corresponding SupvisorsInstanceStatus and its ProcessStatus.
         Finally, the updated SupvisorsInstanceStatus is published.
 
-        :param event: the TICK event sent
-        :return: None
+        :param event: the TICK event sent.
+        :return: None.
         """
         # for local Supvisors instance, repeat local data
         counter = event['sequence_counter']
@@ -453,6 +511,7 @@ class Context:
 
     def on_tick_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
+
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding SupvisorsInstanceStatus and its ProcessStatus.
         Finally, the updated SupvisorsInstanceStatus is published.
@@ -479,25 +538,9 @@ class Context:
         # publish new Supvisors Instance status
         self.export_status(status)
 
-    def on_discovery_event(self, identifier: str, nick_identifier: str) -> None:
-        """ Insert a new Supvisors instance if Supvisors is in discovery mode and the origin is unknown.
-        If this event is received, the discovery mode is enabled.
-
-        :param identifier: the remote Supvisors identifier.
-        :param nick_identifier: the remote Supervisor identifier.
-        :return: None.
-        """
-        if self.mapper.check_candidate(identifier, nick_identifier):
-            # NOTE: use the first IP address in the list
-            item = f'<{nick_identifier}>{identifier}'
-            supvisors_id = self.mapper.add_instance(item)
-            self.logger.info(f'SupvisorsMapper.on_discovery_event: new SupvisorsInstanceId={supvisors_id}')
-            real_identifier = supvisors_id.identifier
-            self.instances[real_identifier] = SupvisorsInstanceStatus(supvisors_id, self.supvisors)
-            self.state_modes.add_instance(real_identifier)
-
     def on_timer_event(self, event: Payload) -> None:
         """ Check that all Supvisors instances are still publishing.
+
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s.
 
         :param event: the timer event.
@@ -511,26 +554,6 @@ class Context:
                 status.state = SupvisorsInstanceStates.FAILED
                 self.export_status(status)
 
-    def publish_process_failures(self, failed_processes: Set[ProcessStatus]) -> None:
-        """ Publish the Supvisors events related with the processes failures.
-
-        :param failed_processes: the processes in failure.
-        :return: None.
-        """
-        # publish process status in failure
-        if self.external_publisher:
-            for process in failed_processes:
-                self.external_publisher.send_process_status(process.serial())
-        # update all application sequences and status
-        for application_name in {process.application_name for process in failed_processes}:
-            application = self.applications[application_name]
-            # the application sequences update is useless as long as the application.process map is not impacted
-            # (see decision comment above in on_timer_event)
-            # application.update_sequences()
-            application.update()
-            if self.external_publisher:
-                self.external_publisher.send_application_status(application.serial())
-
     def on_instance_failure(self, status: SupvisorsInstanceStatus) -> None:
         """ Declare as FAILED a Supvisors instance that had an XML-RPC failure.
 
@@ -540,39 +563,6 @@ class Context:
         # processes will be dealt in FAILED processing
         status.state = SupvisorsInstanceStates.FAILED
         self.export_status(status)
-
-    def check_process(self, status: SupvisorsInstanceStatus,
-                      event: Payload, check_source=True) -> Optional[Tuple[ApplicationStatus, ProcessStatus]]:
-        """ Check and return the internal data corresponding to the process event.
-
-        :param status: the Supvisors instance from which the event has been received.
-        :param event: the event payload.
-        :param check_source: if True, the process should contain information related to the Supvisors instance.
-        :return: None.
-        """
-        application_name, process_name = event['group'], event['name']
-        try:
-            application = self.applications[application_name]
-            if process_name == '*':
-                process = None
-            else:
-                process = application.processes[process_name]
-                assert not check_source or status.identifier in process.info_map
-            return application, process
-        except (AssertionError, KeyError):
-            namespec = make_namespec(application_name, process_name)
-            # if the event is received during a Supvisors closing state, it can be ignored
-            # otherwise, it means that there's a discrepancy in the internal context, which requires CHECKING
-            if self.supvisors.fsm.state in CLOSING_STATES:
-                self.logger.warn(f'Context.check_process: ignoring unknown event about process={namespec}'
-                                 f' received from Supvisors={status.usage_identifier} while in'
-                                 f' {self.supvisors.fsm.state} state')
-            else:
-                # FIXME: not sure if it can really happen
-                #        CHECKING directly ? or FAILED ? or STOPPED ?
-                self.logger.error(f'Context.check_process: CHECKING required due to unknown event about'
-                                  f' process={namespec} received from Supvisors={status.usage_identifier}')
-                self.invalidate(status)
 
     def on_process_removed_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ Method called upon reception of a process removed event from the remote Supvisors instance.

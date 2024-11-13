@@ -215,6 +215,7 @@ class SupvisorsOptions:
         if not self.synchro_options:
             raise ValueError('synchro_options must not be empty')
         # using TIMEOUT in synchro_options invalidates SupvisorsFailureStrategies
+        # otherwise the SynchronizedState._check_failure_strategy may always trigger
         if (SynchronizationOptions.TIMEOUT in self.synchro_options
                 and self.supvisors_failure_strategy != SupvisorsFailureStrategies.CONTINUE):
             self.logger.warn('SupvisorsOptions:check_options: force supvisors_failure_strategy=CONTINUE'

@@ -56,8 +56,9 @@ class SupvisorsInstanceView(ViewHandler, StatusView):
         # set Supvisors instance identifier
         header_elt.findmeld('instance_mid').content(self.local_nick_identifier)
         # set Supvisors instance state
+        status: StateModes = self.sup_ctx.local_status
         sm: StateModes = self.state_modes.local_state_modes
-        header_elt.findmeld('state_mid').content(sm.state.name)
+        header_elt.findmeld('state_mid').content(status.state.name)
         # set Supvisors discovery mode
         if sm.discovery_mode:
             header_elt.findmeld('discovery_mid').content('discovery')

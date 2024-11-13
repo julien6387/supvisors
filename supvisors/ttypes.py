@@ -68,9 +68,8 @@ class RunningFailureStrategies(Enum):
 
 
 class SupvisorsFailureStrategies(Enum):
-    """ Applicable strategies that can be applied when re-entering the INITIALIZATION state. """
-    CONTINUE, RESYNC, RESTART, SHUTDOWN = range(4)
-    # FIXME: RESTART = no interest (equivalent to RESYNC)
+    """ Applicable strategies that can be applied when re-entering the SYNCHRONIZATION state. """
+    CONTINUE, RESYNC, SHUTDOWN = range(3)
 
 
 class ProcessRequestResult(Enum):
@@ -125,7 +124,8 @@ class EventHeaders(Enum):
 
 
 # State lists commonly used
-WORKING_STATES = [SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
+WORKING_STATES = [SupvisorsStates.ELECTION, SupvisorsStates.DISTRIBUTION,
+                  SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
 CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.FINAL]
 
 

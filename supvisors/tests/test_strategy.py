@@ -36,10 +36,10 @@ def filled_instances(mocker, supvisors):
     local_identifier = supvisors.mapper.local_identifier
     instances = supvisors.context.instances
     mock_instance(mocker, instances[local_identifier], SupvisorsInstanceStates.RUNNING, 50)
-    mock_instance(mocker, instances['10.0.0.1:25000'], SupvisorsInstanceStates.SILENT, 0)
+    mock_instance(mocker, instances['10.0.0.1:25000'], SupvisorsInstanceStates.STOPPED, 0)
     mock_instance(mocker, instances['10.0.0.2:25000'], SupvisorsInstanceStates.ISOLATED, 0)
     mock_instance(mocker, instances['10.0.0.3:25000'], SupvisorsInstanceStates.RUNNING, 20)
-    mock_instance(mocker, instances['10.0.0.4:25000'], SupvisorsInstanceStates.UNKNOWN, 0)
+    mock_instance(mocker, instances['10.0.0.4:25000'], SupvisorsInstanceStates.STOPPED, 0)
     mock_instance(mocker, instances['10.0.0.5:25000'], SupvisorsInstanceStates.RUNNING, 80)
     mock_instance(mocker, instances[f'{socket.getfqdn()}:15000'], SupvisorsInstanceStates.RUNNING, 10)
     return supvisors

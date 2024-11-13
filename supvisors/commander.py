@@ -60,7 +60,7 @@ class ProcessCommand:
         # the worst case is during a full restart with a minimal set of core identifiers
         # the DISTRIBUTION phase is in progress while there are still lots to Supvisors instances in CHECKING state
         self.minimum_ticks = max(ProcessCommand.DEFAULT_TICK_TIMEOUT,
-                                 len(self.supvisors.context.valid_instances()) // 10)
+                                 len(self.supvisors.context.valid_identifiers()) // 10)  # TBC
         self._wait_ticks: int = self.minimum_ticks
 
     @property
@@ -1091,12 +1091,13 @@ class Starter(Commander):
 
     # command methods
     def start_applications(self, forced: bool) -> None:
-        """ This method is called in the DEPLOYMENT phase.
-        Plan and start the necessary jobs to start all the applications having a start_sequence.
+        """ Plan and start the necessary jobs to start all the applications having a start_sequence.
+
+        This method is called in the DISTRIBUTION state.
         It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file.
 
-        :param forced: a status telling if a full restart is required
-        :return: None
+        :param forced: a status telling if a full restart is required.
+        :return: None.
         """
         self.logger.debug(f'Starter.start_applications: forced={forced}')
         # internal call: default strategy always used
@@ -1106,6 +1107,7 @@ class Starter(Commander):
                               f' never_started={application.never_started()}')
             # auto-started applications (start_sequence > 0) are not restarted if they have been stopped intentionally
             # exception is made for applications in failure: give them a chance
+            # TODO: forced / never_started logic to be reviewed
             if application.rules.start_sequence > 0 and (forced or application.never_started()
                                                          or application.major_failure or application.minor_failure):
                 self.logger.debug(f'Starter.start_applications: starting {application_name} planned')

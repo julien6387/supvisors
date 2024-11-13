@@ -1149,7 +1149,6 @@ def test_commander_next(mocker, supvisors, commander, application_job_1, applica
     assert not mocked_job2_next.called
     assert not mocked_job2_progress.called
     assert not mocked_after.called
-    assert supvisors.context.local_status.state_modes.starting_jobs
     mocker.resetall()
     # set application_job_1 not in progress anymore
     # will be removed from current_jobs and application_job_2
@@ -1165,7 +1164,6 @@ def test_commander_next(mocker, supvisors, commander, application_job_1, applica
     assert mocked_job2_next.called
     assert mocked_job2_progress.called
     assert mocked_after.call_args_list == [call(application_job_1), call(application_job_2)]
-    assert not supvisors.context.local_status.state_modes.starting_jobs
 
 
 def test_commander_check(mocker, commander, application_job_1, application_job_2):
@@ -1626,6 +1624,19 @@ def test_starter_get_load_requests(mocker, starter, application_job_1, applicati
     assert starter.get_load_requests() == {'10.0.0.1': 12, '10.0.0.2': 30, '10.0.0.3': 15}
 
 
+def test_starter_publish_state_modes(supvisors, starter):
+    """ Test the Starter.publish_state_modes method. """
+    assert not supvisors.state_modes.starting_jobs
+    # set Starter in progress
+    starter.planned_jobs = [None]
+    starter.publish_state_modes()
+    assert supvisors.state_modes.starting_jobs
+    # set Starter NOT in progress
+    starter.planned_jobs = []
+    starter.publish_state_modes()
+    assert not supvisors.state_modes.starting_jobs
+
+
 # Stopper part
 @pytest.fixture
 def stopper(supvisors):
@@ -1984,6 +1995,19 @@ def test_stopper_after(mocker, supvisors, stopper, sample_test_1):
     assert not mocked_start_proc.called
 
 
+def test_stopper_publish_state_modes(supvisors, stopper):
+    """ Test the Stopper.publish_state_modes method. """
+    assert not supvisors.state_modes.stopping_jobs
+    # set Starter in progress
+    stopper.planned_jobs = [None]
+    stopper.publish_state_modes()
+    assert supvisors.state_modes.stopping_jobs
+    # set Starter NOT in progress
+    stopper.planned_jobs = []
+    stopper.publish_state_modes()
+    assert not supvisors.state_modes.stopping_jobs
+
+
 def test_process_start_command_model(supvisors):
     """ Test the ProcessStartCommandModel class. """
     # get patches
@@ -2045,8 +2069,6 @@ def test_application_start_jobs_model(supvisors, start_command, start_sample_tes
 
 def test_starter_model(mocker, supvisors, start_command, sample_test_1):
     """ Test the StarterModel class. """
-    # get patches
-    mocked_publish = mocker.patch.object(supvisors.context, 'publish_state_modes')
     # test creation
     supvisors.starter_model = starter = StarterModel(supvisors)
     assert starter.supvisors is supvisors
@@ -2073,7 +2095,6 @@ def test_starter_model(mocker, supvisors, start_command, sample_test_1):
                  'state': 'FATAL', 'forced_reason': 'No resource available', 'running_identifiers': []}]
     assert starter.test_start_application(StartingStrategies.CONFIG, application) == expected
     assert starter.process_list == []
-    assert not mocked_publish.called
     # update global context
     supvisors.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
     # test call
@@ -2085,15 +2106,11 @@ def test_starter_model(mocker, supvisors, start_command, sample_test_1):
                  'state': 'RUNNING', 'forced_reason': '', 'running_identifiers': ['10.0.0.1:25000']}]
     assert starter.test_start_application(StartingStrategies.CONFIG, application) == expected
     assert starter.process_list == []
-    assert not mocked_publish.called
     # test start process
     application.processes['xfontsel']._state = ProcessStates.STOPPED
     assert starter.test_start_processes(StartingStrategies.CONFIG, application.processes.values()) == expected
     assert starter.process_list == []
-    assert not mocked_publish.called
     # test feed model
     assert starter.feed_model() == []
-    assert not mocked_publish.called
     # test publication
     starter.publish_state_modes()
-    assert not mocked_publish.called

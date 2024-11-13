@@ -539,7 +539,7 @@ def test_write_application_status(mocker, view):
         assert mid.replace.call_args_list == [call('')]
 
 
-def test_write_supervisord_status(mocker, view):
+def test_write_supervisord_status(mocker, supvisors, view):
     """ Test the write_supervisord_status method. """
     mocked_button = mocker.patch.object(view, '_write_supervisord_button')
     mocked_off = mocker.patch.object(view, '_write_supervisord_off_button')
@@ -574,7 +574,7 @@ def test_write_supervisord_status(mocker, view):
     tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
     # test call while Master
-    view.sup_ctx.master_identifier = view.sup_ctx.local_identifier
+    supvisors.state_modes.master_identifier = view.sup_ctx.local_identifier
     assert view.sup_ctx.is_master
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)

@@ -42,26 +42,29 @@ class MainView(ViewHandler):
     def write_status(self, header_elt) -> None:
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state & modes
-        # FIXME: use object attributes
-        state_modes = self.supvisors.state_modes.serial()
         elt = header_elt.findmeld('state_a_mid')
-        if state_modes['fsm_statecode'] == SupvisorsStates.CONCILIATION.value:
+        statename = self.state_modes.state.name
+        if self.state_modes.state == SupvisorsStates.CONCILIATION:
             elt.attributes(href=CONCILIATION_PAGE)
-            statename = state_modes['fsm_statename']
             # blinking state until full conciliation performed
             if self.sup_ctx.conflicting():
                 statename += ' >>'
                 update_attrib(elt, 'class', 'on blink')
             elt.content(statename)
         else:
-            elt.replace(state_modes['fsm_statename'])
-        # set Supvisors modes
-        for mid, attr in [('starting_mid', 'starting_jobs'), ('stopping_mid', 'stopping_jobs')]:
-            elt = header_elt.findmeld(mid)
-            if state_modes[attr]:
-                update_attrib(elt, 'class', 'blink')
-            else:
-                elt.replace('')
+            elt.replace(statename)
+        # set Supvisors starting mode
+        elt = header_elt.findmeld('starting_mid')
+        if self.state_modes.starting_identifiers:
+            update_attrib(elt, 'class', 'blink')
+        else:
+            elt.replace('')
+        # set Supvisors starting mode
+        elt = header_elt.findmeld('stopping_mid')
+        if self.state_modes.stopping_identifiers:
+            update_attrib(elt, 'class', 'blink')
+        else:
+            elt.replace('')
         # write the Master nick identifier
         master_instance = self.sup_ctx.master_instance
         identifier = master_instance.supvisors_id.nick_identifier if master_instance else 'none'

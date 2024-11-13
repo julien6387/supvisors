@@ -23,14 +23,14 @@ from supvisors.ttypes import *
 
 def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
-    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'ISOLATED']
+    expected = ['STOPPED', 'CHECKING', 'CHECKED', 'RUNNING', 'FAILED', 'ISOLATED']
     assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
 def test_supvisors_states():
     """ Test the SupvisorsStates enumeration. """
-    expected = ['OFF', 'INITIALIZATION', 'DISTRIBUTION', 'OPERATION', 'CONCILIATION', 'RESTARTING',
-                'SHUTTING_DOWN', 'FINAL']
+    expected = ['OFF', 'SYNCHRONIZATION', 'ELECTION', 'DISTRIBUTION', 'OPERATION', 'CONCILIATION',
+                'RESTARTING', 'SHUTTING_DOWN', 'FINAL']
     assert [x.name for x in SupvisorsStates] == expected
 
 
@@ -72,7 +72,7 @@ def test_running_failure_strategies():
 
 def test_supvisors_failure_strategies():
     """ Test the SupvisorsFailureStrategies enumeration. """
-    expected = ['BLOCK', 'CONTINUE', 'RESTART', 'SHUTDOWN']
+    expected = ['CONTINUE', 'RESYNC', 'SHUTDOWN']
     assert [x.name for x in SupvisorsFailureStrategies] == expected
 
 

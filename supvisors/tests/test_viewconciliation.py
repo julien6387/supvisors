@@ -283,10 +283,10 @@ def test_write_conflict_process_actions(view):
                                                             ident='10.0.0.1', namespec='dummy_proc')]
 
 
-def test_write_conflict_strategies(view):
+def test_write_conflict_strategies(supvisors, view):
     """ Test the _write_conflict_strategies method. """
     # patch context
-    view.sup_ctx.master_identifier = '10.0.0.1'
+    supvisors.state_modes.master_identifier = '10.0.0.1'
     view.view_ctx = Mock(**{'format_url.side_effect': lambda x, y, namespec, action: f'{action} url'})
     # build root structure with one single element
     infanticide_strategy_a_mid = create_element()

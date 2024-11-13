@@ -48,10 +48,13 @@ def test_write_navigation(mocker, view):
 def test_write_status(mocker, supvisors, view):
     """ Test the MainView.write_status method. """
     # patch context
-    mocker.patch.object(view.sup_ctx, 'get_state_modes',
-                        return_value={'fsm_statecode': SupvisorsStates.DISTRIBUTION.value,
-                                      'fsm_statename': SupvisorsStates.DISTRIBUTION.name,
-                                      'starting_jobs': True, 'stopping_jobs': False})
+    sm = {'fsm_statecode': SupvisorsStates.DISTRIBUTION.value,
+          'fsm_statename': SupvisorsStates.DISTRIBUTION.name,
+          'degraded_mode': False, 'discovery_mode': True,
+          'master_identifier': '10.0.0.1',
+          'starting_jobs': True, 'stopping_jobs': False,
+          'instance_states': {}}
+    supvisors.state_modes.local_state_modes.update(sm)
     mocker.patch.object(view.sup_ctx, 'conflicting', return_value=False)
     # build root structure
     state_a_mid = create_element()
@@ -76,10 +79,11 @@ def test_write_status(mocker, supvisors, view):
     mocked_header.reset_all()
     mocker.resetall()
     # test call with master, in CONCILIATION, but without conflicts (expected solved)
-    view.sup_ctx.get_state_modes.return_value = {'fsm_statecode': SupvisorsStates.CONCILIATION.value,
-                                                 'fsm_statename': SupvisorsStates.CONCILIATION.name,
-                                                 'starting_jobs': False, 'stopping_jobs': True}
-    supvisors.context.local_status.state_modes.master_identifier = '10.0.0.1:25000'
+    sm.update({'fsm_statecode': SupvisorsStates.CONCILIATION.value,
+               'fsm_statename': SupvisorsStates.CONCILIATION.name,
+               'starting_jobs': False, 'stopping_jobs': True})
+    supvisors.state_modes.local_state_modes.update(sm)
+    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_a_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]

@@ -197,6 +197,11 @@ class SupvisorsInstanceStatus:
             self.supvisors.state_modes.update_instance_state(self.identifier, new_state)
 
     @property
+    def running(self) -> bool:
+        """ Return True if the Supvisors instance is RUNNING. """
+        return self.state == SupvisorsInstanceStates.RUNNING
+
+    @property
     def isolated(self) -> bool:
         """ Return True if the Supvisors instance is isolated. """
         return self.state == SupvisorsInstanceStates.ISOLATED
@@ -326,7 +331,8 @@ class SupvisorsInstanceStatus:
     _Transitions = {SupvisorsInstanceStates.STOPPED: (SupvisorsInstanceStates.CHECKING,),
                     SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.STOPPED,
                                                        SupvisorsInstanceStates.CHECKED,
-                                                       SupvisorsInstanceStates.FAILED),
+                                                       SupvisorsInstanceStates.FAILED,
+                                                       SupvisorsInstanceStates.ISOLATED),
                     SupvisorsInstanceStates.CHECKED: (SupvisorsInstanceStates.RUNNING,
                                                       SupvisorsInstanceStates.FAILED),
                     SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.FAILED,),

@@ -100,12 +100,13 @@ def test_write_status(mocker, supvisors, view):
                                     'stopping_mid': stopping_mid})
     # first call tests with local instance not master, stopping jobs in progress and no discovery mode
     status = supvisors.context.local_status
+    sm = supvisors.state_modes.local_state_modes
     status._state = SupvisorsInstanceStates.RUNNING
     status.times.remote_time = 3600
-    status.state_modes.stopping_jobs = True
+    sm.stopping_jobs = True
     mocker.patch.object(status, 'get_load', return_value=12)
     assert not view.sup_ctx.is_master
-    assert not view.sup_ctx.local_status.state_modes.discovery_mode
+    assert not sm.discovery_mode
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('stopping_mid')]
     assert not master_mid.content.called
@@ -118,10 +119,10 @@ def test_write_status(mocker, supvisors, view):
     mocker.resetall()
     mocked_header.reset_all()
     # second call tests with master, discovery mode enabled and both Starter and Stopper having jobs
-    view.sup_ctx.local_status.state_modes.master_identifier = view.sup_ctx.local_identifier
+    sm.master_identifier = view.sup_ctx.local_identifier
     assert view.sup_ctx.is_master
-    status.state_modes.starting_jobs = True
-    view.sup_ctx.local_status.state_modes.discovery_mode = True
+    sm.starting_jobs = True
+    sm.discovery_mode = True
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('master_mid'), call('instance_mid'), call('state_mid'),
                                                      call('discovery_mid'), call('starting_mid'), call('stopping_mid')]

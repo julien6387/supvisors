@@ -113,6 +113,7 @@ class SupervisorProxy:
             self.logger.warn(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
                              f' {fct_name}{args} failed - {str(exc)}')
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
+            return None
         except (OSError, HTTPException) as exc:
             # transport issue due to network or remote Supervisor failure (includes a bunch of exceptions, such as
             # socket.gaierror, ConnectionResetError, ConnectionRefusedError, CannotSendRequest, IncompleteRead, etc.)
@@ -208,7 +209,7 @@ class SupervisorProxy:
         local_status_payload = self.xml_rpc('supvisors.get_instance_info',
                                             self.proxy.supvisors.get_instance_info,
                                             (self.local_identifier,))
-        self.logger.debug(f'SupervisorProxy._is_authorized: local_status_payload={local_status_payload}')
+        self.logger.debug(f'SupervisorProxy.is_authorized: local_status_payload={local_status_payload}')
         # the remote Supvisors instance is likely starting, restarting or shutting down so give it a chance
         if local_status_payload is None:
             return None
@@ -217,7 +218,7 @@ class SupervisorProxy:
         try:
             instance_state = SupvisorsInstanceStates(state)
         except ValueError:
-            self.logger.error(f'SupervisorProxy._is_authorized: unknown Supvisors instance state={state}')
+            self.logger.error(f'SupervisorProxy.is_authorized: unknown Supvisors instance state={state}')
             return False
         # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
         return instance_state != SupvisorsInstanceStates.ISOLATED
@@ -230,13 +231,15 @@ class SupervisorProxy:
         state_modes = self.xml_rpc('supvisors.get_instance_state_modes',
                                    self.proxy.supvisors.get_instance_state_modes,
                                    (self.status.identifier,))
-        self.logger.debug(f'SupervisorProxy._transfer_states_modes: state_modes={state_modes}')
-        # FIXME: one element expected. what if not?
-        # provide the local Supvisors with the remote Supvisors instance state and modes
-        # NOTE: use the proxy server to switch to the relevant proxy thread
-        origin = self._get_origin(self.status.identifier)
-        message = NotificationHeaders.STATE.value, state_modes[0]
-        self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+        self.logger.debug(f'SupervisorProxy.transfer_states_modes: state_modes={state_modes}')
+        if state_modes and len(state_modes) == 1:
+            # provide the local Supvisors with the remote Supvisors instance state and modes
+            # NOTE: use the proxy server to switch to the relevant proxy thread
+            origin = self._get_origin(self.status.identifier)
+            message = NotificationHeaders.STATE.value, state_modes[0]
+            self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+        else:
+            self.logger.error(f'SupervisorProxy.transfer_states_modes: unexpected state_modes={state_modes}')
 
     def _transfer_process_info(self) -> None:
         """ Get the process information from the remote Supvisors instance and post it to the local Supvisors instance.

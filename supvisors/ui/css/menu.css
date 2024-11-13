@@ -72,12 +72,12 @@ nav li:has(> a.on):active {
     background-color: var(--dark2-color);
 }
 
-nav .UNKNOWN {
-    background-image: radial-gradient(ellipse 75% 170% at center right, grey 20%, transparent 30%);
+nav .STOPPED {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--stopped-color) 20%, transparent 30%);
 }
 
-nav .UNKNOWN.active {
-    background-image: radial-gradient(circle at center left, grey 40%, transparent 50%);
+nav .STOPPED.active {
+    background-image: radial-gradient(circle at center left, var(--stopped-color), transparent 50%);
 }
 
 nav .CHECKING {
@@ -88,20 +88,16 @@ nav .CHECKING.active {
     background-image: radial-gradient(circle at center left, grey 30%, var(--running-color) 40%, transparent 50%);
 }
 
-nav .STOPPED, nav .SILENT {
-    background-image: radial-gradient(ellipse 75% 170% at center right, var(--stopped-color) 20%, transparent 30%);
-}
-
-nav .STOPPED.active, nav .SILENT.active {
-    background-image: radial-gradient(circle at center left, var(--stopped-color), transparent 50%);
-}
-
 nav .RUNNING, nav .CHECKED {
     background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 20%, transparent 30%);
 }
 
 nav .RUNNING.active, nav .CHECKED.active {
     background-image: radial-gradient(circle at center left, var(--running-color), transparent 50%);
+}
+
+nav .FAILED {
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--crash-color) 20%, transparent 30%);
 }
 
 nav .ISOLATED {

@@ -67,6 +67,11 @@ class StateModes:
             stable_identifiers.add(identifier)
         return stable_identifiers
 
+    def running_identifiers(self) -> NameSet:
+        """ Return the Supvisors instances seen as RUNNING. """
+        return {identifier for identifier, state in self.instance_states.items()
+                if state == SupvisorsInstanceStates.RUNNING}
+
     def update(self, payload: Payload) -> None:
         """ Get the Supvisors instance state and modes with changes applied.
 
@@ -93,11 +98,6 @@ class StateModes:
                 'instance_states': {identifier: state.name
                                     for identifier, state in self.instance_states.items()}}
 
-    def running_instances(self) -> NameSet:
-        """ Return the Supvisors instances seen as RUNNING. """
-        return {identifier for identifier, state in self.instance_states
-                if state == SupvisorsInstanceStates.RUNNING}
-
 
 # annotation types
 StateModesMap = Dict[str, StateModes]
@@ -123,7 +123,7 @@ class SupvisorsStateModes:
         #       based on the declared Supvisors instances and the discovered ones
         self.instance_state_modes: StateModesMap = {identifier: StateModes(identifier)
                                                     for identifier in supvisors.mapper.instances}
-        # fill the local instance / other instances will be received
+        # fill the local instance to initiate the first publication / other instances will be received
         self.local_state_modes.instance_states = {identifier: SupvisorsInstanceStates.STOPPED
                                                   for identifier in supvisors.mapper.instances}
         # even if no instance is declared, the local Supvisors instance is always configured
@@ -195,6 +195,20 @@ class SupvisorsStateModes:
             self.publish_status()
 
     @property
+    def degraded_mode(self) -> bool:
+        """ Return True if the Supvisors in running in a degraded context,
+        i.e. any expected Supvisors instance is missing. """
+        return self.local_state_modes.degraded_mode
+
+    @degraded_mode.setter
+    def degraded_mode(self, mode: bool) -> None:
+        """ Set the degraded mode on the Supvisors local instance. """
+        if self.local_state_modes.degraded_mode != mode:
+            self.logger.debug(f'SupvisorsStateModes.mode: {mode}')
+            self.local_state_modes.degraded_mode = mode
+            self.publish_status()
+
+    @property
     def discovery_mode(self) -> bool:
         """ Return True if the discovery mode is activated on the local instance. """
         return self.local_state_modes.discovery_mode
@@ -242,6 +256,7 @@ class SupvisorsStateModes:
             self.local_state_modes.stopping_jobs = in_progress
             self.publish_status()
 
+    # Supvisors instance update
     def add_instance(self, identifier: str) -> None:
         """ Add a new discovered instance to the internal dictionary. """
         self.instance_state_modes[identifier] = StateModes(identifier)
@@ -269,7 +284,7 @@ class SupvisorsStateModes:
 
     # Global update from a notification
     def on_instance_state_event(self, identifier: str, event: Payload):
-        """ The event is fired on change by the remote Supvisors instance, so publish it without question. """
+        """ The event is fired on change by the remote Supvisors instance. """
         self.instance_state_modes[identifier].update(event)
         self.export_status()
 
@@ -298,24 +313,10 @@ class SupvisorsStateModes:
         """ Return True if the local Supvisors instance sees the Supvisors instance as RUNNING. """
         return self.local_state_modes.instance_states[identifier] == SupvisorsInstanceStates.RUNNING
 
-    def get_master_identifiers(self) -> NameSet:
-        """ Return the Master identifiers declared among the Supvisors instances seen as RUNNING. """
-        # could be more pythonic but useful to debug
-        all_masters = {identifier: sm.master_identifier
-                       for identifier, sm in self.instance_state_modes.items()
-                       if self.is_running(identifier)}
-        self.logger.debug(f'SupvisorsStateModes.get_master_identifiers: all_masters={all_masters}')
-        return set(all_masters.values())
+    def evaluate_stability(self) -> None:
+        """ Evaluate the Supvisors stability, i.e. if all stable identifiers are identical for all Supvisors instances.
 
-    def check_master(self) -> bool:
-        """ Return True if a unique Supvisors Master instance is set for all running Supvisors instances. """
-        masters = self.get_master_identifiers()
-        self.logger.debug(f'SupvisorsStateModes.check_master: masters={masters}')
-        return len(masters) == 1 and '' not in masters
-
-    def update_stability(self) -> None:
-        """ Return True if all Supvisors instances are stable and have a consistent context,
-        i.e. all stable identifiers are identical for all Supvisors instances.
+        This is called periodically from the Supvisors FSM.
 
         NOTE: a stable Supvisors instance is not necessarily RUNNING.
         """
@@ -325,10 +326,51 @@ class SupvisorsStateModes:
         self.logger.debug(f'SupvisorsStateModes.update_stability: stable_identifiers={stable_identifiers}')
         if stable_identifiers and all(identifiers == stable_identifiers[0]
                                       for identifiers in stable_identifiers):
+            # TBC: store only running ones ?
             self.stable_identifiers = stable_identifiers[0]
         else:
             self.stable_identifiers = set()
         self.logger.debug(f'SupvisorsStateModes.update_stability: stable_identifiers={self.stable_identifiers}')
+
+    def get_master_identifiers(self) -> NameSet:
+        """ Return the Master identifiers declared among the Supvisors instances seen as RUNNING.
+
+        In the Supvisors OPERATION state, there should be exactly one.
+        The 'no master' case may happen at Supvisors startup or in the event where the Supvisors Master is stopped.
+        The 'multiple masters' case is a consequence of a split-brain situation.
+
+        This method must be called only in a stable Supvisors context, otherwise there is no guarantee
+        that the Supvisors Master instance seen locally as RUNNING is considered similarly in remote instances.
+
+        :return: the Master identifiers.
+        """
+        # it could return directly a set but useful to debug
+        all_masters = {identifier: sm.master_identifier
+                       for identifier, sm in self.instance_state_modes.items()
+                       if self.is_running(identifier)}
+        self.logger.debug(f'SupvisorsStateModes.get_master_identifiers: all_masters={all_masters}')
+        # NOTE: keep the empty string in the set because having one Master identifier and the empty string is a no-go
+        return set(all_masters.values())
+
+    def check_master(self, election: bool = True) -> bool:
+        """ Return True if a unique RUNNING Supvisors instance is considered as a Master by all Supvisors instances
+        in a stable context.
+
+        :param election: add more logs when not in ELECTION state.
+        :return: True if one Master.
+        """
+        masters: NameSet = self.get_master_identifiers()
+        self.logger.debug(f'SupvisorsStateModes.check_master: masters={masters}')
+        # masters cannot be empty
+        if '' in masters:
+            if not election:
+                self.logger.warn('SupvisorsStateModes.check_master: at least one Supvisors instance has no Master')
+            return False
+        if len(masters) > 1:
+            if not election:
+                self.logger.warn('SupvisorsStateModes.check_master: multiple Supvisors Master instances found')
+            return False
+        return True
 
     def select_master(self) -> None:
         """ Select the Master Supvisors instance among the possible candidates.
@@ -338,18 +380,18 @@ class SupvisorsStateModes:
         In all cases, the context is fully stable, i.e. all Supvisors instances have a common perception of the other
         Supvisors instances.
 
+        This method can also be called upon Supvisors user initiative to end the synchronization phase.
+
         A first priority is given to a Supvisors Master that is already declared by another Supvisors instance.
         A second priority is given to the Supvisors Core instances (as configured).
         Finally, a third priority is given to the 'lowest' nick_identifier.
         """
         # priority is given to existing Master instances if already identified
         all_candidates = self.get_master_identifiers()
-        if '' in all_candidates:
-            all_candidates.remove('')
+        all_candidates.discard('')
         if not all_candidates:
             # no Master identified, so get the running instances
-            all_candidates = [identifier for identifier, state in self.local_state_modes.instance_states.items()
-                              if state == SupvisorsInstanceStates.RUNNING]
+            all_candidates = self.local_state_modes.running_identifiers()
         # NOTE: choose Master among the core instances because they are expected to be more stable
         #       this logic is applied regardless of CORE being selected as synchro_options
         #       TODO: document this
@@ -360,3 +402,36 @@ class SupvisorsStateModes:
         self.logger.debug(f'SupvisorsStateModes.select_master: candidates={candidates}')
         # arbitrarily choice: master instance has the 'lowest' nick_identifier among running instances
         self.master_identifier = min(candidates, key=lambda x: self.mapper.instances[x].nick_identifier)
+
+    def accept_master(self) -> None:
+        """ Accept a Master Supvisors instance if any is already selected by a remote Supvisors instance.
+
+        This method is called from the SYNCHRONIZATION state, and is applicable when the USER option is set.
+        The Supvisors user may unblock the SYNCHRONIZATION phase by selecting a Master instance from the Web UI
+        or using the XML-RPC API.
+        """
+        masters: NameSet = self.get_master_identifiers()
+        masters.discard('')
+        self.logger.debug(f'SupvisorsStateModes.accept_master: masters={masters}')
+        if masters:
+            # arbitrarily choice: pick up the first one
+            # if there's a conflict, il will be solved in ELECTION state
+            # the important thing is to exit the SYNCHRONIZATION state if a USER Master is available
+            self.master_identifier = next(iter(masters))
+
+    # Core instances
+    def core_instances_running(self) -> bool:
+        """ Check if all Supvisors Core instances are in RUNNING state.
+
+        This is checked against the stable identifiers to ensure that the Supvisors Core instances are seen as RUNNING
+        by all Supvisors instances.
+        That's why this method is not in Supvisors Context module.
+
+        :return: True if all Supvisors Core instances are in RUNNING state.
+        """
+        core_identifiers = set(self.mapper.core_identifiers)
+        stable_running_identifiers = {identifier for identifier in self.stable_identifiers
+                                      if self.is_running(identifier)}
+        return core_identifiers.issubset(stable_running_identifiers)
+
+    # TBC do the same for LIST and STRICT ?

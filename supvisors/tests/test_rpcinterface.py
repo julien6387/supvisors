@@ -14,13 +14,13 @@
 # limitations under the License.
 # ======================================================================
 
+import socket
 from unittest.mock import call, Mock
 
 import pytest
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 
 from supvisors import __version__
-from supvisors.instancestatus import StateModes
 from supvisors.rpcinterface import *
 from supvisors.statscollector import StatsMsgType
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, DistributionRules, SupvisorsStates,
@@ -49,15 +49,22 @@ def test_api_version(rpc):
 def test_supvisors_state(rpc):
     """ Test the get_supvisors_state RPC. """
     assert rpc.get_supvisors_state() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                                         'discovery_mode': False,
+                                         'discovery_mode': False, 'degraded_mode': False,
                                          'master_identifier': '',
-                                         'starting_jobs': [], 'stopping_jobs': []}
+                                         'starting_jobs': [], 'stopping_jobs': [],
+                                         'instance_states': {'10.0.0.1:25000': 'STOPPED',
+                                                             '10.0.0.2:25000': 'STOPPED',
+                                                             '10.0.0.3:25000': 'STOPPED',
+                                                             '10.0.0.4:25000': 'STOPPED',
+                                                             '10.0.0.5:25000': 'STOPPED',
+                                                             f'{socket.getfqdn()}:25000': 'STOPPED',
+                                                             f'{socket.getfqdn()}:15000': 'STOPPED'}}
 
 
 def test_master_node(supvisors, rpc):
     """ Test the get_master_address RPC. """
     # prepare context
-    supvisors.context.master_identifier = '10.0.0.1'
+    supvisors.state_modes.master_identifier = '10.0.0.1'
     # test call
     assert rpc.get_master_identifier() == '10.0.0.1'
 
@@ -89,18 +96,12 @@ def test_statistics_status(supvisors, rpc):
 
 def test_instance_info(supvisors, rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
-    instance = supvisors.context.instances['10.0.0.1:25000']
-    instance.state_modes = StateModes(SupvisorsStates.CONCILIATION, True, '10.0.0.2', False, True)
     # test with known identifier
     expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
                 'node_name': '10.0.0.1', 'port': 25000, 'loading': 0,
                 'local_mtime': 0.0, 'local_time': 0, 'local_sequence_counter': 0,
                 'remote_mtime': 0.0, 'remote_time': 0, 'remote_sequence_counter': 0,
-                'statecode': 0, 'statename': 'UNKNOWN', 'discovery_mode': True,
-                'process_failure': False,
-                'fsm_statecode': 4, 'fsm_statename': 'CONCILIATION',
-                'master_identifier': '10.0.0.2',
-                'starting_jobs': False, 'stopping_jobs': True}
+                'statecode': 0, 'statename': 'STOPPED', 'process_failure': False}
     assert rpc.get_instance_info('10.0.0.1') == [expected]
     # test with unknown identifier
     with pytest.raises(RPCError) as exc:
@@ -119,6 +120,21 @@ def test_all_instances_info(supvisors, rpc):
                                    '10.0.0.2:25000': Mock(**{'serial.return_value': 'address_info_2'})}
     # test call
     assert rpc.get_all_instances_info() == ['address_info_1', 'address_info_2']
+
+
+def test_instance_state_modes(supvisors, rpc):
+    """ Test the get_instance_state_modes RPC. """
+    # test with known identifier
+    expected = {'degraded_mode': False, 'discovery_mode': False,
+                'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                'instance_states': {},
+                'master_identifier': '',
+                'starting_jobs': False, 'stopping_jobs': False}
+    assert rpc.get_instance_state_modes('10.0.0.1') == [expected]
+    # test with unknown identifier
+    with pytest.raises(RPCError) as exc:
+        rpc.get_instance_state_modes('10.0.0.0')
+    assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
 
 
 def test_application_info(mocker, supvisors, rpc):
@@ -1727,22 +1743,22 @@ def test_restart_sequence(mocker, rpc):
     assert deferred()
 
 
-def test_restart(mocker, rpc):
+def test_restart(mocker, supvisors, rpc):
     """ Test the restart RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
     assert rpc.restart()
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_restart.call_args_list == [call()]
+    assert supvisors.fsm.on_restart.call_args_list == [call()]
 
 
-def test_shutdown(mocker, rpc):
+def test_shutdown(mocker, supvisors, rpc):
     """ Test the shutdown RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
     assert rpc.shutdown()
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_shutdown.call_args_list == [call()]
+    assert supvisors.fsm.on_shutdown.call_args_list == [call()]
 
 
 def test_end_sync(mocker, supvisors, rpc):
@@ -1750,32 +1766,32 @@ def test_end_sync(mocker, supvisors, rpc):
     mocked_check = mocker.patch.object(rpc, '_check_state')
     mocked_fsm = mocker.patch.object(supvisors.fsm, 'on_end_sync')
     # test RPC call with Master already set
-    supvisors.context.master_identifier = '10.0.0.1:25000'
+    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
     with pytest.raises(RPCError) as exc:
         rpc.end_sync()
     assert exc.value.args[0] == SupvisorsFaults.BAD_SUPVISORS_STATE.value
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER not in synchro_options
-    supvisors.context.master_identifier = ''
+    supvisors.state_modes.master_identifier = ''
     with pytest.raises(RPCError) as exc:
         rpc.end_sync()
     assert exc.value.args[0] == SupvisorsFaults.NOT_APPLICABLE.value
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, no master parameter
     supvisors.options.synchro_options = [SynchronizationOptions.USER]
     assert rpc.end_sync()
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert mocked_fsm.call_args_list == [call('')]
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter unknown
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('dummy')
     assert exc.value.args[0] == Faults.BAD_NAME
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter resolves in multiple identifiers
@@ -1784,20 +1800,20 @@ def test_end_sync(mocker, supvisors, rpc):
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('test_stereotype')
     assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter known but not running
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('10.0.0.1:25000')
     assert exc.value.args[0] == Faults.NOT_RUNNING
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter known running
     supvisors.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
     assert rpc.end_sync('10.0.0.1:25000')
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert mocked_fsm.call_args_list == [call('10.0.0.1:25000')]
 
 
@@ -1962,18 +1978,18 @@ def test_get_conciliation_strategy(rpc):
     assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
 
 
-def test_check_state(rpc):
+def test_check_state(supvisors, rpc):
     """ Test the RPCInterface._check_state function. """
     # prepare context
-    rpc.supvisors.fsm.state = SupvisorsStates.DISTRIBUTION
+    supvisors.fsm.state = SupvisorsStates.DISTRIBUTION
     # test there is no exception when internal state is in list
-    rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION])
+    rpc._check_state([SupvisorsStates.OFF, SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION])
     # test there is an exception when internal state is not in list
     with pytest.raises(RPCError) as exc:
-        rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.OPERATION])
+        rpc._check_state([SupvisorsStates.SYNCHRONIZATION, SupvisorsStates.OPERATION])
     assert exc.value.args == (SupvisorsFaults.BAD_SUPVISORS_STATE.value,
                               'invalid Supvisors state=DISTRIBUTION - state expected'
-                              " in ['INITIALIZATION', 'OPERATION']")
+                              " in ['SYNCHRONIZATION', 'OPERATION']")
 
 
 def test_check_from_distribution(mocker, rpc):
@@ -1981,7 +1997,8 @@ def test_check_from_distribution(mocker, rpc):
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_state')
     # test the call to _check_state
     rpc._check_from_distribution()
-    excluded_states = [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION, SupvisorsStates.FINAL]
+    excluded_states = [SupvisorsStates.OFF, SupvisorsStates.SYNCHRONIZATION, SupvisorsStates.ELECTION,
+                       SupvisorsStates.FINAL]
     expected = [x for x in SupvisorsStates if x not in excluded_states]
     assert mocked_check.call_args_list == [call(expected)]
 

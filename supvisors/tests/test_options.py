@@ -104,7 +104,7 @@ def test_options_creation(opt):
     assert opt.disabilities_file is None
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
-    assert opt.supvisors_failure_strategy == SupvisorsFailureStrategies.BLOCK
+    assert opt.supvisors_failure_strategy == SupvisorsFailureStrategies.CONTINUE
     assert opt.host_stats_enabled
     assert opt.process_stats_enabled
     assert opt.collecting_period == 5
@@ -154,7 +154,7 @@ def test_str(opt):
                         " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
                         ' inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
-                        ' supvisors_failure_strategy=BLOCK'
+                        ' supvisors_failure_strategy=CONTINUE'
                         ' host_stats_enabled=True process_stats_enabled=True'
                         ' collecting_period=5 stats_periods=[10] stats_histo=200'
                         ' stats_irix_mode=False tail_limit=1024 tailf_limit=1024')
@@ -193,17 +193,24 @@ def test_get_value(opt, config):
 
 
 def test_check_synchro_options(opt, config):
-    """ Test the SupvisorsOptions.check_synchro_options method. """
+    """ Test the SupvisorsOptions.check_options method. """
     opt.synchro_options = [SynchronizationOptions.STRICT, SynchronizationOptions.CORE]
     assert not opt.supvisors_list
     assert not opt.core_identifiers
-    # call to check_synchro_options will empty synchro_options
+    # check that STRICT is disabled when no supvisors_list
+    # check that CORE is disabled when no core_identifiers
+    # check exception when no synchro_options
     with pytest.raises(ValueError):
-        opt.check_synchro_options()
+        opt.check_options()
+    # check that using TIMEOUT is not compatible with SupvisorsFailureStrategies
+    opt.synchro_options = [SynchronizationOptions.TIMEOUT]
+    for opt.supvisors_failure_strategy in [SupvisorsFailureStrategies.RESYNC, SupvisorsFailureStrategies.SHUTDOWN]:
+        opt.check_options()
+        assert opt.supvisors_failure_strategy == SupvisorsFailureStrategies.CONTINUE
     # call check_synchro_options with USER and TIMEOUT
     for option in [SynchronizationOptions.USER, SynchronizationOptions.TIMEOUT]:
         opt.synchro_options = [option]
-        opt.check_synchro_options()
+        opt.check_options()
         assert opt.synchro_options == [option]
 
 
@@ -449,9 +456,8 @@ def test_supvisors_failure_strategy():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_supvisors_failure_strategy('configs')
     # test valid values
-    assert SupvisorsOptions.to_supvisors_failure_strategy('block') == SupvisorsFailureStrategies.BLOCK
+    assert SupvisorsOptions.to_supvisors_failure_strategy('resync') == SupvisorsFailureStrategies.RESYNC
     assert SupvisorsOptions.to_supvisors_failure_strategy('CONTinue') == SupvisorsFailureStrategies.CONTINUE
-    assert SupvisorsOptions.to_supvisors_failure_strategy('RESTART') == SupvisorsFailureStrategies.RESTART
     assert SupvisorsOptions.to_supvisors_failure_strategy('shutDOWN') == SupvisorsFailureStrategies.SHUTDOWN
 
 

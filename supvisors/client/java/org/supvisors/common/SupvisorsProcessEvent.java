@@ -48,7 +48,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /** The UNIX process id of the process. */
     private Integer pid;
 
-    /** The identifier of the Supvisors instance that published the event (TBC). */
+    /** The identifier of the Supvisors instance that published the event. */
     private String identifier;
 
     /** The description in the case of an erroneous start. */
