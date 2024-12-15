@@ -187,7 +187,8 @@ Process statistics
 Key                Type              Value
 ================== ================= ==================
 'namespec'         ``str``           The Process namespec.
-'identifier'       ``str``           The identifier of the |Supvisors| instance.
+'identifier'       ``str``           The identifier of the |Supvisors| instance where the process is running.
+'pid'              ``int``           The Process PID.
 'target_period'    ``float``         The configured integration period, in seconds.
 'period'           ``list(float)``   The start and end uptimes of the integration period, as a list of 2 values in seconds.
 'cpu'              ``float``         The CPU (IRIX mode) of the process on the node, in percent.
