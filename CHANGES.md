@@ -20,6 +20,8 @@
 
 * Remove the Supvisors instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
 
+* Add the process PID to the process statistics event.
+
 
 ## 0.18.6 (2024-08-20)
 

@@ -406,13 +406,14 @@ def test_cpu_process_statistics():
 @pytest.fixture
 def proc_statistics_instance():
     # testing with period 12 and history depth 2
-    return ProcStatisticsInstance('dummy_proc', '10.0.0.1', 12, 2)
+    return ProcStatisticsInstance(namespec='dummy_proc', identifier='10.0.0.1', pid=1234, period=12, depth=2)
 
 
 def test_proc_statistics_instance_creation(proc_statistics_instance):
     """ Test the creation of ProcStatisticsInstance. """
     assert proc_statistics_instance.namespec == 'dummy_proc'
     assert proc_statistics_instance.identifier == '10.0.0.1'
+    assert proc_statistics_instance.pid == 1234
     assert proc_statistics_instance.period == 12
     assert proc_statistics_instance.depth == 2
     assert proc_statistics_instance.ref_stats == {}
@@ -469,6 +470,7 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     result = proc_statistics_instance.push_statistics(stats3)
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
+                      'pid': 1234,
                       'target_period': 12,
                       'period': (0.0, 14.0),
                       'cpu': 5.2,
@@ -486,6 +488,7 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     result = proc_statistics_instance.push_statistics(stats4)
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
+                      'pid': 1234,
                       'target_period': 12,
                       'period': (14.0, 29.0),
                       'cpu': 6.9,
@@ -503,6 +506,7 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     result = proc_statistics_instance.push_statistics(stats5)
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
+                      'pid': 1234,
                       'target_period': 12,
                       'period': (29.0, 44.0),
                       'cpu': 4.4,
@@ -557,9 +561,10 @@ def test_proc_statistics_holder_get_stats(proc_statistics_holder):
 def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     """ Test the storage of the process instant statistics. """
     mocked_instance = mocker.patch('supvisors.statscompiler.ProcStatisticsInstance',
-                                   side_effect=lambda a, b, c, d: Mock(time_label=time.time(),
-                                                                       namespec=a, identifier=b, period=c, depth=d,
-                                                                       **{'push_statistics.return_value': None}))
+                                   side_effect=lambda a, b, c, d, e: Mock(time_label=time.time(),
+                                                                          namespec=a, identifier=b, pid=c,
+                                                                          period=d, depth=e,
+                                                                          **{'push_statistics.return_value': None}))
     # 1. test with running process not referenced yet
     proc_stats = {'pid': 118612}
     result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
@@ -572,6 +577,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.1'
+        assert instance.pid == 118612
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
@@ -588,6 +594,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.1'
+        assert instance.pid == 118612
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
@@ -598,14 +605,15 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.2'
+        assert instance.pid == 612
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
         instance.push_statistics.reset_mock()
     # 3. test with running process with a different pid on existing host
-    mocked_instance.side_effect = lambda a, b, c, d: Mock(time_label=time.time(),
-                                                          namespec=a, identifier=b, period=c, depth=d,
-                                                          **{'push_statistics.return_value': f'{b}_{c}'})
+    mocked_instance.side_effect = lambda a, b, c, d, e: Mock(time_label=time.time(),
+                                                             namespec=a, identifier=b, pid=c, period=d, depth=e,
+                                                             **{'push_statistics.return_value': f'{b}_{d}'})
     proc_stats = {'pid': 18612}
     result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
     assert result == ['10.0.0.1_5.0', '10.0.0.1_15.0', '10.0.0.1_60.0']
@@ -617,6 +625,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.1'
+        assert instance.pid == 18612
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
@@ -628,6 +637,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.2'
+        assert instance.pid == 612
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
@@ -643,6 +653,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.2'
+        assert instance.pid == 612
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called

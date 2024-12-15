@@ -262,11 +262,12 @@ def cpu_process_statistics(latest: float, ref: float, host_work: float) -> float
 class ProcStatisticsInstance:
     """ This class handles statistics for a process running on a Supervisor instance and for a given period. """
 
-    def __init__(self, namespec: str = '', identifier: str = '', period: float = 0.0, depth: int = 0):
+    def __init__(self, namespec: str = '', identifier: str = '', pid: int = 0, period: float = 0.0, depth: int = 0):
         """ Initialization of the attributes. """
         # parameters
         self.namespec: str = namespec
         self.identifier: str = identifier
+        self.pid: int = pid
         self.period: float = period
         self.depth: int = depth
         self.ref_stats: Payload = {}
@@ -291,6 +292,7 @@ class ProcStatisticsInstance:
                 # create the result structure (use a copy as the _push functions will pop)
                 result = {'namespec': self.namespec,
                           'identifier': self.identifier,
+                          'pid': self.pid,
                           'target_period': self.period,
                           'period': (self.ref_stats['now'] - self.ref_start_time,
                                      proc_stats['now'] - self.ref_start_time),
@@ -326,15 +328,14 @@ class ProcStatisticsHolder:
 
     Attributes are:
 
-        - namespec: the process namespec
-        - pid: the process PID
-        - options: the Supvisors options
-        - logger: the global Supvisors logger
+        - namespec: the process namespec ;
+        - options: the Supvisors options ;
+        - logger: the global Supvisors logger ;
         - instance_map: a dictionary of ProcStatisticsInstance for all Supvisors instances where the process is running
                         and for all periods.
     """
 
-    IdentifierInstanceMap = Dict[str, Tuple[float, Dict[int, ProcStatisticsInstance]]]
+    IdentifierInstanceMap = Dict[str, Tuple[int, Dict[float, ProcStatisticsInstance]]]
 
     def __init__(self, namespec: str, options, logger):
         """ Initialization of the attributes. """
@@ -367,7 +368,7 @@ class ProcStatisticsHolder:
             if not identifier_instance or pid != ref_pid:
                 # process has been (re-)started on Supervisord instance
                 self.logger.debug(f'ProcStatisticsHolder.push_statistics: {self.namespec} started on {identifier}')
-                identifier_instance = {period: ProcStatisticsInstance(self.namespec, identifier,
+                identifier_instance = {period: ProcStatisticsInstance(self.namespec, identifier, pid,
                                                                       period, self.options.stats_histo)
                                        for period in self.options.stats_periods}
                 self.instance_map[identifier] = pid, identifier_instance
