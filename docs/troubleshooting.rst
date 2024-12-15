@@ -328,7 +328,7 @@ Then |Supervisor| shall be started by passing this identification to the :progra
 
 
 Remote host ``STOPPED``
-----------------------
+-----------------------
 
 A remote |Supvisors| instance may be declared ``STOPPED``, although :program:`supervisord` is running on the remote host.
 
