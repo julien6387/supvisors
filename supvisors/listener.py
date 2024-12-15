@@ -72,18 +72,8 @@ class SupervisorListener:
         #       Before running, Supervisor forks when daemonized and the sockets are then lost
         # add new events to Supervisor EventTypes
         add_process_events()
-        # subscribe to internal events
-        events.subscribe(events.SupervisorRunningEvent, self.on_running)
-        events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
-        events.subscribe(events.ProcessStateEvent, self.on_process_state)
-        events.subscribe(ProcessAddedEvent, self.on_process_added)
-        events.subscribe(ProcessRemovedEvent, self.on_process_removed)
-        events.subscribe(ProcessEnabledEvent, self.on_process_disability)
-        events.subscribe(ProcessDisabledEvent, self.on_process_disability)
-        events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
-        events.subscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
-        events.subscribe(events.Tick5Event, self.on_tick)
-        events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
+        # subscribe to Supervisor events
+        self._subscribe()
 
     @property
     def logger(self) -> Logger:
@@ -195,8 +185,8 @@ class SupervisorListener:
                 self.logger.debug('SupervisorListener.on_stopping: stopping external publisher...')
                 self.external_publisher.close()
                 self.logger.debug('SupervisorListener.on_stopping: external publisher stopped')
-            # unsubscribe from events
-            events.clear()
+            # unsubscribe from Supervisor events
+            self._unsubscribe()
             # finally, close logger
             # WARN: only if it is not the supervisor logger
             if hasattr(self.logger, 'SUPVISORS'):
@@ -562,3 +552,33 @@ class SupervisorListener:
         self.fsm.on_process_state_event(self.local_status, payload)
         # publish to the other Supvisors instances
         self.rpc_handler.send_process_state_event(payload)
+
+    def _subscribe(self) -> None:
+        """ Subscribe to internal Supervisor events. """
+        events.subscribe(events.SupervisorRunningEvent, self.on_running)
+        events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
+        events.subscribe(events.ProcessStateEvent, self.on_process_state)
+        events.subscribe(ProcessAddedEvent, self.on_process_added)
+        events.subscribe(ProcessRemovedEvent, self.on_process_removed)
+        events.subscribe(ProcessEnabledEvent, self.on_process_disability)
+        events.subscribe(ProcessDisabledEvent, self.on_process_disability)
+        events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
+        events.subscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
+        events.subscribe(events.Tick5Event, self.on_tick)
+        events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
+
+    def _unsubscribe(self) -> None:
+        """ Unsubscribe from internal Supervisor events. """
+        # WARNING: do NOT use events.clear()
+        #          it may affect other plugins
+        events.unsubscribe(events.SupervisorRunningEvent, self.on_running)
+        events.unsubscribe(events.SupervisorStoppingEvent, self.on_stopping)
+        events.unsubscribe(events.ProcessStateEvent, self.on_process_state)
+        events.unsubscribe(ProcessAddedEvent, self.on_process_added)
+        events.unsubscribe(ProcessRemovedEvent, self.on_process_removed)
+        events.unsubscribe(ProcessEnabledEvent, self.on_process_disability)
+        events.unsubscribe(ProcessDisabledEvent, self.on_process_disability)
+        events.unsubscribe(events.ProcessGroupAddedEvent, self.on_group_added)
+        events.unsubscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
+        events.unsubscribe(events.Tick5Event, self.on_tick)
+        events.unsubscribe(events.RemoteCommunicationEvent, self.on_remote_event)

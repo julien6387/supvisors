@@ -22,6 +22,8 @@
 
 * Add the process PID to the process statistics event.
 
+* Replace the global clear by individual unsubscriptions when Supervisor stops.
+
 * Consider variable CPU frequency value returned by `psutil`.
 
 

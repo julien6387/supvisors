@@ -26,12 +26,14 @@ from supvisors.listener import *
 @pytest.fixture
 def listener(supvisors):
     """ Fixture for the instance to test. """
+    events.clear()
     return SupervisorListener(supvisors)
 
 
 @pytest.fixture
 def discovery_listener(supvisors):
     """ Fixture for the instance to test. """
+    events.clear()
     supvisors.options.multicast_group = '239.0.0.1', 7777
     return SupervisorListener(supvisors)
 
@@ -115,15 +117,16 @@ def test_on_stopping_exception(mocker, listener):
     listener.on_stopping('')
 
 
-def test_on_stopping(mocker, supvisors, listener):
-    """ Test the reception of a Supervisor STOPPING event. """
+def test_on_stopping_unmarked(mocker, supvisors, listener):
+    """ Test the reception of a Supervisor STOPPING event with unmarked logger,
+    i.e. meant to be the supervisor logger. """
     # patch the complex structures
     mocked_infosource = mocker.patch.object(supvisors.supervisor_data, 'close_httpservers')
     supvisors.stats_collector = Mock(**{'stop.return_value': None})
     supvisors.rpc_handler = Mock(spec=RpcHandler)
     supvisors.discovery_handler = Mock(spec=SupvisorsDiscovery)
     supvisors.external_publisher = Mock(spec=EventPublisherInterface)
-    # 1. test with unmarked logger, i.e. meant to be the supervisor logger
+    # test
     listener.on_stopping('')
     assert callbacks == []
     assert mocked_infosource.called
@@ -132,13 +135,18 @@ def test_on_stopping(mocker, supvisors, listener):
     assert listener.external_publisher.close.called
     assert not listener.logger.close.called
     assert listener.stats_collector.stop.called
-    # reset mocks
-    mocked_infosource.reset_mock()
-    listener.stats_collector.stop.reset_mock()
-    listener.rpc_handler.stop.reset_mock()
-    supvisors.discovery_handler.stop.reset_mock()
-    listener.external_publisher.close.reset_mock()
-    # 2. test with marked logger, i.e. meant to be the Supvisors logger
+
+
+def test_on_stopping(mocker, supvisors, listener):
+    """ Test the reception of a Supervisor STOPPING event with marked logger,
+    i.e. meant to be the Supvisors logger. """
+    # patch the complex structures
+    mocked_infosource = mocker.patch.object(supvisors.supervisor_data, 'close_httpservers')
+    supvisors.stats_collector = Mock(**{'stop.return_value': None})
+    supvisors.rpc_handler = Mock(spec=RpcHandler)
+    supvisors.discovery_handler = Mock(spec=SupvisorsDiscovery)
+    supvisors.external_publisher = Mock(spec=EventPublisherInterface)
+    # test
     listener.logger.SUPVISORS = None
     listener.on_stopping('')
     assert callbacks == []
