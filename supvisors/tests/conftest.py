@@ -89,9 +89,9 @@ def supvisors(mocker, supervisor, dict_options):
     mocker.patch('socket.getfqdn', return_value='supv01.bzh')
     mocker.patch('socket.gethostbyaddr', side_effect=gethostbyaddr)
     mocker.patch('socket.if_nameindex', return_value=[(1, 'lo'), (2, 'eth0')])
+    mocker.patch('uuid.getnode', return_value=1250999896491)
     ioctl_map = {'lo': ('127.0.0.1', '255.0.0.0'), 'eth0': ('10.0.0.1', '255.255.255.0')}
-    mocker.patch('supvisors.internal_com.mapper.get_interface_info',
-                 side_effect=lambda x: ioctl_map[x])
+    mocker.patch('supvisors.internal_com.mapper.get_interface_info', side_effect=lambda x: ioctl_map[x])
     # create the mocked Supvisors instance
     supv = MockedSupvisors(supervisor, dict_options)
     # create the local network instances

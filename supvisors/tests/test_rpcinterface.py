@@ -105,7 +105,7 @@ def test_local_supvisors_info(supvisors, rpc):
                 'http_port': 25000,
                 'stereotypes': ['supvisors_test'],
                 'network': {'fqdn': 'supv01.bzh',
-                            'machine_id': '00:0c:29:82:97:53',
+                            'machine_id': '01:23:45:67:89:ab',
                             'addresses': {'eth0': {'aliases': ['cliche01', 'supv01'],
                                                    'host_name': 'supv01.bzh',
                                                    'ipv4_addresses': ['10.0.0.1'],

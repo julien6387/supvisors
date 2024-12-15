@@ -181,11 +181,9 @@ def test_network_address(mocker, supvisors):
 
 def test_local_network(mocker, supvisors):
     """ Test the LocalNetwork class. """
-    print(socket.if_nameindex())
-    mocker.patch('uuid.getnode', return_value=52236031827)
     network = LocalNetwork(supvisors.logger)
     assert network.logger is supvisors.logger
-    assert network.machine_id == '00:0c:29:82:97:53'
+    assert network.machine_id == '01:23:45:67:89:ab'
     assert network.fqdn == 'supv01.bzh'
     assert sorted(network.addresses.keys()) == [nic_name for _, nic_name in socket.if_nameindex()
                                                 if nic_name != 'lo']
@@ -195,7 +193,7 @@ def test_local_network(mocker, supvisors):
     assert not network.host_matches('supv03')
     # test serial
     assert network.serial() == {'fqdn': 'supv01.bzh',
-                                'machine_id': '00:0c:29:82:97:53',
+                                'machine_id': '01:23:45:67:89:ab',
                                 'addresses': {'eth0': {'host_name': 'supv01.bzh',
                                                        'aliases': ['cliche01', 'supv01'],
                                                        'ipv4_addresses': ['10.0.0.1'],
@@ -205,7 +203,7 @@ def test_local_network(mocker, supvisors):
     # test LocalNetwork creation from payload
     other = LocalNetwork(supvisors.logger)
     payload = {'fqdn': 'supv01.bzh',
-               'machine_id': '00:12:34:56:78:90',
+               'machine_id': '01:23:45:67:89:ab',
                'addresses': {'eth0': {'host_name': 'supv02',
                                       'aliases': ['rocky52'],
                                       'ipv4_addresses': ['10.0.0.2'],
@@ -217,7 +215,7 @@ def test_local_network(mocker, supvisors):
     # test LocalNetwork creation from other instance (gethostbyaddr is still patched)
     network.from_network(other)
     assert network.serial() == {'fqdn': 'supv01.bzh',
-                                'machine_id': '00:12:34:56:78:90',
+                                'machine_id': '01:23:45:67:89:ab',
                                 'addresses': {'eth0': {'host_name': 'supv02.bzh',
                                                        'aliases': ['cliche02', 'supv02'],
                                                        'ipv4_addresses': ['10.0.0.2'],
