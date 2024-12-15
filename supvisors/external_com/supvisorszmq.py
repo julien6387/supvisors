@@ -183,7 +183,7 @@ class ZmqEventSubscriber(EventSubscriber):
                 socks = dict(await poller.poll(ZmqEventSubscriber._Poll_timeout))
                 # check if something happened on the socket
                 if socket in socks and socks[socket] == zmq.POLLIN:
-                    self.logger.debug('ZmqEventSubscriber.run: got message on subscriber')
+                    self.logger.blather('ZmqEventSubscriber.run: got message on subscriber')
                     try:
                         header = await socket.recv_string()
                         body = await socket.recv_json()
