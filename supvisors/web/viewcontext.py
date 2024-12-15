@@ -422,7 +422,9 @@ class ViewContext:
     def get_node_characteristics(self):
         """ Get the node characteristics from the stats collector. """
         if self.supvisors.stats_collector:
-            return self.supvisors.stats_collector.node_info
+            node_info = self.supvisors.stats_collector.node_info
+            node_info.refresh()
+            return node_info
         return None
 
     def get_instance_stats(self, identifier: str = None):

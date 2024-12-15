@@ -113,7 +113,7 @@ class LocalNodeInfo:
         self.nb_core_logical: int = psutil.cpu_count()
         # get processor frequency
         frequency: float = psutil.cpu_freq().current  # MHz
-        self.frequency: str = f'{int(frequency)} MHz'
+        self.frequency: str = f'{round(frequency)} MHz'
         # get physical memory
         physical_memory: int = psutil.virtual_memory().total  # bytes
         for unit in ['KiB', 'MiB', 'GiB']:
@@ -121,6 +121,11 @@ class LocalNodeInfo:
             if physical_memory < 1024:
                 break
         self.physical_memory: str = f'{physical_memory:.2f} {unit}'
+
+    def refresh(self):
+        """ Refresh the CPU frequency value. """
+        frequency: float = psutil.cpu_freq().current  # MHz
+        self.frequency: str = f'{round(frequency)} MHz'
 
 
 class StatisticsCollector:

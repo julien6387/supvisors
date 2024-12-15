@@ -22,6 +22,8 @@
 
 * Add the process PID to the process statistics event.
 
+* Consider variable CPU frequency value returned by `psutil`.
+
 
 ## 0.18.6 (2024-08-20)
 

@@ -155,14 +155,16 @@ def test_local_node_info(mocker):
     assert info.nb_core_logical == 8
     assert info.frequency == '3000 MHz'
     assert info.physical_memory == '15.02 GiB'
-    # test call with less RAM (even if it is very unlikely)
+    info.refresh()
+    assert info.frequency == '3000 MHz'
+    # test call with less RSS (even if it is very unlikely)
     mocked_ram.return_value = Mock(total=16123456)
     info = LocalNodeInfo()
     assert info.nb_core_physical == 4
     assert info.nb_core_logical == 8
     assert info.frequency == '3000 MHz'
     assert info.physical_memory == '15.38 MiB'
-    # test again with less RAM (even if it is VERY unlikely)
+    # test again with even less RSS (even if it is VERY unlikely)
     mocked_ram.return_value = Mock(total=16123)
     info = LocalNodeInfo()
     assert info.nb_core_physical == 4
