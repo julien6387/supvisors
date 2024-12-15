@@ -407,8 +407,9 @@ def test_sup_id_create_identifier(supvisors):
 
 
 @pytest.fixture
-def mapper(supvisors):
+def mapper(mocker, supvisors):
     """ Return the instance to test. """
+    mocker.patch('uuid.getnode', return_value=1250999896491)
     return SupvisorsMapper(supvisors)
 
 
@@ -416,7 +417,7 @@ def test_mapper_create(supvisors, mapper):
     """ Test the values set at construction. """
     assert mapper.supvisors is supvisors
     assert mapper.local_network.serial() == {'fqdn': 'supv01.bzh',
-                                             'machine_id': '00:0c:29:82:97:53',
+                                             'machine_id': '01:23:45:67:89:ab',
                                              'addresses': {'eth0': {'host_name': 'supv01.bzh',
                                                                     'aliases': ['cliche01', 'supv01'],
                                                                     'ipv4_addresses': ['10.0.0.1'],
@@ -680,10 +681,10 @@ def test_identify(mapper):
                                                                        'netmask': '255.255.255.0',
                                                                        'nic_name': 'eth0'}}},
                                    'fqdn': 'supv01.bzh',
-                                   'machine_id': '00:0c:29:82:97:53'}}
+                                   'machine_id': '01:23:45:67:89:ab'}}
     mapper.identify(payload)
     expected = {'fqdn': 'supv01.bzh',
-                'machine_id': '00:0c:29:82:97:53',
+                'machine_id': '01:23:45:67:89:ab',
                 'addresses': {'eth0': {'host_name': 'supv01.bzh',
                                        'aliases': ['cliche01', 'supv01'],
                                        'ipv4_addresses': ['10.0.0.1'],
