@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 from supervisor.loggers import Logger
 
 from .external_com.eventinterface import EventPublisherInterface
-from .internal_com.mapper import SupvisorsMapper
+from .internal_com.mapper import SupvisorsMapper, SupvisorsInstanceId
 from .ttypes import SupvisorsStates, SupvisorsInstanceStates, NameSet, Payload
 
 
@@ -41,9 +41,9 @@ class StateModes:
                      SupvisorsInstanceStates.STOPPED,
                      SupvisorsInstanceStates.ISOLATED]
 
-    def __init__(self, identifier: str):
+    def __init__(self, sup_id: SupvisorsInstanceId):
         """ Initialization of the attributes. """
-        self.identifier = identifier
+        self.supvisors_id: SupvisorsInstanceId = sup_id
         self.state: SupvisorsStates = SupvisorsStates.OFF
         self.degraded_mode: bool = False
         self.discovery_mode: bool = False
@@ -51,6 +51,16 @@ class StateModes:
         self.starting_jobs: bool = False
         self.stopping_jobs: bool = False
         self.instance_states: Dict[str, SupvisorsInstanceStates] = {}
+
+    @property
+    def identifier(self):
+        """ Property getter for the 'identifier' attribute of the Supvisors instance. """
+        return self.supvisors_id.identifier
+
+    @property
+    def nick_identifier(self):
+        """ Property getter for the 'nick_identifier' attribute of the Supvisors instance. """
+        return self.supvisors_id.nick_identifier
 
     def get_stable_identifiers(self) -> NameSet:
         """ Check the context stability of the Supvisors instance, by returning all its known remote Supvisors instances
@@ -89,7 +99,9 @@ class StateModes:
 
     def serial(self):
         """ Return a serializable form of the StatesModes. """
-        return {'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
+        return {'identifier': self.identifier,
+                'nick_identifier': self.nick_identifier,
+                'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
                 'degraded_mode': self.degraded_mode,
                 'discovery_mode': self.discovery_mode,
                 'master_identifier': self.master_identifier,
@@ -121,8 +133,8 @@ class SupvisorsStateModes:
         # get the reference to every Supvisors instance state & modes structure
         # NOTE: the content of this structure is fully driven by the Context instance,
         #       based on the declared Supvisors instances and the discovered ones
-        self.instance_state_modes: StateModesMap = {identifier: StateModes(identifier)
-                                                    for identifier in supvisors.mapper.instances}
+        self.instance_state_modes: StateModesMap = {identifier: StateModes(sup_id)
+                                                    for identifier, sup_id in supvisors.mapper.instances.items()}
         # fill the local instance to initiate the first publication / other instances will be received
         self.local_state_modes.instance_states = {identifier: SupvisorsInstanceStates.STOPPED
                                                   for identifier in supvisors.mapper.instances}
@@ -259,7 +271,8 @@ class SupvisorsStateModes:
     # Supvisors instance update
     def add_instance(self, identifier: str) -> None:
         """ Add a new discovered instance to the internal dictionary. """
-        self.instance_state_modes[identifier] = StateModes(identifier)
+        sup_id: SupvisorsInstanceId = self.supvisors.mapper.instances[identifier]
+        self.instance_state_modes[identifier] = StateModes(sup_id)
         self.local_state_modes.instance_states[identifier] = SupvisorsInstanceStates.STOPPED
 
     def update_instance_state(self, identifier: str, new_state: SupvisorsInstanceStates) -> None:
@@ -274,7 +287,8 @@ class SupvisorsStateModes:
             # local identifier is unlikely unless there's a bug
             if identifier != self.local_identifier:
                 self.logger.debug(f'SupvisorsStateModes.update_instance_state: reset Supvisors={identifier}')
-                self.instance_state_modes[identifier] = StateModes(identifier)
+                supvisors_id = self.instance_state_modes[identifier].supvisors_id
+                self.instance_state_modes[identifier] = StateModes(supvisors_id)
         # if Master is not RUNNING anymore, a new election is required
         if new_state != SupvisorsInstanceStates.RUNNING and identifier == self.master_identifier:
             self.master_identifier = ''
@@ -309,9 +323,14 @@ class SupvisorsStateModes:
             self.external_publisher.send_supvisors_status(self.serial())
 
     # Master selection
-    def is_running(self, identifier: str):
+    def is_running(self, identifier: str) -> bool:
         """ Return True if the local Supvisors instance sees the Supvisors instance as RUNNING. """
         return self.local_state_modes.instance_states[identifier] == SupvisorsInstanceStates.RUNNING
+
+    def is_stable(self) -> bool:
+        """ Return True if the Supvisors context is stable. """
+        # FIXME: add condition all in same FSM state ?
+        return len(self.stable_identifiers) > 0
 
     def evaluate_stability(self) -> None:
         """ Evaluate the Supvisors stability, i.e. if all stable identifiers are identical for all Supvisors instances.

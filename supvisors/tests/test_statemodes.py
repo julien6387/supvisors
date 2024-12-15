@@ -21,10 +21,12 @@ import pytest
 from supvisors.statemodes import *
 
 
-def test_state_modes():
+def test_state_modes(supvisors):
     """ Test the StateModes class. """
-    sm = StateModes('10.0.0.1')
-    assert sm.identifier == '10.0.0.1'
+    sup_id = SupvisorsInstanceId('10.0.0.1', supvisors)
+    sm = StateModes(sup_id)
+    assert sm.identifier == '10.0.0.1:25000'
+    assert sm.nick_identifier == '10.0.0.1'
     assert sm.state == SupvisorsStates.OFF
     assert not sm.degraded_mode
     assert not sm.discovery_mode
@@ -32,7 +34,8 @@ def test_state_modes():
     assert not sm.starting_jobs
     assert not sm.stopping_jobs
     assert sm.instance_states == {}
-    assert sm.serial() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
+    assert sm.serial() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                           'fsm_statecode': 0, 'fsm_statename': 'OFF',
                            'degraded_mode': False, 'discovery_mode': False,
                            'master_identifier': '',
                            'starting_jobs': False, 'stopping_jobs': False,
@@ -40,7 +43,8 @@ def test_state_modes():
     assert sm.get_stable_identifiers() == set()
     assert sm.running_identifiers() == set()
     # update the context (no stability)
-    payload = {'fsm_statecode': SupvisorsStates.ELECTION.value,
+    payload = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+               'fsm_statecode': SupvisorsStates.ELECTION.value,
                'fsm_statename': SupvisorsStates.ELECTION.name,
                'degraded_mode': True,
                'discovery_mode': True,
@@ -50,7 +54,8 @@ def test_state_modes():
                'instance_states': {f'10.0.0.{state.value}': state.name
                                    for state in SupvisorsInstanceStates}}
     sm.update(payload)
-    assert sm.identifier == '10.0.0.1'
+    assert sm.identifier == '10.0.0.1:25000'
+    assert sm.nick_identifier == '10.0.0.1'
     assert sm.state == SupvisorsStates.ELECTION
     assert sm.degraded_mode
     assert sm.discovery_mode
@@ -63,7 +68,8 @@ def test_state_modes():
                                   '10.0.0.3': SupvisorsInstanceStates.RUNNING,
                                   '10.0.0.4': SupvisorsInstanceStates.FAILED,
                                   '10.0.0.5': SupvisorsInstanceStates.ISOLATED}
-    assert sm.serial() == {'fsm_statecode': 2, 'fsm_statename': 'ELECTION',
+    assert sm.serial() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                           'fsm_statecode': 2, 'fsm_statename': 'ELECTION',
                            'degraded_mode': True, 'discovery_mode': True,
                            'master_identifier': '10.0.0.1',
                            'starting_jobs': True, 'stopping_jobs': True,
@@ -147,9 +153,10 @@ def test_supvisors_state_modes_discovery(supvisors, state_modes_discovery):
     assert state_modes_discovery.discovery_mode
     assert state_modes_discovery.local_state_modes.discovery_mode
     # add discovered instance
+    supvisors.mapper.instances['10.0.0.0'] = sup_id = SupvisorsInstanceId('10.0.0.0', supvisors)
     state_modes_discovery.add_instance('10.0.0.0')
     assert not state_modes_discovery.is_running('10.0.0.0')
-    assert state_modes_discovery.instance_state_modes['10.0.0.0'].serial() == StateModes('').serial()
+    assert state_modes_discovery.instance_state_modes['10.0.0.0'].serial() == StateModes(sup_id).serial()
 
 
 def test_supvisors_state_modes_normal(supvisors, simple_sm):
@@ -196,7 +203,8 @@ def test_supvisors_state_modes_normal(supvisors, simple_sm):
     supvisors.rpc_handler.send_state_event.reset_mock()
 
     # Notification of remote state & modes event
-    event = {'fsm_statecode': 2, 'fsm_statename': 'ELECTION',
+    event = {'identifier': '10.0.0.2:25000', 'nick_identifier': '10.0.0.2',
+             'fsm_statecode': 2, 'fsm_statename': 'ELECTION',
              'degraded_mode': False, 'discovery_mode': False,
              'master_identifier': '',
              'starting_jobs': False, 'stopping_jobs': False,
@@ -204,7 +212,8 @@ def test_supvisors_state_modes_normal(supvisors, simple_sm):
                                  '10.0.0.2:25000': 'RUNNING',
                                  '10.0.0.3:25000': 'STOPPED',
                                  '10.0.0.4:25000': 'STOPPED',
-                                 '10.0.0.5:25000': 'STOPPED'}}
+                                 '10.0.0.5:25000': 'STOPPED',
+                                 '10.0.0.6:25000': 'STOPPED'}}
     simple_sm.on_instance_state_event('10.0.0.2:25000', event)
     assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == event
     assert not supvisors.rpc_handler.send_state_event.called
@@ -313,7 +322,8 @@ def test_supvisors_state_modes_normal(supvisors, simple_sm):
     simple_sm.master_identifier = '10.0.0.2:25000'
     supvisors.rpc_handler.send_state_event.reset_mock()
     simple_sm.update_instance_state('10.0.0.2:25000', SupvisorsInstanceStates.STOPPED)
-    assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == StateModes('').serial()
+    sup_id = supvisors.mapper.instances['10.0.0.2:25000']
+    assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == StateModes(sup_id).serial()
     assert simple_sm.master_identifier == ''
     assert simple_sm.stable_identifiers == set(supvisors.mapper.instances.keys())
     assert simple_sm.get_master_identifiers() == {''}
@@ -334,7 +344,8 @@ def test_select_master_core(supvisors, simple_sm):
                                  '10.0.0.2:25000': 'RUNNING',
                                  '10.0.0.3:25000': 'STOPPED',
                                  '10.0.0.4:25000': 'STOPPED',
-                                 '10.0.0.5:25000': 'STOPPED'}}
+                                 '10.0.0.5:25000': 'STOPPED',
+                                 '10.0.0.6:25000': 'STOPPED'}}
     simple_sm.on_instance_state_event('10.0.0.1:25000', event)
     simple_sm.on_instance_state_event('10.0.0.2:25000', event)
 
@@ -384,7 +395,8 @@ def test_supvisors_state_modes_established(supvisors, simple_sm):
                                  '10.0.0.2:25000': 'RUNNING',
                                  '10.0.0.3:25000': 'RUNNING',
                                  '10.0.0.4:25000': 'STOPPED',
-                                 '10.0.0.5:25000': 'STOPPED'}}
+                                 '10.0.0.5:25000': 'STOPPED',
+                                 '10.0.0.6:25000': 'STOPPED'}}
     simple_sm.on_instance_state_event('10.0.0.1:25000', event)
     event.update({'fsm_statecode': 4, 'fsm_statename': 'OPERATION',
                   'master_identifier': '10.0.0.3:25000'})
@@ -423,7 +435,8 @@ def test_supvisors_state_modes_split_brain(supvisors, simple_sm):
                                  '10.0.0.2:25000': 'RUNNING',
                                  '10.0.0.3:25000': 'RUNNING',
                                  '10.0.0.4:25000': 'STOPPED',
-                                 '10.0.0.5:25000': 'STOPPED'}}
+                                 '10.0.0.5:25000': 'STOPPED',
+                                 '10.0.0.6:25000': 'STOPPED'}}
     simple_sm.on_instance_state_event('10.0.0.1:25000', event)
     simple_sm.on_instance_state_event('10.0.0.3:25000', event)
     event.update({'master_identifier': '10.0.0.2:25000'})
@@ -466,7 +479,8 @@ def test_supvisors_state_modes_split_brain_core(supvisors, simple_sm):
                                  '10.0.0.2:25000': 'RUNNING',
                                  '10.0.0.3:25000': 'RUNNING',
                                  '10.0.0.4:25000': 'STOPPED',
-                                 '10.0.0.5:25000': 'STOPPED'}}
+                                 '10.0.0.5:25000': 'STOPPED',
+                                 '10.0.0.6:25000': 'STOPPED'}}
     simple_sm.on_instance_state_event('10.0.0.1:25000', event)
     simple_sm.on_instance_state_event('10.0.0.3:25000', event)
     event.update({'master_identifier': '10.0.0.2:25000'})
@@ -509,7 +523,8 @@ def test_supvisors_state_modes_user(supvisors, simple_sm):
                                  '10.0.0.2:25000': 'RUNNING',
                                  '10.0.0.3:25000': 'RUNNING',
                                  '10.0.0.4:25000': 'STOPPED',
-                                 '10.0.0.5:25000': 'STOPPED'}}
+                                 '10.0.0.5:25000': 'STOPPED',
+                                 '10.0.0.6:25000': 'STOPPED'}}
     simple_sm.on_instance_state_event('10.0.0.1:25000', event)
     simple_sm.on_instance_state_event('10.0.0.3:25000', event)
     event.update({'master_identifier': '10.0.0.3:25000'})

@@ -43,13 +43,13 @@ def mocked_rpc():
 
 @pytest.fixture
 def proxy(supvisors, mocked_rpc):
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors.context.instances['10.0.0.2:25000']
     return SupervisorProxy(status, supvisors)
 
 
 @pytest.fixture
 def proxy_thread(supvisors, mocked_rpc):
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors.context.instances['10.0.0.2:25000']
     return SupervisorProxyThread(status, supvisors)
 
 
@@ -63,12 +63,12 @@ def proxy_server(supvisors, mocked_rpc):
 def test_proxy_creation(mocked_rpc, proxy, supvisors):
     """ Test the SupvisorsProxy creation. """
     assert proxy.supvisors is supvisors
-    assert proxy.status is supvisors.context.instances['10.0.0.1:25000']
+    assert proxy.status is supvisors.context.instances['10.0.0.2:25000']
     assert proxy.proxy is not None
     assert 0.0 < proxy.last_used < time.monotonic()
     assert proxy.logger is supvisors.logger
     assert proxy.local_identifier == supvisors.mapper.local_identifier
-    assert mocked_rpc.call_args_list == [call({'SUPERVISOR_SERVER_URL': 'http://10.0.0.1:25000',
+    assert mocked_rpc.call_args_list == [call({'SUPERVISOR_SERVER_URL': 'http://10.0.0.2:25000',
                                                'SUPERVISOR_USERNAME': 'user',
                                                'SUPERVISOR_PASSWORD': 'p@$$w0rd'})]
 
@@ -151,12 +151,11 @@ def test_publish(mocker, supvisors, proxy):
     """ Test the SupervisorProxy.publish method. """
     mocked_call = mocker.patch.object(proxy, 'xml_rpc')
     # update node states
-    instance_status = supvisors.context.instances['10.0.0.1:25000']
+    instance_status = supvisors.context.instances['10.0.0.2:25000']
     # test incorrect publication type
-    proxy.publish('10.0.0.2:25000', (28, {'message': 'hello'}))
+    proxy.publish('10.0.0.3:25000', (28, {'message': 'hello'}))
     assert not mocked_call.called
     # test TICK publication
-    origin = supvisors.mapper.instances['10.0.0.2:25000'].source
     for state in SupvisorsInstanceStates:
         # actually, publish is not called with ISOLATED state, but it is dealt before
         proxy.publish('10.0.0.2:25000', (PublicationHeaders.TICK.value, {'message': 'TICK'}))
@@ -186,26 +185,30 @@ def test_publish(mocker, supvisors, proxy):
 def test_proxy_check_instance(mocker, supvisors, mocked_rpc, proxy):
     """ Test the SupervisorProxy.check_instance method. """
     mocked_auth = mocker.patch.object(proxy, '_is_authorized', return_value=False)
+    mocked_netw = mocker.patch.object(proxy, '_transfer_network_info')
     mocked_mode = mocker.patch.object(proxy, '_transfer_states_modes')
     mocked_info = mocker.patch.object(proxy, '_transfer_process_info')
     mocked_send = supvisors.rpc_handler.proxy_server.push_notification
     # test with no authorization
     proxy.check_instance()
+    assert mocked_netw.call_args_list == [call()]
     assert mocked_auth.call_args_list == [call()]
     assert not mocked_mode.called
     assert not mocked_info.called
     expected = NotificationHeaders.AUTHORIZATION.value, False
-    assert mocked_send.call_args_list == [call((('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
+    mocked_netw.reset_mock()
     mocked_send.reset_mock()
     mocker.resetall()
     # test with authorization
     mocked_auth.return_value = True
     proxy.check_instance()
+    assert mocked_netw.call_args_list == [call()]
     assert mocked_auth.call_args_list == [call()]
     assert mocked_mode.call_args_list == [call()]
     assert mocked_info.call_args_list == [call()]
     expected = NotificationHeaders.AUTHORIZATION.value, True
-    assert mocked_send.call_args_list == [call((('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
 
 
 def test_proxy_is_authorized(supvisors, mocked_rpc, proxy):
@@ -241,6 +244,38 @@ def test_proxy_is_authorized(supvisors, mocked_rpc, proxy):
     assert info_rpc.call_args_list == [call(proxy.local_identifier)]
 
 
+def test_proxy_transfer_network_info(supvisors, mocked_rpc, proxy):
+    """ Test the SupervisorProxy._transfer_network_info method. """
+    info_rpc = proxy.proxy.supvisors.get_local_supvisors_info
+    mocked_send = supvisors.rpc_handler.proxy_server.push_notification
+    # test with transport failure
+    info_rpc.side_effect = HTTPException
+    with pytest.raises(SupervisorProxyException):
+        proxy._transfer_network_info()
+    assert info_rpc.call_args_list == [call()]
+    assert not mocked_send.called
+    info_rpc.reset_mock()
+    # test with XML-RPC application failure
+    info_rpc.side_effect = RPCError(Faults.ABNORMAL_TERMINATION)
+    proxy._transfer_network_info()
+    assert info_rpc.call_args_list == [call()]
+    expected = NotificationHeaders.IDENTIFICATION.value, None
+    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
+    info_rpc.reset_mock()
+    mocked_send.reset_mock()
+    # test with a mocked rpc interface
+    netw_info = {'identifier': '10.0.0.1:25000',
+                'nick_identifier': '10.0.0.1',
+                'host_id': '10.0.0.1',
+                'http_port': 25000}
+    info_rpc.side_effect = None
+    info_rpc.return_value = netw_info
+    proxy._transfer_network_info()
+    assert info_rpc.call_args_list == [call()]
+    expected = NotificationHeaders.IDENTIFICATION.value, netw_info
+    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
+
+
 def test_proxy_transfer_process_info(supvisors, mocked_rpc, proxy):
     """ Test the SupervisorProxy._transfer_process_info method. """
     info_rpc = proxy.proxy.supvisors.get_all_local_process_info
@@ -257,7 +292,7 @@ def test_proxy_transfer_process_info(supvisors, mocked_rpc, proxy):
     proxy._transfer_process_info()
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.ALL_INFO.value, None
-    assert mocked_send.call_args_list == [call((('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
     info_rpc.reset_mock()
     mocked_send.reset_mock()
     # test with a mocked rpc interface
@@ -267,7 +302,7 @@ def test_proxy_transfer_process_info(supvisors, mocked_rpc, proxy):
     proxy._transfer_process_info()
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.ALL_INFO.value, all_info
-    assert mocked_send.call_args_list == [call((('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
 
 
 def test_proxy_transfer_states_modes(supvisors, mocked_rpc, proxy):
@@ -278,27 +313,27 @@ def test_proxy_transfer_states_modes(supvisors, mocked_rpc, proxy):
     sm_rpc.side_effect = xmlrpclib.Fault
     with pytest.raises(SupervisorProxyException):
         proxy._transfer_states_modes()
-    assert sm_rpc.call_args_list == [call('10.0.0.1:25000')]
+    assert sm_rpc.call_args_list == [call('10.0.0.2:25000')]
     assert not mocked_send.called
     mocked_rpc.reset_mock()
     # test with XML-RPC application failure
     sm_rpc.side_effect = RPCError(Faults.NO_FILE, 'a file')
     proxy._transfer_states_modes()
-    assert sm_rpc.call_args_list == [call('10.0.0.1:25000')]
+    assert sm_rpc.call_args_list == [call('10.0.0.2:25000')]
     assert not mocked_send.called
     sm_rpc.reset_mock()
     # test with a mocked rpc interface
     instance_info = {'fsm_statecode': 6, 'fsm_statename': 'SHUTTING_DOWN',
                      'degraded_mode': True, 'discovery_mode': True,
-                     'master_identifier': '10.0.0.1',
+                     'master_identifier': '10.0.0.2',
                      'starting_jobs': False, 'stopping_jobs': True,
                      'instance_states': {}}
     sm_rpc.side_effect = None
     sm_rpc.return_value = [instance_info]
     proxy._transfer_states_modes()
-    assert sm_rpc.call_args_list == [call('10.0.0.1:25000')]
+    assert sm_rpc.call_args_list == [call('10.0.0.2:25000')]
     expected = NotificationHeaders.STATE.value, instance_info
-    assert mocked_send.call_args_list == [call((('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000)), expected))]
+    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
 
 
 def test_proxy_start_process(supvisors, mocked_rpc, proxy):
@@ -555,7 +590,7 @@ def test_proxy_run_exception_remote_active(mocker, supvisors, proxy_thread):
     time.sleep(1.0)
     assert mocked_publish.call_args_list == [call('10.0.0.2:25000', (0, {'when': 1234}))]
     assert not proxy_thread.is_alive()
-    assert mocked_push.call_args_list == [call((('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000)),
+    assert mocked_push.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)),
                                                 (NotificationHeaders.INSTANCE_FAILURE.value, None)))]
 
 
@@ -646,15 +681,13 @@ def test_proxy_server_get_proxy(supvisors, mocked_rpc, proxy_server):
 def test_server_proxy_push_message(mocker, supvisors, mocked_rpc, proxy_server):
     """ Test the SupervisorProxy function to send a remote communication event to a Supervisor instance. """
     mocked_push = mocker.patch('supvisors.internal_com.supervisorproxy.SupervisorProxyThread.push_message')
-    test_identifier = f'{socket.getfqdn()}:15000'
     # get a proxy from a non-isolated instance (instance not stored)
-    supvisors.context.local_status._state = SupvisorsInstanceStates.CHECKED
     supvisors.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
     supvisors.context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.STOPPED
     supvisors.context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.ISOLATED
     supvisors.context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.ISOLATED
     supvisors.context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.CHECKING
-    supvisors.context.instances[test_identifier]._state = SupvisorsInstanceStates.FAILED
+    supvisors.context.instances['10.0.0.6:25000']._state = SupvisorsInstanceStates.FAILED
     assert proxy_server.proxies == {}
     local_identifier = supvisors.mapper.local_identifier
     # test request to a non-isolated Supervisor
@@ -672,10 +705,10 @@ def test_server_proxy_push_message(mocker, supvisors, mocked_rpc, proxy_server):
     proxy_server.proxies = {}
     # test publish
     proxy_server.push_publication({'message': 'test publish'})
-    assert len(mocked_push.call_args_list) == 4
+    assert len(mocked_push.call_args_list) == 3
     for called in mocked_push.call_args_list:
         assert called == call((InternalEventHeaders.PUBLICATION, (local_identifier, {'message': 'test publish'})))
-    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.5:25000', test_identifier]
+    assert sorted(proxy_server.proxies.keys()) == ['10.0.0.2:25000', '10.0.0.5:25000', '10.0.0.6:25000']
     mocked_push.reset_mock()
     # stop all and reset
     proxy_server.stop()

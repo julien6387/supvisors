@@ -219,7 +219,6 @@ class SupervisorListener:
             payload = {'when': event.when,
                        'when_monotonic': time.monotonic(),
                        'sequence_counter': self.counter}
-            payload.update(self.local_instance.serial())
             self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
             # trigger the periodic check
@@ -230,6 +229,7 @@ class SupervisorListener:
             # publish the TICK to all Supvisors instances
             self.rpc_handler.send_tick_event(payload)
             if self.mc_sender:
+                payload = self.supvisors.mapper.local_instance.serial()
                 self.mc_sender.send_discovery_event(payload)
             # handle the statistics collection
             self._on_tick_stats()
@@ -435,6 +435,12 @@ class SupervisorListener:
         if header == NotificationHeaders.DISCOVERY:
             self.logger.trace(f'SupervisorListener.read_notification: DISCOVERY from {event_origin}')
             self.fsm.on_discovery_event(event_origin)
+            return
+        # NOTE: IDENTIFICATION messages contain the network information of the Supvisors instance
+        #       it has to be considered before the validity of the event_origin can be checked
+        if header == NotificationHeaders.IDENTIFICATION:
+            self.logger.trace(f'SupervisorListener.read_notification: IDENTIFICATION from {event_origin}')
+            self.fsm.on_identification_event(event_data)
             return
         # check message origin validity
         status: SupvisorsInstanceStatus = self.supvisors.context.is_valid(*event_origin)

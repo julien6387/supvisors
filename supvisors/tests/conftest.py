@@ -20,6 +20,7 @@ import pytest
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.application import ApplicationRules, ApplicationStatus
+from supvisors.internal_com.mapper import LocalNetwork
 from supvisors.process import ProcessRules, ProcessStatus
 from .base import DummyHttpContext, DummySupervisor, MockedSupvisors, any_process_info
 
@@ -80,8 +81,28 @@ def supervisor():
 
 @pytest.fixture
 def supvisors(mocker, supervisor, dict_options):
-    mocker.patch('supvisors.internal_com.mapper.get_addresses', side_effect=lambda x, y: (x, [x], [x]))
-    return MockedSupvisors(supervisor, dict_options)
+    # patch the network access to get deterministic tests
+    def gethostbyaddr(x):
+        ident = x.split('.')[-1]
+        return f'supv0{ident}.bzh', [f'cliche0{ident}', f'supv0{ident}'], [x]
+    mocker.patch('socket.gethostname', return_value='supv01.bzh')
+    mocker.patch('socket.getfqdn', return_value='supv01.bzh')
+    mocker.patch('socket.gethostbyaddr', side_effect=gethostbyaddr)
+    mocker.patch('socket.if_nameindex', return_value=[(1, 'lo'), (2, 'eth0')])
+    ioctl_map = {'lo': ('127.0.0.1', '255.0.0.0'), 'eth0': ('10.0.0.1', '255.255.255.0')}
+    mocker.patch('supvisors.internal_com.mapper.get_interface_info',
+                 side_effect=lambda x: ioctl_map[x])
+    # create the mocked Supvisors instance
+    supv = MockedSupvisors(supervisor, dict_options)
+    # create the local network instances
+    for sup_id in supv.mapper.instances.values():
+        sup_id.local_view = LocalNetwork(supv.logger)
+        machine_id = '01:23:45:67:89:ab' if int(sup_id.ip_address.split('.')[-1]) % 2 else 'ab:cd:ef:01:23:45'
+        sup_id.local_view.machine_id = machine_id
+        sup_id.local_view.addresses['eth0'].ipv4_addresses[0] = sup_id.ip_address
+        supv.mapper.nodes.setdefault(machine_id, []).append(sup_id.identifier)
+    # fill the mapper nodes dictionary
+    return supv
 
 
 @pytest.fixture

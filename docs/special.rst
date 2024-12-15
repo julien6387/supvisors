@@ -62,7 +62,7 @@ connections with it.
 Principles of Synchronization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``INITIALIZATION`` state of |Supvisors| is used as a synchronization phase so that all |Supvisors| instances
+The ``SYNCHRONIZATION`` state of |Supvisors| is used as a synchronization phase so that all |Supvisors| instances
 are mutually aware of each other.
 
 The following options defined in the :ref:`supvisors_section` of the |Supervisor| configuration file are particularly
@@ -81,11 +81,12 @@ Common part
 Once started, all |Supvisors| instances publish the events received from |Supervisor|, especially the ``TICK`` events
 that are triggered every 5 seconds.
 
-At the beginning, all |Supvisors| instances are declared in an ``UNKNOWN`` state.
+At the beginning, all |Supvisors| instances are declared in an ``STOPPED`` state.
 When the first ``TICK`` event is received from a remote |Supvisors| instance, a hand-shake is performed
 between the 2 |Supvisors| instances. The local |Supvisors| instance:
 
     * sets the remote |Supvisors| instance state to ``CHECKING`` ;
+    * gets the remote |Supvisors| instance network details by a ``supvisors.get_local_supvisors_info()`` ;
     * performs a ``supvisors.get_instance_info(local_identifier)`` XML-RPC to the remote |Supvisors| instance
       in order to know how the local |Supvisors| instance is perceived by the remote |Supvisors| instance.
 
@@ -102,21 +103,6 @@ At this stage, 2 possibilities:
         + the remote |Supvisors| instance status is set to ``CHECKED``, then ``RUNNING``.
 
 What happens next will depend on the conditions selected in the ``synchro_options`` option.
-
-Whatever the number of available |Supvisors| instances, |Supvisors| elects a *Master* among the active |Supvisors|
-instances and enters the ``DISTRIBUTION`` state to start automatically the applications.
-
-By default, the |Supvisors| *Master* instance is the |Supvisors| instance having the smallest deduced name among all
-the active |Supvisors| instances, unless the attribute ``core_identifiers`` is used. In the latter case, candidates
-are taken from this list in priority.
-
-.. important:: *About late Supvisors instances*
-
-    When a |Supvisors| instance is started while the others are already in ``OPERATION``.
-    During the hand-shake, the local |Supvisors| instance gets the *Master* identified by the remote |Supvisors|.
-    That confirms that the local |Supvisors| instance is a late starter and thus the local |Supvisors| instance adopts
-    this *Master* too and skips the synchronization phase.
-
 
 ``STRICT`` option
 *****************
@@ -147,7 +133,7 @@ When the ``TIMEOUT`` option is selected, each |Supvisors| instance waits for ``s
 to give a chance to all other instances to publish. When this delay is exceeded, all the |Supvisors| instances
 that are **not** identified as ``RUNNING`` or ``ISOLATED`` are set to:
 
-    * ``SILENT`` if `Auto-Fencing`_ is **not** activated ;
+    * ``STOPPED`` if `Auto-Fencing`_ is **not** activated ;
     * ``ISOLATED`` if `Auto-Fencing`_ is activated.
 
 This option prevails over all other ``synchro_options`` options if combined with them.
@@ -176,8 +162,68 @@ of running |Supvisors| instances is suitable to the user.
 
 This action can be performed through the |Supvisors| ``end_sync`` XML-RPC (via code, ``supervisorctl`` or
 the |Supvisors| Web UI).
-This XML-RPC has an optional parameter that allows the user to select the |Supvisors| *Master* instance. If not set,
-the default election mechanism applies.
+This XML-RPC has an optional parameter that allows the user to force the selection of the |Supvisors| *Master* instance.
+If not set, the default election mechanism applies.
+
+
+Principles of Master election
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Whatever the number of available |Supvisors| instances when entering the ``ELECTION`` state, |Supvisors| will elect
+a *Master* instance among the active |Supvisors| instances.
+
+The |Supvisors| *Master* instance is the only |Supvisors| instance that is allowed to trigger automatic behaviour,
+such as:
+
+    * driving the |Supvisors| global state and modes,
+    * initial distribution of applications,
+    * conciliation in case of process conflicts,
+    * re-distribution of applications in case of node loss or process failure.
+
+A few considerations about the |Supvisors| *Master* instance:
+
+    * the *Master* must exist,
+    * the *Master* must be unique,
+    * the *Master* must be seen as ``RUNNING`` by the local |Supvisors| instance,
+    * the *Master* must be seen as ``RUNNING`` by all the remote Supvisors instances seen as ``RUNNING``
+      by the local Supvisors instance.
+
+Any violation of these rules will bring back |Supvisors| into the ``ELECTION`` state.
+
+Selecting a *Master* requires some stability within |Supvisors| in order to avoid an inconsistent situation
+(*split-brain*), that will be solved at some point at |Supvisors| level, but that may require a lot of unnecessary
+conciliation before the *Master* selection converges to a single candidate.
+
+A typical example is when dozens of |Supvisors| instances are started at the same time and configured with a short
+``TIMEOUT``. Every |Supvisors| instance may then exit the ``SYNCHRONIZATION`` state with a subset of active |Supvisors|
+instances that can differ a lot from one instance to the other. A consequence may be multiple |Supvisors| *Master*
+instances being elected, each one trying to distribute the same set of applications until the split-brain is detected
+and solved over and over until convergence.
+
+That's why the *Master* election does not take place until all |Supvisors| instances have the same view of each other,
+i.e.:
+
+    * all |Supvisors| instances must be seen as either ``STOPPED``, ``ISOLATED`` or ``RUNNING``,
+    * in other words, any |Supvisors| instance in a transitional state (``CHECKING``, ``CHECKED`` or ``FAILED``)
+      must be waited,
+    * the subset of ``RUNNING`` |Supvisors| instances must be identical in all |Supvisors| instances.
+
+This logic is based on the local state and modes shared between all |Supvisors| instances.
+
+By default, the |Supvisors| *Master* instance is the |Supvisors| instance having the smallest nick name among all
+the active |Supvisors| instances, unless the option ``core_identifiers`` is used. In the latter case, candidates
+are taken from this list in priority.
+
+Once done, |Supvisors| transitions to the ``DISTRIBUTION`` state to start automatically the applications.
+
+.. important:: *About late Supvisors instances*
+
+    Whenever a |Supvisors| instance is started while the others are already in ``OPERATION``, all instances will go
+    back temporarily to the ``ELECTION`` state, because the new instance has no *Master*, which breaks the first rule.
+
+    During the hand-shake with the other |Supvisors| instances, the new |Supvisors| instance gets their state and modes,
+    including the *Master* identification. In the ``ELECTION`` state, the new |Supvisors| instance adopts the existing
+    *Master* too. When the state and modes of all |Supvisors| instances is consistent, the ``ELECTION`` state is exited.
 
 
 .. _auto_fencing:
@@ -284,8 +330,6 @@ The *load* of a node is defined as the sum of the loads of the |Supvisors| insta
 When applying the ``CONFIG`` strategy, |Supvisors| chooses the first |Supvisors| instance available in the
 ``supvisors_list``.
 
-TODO: discovery
-
 When applying the ``LESS_LOADED`` strategy, |Supvisors| chooses the |Supvisors| instance in the ``supvisors_list``
 having the lowest *load*.
 The aim is to distribute the process load among the available |Supvisors| instances.
@@ -314,6 +358,14 @@ distributed over other nodes.
 
     When a single |Supvisors| instance is running on each node, ``LESS_LOADED_NODE`` and ``MOST_LOADED_NODE`` are
     strictly equivalent to ``LESS_LOADED`` and ``MOST_LOADED``.
+
+.. attention::
+
+    The use of ``LESS_LOADED_NODE`` and ``MOST_LOADED_NODE`` rely on |Supvisors| being able to detect
+    that |Supvisors| instances are running on the same node. To that end, it uses the hardware address returned
+    by the ``uuid.getnode()`` function. |br|
+    In the event where the |Supvisors| instance is running in a Docker container, a particular attention must be taken
+    to ensure that the Docker container is configured so that the ``uuid.getnode()`` function returns the right value.
 
 
 Starting a process
@@ -623,7 +675,7 @@ Nevertheless, it is still likely to happen in a few cases:
 .. attention::
 
     In the event of a network failure - let's say a network cable is unplugged -, if the ``auto_fence`` option is not
-    set, a |Supvisors| instance running on the isolated node will be set to ``SILENT`` instead of ``ISOLATED`` and its
+    set, a |Supvisors| instance running on the isolated node will be set to ``STOPPED`` instead of ``ISOLATED`` and its
     URL will not disconnected from the subscriber socket.
 
     Depending on the rules set, this situation may lead |Supvisors| to warm restart the processes that were running in

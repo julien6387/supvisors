@@ -44,17 +44,24 @@ Of course, the contents depends on the message type.
 |Supvisors| status
 ~~~~~~~~~~~~~~~~~~
 
-================== ================= ==================
-Key	               Type               Value
-================== ================= ==================
-'fsm_statecode'    ``int``           The state of |Supvisors|, in [0;6].
-'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DISTRIBUTION'``,
-                                     ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
-                                     ``'FINAL'`` }.
-'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
-'starting_jobs'    ``list(str)``     The list of |Supvisors| instances having starting jobs in progress.
-'stopping_jobs'    ``list(str)``     The list of |Supvisors| instances having stopping jobs in progress.
-================== ================= ==================
+=================== ================= ==================
+Key	                Type               Value
+=================== ================= ==================
+'identifier'        ``str``           The identifier of the |Supvisors| instance.
+'nick_identifier'   ``str``           The |Supvisors| instance nick name, as set in the ``supvisors_list`` option,
+                                      or a copy of the |Supvisors| identifier if not set.
+'fsm_statecode'     ``int``           The state of |Supvisors|, in [0;7].
+'fsm_statename'     ``str``           The string state of |Supvisors|, among { ``'SYNCHRONIZATION'``, ``'ELECTION'``,
+                                      ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                      ``'SHUTTING_DOWN'``, ``'FINAL'`` }.
+'master_identifier' ``str``           The identifier of the |Supvisors| *Master* instance.
+'degraded_mode'     ``bool``          True if |Supvisors| is working with missing |Supvisors| instances.
+'discovery_mode'    ``bool``          True if the |Supvisors| discovery mode is activated.
+'starting_jobs'     ``list(str)``     The list of |Supvisors| instances having starting jobs in progress.
+'stopping_jobs'     ``list(str)``     The list of |Supvisors| instances having stopping jobs in progress.
+'instance_states'   ``dict(str,str)`` The state of every |Supvisors| instance, as seen by the local |Supvisors|
+                                      instance.
+=================== ================= ==================
 
 
 |Supvisors| instance status
@@ -64,12 +71,13 @@ Key	               Type               Value
 Key	                      Type       Value
 ========================= ========== ==================
 'identifier'              ``str``    The identifier of the |Supvisors| instance.
+'nick_identifier'         ``str``    The |Supvisors| instance nick name, as set in the ``supvisors_list`` option,
+                                     or a copy of the |Supvisors| identifier if not set.
 'node_name'               ``str``    The name of the node where the |Supvisors| instance is running.
 'port'                    ``int``    The HTTP port of the |Supvisors| instance.
-'statecode'               ``int``    The |Supvisors| instance state, in [0;6].
-'statename'               ``str``    The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``,
-                                     `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'FAILED'``, ``'ISOLATED'`` }.
-'discovery_mode'          ``bool``   True if the discovery mode is activated in the |Supvisors| instance.
+'statecode'               ``int``    The |Supvisors| instance state, in [0;5].
+'statename'               ``str``    The |Supvisors| instance state as string, among { ``'STOPPED'``, ``'CHECKING'``,
+                                     `'CHECKED'``, ``'RUNNING'``, ``'FAILED'``, ``'ISOLATED'`` }.
 'remote_sequence_counter' ``int``    The remote TICK counter, i.e. the number of TICK events received since
                                      the remote |Supvisors| instance is running.
 'remote_mtime'            ``float``  The monotonic time received in the last heartbeat sent by the remote

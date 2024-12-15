@@ -16,7 +16,6 @@
 
 import multiprocessing
 import os
-import socket
 import time
 from unittest.mock import call, Mock
 
@@ -337,9 +336,8 @@ def host_statistics_compiler(supvisors):
 def test_host_statistics_compiler_creation(supvisors, host_statistics_compiler):
     """ Test the creation of HostStatisticsCompiler. """
     assert host_statistics_compiler.nb_cores == {}
-    test_identifier = f'{socket.getfqdn()}:15000'
-    identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000', '10.0.0.5:25000',
-                   supvisors.mapper.local_identifier, test_identifier]
+    identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000',
+                   '10.0.0.4:25000', '10.0.0.5:25000', '10.0.0.6:25000']
     assert sorted(host_statistics_compiler.instance_map.keys()) == sorted(identifiers)
     for period_map in host_statistics_compiler.instance_map.values():
         assert sorted(period_map.keys()) == [5.0, 15.0, 60.0]

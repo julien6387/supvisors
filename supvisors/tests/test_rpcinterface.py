@@ -14,7 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import socket
 from unittest.mock import call, Mock
 
 import pytest
@@ -48,7 +47,8 @@ def test_api_version(rpc):
 
 def test_supvisors_state(rpc):
     """ Test the get_supvisors_state RPC. """
-    assert rpc.get_supvisors_state() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
+    assert rpc.get_supvisors_state() == { 'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                                          'fsm_statecode': 0, 'fsm_statename': 'OFF',
                                          'discovery_mode': False, 'degraded_mode': False,
                                          'master_identifier': '',
                                          'starting_jobs': [], 'stopping_jobs': [],
@@ -57,8 +57,7 @@ def test_supvisors_state(rpc):
                                                              '10.0.0.3:25000': 'STOPPED',
                                                              '10.0.0.4:25000': 'STOPPED',
                                                              '10.0.0.5:25000': 'STOPPED',
-                                                             f'{socket.getfqdn()}:25000': 'STOPPED',
-                                                             f'{socket.getfqdn()}:15000': 'STOPPED'}}
+                                                             '10.0.0.6:25000': 'STOPPED'}}
 
 
 def test_master_node(supvisors, rpc):
@@ -75,8 +74,12 @@ def test_strategies(supvisors, rpc):
     supvisors.options.auto_fence = True
     supvisors.options.conciliation_strategy = ConciliationStrategies.INFANTICIDE
     supvisors.options.starting_strategy = StartingStrategies.MOST_LOADED
+    supvisors.options.supvisors_failure_strategy = SupvisorsFailureStrategies.RESYNC
     # test call
-    assert rpc.get_strategies() == {'auto-fencing': True, 'starting': 'MOST_LOADED', 'conciliation': 'INFANTICIDE'}
+    assert rpc.get_strategies() == {'auto-fencing': True,
+                                    'starting': 'MOST_LOADED',
+                                    'conciliation': 'INFANTICIDE',
+                                    'supvisors_failure': 'RESYNC'}
 
 
 def test_statistics_status(supvisors, rpc):
@@ -92,6 +95,24 @@ def test_statistics_status(supvisors, rpc):
     supvisors.options.process_stats_enabled = True
     supvisors.stats_collector = None
     assert rpc.get_statistics_status() == {'host_stats': False, 'process_stats': False, 'collecting_period': 7.5}
+
+
+def test_local_supvisors_info(supvisors, rpc):
+    """ Test the get_local_supvisors_info RPC. """
+    expected = {'identifier': '10.0.0.1:25000',
+                'nick_identifier': '10.0.0.1',
+                'host_id': '10.0.0.1',
+                'http_port': 25000,
+                'stereotypes': ['supvisors_test'],
+                'network': {'fqdn': 'supv01.bzh',
+                            'machine_id': '00:0c:29:82:97:53',
+                            'addresses': {'eth0': {'aliases': ['cliche01', 'supv01'],
+                                                   'host_name': 'supv01.bzh',
+                                                   'ipv4_addresses': ['10.0.0.1'],
+                                                   'nic_info': {'ipv4_address': '10.0.0.1',
+                                                                'netmask': '255.255.255.0',
+                                                                'nic_name': 'eth0'}}}}}
+    assert rpc.get_local_supvisors_info() == expected
 
 
 def test_instance_info(supvisors, rpc):
@@ -125,9 +146,15 @@ def test_all_instances_info(supvisors, rpc):
 def test_instance_state_modes(supvisors, rpc):
     """ Test the get_instance_state_modes RPC. """
     # test with known identifier
-    expected = {'degraded_mode': False, 'discovery_mode': False,
+    expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                'degraded_mode': False, 'discovery_mode': False,
                 'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                'instance_states': {},
+                'instance_states': {'10.0.0.1:25000': 'STOPPED',
+                                    '10.0.0.2:25000': 'STOPPED',
+                                    '10.0.0.3:25000': 'STOPPED',
+                                    '10.0.0.4:25000': 'STOPPED',
+                                    '10.0.0.5:25000': 'STOPPED',
+                                    '10.0.0.6:25000': 'STOPPED'},
                 'master_identifier': '',
                 'starting_jobs': False, 'stopping_jobs': False}
     assert rpc.get_instance_state_modes('10.0.0.1') == [expected]
@@ -135,6 +162,35 @@ def test_instance_state_modes(supvisors, rpc):
     with pytest.raises(RPCError) as exc:
         rpc.get_instance_state_modes('10.0.0.0')
     assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
+
+
+def test_all_instances_state_modes(supvisors, rpc):
+    """ Test the get_all_instances_state_modes RPC. """
+    self_expected = {'degraded_mode': False, 'discovery_mode': False,
+                     'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                     'instance_states': {'10.0.0.1:25000': 'STOPPED',
+                                         '10.0.0.2:25000': 'STOPPED',
+                                         '10.0.0.3:25000': 'STOPPED',
+                                         '10.0.0.4:25000': 'STOPPED',
+                                         '10.0.0.5:25000': 'STOPPED',
+                                         '10.0.0.6:25000': 'STOPPED'},
+                     'master_identifier': '',
+                     'starting_jobs': False, 'stopping_jobs': False}
+    other_base_expected = {'degraded_mode': False, 'discovery_mode': False,
+                           'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                           'instance_states': {},
+                           'master_identifier': '',
+                           'starting_jobs': False, 'stopping_jobs': False}
+    result = rpc.get_all_instances_state_modes()
+    assert len(result) == 6
+    for single_result in result:
+        identifier = single_result.pop('identifier')
+        nick_identifier = single_result.pop('nick_identifier')
+        assert identifier in supvisors.mapper.instances
+        if identifier == '10.0.0.1:25000' and nick_identifier == '10.0.0.1':
+            assert single_result == self_expected
+        else:
+            assert single_result == other_base_expected
 
 
 def test_application_info(mocker, supvisors, rpc):
@@ -1795,8 +1851,8 @@ def test_end_sync(mocker, supvisors, rpc):
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter resolves in multiple identifiers
-    supvisors.mapper.assign_stereotypes('10.0.0.1:25000', {'test_stereotype'})
-    supvisors.mapper.assign_stereotypes('10.0.0.2:25000', {'test_stereotype'})
+    supvisors.mapper._assign_stereotypes('10.0.0.2:25000', {'test_stereotype'})
+    supvisors.mapper._assign_stereotypes('10.0.0.3:25000', {'test_stereotype'})
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('test_stereotype')
     assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS

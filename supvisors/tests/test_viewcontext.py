@@ -499,9 +499,9 @@ def test_format_url(supvisors, ctx):
     expected = 'appliname=dummy_appli&ashex=args&diskstats=io&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
-    url = ctx.format_url('10.0.0.1:25000', 'index.html',
+    url = ctx.format_url('10.0.0.2:25000', 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'ashex': 'args'})
-    base_address = 'http://10.0.0.1:25000/index.html?'
+    base_address = 'http://10.0.0.2:25000/index.html?'
     expected = 'appliname=dummy_appli&diskstats=io&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
     assert url == base_address + expected
 
@@ -528,10 +528,10 @@ def test_get_nb_cores(ctx):
     # test new call
     assert ctx.get_nb_cores(ctx.local_identifier) == 4
     # test with unknown address
-    assert ctx.get_nb_cores('10.0.0.1:25000') == 0
+    assert ctx.get_nb_cores('10.0.0.2:25000') == 0
     # test with known address
-    stats.nb_cores['10.0.0.1:25000'] = 8
-    assert ctx.get_nb_cores('10.0.0.1:25000') == 8
+    stats.nb_cores['10.0.0.2:25000'] = 8
+    assert ctx.get_nb_cores('10.0.0.2:25000') == 8
 
 
 def test_get_node_characteristics(ctx):

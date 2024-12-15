@@ -14,10 +14,14 @@
 # limitations under the License.
 # ======================================================================
 
+import fcntl
+import ipaddress
 import re
+import socket
+import struct
+import uuid
 from collections import OrderedDict
-from socket import getfqdn, gethostbyaddr, gethostname, herror, gaierror
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Iterator, Optional, Tuple
 
 from supervisor.loggers import Logger
 
@@ -26,18 +30,146 @@ from supvisors.ttypes import Ipv4Address, NameList, NameSet, Payload
 # default identifier given by Supervisor
 DEFAULT_IDENTIFIER = 'supervisor'
 
+# additional annotation types
+HostAddresses = Tuple[str, NameList, NameList]
 
-def get_addresses(host_id: str, logger: Logger) -> Optional[Tuple[str, NameList, NameList]]:
-    """ Get hostname, aliases and all IP addresses for the host_id.
+# ioctl codes
+SIOCGIFADDR = 0x8915
+SIOCGIFNETMASK = 0x891b
 
-    :param host_id: the host_name used in the Supvisors option
-    :param logger: the Supvisors logger
-    :return: the list of possible node name or IP addresses
-    """
+
+class NicInformation:
+    """ Identification of a network link. """
+
+    def __init__(self, nic_name: str, ipv4_address: str, netmask: str):
+        self.nic_name: str = nic_name
+        self.ipv4_address: str = ipv4_address
+        self.netmask: str = netmask
+
+    @property
+    def is_loopback(self):
+        return ipaddress.ip_address(self.ipv4_address).is_loopback
+
+    def serial(self) -> Payload:
+        return {'nic_name': self.nic_name,
+                'ipv4_address': self.ipv4_address,
+                'netmask': self.netmask}
+
+
+def get_interface_info(nic_name: str) -> Optional[Tuple[str, str]]:
+    """ Get the local IPv4 address and netmask linked to a network interface. """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        return gethostbyaddr(host_id)  # hostname, aliases, ip_addresses
-    except (herror, gaierror):
-        logger.error(f'get_addresses: unknown address {host_id}')
+        # get IP address
+        result = fcntl.ioctl(sock.fileno(), SIOCGIFADDR, struct.pack('256s', nic_name[:15].encode()))
+        ip_address = socket.inet_ntoa(result[20:24])
+        # get netmask
+        result = fcntl.ioctl(sock.fileno(), SIOCGIFNETMASK, struct.pack('256s', nic_name[:15].encode()))
+        netmask = socket.inet_ntoa(result[20:24])
+        return ip_address, netmask
+    except IOError:
+        return None
+
+
+def get_network_info() -> Iterator[NicInformation]:
+    """ Get all IPv4 addresses on all network interfaces (loopback excepted).
+
+    :return: the IPv4 addresses.
+    """
+    for _, nic_name in socket.if_nameindex():
+        addr = get_interface_info(nic_name)
+        if addr:
+            nic_info = NicInformation(nic_name, *addr)
+            if not nic_info.is_loopback:
+                yield nic_info
+
+
+class NetworkAddress:
+    """ All address representations for one network interface. """
+
+    def __init__(self, logger: Logger, nic_info: Optional[NicInformation] = None, host_id: Optional[str] = None):
+        """ Declare attributes. """
+        self.logger: Logger = logger
+        # the address information
+        self.host_name: str = ''
+        self.aliases: NameList = []
+        self.ipv4_addresses: NameList = []
+        # complete information from network information if provided
+        self.nic_info: Optional[NicInformation] = nic_info
+        if nic_info:
+            self._get_local_view(nic_info.ipv4_address)
+        elif host_id:
+            self._get_local_view(host_id)
+
+    def _get_local_view(self, host_id: str) -> None:
+        """ Get hostname, aliases and all IP addresses for the host_id.
+
+        :param host_id: the host name or IP address.
+        :return: None.
+        """
+        try:
+            self.host_name, self.aliases, self.ipv4_addresses = socket.gethostbyaddr(host_id)
+            self.logger.debug(f'NetworkAddress: host_id={host_id} - host_name={self.host_name}'
+                              f' aliases={self.aliases} ipv4_addresses={self.ipv4_addresses}')
+        except (socket.herror, socket.gaierror):
+            self.logger.error(f'NetworkAddress.get_local_view: unknown address {host_id}')
+
+    def host_matches(self, host_id: str) -> bool:
+        """ Return True if one local address matches the host identifier passed in parameter. """
+        return host_id in [self.host_name] + self.aliases + self.ipv4_addresses
+
+    def from_payload(self, payload: Payload) -> None:
+        """ Take the address information as it is. """
+        self.host_name = payload['host_name']
+        self.aliases = payload['aliases']
+        self.ipv4_addresses = payload['ipv4_addresses']
+        self.nic_info = NicInformation(**payload['nic_info'])
+
+    def serial(self) -> Payload:
+        """ Get a serializable form of the address information. """
+        return {'host_name': self.host_name,
+                'aliases': self.aliases,
+                'ipv4_addresses': self.ipv4_addresses,
+                'nic_info': self.nic_info.serial() if self.nic_info else None}
+
+
+class LocalNetwork:
+    """ All address representations for all network interfaces. """
+
+    def __init__(self, logger: Logger):
+        """ Init from supvisors_list. """
+        self.logger: Logger = logger
+        self.machine_id: str = ':'.join(re.findall('..', f'{uuid.getnode():012x}'))
+        self.fqdn: str = socket.getfqdn()
+        self.addresses: Dict[str, NetworkAddress] = {nic_info.nic_name: NetworkAddress(self.logger, nic_info=nic_info)
+                                                     for nic_info in get_network_info()}
+
+    def host_matches(self, host_id: str) -> bool:
+        """ Return True if one local address matches the host identifier passed in parameter. """
+        return next((True for addr in self.addresses.values()
+                     if addr.host_matches(host_id)), False)
+
+    def from_payload(self, payload: Payload) -> None:
+        """ Take the address information as it is. """
+        self.machine_id = payload['machine_id']
+        self.fqdn = payload['fqdn']
+        for nic_name, address in payload['addresses'].items():
+            self.addresses[nic_name] = addr = NetworkAddress(self.logger)
+            addr.from_payload(address)
+
+    def from_network(self, network) -> None:
+        """ Rebuild a local view from a remote view. """
+        self.machine_id = network.machine_id
+        self.fqdn = socket.getfqdn(network.fqdn)
+        self.addresses = {nic_name: NetworkAddress(self.logger, nic_info=addr.nic_info)
+                          for nic_name, addr in network.addresses.items()}
+
+    def serial(self) -> Payload:
+        """ Get a serializable form of the local network. """
+        return {'machine_id': self.machine_id,
+                'fqdn': self.fqdn,
+                'addresses': {nic_name: addr.serial()
+                              for nic_name, addr in self.addresses.items()}}
 
 
 class SupvisorsInstanceId:
@@ -60,15 +192,15 @@ class SupvisorsInstanceId:
     PATTERN = re.compile(r'^(<(?P<identifier>[\w\-:.]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5}))?$')
 
     # attributes taken from input
-    identifier = None
-    nick_identifier = None
-    host_id = None
-    http_port = None
-    event_port = None
-    # attributes got from network
-    host_name = None
-    aliases = None
-    ip_addresses = None
+    identifier: str = None
+    nick_identifier: str = None
+    host_id: str = None
+    http_port: int = None
+    event_port: int = None
+
+    simple_address: NetworkAddress = None
+    remote_view: LocalNetwork = None  # as received from remote
+    local_view: LocalNetwork = None  # local view from remote
 
     def __init__(self, item: str, supvisors: Any):
         """ Initialization of the attributes.
@@ -81,13 +213,9 @@ class SupvisorsInstanceId:
         # parse item to get the values
         self.parse_from_string(item)
         self.check_values()
-        # choose the node name among the possible node identifiers
+        # get minimal information about the host identified
         if self.host_id:
-            addresses = get_addresses(self.host_id, self.logger)
-            if addresses:
-                self.host_name, self.aliases, self.ip_addresses = addresses
-                self.logger.debug(f'SupvisorsInstanceId: host_id={self.host_id} host_name={self.host_name}'
-                                  f' aliases={self.aliases} ip_addresses={self.ip_addresses}')
+            self.simple_address = NetworkAddress(supvisors.logger, host_id=self.host_id)
 
     @property
     def logger(self) -> Logger:
@@ -97,25 +225,27 @@ class SupvisorsInstanceId:
     @property
     def ip_address(self) -> Optional[str]:
         """ Return the main IP address. """
-        return self.ip_addresses[0] if self.ip_addresses else None
+        if self.simple_address:
+            if self.simple_address.ipv4_addresses:
+                return self.simple_address.ipv4_addresses[0]
+        return None
 
     @property
     def source(self) -> Tuple[str, str, Ipv4Address]:
         """ Return the identification details of the instance. """
         return self.identifier, self.nick_identifier, (self.ip_address, self.http_port)
 
-    def host_matches(self, fdqn: str) -> bool:
-        """ Check if the fully-qualified domain name matches the host name or any alias.
-
-        :param fdqn: the fully-qualified domain name to check
-        :return: True if fdqn is the local host name or a known alias
+    def is_valid(self, ipv4_address: Ipv4Address) -> bool:
+        """ Return True if the IPv4 address fits the Supvisors identification.
+        Some flexibility is given until the remote network is received.
         """
-        return fdqn == self.host_name or fdqn in self.aliases
+        ip_address, http_port = ipv4_address
+        return self.http_port == http_port and (not self.local_view or self.local_view.host_matches(ip_address))
 
     def check_values(self) -> None:
         """ Complete information where not provided.
 
-        :return: None
+        :return: None.
         """
         http_port = self.http_port or self.supvisors.supervisor_data.server_port
         # define common identifier
@@ -165,8 +295,6 @@ class SupvisorsInstanceId:
                 'nick_identifier': self.nick_identifier,
                 'host_id': self.host_id,
                 'http_port': self.http_port,
-                'host_name': self.host_name,
-                'ip_addresses': self.ip_addresses,
                 'stereotypes': self.stereotypes}
 
     def __repr__(self) -> str:
@@ -188,7 +316,7 @@ class SupvisorsMapper:
         - _instances: the list of Supvisors instances declared in the supvisors section of the Supervisor
           configuration file ;
         - _nick_identifiers: the list of nick identifiers that can be used on all Supvisors user interfaces ;
-        - _nodes: the list of Supvisors instances grouped by node names ;
+        - nodes: the list of Supvisors instances grouped by node names ;
         - _core_identifiers: the list of Supvisors core identifiers declared in the supvisors section of the Supervisor
           configuration file ;
         - local_identifier: the local Supvisors identifier ;
@@ -205,9 +333,10 @@ class SupvisorsMapper:
         :param supvisors: the global Supvisors structure.
         """
         self.supvisors = supvisors
-        self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
+        self.local_network: LocalNetwork = LocalNetwork(supvisors.logger)
+        self._instances: SupvisorsMapper.InstancesMap = OrderedDict()  # {identifier: supvisors_id}
         self._nick_identifiers: Dict[str, str] = {}  # {nick_identifier: identifier}
-        self._nodes: Dict[str, NameList] = {}
+        self.nodes: Dict[str, NameList] = {}  # {machine_id: identifier}
         self._core_identifiers: NameList = []
         self.local_identifier: Optional[str] = None
         self.initial_identifiers: NameList = []
@@ -243,14 +372,6 @@ class SupvisorsMapper:
         return self._instances
 
     @property
-    def nodes(self) -> Dict[str, NameList]:
-        """ Property getter for the _nodes attribute.
-
-        :return: the Supvisors identifiers per node
-        """
-        return self._nodes
-
-    @property
     def core_identifiers(self) -> NameList:
         """ Get the known Supvisors core identifiers.
 
@@ -275,10 +396,8 @@ class SupvisorsMapper:
         if supvisors_id.ip_address:
             self._instances[supvisors_id.identifier] = supvisors_id
             self._nick_identifiers[supvisors_id.nick_identifier] = supvisors_id.identifier
-            self._nodes.setdefault(supvisors_id.ip_address, []).append(supvisors_id.identifier)
             return supvisors_id
-        message = f'could not define a Supvisors identification from "{item}"'
-        raise ValueError(message)
+        raise ValueError(f'could not define a Supvisors identification from "{item}"')
 
     def configure(self, supvisors_list: NameList, stereotypes: NameSet, core_list: NameList) -> None:
         """ Store the identification of the Supvisors instances declared in the configuration file and determine
@@ -287,7 +406,7 @@ class SupvisorsMapper:
         :param supvisors_list: the Supvisors instances declared in the supvisors section of the configuration file.
         :param stereotypes: the local Supvisors instance stereotypes.
         :param core_list: the minimum Supvisors identifiers to end the synchronization phase.
-        :return: None
+        :return: None.
         """
         if supvisors_list:
             # get Supervisor identification from each element
@@ -298,77 +417,49 @@ class SupvisorsMapper:
         else:
             # if supvisors_list is empty, use self identification from supervisor internal data
             supervisor = self.supvisors.supervisor_data
-            item = f'<{supervisor.identifier}>{gethostname()}:{supervisor.server_port}'
+            item = f'<{supervisor.identifier}>{socket.gethostname()}:{supervisor.server_port}'
             self.logger.info(f'SupvisorsMapper.configure: define local Supvisors as {item}')
             self.add_instance(item)
         self.logger.info(f'SupvisorsMapper.configure: identifiers={self._nick_identifiers}')
         self.logger.info(f'SupvisorsMapper.configure: nodes={self.nodes}')
         # get local Supervisor identification from list
-        self.find_local_identifier(stereotypes)
+        self._find_local_identifier(stereotypes)
         # NOTE: store the core identifiers without filtering as is.
         #       they can only be filtered on access because of discovery mode.
         self._core_identifiers = core_list
         self.logger.info(f'SupvisorsMapper.configure: core_identifiers={core_list}')
 
-    def find_local_identifier(self, stereotypes: NameSet):
+    def _find_local_identifier(self, stereotypes: NameSet):
         """ Find the local Supvisors identification in the list declared in the configuration file.
-        It can be either the local Supervisor identifier or a name built using the local host name or any of its known
-        IP addresses.
+
+        It can be either the Supervisor identifier or a name built using the host name or any of its known IP addresses.
 
         :param stereotypes: the local Supvisors instance stereotypes.
-        :return: the identifier of the local Supvisors.
+        :return: the identifier of the Supvisors instance.
         """
-        # get the must-match parameters
-        local_host_name = getfqdn()
-        local_http_port = self.supvisors.supervisor_data.server_port
-        # try to find a Supvisors instance corresponding to the local configuration
+        http_port = self.supvisors.supervisor_data.server_port
+        # try to find a Supvisors instance corresponding to the network configuration
         # WARN: there MUST be exactly one unique matching Supvisors instance
         matching_identifiers = [sup_id.identifier
                                 for sup_id in self._instances.values()
-                                if sup_id.host_matches(local_host_name) and sup_id.http_port == local_http_port]
+                                if self.local_network.host_matches(sup_id.host_id) and sup_id.http_port == http_port]
         if len(matching_identifiers) == 1:
             self.local_identifier = matching_identifiers[0]
-            if ((self.supvisors.supervisor_data.identifier != DEFAULT_IDENTIFIER)
-                    and (self.local_nick_identifier != self.supvisors.supervisor_data.identifier)):
+            self.logger.info(f'SupvisorsMapper.find_local_identifier: {str(self.local_instance)}')
+            configured_identifier = self.supvisors.supervisor_data.identifier
+            if configured_identifier not in [DEFAULT_IDENTIFIER, self.local_nick_identifier]:
                 self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
-                                 f' "{self.supvisors.supervisor_data.identifier}"'
-                                 f' and local Supvisors in supvisors_list "{self.local_nick_identifier}"')
+                                 f' "{configured_identifier}" and local Supvisors identified in supvisors_list'
+                                 f' "{self.local_nick_identifier}"')
             # assign the generic Supvisors instance stereotype
-            self.assign_stereotypes(self.local_identifier, stereotypes)
+            self._assign_stereotypes(self.local_identifier, stereotypes)
         else:
             if len(matching_identifiers) > 1:
-                message = f'multiple candidates for the local Supvisors identifiers={matching_identifiers}'
+                message = f'multiple candidates for the Supvisors identifiers={matching_identifiers}'
             else:
-                message = 'could not find the local Supvisors in supvisors_list'
-            self.logger.error(f'SupvisorsMapper.find_local_identifier: {message}')
+                message = 'could not find the Supvisors in supvisors_list'
+            self.logger.error(f'SupvisorsMapper.find_supvisors_instance: {message}')
             raise ValueError(message)
-        self.logger.info(f'SupvisorsMapper.find_local_identifier: {str(self.local_instance)}')
-
-    def assign_stereotypes(self, identifier: str, stereotypes: NameSet) -> None:
-        """ Assign stereotypes to the Supvisors instance.
-
-        The method maintains a map of Supvisors instances per stereotype.
-        The list of Supvisors instances per stereotype is ordered the same way as the Supvisors instances themselves.
-
-        :param identifier: the identifier of the Supvisors instance.
-        :param stereotypes: the stereotypes of the Supvisors instance.
-        :return: None
-        """
-        # assign stereotypes on the first attempt only
-        sup_id: SupvisorsInstanceId = self.instances[identifier]
-        if stereotypes and not sup_id.stereotypes:
-            self.logger.info(f'SupvisorsMapper.assign_stereotype: identifier={identifier} stereotypes={stereotypes}')
-            # set stereotype in SupvisorsInstanceId
-            sup_id.stereotypes = list(stereotypes)
-            # update map
-            for stereotype in stereotypes:
-                if stereotype in self.stereotypes:
-                    # a new identifier has to be added to the list, keeping the same order as in self._instances
-                    identifiers = self.stereotypes[stereotype]
-                    identifiers.append(identifier)
-                    self.stereotypes[stereotype] = [x for x in self.instances.keys() if x in identifiers]
-                else:
-                    self.stereotypes[stereotype] = [identifier]
 
     def filter(self, identifier_list: NameList) -> NameList:
         """ Check the identifiers list against the identifiers declared in the configuration file
@@ -397,6 +488,52 @@ class SupvisorsMapper:
         # remove duplicates keeping the same order
         return list(OrderedDict.fromkeys(identifiers))
 
+    def identify(self, payload: Payload) -> None:
+        """ Associate the remote detailed network information to a SupvisorsId instance.
+
+        :param payload: the network information of the remote Supvisors instance.
+        :return: None.
+        """
+        self.logger.warn(f'SupvisorsMapper.identify: {payload}')
+        identifier = payload['identifier']
+        sup_id: SupvisorsInstanceId = self.instances[identifier]
+        # build LocalNetwork from the payload as it is, and assign it to the remote view
+        sup_id.remote_view = remote_view = LocalNetwork(self.logger)
+        remote_view.from_payload(payload['network'])
+        # build a local view from it
+        sup_id.local_view = local_view = LocalNetwork(self.logger)
+        local_view.from_network(remote_view)
+        # update nodes using machine id as a key
+        self.nodes.setdefault(remote_view.machine_id, []).append(sup_id.identifier)
+        # assign the stereotypes
+        self._assign_stereotypes(identifier, payload['stereotypes'])
+
+    def _assign_stereotypes(self, identifier: str, stereotypes: NameSet) -> None:
+        """ Assign stereotypes to the Supvisors instance.
+
+        The method maintains a map of Supvisors instances per stereotype.
+        The list of Supvisors instances per stereotype is ordered the same way as the Supvisors instances themselves.
+
+        :param identifier: the identifier of the Supvisors instance.
+        :param stereotypes: the stereotypes of the Supvisors instance.
+        :return: None.
+        """
+        # assign stereotypes on the first attempt only
+        sup_id: SupvisorsInstanceId = self.instances[identifier]
+        if stereotypes and not sup_id.stereotypes:
+            self.logger.info(f'SupvisorsMapper.assign_stereotype: identifier={identifier} stereotypes={stereotypes}')
+            # set stereotype in SupvisorsInstanceId
+            sup_id.stereotypes = list(stereotypes)
+            # update map
+            for stereotype in stereotypes:
+                if stereotype in self.stereotypes:
+                    # a new identifier has to be added to the list, keeping the same order as in self._instances
+                    identifiers = self.stereotypes[stereotype]
+                    identifiers.append(identifier)
+                    self.stereotypes[stereotype] = [x for x in self.instances.keys() if x in identifiers]
+                else:
+                    self.stereotypes[stereotype] = [identifier]
+
     def check_candidate(self, identifier: str, nick_identifier: str) -> bool:
         """ Return True if the candidate is eligible as a new Supvisors instance.
 
@@ -419,3 +556,12 @@ class SupvisorsMapper:
                                  f' <{known_nick_identifier}>{identifier}')
             return False
         return True
+
+    def serial(self) -> Payload:
+        """ Get a serializable form of the full identification of the local Supvisors instance.
+
+        :return: the full identification of the local Supvisors instance.
+        """
+        payload = self.local_instance.serial()
+        payload['network'] = self.local_network.serial()
+        return payload

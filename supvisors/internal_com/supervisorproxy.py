@@ -126,12 +126,15 @@ class SupervisorProxy:
             raise SupervisorProxyException
         except xmlrpclib.Fault as exc:
             # undoubtedly an implementation error (unknown method)
-            self.logger.critical(f'SupervisorProxy.xml_rpc: software error - {str(exc)}')
+            self.logger.critical(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
+                                 f' {fct_name}{args} software error - {str(exc)}')
             self.logger.error(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
+            # FIXME: got BAD_NAME, so move to the first one
             raise SupervisorProxyException
         except (KeyError, ValueError, TypeError) as exc:
             # JSON serialization issue / implementation error
-            self.logger.error(f'SupervisorProxy.xml_rpc: data error using {fct_name}{args} - {str(exc)}')
+            self.logger.error(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
+                              f' {fct_name}{args} data error - {str(exc)}')
             self.logger.error(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
             raise SupervisorProxyException
 
@@ -187,6 +190,9 @@ class SupervisorProxy:
 
         :return: None.
         """
+        # always send the remote network information
+        self._transfer_network_info()
+        # additional information sent internally depends on the actual authorization
         authorized = self._is_authorized()
         self.logger.info(f'SupervisorProxy.check_instance: identifier={self.status.usage_identifier}'
                          f' authorized={authorized}')
@@ -223,6 +229,21 @@ class SupervisorProxy:
         # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
         return instance_state != SupvisorsInstanceStates.ISOLATED
 
+    def _transfer_network_info(self) -> None:
+        """ Get the network information about the remote Supvisors instance.
+
+        :return: None.
+        """
+        network_info = self.xml_rpc('supvisors.get_local_supvisors_info',
+                                    self.proxy.supvisors.get_local_supvisors_info,
+                                    ())
+        self.logger.debug(f'SupervisorProxy.transfer_network_info: network_info={network_info}')
+        # provide the local Supvisors with the remote Supvisors instance network information
+        # NOTE: use the proxy server to switch to the relevant proxy thread
+        origin = self._get_origin(self.status.identifier)
+        message = NotificationHeaders.IDENTIFICATION.value, network_info
+        self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+
     def _transfer_states_modes(self) -> None:
         """ Get the states and modes from the remote Supvisors instance and post it to the local Supvisors instance.
 
@@ -244,7 +265,7 @@ class SupervisorProxy:
     def _transfer_process_info(self) -> None:
         """ Get the process information from the remote Supvisors instance and post it to the local Supvisors instance.
 
-        :return: None
+        :return: None.
         """
         # get information about all processes handled by the remote Supervisor
         all_info = self.xml_rpc('supvisors.get_all_local_process_info',

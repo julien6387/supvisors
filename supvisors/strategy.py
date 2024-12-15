@@ -49,11 +49,11 @@ class AbstractStartingStrategy(AbstractStrategy):
     def is_loading_valid(self, identifier: str, expected_load: int, load_details: LoadDetails) -> LoadingValidity:
         """ Check if the node hosting the Supvisors instance can support the additional load.
 
-        :param identifier: the identifier of the Supvisors instance
-        :param expected_load: the load to add to the Supvisors instance
-        :param load_details: the load details per identifier and node
+        :param identifier: the identifier of the Supvisors instance.
+        :param expected_load: the load to add to the Supvisors instance.
+        :param load_details: the load details per identifier and node.
         :return: a tuple with a boolean telling if the additional load is possible on the node hosting the Supvisors
-        instance, the current load on the node and the current load on the Supvisors instance
+                 instance, the current load on the node and the current load on the Supvisors instance.
         """
         # load_request_map: the unconsidered load per identifier
         # node_load_map: the current load per node
@@ -66,9 +66,9 @@ class AbstractStartingStrategy(AbstractStrategy):
         self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
                           f' state={status.state.name}')
         # calculate the theoretical load on the node
-        ip_address = status.supvisors_id.ip_address
-        node_loading = node_load_map.get(ip_address, 0) + node_load_request_map.get(ip_address, 0)
-        # check if the node and the Supvisors instance can support the
+        machine_id = status.supvisors_id.local_view.machine_id
+        node_loading = node_load_map.get(machine_id, 0) + node_load_request_map.get(machine_id, 0)
+        # check if the node and the Supvisors instance can support the additional load
         instance_loading = status.get_load() + load_request_map.get(identifier, 0)
         self.logger.debug(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
                           f' instance_loading={instance_loading} expected_load={expected_load}')
@@ -264,8 +264,8 @@ def get_node_load_request_map(mapper: SupvisorsMapper, load_request_map: LoadMap
     """
     node_load_request_map = {node_name: 0 for node_name in mapper.nodes}
     for identifier, load in load_request_map.items():
-        ip_address = mapper.instances[identifier].ip_address
-        node_load_request_map[ip_address] += load
+        machine_id = mapper.instances[identifier].local_view.machine_id
+        node_load_request_map[machine_id] += load
     return node_load_request_map
 
 
@@ -328,15 +328,15 @@ def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList
     :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective).
     :param expected_load: the load of the program to be started.
     :param load_request_map: the load of the requests in progress.
-    :return: the IP address of the node that can support the additional load.
+    :return: the machine identifier of the node that can support the additional load.
     """
     # Note: The node load is the sum of the load of its instances.
     #       The selection of an instance is conditioned to the fact that the node can support the additional load.
     #       If the node can support, there must be one of its instances that can support too.
     identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load, load_request_map)
-    # get the corresponding IP address
+    # get the corresponding machine identifier
     if identifier:
-        return supvisors.mapper.instances[identifier].ip_address
+        return supvisors.mapper.instances[identifier].local_view.machine_id
 
 
 # Strategy management for Conciliation

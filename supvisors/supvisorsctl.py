@@ -100,35 +100,59 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the sversion command. """
         self.ctl.output('sversion\t\t\tGet the API version of Supvisors.')
 
-    def do_sstate(self, _):
+    def do_sstate(self, arg):
         """ Command to get the Supvisors state. """
         if self._upcheck():
+            state_modes = []
+            # check request args
+            identifiers = arg.split()
             try:
-                state_modes = self.supvisors().get_supvisors_state()
+                if identifiers:
+                    # get everything at once instead of doing multiple requests
+                    state_modes = self.supvisors().get_all_instances_state_modes()
+                else:
+                    state_modes = [self.supvisors().get_supvisors_state()]
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
-            else:
-                max_master = ControllerPlugin.max_template([state_modes], 'master_identifier', 'Master')
-                max_starting = ControllerPlugin.max_template([state_modes], 'starting_jobs', 'Starting')
-                max_stopping = ControllerPlugin.max_template([state_modes], 'stopping_jobs', 'Stopping')
-                template = (f'%(state)-16s%(discovery)-11s%(master)-{max_master}s%(starting)-{max_starting}s'
-                            f'%(stopping)-{max_stopping}s')
+            if state_modes:
+                # create template. identifier has variable length
+                max_nick_identifiers = ControllerPlugin.max_template(state_modes, 'nick_identifier', 'Nickname')
+                max_identifiers = ControllerPlugin.max_template(state_modes, 'identifier', 'Supvisors identifier')
+                max_master = ControllerPlugin.max_template(state_modes, 'master_identifier', 'Master')
+                max_starting = ControllerPlugin.max_template(state_modes, 'starting_jobs', 'Starting')
+                max_stopping = ControllerPlugin.max_template(state_modes, 'stopping_jobs', 'Stopping')
+                template = (f'%(nick_identifier)-{max_nick_identifiers}s%(identifier)-{max_identifiers}s'
+                            f'%(state)-16s%(degraded)-10s%(discovery)-11s%(master)-{max_master}s'
+                            f'%(starting)-{max_starting}s%(stopping)-{max_stopping}s')
                 # print title
-                payload = {'state': 'State', 'discovery': 'Discovery', 'master': 'Master',
+                payload = {'nick_identifier': 'Nickname', 'identifier': 'Supvisors identifier',
+                           'state': 'State', 'degraded': 'Degraded', 'discovery': 'Discovery',
+                           'master': 'Master',
                            'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
-                # print data
-                line = template % {'state': state_modes['fsm_statename'],
-                                   'discovery': state_modes['discovery_mode'],
-                                   'master': state_modes['master_identifier'],
-                                   'starting': state_modes['starting_jobs'],
-                                   'stopping': state_modes['stopping_jobs']}
-                self.ctl.output(line)
+                # check request args
+                output_all = not identifiers or 'all' in identifiers
+                # print filtered payloads
+                for sm in state_modes:
+                    if output_all or sm['identifier'] in identifiers or sm['nick_identifier'] in identifiers:
+                        # print data
+                        payload = {'nick_identifier': sm['nick_identifier'],
+                                   'identifier': sm['identifier'],
+                                   'state': sm['fsm_statename'],
+                                   'degraded': sm['degraded_mode'],
+                                   'discovery': sm['discovery_mode'],
+                                   'master': sm['master_identifier'],
+                                   'starting': sm['starting_jobs'],
+                                   'stopping': sm['stopping_jobs']}
+                        self.ctl.output(template % payload)
 
     def help_sstate(self):
         """ Print the help of the sstate command. """
-        self.ctl.output('sstate\t\t\t\tGet the Supvisors state.')
+        self.ctl.output('sstate\t\t\t\tGet the Supvisors state and modes.')
+        self.ctl.output('sstate <identifier>\t\t\tGet the Supvisors instance state and modes.')
+        self.ctl.output('sstate <identifier> <identifier>\tGet the state and modes for multiple Supvisors instances')
+        self.ctl.output('sstate all\t\t\tGet the state and modes for all Supvisors instances')
 
     def do_master(self, _):
         """ Command to get the Master Supvisors instance. """
@@ -214,7 +238,7 @@ class ControllerPlugin(ControllerPluginBase):
                 output_all = not identifiers or 'all' in identifiers
                 # print filtered payloads
                 for info in info_list:
-                    if output_all or info['identifier'] in identifiers:
+                    if output_all or info['identifier'] in identifiers or info['nick_identifier'] in identifiers:
                         payload = {'nick_identifier': info['nick_identifier'],
                                    'identifier': info['identifier'],
                                    'node_name': info['node_name'], 'port': info['port'],

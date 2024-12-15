@@ -116,7 +116,7 @@ def test_request_headers():
 
 def test_notification_headers():
     """ Test the NotificationHeaders enumeration. """
-    expected = ['AUTHORIZATION', 'STATE', 'ALL_INFO', 'DISCOVERY', 'INSTANCE_FAILURE']
+    expected = ['IDENTIFICATION', 'AUTHORIZATION', 'STATE', 'ALL_INFO', 'DISCOVERY', 'INSTANCE_FAILURE']
     assert [x.name for x in NotificationHeaders] == expected
 
 

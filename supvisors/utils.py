@@ -80,24 +80,29 @@ class SupervisorServerUrl:
 
 # simple functions
 def mean(x) -> float:
+    """ Calculate the mean value of a list of values. """
     return sum(x) / float(len(x))
 
 
 def srate(x, y) -> float:
+    """ Calculate the instant rate between two values. """
     return 100.0 * x / y - 100.0 if y else float('inf')
 
 
 def stddev(lst, avg) -> float:
+    """ Calculate the standard deviation of a list of values (Bessel correction excluded). """
     return sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
 
 # bit manipulation
 def get_bit(data, num):
+    """ Get the value of a bit in a byte. """
     base, shift = int(num // 8), int(num % 8)
     return (data[base] >> shift) & 0x1
 
 
 def set_bit(data, num, value):
+    """ Set the value of a bit in a byte. """
     base, shift = int(num // 8), int(num % 8)
     if value:
         data[base] |= 0x1 << shift

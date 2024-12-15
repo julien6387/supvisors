@@ -168,18 +168,16 @@ def test_on_tick(mocker, supvisors, discovery_listener):
     # test tick event
     event = Tick60Event(120, None)
     discovery_listener.on_tick(event)
-    expected_tick = {'identifier': discovery_listener.local_identifier,
-                     'nick_identifier': discovery_listener.local_instance.nick_identifier,
-                     'host_id': discovery_listener.local_instance.host_id,
-                     'host_name': discovery_listener.local_instance.host_name,
-                     'ip_addresses': discovery_listener.local_instance.ip_addresses,
-                     'http_port': discovery_listener.local_instance.http_port,
-                     'when': 120, 'when_monotonic': 34.56,
-                     'sequence_counter': 0, 'stereotypes': ['supvisors_test']}
+    expected_tick = {'when': 120, 'when_monotonic': 34.56, 'sequence_counter': 0}
+    expected_discovery = {'identifier': discovery_listener.local_identifier,
+                                 'nick_identifier': discovery_listener.local_instance.nick_identifier,
+                                 'host_id': discovery_listener.local_instance.host_id,
+                                 'http_port': discovery_listener.local_instance.http_port,
+                                 'stereotypes': ['supvisors_test']}
     assert mocked_tick.call_args_list == [call(expected_tick)]
     assert mocked_timer.call_args_list == [call(expected_tick)]
     assert discovery_listener.rpc_handler.send_tick_event.call_args_list == [call(expected_tick)]
-    assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_tick)]
+    assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_discovery)]
     assert mocked_stats.call_args_list == [call()]
 
 
@@ -407,6 +405,7 @@ def test_read_notification_wrong_type(supvisors, listener):
     with pytest.raises(ValueError):
         listener.read_notification('[["10.0.0.1", ["10.0.0.1", 25000]], [6, {"name": "dummy"}]]')
     assert not supvisors.fsm.on_discovery_event.called
+    assert not supvisors.fsm.on_identification_event.called
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
     assert not supvisors.fsm.on_all_process_info.called
@@ -417,6 +416,7 @@ def test_read_notification_invalid_origin(supvisors, listener):
     """ Test the processing of a notification coming from an invalid source. """
     listener.read_notification('[["10.0.0.2", "10.0.0.2", ["localhost", 65100]], [2, {"name": "dummy"}]]')
     assert not supvisors.fsm.on_discovery_event.called
+    assert not supvisors.fsm.on_identification_event.called
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
     assert not supvisors.fsm.on_all_process_info.called
@@ -424,57 +424,74 @@ def test_read_notification_invalid_origin(supvisors, listener):
 
 
 def test_read_notification_discovery(supvisors, listener):
-    """ Test the processing of a Supvisors discovery notification. """
-    listener.read_notification('[["10.0.0.4:65100", "10.0.0.4", ["10.0.0.4", 65100]], [3, {"server_port": 6666}]]')
+    """ Test the processing of a Supvisors DISCOVERY notification. """
+    listener.read_notification('[["10.0.0.4:65100", "10.0.0.4", ["10.0.0.4", 65100]], [4, {"server_port": 6666}]]')
     expected = [call(['10.0.0.4:65100', '10.0.0.4', ['10.0.0.4', 65100]])]
+    assert supvisors.fsm.on_discovery_event.call_args_list == expected
+    assert not supvisors.fsm.on_identification_event.called
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
     assert not supvisors.fsm.on_all_process_info.called
-    assert supvisors.fsm.on_discovery_event.call_args_list == expected
+    assert not supvisors.fsm.on_instance_failure.called
+
+
+def test_read_notification_identification(supvisors, listener):
+    """ Test the processing of a Supvisors IDENTIFICATION notification. """
+    listener.read_notification('[["10.0.0.4:65100", "10.0.0.4", ["10.0.0.4", 65100]], [0, {"server_port": 6666}]]')
+    expected = [call({'server_port': 6666})]
+    assert not supvisors.fsm.on_discovery_event.called
+    assert supvisors.fsm.on_identification_event.call_args_list == expected
+    assert not supvisors.fsm.on_authorization.called
+    assert not supvisors.fsm.on_state_event.called
+    assert not supvisors.fsm.on_all_process_info.called
     assert not supvisors.fsm.on_instance_failure.called
 
 
 def test_read_notification_authorization(supvisors, listener):
     """ Test the processing of a Supvisors AUTHORIZATION notification. """
-    listener.read_notification('[["10.0.0.5:25000", "10.0.0.5", ["10.0.0.5", 25000]], [0, false]]')
+    listener.read_notification('[["10.0.0.5:25000", "10.0.0.5", ["10.0.0.5", 25000]], [1, false]]')
     expected = [call(supvisors.context.instances['10.0.0.5:25000'], False)]
+    assert not supvisors.fsm.on_discovery_event.called
+    assert not supvisors.fsm.on_identification_event.called
     assert supvisors.fsm.on_authorization.call_args_list == expected
     assert not supvisors.fsm.on_state_event.called
     assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_discovery_event.called
     assert not supvisors.fsm.on_instance_failure.called
 
 
 def test_read_notification_state(supvisors, listener):
     """ Test the processing of a Supvisors state notification. """
     listener.read_notification('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]],'
-                               '[1, {"statecode": 10, "statename": "RUNNING"}]]')
+                               '[2, {"statecode": 10, "statename": "RUNNING"}]]')
     expected = [call(supvisors.context.instances['10.0.0.1:25000'], {'statecode': 10, 'statename': 'RUNNING'})]
+    assert not supvisors.fsm.on_discovery_event.called
+    assert not supvisors.fsm.on_identification_event.called
     assert not supvisors.fsm.on_authorization.called
     assert supvisors.fsm.on_state_event.call_args_list == expected
     assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_discovery_event.called
     assert not supvisors.fsm.on_instance_failure.called
 
 
 def test_read_notification_all_info(supvisors, listener):
     """ Test the processing of a Supvisors all process information notification. """
-    listener.read_notification('[["10.0.0.4:25000", "10.0.0.4", ["10.0.0.4", 25000]], [2, {"name": "dummy"}]]')
+    listener.read_notification('[["10.0.0.4:25000", "10.0.0.4", ["10.0.0.4", 25000]], [3, {"name": "dummy"}]]')
     expected = [call(supvisors.context.instances['10.0.0.4:25000'], {'name': 'dummy'})]
+    assert not supvisors.fsm.on_discovery_event.called
+    assert not supvisors.fsm.on_identification_event.called
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
     assert supvisors.fsm.on_all_process_info.call_args_list == expected
-    assert not supvisors.fsm.on_discovery_event.called
     assert not supvisors.fsm.on_instance_failure.called
 
 
 def test_read_notification_instance_failure(supvisors, listener):
     """ Test the processing of a Supvisors instance failure notification. """
-    listener.read_notification('[["10.0.0.4:25000", "10.0.0.4", ["10.0.0.4", 25000]], [4, null]]')
+    listener.read_notification('[["10.0.0.4:25000", "10.0.0.4", ["10.0.0.4", 25000]], [5, null]]')
+    assert not supvisors.fsm.on_discovery_event.called
+    assert not supvisors.fsm.on_identification_event.called
     assert not supvisors.fsm.on_authorization.called
     assert not supvisors.fsm.on_state_event.called
     assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_discovery_event.called
     assert supvisors.fsm.on_instance_failure.call_args_list == [call(supvisors.context.instances['10.0.0.4:25000'])]
 
 

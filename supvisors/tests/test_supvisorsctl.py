@@ -316,11 +316,23 @@ def test_statistics_status(controller, plugin, mocked_check):
 
 def test_sstate(controller, plugin, mocked_check):
     """ Test the sstate request. """
+    # test with no arguments (Supvisors global state and modes)
     mocked_rpc = plugin.supvisors().get_supvisors_state
-    mocked_rpc.return_value = {'fsm_statecode': 10, 'fsm_statename': 'running',
-                               'discovery_mode': True, 'master_identifier': '10.0.0.1',
+    mocked_rpc.return_value = {'nick_identifier': '10.0.0.1', 'identifier': '10.0.0.1:60000',
+                               'fsm_statecode': 10, 'fsm_statename': 'running',
+                               'degraded_mode': False, 'discovery_mode': True,
+                               'master_identifier': '10.0.0.1',
                                'starting_jobs': [], 'stopping_jobs': ['10.0.0.1', 'test']}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstate, plugin.do_sstate, '', [call()])
+    # test with arguments (Supvisors instance state and modes)
+    mocked_rpc = plugin.supvisors().get_all_instances_state_modes
+    mocked_rpc.return_value = [{'nick_identifier': '10.0.0.1', 'identifier': '10.0.0.1:60000',
+                                'fsm_statecode': 10, 'fsm_statename': 'running',
+                                'degraded_mode': False, 'discovery_mode': True,
+                                'master_identifier': '10.0.0.1',
+                                'starting_jobs': False, 'stopping_jobs': True}]
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstate, plugin.do_sstate, 'all', [call()])
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstate, plugin.do_sstate, '10.0.0.1', [call()])
 
 
 def test_instance_status(controller, plugin, mocked_check):

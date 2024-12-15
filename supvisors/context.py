@@ -42,7 +42,7 @@ class Context:
         - supvisors: the Supvisors global structure ;
         - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier) ;
         - applications: the dictionary of all ApplicationStatus (key is application name) ;
-        - start_date: the date since Supvisors entered the INITIALIZATION state.
+        - start_date: the date since Supvisors entered the OFF state.
     """
 
     def __init__(self, supvisors: Any):
@@ -125,14 +125,12 @@ class Context:
             * the IP address and port fit the corresponding Supvisors instance ;
             * the corresponding Supvisors instance is not declared ISOLATED.
         """
-        ip_address, http_port = ipv4_address
         identifiers = self.mapper.filter([identifier, nick_identifier])
         if len(identifiers) != 1:
             # multiple resolution not expected here
             return None
         status = self.instances[identifiers[0]]
-        if (not status.isolated and ip_address in status.supvisors_id.ip_addresses
-                and status.supvisors_id.http_port == http_port):
+        if not status.isolated and status.supvisors_id.is_valid(ipv4_address):
             return status
         return None
 
@@ -141,9 +139,9 @@ class Context:
 
         :return: The nodes load.
         """
-        return {ip_address: sum(self.instances[identifier].get_load()
+        return {machine_id: sum(self.instances[identifier].get_load()
                                 for identifier in identifiers)
-                for ip_address, identifiers in self.mapper.nodes.items()}
+                for machine_id, identifiers in self.mapper.nodes.items()}
 
     # methods on instances
     def initial_running(self) -> bool:
@@ -458,6 +456,14 @@ class Context:
             self.instances[real_identifier] = SupvisorsInstanceStatus(supvisors_id, self.supvisors)
             self.state_modes.add_instance(real_identifier)
 
+    def on_identification_event(self, event: Payload) -> None:
+        """ Complete the remote Supvisors instance identification.
+
+        :param event: the network information of the remote Supvisors instance.
+        :return: None.
+        """
+        self.mapper.identify(event)
+
     def on_authorization(self, status: SupvisorsInstanceStatus, authorized: Optional[bool]) -> None:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
         authorizes the local Supvisors instance to process its events.
@@ -526,8 +532,6 @@ class Context:
         if self.local_status.state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
             self.logger.debug('Context.on_tick_event: waiting for local tick first')
             return
-        # update the Supvisors instance with the TICK event
-        self.mapper.assign_stereotypes(status.identifier, event['stereotypes'])
         # for remote Supvisors instance, use local Supvisors instance data
         status.update_tick(event['sequence_counter'], event['when_monotonic'], event['when'],
                            self.local_sequence_counter)
@@ -551,6 +555,7 @@ class Context:
         # check all Supvisors instances
         for status in self.instances.values():
             if status.is_inactive(sequence_counter):
+                self.logger.warn(f'Context.on_timer_event: {status.identifier} FAILED')
                 status.state = SupvisorsInstanceStates.FAILED
                 self.export_status(status)
 
@@ -561,6 +566,7 @@ class Context:
         :return: None.
         """
         # processes will be dealt in FAILED processing
+        self.logger.warn(f'Context.on_instance_failure: {status.identifier} FAILED')
         status.state = SupvisorsInstanceStates.FAILED
         self.export_status(status)
 

@@ -261,8 +261,8 @@ class SequenceChecker(SupvisorsEventQueues):
 class CheckSequenceTest(unittest.TestCase):
     """ Common class used to check starting and stopping sequences. """
 
-    HOST_01 = 'rocky51:60000'
-    HOST_02 = 'rocky52:60000'
+    HOST_01 = '17.0.1.11:60000'
+    HOST_02 = 'supv02:60000'
     HOST_03 = '192.168.1.70:30000'
     HOST_04 = 'rocky54:60000'
 

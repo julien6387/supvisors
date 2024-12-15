@@ -1,9 +1,24 @@
 # Change Log
 
-## 0.19 (2024-xx-xx)
+## 0.19 (2025-xx-xx)
 
-* Refactoring of the *Supvisors* internal state machine
-  INITIALIZATION => SYNCHRONIZATION + ELECTION
+* Refactoring of the **Supvisors** internal state machine.
+  The state `INITIALIZATION` has been renamed as `SYNCHRONIZATION` and a new state `ELECTION` has been added
+  to get more stability in the *Master* election.
+
+* Fix the issue raised by the rejected [Pull Request #120](https://github.com/julien6387/supvisors/pull/120).
+  **Supvisors** uses the `ioctl` functions to get the relevant network data on all network interfaces and matches
+  the local instance on the whole information available.
+  During the handshake, the local network data is shared with the other **Supvisors** instances using the new XML-RPC
+  `get_local_supvisors_info`.
+
+* Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
+  and modes information from a single **Supvisors** instance.
+  This information has been removed from the XML-RPCs `get_instance_info` and `get_all_instances_info`.
+
+* Add a new option `supvisors_failure_strategy` to decide what to do when the initial conditions are not met anymore.
+
+* Remove the Supvisors instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
 
 
 ## 0.18.6 (2024-08-20)

@@ -14,7 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import socket
 from unittest.mock import call, Mock
 
 import pytest
@@ -758,8 +757,8 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
     """ Test the ApplicationStartJobs.distribute_to_single_node method. """
     mocked_get_node = mocker.patch('supvisors.commander.get_node')
     mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
-    test_identifier = f'{socket.getfqdn()}:15000'
-    possible_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', supvisors.mapper.local_identifier, test_identifier]
+    test_identifier = '10.0.0.1:25000'
+    possible_identifiers = ['10.0.0.3:25000', '10.0.0.2:25000', supvisors.mapper.local_identifier]
     mocker.patch.object(application_start_job_1.application, 'possible_node_identifiers',
                         return_value=possible_identifiers)
     mocker.patch.object(application_start_job_1.application, 'get_start_sequence_expected_load', return_value=27)
@@ -778,10 +777,12 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors, appl
                for command in sequence)
     mocker.resetall()
     # test resource found
-    mocked_get_node.return_value = supvisors.mapper.instances[test_identifier].host_id
+    test_instance = supvisors.mapper.instances[test_identifier]
+    supvisors.mapper.nodes[test_instance.local_view.machine_id] = [test_identifier]
+    mocked_get_node.return_value = test_instance.local_view.machine_id
     mocked_get_instance.return_value = '10.0.0.1:25000'
     application_start_job_1.distribute_to_single_node()
-    expected_identifiers = [supvisors.mapper.local_identifier, test_identifier]
+    expected_identifiers = [test_identifier]
     assert application_start_job_1.identifiers == expected_identifiers
     assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
                                                    possible_identifiers, 27, {})]
@@ -2059,7 +2060,7 @@ def test_application_start_jobs_model(supvisors, start_command, start_sample_tes
     supvisors.context.applications['dummy_application'] = application
     jobs = {0: start_sample_test_1[0:2], 1: start_sample_test_1[2:]}
     jobs_model = ApplicationStartJobsModel(application, jobs, StartingStrategies.LESS_LOADED, supvisors)
-    # test overriden fail command
+    # test overridden fail command
     ref_time = start_command.process.info_map['10.0.0.1:25000']['event_time']
     jobs_model.fail_command(start_command.process, '10.0.0.1:25000', ref_time + 1.0, 'error')
     assert not mocked_force.called
@@ -2067,7 +2068,7 @@ def test_application_start_jobs_model(supvisors, start_command, start_sample_tes
     assert start_command.process.forced_reason == 'error'
 
 
-def test_starter_model(mocker, supvisors, start_command, sample_test_1):
+def test_starter_model(supvisors, start_command, sample_test_1):
     """ Test the StarterModel class. """
     # test creation
     supvisors.starter_model = starter = StarterModel(supvisors)

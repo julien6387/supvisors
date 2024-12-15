@@ -745,15 +745,15 @@ class ApplicationStartJobs(ApplicationJobs):
         identifiers = self.application.possible_node_identifiers()
         load_request_map = self.get_load_requests()
         # choose the node that can support the application load
-        node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load, load_request_map)
+        machine_id = get_node(self.supvisors, self.starting_strategy, identifiers, application_load, load_request_map)
         # intersect the identifiers running on the node and the application possible identifiers
         # comprehension based on iteration over application possible identifiers to keep the CONFIG order
-        node_identifiers = list(self.supvisors.mapper.nodes.get(node_name, []))
+        node_identifiers = list(self.supvisors.mapper.nodes.get(machine_id, []))
         self.identifiers = [identifier for identifier in identifiers if identifier in node_identifiers]
         if self.identifiers:
             load_request_map = self.get_load_requests()
             self.logger.trace(f'ApplicationStartJobs.distribute_to_single_node: Supvisors={self.identifiers}'
-                              f' of node={node_name} are selected to start {self.application_name}'
+                              f' of machine_id={machine_id} are selected to start {self.application_name}'
                               f' with load_request_map={load_request_map}')
             # for all commands, select an identifier from the chosen node
             for command in commands:
@@ -1431,8 +1431,8 @@ class Stopper(Commander):
         """ Once an application has been properly stopped, unset the application start failure.
         Trigger any pending application / process start once all stopper jobs are completed.
 
-        :param application_job: the application stopper
-        :return: None
+        :param application_job: the application stopper.
+        :return: None.
         """
         # trigger pending application start requests
         appli_parameters = self.application_start_requests.pop(application_job.application_name, None)

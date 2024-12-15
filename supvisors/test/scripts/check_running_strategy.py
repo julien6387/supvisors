@@ -34,8 +34,9 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
         RunningIdentifiersTest.setUp(self)
         # determine web_browser identifier
         info = self.local_supvisors.get_process_info('web_movies:web_browser')[0]
+        self.logger.info(f'{info}')
         if info['statecode'] != ProcessStates.RUNNING:
-            print('[ERROR] web_movies:web_browser not RUNNING')
+            self.logger.error('web_movies:web_browser not RUNNING')
         self.web_browser_node_name = info['identifiers'][0]
         # as this process has just been started, STARTING / RUNNING events might be received
         # other events may be triggered from tearDown too
@@ -54,8 +55,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
                 pass
 
     def tearDown(self):
-        """ The tearDown restarts the processes that may have been stopped,
-        in accordance with initial configuration. """
+        """ The tearDown restarts the processes that may have been stopped, iaw the initial configuration. """
         try:
             self.local_supvisors.start_process(StartingStrategies.CONFIG, 'database:movie_server_01')
         except Exception:
@@ -75,14 +75,14 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
             pass
         if supvisors_state != 'OPERATION':
             self.logger.info(f'wait for Supvisors to be in OPERATION state (current={supvisors_state})')
-            self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'fsm_statename': 'OPERATION'}], 60)
+            self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'fsm_statename': 'OPERATION'}], 90)
         self.evloop.flush()
         # call parent
         RunningIdentifiersTest.tearDown(self)
 
     def test_continue(self):
         """ Test the CONTINUE running failure strategy. """
-        print('\n### Testing CONTINUE running failure strategy')
+        self.logger.warn('### Testing CONTINUE running failure strategy')
         # force the movie_server_01 to exit with a fake segmentation fault
         self.local_supervisor.signalProcess('database:movie_server_01', 'SEGV')
         # an EXIT event is expected for this process
@@ -101,13 +101,14 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
 
     def test_restart_process(self):
         """ Test the RESTART_PROCESS running failure strategy. """
-        print('\n### Testing RESTART_PROCESS running failure strategy')
+        self.logger.warn('### Testing RESTART_PROCESS running failure strategy')
         # call for restart on the node where web_browser is running
         proxy = self.proxies[self.web_browser_node_name]
         proxy.supervisor.restart()
         # STARTING / RUNNING events are expected for web_browser from a new node
         # STARTING / RUNNING events may be received for disk_handler from the restarted node
-        # as a node is being restarted, lots of events may be expected (new DEPLOYMENT)
+        # as a node is being restarted, lots of events may be expected (new DISTRIBUTION)
+        self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'statename': 'DISTRIBUTION'}], 60)
         # focus only on web_browser
         expected_events = [{'group': 'web_movies', 'name': 'web_browser', 'state': 10},
                            {'group': 'web_movies', 'name': 'web_browser', 'state': 20}]
@@ -128,7 +129,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
 
     def test_stop_application(self):
         """ Test the STOP_APPLICATION running failure strategy. """
-        print('\n### Testing STOP_APPLICATION running failure strategy')
+        self.logger.warn('### Testing STOP_APPLICATION running failure strategy')
         # get the hmi running location
         infos = self.local_supvisors.get_process_info('my_movies:hmi')
         hmi_info = infos[0]
@@ -170,7 +171,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
 
     def test_restart_application(self):
         """ Test the RESTART_APPLICATION running failure strategy. """
-        print('\n### Testing RESTART_APPLICATION running failure strategy')
+        self.logger.warn('### Testing RESTART_APPLICATION running failure strategy')
         # get the manager running location
         infos = self.local_supvisors.get_process_info('my_movies:manager')
         manager_info = infos[0]
@@ -186,7 +187,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
         # application should be still running with hmi but with major failure
         # because of required manager and web_server that are not running
         # WARN: if minor_failure is detected True, check if check_starting_strategy has been run before
-        # converter_09 may be FATAL, leading to minor failure
+        #       converter_09 may be FATAL, leading to minor failure
         event = self._get_next_application_status()
         subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'RUNNING'}

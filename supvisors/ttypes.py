@@ -109,7 +109,7 @@ class RequestHeaders(Enum):
 
 class NotificationHeaders(Enum):
     """ Enumeration class for the notification headers in messages between Listener and MainLoop. """
-    AUTHORIZATION, STATE, ALL_INFO, DISCOVERY, INSTANCE_FAILURE = range(5)
+    IDENTIFICATION, AUTHORIZATION, STATE, ALL_INFO, DISCOVERY, INSTANCE_FAILURE = range(6)
 
 
 class EventHeaders(Enum):

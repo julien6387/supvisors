@@ -83,6 +83,7 @@ class RPCInterface:
 
     def get_supvisors_state(self) -> Payload:
         """ Return the state and modes of **Supvisors**.
+
         The **Supvisors** state is the FSM state and is a reflection of the **Supvisors** *Master* instance state.
         The **Supvisors** modes provides the identifiers of the **Supvisors** instances having starting
         or stopping jobs in progress.
@@ -92,28 +93,57 @@ class RPCInterface:
         """
         return self.supvisors.state_modes.serial()
 
+    def get_all_instances_state_modes(self) -> PayloadList:
+        """ Get the state and modes of all **Supvisors** instances.
+
+        :return: a structure containing state and modes about all **Supvisors** instances.
+        :rtype: list[dict[str, Any]].
+        """
+        return [self.supvisors.state_modes.instance_state_modes[identifier].serial()
+                for identifier in sorted(self.supvisors.mapper.instances)]
+
+    def get_instance_state_modes(self, identifier: str) -> PayloadList:
+        """ Get the state and modes of the **Supvisors** instances identified by ``identifier``
+        (Supvisors identifier, Supervisor identifier or Supvisors stereotype).
+
+        This method can return multiple results if a **Supvisors** stereotype is used as parameter.
+
+        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
+        :return: a structure containing information about the **Supvisors** instance.
+        :rtype: list[dict[str, Any]].
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
+        """
+        identifiers = self.supvisors.mapper.filter([identifier])
+        if not identifiers:
+            self._raise(Faults.BAD_NAME, 'get_instance_state_modes',
+                        f'identifier={identifier} is unknown to Supvisors')
+        return [self.supvisors.state_modes.instance_state_modes[identifier].serial()
+                for identifier in identifiers]
+
     def get_master_identifier(self) -> str:
         """ Get the identification of the **Supvisors** instance elected as **Supvisors** *Master*.
 
         :return: the identifier of the **Supvisors** *Master* instance.
-        :rtype: str
+        :rtype: str.
         """
-        return self.supvisors.context.master_identifier
+        return self.supvisors.state_modes.master_identifier
 
     def get_strategies(self) -> Payload:
         """ Get the default strategies applied by **Supvisors**:
 
             * auto-fencing: Supvisors instance isolation if it becomes inactive ;
             * starting: used in the ``DISTRIBUTION`` state to start applications ;
-            * conciliation: used in the ``CONCILIATION`` state to conciliate conflicts.
+            * conciliation: used in the ``CONCILIATION`` state to conciliate conflicts ;
+            * supvisors_failure: strategy when a Supvisors instance becomes inactive.
 
         :return: a structure containing information about the strategies applied.
-        :rtype: dict[str, Any]
+        :rtype: dict[str, Any].
         """
         options = self.supvisors.options
         return {'auto-fencing': options.auto_fence,
                 'starting': options.starting_strategy.name,
-                'conciliation': options.conciliation_strategy.name}
+                'conciliation': options.conciliation_strategy.name,
+                'supvisors_failure': options.supvisors_failure_strategy.name}
 
     def get_statistics_status(self) -> Payload:
         """ Get information about the statistics collection status in **Supvisors**:
@@ -130,6 +160,14 @@ class RPCInterface:
         return {'host_stats': options.host_stats_enabled and has_collector,
                 'process_stats': options.process_stats_enabled and has_collector,
                 'collecting_period': options.collecting_period}
+
+    def get_local_supvisors_info(self) -> str:
+        """ Get network information about the local **Supvisors** instance.
+
+        :return: a structure containing network information about the local **Supvisors** instance.
+        :rtype: dict[str, Any].
+        """
+        return self.supvisors.mapper.serial()
 
     def get_all_instances_info(self) -> PayloadList:
         """ Get information about all **Supvisors** instances.
@@ -156,27 +194,6 @@ class RPCInterface:
             self._raise(Faults.BAD_NAME, 'get_instance_info',
                         f'identifier={identifier} is unknown to Supvisors')
         return [self.supvisors.context.instances[identifier].serial()
-                for identifier in identifiers]
-
-    # TODO: add get_all_instances_state_modes + get_instance_state_modes
-    # TODO: add to supervisorctl
-    # TODO: update pythondoc
-    def get_instance_state_modes(self, identifier: str) -> PayloadList:
-        """ Get information about the **Supvisors** instances identified by ``identifier`` (Supvisors identifier,
-        Supervisor identifier or Supvisors stereotype).
-
-        This method can return multiple results if a **Supvisors** stereotype is used as parameter.
-
-        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
-        :return: a structure containing information about the **Supvisors** instance.
-        :rtype: list[dict[str, Any]].
-        :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
-        """
-        identifiers = self.supvisors.mapper.filter([identifier])
-        if not identifiers:
-            self._raise(Faults.BAD_NAME, 'get_instance_state_modes',
-                        f'identifier={identifier} is unknown to Supvisors')
-        return [self.supvisors.state_modes.instance_state_modes[identifier].serial()
                 for identifier in identifiers]
 
     def get_all_applications_info(self) -> PayloadList:

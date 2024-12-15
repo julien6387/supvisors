@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -18,7 +15,7 @@
 # ======================================================================
 
 from queue import Empty, Queue
-from time import time
+from time import monotonic
 
 from supvisors.client.zmqsubscriber import SupvisorsZmqEventInterface
 
@@ -90,8 +87,8 @@ class SupvisorsEventQueues(SupvisorsZmqEventInterface):
     @staticmethod
     def wait_until_event(queue, sub_event, timeout):
         """ Wait for a specific event on queue for max timeout in seconds. """
-        end_date = time() + timeout
-        while time() < end_date:
+        end_date = monotonic() + timeout
+        while monotonic() < end_date:
             try:
                 event = queue.get(True, 0.5)
             except Empty:
@@ -101,11 +98,11 @@ class SupvisorsEventQueues(SupvisorsZmqEventInterface):
                 return event
 
     @staticmethod
-    def wait_until_events(queue, sub_events, timeout):
+    def wait_until_events(queue, sub_events, timeout: float):
         """ Wait for a list of specific events on queue for max timeout in seconds. """
         events_received = []
-        end_date = time() + timeout
-        while time() < end_date:
+        end_date = monotonic() + timeout
+        while monotonic() < end_date:
             try:
                 event = queue.get(True, 0.5)
             except Empty:

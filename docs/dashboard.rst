@@ -47,10 +47,10 @@ Below the |Supvisors| logo is the **Supervisors** part that lists all the |Supvi
 of the |Supervisor| configuration file. |br|
 The color gives the state of the |Supvisors| instance:
 
-    * grey for ``UNKNOWN`` ;
+    * yellow for ``STOPPED`` ;
     * grey-to-green gradient for ``CHECKING`` ;
-    * yellow for ``SILENT`` ;
     * green for ``CHECKED`` and ``RUNNING`` ;
+    * orange for ``FAILED`` ;
     * red for ``ISOLATED``.
 
 The |Supvisors| instance is blinking when it is handling starting or stopping jobs.
@@ -132,13 +132,19 @@ The next card provides the |Supvisors| state and is displayed at the center of t
     This is the |Supvisors| starting phase. It is very transient and corresponds to the phase between the moment when
     |Supervisor| is started and the moment when it sends the running event to its listeners.
 
-``INITIALIZATION``
+``SYNCHRONIZATION``
     
     In this state, |Supvisors| waits for all |Supvisors| instances to connect themselves.
     Refer to the :ref:`synchronizing` section for more details.
 
     In this state, the |Supvisors| :ref:`xml_rpc` is restricted so that only version, master and |Supvisors| instance
     information are available.
+
+``ELECTION``
+
+    In this state, |Supvisors| is electing a *Master* instance among tha active |Supvisors| instances.
+
+    Like the previous state, the |Supvisors| :ref:`xml_rpc` is restricted.
 
 ``DISTRIBUTION``
 
@@ -212,7 +218,7 @@ The |Supvisors| modes are displayed alongside the state if activated:
 
 On the right side, 5 buttons are available:
 
-    * |start| ends the |Supvisors| synchronization phase (only when |Supvisors| is in ``INITIALIZATION`` state
+    * |start| ends the |Supvisors| synchronization phase (only when |Supvisors| is in ``SYNCHRONIZATION`` state
       and ``USER`` is set in the ``synchro_options`` option) ;
     * |restart| restarts |Supvisors| through all |Supvisors| instances ;
     * |shutdown| shuts down |Supvisors| through all |Supvisors| instances ;
@@ -226,7 +232,7 @@ For every |Supvisors| instance, a card is displayed in the contents of the |Supv
 Each box contains:
 
     * (on condition) a |star| star button allowing the user to ends the |Supvisors| synchronization phase and forcing
-      the corresponding |Supvisors| instance as *Master* (only when |Supvisors| is in ``INITIALIZATION`` state
+      the corresponding |Supvisors| instance as *Master* (only when |Supvisors| is in ``SYNCHRONIZATION`` state
       and ``USER`` is set in the ``synchro_options`` option);
     * the |Supvisors| instance nick name, as a hyperlink to the corresponding `Supervisor Page`_
       if the |Supvisors| instance is in the ``CHECKED`` or the ``RUNNING`` state ;

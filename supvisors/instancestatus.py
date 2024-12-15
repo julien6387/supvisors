@@ -175,6 +175,11 @@ class SupvisorsInstanceStatus:
         return self.supvisors_id.identifier
 
     @property
+    def nick_identifier(self):
+        """ Property getter for the 'nick_identifier' attribute of the Supvisors instance. """
+        return self.supvisors_id.nick_identifier
+
+    @property
     def usage_identifier(self):
         """ Property getter for the representation of the Supvisors instance. """
         return str(self.supvisors_id)
@@ -215,7 +220,7 @@ class SupvisorsInstanceStatus:
     def serial(self) -> Payload:
         """ Return a serializable form of the SupvisorsInstanceStatus. """
         payload = {'identifier': self.identifier,
-                   'nick_identifier': self.supvisors_id.nick_identifier,
+                   'nick_identifier': self.nick_identifier,
                    'node_name': self.supvisors_id.host_id,
                    'port': self.supvisors_id.http_port,
                    'statecode': self.state.value, 'statename': self.state.name,

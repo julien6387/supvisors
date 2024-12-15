@@ -76,7 +76,7 @@ class SupvisorsOptions:
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program ;
         - starting_strategy: strategy used to start processes on Supvisors instances ;
-        - supvisors_failure_strategy: strategy used when re_entering the INITIALIZATION state after a node loss ;
+        - supvisors_failure_strategy: strategy used to decide the way forward after a node loss ;
         - host_stats_enabled: if False, no host statistics will be collected from this Supvisors instance ;
         - proc_stats_enabled: if False, no process statistics will be collected from this Supvisors instance ;
         - collecting_period: period of the statistics collection ;

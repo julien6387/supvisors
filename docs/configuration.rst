@@ -61,22 +61,29 @@ behavior may happen. The present section details where it is applicable.
 
     .. note::
 
-        ``host_name`` can be the host name, the fully qualified domain name, one of the node aliases or IP addresses.
-        |Supvisors| uses the ``socket.gethostbyaddr(host_name)`` function to identify the |Supvisors| instance declared.
+        ``host_name`` can be a host name, a fully qualified domain name, a node alias or an IP address.
 
-    .. note::
+    .. important::
+
+        The chosen name or IP address must be known to every node declared in the ``supvisors_list``
+        on the network interface considered, or |Supvisors| internal communication will fail. |br|
+        Check the network configuration.
+
+    .. important::
+
+        The local |Supvisors| instance must identify itself in one element of the list. |br|
+        To that end, |Supvisors| tries to match these items with the elements returned by the ``socket.gethostbyaddr``
+        function applied to the main IP address of every network interface. |br|
+        Check the network configuration.
+
+     .. note::
 
         In user-related features (options, rules, XML-RPC) where a |Supvisors| identifier is requested,
         ``nick_identifier`` and ``host_name:http_port`` can both be used indifferently.
 
-    .. attention::
-
-        The chosen host name, alias or IP address must be known to every node in the ``supvisors_list``
-        on the network interface considered. If it's not the case, check the network configuration.
-
     .. hint::
 
-        If the |Supvisors| is configured with at most one |Supvisors| instance per host, the ``host_name`` is a
+        If the |Supvisors| is configured with at most one |Supvisors| instance per host, the ``host_name`` alone is a
         fully acceptable declaration.
 
     .. hint::
@@ -303,28 +310,24 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  Yes.
 
-``disabilities_file``
+``supvisors_failure_strategy``
 
-    The file path that will be used to persist the program disabilities. This option has been added in support of the
-    |Supervisor| request `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_. |br|
-    The persisted data will be serialized in a ``JSON`` string so a ``.json`` extension is recommended.
+    The strategy used when the conditions implied by the ``synchro_options`` are not met anymore.
+    As an example, is the system still operational when a |Supvisors| *Core* instance is missing? |br|
+    Possible values are in { ``CONTINUE``, ``RESYNC``, ``SHUTDOWN``}. |br|
+    If ``CONTINUE`` is selected, |Supvisors| will deal with the missing |Supvisors| instance and continue
+    in a degraded mode. |br|
+    If ``RESYNC`` is selected, |Supvisors| will transition to the ``SYNCHRONIZATION`` state and wait for the selected
+    conditions to be met again. |br|
+    If ``SHUTDOWN`` is selected, |Supvisors| will shut down.
+    It is highly recommended that this parameter is identical to all |Supvisors| instances or |Supvisors| may become
+    inconsistent.
 
-    *Default*:  None.
+    *Default*:  ``CONTINUE``.
 
     *Required*:  No.
 
-    *Identical*:  No.
-
-    .. hint::
-
-        Both absolute and relative paths are supported. User expansion is also allowed. |br|
-        It is expected that the folder tree exists. However |Supvisors| will try to create it if not,
-        unless write permission is denied.
-
-    .. note::
-
-        If the file does not exist at startup, all processes are enabled by default and a first version of the file
-        will be written down accordingly.
+    *Identical*:  Yes.
 
 ``starting_strategy``
 
@@ -354,6 +357,29 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  Yes.
+
+``disabilities_file``
+
+    The file path that will be used to persist the program disabilities. This option has been added in support of the
+    |Supervisor| request `#591 - New Feature: disable/enable <https://github.com/Supervisor/supervisor/issues/591>`_. |br|
+    The persisted data will be serialized in a ``JSON`` string so a ``.json`` extension is recommended.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
+    .. hint::
+
+        Both absolute and relative paths are supported. User expansion is also allowed. |br|
+        It is expected that the folder tree exists. However |Supvisors| will try to create it if not,
+        unless write permission is denied.
+
+    .. note::
+
+        If the file does not exist at startup, all processes are enabled by default and a first version of the file
+        will be written down accordingly.
 
 ``stats_enabled``
 
