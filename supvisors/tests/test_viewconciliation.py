@@ -33,7 +33,7 @@ def view(http_context):
 def test_init(view):
     """ Test the values set at construction. """
     # test parameter page name
-    assert view.page_name == CONCILIATION_PAGE
+    assert view.page_name == SupvisorsPages.CONCILIATION_PAGE
     # test strategy names
     for strategy in view.strategies:
         assert strategy.upper() in ConciliationStrategies._member_names_
@@ -43,7 +43,7 @@ def test_init(view):
     assert all(callable(cb) for cb in view.process_methods.values())
 
 
-def test_write_contents(mocker, supvisors, view):
+def test_write_contents(mocker, view):
     """ Test the ConciliationView.write_contents method. """
     mocked_conflicts = mocker.patch.object(view, 'write_conciliation_table')
     mocked_strategies = mocker.patch.object(view, 'write_conciliation_strategies')
@@ -72,12 +72,12 @@ def test_write_conciliation_strategies(view):
                                    'running_failure_strategy_a_mid': running_failure_strategy_a_mid})
     # test call
     view.write_conciliation_strategies(contents_elt)
-    assert view.view_ctx.format_url.call_args_list == [call('', CONCILIATION_PAGE, namespec='', action='senicide'),
-                                                       call('', CONCILIATION_PAGE, namespec='', action='infanticide'),
-                                                       call('', CONCILIATION_PAGE, namespec='', action='stop'),
-                                                       call('', CONCILIATION_PAGE, namespec='', action='restart'),
-                                                       call('', CONCILIATION_PAGE, namespec='',
-                                                            action='running_failure')]
+    expected = [call('', SupvisorsPages.CONCILIATION_PAGE, namespec='', action='senicide'),
+                call('', SupvisorsPages.CONCILIATION_PAGE, namespec='', action='infanticide'),
+                call('', SupvisorsPages.CONCILIATION_PAGE, namespec='', action='stop'),
+                call('', SupvisorsPages.CONCILIATION_PAGE, namespec='', action='restart'),
+                call('', SupvisorsPages.CONCILIATION_PAGE, namespec='', action='running_failure')]
+    assert view.view_ctx.format_url.call_args_list == expected
     assert infanticide_strategy_a_mid.attributes.call_args_list == [call(href='infanticide url')]
     assert senicide_strategy_a_mid.attributes.call_args_list == [call(href='senicide url')]
     assert stop_strategy_a_mid.attributes.call_args_list == [call(href='stop url')]
@@ -111,7 +111,7 @@ def test_get_conciliation_data(mocker, view):
         assert any(actual_single == expected_single for expected_single in expected)
 
 
-def test_write_conciliation_table(mocker, supvisors, view):
+def test_write_conciliation_table(mocker, view):
     """ Test the write_conciliation_table method. """
     mocked_process = mocker.patch.object(view, '_write_conflict_process')
     mocked_detail = mocker.patch.object(view, '_write_conflict_detail')
@@ -227,7 +227,7 @@ def test_write_conflict_detail(mocker, view):
     info = {'row_type': ProcessRowTypes.INSTANCE_PROCESS, 'namespec': 'proc_1', 'identifier': '10.0.0.2', 'uptime': 11}
     view._write_conflict_detail(tr_elt, info)
     assert section_td_mid.replace.call_args_list == [call('')]
-    assert process_td_mid.content.call_args_list == [call(SUB_SYMBOL)]
+    assert process_td_mid.content.call_args_list == [call(SupvisorsSymbols.SUB_SYMBOL)]
     assert mocked_node.call_args_list == [call(tr_elt, info)]
     assert mocked_time.call_args_list == [call(tr_elt, info)]
     assert mocked_actions.call_args_list == [call(tr_elt, info)]
@@ -247,7 +247,7 @@ def test_write_conflict_identifier(view):
     assert mocked_root.findmeld.call_args_list == [call('conflict_instance_a_mid')]
     assert mocked_addr_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_addr_mid.content.call_args_list == [call('10.0.0.1')]
-    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', PROC_INSTANCE_PAGE)]
+    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', SupvisorsPages.PROC_INSTANCE_PAGE)]
 
 
 def test_write_conflict_uptime(view):
@@ -277,16 +277,16 @@ def test_write_conflict_process_actions(view):
     assert mocked_root.findmeld.call_args_list == [call('pstop_a_mid'), call('pkeep_a_mid')]
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_keep_mid.attributes.call_args_list == [call(href='an url')]
-    assert view.view_ctx.format_url.call_args_list == [call('', CONCILIATION_PAGE, action='pstop',
+    assert view.view_ctx.format_url.call_args_list == [call('', SupvisorsPages.CONCILIATION_PAGE, action='pstop',
                                                             ident='10.0.0.1', namespec='dummy_proc'),
-                                                       call('', CONCILIATION_PAGE, action='pkeep',
+                                                       call('', SupvisorsPages.CONCILIATION_PAGE, action='pkeep',
                                                             ident='10.0.0.1', namespec='dummy_proc')]
 
 
-def test_write_conflict_strategies(supvisors, view):
+def test_write_conflict_strategies(supvisors_instance, view):
     """ Test the _write_conflict_strategies method. """
     # patch context
-    supvisors.state_modes.master_identifier = '10.0.0.1'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1'
     view.view_ctx = Mock(**{'format_url.side_effect': lambda x, y, namespec, action: f'{action} url'})
     # build root structure with one single element
     infanticide_strategy_a_mid = create_element()
@@ -304,16 +304,12 @@ def test_write_conflict_strategies(supvisors, view):
     info = {'row_type': ProcessRowTypes.APPLICATION_PROCESS, 'namespec': 'proc_1', 'nb_items': 2}
     view._write_conflict_strategies(tr_elt, info, False)
     assert strategy_td_mid.attrib == {'class': 'brightened', 'rowspan': '3'}
-    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1', CONCILIATION_PAGE, namespec='proc_1',
-                                                            action='senicide'),
-                                                       call('10.0.0.1', CONCILIATION_PAGE, namespec='proc_1',
-                                                            action='infanticide'),
-                                                       call('10.0.0.1', CONCILIATION_PAGE, namespec='proc_1',
-                                                            action='stop'),
-                                                       call('10.0.0.1', CONCILIATION_PAGE, namespec='proc_1',
-                                                            action='restart'),
-                                                       call('10.0.0.1', CONCILIATION_PAGE, namespec='proc_1',
-                                                            action='running_failure')]
+    expected = [call('10.0.0.1', SupvisorsPages.CONCILIATION_PAGE, namespec='proc_1', action='senicide'),
+                call('10.0.0.1', SupvisorsPages.CONCILIATION_PAGE, namespec='proc_1', action='infanticide'),
+                call('10.0.0.1', SupvisorsPages.CONCILIATION_PAGE, namespec='proc_1', action='stop'),
+                call('10.0.0.1', SupvisorsPages.CONCILIATION_PAGE, namespec='proc_1', action='restart'),
+                call('10.0.0.1', SupvisorsPages.CONCILIATION_PAGE, namespec='proc_1', action='running_failure')]
+    assert view.view_ctx.format_url.call_args_list == expected
     assert infanticide_strategy_a_mid.attributes.call_args_list == [call(href='infanticide url')]
     assert senicide_strategy_a_mid.attributes.call_args_list == [call(href='senicide url')]
     assert stop_strategy_a_mid.attributes.call_args_list == [call(href='stop url')]
@@ -321,69 +317,64 @@ def test_write_conflict_strategies(supvisors, view):
     assert running_failure_strategy_a_mid.attributes.call_args_list == [call(href='running_failure url')]
 
 
-def test_stop_action(mocker, supvisors, view):
+def test_stop_action(mocker, supvisors_instance, view):
     """ Test the stop_action method. """
-    mocked_info = mocker.patch('supvisors.web.viewconciliation.info_message', return_value='done')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
     process = Mock(running_identifiers=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
-    mocked_get = mocker.patch.object(supvisors.context, 'get_process', return_value=process)
+    mocked_get = mocker.patch.object(supvisors_instance.context, 'get_process', return_value=process)
     # test call
-    mocked_rpc = mocker.patch.object(supvisors.rpc_handler, 'send_stop_process')
+    mocked_rpc = mocker.patch.object(supvisors_instance.rpc_handler, 'send_stop_process')
     cb = view.stop_action('dummy_proc', '10.0.0.2')
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.2', 'dummy_proc')]
     assert mocked_get.call_args_list == [call('dummy_proc')]
     # at this stage, there should be still 3 elements in identifiers
     assert cb() is NOT_DONE_YET
-    assert not mocked_info.called
     # remove one identifier from list
     process.running_identifiers.remove('10.0.0.2')
-    assert cb() == 'done'
-    assert mocked_info.call_args_list == [call('process dummy_proc stopped on 10.0.0.2')]
+    assert cb() == ('info', 'process dummy_proc stopped on 10.0.0.2 at now')
 
 
-def test_keep_action(mocker, supvisors, view):
+def test_keep_action(mocker, supvisors_instance, view):
     """ Test the keep_action method. """
-    mocked_info = mocker.patch('supvisors.web.viewconciliation.info_message', return_value='done')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
     process = Mock(running_identifiers=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
-    mocked_get = mocker.patch.object(supvisors.context, 'get_process', return_value=process)
+    mocked_get = mocker.patch.object(supvisors_instance.context, 'get_process', return_value=process)
     # test call
-    with patch.object(supvisors.rpc_handler, 'send_stop_process') as mocked_rpc:
+    with patch.object(supvisors_instance.rpc_handler, 'send_stop_process') as mocked_rpc:
         cb = view.keep_action('dummy_proc', '10.0.0.2')
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.1', 'dummy_proc'), call('10.0.0.3', 'dummy_proc')]
     assert mocked_get.call_args_list == [call('dummy_proc')]
     # at this stage, there should be still 3 elements in identifiers
     assert cb() is NOT_DONE_YET
-    assert not mocked_info.called
     # remove one identifier from list
     process.running_identifiers.remove('10.0.0.1')
     assert cb() is NOT_DONE_YET
-    assert not mocked_info.called
     # remove one identifier from list
     process.running_identifiers.remove('10.0.0.3')
-    assert cb() == 'done'
-    assert mocked_info.call_args_list == [call('processes dummy_proc stopped but on 10.0.0.2')]
+    assert cb() == ('info', 'processes dummy_proc stopped but on 10.0.0.2 at now')
 
 
-def test_conciliation_action(mocker, supvisors, view):
+def test_conciliation_action(mocker, supvisors_instance, view):
     """ Test the conciliation_action method. """
-    mocked_info = mocker.patch('supvisors.web.viewconciliation.delayed_info', return_value='delayed info')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
     mocked_conciliate = mocker.patch('supvisors.web.viewconciliation.conciliate_conflicts')
     # patch context
     mocker.patch.object(view.sup_ctx, 'get_process', return_value='a process status')
     mocker.patch.object(view.sup_ctx, 'conflicts', return_value='all conflicting process status')
     # test with no namespec
-    assert view.conciliation_action(None, 'INFANTICIDE') == 'delayed info'
-    assert mocked_conciliate.call_args_list == [call(supvisors, ConciliationStrategies.INFANTICIDE,
+    cb = view.conciliation_action(None, 'INFANTICIDE')
+    assert cb() == ('info', 'INFANTICIDE in progress for all conflicts at now')
+    assert mocked_conciliate.call_args_list == [call(supvisors_instance, ConciliationStrategies.INFANTICIDE,
                                                      'all conflicting process status')]
-    assert mocked_info.call_args_list == [call('INFANTICIDE in progress for all conflicts')]
     # reset mocks
     mocked_conciliate.reset_mock()
-    mocked_info.reset_mock()
     # test with namespec
-    assert view.conciliation_action('proc_conflict', 'STOP') == 'delayed info'
-    assert mocked_conciliate.call_args_list == [call(supvisors, ConciliationStrategies.STOP, ['a process status'])]
-    assert mocked_info.call_args_list == [call('STOP in progress for proc_conflict')]
+    cb = view.conciliation_action('proc_conflict', 'STOP')
+    assert cb() == ('info', 'STOP in progress for proc_conflict at now')
+    assert mocked_conciliate.call_args_list == [call(supvisors_instance, ConciliationStrategies.STOP,
+                                                     ['a process status'])]
 
 
 def test_make_callback(mocker, view):

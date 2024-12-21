@@ -286,13 +286,13 @@ def lxml_import():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_lxml(mocker, lxml_import, supvisors):
+def test_valid_lxml(mocker, lxml_import, supvisors_instance):
     """ Test the parsing using lxml (optional dependency). """
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors)
+    parser = Parser(supvisors_instance)
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
@@ -302,13 +302,13 @@ def test_valid_lxml(mocker, lxml_import, supvisors):
 
 @pytest.mark.skipif(sys.version_info < (3, 8) or sys.version_info >= (3, 9),
                     reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_lxml_38_deprecated(mocker, lxml_import, supvisors):
+def test_valid_lxml_38_deprecated(mocker, lxml_import, supvisors_instance):
     """ Test the parsing using lxml (optional dependency). """
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors)
+    parser = Parser(supvisors_instance)
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
@@ -318,13 +318,13 @@ def test_valid_lxml_38_deprecated(mocker, lxml_import, supvisors):
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_lxml_deprecated(mocker, lxml_import, supvisors):
+def test_valid_lxml_deprecated(mocker, lxml_import, supvisors_instance):
     """ Test the parsing using lxml (optional dependency). """
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors)
+    parser = Parser(supvisors_instance)
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
@@ -332,12 +332,12 @@ def test_valid_lxml_deprecated(mocker, lxml_import, supvisors):
     assert ast.dump(rules.status_tree) == status_tree
 
 
-def test_invalid_lxml(mocker, lxml_import, supvisors):
+def test_invalid_lxml(mocker, lxml_import, supvisors_instance):
     """ Test the parsing of an invalid XML using lxml (optional dependency). """
     mocker.patch('supvisors.sparser.stderr')
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(InvalidXmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(InvalidXmlTest)])
     with pytest.raises(ValueError):
-        Parser(supvisors)
+        Parser(supvisors_instance)
 
 
 @pytest.fixture
@@ -346,23 +346,23 @@ def lxml_fail_import(mocker):
     mocker.patch.dict('sys.modules', {'lxml.etree': None})
 
 
-def test_no_parser(mocker, supvisors, lxml_fail_import):
+def test_no_parser(mocker, supvisors_instance, lxml_fail_import):
     """ Test the exception when no parser is available. """
     mocker.patch('xml.etree.ElementTree.parse', side_effect=ImportError)
     # create Parser instance
     with pytest.raises(ImportError):
-        Parser(supvisors)
+        Parser(supvisors_instance)
 
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
+def test_valid_element_tree(mocker, supvisors_instance, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors)
+    parser = Parser(supvisors_instance)
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
@@ -372,14 +372,14 @@ def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
 
 @pytest.mark.skipif(sys.version_info < (3, 8) or sys.version_info >= (3, 9),
                     reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_element_tree_38_deprecated(mocker, supvisors, lxml_fail_import):
+def test_valid_element_tree_38_deprecated(mocker, supvisors_instance, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors)
+    parser = Parser(supvisors_instance)
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
@@ -389,14 +389,14 @@ def test_valid_element_tree_38_deprecated(mocker, supvisors, lxml_fail_import):
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_element_tree_deprecated(mocker, supvisors, lxml_fail_import):
+def test_valid_element_tree_deprecated(mocker, supvisors_instance, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors)
+    parser = Parser(supvisors_instance)
     check_valid(parser)
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
@@ -404,12 +404,12 @@ def test_valid_element_tree_deprecated(mocker, supvisors, lxml_fail_import):
     assert ast.dump(rules.status_tree) == status_tree
 
 
-def test_invalid_element_tree(mocker, supvisors, lxml_fail_import):
+def test_invalid_element_tree(mocker, supvisors_instance, lxml_fail_import):
     """ Test the parsing of an invalid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(InvalidXmlTest)])
+    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(InvalidXmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors)
+    parser = Parser(supvisors_instance)
     check_invalid(parser)

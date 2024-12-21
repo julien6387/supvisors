@@ -65,36 +65,36 @@ def test_interface():
         intf.send_process_statistics({})
 
 
-def test_create_external_publisher_none(supvisors):
+def test_create_external_publisher_none(supvisors_instance):
     """ Test the create_external_publisher function with no event link selected. """
-    assert create_external_publisher(supvisors) is None
+    assert create_external_publisher(supvisors_instance) is None
 
 
-def test_create_external_publisher_zmq_fail(zmq_import, zmq_fail_import, supvisors):
+def test_create_external_publisher_zmq_fail(zmq_import, zmq_fail_import, supvisors_instance):
     """ Test the create_external_publisher function with zmq event link but not installed. """
-    supvisors.options.event_link = EventLinks.ZMQ
-    assert create_external_publisher(supvisors) is None
+    supvisors_instance.options.event_link = EventLinks.ZMQ
+    assert create_external_publisher(supvisors_instance) is None
 
 
-def test_create_external_publisher_zmq(zmq_import, supvisors):
+def test_create_external_publisher_zmq(zmq_import, supvisors_instance):
     """ Test the make_supvisors_rpcinterface function with zmq event link. """
     from supvisors.external_com.supvisorszmq import ZmqEventPublisher
-    supvisors.options.event_link = EventLinks.ZMQ
-    instance = create_external_publisher(supvisors)
+    supvisors_instance.options.event_link = EventLinks.ZMQ
+    instance = create_external_publisher(supvisors_instance)
     assert isinstance(instance, ZmqEventPublisher)
 
 
-def test_create_external_publisher_ws_fail(ws_import, ws_fail_import, supvisors):
+def test_create_external_publisher_ws_fail(ws_import, ws_fail_import, supvisors_instance):
     """ Test the create_external_publisher function with websocket event link but not installed. """
-    supvisors.options.event_link = EventLinks.WS
-    assert create_external_publisher(supvisors) is None
+    supvisors_instance.options.event_link = EventLinks.WS
+    assert create_external_publisher(supvisors_instance) is None
 
 
-def test_create_external_publisher_ws(ws_import, supvisors):
+def test_create_external_publisher_ws(ws_import, supvisors_instance):
     """ Test the make_supvisors_rpcinterface function with websocket event link. """
     from supvisors.external_com.supvisorswebsocket import WsEventPublisher
-    supvisors.options.event_link = EventLinks.WS
-    instance = create_external_publisher(supvisors)
+    supvisors_instance.options.event_link = EventLinks.WS
+    instance = create_external_publisher(supvisors_instance)
     try:
         assert isinstance(instance, WsEventPublisher)
     finally:
@@ -121,14 +121,14 @@ def test_event_subscriber_interface():
         interface.on_process_statistics('dummy body')
 
 
-def test_event_subscriber_creation(supvisors):
+def test_event_subscriber_creation(supvisors_instance):
     """ Test the EventSubscriber constructor. """
     interface = EventSubscriberInterface()
-    subscriber = EventSubscriber(interface, 'localhost', 7777, supvisors.logger)
+    subscriber = EventSubscriber(interface, 'localhost', 7777, supvisors_instance.logger)
     assert subscriber.intf is interface
     assert subscriber.node_name == 'localhost'
     assert subscriber.event_port == 7777
-    assert subscriber.logger is supvisors.logger
+    assert subscriber.logger is supvisors_instance.logger
     assert subscriber.headers == set()
     assert subscriber.thread is not None
     assert isinstance(subscriber.thread, AsyncEventThread)
@@ -141,8 +141,8 @@ def interface():
 
 
 @pytest.fixture
-def subscriber(supvisors, interface):
-    return EventSubscriber(interface, 'localhost', 7777, supvisors.logger)
+def subscriber(supvisors_instance, interface):
+    return EventSubscriber(interface, 'localhost', 7777, supvisors_instance.logger)
 
 
 def test_event_subscriber_mainloop(subscriber):

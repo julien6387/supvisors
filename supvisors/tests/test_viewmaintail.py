@@ -14,33 +14,17 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 from unittest.mock import call, Mock
 
 import pytest
-import supervisor
 
 from supvisors.web.viewmaintail import *
-from .base import DummyHttpContext
-
-
-@pytest.fixture
-def http_context(supvisors):
-    """ Fixture for a consistent mocked HTTP context provided by Supervisor. """
-    http_context = DummyHttpContext()
-    # use a supervisor template for once
-    supervisor_path = next(iter(supervisor.__path__), '.')
-    http_context.template = os.path.join(supervisor_path, 'ui/tail.html')
-    # assign supvisors in supervisord structure
-    http_context.supervisord.supvisors = supvisors
-    supvisors.supervisor_data.supervisord = http_context.supervisord
-    return http_context
 
 
 @pytest.fixture
 def view(http_context):
     """ Return the instance to test. """
-    # create the instance to be tested
+    http_context.template.replace('index.html', 'tail.html')
     return MainTailView(http_context)
 
 

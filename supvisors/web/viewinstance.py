@@ -19,7 +19,7 @@ from supervisor.web import StatusView
 from supvisors.statemodes import StateModes
 from .viewcontext import *
 from .viewhandler import ViewHandler
-from .webutils import *
+from .webutils import SupvisorsSymbols, WebMessage, update_attrib
 
 
 class SupvisorsInstanceView(ViewHandler, StatusView):
@@ -52,7 +52,7 @@ class SupvisorsInstanceView(ViewHandler, StatusView):
         """ Rendering of the header part of the Supvisors Instance page. """
         # set Master symbol
         if self.sup_ctx.is_master:
-            header_elt.findmeld('master_mid').content(MASTER_SYMBOL)
+            header_elt.findmeld('master_mid').content(SupvisorsSymbols.MASTER_SYMBOL)
         # set Supvisors instance identifier
         header_elt.findmeld('instance_mid').content(self.local_nick_identifier)
         # set Supvisors instance state
@@ -98,9 +98,9 @@ class SupvisorsInstanceView(ViewHandler, StatusView):
     def restart_sup_action(self):
         """ Restart the local supervisor. """
         self.supvisors.rpc_handler.send_restart(self.local_identifier)
-        return delayed_warn('Supervisor restart requested')
+        return WebMessage('Supervisor restart requested', SupvisorsGravities.WARNING).delayed_message
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
         self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
-        return delayed_warn('Supervisor shutdown requested')
+        return WebMessage('Supervisor shutdown requested', SupvisorsGravities.WARNING).delayed_message

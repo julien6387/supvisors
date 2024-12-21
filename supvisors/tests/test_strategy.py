@@ -31,19 +31,19 @@ def mock_instance(mocker, status: SupvisorsInstanceStatus, node_state: Supvisors
 
 
 @pytest.fixture
-def filled_instances(mocker, supvisors):
-    instances = supvisors.context.instances
+def filled_instances(mocker, supvisors_instance):
+    instances = supvisors_instance.context.instances
     mock_instance(mocker, instances['10.0.0.1:25000'], SupvisorsInstanceStates.RUNNING, 50)
     mock_instance(mocker, instances['10.0.0.2:25000'], SupvisorsInstanceStates.ISOLATED, 0)
     mock_instance(mocker, instances['10.0.0.3:25000'], SupvisorsInstanceStates.RUNNING, 20)
     mock_instance(mocker, instances['10.0.0.4:25000'], SupvisorsInstanceStates.STOPPED, 0)
     mock_instance(mocker, instances['10.0.0.5:25000'], SupvisorsInstanceStates.RUNNING, 10)
     mock_instance(mocker, instances['10.0.0.6:25000'], SupvisorsInstanceStates.RUNNING, 75)
-    return supvisors
+    return supvisors_instance
 
 
 @pytest.fixture
-def load_details(supvisors):
+def load_details():
     # try to be consistent with filled_instances
     return ({'10.0.0.1:25000': 5, '10.0.0.3:25000': 5},
             {'01:23:45:67:89:ab': 80, 'ab:cd:ef:01:23:45': 75},
@@ -56,7 +56,7 @@ def starting_strategy(filled_instances):
     return AbstractStartingStrategy(filled_instances)
 
 
-def test_is_loading_valid(supvisors, starting_strategy, load_details):
+def test_is_loading_valid(starting_strategy, load_details):
     """ Test the validity of an address with an additional loading. """
     # test loaded RUNNING instances
     assert starting_strategy.is_loading_valid('10.0.0.1:25000', 11, load_details) == (False, 90, 55)
@@ -70,7 +70,7 @@ def test_is_loading_valid(supvisors, starting_strategy, load_details):
     assert starting_strategy.is_loading_valid('10.0.0.6:25000', 25, load_details) == (True, 75, 75)
 
 
-def test_get_loading_and_validity(supvisors, starting_strategy, load_details):
+def test_get_loading_and_validity(starting_strategy, load_details):
     """ Test the determination of the valid addresses with an additional loading. """
     # test valid addresses with different additional loadings
     identifiers = ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000', '10.0.0.6:25000']
@@ -109,9 +109,9 @@ def test_sort_valid_by_instance_load(starting_strategy):
     assert starting_strategy.sort_valid_by_instance_load(parameters) == []
 
 
-def test_abstract_get_node(supvisors, starting_strategy):
+def test_abstract_get_node(supvisors_instance, starting_strategy):
     """ Test that the AbstractStartingStrategy.get_supvisors_instance method is not implemented. """
-    instances = supvisors.mapper.instances
+    instances = supvisors_instance.mapper.instances
     with pytest.raises(NotImplementedError):
         starting_strategy.get_supvisors_instance(instances, 0, ({}, {}, {}))
 
@@ -191,15 +191,15 @@ def test_local_strategy(filled_instances, load_details):
     assert strategy.get_supvisors_instance(instances, 0, load_details) is None
 
 
-def test_get_supvisors_instance_no_candidate(supvisors):
+def test_get_supvisors_instance_no_candidate(supvisors_instance):
     """ Test the choice of a Supvisors instance according to a strategy when no candidate is available. """
     instances = ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000', '10.0.0.6:25000']
-    assert get_supvisors_instance(supvisors, StartingStrategies.CONFIG, instances, 0, {}) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED, instances, 0, {}) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED, instances, 0, {}) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LESS_LOADED_NODE, instances, 0, {}) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.MOST_LOADED_NODE, instances, 0, {}) is None
-    assert get_supvisors_instance(supvisors, StartingStrategies.LOCAL, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors_instance, StartingStrategies.CONFIG, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors_instance, StartingStrategies.LESS_LOADED, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors_instance, StartingStrategies.MOST_LOADED, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors_instance, StartingStrategies.LESS_LOADED_NODE, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors_instance, StartingStrategies.MOST_LOADED_NODE, instances, 0, {}) is None
+    assert get_supvisors_instance(supvisors_instance, StartingStrategies.LOCAL, instances, 0, {}) is None
 
 
 def test_get_supvisors_instance(filled_instances, load_details):
@@ -256,87 +256,87 @@ def create_process_status(name, timed_identifiers):
 
 
 @pytest.fixture
-def conflicts(supvisors):
+def conflicts():
     # create conflicting processes
     return [create_process_status('conflict_1', {'10.0.0.1': 5, '10.0.0.2': 10, '10.0.0.3': 15}),
             create_process_status('conflict_2', {'10.0.0.4': 6, '10.0.0.2': 5, '10.0.0.0': 4})]
 
 
-def test_senicide_strategy(supvisors, conflicts):
+def test_senicide_strategy(supvisors_instance, conflicts):
     """ Test the strategy that consists in stopping the oldest processes. """
-    strategy = SenicideStrategy(supvisors)
+    strategy = SenicideStrategy(supvisors_instance)
     strategy.conciliate(conflicts)
     # check that the oldest processes are requested to stop on the relevant addresses
     expected = [call(conflicts[0], {'10.0.0.2', '10.0.0.3'}, False),
                 call(conflicts[1], {'10.0.0.2', '10.0.0.4'}, False)]
-    assert supvisors.stopper.stop_process.call_args_list == expected
-    assert supvisors.stopper.next.called
+    assert supvisors_instance.stopper.stop_process.call_args_list == expected
+    assert supvisors_instance.stopper.next.called
 
 
-def test_infanticide_strategy(supvisors, conflicts):
+def test_infanticide_strategy(supvisors_instance, conflicts):
     """ Test the strategy that consists in stopping the youngest processes. """
-    strategy = InfanticideStrategy(supvisors)
+    strategy = InfanticideStrategy(supvisors_instance)
     strategy.conciliate(conflicts)
     # check that the youngest processes are requested to stop on the relevant addresses
     expected = [call(conflicts[0], {'10.0.0.1', '10.0.0.2'}, False),
                 call(conflicts[1], {'10.0.0.2', '10.0.0.0'}, False)]
-    assert supvisors.stopper.stop_process.call_args_list == expected
-    assert supvisors.stopper.next.called
+    assert supvisors_instance.stopper.stop_process.call_args_list == expected
+    assert supvisors_instance.stopper.next.called
 
 
-def test_user_strategy(supvisors, conflicts):
+def test_user_strategy(supvisors_instance, conflicts):
     """ Test the strategy that consists in doing nothing (trivial). """
-    strategy = UserStrategy(supvisors)
+    strategy = UserStrategy(supvisors_instance)
     strategy.conciliate(conflicts)
     # check that processes are NOT requested to stop
-    assert not supvisors.stopper.stop_process.called
-    assert not supvisors.rpc_handler.send_stop_process.called
+    assert not supvisors_instance.stopper.stop_process.called
+    assert not supvisors_instance.rpc_handler.send_stop_process.called
 
 
-def test_stop_strategy(supvisors, conflicts):
+def test_stop_strategy(supvisors_instance, conflicts):
     """ Test the strategy that consists in stopping all processes. """
-    strategy = StopStrategy(supvisors)
+    strategy = StopStrategy(supvisors_instance)
     strategy.conciliate(conflicts)
     # check that all processes are requested to stop through the Stopper
     expected = [call(conflicts[0], trigger=False), call(conflicts[1], trigger=False)]
-    assert supvisors.stopper.stop_process.call_args_list == expected
-    assert supvisors.stopper.next.called
+    assert supvisors_instance.stopper.stop_process.call_args_list == expected
+    assert supvisors_instance.stopper.next.called
 
 
-def test_restart_strategy(supvisors, conflicts):
+def test_restart_strategy(supvisors_instance, conflicts):
     """ Test the strategy that consists in stopping all processes and restart a single one. """
     # get patches
-    mocked_restart = supvisors.stopper.default_restart_process
-    mocked_next = supvisors.stopper.next
+    mocked_restart = supvisors_instance.stopper.default_restart_process
+    mocked_next = supvisors_instance.stopper.next
     # call the conciliation
-    strategy = RestartStrategy(supvisors)
+    strategy = RestartStrategy(supvisors_instance)
     strategy.conciliate(conflicts)
     # check that all processes are NOT requested to stop directly
-    assert not supvisors.stopper.stop_process.called
-    assert not supvisors.rpc_handler.send_stop_process.called
+    assert not supvisors_instance.stopper.stop_process.called
+    assert not supvisors_instance.rpc_handler.send_stop_process.called
     # test failure_handler call
     assert mocked_restart.call_args_list == [call(conflicts[0], False), call(conflicts[1], False)]
     assert mocked_next.called
 
 
-def test_failure_strategy(supvisors, conflicts):
+def test_failure_strategy(supvisors_instance, conflicts):
     """ Test the strategy that consists in stopping all processes and restart a single one. """
     # get patches
-    mocked_add = supvisors.failure_handler.add_default_job
-    mocked_trigger = supvisors.failure_handler.trigger_jobs
+    mocked_add = supvisors_instance.failure_handler.add_default_job
+    mocked_trigger = supvisors_instance.failure_handler.trigger_jobs
     # call the conciliation
-    strategy = FailureStrategy(supvisors)
+    strategy = FailureStrategy(supvisors_instance)
     strategy.conciliate(conflicts)
     # check that all processes are requested to stop through the Stopper
-    assert supvisors.stopper.stop_process.call_args_list == [call(conflicts[0], trigger=False),
-                                                             call(conflicts[1], trigger=False)]
-    assert supvisors.stopper.next.called
+    assert supvisors_instance.stopper.stop_process.call_args_list == [call(conflicts[0], trigger=False),
+                                                                      call(conflicts[1], trigger=False)]
+    assert supvisors_instance.stopper.next.called
     # test failure_handler call
     assert mocked_add.call_args_list == [call(conflicts[0]), call(conflicts[1])]
     assert mocked_trigger.call_count == 1
 
 
-def test_conciliate_conflicts(mocker, supvisors, conflicts):
+def test_conciliate_conflicts(mocker, supvisors_instance, conflicts):
     """ Test the actions on process according to a strategy. """
     mocked_senicide = mocker.patch('supvisors.strategy.SenicideStrategy.conciliate')
     mocked_infanticide = mocker.patch('supvisors.strategy.InfanticideStrategy.conciliate')
@@ -345,45 +345,45 @@ def test_conciliate_conflicts(mocker, supvisors, conflicts):
     mocked_restart = mocker.patch('supvisors.strategy.RestartStrategy.conciliate')
     mocked_failure = mocker.patch('supvisors.strategy.FailureStrategy.conciliate')
     # test senicide conciliation
-    conciliate_conflicts(supvisors, ConciliationStrategies.SENICIDE, conflicts)
+    conciliate_conflicts(supvisors_instance, ConciliationStrategies.SENICIDE, conflicts)
     for mock in [mocked_infanticide, mocked_user, mocked_stop, mocked_restart, mocked_failure]:
         assert not mock.called
     assert mocked_senicide.call_args_list == [call(conflicts)]
     mocked_senicide.reset_mock()
     # test infanticide conciliation
-    conciliate_conflicts(supvisors, ConciliationStrategies.INFANTICIDE, conflicts)
+    conciliate_conflicts(supvisors_instance, ConciliationStrategies.INFANTICIDE, conflicts)
     for mock in [mocked_senicide, mocked_user, mocked_stop, mocked_restart, mocked_failure]:
         assert not mock.called
     assert mocked_infanticide.call_args_list == [call(conflicts)]
     mocked_infanticide.reset_mock()
     # test user conciliation
-    conciliate_conflicts(supvisors, ConciliationStrategies.USER, conflicts)
+    conciliate_conflicts(supvisors_instance, ConciliationStrategies.USER, conflicts)
     for mock in [mocked_senicide, mocked_infanticide, mocked_stop, mocked_restart, mocked_failure]:
         assert not mock.called
     assert mocked_user.call_args_list == [call(conflicts)]
     mocked_user.reset_mock()
     # test stop conciliation
-    conciliate_conflicts(supvisors, ConciliationStrategies.STOP, conflicts)
+    conciliate_conflicts(supvisors_instance, ConciliationStrategies.STOP, conflicts)
     for mock in [mocked_senicide, mocked_infanticide, mocked_user, mocked_restart, mocked_failure]:
         assert not mock.called
     assert mocked_stop.call_args_list == [call(conflicts)]
     mocked_stop.reset_mock()
     # test restart conciliation
-    conciliate_conflicts(supvisors, ConciliationStrategies.RESTART, conflicts)
+    conciliate_conflicts(supvisors_instance, ConciliationStrategies.RESTART, conflicts)
     for mock in [mocked_senicide, mocked_infanticide, mocked_user, mocked_stop, mocked_failure]:
         assert not mock.called
     assert mocked_restart.call_args_list == [call(conflicts)]
     mocked_restart.reset_mock()
     # test restart conciliation
-    conciliate_conflicts(supvisors, ConciliationStrategies.RUNNING_FAILURE, conflicts)
+    conciliate_conflicts(supvisors_instance, ConciliationStrategies.RUNNING_FAILURE, conflicts)
     for mock in [mocked_senicide, mocked_infanticide, mocked_user, mocked_stop, mocked_restart]:
         assert not mock.called
     assert mocked_failure.call_args_list == [call(conflicts)]
 
 
 @pytest.fixture
-def handler(supvisors):
-    return RunningFailureHandler(supvisors)
+def handler(supvisors_instance):
+    return RunningFailureHandler(supvisors_instance)
 
 
 def compare_sets(handler, stop_app=None, restart_app=None, restart_proc=None, continue_proc=None):

@@ -23,24 +23,14 @@ from supervisor.web import MeldView, StatusView
 from supvisors.ttypes import ApplicationStates
 from supvisors.web.viewhandler import ViewHandler
 from supvisors.web.viewprocinstance import *
-from supvisors.web.webutils import PROC_INSTANCE_PAGE
-from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
+from .base import ProcessInfoDatabase, process_info_by_name
 from .conftest import create_application, create_process, create_element
-
-
-@pytest.fixture
-def http_context(supvisors):
-    """ Fixture for a consistent mocked HTTP context provided by Supervisor. """
-    http_context = DummyHttpContext('ui/proc_instance.html')
-    http_context.supervisord.supvisors = supvisors
-    supvisors.supervisor_data.supervisord = http_context.supervisord
-    return http_context
 
 
 @pytest.fixture
 def view(http_context):
     """ Return the instance to test. """
-    # create the instance to be tested
+    http_context.template.replace('index.html', 'proc_instance.html')
     return ProcInstanceView(http_context)
 
 
@@ -50,7 +40,7 @@ def test_init(view):
     for klass in [SupvisorsInstanceView, StatusView, ViewHandler, MeldView]:
         assert isinstance(view, klass)
     # test default page name
-    assert view.page_name == PROC_INSTANCE_PAGE
+    assert view.page_name == SupvisorsPages.PROC_INSTANCE_PAGE
 
 
 def test_handle_parameters(mocker, view):
@@ -59,7 +49,8 @@ def test_handle_parameters(mocker, view):
     view.view_ctx = Mock()
     view.handle_parameters()
     assert mocked_handle.call_args_list == [call()]
-    assert view.view_ctx.set_message_default.call_args_list == [call('The Supvisors rules do NOT apply here', Warn)]
+    assert view.view_ctx.set_message_default.call_args_list == [call('The Supvisors rules do NOT apply here',
+                                                                     SupvisorsGravities.WARNING)]
 
 
 def test_write_options(mocker, view):
@@ -124,11 +115,11 @@ def test_write_options(mocker, view):
     assert not view_div_mid.replace.called
 
 
-def test_write_view_switch(supvisors, view):
+def test_write_view_switch(supvisors_instance, view):
     """ Test the SupvisorsInstanceView.write_view_switch method. """
     # set context (meant to be set through constructor and render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-    supvisors.mapper.local_identifier = '10.0.0.1:25000'
+    supvisors_instance.mapper.local_identifier = '10.0.0.1:25000'
     # build root structure
     mocked_process_view_mid = create_element()
     mocked_host_view_mid = create_element()
@@ -137,7 +128,7 @@ def test_write_view_switch(supvisors, view):
     # test call
     view.write_view_switch(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('host_view_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE)]
+    assert view.view_ctx.format_url.call_args_list == [call('', SupvisorsPages.HOST_INSTANCE_PAGE)]
     assert not mocked_process_view_mid.attributes.called
     assert mocked_host_view_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_host_view_mid.content.call_args_list == [call('10.0.0.1')]
@@ -203,7 +194,7 @@ def test_write_contents(mocker, view):
     assert mocked_stats.call_args_list == [call(contents_elt, {'namespec': 'dummy'})]
 
 
-def test_get_process_data(mocker, supvisors, view):
+def test_get_process_data(mocker, supvisors_instance, view):
     """ Test the ProcInstanceView.get_process_data method. """
     mocker.patch.object(view, 'sort_data', side_effect=lambda x: (sorted(x, key=lambda y: y['namespec']), []))
     mocked_data = mocker.patch.object(view, 'get_supervisord_data', return_value={'namespec': 'supervisord'})
@@ -216,7 +207,7 @@ def test_get_process_data(mocker, supvisors, view):
     assert mocked_data.call_args_list == [call(instance_status)]
     # patch context
     for application_name in ['sample_test_1', 'crash', 'firefox']:
-        view.sup_ctx.applications[application_name] = create_application(application_name, supvisors)
+        view.sup_ctx.applications[application_name] = create_application(application_name, supvisors_instance)
     process_data = [('xfontsel', 8, True, False), ('segv', 17, False, False), ('firefox', 26, False, True)]
     for process_name, load, has_crashed, disabled in process_data:
         # create process
@@ -225,7 +216,7 @@ def test_get_process_data(mocker, supvisors, view):
         info['disabled'] = disabled
         info['has_stdout'] = True
         info['has_stderr'] = False
-        process = create_process(info, supvisors)
+        process = create_process(info, supvisors_instance)
         process.rules.expected_load = load
         process.add_info('10.0.0.1:25000', info)
         # add to application
@@ -539,7 +530,7 @@ def test_write_application_status(mocker, view):
         assert mid.replace.call_args_list == [call('')]
 
 
-def test_write_supervisord_status(mocker, supvisors, view):
+def test_write_supervisord_status(mocker, supvisors_instance, view):
     """ Test the write_supervisord_status method. """
     mocked_button = mocker.patch.object(view, '_write_supervisord_button')
     mocked_off = mocker.patch.object(view, '_write_supervisord_off_button')
@@ -568,27 +559,27 @@ def test_write_supervisord_status(mocker, supvisors, view):
     assert mocked_button.call_args_list == [call(tr_elt, 'stop_a_mid', 'proc_instance.html', action='shutdownsup'),
                                             call(tr_elt, 'restart_a_mid', 'proc_instance.html', action='restartsup'),
                                             call(tr_elt, 'clear_a_mid', 'proc_instance.html', action='mainclearlog'),
-                                            call(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)]
+                                            call(tr_elt, 'tailout_a_mid', SupvisorsPages.MAIN_STDOUT_PAGE)]
     assert mocked_off.call_args_list == [call(tr_elt, 'start_a_mid'), call(tr_elt, 'tailerr_a_mid')]
     mocker.resetall()
     tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
     # test call while Master
-    supvisors.state_modes.master_identifier = view.sup_ctx.local_identifier
+    supvisors_instance.state_modes.master_identifier = view.sup_ctx.local_identifier
     assert view.sup_ctx.is_master
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_state.call_args_list == [call(tr_elt, info)]
     assert mocked_stats.call_args_list == [call(tr_elt, info)]
     assert tr_elt.findmeld.call_args_list == [call('shex_td_mid'), call('name_a_mid')]
-    assert shex_elt.content.call_args_list == [call(MASTER_SYMBOL)]
+    assert shex_elt.content.call_args_list == [call(SupvisorsSymbols.MASTER_SYMBOL)]
     assert name_elt.content.call_args_list == [call('supervisord')]
     assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord', limit=1024)]
     assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
     assert mocked_button.call_args_list == [call(tr_elt, 'stop_a_mid', 'proc_instance.html', action='shutdownsup'),
                                             call(tr_elt, 'restart_a_mid', 'proc_instance.html', action='restartsup'),
                                             call(tr_elt, 'clear_a_mid', 'proc_instance.html', action='mainclearlog'),
-                                            call(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)]
+                                            call(tr_elt, 'tailout_a_mid', SupvisorsPages.MAIN_STDOUT_PAGE)]
     assert mocked_off.call_args_list == [call(tr_elt, 'start_a_mid'), call(tr_elt, 'tailerr_a_mid')]
 
 
@@ -629,7 +620,7 @@ def test_write_supervisord_off_button(view):
     assert not start_a_mid.attributes.called
 
 
-def test_write_total_status(mocker, supvisors, view):
+def test_write_total_status(mocker, view):
     """ Test the ProcInstanceView.write_total_status method. """
     mocked_sum = mocker.patch.object(view, 'sum_process_info', return_value=(50, None))
     # patch the meld elements

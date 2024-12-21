@@ -16,13 +16,15 @@
 
 from typing import List
 
+from supervisor.xmlrpc import RPCError
+
 from supvisors.application import ApplicationStatus
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.ttypes import SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions
 from supvisors.utils import simple_localtime
 from .viewcontext import *
 from .viewmain import MainView
-from .webutils import *
+from .webutils import SupvisorsPages, SupvisorsSymbols, WebMessage, apply_shade, update_attrib
 
 
 class SupvisorsView(MainView):
@@ -37,7 +39,7 @@ class SupvisorsView(MainView):
     def __init__(self, context):
         """ Call of the superclass constructors. """
         MainView.__init__(self, context)
-        self.page_name: str = SUPVISORS_PAGE
+        self.page_name: str = SupvisorsPages.SUPVISORS_PAGE
         # global actions (no parameter)
         self.global_methods['sup_sync'] = self.sup_sync_action
 
@@ -46,7 +48,7 @@ class SupvisorsView(MainView):
         super().write_actions(header_elt)
         # configure end of sync button
         elt = header_elt.findmeld('start_a_mid')
-        url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_sync'})
+        url = self.view_ctx.format_url('', SupvisorsPages.SUPVISORS_PAGE, **{ACTION: 'sup_sync'})
         elt.attributes(href=url)
 
     def write_contents(self, contents_elt) -> None:
@@ -71,7 +73,7 @@ class SupvisorsView(MainView):
             elt.content('&#160;&#10026;&#160;')
             if status.state == SupvisorsInstanceStates.RUNNING:
                 update_attrib(elt, 'class', 'on')
-                url = self.view_ctx.format_url('', SUPVISORS_PAGE,
+                url = self.view_ctx.format_url('', SupvisorsPages.SUPVISORS_PAGE,
                                                **{IDENTIFIER: status.identifier, ACTION: 'sup_master_sync'})
                 elt.attributes(href=url)
             else:
@@ -83,14 +85,14 @@ class SupvisorsView(MainView):
         elt = instance_div_elt.findmeld('identifier_a_mid')
         if status.has_active_state():
             # go to web page located hosted by the Supvisors instance
-            url = self.view_ctx.format_url(status.identifier, PROC_INSTANCE_PAGE)
+            url = self.view_ctx.format_url(status.identifier, SupvisorsPages.PROC_INSTANCE_PAGE)
             elt.attributes(href=url)
             update_attrib(elt, 'class', 'on')
         else:
             update_attrib(elt, 'class', 'off')
         nick_identifier = status.supvisors_id.nick_identifier
         if status.identifier == self.sup_ctx.master_identifier:
-            nick_identifier = f'{MASTER_SYMBOL} {nick_identifier}'
+            nick_identifier = f'{SupvisorsSymbols.MASTER_SYMBOL} {nick_identifier}'
         elt.content(nick_identifier)
         # set Supvisors instance state
         elt = instance_div_elt.findmeld('state_th_mid')
@@ -136,7 +138,7 @@ class SupvisorsView(MainView):
             update_attrib(app_name_a_mid, 'class', 'on')
             parameters = {APPLI: application.application_name, IDENTIFIER: identifier,
                           STRATEGY: application.rules.starting_strategy.name}
-            url = self.view_ctx.format_url(identifier, APPLICATION_PAGE, **parameters)
+            url = self.view_ctx.format_url(identifier, SupvisorsPages.APPLICATION_PAGE, **parameters)
             app_name_a_mid.attributes(href=url)
         # group cells if the User sync button is displayed or remove the first cell
         if user_sync:
@@ -152,7 +154,7 @@ class SupvisorsView(MainView):
             # write link to process page with process statistics
             update_attrib(process_a_mid, 'class', 'on')
             parameters = {PROCESS: process.namespec, IDENTIFIER: identifier}
-            url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE, **parameters)
+            url = self.view_ctx.format_url(identifier, SupvisorsPages.PROC_INSTANCE_PAGE, **parameters)
             process_a_mid.attributes(href=url)
             if process.conflicting() and application.rules.managed:
                 update_attrib(process_span_mid, 'class', 'blink')
@@ -194,9 +196,9 @@ class SupvisorsView(MainView):
         try:
             self.supvisors.supervisor_data.supvisors_rpc_interface.end_sync(master_identifier)
         except RPCError as e:
-            return delayed_error(f'end_synchro: {e}')
+            return WebMessage(f'end_synchro: {e}', SupvisorsGravities.ERROR).delayed_message
         message = 'Supvisors end of sync requested'
         if master_identifier:
             nick_identifier = self.supvisors.mapper.get_nick_identifier(master_identifier)
             message += f' with Master={nick_identifier}'
-        return delayed_warn(message)
+        return WebMessage(message, SupvisorsGravities.WARNING).delayed_message

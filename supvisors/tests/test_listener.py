@@ -24,31 +24,31 @@ from supvisors.listener import *
 
 
 @pytest.fixture
-def listener(supvisors):
+def listener(supvisors_instance):
     """ Fixture for the instance to test. """
     events.clear()
-    return SupervisorListener(supvisors)
+    return SupervisorListener(supvisors_instance)
 
 
 @pytest.fixture
-def discovery_listener(supvisors):
+def discovery_listener(supvisors_instance):
     """ Fixture for the instance to test. """
     events.clear()
-    supvisors.options.multicast_group = '239.0.0.1', 7777
-    return SupervisorListener(supvisors)
+    supvisors_instance.options.multicast_group = '239.0.0.1', 7777
+    return SupervisorListener(supvisors_instance)
 
 
-def test_creation(supvisors, listener):
+def test_creation(supvisors_instance, listener):
     """ Test the values set at construction. """
     # check attributes
-    assert listener.supvisors is supvisors
-    assert listener.local_instance == supvisors.mapper.local_instance
-    assert listener.local_identifier == supvisors.mapper.local_identifier
-    assert listener.stats_collector is supvisors.stats_collector
-    assert listener.host_compiler is supvisors.host_compiler
-    assert listener.process_compiler is supvisors.process_compiler
-    assert listener.fsm is supvisors.fsm
-    assert listener.rpc_handler is supvisors.rpc_handler
+    assert listener.supvisors is supvisors_instance
+    assert listener.local_instance == supvisors_instance.mapper.local_instance
+    assert listener.local_identifier == supvisors_instance.mapper.local_identifier
+    assert listener.stats_collector is supvisors_instance.stats_collector
+    assert listener.host_compiler is supvisors_instance.host_compiler
+    assert listener.process_compiler is supvisors_instance.process_compiler
+    assert listener.fsm is supvisors_instance.fsm
+    assert listener.rpc_handler is supvisors_instance.rpc_handler
     assert listener.mc_sender is None
     assert listener.external_publisher is None
     # test that callbacks are set in Supervisor
@@ -71,42 +71,42 @@ def test_on_running_exception(mocker, listener):
     listener.on_running('')
 
 
-def test_on_running_external(mocker, supvisors, listener):
+def test_on_running_external(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor RUNNING event.
     No discovery service, but an external publisher. """
     ref_rpc_handler = listener.rpc_handler
-    mocked_prepare = mocker.patch.object(supvisors.supervisor_updater, 'on_supervisor_start')
+    mocked_prepare = mocker.patch.object(supvisors_instance.supervisor_updater, 'on_supervisor_start')
     mocked_external_publisher = Mock()
     mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
                                              return_value=mocked_external_publisher)
-    mocked_collect = mocker.patch.object(supvisors.stats_collector, 'start')
+    mocked_collect = mocker.patch.object(supvisors_instance.stats_collector, 'start')
     listener.on_running('')
     # test attributes and calls
     assert mocked_prepare.called
     assert mocked_publisher_creation.called
     assert listener.rpc_handler is not ref_rpc_handler
-    assert supvisors.discovery_handler is None
+    assert supvisors_instance.discovery_handler is None
     assert listener.external_publisher is mocked_external_publisher
-    assert supvisors.external_publisher is listener.external_publisher
+    assert supvisors_instance.external_publisher is listener.external_publisher
     assert mocked_collect.called
 
 
-def test_on_running_discovery(mocker, supvisors, discovery_listener):
+def test_on_running_discovery(mocker, supvisors_instance, discovery_listener):
     """ Test the reception of a Supervisor RUNNING event.
     Discovery service, but no external publisher. """
     ref_rpc_handler = discovery_listener.rpc_handler
-    mocked_prepare = mocker.patch.object(supvisors.supervisor_updater, 'on_supervisor_start')
+    mocked_prepare = mocker.patch.object(supvisors_instance.supervisor_updater, 'on_supervisor_start')
     mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
                                              return_value=None)
-    mocked_collect = mocker.patch.object(supvisors.stats_collector, 'start')
+    mocked_collect = mocker.patch.object(supvisors_instance.stats_collector, 'start')
     discovery_listener.on_running('')
     # test attributes and calls
     assert mocked_prepare.called
     assert mocked_publisher_creation.called
     assert discovery_listener.rpc_handler is not ref_rpc_handler
-    assert supvisors.discovery_handler is not None
+    assert supvisors_instance.discovery_handler is not None
     assert discovery_listener.external_publisher is None
-    assert supvisors.external_publisher is discovery_listener.external_publisher
+    assert supvisors_instance.external_publisher is discovery_listener.external_publisher
     assert mocked_collect.called
 
 
@@ -117,42 +117,42 @@ def test_on_stopping_exception(mocker, listener):
     listener.on_stopping('')
 
 
-def test_on_stopping_unmarked(mocker, supvisors, listener):
+def test_on_stopping_unmarked(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor STOPPING event with unmarked logger,
     i.e. meant to be the supervisor logger. """
     # patch the complex structures
-    mocked_infosource = mocker.patch.object(supvisors.supervisor_data, 'close_httpservers')
-    supvisors.stats_collector = Mock(**{'stop.return_value': None})
-    supvisors.rpc_handler = Mock(spec=RpcHandler)
-    supvisors.discovery_handler = Mock(spec=SupvisorsDiscovery)
-    supvisors.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_infosource = mocker.patch.object(supvisors_instance.supervisor_data, 'close_httpservers')
+    supvisors_instance.stats_collector = Mock(**{'stop.return_value': None})
+    supvisors_instance.rpc_handler = Mock(spec=RpcHandler)
+    supvisors_instance.discovery_handler = Mock(spec=SupvisorsDiscovery)
+    supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
     # test
     listener.on_stopping('')
     assert callbacks == []
     assert mocked_infosource.called
     assert listener.rpc_handler.stop.called
-    assert supvisors.discovery_handler.stop.called
+    assert supvisors_instance.discovery_handler.stop.called
     assert listener.external_publisher.close.called
     assert not listener.logger.close.called
     assert listener.stats_collector.stop.called
 
 
-def test_on_stopping(mocker, supvisors, listener):
+def test_on_stopping(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor STOPPING event with marked logger,
     i.e. meant to be the Supvisors logger. """
     # patch the complex structures
-    mocked_infosource = mocker.patch.object(supvisors.supervisor_data, 'close_httpservers')
-    supvisors.stats_collector = Mock(**{'stop.return_value': None})
-    supvisors.rpc_handler = Mock(spec=RpcHandler)
-    supvisors.discovery_handler = Mock(spec=SupvisorsDiscovery)
-    supvisors.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_infosource = mocker.patch.object(supvisors_instance.supervisor_data, 'close_httpservers')
+    supvisors_instance.stats_collector = Mock(**{'stop.return_value': None})
+    supvisors_instance.rpc_handler = Mock(spec=RpcHandler)
+    supvisors_instance.discovery_handler = Mock(spec=SupvisorsDiscovery)
+    supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
     # test
     listener.logger.SUPVISORS = None
     listener.on_stopping('')
     assert callbacks == []
     assert mocked_infosource.called
     assert listener.rpc_handler.stop.called
-    assert supvisors.discovery_handler.stop.called
+    assert supvisors_instance.discovery_handler.stop.called
     assert listener.external_publisher.close.called
     assert listener.logger.close.called
     assert listener.stats_collector.stop.called
@@ -164,15 +164,15 @@ def test_on_tick_exception(mocker, listener):
     listener.on_tick({})
 
 
-def test_on_tick(mocker, supvisors, discovery_listener):
+def test_on_tick(mocker, supvisors_instance, discovery_listener):
     """ Test the reception of a Supervisor TICK event. """
     # create patches
     mocker.patch('time.monotonic', return_value=34.56)
-    mocked_tick = mocker.patch.object(supvisors.context, 'on_local_tick_event')
-    mocked_timer = supvisors.fsm.on_timer_event
+    mocked_tick = mocker.patch.object(supvisors_instance.context, 'on_local_tick_event')
+    mocked_timer = supvisors_instance.fsm.on_timer_event
     mocked_stats = mocker.patch.object(discovery_listener, '_on_tick_stats')
     # create discovery_handler, as done in listener.on_running
-    supvisors.discovery_handler = Mock()
+    supvisors_instance.discovery_handler = Mock()
     # test tick event
     event = Tick60Event(120, None)
     discovery_listener.on_tick(event)
@@ -189,13 +189,13 @@ def test_on_tick(mocker, supvisors, discovery_listener):
     assert mocked_stats.call_args_list == [call()]
 
 
-def test_on_tick_stats(mocker, supvisors, discovery_listener):
+def test_on_tick_stats(mocker, supvisors_instance, discovery_listener):
     """ Test the reception of a Supervisor TICK event. """
     # create patches
     mocked_host = mocker.patch.object(discovery_listener, 'on_host_statistics')
     mocked_proc = mocker.patch.object(discovery_listener, 'on_process_statistics')
     # add some data to the statistics collector
-    supvisors.stats_collector = mocked_collector = Mock()
+    supvisors_instance.stats_collector = mocked_collector = Mock()
     host_stats = [{'now': 8.5, 'cpu': [(25, 400)], 'mem': 76.1, 'io': {'lo': (500, 500)}}]
     mocked_collector.get_host_stats.return_value = host_stats
     proc_stats = [{'namespec': 'dummy_1'}, {'namespec': 'dummy_2'}]
@@ -213,7 +213,7 @@ def test_on_tick_stats(mocker, supvisors, discovery_listener):
     discovery_listener.rpc_handler.reset_mock()
     mocker.resetall()
     # test tick event when statistics collector is not available
-    supvisors.stats_collector = None
+    supvisors_instance.stats_collector = None
     discovery_listener._on_tick_stats()
     assert not mocked_host.called
     assert not mocked_collector.alive.called
@@ -229,13 +229,13 @@ def test_on_process_state_exception(listener):
     assert not mocked_fsm.called
 
 
-def test_on_process_state(mocker, supvisors, listener):
+def test_on_process_state(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS event. """
     mocker.patch('supvisors.listener.time.time', return_value=77)
     mocker.patch('supvisors.listener.time.monotonic', return_value=23.9)
-    mocked_fsm = supvisors.fsm.on_process_state_event
-    mocked_start = mocker.patch.object(supvisors.supervisor_data, 'update_start')
-    mocked_stop = mocker.patch.object(supvisors.supervisor_data, 'update_stop')
+    mocked_fsm = supvisors_instance.fsm.on_process_state_event
+    mocked_start = mocker.patch.object(supvisors_instance.supervisor_data, 'update_start')
+    mocked_stop = mocker.patch.object(supvisors_instance.supervisor_data, 'update_stop')
     # test process event
     process = Mock(pid=1234, spawnerr='resource not available', backoff=2,
                    **{'config.name': 'dummy_process',
@@ -273,19 +273,19 @@ def test_on_process_state(mocker, supvisors, listener):
         mocker.resetall()
 
 
-def test_on_process_added_exception(supvisors, listener):
+def test_on_process_added_exception(supvisors_instance, listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a ProcessAddedEvent. """
-    mocked_fsm = supvisors.fsm.on_process_removed_event
+    mocked_fsm = supvisors_instance.fsm.on_process_removed_event
     listener.on_process_added(None)
     assert not mocked_fsm.called
 
 
-def test_get_local_process_info(supvisors, listener):
+def test_get_local_process_info(supvisors_instance, listener):
     """ Test the SupervisorListener._get_local_process_info method """
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
                     'extra_args': '-s test', 'disabled': True, 'now': 77, 'pid': 1234,
                     'expected': True, 'spawnerr': 'resource not available'}
-    rpc = supvisors.supervisor_data.supvisors_rpc_interface.get_local_process_info
+    rpc = supvisors_instance.supervisor_data.supvisors_rpc_interface.get_local_process_info
     # test normal behavior
     rpc.return_value = process_info
     assert listener._get_local_process_info('dummy_group:dummy_process') == process_info
@@ -294,9 +294,9 @@ def test_get_local_process_info(supvisors, listener):
     assert listener._get_local_process_info('dummy_group:dummy_process') is None
 
 
-def test_on_process_added(mocker, supvisors, listener):
+def test_on_process_added(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_ADDED event. """
-    mocked_fsm = supvisors.fsm.on_process_added_event
+    mocked_fsm = supvisors_instance.fsm.on_process_added_event
     # patch context
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
                     'extra_args': '-s test', 'now': 77, 'pid': 1234,
@@ -316,16 +316,16 @@ def test_on_process_added(mocker, supvisors, listener):
     assert not listener.rpc_handler.send_process_added_event.called
 
 
-def test_on_process_removed_exception(supvisors, listener):
+def test_on_process_removed_exception(supvisors_instance, listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a ProcessRemovedEvent. """
-    mocked_fsm = supvisors.fsm.on_process_removed_event
+    mocked_fsm = supvisors_instance.fsm.on_process_removed_event
     listener.on_process_removed(None)
     assert not mocked_fsm.called
 
 
-def test_on_process_removed(supvisors, listener):
+def test_on_process_removed(supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_REMOVED event. """
-    mocked_fsm = supvisors.fsm.on_process_removed_event
+    mocked_fsm = supvisors_instance.fsm.on_process_removed_event
     # test process event
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessRemovedEvent(process)
@@ -335,14 +335,14 @@ def test_on_process_removed(supvisors, listener):
     assert listener.rpc_handler.send_process_removed_event.call_args_list == [call(expected)]
 
 
-def test_on_process_disability_exception(supvisors, listener):
+def test_on_process_disability_exception(listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a ProcessEnabledEvent or
     a ProcessDisabledEvent. """
     listener.on_process_disability(None)
     assert not listener.rpc_handler.send_process_disability_event.called
 
 
-def test_on_process_disability(mocker, supvisors, listener):
+def test_on_process_disability(mocker, listener):
     """ Test the reception of a Supervisor PROCESS_ENABLED or a PROCESS_DISABLED event. """
     # patch context
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
@@ -364,18 +364,18 @@ def test_on_process_disability(mocker, supvisors, listener):
     assert listener.rpc_handler.send_process_disability_event.call_args_list == [call(process_info)]
 
 
-def test_on_group_added_exception(supvisors, listener):
+def test_on_group_added_exception(listener):
     """ Test the protection of the Supervisor thread in case of exception while processing
     a ProcessGroupAddedEvent. """
     listener.on_group_added(None)
     assert not listener.rpc_handler.send_process_added_event.called
 
 
-def test_on_group_added(mocker, supvisors, listener):
+def test_on_group_added(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
-    mocked_fsm = supvisors.fsm.on_process_added_event
-    mocked_prepare = mocker.patch.object(supvisors.supervisor_updater, 'on_group_added')
-    mocked_processes = mocker.patch.object(supvisors.supervisor_data, 'get_group_processes',
+    mocked_fsm = supvisors_instance.fsm.on_process_added_event
+    mocked_prepare = mocker.patch.object(supvisors_instance.supervisor_updater, 'on_group_added')
+    mocked_processes = mocker.patch.object(supvisors_instance.supervisor_data, 'get_group_processes',
                                            return_value={'dummy_proc': Mock()})
     mocked_local = mocker.patch.object(listener, '_get_local_process_info', return_value={'namespec': 'dummy_proc'})
     # test process event
@@ -388,18 +388,18 @@ def test_on_group_added(mocker, supvisors, listener):
     assert listener.rpc_handler.send_process_added_event.call_args_list == [call({'namespec': 'dummy_proc'})]
 
 
-def test_on_group_removed_exception(supvisors, listener):
+def test_on_group_removed_exception(supvisors_instance, listener):
     """ Test the protection of the Supervisor thread in case of exception while processing
     a ProcessGroupRemovedEvent. """
-    mocked_fsm = supvisors.fsm.on_process_removed_event
+    mocked_fsm = supvisors_instance.fsm.on_process_removed_event
     listener.on_group_removed(None)
     assert not mocked_fsm.called
     assert not listener.rpc_handler.send_process_removed_event.called
 
 
-def test_on_group_removed(supvisors, listener):
+def test_on_group_removed(supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_REMOVED event. """
-    mocked_fsm = supvisors.fsm.on_process_removed_event
+    mocked_fsm = supvisors_instance.fsm.on_process_removed_event
     # test process event
     event = ProcessGroupRemovedEvent('dummy_application')
     listener.on_group_removed(event)
@@ -408,237 +408,253 @@ def test_on_group_removed(supvisors, listener):
     assert listener.rpc_handler.send_process_removed_event.call_args_list == [call(expected)]
 
 
-def test_read_notification_wrong_type(supvisors, listener):
+def test_read_notification_wrong_type(supvisors_instance, listener):
     """ Test the processing of a wrong Supvisors notification. """
     with pytest.raises(ValueError):
         listener.read_notification('[["10.0.0.1", ["10.0.0.1", 25000]], [6, {"name": "dummy"}]]')
-    assert not supvisors.fsm.on_discovery_event.called
-    assert not supvisors.fsm.on_identification_event.called
-    assert not supvisors.fsm.on_authorization.called
-    assert not supvisors.fsm.on_state_event.called
-    assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_instance_failure.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_discovery_event.called
+    assert not fsm.on_identification_event.called
+    assert not fsm.on_authorization.called
+    assert not fsm.on_state_event.called
+    assert not fsm.on_all_process_info.called
+    assert not fsm.on_instance_failure.called
 
 
-def test_read_notification_invalid_origin(supvisors, listener):
+def test_read_notification_invalid_origin(supvisors_instance, listener):
     """ Test the processing of a notification coming from an invalid source. """
     listener.read_notification('[["10.0.0.2", "10.0.0.2", ["localhost", 65100]], [2, {"name": "dummy"}]]')
-    assert not supvisors.fsm.on_discovery_event.called
-    assert not supvisors.fsm.on_identification_event.called
-    assert not supvisors.fsm.on_authorization.called
-    assert not supvisors.fsm.on_state_event.called
-    assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_instance_failure.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_discovery_event.called
+    assert not fsm.on_identification_event.called
+    assert not fsm.on_authorization.called
+    assert not fsm.on_state_event.called
+    assert not fsm.on_all_process_info.called
+    assert not fsm.on_instance_failure.called
 
 
-def test_read_notification_discovery(supvisors, listener):
+def test_read_notification_discovery(supvisors_instance, listener):
     """ Test the processing of a Supvisors DISCOVERY notification. """
     listener.read_notification('[["10.0.0.4:65100", "10.0.0.4", ["10.0.0.4", 65100]], [4, {"server_port": 6666}]]')
     expected = [call(['10.0.0.4:65100', '10.0.0.4', ['10.0.0.4', 65100]])]
-    assert supvisors.fsm.on_discovery_event.call_args_list == expected
-    assert not supvisors.fsm.on_identification_event.called
-    assert not supvisors.fsm.on_authorization.called
-    assert not supvisors.fsm.on_state_event.called
-    assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_instance_failure.called
+    fsm = supvisors_instance.fsm
+    assert fsm.on_discovery_event.call_args_list == expected
+    assert not fsm.on_identification_event.called
+    assert not fsm.on_authorization.called
+    assert not fsm.on_state_event.called
+    assert not fsm.on_all_process_info.called
+    assert not fsm.on_instance_failure.called
 
 
-def test_read_notification_identification(supvisors, listener):
+def test_read_notification_identification(supvisors_instance, listener):
     """ Test the processing of a Supvisors IDENTIFICATION notification. """
     listener.read_notification('[["10.0.0.4:65100", "10.0.0.4", ["10.0.0.4", 65100]], [0, {"server_port": 6666}]]')
     expected = [call({'server_port': 6666})]
-    assert not supvisors.fsm.on_discovery_event.called
-    assert supvisors.fsm.on_identification_event.call_args_list == expected
-    assert not supvisors.fsm.on_authorization.called
-    assert not supvisors.fsm.on_state_event.called
-    assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_instance_failure.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_discovery_event.called
+    assert fsm.on_identification_event.call_args_list == expected
+    assert not fsm.on_authorization.called
+    assert not fsm.on_state_event.called
+    assert not fsm.on_all_process_info.called
+    assert not fsm.on_instance_failure.called
 
 
-def test_read_notification_authorization(supvisors, listener):
+def test_read_notification_authorization(supvisors_instance, listener):
     """ Test the processing of a Supvisors AUTHORIZATION notification. """
     listener.read_notification('[["10.0.0.5:25000", "10.0.0.5", ["10.0.0.5", 25000]], [1, false]]')
-    expected = [call(supvisors.context.instances['10.0.0.5:25000'], False)]
-    assert not supvisors.fsm.on_discovery_event.called
-    assert not supvisors.fsm.on_identification_event.called
-    assert supvisors.fsm.on_authorization.call_args_list == expected
-    assert not supvisors.fsm.on_state_event.called
-    assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_instance_failure.called
+    expected = [call(supvisors_instance.context.instances['10.0.0.5:25000'], False)]
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_discovery_event.called
+    assert not fsm.on_identification_event.called
+    assert fsm.on_authorization.call_args_list == expected
+    assert not fsm.on_state_event.called
+    assert not fsm.on_all_process_info.called
+    assert not fsm.on_instance_failure.called
 
 
-def test_read_notification_state(supvisors, listener):
+def test_read_notification_state(supvisors_instance, listener):
     """ Test the processing of a Supvisors state notification. """
     listener.read_notification('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]],'
                                '[2, {"statecode": 10, "statename": "RUNNING"}]]')
-    expected = [call(supvisors.context.instances['10.0.0.1:25000'], {'statecode': 10, 'statename': 'RUNNING'})]
-    assert not supvisors.fsm.on_discovery_event.called
-    assert not supvisors.fsm.on_identification_event.called
-    assert not supvisors.fsm.on_authorization.called
-    assert supvisors.fsm.on_state_event.call_args_list == expected
-    assert not supvisors.fsm.on_all_process_info.called
-    assert not supvisors.fsm.on_instance_failure.called
+    expected = [call(supvisors_instance.context.instances['10.0.0.1:25000'], {'statecode': 10, 'statename': 'RUNNING'})]
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_discovery_event.called
+    assert not fsm.on_identification_event.called
+    assert not fsm.on_authorization.called
+    assert fsm.on_state_event.call_args_list == expected
+    assert not fsm.on_all_process_info.called
+    assert not fsm.on_instance_failure.called
 
 
-def test_read_notification_all_info(supvisors, listener):
+def test_read_notification_all_info(supvisors_instance, listener):
     """ Test the processing of a Supvisors all process information notification. """
     listener.read_notification('[["10.0.0.4:25000", "10.0.0.4", ["10.0.0.4", 25000]], [3, {"name": "dummy"}]]')
-    expected = [call(supvisors.context.instances['10.0.0.4:25000'], {'name': 'dummy'})]
-    assert not supvisors.fsm.on_discovery_event.called
-    assert not supvisors.fsm.on_identification_event.called
-    assert not supvisors.fsm.on_authorization.called
-    assert not supvisors.fsm.on_state_event.called
-    assert supvisors.fsm.on_all_process_info.call_args_list == expected
-    assert not supvisors.fsm.on_instance_failure.called
+    expected = [call(supvisors_instance.context.instances['10.0.0.4:25000'], {'name': 'dummy'})]
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_discovery_event.called
+    assert not fsm.on_identification_event.called
+    assert not fsm.on_authorization.called
+    assert not fsm.on_state_event.called
+    assert fsm.on_all_process_info.call_args_list == expected
+    assert not fsm.on_instance_failure.called
 
 
-def test_read_notification_instance_failure(supvisors, listener):
+def test_read_notification_instance_failure(supvisors_instance, listener):
     """ Test the processing of a Supvisors instance failure notification. """
     listener.read_notification('[["10.0.0.4:25000", "10.0.0.4", ["10.0.0.4", 25000]], [5, null]]')
-    assert not supvisors.fsm.on_discovery_event.called
-    assert not supvisors.fsm.on_identification_event.called
-    assert not supvisors.fsm.on_authorization.called
-    assert not supvisors.fsm.on_state_event.called
-    assert not supvisors.fsm.on_all_process_info.called
-    assert supvisors.fsm.on_instance_failure.call_args_list == [call(supvisors.context.instances['10.0.0.4:25000'])]
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_discovery_event.called
+    assert not fsm.on_identification_event.called
+    assert not fsm.on_authorization.called
+    assert not fsm.on_state_event.called
+    assert not fsm.on_all_process_info.called
+    assert fsm.on_instance_failure.call_args_list == [call(supvisors_instance.context.instances['10.0.0.4:25000'])]
 
 
-def test_read_publication_wrong_type(mocker, supvisors, listener):
+def test_read_publication_wrong_type(mocker, supvisors_instance, listener):
     """ Test the processing of a wring Supvisors publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     with pytest.raises(ValueError):
         listener.read_publication('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]], [10, {"name": "dummy"}]]')
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert not mocked_proc.called
 
 
-def test_read_publication_invalid_origin(mocker, supvisors, listener):
+def test_read_publication_invalid_origin(mocker, supvisors_instance, listener):
     """ Test the processing of a publication coming from an invalid source. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     listener.read_publication('[["10.0.0.1", "10.0.0.2", ["localhost", 65100]], [2, {"name": "dummy"}]]')
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert not mocked_proc.called
 
 
-def test_read_publication_tick(mocker, supvisors, listener):
+def test_read_publication_tick(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors TICK publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     listener.read_publication('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]], [0, "data"]]')
-    expected = [call(supvisors.context.instances['10.0.0.1:25000'], 'data')]
-    assert supvisors.fsm.on_tick_event.call_args_list == expected
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    expected = [call(supvisors_instance.context.instances['10.0.0.1:25000'], 'data')]
+    fsm = supvisors_instance.fsm
+    assert fsm.on_tick_event.call_args_list == expected
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert not mocked_proc.called
 
 
-def test_read_publication_process_state(mocker, supvisors, listener):
+def test_read_publication_process_state(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors process state publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     listener.read_publication('[["10.0.0.2:25000", "10.0.0.2", ["10.0.0.2", 25000]], [1, {"name": "dummy"}]]')
-    expected = [call(supvisors.context.instances['10.0.0.2:25000'], {'name': 'dummy'})]
-    assert not supvisors.fsm.on_tick_event.called
-    assert supvisors.fsm.on_process_state_event.call_args_list == expected
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    expected = [call(supvisors_instance.context.instances['10.0.0.2:25000'], {'name': 'dummy'})]
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert fsm.on_process_state_event.call_args_list == expected
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert not mocked_proc.called
 
 
-def test_read_publication_process_added(mocker, supvisors, listener):
+def test_read_publication_process_added(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors process added publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     listener.read_publication('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]],'
                               '[2, {"group": "dummy_group", "name": "dummy_process"}]]')
-    expected = [call(supvisors.context.instances['10.0.0.1:25000'],
+    expected = [call(supvisors_instance.context.instances['10.0.0.1:25000'],
                      {'group': 'dummy_group', 'name': 'dummy_process'})]
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert supvisors.fsm.on_process_added_event.call_args_list == expected
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert fsm.on_process_added_event.call_args_list == expected
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert not mocked_proc.called
 
 
-def test_read_publication_process_removed(mocker, supvisors, listener):
+def test_read_publication_process_removed(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors process removed publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     listener.read_publication('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]],'
                               '[3, {"group": "dummy_group", "name": "dummy_process"}]]')
-    expected = [call(supvisors.context.instances['10.0.0.1:25000'],
+    expected = [call(supvisors_instance.context.instances['10.0.0.1:25000'],
                      {'group': 'dummy_group', 'name': 'dummy_process'})]
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert supvisors.fsm.on_process_removed_event.call_args_list == expected
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert fsm.on_process_removed_event.call_args_list == expected
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert not mocked_proc.called
 
 
-def test_read_publication_process_disability(mocker, supvisors, listener):
+def test_read_publication_process_disability(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors process enabled publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     listener.read_publication('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]],'
                               '[4, {"group": "dummy_group", "name": "dummy_process"}]]')
-    expected = [call(supvisors.context.instances['10.0.0.1:25000'],
+    expected = [call(supvisors_instance.context.instances['10.0.0.1:25000'],
                      {'group': 'dummy_group', 'name': 'dummy_process'})]
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert supvisors.fsm.on_process_disability_event.call_args_list == expected
-    assert not supvisors.fsm.on_state_event.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert fsm.on_process_disability_event.call_args_list == expected
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert not mocked_proc.called
 
 
-def test_read_publication_host_statistics(mocker, supvisors, listener):
+def test_read_publication_host_statistics(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors host statistics publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics', return_value=[])
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics', return_value=None)
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics', return_value=[])
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics', return_value=None)
     # message definition
     message = '[["10.0.0.3:25000", "10.0.0.3", ["10.0.0.3", 25000]],[5, [0, [[20, 30]], {"lo": [100, 200]}]]]'
     # 1. external_publisher is None
     listener.read_publication(message)
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert mocked_host.call_args_list == [call('10.0.0.3:25000', [0, [[20, 30]], {'lo': [100, 200]}])]
     assert not mocked_proc.called
     mocker.resetall()
     # 2. set external_publisher but still no returned value for push_statistics
-    supvisors.external_publisher = Mock(**{'send_host_statistics.return_value': None})
+    supvisors_instance.external_publisher = Mock(**{'send_host_statistics.return_value': None})
     listener.read_publication(message)
     assert mocked_host.call_args_list == [call('10.0.0.3:25000', [0, [[20, 30]], {'lo': [100, 200]}])]
     assert not listener.external_publisher.send_host_statistics.called
@@ -654,19 +670,20 @@ def test_read_publication_host_statistics(mocker, supvisors, listener):
     listener.external_publisher.send_host_statistics.reset_mock()
 
 
-def test_read_publication_process_statistics(mocker, supvisors, listener):
+def test_read_publication_process_statistics(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors process statistics publication. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics', return_value=None)
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics', return_value=None)
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     # 1. external_publisher is None
     listener.read_publication('[["10.0.0.3:25000", "10.0.0.3", ["10.0.0.3", 25000]],'
                               '[6, [{"cpu": [100, 200]}, {"cpu": [50, 20]}]]]')
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert not supvisors.fsm.on_state_event.called
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert not fsm.on_state_event.called
     assert not mocked_host.called
     assert mocked_proc.call_args_list == [call('10.0.0.3:25000', [{"cpu": [100, 200]}, {"cpu": [50, 20]}])]
     mocked_proc.reset_mock()
@@ -687,19 +704,20 @@ def test_read_publication_process_statistics(mocker, supvisors, listener):
     assert listener.external_publisher.send_process_statistics.call_args_list == [call({'uptime': 1234})]
 
 
-def test_read_publication_state(mocker, supvisors, listener):
+def test_read_publication_state(mocker, supvisors_instance, listener):
     """ Test the processing of a Supvisors state event. """
-    mocked_host = mocker.patch.object(supvisors.host_compiler, 'push_statistics')
-    mocked_proc = mocker.patch.object(supvisors.process_compiler, 'push_statistics')
+    mocked_host = mocker.patch.object(supvisors_instance.host_compiler, 'push_statistics')
+    mocked_proc = mocker.patch.object(supvisors_instance.process_compiler, 'push_statistics')
     listener.read_publication('[["10.0.0.1:25000", "10.0.0.1", ["10.0.0.1", 25000]],'
                               '[7, {"statecode": 10, "statename": "RUNNING"}]]')
-    expected = [call(supvisors.context.instances['10.0.0.1:25000'], {'statecode': 10, 'statename': 'RUNNING'})]
-    assert not supvisors.fsm.on_tick_event.called
-    assert not supvisors.fsm.on_process_state_event.called
-    assert not supvisors.fsm.on_process_added_event.called
-    assert not supvisors.fsm.on_process_removed_event.called
-    assert not supvisors.fsm.on_process_disability_event.called
-    assert supvisors.fsm.on_state_event.call_args_list == expected
+    expected = [call(supvisors_instance.context.instances['10.0.0.1:25000'], {'statecode': 10, 'statename': 'RUNNING'})]
+    fsm = supvisors_instance.fsm
+    assert not fsm.on_tick_event.called
+    assert not fsm.on_process_state_event.called
+    assert not fsm.on_process_added_event.called
+    assert not fsm.on_process_removed_event.called
+    assert not fsm.on_process_disability_event.called
+    assert fsm.on_state_event.call_args_list == expected
     assert not mocked_host.called
     assert not mocked_proc.called
 
@@ -740,11 +758,11 @@ def test_on_remote_event(mocker, listener):
     listener.read_publication.reset_mock()
 
 
-def test_force_process_state(mocker, supvisors, listener):
+def test_force_process_state(mocker, supvisors_instance, listener):
     """ Test the sending of a fake Supervisor process event. """
     mocker.patch('time.time', return_value=45.6)
     # patch publisher
-    mocked_fsm = mocker.patch.object(supvisors.fsm, 'on_process_state_event')
+    mocked_fsm = mocker.patch.object(supvisors_instance.fsm, 'on_process_state_event')
     # test the call
     process = Mock(application_name='appli', process_name='process', extra_args='-h')
     listener.force_process_state(process, '10.0.0.1:25000', 56, ProcessStates.FATAL, 'bad luck')

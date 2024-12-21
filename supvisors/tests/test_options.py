@@ -49,23 +49,23 @@ def config():
 
 
 @pytest.fixture
-def opt(supervisor, supvisors):
+def opt(supervisor_instance, logger_instance):
     """ Create a Supvisors-like structure filled with some instances. """
-    return SupvisorsOptions(supervisor, supvisors.logger)
+    return SupvisorsOptions(supervisor_instance, logger_instance)
 
 
 @pytest.fixture
-def filled_opt(mocker, supervisor, supvisors, config):
+def filled_opt(mocker, supervisor_instance, logger_instance, config):
     """ Test the values of options with defined Supvisors configuration. """
     mocker.patch('supvisors.options.SupvisorsOptions.to_existing_file', return_value='my_icon.png')
     mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
-    return SupvisorsOptions(supervisor, supvisors.logger, **config)
+    return SupvisorsOptions(supervisor_instance, logger_instance, **config)
 
 
 @pytest.fixture
-def server_opt(supvisors):
+def server_opt(supvisors_instance):
     """ Create a Supvisors-like structure filled with some instances. """
-    return SupvisorsServerOptions(supvisors)
+    return SupvisorsServerOptions(supvisors_instance)
 
 
 def test_empty_logger_configuration():
@@ -554,7 +554,7 @@ def create_server(mocker, server_opt, config):
     return server_opt
 
 
-def test_server_options_disabilities(mocker, supvisors, server_opt):
+def test_server_options_disabilities(mocker, supvisors_instance, server_opt):
     """ Test the SupvisorsServerOptions disabilities management. """
     # patch open
     mocked_open = mocker.patch('builtins.open', mocker.mock_open())
@@ -562,7 +562,7 @@ def test_server_options_disabilities(mocker, supvisors, server_opt):
     assert server_opt.disabilities == {}
     # disable program
     server_opt.disable_program('program_1')
-    mocked_open.assert_called_once_with(supvisors.options.disabilities_file, 'w+')
+    mocked_open.assert_called_once_with(supvisors_instance.options.disabilities_file, 'w+')
     handle = mocked_open()
     json_expected = '{"program_1": true}'
     assert handle.write.call_args_list == [call(json_expected)]
@@ -570,7 +570,7 @@ def test_server_options_disabilities(mocker, supvisors, server_opt):
     mocked_open.reset_mock()
     # enable program
     server_opt.enable_program('program_2')
-    mocked_open.assert_called_once_with(supvisors.options.disabilities_file, 'w+')
+    mocked_open.assert_called_once_with(supvisors_instance.options.disabilities_file, 'w+')
     json_expected = '{"program_1": true, "program_2": false}'
     assert handle.write.call_args_list == [call(json_expected)]
     handle.reset_mock()
@@ -586,11 +586,11 @@ def test_server_options_disabilities(mocker, supvisors, server_opt):
     server_opt.disabilities = {}
     server_opt.read_disabilities()
     assert server_opt.disabilities == {'program_1': True, 'program_2': False}
-    mocked_open.assert_called_once_with(supvisors.options.disabilities_file)
+    mocked_open.assert_called_once_with(supvisors_instance.options.disabilities_file)
     handle = mocked_open()
     assert handle.read.call_args_list == [call()]
     # test with disabilities files not set
-    supvisors.options.disabilities_file = None
+    supvisors_instance.options.disabilities_file = None
     server_opt.disabilities = {}
     server_opt.read_disabilities()
     assert server_opt.disabilities == {}

@@ -24,10 +24,10 @@ from supvisors.web.plot import *
 from supvisors.web.viewimage import StatsImage
 
 
-def test_plot(supvisors):
+def test_plot(logger_instance):
     """ Test a simple plot.
     Complex to test anything. Just check that there is no exception. """
-    plot = StatisticsPlot(supvisors.logger)
+    plot = StatisticsPlot(logger_instance)
     assert plot.ydata == {}
     # add series of data
     plot.add_timeline([0, 1, 2])
@@ -42,9 +42,9 @@ def test_plot(supvisors):
     assert imghdr.what('', h=contents.contents.getvalue()) == 'png'
 
 
-def test_plot_error(mocker, supvisors):
+def test_plot_error(mocker, logger_instance):
     """ Check the exception handling when saving the figure. """
-    plot = StatisticsPlot(supvisors.logger)
+    plot = StatisticsPlot(logger_instance)
     assert plot.ydata == {}
     # add series of data
     plot.add_timeline([0, 1, 2])

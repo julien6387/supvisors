@@ -15,6 +15,7 @@
 # ======================================================================
 
 import os
+from typing import Callable
 
 from supervisor.states import ProcessStates, RUNNING_STATES
 
@@ -24,7 +25,8 @@ from supvisors.ttypes import SupvisorsFaults, Payload, PayloadList
 from supvisors.utils import get_small_value
 from .viewcontext import *
 from .viewinstance import SupvisorsInstanceView
-from .webutils import *
+from .webutils import (ProcessRowTypes, SupvisorsPages, SupvisorsGravities, SupvisorsSymbols, WebMessage,
+                       apply_shade, update_attrib)
 
 
 class ProcInstanceView(SupvisorsInstanceView):
@@ -38,14 +40,14 @@ class ProcInstanceView(SupvisorsInstanceView):
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
+        SupvisorsInstanceView.__init__(self, context, SupvisorsPages.PROC_INSTANCE_PAGE)
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         super().handle_parameters()
         # pre-fill the message here to warn the user about the actions on this page
         # it will always be displayed by default unless it is overwritten by another message
-        self.view_ctx.set_message_default('The Supvisors rules do NOT apply here', Warn)
+        self.view_ctx.set_message_default('The Supvisors rules do NOT apply here', SupvisorsGravities.WARNING)
 
     def write_options(self, header_elt):
         """ Write configured periods for statistics.
@@ -73,7 +75,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         """ Configure the statistics view buttons. """
         elt = header_elt.findmeld('host_view_a_mid')
         elt.content(f'{self.sup_ctx.local_status.supvisors_id.host_id}')
-        url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
+        url = self.view_ctx.format_url('', SupvisorsPages.HOST_INSTANCE_PAGE)
         elt.attributes(href=url)
 
     # RIGHT SIDE / BODY part
@@ -310,7 +312,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt = elt.findmeld('shex_a_mid')
         self.logger.trace(f'ProcInstanceView.write_application_status: application_name={application_name}'
                           f' application_shex={application_shex} inverted_shex={inverted_shex}')
-        elt.content(f'{SHEX_SHRINK if application_shex else SHEX_EXPAND}')
+        elt.content(f'{SupvisorsSymbols.SHEX_SHRINK if application_shex else SupvisorsSymbols.SHEX_EXPAND}')
         url = self.view_ctx.format_url('', self.page_name, **{APP_SHRINK_EXPAND: inverted_shex})
         elt.attributes(href=url)
         # print application name (covers state and description)
@@ -318,7 +320,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt.attrib['colspan'] = '3'
         elt = elt.findmeld('name_a_mid')
         elt.content(application_name)
-        url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: application_name})
+        url = self.view_ctx.format_url('', SupvisorsPages.APPLICATION_PAGE, **{APPLI: application_name})
         elt.attributes(href=url)
         for mid in ['state_td_mid', 'desc_td_mid']:
             tr_elt.findmeld(mid).replace('')
@@ -340,12 +342,13 @@ class ProcInstanceView(SupvisorsInstanceView):
         # display Master symbol in shex column
         if self.sup_ctx.is_master:
             elt = tr_elt.findmeld('shex_td_mid')
-            elt.content(MASTER_SYMBOL)
+            elt.content(SupvisorsSymbols.MASTER_SYMBOL)
         # print process name
         elt = tr_elt.findmeld('name_a_mid')
         elt.content(info['process_name'])
-        url = self.view_ctx.format_url('', MAIN_TAIL_PAGE, **{PROCESS: info['namespec'],
-                                                              LIMIT: self.supvisors.options.tail_limit})
+        url = self.view_ctx.format_url('', SupvisorsPages.MAIN_TAIL_PAGE,
+                                       **{PROCESS: info['namespec'],
+                                          LIMIT: self.supvisors.options.tail_limit})
         elt.attributes(href=url, target="_blank")
         # print common status
         self.write_common_state(tr_elt, info)
@@ -356,7 +359,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         self._write_supervisord_button(tr_elt, 'restart_a_mid', self.page_name, **{ACTION: 'restartsup'})
         # manage log actions (stderr not applicable)
         self._write_supervisord_button(tr_elt, 'clear_a_mid', self.page_name, **{ACTION: 'mainclearlog'})
-        self._write_supervisord_button(tr_elt, 'tailout_a_mid', MAIN_STDOUT_PAGE)
+        self._write_supervisord_button(tr_elt, 'tailout_a_mid', SupvisorsPages.MAIN_STDOUT_PAGE)
         self._write_supervisord_off_button(tr_elt, 'tailerr_a_mid')
 
     def _write_supervisord_button(self, tr_elt, mid: str, page: str, **action) -> None:
@@ -409,7 +412,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         if callable(result):
             message = result()
             if type(message) is str and f'[{SupvisorsFaults.DISABLED.value}]' in message:
-                return delayed_error(f'Process {namespec}: disabled')
+                return WebMessage(f'Process {namespec}: disabled', SupvisorsGravities.ERROR).delayed_message
         return result
 
     def start_group_action(self, namespec: str) -> Callable:

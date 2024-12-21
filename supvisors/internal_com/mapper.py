@@ -42,9 +42,13 @@ class NicInformation:
     """ Identification of a network link. """
 
     def __init__(self, nic_name: str, ipv4_address: str, netmask: str):
+        """ Declare attributes. """
         self.nic_name: str = nic_name
         self.ipv4_address: str = ipv4_address
         self.netmask: str = netmask
+        # get the network address based on IP address and netmask
+        network = ipaddress.ip_network(f'{ipv4_address}/{netmask}', strict=False)
+        self.network_address = network.network_address.compressed
 
     @property
     def is_loopback(self):
@@ -118,6 +122,12 @@ class NetworkAddress:
         """ Return True if one local address matches the host identifier passed in parameter. """
         return host_id in [self.host_name] + self.aliases + self.ipv4_addresses
 
+    def get_network_ip(self, network_address: str) -> str:
+        """ Return the main IPv4 address if corresponding to the same network. """
+        if self.nic_info and self.nic_info.network_address == network_address:
+            return self.nic_info.ipv4_address
+        return ''
+
     def from_payload(self, payload: Payload) -> None:
         """ Take the address information as it is. """
         self.host_name = payload['host_name']
@@ -148,6 +158,25 @@ class LocalNetwork:
         """ Return True if one local address matches the host identifier passed in parameter. """
         return next((True for addr in self.addresses.values()
                      if addr.host_matches(host_id)), False)
+
+    def get_network_address(self, hostname: str) -> str:
+        """ Return the network address of the interface matching the hostname. """
+        for netw in self.addresses.values():
+            if netw.host_matches(hostname):
+                return netw.nic_info.network_address if netw.nic_info else ''
+        self.logger.debug('LocalNetwork.get_network_address: cannot find any network address matching'
+                          f' hostname={hostname}')
+        return ''
+
+    def get_network_ip(self, network_address: str) -> str:
+        """ Return the IPv4 address if one interface matches the network address. """
+        for netw in self.addresses.values():
+            ipv4_address = netw.get_network_ip(network_address)
+            if ipv4_address:
+                return ipv4_address
+        self.logger.debug('LocalNetwork.get_network_ip: cannot find any IP address matching'
+                          f' network_address={network_address}')
+        return ''
 
     def from_payload(self, payload: Payload) -> None:
         """ Take the address information as it is. """
@@ -269,6 +298,13 @@ class SupvisorsInstanceId:
         self.logger.debug(f'SupvisorsInstanceId.check_values: identifier={self.identifier}'
                           f' nick_identifier={self.nick_identifier}'
                           f' host_id={self.host_id} http_port={self.http_port}')
+
+    def get_network_ip(self, network_address: Optional[str]) -> str:
+        """ Return the IPv4 address if one interface matches the network address. """
+        ip = ''
+        if network_address and self.local_view:
+            ip = self.local_view.get_network_ip(network_address)
+        return ip or self.host_id
 
     def parse_from_string(self, item: str):
         """ Parse string according to PATTERN to get the Supvisors instance identification attributes.

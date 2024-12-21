@@ -21,29 +21,37 @@ from typing import Any, Callable, Tuple
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 
+
 # HTML page names
-SUPVISORS_PAGE = 'index.html'
-CONCILIATION_PAGE = 'conciliation.html'
-HOST_INSTANCE_PAGE = 'host_instance.html'
-PROC_INSTANCE_PAGE = 'proc_instance.html'
-APPLICATION_PAGE = 'application.html'
-TAIL_PAGE = 'tail.html'
-MAIN_TAIL_PAGE = 'maintail.html'
-STDOUT_PAGE = 'logtail/%s'
-STDERR_PAGE = 'logtail/%s/stderr'
-MAIN_STDOUT_PAGE = 'mainlogtail'
+class SupvisorsPages:
+    """ Supvisors HTML page names. """
+    SUPVISORS_PAGE = 'index.html'
+    CONCILIATION_PAGE = 'conciliation.html'
+    HOST_INSTANCE_PAGE = 'host_instance.html'
+    PROC_INSTANCE_PAGE = 'proc_instance.html'
+    APPLICATION_PAGE = 'application.html'
+    TAIL_PAGE = 'tail.html'
+    MAIN_TAIL_PAGE = 'maintail.html'
+    STDOUT_PAGE = 'logtail/%s'
+    STDERR_PAGE = 'logtail/%s/stderr'
+    MAIN_STDOUT_PAGE = 'mainlogtail'
 
-# gravity classes for messages
-# use of 'erro' instead of 'error' in order to avoid HTTP error log traces
-Info = 'info'
-Warn = 'warn'
-Error = 'erro'
 
-# Web UI symbols
-MASTER_SYMBOL = '\u272A'
-SUB_SYMBOL = '\u21B3'
-SHEX_SHRINK = '[\u2013]'
-SHEX_EXPAND = '[+]'
+class SupvisorsGravities(Enum):
+    """ Gravity classes for messages.
+    'erro' is used instead of 'error' in order to avoid HTTP error log traces.
+    """
+    INFO = 'info'
+    WARNING = 'warn'
+    ERROR = 'erro'
+
+
+class SupvisorsSymbols:
+    """ Supvisors Web UI symbols. """
+    MASTER_SYMBOL = '\u272A'
+    SUB_SYMBOL = '\u21B3'
+    SHEX_SHRINK = '[\u2013]'
+    SHEX_EXPAND = '[+]'
 
 
 # entry types in a Process table
@@ -58,12 +66,12 @@ def format_gravity_message(message):
         # gravity is not set by Supervisor so let's deduce it
         if 'ERROR' in message:
             message = message.replace('ERROR: ', '')
-            gravity = Error
+            gravity = SupvisorsGravities.ERROR
         elif 'unexpected rpc fault' in message:
-            gravity = Warn
+            gravity = SupvisorsGravities.WARNING
         else:
-            gravity = Info
-        return gravity, message
+            gravity = SupvisorsGravities.INFO
+        return gravity.value, message
     # in other cases, Supervisor message is suitable
     return message
 
@@ -85,48 +93,33 @@ def print_message(root: Any, gravity: str, message: str,
         elt.content(message)
 
 
-def format_message(msg, identifier=None) -> str:
-    """ Define a global message structure. """
-    return f'{msg} at {ctime()}' + (f' on {identifier}' if identifier else '')
+class WebMessage:
+    """ Class defining a message to be displayed in the web page. """
 
+    def __init__(self, message: str, gravity: SupvisorsGravities, identifier: str = ''):
+        """ Initialization of the attributes. """
+        self._message: str = message
+        self.gravity: SupvisorsGravities = gravity
+        self.identifier: str = identifier
 
-def info_message(msg, identifier=None) -> Tuple[str, str]:
-    """ Define an information message. """
-    return Info, format_message(msg, identifier)
+    @property
+    def message(self) -> str:
+        """ Define a global message structure. """
+        location = f' on {self.identifier}' if self.identifier else ''
+        return f'{self._message} at {ctime()}{location}'
 
+    @property
+    def gravity_message(self) -> Tuple[str, str]:
+        """ Define a global message structure. """
+        return self.gravity.value, self.message
 
-def warn_message(msg, identifier=None) -> Tuple[str, str]:
-    """ Define a warning message. """
-    return Warn, format_message(msg, identifier)
-
-
-def error_message(msg, identifier=None) -> Tuple[str, str]:
-    """ Define an error message. """
-    return Error, format_message(msg, identifier)
-
-
-def delayed_message(fct: Callable, msg: str, identifier=None) -> Callable:
-    """ Define a delayed message. """
-    def on_wait():
-        return fct(msg, identifier)
-
-    on_wait.delay = 0.05
-    return on_wait
-
-
-def delayed_info(msg: str, identifier=None) -> Callable:
-    """ Define a delayed information message. """
-    return delayed_message(info_message, msg, identifier)
-
-
-def delayed_warn(msg, identifier=None) -> Callable:
-    """ Define a delayed warning message. """
-    return delayed_message(warn_message, msg, identifier)
-
-
-def delayed_error(msg, identifier=None) -> Callable:
-    """ Define a delayed error message. """
-    return delayed_message(error_message, msg, identifier)
+    @property
+    def delayed_message(self) -> Callable:
+        """ Return a callable that returns the message."""
+        def on_wait():
+            return self.gravity_message
+        on_wait.delay = 0.05
+        return on_wait
 
 
 def generic_rpc(rpc_intf, rpc_name: str, args: tuple, success_msg: str) -> Callable:
@@ -141,22 +134,22 @@ def generic_rpc(rpc_intf, rpc_name: str, args: tuple, success_msg: str) -> Calla
     try:
         cb = getattr(rpc_intf, rpc_name)(*args)
     except RPCError as e:
-        return delayed_error(f'{rpc_name}: {e.text}')
+        return WebMessage(f'{rpc_name}: {e.text}', SupvisorsGravities.ERROR).delayed_message
     # process the result if callable
     if callable(cb):
         def onwait():
             try:
                 result = cb()
             except RPCError as exc:
-                return error_message(f'{rpc_name}: {exc.text}')
+                return WebMessage(f'{rpc_name}: {exc.text}', SupvisorsGravities.ERROR).gravity_message
             if result is NOT_DONE_YET:
                 return NOT_DONE_YET
-            return info_message(success_msg)
+            return WebMessage(success_msg, SupvisorsGravities.INFO).gravity_message
 
         onwait.delay = 0.1
         return onwait
     # process the result if directly available
-    return delayed_info(success_msg)
+    return WebMessage(success_msg, SupvisorsGravities.INFO).delayed_message
 
 
 def update_attrib(elt, attribute: str, value: str) -> None:

@@ -12,6 +12,9 @@
   During the handshake, the local network data is shared with the other **Supvisors** instances using the new XML-RPC
   `get_local_supvisors_info`.
 
+* Take into account the network data in the **Supvisors** Web UI, so that the same network interface is used
+  when navigating to another node.
+
 * Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
   and modes information from a single **Supvisors** instance.
   This information has been removed from the XML-RPCs `get_instance_info` and `get_all_instances_info`.

@@ -28,102 +28,102 @@ from .conftest import create_process
 
 # ProcessRules part
 @pytest.fixture
-def rules(supvisors):
+def rules_instance(supvisors_instance):
     """ Return the instance to test. """
-    return ProcessRules(supvisors)
+    return ProcessRules(supvisors_instance)
 
 
-def test_rules_create(supvisors, rules):
+def test_rules_create(supvisors_instance, rules_instance):
     """ Test the values set at construction. """
-    assert rules.supvisors is supvisors
-    assert rules.identifiers == ['*']
-    assert rules.hash_identifiers == []
-    assert rules.start_sequence == 0
-    assert rules.stop_sequence == -1
-    assert not rules.required
-    assert not rules.wait_exit
-    assert rules.expected_load == 0
-    assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
-    assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
+    assert rules_instance.supvisors is supvisors_instance
+    assert rules_instance.identifiers == ['*']
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.start_sequence == 0
+    assert rules_instance.stop_sequence == -1
+    assert not rules_instance.required
+    assert not rules_instance.wait_exit
+    assert rules_instance.expected_load == 0
+    assert rules_instance.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert rules_instance.running_failure_strategy == RunningFailureStrategies.CONTINUE
 
 
-def test_rules_str(rules):
+def test_rules_str(rules_instance):
     """ Test the string output. """
-    assert str(rules) == ("identifiers=['*'] at_identifiers=[] hash_identifiers=[]"
-                          " start_sequence=0 stop_sequence=-1 required=False"
-                          " wait_exit=False expected_load=0 starting_failure_strategy=ABORT"
-                          " running_failure_strategy=CONTINUE")
+    assert str(rules_instance) == ("identifiers=['*'] at_identifiers=[] hash_identifiers=[]"
+                                   " start_sequence=0 stop_sequence=-1 required=False"
+                                   " wait_exit=False expected_load=0 starting_failure_strategy=ABORT"
+                                   " running_failure_strategy=CONTINUE")
 
 
-def test_rules_serial(rules):
+def test_rules_serial(rules_instance):
     """ Test the serialization of the ProcessRules object. """
-    assert rules.serial() == {'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
-                              'required': False, 'wait_exit': False, 'expected_loading': 0,
-                              'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
+    assert rules_instance.serial() == {'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
+                                       'required': False, 'wait_exit': False, 'expected_loading': 0,
+                                       'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
 
 
-def test_rules_check_start_sequence(rules):
+def test_rules_check_start_sequence(rules_instance):
     """ Test the dependencies in process rules. """
     # 1. test with not required and no start sequence
-    rules.start_sequence = 0
-    rules.required = False
+    rules_instance.start_sequence = 0
+    rules_instance.required = False
     # call check dependencies
-    rules.check_dependencies('dummy', False)
+    rules_instance.check_dependencies('dummy', False)
     # check rules unchanged
-    assert rules.start_sequence == 0
-    assert not rules.required
+    assert rules_instance.start_sequence == 0
+    assert not rules_instance.required
     # 2. test with required and no start sequence
-    rules.start_sequence = 0
-    rules.required = True
+    rules_instance.start_sequence = 0
+    rules_instance.required = True
     # check dependencies
-    rules.check_dependencies('dummy', False)
+    rules_instance.check_dependencies('dummy', False)
     # check required has been changed
-    assert rules.start_sequence == 0
-    assert not rules.required
+    assert rules_instance.start_sequence == 0
+    assert not rules_instance.required
     # 3. test with not required and start sequence
-    rules.start_sequence = 1
-    rules.required = False
+    rules_instance.start_sequence = 1
+    rules_instance.required = False
     # check dependencies
-    rules.check_dependencies('dummy', False)
+    rules_instance.check_dependencies('dummy', False)
     # check rules unchanged
-    assert rules.start_sequence == 1
-    assert not rules.required
+    assert rules_instance.start_sequence == 1
+    assert not rules_instance.required
     # 4. test with required and start sequence
-    rules.start_sequence = 1
-    rules.required = True
+    rules_instance.start_sequence = 1
+    rules_instance.required = True
     # check dependencies
-    rules.check_dependencies('dummy', False)
+    rules_instance.check_dependencies('dummy', False)
     # check rules unchanged
-    assert rules.start_sequence == 1
-    assert rules.required
+    assert rules_instance.start_sequence == 1
+    assert rules_instance.required
 
 
-def test_rules_check_stop_sequence(rules):
+def test_rules_check_stop_sequence(rules_instance):
     """ Test the assignment of stop sequence to start sequence if default still set. """
     # test when default still used
-    assert rules.start_sequence == 0
-    assert rules.stop_sequence == -1
-    rules.check_stop_sequence('crash')
-    assert rules.start_sequence == 0
-    assert rules.stop_sequence == 0
+    assert rules_instance.start_sequence == 0
+    assert rules_instance.stop_sequence == -1
+    rules_instance.check_stop_sequence('crash')
+    assert rules_instance.start_sequence == 0
+    assert rules_instance.stop_sequence == 0
     # test when value has been set
-    rules.start_sequence = 12
-    rules.stop_sequence = 50
-    rules.check_stop_sequence('crash')
-    assert rules.start_sequence == 12
-    assert rules.stop_sequence == 50
+    rules_instance.start_sequence = 12
+    rules_instance.stop_sequence = 50
+    rules_instance.check_stop_sequence('crash')
+    assert rules_instance.start_sequence == 12
+    assert rules_instance.stop_sequence == 50
 
 
-def test_rules_check_autorestart(mocker, rules):
+def test_rules_check_autorestart(mocker, rules_instance):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
     # test based on programs unknown to Supervisor
-    mocked_disable = mocker.patch.object(rules.supvisors.supervisor_data, 'disable_autorestart')
-    mocked_autorestart = mocker.patch.object(rules.supvisors.supervisor_data, 'autorestart')
+    mocked_disable = mocker.patch.object(rules_instance.supvisors.supervisor_data, 'disable_autorestart')
+    mocked_autorestart = mocker.patch.object(rules_instance.supvisors.supervisor_data, 'autorestart')
     mocked_autorestart.side_effect = KeyError
     for strategy in RunningFailureStrategies:
-        rules.running_failure_strategy = strategy
-        rules.check_autorestart('dummy_process_1')
+        rules_instance.running_failure_strategy = strategy
+        rules_instance.check_autorestart('dummy_process_1')
         if strategy in [RunningFailureStrategies.STOP_APPLICATION, RunningFailureStrategies.RESTART_APPLICATION]:
             assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
             mocked_autorestart.reset_mock()
@@ -134,8 +134,8 @@ def test_rules_check_autorestart(mocker, rules):
     mocked_autorestart.side_effect = None
     mocked_autorestart.return_value = False
     for strategy in RunningFailureStrategies:
-        rules.running_failure_strategy = strategy
-        rules.check_autorestart('dummy_process_1')
+        rules_instance.running_failure_strategy = strategy
+        rules_instance.check_autorestart('dummy_process_1')
         if strategy in [RunningFailureStrategies.STOP_APPLICATION, RunningFailureStrategies.RESTART_APPLICATION]:
             assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
             mocked_autorestart.reset_mock()
@@ -146,8 +146,8 @@ def test_rules_check_autorestart(mocker, rules):
     # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
     mocked_autorestart.return_value = True
     for strategy in RunningFailureStrategies:
-        rules.running_failure_strategy = strategy
-        rules.check_autorestart('dummy_process_1')
+        rules_instance.running_failure_strategy = strategy
+        rules_instance.check_autorestart('dummy_process_1')
         if strategy in [RunningFailureStrategies.STOP_APPLICATION, RunningFailureStrategies.RESTART_APPLICATION]:
             assert mocked_disable.call_args_list == [call('dummy_process_1')]
             mocked_disable.reset_mock()
@@ -155,79 +155,79 @@ def test_rules_check_autorestart(mocker, rules):
             assert not mocked_disable.called
 
 
-def test_rules_check_at_identifiers(rules):
+def test_rules_check_at_identifiers(rules_instance):
     """ Test the rules consistence when at_identifiers is set. """
-    assert rules.at_identifiers == []
-    assert rules.identifiers == ['*']
+    assert rules_instance.at_identifiers == []
+    assert rules_instance.identifiers == ['*']
     # test with no at_identifiers
     for is_pattern in [True, False]:
-        rules.check_at_identifiers('dummy_process', is_pattern)
-        assert rules.at_identifiers == []
-        assert rules.identifiers == ['*']
+        rules_instance.check_at_identifiers('dummy_process', is_pattern)
+        assert rules_instance.at_identifiers == []
+        assert rules_instance.identifiers == ['*']
     # test with pattern: no change
-    rules.at_identifiers = ['10.0.0.1', '10.0.0.2']
-    assert rules.identifiers == ['*']
-    rules.check_at_identifiers('dummy_process', True)
-    assert rules.at_identifiers == ['10.0.0.1', '10.0.0.2']
-    assert rules.identifiers == ['*']
+    rules_instance.at_identifiers = ['10.0.0.1', '10.0.0.2']
+    assert rules_instance.identifiers == ['*']
+    rules_instance.check_at_identifiers('dummy_process', True)
+    assert rules_instance.at_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules_instance.identifiers == ['*']
     # test without pattern: reset
-    rules.check_at_identifiers('dummy_process', False)
-    assert rules.at_identifiers == []
-    assert rules.identifiers == ['*']
+    rules_instance.check_at_identifiers('dummy_process', False)
+    assert rules_instance.at_identifiers == []
+    assert rules_instance.identifiers == ['*']
 
 
-def test_rules_check_hash_identifiers(rules):
+def test_rules_check_hash_identifiers(rules_instance):
     """ Test the rules consistence when hash_identifiers is set. """
-    assert rules.hash_identifiers == []
-    assert rules.identifiers == ['*']
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.identifiers == ['*']
     # test with no at_identifiers
     for is_pattern in [True, False]:
-        rules.check_hash_identifiers('dummy_process', is_pattern)
-        assert rules.hash_identifiers == []
-        assert rules.identifiers == ['*']
+        rules_instance.check_hash_identifiers('dummy_process', is_pattern)
+        assert rules_instance.hash_identifiers == []
+        assert rules_instance.identifiers == ['*']
     # test with pattern: no change
-    rules.hash_identifiers = ['10.0.0.1', '10.0.0.2']
-    assert rules.identifiers == ['*']
-    rules.check_hash_identifiers('dummy_process', True)
-    assert rules.hash_identifiers == ['10.0.0.1', '10.0.0.2']
-    assert rules.identifiers == ['*']
+    rules_instance.hash_identifiers = ['10.0.0.1', '10.0.0.2']
+    assert rules_instance.identifiers == ['*']
+    rules_instance.check_hash_identifiers('dummy_process', True)
+    assert rules_instance.hash_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules_instance.identifiers == ['*']
     # test without pattern: reset
-    rules.check_hash_identifiers('dummy_process', False)
-    assert rules.hash_identifiers == []
-    assert rules.identifiers == ['*']
+    rules_instance.check_hash_identifiers('dummy_process', False)
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.identifiers == ['*']
 
 
-def test_rules_check_sign_identifiers(rules):
+def test_rules_check_sign_identifiers(rules_instance):
     """ Test the rules consistence when at_identifiers and hash_identifiers is set. """
-    assert rules.at_identifiers == []
-    assert rules.hash_identifiers == []
-    assert rules.identifiers == ['*']
+    assert rules_instance.at_identifiers == []
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.identifiers == ['*']
     # test no change with no hash or at identifiers
-    rules.check_sign_identifiers('dummy_process')
-    assert rules.at_identifiers == []
-    assert rules.hash_identifiers == []
-    assert rules.identifiers == ['*']
+    rules_instance.check_sign_identifiers('dummy_process')
+    assert rules_instance.at_identifiers == []
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.identifiers == ['*']
     # test no change with only at identifiers
-    rules.at_identifiers = ['10.0.0.1', '10.0.0.2']
-    rules.check_sign_identifiers('dummy_process')
-    assert rules.at_identifiers == ['10.0.0.1', '10.0.0.2']
-    assert rules.hash_identifiers == []
-    assert rules.identifiers == ['*']
+    rules_instance.at_identifiers = ['10.0.0.1', '10.0.0.2']
+    rules_instance.check_sign_identifiers('dummy_process')
+    assert rules_instance.at_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.identifiers == ['*']
     # test no change with only hash identifiers
-    rules.at_identifiers, rules.hash_identifiers = rules.hash_identifiers, rules.at_identifiers
-    rules.check_sign_identifiers('dummy_process')
-    assert rules.at_identifiers == []
-    assert rules.hash_identifiers == ['10.0.0.1', '10.0.0.2']
-    assert rules.identifiers == ['*']
+    rules_instance.at_identifiers, rules_instance.hash_identifiers = rules_instance.hash_identifiers, rules_instance.at_identifiers
+    rules_instance.check_sign_identifiers('dummy_process')
+    assert rules_instance.at_identifiers == []
+    assert rules_instance.hash_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules_instance.identifiers == ['*']
     # test change with both at and hash identifiers
-    rules.at_identifiers = ['10.0.0.1', '10.0.0.2']
-    rules.check_sign_identifiers('dummy_process')
-    assert rules.at_identifiers == ['10.0.0.1', '10.0.0.2']
-    assert rules.hash_identifiers == []
-    assert rules.identifiers == ['*']
+    rules_instance.at_identifiers = ['10.0.0.1', '10.0.0.2']
+    rules_instance.check_sign_identifiers('dummy_process')
+    assert rules_instance.at_identifiers == ['10.0.0.1', '10.0.0.2']
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.identifiers == ['*']
 
 
-def test_rules_check_dependencies(mocker, rules):
+def test_rules_check_dependencies(mocker, rules_instance):
     """ Test the dependencies in process rules. """
     mocked_at = mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
     mocked_hash = mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
@@ -236,7 +236,7 @@ def test_rules_check_dependencies(mocker, rules):
     mocked_stop = mocker.patch('supvisors.process.ProcessRules.check_stop_sequence')
     mocked_auto = mocker.patch('supvisors.process.ProcessRules.check_autorestart')
     # check dependencies
-    rules.check_dependencies('dummy', False)
+    rules_instance.check_dependencies('dummy', False)
     # test calls
     assert mocked_at.call_args_list == [call('dummy', False)]
     assert mocked_hash.call_args_list == [call('dummy', False)]
@@ -247,12 +247,12 @@ def test_rules_check_dependencies(mocker, rules):
 
 
 # ProcessStatus part
-def test_process_create(supvisors):
+def test_process_create(supvisors_instance):
     """ Test the values set at ProcessStatus construction. """
     info = any_stopped_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     # check application default attributes
-    assert process.supvisors is supvisors
+    assert process.supvisors is supvisors_instance
     assert process.application_name == info['group']
     assert process.process_name == info['name']
     assert process.namespec == make_namespec(info['group'], info['name'])
@@ -265,16 +265,16 @@ def test_process_create(supvisors):
     assert process.running_identifiers == set()
     assert process.info_map == {}
     # rules part identical to construction
-    assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
+    assert process.rules.__dict__ == ProcessRules(supvisors_instance).__dict__
 
 
-def test_process_program_name_process_index(supvisors):
+def test_process_program_name_process_index(supvisors_instance):
     """ Test the ProcessStatus program_name and process_index properties. """
     # create process
     info = any_process_info()
     info['program_name'] = 'dummy_process'
     info['process_index'] = 5
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     assert process.program_name == ''
     assert process.process_index == 0
     # add info payload to identifier 10.0.0.1
@@ -298,10 +298,10 @@ def test_process_program_name_process_index(supvisors):
     assert process.process_index == 4
 
 
-def test_process_disabled(supvisors):
+def test_process_disabled(supvisors_instance):
     """ Test the ProcessStatus.disabled method. """
     info = any_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     # test enabled when no possible identifiers
     assert not process.disabled()
     process.add_info('10.0.0.1', info)
@@ -316,10 +316,10 @@ def test_process_disabled(supvisors):
     assert process.disabled()
 
 
-def test_process_disabled_on(supvisors):
+def test_process_disabled_on(supvisors_instance):
     """ Test the ProcessStatus.disabled_on method. """
     info = any_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.2', info)
     # test with identifier not found in process info_map
     assert not process.disabled_on('10.0.0.1')
@@ -330,10 +330,10 @@ def test_process_disabled_on(supvisors):
     assert process.disabled_on('10.0.0.2')
 
 
-def test_process_possible_identifiers(supvisors):
+def test_process_possible_identifiers(supvisors_instance):
     """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.2:25000', info)
     process.add_info('10.0.0.4:25000', info.copy())
     # default identifiers is '*' in process rules and all are enabled
@@ -352,18 +352,18 @@ def test_process_possible_identifiers(supvisors):
     assert process.possible_identifiers() == ['10.0.0.2:25000', '10.0.0.4:25000']
     # test with full status and all instances in rules + re-enable on '10.0.0.3'
     process.update_disability('10.0.0.3:25000', False)
-    for identifier in supvisors.mapper.instances:
+    for identifier in supvisors_instance.mapper.instances:
         process.add_info(identifier, info.copy())
-    assert process.possible_identifiers() == list(supvisors.mapper.instances.keys())
+    assert process.possible_identifiers() == list(supvisors_instance.mapper.instances.keys())
     # restrict again instances in rules
     process.rules.identifiers = ['10.0.0.5:25000']
     assert process.possible_identifiers() == ['10.0.0.5:25000']
 
 
-def test_status_stopped_process(supvisors):
+def test_status_stopped_process(supvisors_instance):
     """ Test the stopped / running / crashed status with a STOPPED process. """
     info = any_process_info_by_state(ProcessStates.STOPPED)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     assert process.state == ProcessStates.STOPPED
     assert process.state_string() == 'STOPPED'
@@ -415,10 +415,10 @@ def test_status_stopped_process(supvisors):
     assert not process.crashed('10.0.0.2')
 
 
-def test_status_backoff_process(supvisors):
+def test_status_backoff_process(supvisors_instance):
     """ Test the stopped / running / crashed status with a BACKOFF process. """
     info = any_process_info_by_state(ProcessStates.BACKOFF)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     assert process.state == ProcessStates.BACKOFF
     assert process.state_string() == 'BACKOFF'
@@ -459,10 +459,10 @@ def test_status_backoff_process(supvisors):
     assert not process.crashed('10.0.0.2')
 
 
-def test_status_running_process(supvisors):
+def test_status_running_process(supvisors_instance):
     """ Test the stopped / running / crashed status with a RUNNING process. """
     info = any_process_info_by_state(ProcessStates.RUNNING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     assert process.state == ProcessStates.RUNNING
     assert process.state_string() == 'RUNNING'
@@ -494,10 +494,10 @@ def test_status_running_process(supvisors):
     assert not process.running_on('10.0.0.2')
 
 
-def test_status_stopping_process(supvisors):
+def test_status_stopping_process(supvisors_instance):
     """ Test the stopped / running / crashed status with a STOPPING process. """
     info = any_process_info_by_state(ProcessStates.STOPPING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     assert process.state == ProcessStates.STOPPING
     assert process.state_string() == 'STOPPING'
@@ -538,10 +538,10 @@ def test_status_stopping_process(supvisors):
     assert not process.crashed('10.0.0.2')
 
 
-def test_status_fatal_process(supvisors):
+def test_status_fatal_process(supvisors_instance):
     """ Test the stopped / running / crashed status with a FATAL process. """
     info = any_process_info_by_state(ProcessStates.FATAL)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     assert process.state == ProcessStates.FATAL
     assert process.state_string() == 'FATAL'
@@ -582,11 +582,11 @@ def test_status_fatal_process(supvisors):
     assert not process.crashed('10.0.0.2')
 
 
-def test_status_exited_process(supvisors):
+def test_status_exited_process(supvisors_instance):
     """ Test the stopped / running / crashed status with an EXITED process. """
     # test with expected_exit
     info = any_process_info_by_state(ProcessStates.EXITED)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     process.expected_exit = True
     assert process.state == ProcessStates.EXITED
@@ -641,11 +641,11 @@ def test_status_exited_process(supvisors):
     assert not process.crashed('10.0.0.2')
 
 
-def test_process_conflicting(supvisors):
+def test_process_conflicting(supvisors_instance):
     """ Test the is ProcessStatus.conflicting method. """
     # when there is only one STOPPED process info, there is no conflict
     info = any_process_info_by_state(ProcessStates.STOPPED)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     assert not process.conflicting()
     # the addition of a running address, still no conflict
@@ -659,10 +659,10 @@ def test_process_conflicting(supvisors):
     assert not process.conflicting()
 
 
-def test_extra_args(mocker, supvisors):
+def test_extra_args(mocker, supvisors_instance):
     """ Test the accessors of the ProcessStatus extra_args. """
     info = any_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     assert process._extra_args == ''
     assert process.extra_args == ''
     # test assignment
@@ -670,17 +670,17 @@ def test_extra_args(mocker, supvisors):
     assert process._extra_args == 'new args'
     assert process.extra_args == 'new args'
     # test internal exception when process unknown to the local Supervisor
-    mocker.patch.object(supvisors.supervisor_data, 'update_extra_args', side_effect=KeyError)
+    mocker.patch.object(supvisors_instance.supervisor_data, 'update_extra_args', side_effect=KeyError)
     process.extra_args = 'another args'
     assert process._extra_args == 'another args'
     assert process.extra_args == 'another args'
 
 
-def test_serialization(supvisors):
+def test_serialization(supvisors_instance):
     """ Test the serialization of the ProcessStatus. """
     # test with a STOPPED process
     info = any_process_info_by_state(ProcessStates.STOPPED)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
@@ -701,10 +701,10 @@ def test_serialization(supvisors):
                           'last_event_time': process.last_event_time, 'identifiers': [], 'extra_args': ''}
 
 
-def test_get_applicable_details(supvisors):
+def test_get_applicable_details(supvisors_instance):
     """ Test the ViewContext.get_applicable_details method. """
     # create ProcessStatus instance
-    process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
+    process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors_instance)
     process.info_map = {'10.0.0.1:25000': {'local_time': 10, 'start': 25, 'stop': 32, 'description': 'desc1', 'state': 0,
                                            'now': 50, 'event_time': 50, 'has_stdout': True, 'has_stderr': False},
                         '10.0.0.2:25000': {'local_time': 30, 'start': 0, 'stop': 0, 'description': 'Not started',
@@ -731,10 +731,10 @@ def test_get_applicable_details(supvisors):
     assert process.get_applicable_details() == (None, 'global crash', False, False)
 
 
-def test_has_stdout_stderr(supvisors):
+def test_has_stdout_stderr(supvisors_instance):
     """ Test the ViewContext.has_stdout and has_stderrmethods. """
     # create ProcessStatus instance
-    process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
+    process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors_instance)
     process.info_map = {'10.0.0.1:25000': {'start': 25, 'has_stdout': True, 'has_stderr': False},
                         '10.0.0.2:25000': {'start': 0, 'has_stdout': False, 'has_stderr': False},
                         '10.0.0.3:25000': {'start': 5, 'has_stdout': False, 'has_stderr': True},
@@ -750,14 +750,14 @@ def test_has_stdout_stderr(supvisors):
     assert not process.has_stderr('10.0.0.4:25000')
 
 
-def test_add_info(supvisors):
+def test_add_info(supvisors_instance):
     """ Test the addition of a process info into the ProcessStatus. """
     # get a process info and complement extra_args
     info = process_info_by_name('xclock')
     info['extra_args'] = '-x dummy'
     assert 'uptime' not in info
     # 1. create ProcessStatus instance
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.extra_args = 'something else'
     process.add_info('10.0.0.1', info)
     # check last event info
@@ -827,11 +827,11 @@ def test_add_info(supvisors):
     assert process.has_crashed
 
 
-def test_update_info(supvisors):
+def test_update_info(supvisors_instance):
     """ Test the update of the ProcessStatus upon reception of a process event. """
     # 1. add a STOPPED process info into a process status
     info = any_process_info_by_state(ProcessStates.STOPPED)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     # test last event info stored
     assert process.last_event_time > 0
@@ -997,11 +997,11 @@ def test_update_info(supvisors):
     assert info['expected']
 
 
-def test_update_disability(supvisors):
+def test_update_disability(supvisors_instance):
     """ Test the update of the disabled entry for a process info belonging to a ProcessStatus. """
     # add 2 process infos into a process status
     info = any_process_info_by_state(ProcessStates.STOPPING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
     # check initial state
@@ -1024,11 +1024,11 @@ def test_update_disability(supvisors):
     assert not process.info_map['10.0.0.2']['disabled']
 
 
-def test_update_times(supvisors):
+def test_update_times(supvisors_instance):
     """ Test the update of the time entries for a process info belonging to a ProcessStatus. """
     # add 2 process infos into a process status
     info = any_process_info_by_state(ProcessStates.STOPPING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
     # get their time values
@@ -1072,11 +1072,11 @@ def test_update_uptime():
             assert info['uptime'] == 0
 
 
-def test_invalidate_nodes(supvisors):
+def test_invalidate_nodes(supvisors_instance):
     """ Test the invalidation of instances. """
     # create conflict directly with 3 process info
     info = any_process_info_by_state(ProcessStates.BACKOFF)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.RUNNING))
     process.add_info('10.0.0.3', any_process_info_by_state(ProcessStates.STARTING))
@@ -1107,11 +1107,11 @@ def test_invalidate_nodes(supvisors):
     assert process.state == ProcessStates.FATAL
 
 
-def test_remove_node(supvisors):
+def test_remove_node(supvisors_instance):
     """ Test the removal of instances. """
     # create conflict directly with 2 process info
     info = any_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     process.add_info('10.0.0.2', any_process_info())
     # check process info_map
@@ -1122,14 +1122,14 @@ def test_remove_node(supvisors):
     assert sorted(process.info_map.keys()) == []
 
 
-def test_update_status(supvisors):
+def test_update_status(supvisors_instance):
     """ Test the update of state and running Supvisors instances. """
     # force local monotonic time to same value as the proces info
     # increase logger level to hit special log traces
-    supvisors.logger.level = LevelsByName.BLAT
+    supvisors_instance.logger.level = LevelsByName.BLAT
     # update_status is called in the construction
     info = any_process_info_by_state(ProcessStates.FATAL)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.3', info)
     process.info_map['10.0.0.3']['local_time'] = 10
     assert process.running_identifiers == set()
@@ -1194,13 +1194,13 @@ def test_update_status(supvisors):
     assert process.expected_exit
 
 
-def test_process_evaluate_conflict(supvisors):
+def test_process_evaluate_conflict(supvisors_instance):
     """ Test the determination of a synthetic state in case of conflict. """
     # when there is only one STOPPED process info, there is no conflict
-    # this method is expected to be called aonly when a conflict (multiple running processes) is detected
+    # this method is expected to be called only when a conflict (multiple running processes) is detected
     # the state is evaluated against running states. STOPPED leads to UNKNOWN
     info = any_process_info_by_state(ProcessStates.STOPPED)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     process._evaluate_conflict()
     assert process.state == ProcessStates.UNKNOWN

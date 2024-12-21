@@ -24,19 +24,19 @@ from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, Su
 
 
 @pytest.fixture
-def supvisors_ctx(supvisors):
+def supvisors_ctx(supvisors_instance):
     """ Create a Supvisors-like structure filled with some instances. """
-    nodes = supvisors.context.instances
+    nodes = supvisors_instance.context.instances
     nodes['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.2:25000']._state = SupvisorsInstanceStates.STOPPED
     nodes['10.0.0.3:25000']._state = SupvisorsInstanceStates.CHECKING
     nodes['10.0.0.4:25000']._state = SupvisorsInstanceStates.FAILED
     nodes['10.0.0.5:25000']._state = SupvisorsInstanceStates.ISOLATED
     nodes['10.0.0.6:25000']._state = SupvisorsInstanceStates.STOPPED
-    return supvisors
+    return supvisors_instance
 
 
-def test_base_state(supvisors, supvisors_ctx):
+def test_base_state(supvisors_ctx):
     """ Test the SupvisorsBaseState of the FSM. """
     state = SupvisorsBaseState(supvisors_ctx)
     # check attributes at creation
@@ -482,16 +482,16 @@ def test_synchronization_state_enter(supvisors_ctx, sync_state):
     assert supvisors_ctx.stopper.abort.called
 
 
-def test_synchronization_state_check_end_sync_strict(supvisors, sync_state):
+def test_synchronization_state_check_end_sync_strict(supvisors_instance, sync_state):
     """ Test the SynchronizationState of the Supvisors FSM / _check_end_sync_strict method. """
-    supvisors.mapper.initial_identifiers = ['10.0.0.2:25000', '10.0.0.1:25000']
+    supvisors_instance.mapper.initial_identifiers = ['10.0.0.2:25000', '10.0.0.1:25000']
     assert sync_state.context.instances['10.0.0.2:25000']._state == SupvisorsInstanceStates.STOPPED
     assert sync_state.context.instances['10.0.0.1:25000']._state == SupvisorsInstanceStates.RUNNING
     # test with option STRICT not set
-    supvisors.options.synchro_options = []
+    supvisors_instance.options.synchro_options = []
     assert sync_state._check_end_sync_strict() is None
     # test with option STRICT set
-    supvisors.options.synchro_options = [SynchronizationOptions.STRICT]
+    supvisors_instance.options.synchro_options = [SynchronizationOptions.STRICT]
     # test when there are still UNKNOWN Supvisors instances
     assert sync_state._check_end_sync_strict() is False
     # test when all initial instances are RUNNING, even there are still unknown states
@@ -499,13 +499,13 @@ def test_synchronization_state_check_end_sync_strict(supvisors, sync_state):
     assert sync_state._check_end_sync_strict()
 
 
-def test_synchronization_state_check_end_sync_list(supvisors, sync_state):
+def test_synchronization_state_check_end_sync_list(supvisors_instance, sync_state):
     """ Test the SynchronizationState state of the Supvisors FSM / _check_end_sync_list method. """
     # test with option LIST not set
-    supvisors.options.synchro_options = []
+    supvisors_instance.options.synchro_options = []
     assert sync_state._check_end_sync_list() is None
     # test with option LIST set
-    supvisors.options.synchro_options = [SynchronizationOptions.LIST]
+    supvisors_instance.options.synchro_options = [SynchronizationOptions.LIST]
     # test when there are still non-RUNNING Supvisors instances
     sync_state.context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
     assert sync_state._check_end_sync_list() is False
@@ -518,63 +518,63 @@ def test_synchronization_state_check_end_sync_list(supvisors, sync_state):
     assert sync_state._check_end_sync_list()
 
 
-def test_synchronization_state_check_end_sync_timeout(supvisors, sync_state):
+def test_synchronization_state_check_end_sync_timeout(supvisors_instance, sync_state):
     """ Test the SynchronizationState state of the Supvisors FSM / _check_end_sync_timeout method. """
     # test with option TIMEOUT not set
-    supvisors.options.synchro_options = []
-    supvisors.options.synchro_timeout = 60
+    supvisors_instance.options.synchro_options = []
+    supvisors_instance.options.synchro_timeout = 60
     assert sync_state._check_end_sync_timeout(80) is None
     # test with option TIMEOUT set
-    supvisors.options.synchro_options = [SynchronizationOptions.TIMEOUT]
+    supvisors_instance.options.synchro_options = [SynchronizationOptions.TIMEOUT]
     # test when the timeout is not reached
     assert sync_state._check_end_sync_timeout(59.9) is False
     # test when there are no more unknown and transitory (UNKNOWN, ISOLATING, CHECKING) Supvisors instances
     assert sync_state._check_end_sync_timeout(60.1)
 
 
-def test_synchronization_state_check_end_sync_core(supvisors, sync_state):
+def test_synchronization_state_check_end_sync_core(supvisors_instance, sync_state):
     """ Test the SynchronizationState state of the Supvisors FSM / _check_end_sync_core method. """
     # test with option CORE not set
-    supvisors.options.synchro_options = []
+    supvisors_instance.options.synchro_options = []
     assert sync_state._check_end_sync_core(80) is None
     # test with option CORE set
-    supvisors.options.synchro_options = [SynchronizationOptions.CORE]
+    supvisors_instance.options.synchro_options = [SynchronizationOptions.CORE]
     # test when with no core instances
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1)
     # test with NOT all core instances running
-    supvisors.mapper._core_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000']
+    supvisors_instance.mapper._core_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000']
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
     # test with all core instances running / unstability
-    supvisors.mapper._core_identifiers = ['10.0.0.2:25000']
+    supvisors_instance.mapper._core_identifiers = ['10.0.0.2:25000']
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
     # test with all core instances running / stability
-    supvisors.state_modes.stable_identifiers = {identifier for identifier in supvisors.mapper.instances}
-    supvisors.state_modes.local_state_modes.instance_states['10.0.0.2:25000'] = SupvisorsInstanceStates.RUNNING
+    supvisors_instance.state_modes.stable_identifiers = {identifier for identifier in supvisors_instance.mapper.instances}
+    supvisors_instance.state_modes.local_state_modes.instance_states['10.0.0.2:25000'] = SupvisorsInstanceStates.RUNNING
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1)
 
 
-def test_synchronization_state_check_end_sync_user(supvisors, sync_state):
+def test_synchronization_state_check_end_sync_user(supvisors_instance, sync_state):
     """ Test the SynchronizationState state of the Supvisors FSM / _check_end_sync_user method. """
     # test with option USER not set
-    supvisors.options.synchro_options = []
+    supvisors_instance.options.synchro_options = []
     assert sync_state._check_end_sync_user() is None
     # test with option USER set
-    supvisors.options.synchro_options = [SynchronizationOptions.USER]
+    supvisors_instance.options.synchro_options = [SynchronizationOptions.USER]
     # test with no Master
     assert sync_state._check_end_sync_user() is False
     # test with NOT running Master
-    supvisors.state_modes.master_identifier = '10.0.0.2:25000'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.2:25000'
     assert sync_state._check_end_sync_user() is False
     # test with running Master
-    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
     assert sync_state._check_end_sync_user()
 
 
-def test_synchronization_state_next(mocker, supvisors, sync_state):
+def test_synchronization_state_next(mocker, sync_state):
     """ Test the SynchronizationState state of the Supvisors FSM / next method. """
     mock_list = ['_check_end_sync_strict', '_check_end_sync_list', '_check_end_sync_timeout',
                  '_check_end_sync_core', '_check_end_sync_user']
@@ -938,51 +938,51 @@ def test_final_state(supvisors_ctx):
 
 
 @pytest.fixture
-def fsm(supvisors):
+def fsm(supvisors_instance):
     """ Create the FiniteStateMachine instance to test. """
-    state_machine = FiniteStateMachine(supvisors)
-    supvisors.fsm = state_machine
+    state_machine = FiniteStateMachine(supvisors_instance)
+    supvisors_instance.fsm = state_machine
     return state_machine
 
 
-def test_creation(supvisors, fsm):
+def test_creation(supvisors_instance, fsm):
     """ Test the values set at construction. """
-    assert fsm.supvisors is supvisors
-    assert fsm.logger is supvisors.logger
-    assert fsm.context is supvisors.context
-    assert fsm.state_modes is supvisors.state_modes
+    assert fsm.supvisors is supvisors_instance
+    assert fsm.logger is supvisors_instance.logger
+    assert fsm.context is supvisors_instance.context
+    assert fsm.state_modes is supvisors_instance.state_modes
     assert not fsm.force_distribution
     # test that the INITIALIZATION state is triggered at creation
     assert fsm.state == SupvisorsStates.OFF
     assert isinstance(fsm.instance, OffState)
-    assert supvisors.context.start_date > 0.0
+    assert supvisors_instance.context.start_date > 0.0
 
 
-def test_fsm_next(mocker, supvisors, fsm):
+def test_fsm_next(mocker, supvisors_instance, fsm):
     """ Test the principle of the FiniteStateMachine / next method. """
     mocker_state = mocker.patch.object(fsm, 'set_state')
     fsm.next()
-    assert supvisors.starter.check.called
-    assert supvisors.stopper.check.called
+    assert supvisors_instance.starter.check.called
+    assert supvisors_instance.stopper.check.called
     assert mocker_state.called
 
 
-def test_set_state_slave(supvisors, fsm):
+def test_set_state_slave(supvisors_instance, fsm):
     """ Test the state transitions in a Slave FSM. """
     assert fsm.state == SupvisorsStates.OFF
-    supvisors.state_modes.master_identifier = '10.0.0.2:25000'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.2:25000'
     # no change
     fsm.set_state(None)
     assert fsm.state == SupvisorsStates.OFF
     # all proposals back to OFF because the local instance is not RUNNING
-    assert supvisors.context.local_status.state == SupvisorsInstanceStates.STOPPED
+    assert supvisors_instance.context.local_status.state == SupvisorsInstanceStates.STOPPED
     for fsm_state in SupvisorsStates:
         fsm.set_state(fsm_state)
         assert fsm.state == SupvisorsStates.OFF
     # set the local instance to RUNNING
-    supvisors.context.local_status._state = SupvisorsInstanceStates.RUNNING
+    supvisors_instance.context.local_status._state = SupvisorsInstanceStates.RUNNING
     # test that invalid transitions are not accepted
-    supvisors.state_modes.state = SupvisorsStates.OFF
+    supvisors_instance.state_modes.state = SupvisorsStates.OFF
     assert SupvisorsStates.ELECTION not in FiniteStateMachine._Transitions[SupvisorsStates.OFF]
     fsm.set_state(SupvisorsStates.ELECTION)
     assert fsm.state == SupvisorsStates.OFF
@@ -992,68 +992,68 @@ def test_set_state_slave(supvisors, fsm):
     assert fsm.state == SupvisorsStates.OFF
 
 
-def test_set_state_master(supvisors, fsm):
+def test_set_state_master(supvisors_instance, fsm):
     """ Test the state transitions in a MAster FSM. """
     assert fsm.state == SupvisorsStates.OFF
     # test that any transition is accepted in Slave
-    supvisors.state_modes.master_identifier = supvisors.mapper.local_identifier
+    supvisors_instance.state_modes.master_identifier = supvisors_instance.mapper.local_identifier
     # no change
     fsm.set_state(None)
     assert fsm.state == SupvisorsStates.OFF
     # test that invalid transitions are not accepted
-    supvisors.state_modes.state = SupvisorsStates.OFF
+    supvisors_instance.state_modes.state = SupvisorsStates.OFF
     assert SupvisorsStates.ELECTION not in FiniteStateMachine._Transitions[SupvisorsStates.OFF]
     fsm.set_state(SupvisorsStates.ELECTION)
     assert fsm.state == SupvisorsStates.OFF
 
 
-def test_on_timer_event(mocker, supvisors, fsm):
+def test_on_timer_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a timer event. """
-    mocked_timer = mocker.patch.object(supvisors.context, 'on_timer_event')
-    mocked_next = mocker.patch.object(supvisors.fsm, 'next')
+    mocked_timer = mocker.patch.object(supvisors_instance.context, 'on_timer_event')
+    mocked_next = mocker.patch.object(supvisors_instance.fsm, 'next')
     event = {'counter': 1234}
     fsm.on_timer_event(event)
     assert mocked_timer.call_args_list == [call(event)]
     assert mocked_next.called
 
 
-def test_on_tick_event(mocker, supvisors, fsm):
+def test_on_tick_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a tick event. """
-    mocked_evt = mocker.patch.object(supvisors.context, 'on_tick_event')
+    mocked_evt = mocker.patch.object(supvisors_instance.context, 'on_tick_event')
     event = {'tick': 1234, 'ip_address': '10.0.0.1', 'server_port': 65000}
-    fsm.on_tick_event(supvisors.context.local_status, event)
-    assert mocked_evt.call_args_list == [call(supvisors.context.local_status, event)]
+    fsm.on_tick_event(supvisors_instance.context.local_status, event)
+    assert mocked_evt.call_args_list == [call(supvisors_instance.context.local_status, event)]
 
 
-def test_discovery_event(mocker, supvisors, fsm):
+def test_discovery_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a discovery event. """
-    mocked_evt = mocker.patch.object(supvisors.context, 'on_discovery_event')
+    mocked_evt = mocker.patch.object(supvisors_instance.context, 'on_discovery_event')
     event = '192.168.1.1:5000', 'dummy_identifier', ['10.0.0.1', 7777]
     fsm.on_discovery_event(event)
     assert mocked_evt.call_args_list == [call('192.168.1.1:5000', 'dummy_identifier')]
 
 
-def test_identification_event(mocker, supvisors, fsm):
+def test_identification_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of an identification event. """
-    mocked_evt = mocker.patch.object(supvisors.context, 'on_identification_event')
+    mocked_evt = mocker.patch.object(supvisors_instance.context, 'on_identification_event')
     event = {'identifier': '192.168.1.1:5000'}
     fsm.on_identification_event(event)
     assert mocked_evt.call_args_list == [call(event)]
 
 
-def test_process_state_event_process_not_found(mocker, supvisors, fsm):
+def test_process_state_event_process_not_found(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: event is about an unknown process. """
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(fsm.supvisors.context, 'on_process_state_event', return_value=None)
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=None)
     mocked_start_evt = fsm.supvisors.starter.on_event
     mocked_stop_evt = fsm.supvisors.stopper.on_event
     mocked_add = fsm.supvisors.failure_handler.add_default_job
     # test that no action is triggered when corresponding process is not found
-    fsm.on_process_state_event(supvisors.context.local_status, {'process_name': 'dummy_proc'})
-    assert mocked_ctx.call_args_list == [call(supvisors.context.local_status, {'process_name': 'dummy_proc'})]
+    fsm.on_process_state_event(supvisors_instance.context.local_status, {'process_name': 'dummy_proc'})
+    assert mocked_ctx.call_args_list == [call(supvisors_instance.context.local_status, {'process_name': 'dummy_proc'})]
     assert not mocked_start_evt.called
     assert not mocked_stop_evt.called
     assert not mocked_restart.called
@@ -1061,7 +1061,7 @@ def test_process_state_event_process_not_found(mocker, supvisors, fsm):
     assert not mocked_add.called
 
 
-def test_process_state_event_not_master(mocker, supvisors, fsm):
+def test_process_state_event_not_master(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found but local Supvisors instance is not master. """
     # prepare context
@@ -1069,13 +1069,13 @@ def test_process_state_event_not_master(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # when process is found but local Supvisors instance is not master, only starter and stopper are called
     event = {'process_name': 'dummy_proc'}
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_state_event(status, event)
     assert mocked_ctx.call_args_list == [call(status, event)]
     assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1:25000')]
@@ -1085,7 +1085,7 @@ def test_process_state_event_not_master(mocker, supvisors, fsm):
     assert not mocked_add.called
 
 
-def test_process_state_event_no_crash(mocker, supvisors, fsm):
+def test_process_state_event_no_crash(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found - no crash, local Supvisors instance is master. """
     # prepare context
@@ -1095,12 +1095,12 @@ def test_process_state_event_no_crash(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # test when process has not crashed
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     for process.rules.running_failure_strategy in RunningFailureStrategies:
         fsm.on_process_state_event(status, event)
         assert mocked_ctx.call_args_list == [call(status, event)]
@@ -1116,7 +1116,7 @@ def test_process_state_event_no_crash(mocker, supvisors, fsm):
         mocked_add.reset_mock()
 
 
-def test_process_state_event_crash_restart(mocker, supvisors, fsm):
+def test_process_state_event_crash_restart(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found, event is a crash, rule is RESTART, local Supvisors instance is master. """
     # prepare context
@@ -1126,13 +1126,13 @@ def test_process_state_event_crash_restart(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # test when process has crashed and rule is RESTART
     process.rules.running_failure_strategy = RunningFailureStrategies.RESTART
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_state_event(status, event)
     assert mocked_ctx.call_args_list == [call(status, event)]
     assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1:25000')]
@@ -1142,7 +1142,7 @@ def test_process_state_event_crash_restart(mocker, supvisors, fsm):
     assert not mocked_add.called
 
 
-def test_process_state_event_crash_shutdown(mocker, supvisors, fsm):
+def test_process_state_event_crash_shutdown(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found, event is a crash, rule is SHUTDOWN, local Supvisors instance is master. """
     # prepare context
@@ -1152,13 +1152,13 @@ def test_process_state_event_crash_shutdown(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # test when process has crashed and rule is shutdown
     process.rules.running_failure_strategy = RunningFailureStrategies.SHUTDOWN
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_state_event(status, event)
     assert mocked_ctx.call_args_list == [call(status, event)]
     assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1:25000')]
@@ -1168,7 +1168,7 @@ def test_process_state_event_crash_shutdown(mocker, supvisors, fsm):
     assert not mocked_add.called
 
 
-def test_process_state_event_crash_continue(mocker, supvisors, fsm):
+def test_process_state_event_crash_continue(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found, event is a crash, rule is CONTINUE, local Supvisors instance is master. """
     # prepare context
@@ -1178,13 +1178,13 @@ def test_process_state_event_crash_continue(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # test with running_failure_strategy set to CONTINUE so job is not added to failure handler
     process.rules.running_failure_strategy = RunningFailureStrategies.CONTINUE
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_state_event(status, event)
     assert mocked_ctx.call_args_list == [call(status, event)]
     assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1:25000')]
@@ -1194,7 +1194,7 @@ def test_process_state_event_crash_continue(mocker, supvisors, fsm):
     assert mocked_add.call_args_list == []
 
 
-def test_process_state_event_crash_restart_process(mocker, supvisors, fsm):
+def test_process_state_event_crash_restart_process(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found, event is a crash, rule is RESTART_PROCESS, local Supvisors instance is master. """
     # prepare context
@@ -1204,13 +1204,13 @@ def test_process_state_event_crash_restart_process(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # test with running_failure_strategy set to CONTINUE / RESTART_PROCESS so job is not added to failure handler
     process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_PROCESS
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_state_event(status, event)
     assert mocked_ctx.call_args_list == [call(status, event)]
     assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1:25000')]
@@ -1220,7 +1220,7 @@ def test_process_state_event_crash_restart_process(mocker, supvisors, fsm):
     assert mocked_add.call_args_list == []
 
 
-def test_process_state_event_crash_stop_application(mocker, supvisors, fsm):
+def test_process_state_event_crash_stop_application(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found, event is a crash (not forced), rule is STOP_APPLICATION, local Supvisors instance
     is master. """
@@ -1231,13 +1231,13 @@ def test_process_state_event_crash_stop_application(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(fsm.supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # job is added to failure handler
     process.rules.running_failure_strategy = RunningFailureStrategies.STOP_APPLICATION
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_state_event(status, event)
     assert mocked_ctx.call_args_list == [call(status, event)]
     assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1:25000')]
@@ -1247,7 +1247,7 @@ def test_process_state_event_crash_stop_application(mocker, supvisors, fsm):
     assert mocked_add.call_args_list == [call(process)]
 
 
-def test_process_state_event_crash_restart_application(mocker, supvisors, fsm):
+def test_process_state_event_crash_restart_application(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
     Test case: process is found, event is a crash (not forced), rule is RESTART_APPLICATION, local Supvisors instance
     is master. """
@@ -1258,13 +1258,13 @@ def test_process_state_event_crash_restart_application(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # job is added to failure handler
     process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_state_event(status, event)
     assert mocked_ctx.call_args_list == [call(status, event)]
     assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1:25000')]
@@ -1274,7 +1274,7 @@ def test_process_state_event_crash_restart_application(mocker, supvisors, fsm):
     assert mocked_add.call_args_list == [call(process)]
 
 
-def test_process_state_event_forced_crash(mocker, supvisors, fsm):
+def test_process_state_event_forced_crash(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event. """
     # prepare context
     fsm.state_modes.master_identifier = fsm.context.local_identifier
@@ -1283,12 +1283,12 @@ def test_process_state_event_forced_crash(mocker, supvisors, fsm):
     # get patches
     mocked_restart = mocker.patch.object(fsm, 'on_restart')
     mocked_shutdown = mocker.patch.object(fsm, 'on_shutdown')
-    mocked_ctx = mocker.patch.object(supvisors.context, 'on_process_state_event', return_value=process)
-    mocked_start_evt = supvisors.starter.on_event
-    mocked_stop_evt = supvisors.stopper.on_event
-    mocked_add = supvisors.failure_handler.add_default_job
+    mocked_ctx = mocker.patch.object(supvisors_instance.context, 'on_process_state_event', return_value=process)
+    mocked_start_evt = supvisors_instance.starter.on_event
+    mocked_stop_evt = supvisors_instance.stopper.on_event
+    mocked_add = supvisors_instance.failure_handler.add_default_job
     # job is added to failure handler only if process crash is 'real' (not forced)
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     for process.rules.running_failure_strategy in [RunningFailureStrategies.RESTART_APPLICATION,
                                                    RunningFailureStrategies.STOP_APPLICATION]:
         fsm.on_process_state_event(status, event)
@@ -1303,31 +1303,31 @@ def test_process_state_event_forced_crash(mocker, supvisors, fsm):
         mocked_stop_evt.reset_mock()
 
 
-def test_on_process_added_event(mocker, supvisors, fsm):
+def test_on_process_added_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process added event. """
     mocked_load = mocker.patch.object(fsm.context, 'load_processes')
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_added_event(status, {'info': 'dummy_info'})
     assert mocked_load.call_args_list == [call(status, [{'info': 'dummy_info'}])]
 
 
-def test_on_process_removed_event(mocker, supvisors, fsm):
+def test_on_process_removed_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process removed event. """
     mocked_context = mocker.patch.object(fsm.context, 'on_process_removed_event')
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_removed_event(status, {'info': 'dummy_info'})
     assert mocked_context.call_args_list == [call(status, {'info': 'dummy_info'})]
 
 
-def test_on_process_disability_event(mocker, supvisors, fsm):
+def test_on_process_disability_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process enabled event. """
     mocked_context = mocker.patch.object(fsm.context, 'on_process_disability_event')
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_disability_event(status, {'info': 'dummy_info', 'disabled': True})
     assert mocked_context.call_args_list == [call(status, {'info': 'dummy_info', 'disabled': True})]
 
 
-def test_on_state_event(mocker, supvisors, fsm):
+def test_on_state_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a Master state event. """
     mocked_sm = mocker.patch.object(fsm.state_modes, 'on_instance_state_event')
     mocked_next = mocker.patch.object(fsm, 'next')
@@ -1338,48 +1338,48 @@ def test_on_state_event(mocker, supvisors, fsm):
                'discovery_mode': True,
                'master_identifier': '10.0.0.1:25000',
                'starting_jobs': False, 'stopping_jobs': False}
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_state_event(status, payload)
     assert mocked_sm.call_args_list == [call('10.0.0.1:25000', payload)]
     assert not mocked_next.called
     mocked_sm.reset_mock()
     # test call on Master
-    supvisors.state_modes.master_identifier = '10.0.0.1:25000'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
     fsm.on_state_event(status, payload)
     assert mocked_sm.call_args_list == [call('10.0.0.1:25000', payload)]
     assert mocked_next.called
 
 
-def test_on_all_process_info(mocker, supvisors, fsm):
+def test_on_all_process_info(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process information. """
     # inject process info and test call to context load_processes
     mocked_load = mocker.patch.object(fsm.context, 'load_processes')
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_all_process_info(status, [{'info': 'dummy_info'}])
     assert mocked_load.call_args_list == [call(status, [{'info': 'dummy_info'}])]
 
 
-def test_on_instance_failure(mocker, supvisors, fsm):
+def test_on_instance_failure(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a Supvisors instance failure. """
     mocked_fail = mocker.patch.object(fsm.context, 'on_instance_failure')
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_instance_failure(status)
     assert mocked_fail.call_args_list == [call(status)]
 
 
-def test_on_authorization(mocker, supvisors, fsm):
+def test_on_authorization(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of an authorization event. """
     mocked_auth = mocker.patch.object(fsm.context, 'on_authorization', return_value=False)
-    status = supvisors.context.instances['10.0.0.1:25000']
+    status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_authorization(status, True)
     assert mocked_auth.call_args == call(status, True)
 
 
-def test_restart_sequence_event(supvisors, fsm):
+def test_restart_sequence_event(supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
     # inject restart event and test setting of redeploy_mark
-    mocked_restart = supvisors.rpc_handler.send_restart_sequence
-    supvisors.state_modes.master_identifier = '10.0.0.1'
+    mocked_restart = supvisors_instance.rpc_handler.send_restart_sequence
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1'
     assert not fsm.force_distribution
     # test when not master
     fsm.on_restart_sequence()
@@ -1393,18 +1393,18 @@ def test_restart_sequence_event(supvisors, fsm):
     assert fsm.force_distribution
 
 
-def test_restart_event(mocker, supvisors, fsm):
+def test_restart_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a restart event. """
     # inject restart event and test call to fsm set_state RESTARTING
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = supvisors.rpc_handler.send_restart_all
+    mocked_send = supvisors_instance.rpc_handler.send_restart_all
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_restart()
     assert not mocked_fsm.called
     assert not mocked_send.called
     # test when not master and Master set
-    supvisors.state_modes.master_identifier = '10.0.0.1'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1'
     fsm.on_restart()
     assert not mocked_fsm.called
     assert mocked_send.call_args_list == [call('10.0.0.1')]
@@ -1416,18 +1416,18 @@ def test_restart_event(mocker, supvisors, fsm):
     assert mocked_fsm.call_args_list == [call(SupvisorsStates.RESTARTING)]
 
 
-def test_shutdown_event(mocker, supvisors, fsm):
+def test_shutdown_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a shutdown event. """
     # inject shutdown event and test call to fsm set_state SHUTTING_DOWN
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = supvisors.rpc_handler.send_shutdown_all
+    mocked_send = supvisors_instance.rpc_handler.send_shutdown_all
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_shutdown()
     assert not mocked_fsm.called
     assert not mocked_send.called
     # test when not master and Master set
-    supvisors.state_modes.master_identifier = '10.0.0.1'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1'
     fsm.on_shutdown()
     assert not mocked_fsm.called
     assert mocked_send.call_args_list == [call('10.0.0.1')]

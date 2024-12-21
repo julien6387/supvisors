@@ -19,7 +19,7 @@ from supvisors.statscompiler import HostStatisticsInstance, InterfaceHistoryStat
 from .viewcontext import *
 from .viewimage import host_cpu_img, host_mem_img, host_net_io_img, host_disk_io_img, host_disk_usage_img
 from .viewinstance import SupvisorsInstanceView
-from .webutils import *
+from .webutils import SupvisorsPages, apply_shade
 
 
 class HostInstanceView(SupvisorsInstanceView):
@@ -27,7 +27,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        SupvisorsInstanceView.__init__(self, context, HOST_INSTANCE_PAGE)
+        SupvisorsInstanceView.__init__(self, context, SupvisorsPages.HOST_INSTANCE_PAGE)
 
     def write_options(self, header_elt):
         """ Write configured periods for host statistics. """
@@ -41,7 +41,7 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Configure the statistics view buttons. """
         # update process button
         elt = header_elt.findmeld('process_view_a_mid')
-        url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
+        url = self.view_ctx.format_url('', SupvisorsPages.PROC_INSTANCE_PAGE)
         elt.attributes(href=url)
         # update host button
         elt = header_elt.findmeld('host_view_a_mid')

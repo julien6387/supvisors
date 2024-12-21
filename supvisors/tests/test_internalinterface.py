@@ -21,7 +21,7 @@ import pytest
 from supvisors.internal_com.internalinterface import *
 
 
-def test_payload_to_bytes_to_payload(supvisors):
+def test_payload_to_bytes_to_payload():
     """ Test the serialization and deserialization. """
     payload = 'a message source', {'body': 'a message body'}
     msg_bytes = payload_to_bytes(payload)

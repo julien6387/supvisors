@@ -539,12 +539,12 @@ def test_statistics_collector_task_main_killed(mocker, pipes):
     assert time.monotonic() - start_time > HEARTBEAT_TIMEOUT
 
 
-def test_statistics_collector_process(mocker, supvisors):
+def test_statistics_collector_process(mocker, supvisors_instance):
     """ Test the StatisticsCollectorProcess class. """
     mocked_process = Mock(spec=mp.Process, exitcode=None)
     mocked_creation = mocker.patch('multiprocessing.Process', return_value=mocked_process)
     # test creation
-    collector = StatisticsCollectorProcess(supvisors)
+    collector = StatisticsCollectorProcess(supvisors_instance)
     assert type(collector.cmd_recv) is mp.connection.Connection
     assert type(collector.cmd_send) is mp.connection.Connection
     assert type(collector.host_stats_recv) is mp.connection.Connection

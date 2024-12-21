@@ -15,9 +15,10 @@
 # ======================================================================
 
 import time
-from typing import Type
+from typing import Callable
 
 from supervisor.compat import as_bytes, as_string
+from supervisor.http import NOT_DONE_YET
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
@@ -30,7 +31,8 @@ from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
 from supvisors.utils import get_stats, get_small_value
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img, SoftwareIconImage
-from .webutils import *
+from .webutils import (SupvisorsPages, SupvisorsSymbols,
+                       update_attrib, print_message, generic_rpc, format_gravity_message)
 
 
 class ViewHandler(MeldView):
@@ -49,7 +51,7 @@ class ViewHandler(MeldView):
         self.has_host_statistics = True
         self.has_process_statistics = True
         # init view_ctx (only for tests)
-        self.view_ctx: Optional[ViewContext] = None
+        self.view_ctx: Optional[SupvisorsViewContext] = None
 
     @property
     def local_identifier(self):
@@ -112,7 +114,7 @@ class ViewHandler(MeldView):
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
-        self.view_ctx = ViewContext(self.context)
+        self.view_ctx = SupvisorsViewContext(self.context)
         self.logger.debug(f'ViewHandler.handle_parameters: new context {self.view_ctx.parameters}')
 
     def write_style(self, root):
@@ -182,7 +184,7 @@ class ViewHandler(MeldView):
                 # set hyperlink attributes
                 if status.has_active_state():
                     # go to web page located on the Supvisors instance to reuse Supervisor StatusView
-                    url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
+                    url = self.view_ctx.format_url(item, SupvisorsPages.PROC_INSTANCE_PAGE)
                     elt.attributes(href=url)
                     update_attrib(elt, 'class', 'on')
                 else:
@@ -192,7 +194,7 @@ class ViewHandler(MeldView):
                 instance_elt.content(status.supvisors_id.nick_identifier)
                 if item == self.state_modes.master_identifier:
                     master_elt = elt.findmeld('master_sp_mid')
-                    master_elt.content(MASTER_SYMBOL)
+                    master_elt.content(SupvisorsSymbols.MASTER_SYMBOL)
                     update_attrib(li_elt, 'class', 'master')
         # warn at title level if any application has a failure
         if any_failure:
@@ -225,8 +227,9 @@ class ViewHandler(MeldView):
                 update_attrib(elt, 'class', 'off')
             else:
                 # force default application starting strategy
-                url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name,
-                                                                        STRATEGY: item.rules.starting_strategy.name})
+                url = self.view_ctx.format_url('', SupvisorsPages.APPLICATION_PAGE,
+                                               **{APPLI: item.application_name,
+                                                  STRATEGY: item.rules.starting_strategy.name})
                 elt.attributes(href=url)
                 update_attrib(elt, 'class', 'on')
             elt.content(item.application_name)
@@ -318,7 +321,7 @@ class ViewHandler(MeldView):
         if shex == expand_shex.hex():
             elt.replace('')
         else:
-            elt.content(SHEX_EXPAND)
+            elt.content(SupvisorsSymbols.SHEX_EXPAND)
             url = self.view_ctx.format_url('', self.page_name, **{param: expand_shex.hex()})
             elt.attributes(href=url)
         # write shrink button
@@ -326,7 +329,7 @@ class ViewHandler(MeldView):
         if shex == shrink_shex.hex():
             elt.replace('')
         else:
-            elt.content(SHEX_SHRINK)
+            elt.content(SupvisorsSymbols.SHEX_SHRINK)
             url = self.view_ctx.format_url('', self.page_name, **{param: shrink_shex.hex()})
             elt.attributes(href=url)
 
@@ -422,7 +425,7 @@ class ViewHandler(MeldView):
         namespec = info['namespec']
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
-                                   STDOUT_PAGE % quote(namespec or ''), '', namespec, info['has_stdout'])
+                                   SupvisorsPages.STDOUT_PAGE % quote(namespec or ''), '', namespec, info['has_stdout'])
 
     def write_process_stderr_button(self, tr_elt, info):
         """ Write the configuration of the tail stderr button of a process.
@@ -430,7 +433,7 @@ class ViewHandler(MeldView):
         namespec = info['namespec']
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
-                                   STDERR_PAGE % quote(namespec or ''), '', namespec, info['has_stderr'])
+                                   SupvisorsPages.STDERR_PAGE % quote(namespec or ''), '', namespec, info['has_stderr'])
 
     def _write_process_button(self, tr_elt, elt_name: str, identifier: str, page: str, action: str, namespec: str,
                               active: bool = True):
@@ -487,7 +490,7 @@ class ViewHandler(MeldView):
         # add break character only to processes belonging to an application
         process_name = info['process_name']
         if info.get('nb_items', 0) == 0:
-            process_name = f'{SUB_SYMBOL} {process_name}'
+            process_name = f'{SupvisorsSymbols.SUB_SYMBOL} {process_name}'
         name_elt = tr_elt.findmeld('name_td_mid')
         # tail hyperlink depends on logfile availability
         namespec = info['namespec']
@@ -495,7 +498,7 @@ class ViewHandler(MeldView):
         if info['has_stdout']:
             elt = name_elt.findmeld('name_a_mid')
             elt.content(process_name)
-            url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE,
+            url = self.view_ctx.format_url(info['identifier'], SupvisorsPages.TAIL_PAGE,
                                            **{PROCESS: namespec, LIMIT: self.supvisors.options.tail_limit})
             elt.attributes(href=url, target="_blank")
         else:
@@ -605,7 +608,7 @@ class ViewHandler(MeldView):
     def handle_action(self) -> Optional[Type[NOT_DONE_YET]]:
         """ Handling of the actions requested from the Supvisors web pages.
 
-        :return: NOT_DONE_YET if action is deferred, None otherwise
+        :return: NOT_DONE_YET if action is deferred, None otherwise.
         """
         # check if any action is requested
         action = self.view_ctx.action
@@ -626,18 +629,18 @@ class ViewHandler(MeldView):
         """ Triggers processing iaw action requested.
         Subclasses will define what's to be done.
 
-        :param namespec: the optional process namespec to which the action applies
-        :param action: the action to perform
-        :return: a callable for deferred result
+        :param namespec: the optional process namespec to which the action applies.
+        :param action: the action to perform.
+        :return: a callable for deferred result.
         """
         raise NotImplementedError
 
     def multicall_rpc_action(self, args: PayloadList, success_msg: str) -> Callable:
         """ Generic wrapper for a System Supervisor RPC.
 
-        :param args: the multiple RPC parameters
-        :param success_msg: the message in case of success
-        :return: a callable for deferred result
+        :param args: the multiple RPC parameters.
+        :param success_msg: the message in case of success.
+        :return: a callable for deferred result.
         """
         rpc_intf = self.supvisors.supervisor_data.system_rpc_interface
         return generic_rpc(rpc_intf, 'multicall', (args,), success_msg)
@@ -645,10 +648,10 @@ class ViewHandler(MeldView):
     def supervisor_rpc_action(self, rpc_name: str, args: tuple, success_msg: str) -> Callable:
         """ Generic wrapper for a Supervisor RPC.
 
-        :param rpc_name: the RPC name in the Supervisor XML-RPC API
-        :param args: the arguments of the RPC
-        :param success_msg: the message in case of success
-        :return: a callable for deferred result
+        :param rpc_name: the RPC name in the Supervisor XML-RPC API.
+        :param args: the arguments of the RPC.
+        :param success_msg: the message in case of success.
+        :return: a callable for deferred result.
         """
         rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
         return generic_rpc(rpc_intf, rpc_name, args, success_msg)
@@ -656,10 +659,10 @@ class ViewHandler(MeldView):
     def supvisors_rpc_action(self, rpc_name: str, args: tuple, success_msg: str) -> Callable:
         """ Generic wrapper for a Supvisors RPC.
 
-        :param rpc_name: the RPC name in the Supvisors XML-RPC API
-        :param args: the arguments of the RPC
-        :param success_msg: the message in case of success
-        :return: a callable for deferred result
+        :param rpc_name: the RPC name in the Supvisors XML-RPC API.
+        :param args: the arguments of the RPC.
+        :param success_msg: the message in case of success.
+        :return: a callable for deferred result.
         """
         rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
         return generic_rpc(rpc_intf, rpc_name, args, success_msg)

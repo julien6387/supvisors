@@ -14,30 +14,34 @@
 # limitations under the License.
 # ======================================================================
 
+import os
 from unittest.mock import Mock
 
 import pytest
+from supervisor.loggers import Logger
+from supervisor.web import ViewContext
 from supervisor.xmlrpc import Faults, RPCError
 
+import supvisors
 from supvisors.application import ApplicationRules, ApplicationStatus
 from supvisors.internal_com.mapper import LocalNetwork
 from supvisors.process import ProcessRules, ProcessStatus
-from .base import DummyHttpContext, DummySupervisor, MockedSupvisors, any_process_info
+from .base import DummySupervisor, MockedSupvisors, any_process_info
 
 
 # Easy Application / Process creation
-def create_process(info, supvisors):
+def create_process(info, supv):
     """ Create a ProcessStatus from a payload. """
-    return ProcessStatus(info['group'], info['name'], ProcessRules(supvisors), supvisors)
+    return ProcessStatus(info['group'], info['name'], ProcessRules(supv), supv)
 
 
-def create_any_process(supvisors):
-    return create_process(any_process_info(), supvisors)
+def create_any_process(supv):
+    return create_process(any_process_info(), supv)
 
 
-def create_application(application_name, supvisors):
+def create_application(application_name, supv):
     """ Create an ApplicationStatus. """
-    return ApplicationStatus(application_name, ApplicationRules(supvisors), supvisors)
+    return ApplicationStatus(application_name, ApplicationRules(supvisors), supv)
 
 
 # Common function for URLs
@@ -75,12 +79,12 @@ def dict_options():
 
 
 @pytest.fixture
-def supervisor():
+def supervisor_instance() -> DummySupervisor:
     return DummySupervisor()
 
 
 @pytest.fixture
-def supvisors(mocker, supervisor, dict_options):
+def supvisors_instance(mocker, supervisor_instance, dict_options) -> MockedSupvisors:
     # patch the network access to get deterministic tests
     def gethostbyaddr(x):
         ident = x.split('.')[-1]
@@ -93,25 +97,51 @@ def supvisors(mocker, supervisor, dict_options):
     ioctl_map = {'lo': ('127.0.0.1', '255.0.0.0'), 'eth0': ('10.0.0.1', '255.255.255.0')}
     mocker.patch('supvisors.internal_com.mapper.get_interface_info', side_effect=lambda x: ioctl_map[x])
     # create the mocked Supvisors instance
-    supv = MockedSupvisors(supervisor, dict_options)
+    supv = MockedSupvisors(supervisor_instance, dict_options)
     # create the local network instances
     for sup_id in supv.mapper.instances.values():
         sup_id.local_view = LocalNetwork(supv.logger)
         machine_id = '01:23:45:67:89:ab' if int(sup_id.ip_address.split('.')[-1]) % 2 else 'ab:cd:ef:01:23:45'
         sup_id.local_view.machine_id = machine_id
-        sup_id.local_view.addresses['eth0'].ipv4_addresses[0] = sup_id.ip_address
+        eth0 = sup_id.local_view.addresses['eth0']
+        eth0.ipv4_addresses[0] = sup_id.ip_address
+        eth0.nic_info.ipv4_address = sup_id.ip_address
         supv.mapper.nodes.setdefault(machine_id, []).append(sup_id.identifier)
     # fill the mapper nodes dictionary
     return supv
 
 
 @pytest.fixture
-def http_context(supvisors):
+def logger_instance(supvisors_instance) -> Logger:
+    """ Fixture for a consistent mocked logger provided by the mocked Supvisors instance. """
+    return supvisors_instance.logger
+
+
+@pytest.fixture
+def http_context(supvisors_instance) -> ViewContext:
     """ Fixture for a consistent mocked HTTP context provided by Supervisor. """
-    http_context = DummyHttpContext('ui/index.html')
-    http_context.supervisord.supvisors = supvisors
-    supvisors.supervisor_data.supervisord = http_context.supervisord
-    return http_context
+    supvisors_path = next(iter(supvisors.__path__), '.')
+    view_template = os.path.join(supvisors_path, 'ui', 'index.html')
+    form = {'SERVER_URL': 'http://10.0.0.1:7777',
+            'SERVER_PORT': 7777,
+            'PATH_TRANSLATED': '/index.html',
+            'action': 'test',
+            'ident': '10.0.0.4:25000',
+            'message': 'hi chaps',
+            'gravity': 'none',
+            'namespec': 'dummy_proc',
+            'processname': 'dummy_proc',
+            'appname': 'dummy_appli',
+            'nic': 'eth0',
+            'period': 5.1,
+            'auto': 'false',
+            'diskstats': 'io',
+            'partition': '/', 'device': 'sda'}
+    # NOTE: request is not set
+    return ViewContext(template=view_template,
+                       form=form,
+                       response={'headers': {'Location': None}},
+                       supervisord=supvisors_instance.supervisor_data.supervisord)
 
 
 # Easy XHTML element creation

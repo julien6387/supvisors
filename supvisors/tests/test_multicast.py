@@ -23,13 +23,13 @@ from supvisors.internal_com.multicast import *
 
 
 @pytest.fixture
-def discovery(supvisors):
+def discovery(supvisors_instance):
     """ Create the MulticastSender instance. """
     # set the options
-    supvisors.options.multicast_group = '239.0.0.1', 7777
-    supvisors.options.multicast_ttl = 1
+    supvisors_instance.options.multicast_group = '239.0.0.1', 7777
+    supvisors_instance.options.multicast_ttl = 1
     # create the instance
-    disco = SupvisorsDiscovery(supvisors)
+    disco = SupvisorsDiscovery(supvisors_instance)
     # wait for thread to start
     time.sleep(1)
     assert disco.mc_receiver.is_alive()
@@ -37,7 +37,7 @@ def discovery(supvisors):
     disco.stop()
 
 
-def test_multicast(supvisors, discovery):
+def test_multicast(supvisors_instance, discovery):
     """ Test the Supvisors Multicast in one single test. """
     hostname, aliases, ip_addresses = gethostbyaddr(gethostname())
     # send event
@@ -46,7 +46,7 @@ def test_multicast(supvisors, discovery):
     discovery.mc_sender.send_discovery_event(payload)
     # check output
     time.sleep(1.0)
-    call_args_list = supvisors.rpc_handler.push_notification.call_args_list
+    call_args_list = supvisors_instance.rpc_handler.push_notification.call_args_list
     assert len(call_args_list) == 1
     message = call_args_list[0][0][0]
     assert type(message) is tuple
@@ -58,7 +58,7 @@ def test_multicast(supvisors, discovery):
     assert len(source[2]) == 2
     assert source[2][1] == 10000
     assert event_body == (NotificationHeaders.DISCOVERY.value, ())
-    supvisors.rpc_handler.push_notification.reset_mock()
+    supvisors_instance.rpc_handler.push_notification.reset_mock()
     # send event that does not fit
     payload = {'when': 1234, 'identifier': '10.0.0.1:10000', 'nick_identifier': 'rocky51',
                'http_port': 10000, 'ip_addresses': []}
@@ -86,29 +86,29 @@ def test_emitter_send_exception(discovery):
     discovery.mc_sender.send_discovery_event({})
 
 
-def test_receiver_bind_exception(supvisors):
+def test_receiver_bind_exception(supvisors_instance):
     """ Test the bind exception of the MulticastReceiver (use wrong IP).
     The aim is to hit the lines 131-134 in MulticastReceiver.open_multicast.
     Checked ok with debugger.
     """
-    mc_receiver = MulticastReceiver(('localhost', -1), None, None, supvisors.logger)
+    mc_receiver = MulticastReceiver(('localhost', -1), None, None, supvisors_instance.logger)
     assert mc_receiver.socket is None
     mc_receiver.open_multicast()
     assert mc_receiver.socket is None
 
 
-def test_receiver_membership_exception(supvisors):
+def test_receiver_membership_exception(supvisors_instance):
     """ Test the add membership exception of the MulticastReceiver (use wrong IP).
     The aim is to hit the lines 145-148 in MulticastReceiver.open_multicast.
     Checked ok with debugger.
     """
     # test illegal address
-    mc_receiver = MulticastReceiver(('localhost', 7777), 'localhost', None, supvisors.logger)
+    mc_receiver = MulticastReceiver(('localhost', 7777), 'localhost', None, supvisors_instance.logger)
     assert mc_receiver.socket is None
     mc_receiver.open_multicast()
     assert mc_receiver.socket is None
     # test wrong interface
-    mc_receiver = MulticastReceiver(('239.0.0.1', 7777), '10.0.0', None, supvisors.logger)
+    mc_receiver = MulticastReceiver(('239.0.0.1', 7777), '10.0.0', None, supvisors_instance.logger)
     assert mc_receiver.socket is None
     mc_receiver.open_multicast()
     assert mc_receiver.socket is None

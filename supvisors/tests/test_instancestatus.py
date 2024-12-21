@@ -29,18 +29,18 @@ from .conftest import create_process
 
 
 @pytest.fixture
-def supvisors_times(supvisors):
+def supvisors_times(supvisors_instance):
     """ Create a SupvisorsTimes. """
-    return SupvisorsTimes('10.0.0.1', supvisors.logger)
+    return SupvisorsTimes('10.0.0.1', supvisors_instance.logger)
 
 
-def test_times(mocker, supvisors, supvisors_times):
+def test_times(mocker, supvisors_instance, supvisors_times):
     """ Test the SupvisorsTimes. """
     mocker.patch('time.time', return_value=1250.3)
     mocker.patch('time.monotonic', return_value=125.9)
     # test creation
     assert supvisors_times.identifier == '10.0.0.1'
-    assert supvisors_times.logger is supvisors.logger
+    assert supvisors_times.logger is supvisors_instance.logger
     assert supvisors_times.remote_sequence_counter == 0
     assert supvisors_times.remote_mtime == 0.0
     assert supvisors_times.remote_time == 0.0
@@ -93,43 +93,43 @@ def test_times(mocker, supvisors, supvisors_times):
 
 
 @pytest.fixture
-def supvisors_id(supvisors):
+def supvisors_id(supvisors_instance):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId('<supvisors>10.0.0.2:25000', supvisors)
+    return SupvisorsInstanceId('<supvisors>10.0.0.2:25000', supvisors_instance)
 
 
 @pytest.fixture
-def local_supvisors_id(supvisors):
+def local_supvisors_id(supvisors_instance):
     """ Create a SupvisorsInstanceId. """
-    return SupvisorsInstanceId('<supvisors>10.0.0.1:25000', supvisors)
+    return SupvisorsInstanceId('<supvisors>10.0.0.1:25000', supvisors_instance)
 
 
 @pytest.fixture
-def status(supvisors, supvisors_id):
+def status(supvisors_instance, supvisors_id):
     """ Create an empty SupvisorsInstanceStatus. """
-    return SupvisorsInstanceStatus(supvisors_id, supvisors)
+    return SupvisorsInstanceStatus(supvisors_id, supvisors_instance)
 
 
 @pytest.fixture
-def local_status(supvisors, local_supvisors_id):
+def local_status(supvisors_instance, local_supvisors_id):
     """ Create an empty SupvisorsInstanceStatus. """
-    return SupvisorsInstanceStatus(local_supvisors_id, supvisors)
+    return SupvisorsInstanceStatus(local_supvisors_id, supvisors_instance)
 
 
 @pytest.fixture
-def filled_status(supvisors, status):
+def filled_status(supvisors_instance, status):
     """ Create a SupvisorsInstanceStatus and add all processes of the database. """
     for info in database_copy():
-        process = create_process(info, supvisors)
+        process = create_process(info, supvisors_instance)
         process.add_info(status.supvisors_id.identifier, info)
         status.add_process(process)
     return status
 
 
-def test_create_no_collector(supvisors, supvisors_id, status):
+def test_create_no_collector(supvisors_instance, supvisors_id, status):
     """ Test the values set at SupvisorsInstanceStatus construction. """
-    assert status.supvisors is supvisors
-    assert status.logger is supvisors.logger
+    assert status.supvisors is supvisors_instance
+    assert status.logger is supvisors_instance.logger
     assert status.supvisors_id is supvisors_id
     assert status.identifier == '10.0.0.2:25000'
     assert status.usage_identifier == '<supvisors>10.0.0.2:25000'
@@ -137,7 +137,7 @@ def test_create_no_collector(supvisors, supvisors_id, status):
     assert not status.isolated
     assert status.sequence_counter == 0
     assert status.times.identifier == '10.0.0.2:25000'
-    assert status.times.logger is supvisors.logger
+    assert status.times.logger is supvisors_instance.logger
     assert status.times.remote_sequence_counter == 0
     assert status.times.remote_mtime == 0.0
     assert status.times.remote_time == 0.0
@@ -150,15 +150,15 @@ def test_create_no_collector(supvisors, supvisors_id, status):
     assert status.stats_collector is None
 
 
-def test_create_collector(supvisors, local_supvisors_id, local_status):
+def test_create_collector(supvisors_instance, local_supvisors_id, local_status):
     """ Test the values set at SupvisorsInstanceStatus construction. """
-    assert local_status.supvisors is supvisors
-    assert local_status.logger is supvisors.logger
+    assert local_status.supvisors is supvisors_instance
+    assert local_status.logger is supvisors_instance.logger
     assert local_status.supvisors_id is local_supvisors_id
-    assert local_status.identifier == supvisors.mapper.local_identifier
+    assert local_status.identifier == supvisors_instance.mapper.local_identifier
     assert local_status.state == SupvisorsInstanceStates.STOPPED
-    assert local_status.times.identifier == supvisors.mapper.local_identifier
-    assert local_status.times.logger is supvisors.logger
+    assert local_status.times.identifier == supvisors_instance.mapper.local_identifier
+    assert local_status.times.logger is supvisors_instance.logger
     assert local_status.times.remote_sequence_counter == 0
     assert local_status.times.remote_mtime == 0.0
     assert local_status.times.remote_time == 0.0
@@ -170,7 +170,7 @@ def test_create_collector(supvisors, local_supvisors_id, local_status):
     # process_collector is set as SupvisorsInstanceId and supvisors_mapper's local_identifier are identical
     #  and the option process_stats_enabled is True
     assert local_status.stats_collector is not None
-    assert local_status.stats_collector is supvisors.stats_collector
+    assert local_status.stats_collector is supvisors_instance.stats_collector
 
 
 def test_serialization(mocker, status):
@@ -248,10 +248,10 @@ def test_isolation(status):
                 not status.isolated and state != SupvisorsInstanceStates.ISOLATED)
 
 
-def test_process_no_collector(supvisors, status):
+def test_process_no_collector(supvisors_instance, status):
     """ Test the SupvisorsInstanceStatus.xxx_process methods when no process collector is available. """
     info = any_process_info_by_state(ProcessStates.RUNNING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     status.add_process(process)
     status.update_process(process)
     # check no process_collector
@@ -265,14 +265,14 @@ def test_process_no_collector(supvisors, status):
     assert process.namespec not in status.processes.keys()
 
 
-def test_process_running_unknown_collector(supvisors, local_status):
+def test_process_running_unknown_collector(supvisors_instance, local_status):
     """ Test the SupvisorsInstanceStatus.xxx_process methods when no pid running on the identifier. """
     # patch process_collector
     assert local_status.stats_collector is not None
     local_status.stats_collector = Mock()
     # add a process to the InstanceStatus but do not add the info to the ProcessStatus instance
     info = any_process_info_by_state(ProcessStates.RUNNING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     local_status.add_process(process)
     assert process.get_pid(local_status.identifier) == 0
     assert not local_status.stats_collector.send_pid.called
@@ -291,14 +291,14 @@ def test_process_running_unknown_collector(supvisors, local_status):
     assert local_status.stats_collector.send_pid.call_args_list == [call(process.namespec, 0)]
 
 
-def test_add_process_running_collector(supvisors, local_status):
+def test_add_process_running_collector(supvisors_instance, local_status):
     """ Test the SupvisorsInstanceStatus.add_process method when the process is running on the identifier. """
     # patch process_collector
     assert local_status.stats_collector is not None
     local_status.stats_collector = Mock()
     # add a running process to the InstanceStatus and add the info to the ProcessStatus instance
     info = any_process_info_by_state(ProcessStates.RUNNING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info(local_status.identifier, info)
     local_status.add_process(process)
     # check that process is stored
@@ -319,14 +319,14 @@ def test_add_process_running_collector(supvisors, local_status):
     assert local_status.stats_collector.send_pid.call_args_list == [call(process.namespec, 0)]
 
 
-def test_add_process_stopped_collector(supvisors, local_status):
+def test_add_process_stopped_collector(supvisors_instance, local_status):
     """ Test the SupvisorsInstanceStatus.add_process method when the process is stopped on the identifier. """
     # patch process_collector
     assert local_status.stats_collector is not None
     local_status.stats_collector = Mock()
     # add a stopped process to the InstanceStatus and add the info to the ProcessStatus instance
     info = any_process_info_by_state(ProcessStates.STOPPED)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info(local_status.identifier, info)
     local_status.add_process(process)
     # check that process is stored

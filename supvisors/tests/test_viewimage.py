@@ -14,10 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
-
 from supvisors.web.viewimage import *
-
-from .base import DummyHttpContext
 
 
 def test_stats_image():
@@ -59,11 +56,11 @@ def test_process_instances():
     assert process_mem_img.contents is None
 
 
-def test_image_view():
+def test_image_view(http_context):
     """ Test the values set at construction. """
     # test creation
     image = StatsImage()
-    view = ImageView(DummyHttpContext(), image)
+    view = ImageView(http_context, image)
     assert view.buffer is image
     # test render with an image having no contents
     response = view()
@@ -85,72 +82,72 @@ def test_image_view():
     assert response['body'] == b'Dummy contents'
 
 
-def test_host_cpu_image_view():
+def test_host_cpu_image_view(http_context):
     """ Test the HostCpuImageView class. """
-    view = HostCpuImageView(DummyHttpContext())
+    view = HostCpuImageView(http_context)
     assert view.buffer is host_cpu_img
 
 
-def test_host_memory_image_view():
+def test_host_memory_image_view(http_context):
     """ Test the HostMemoryImageView class. """
-    view = HostMemoryImageView(DummyHttpContext())
+    view = HostMemoryImageView(http_context)
     assert view.buffer is host_mem_img
 
 
-def test_host_network_io_image_view():
+def test_host_network_io_image_view(http_context):
     """ Test the HostNetworkIoImageView class. """
-    view = HostNetworkIoImageView(DummyHttpContext())
+    view = HostNetworkIoImageView(http_context)
     assert view.buffer is host_net_io_img
 
 
-def test_host_disk_io_image_view():
+def test_host_disk_io_image_view(http_context):
     """ Test the HostDiskIoImageView class. """
-    view = HostDiskIoImageView(DummyHttpContext())
+    view = HostDiskIoImageView(http_context)
     assert view.buffer is host_disk_io_img
 
 
-def test_host_disk_usage_image_view():
+def test_host_disk_usage_image_view(http_context):
     """ Test the HostDiskUsageImageView class. """
-    view = HostDiskUsageImageView(DummyHttpContext())
+    view = HostDiskUsageImageView(http_context)
     assert view.buffer is host_disk_usage_img
 
 
-def test_process_cpu_image_view():
+def test_process_cpu_image_view(http_context):
     """ Test the ProcessCpuImageView class. """
-    view = ProcessCpuImageView(DummyHttpContext())
+    view = ProcessCpuImageView(http_context)
     assert view.buffer is process_cpu_img
 
 
-def test_process_memory_image_view():
+def test_process_memory_image_view(http_context):
     """ Test the ProcessMemoryImageView class. """
-    view = ProcessMemoryImageView(DummyHttpContext())
+    view = ProcessMemoryImageView(http_context)
     assert view.buffer is process_mem_img
 
 
-def test_supervisor_icon_image():
+def test_supervisor_icon_image(http_context):
     """ Test the SupervisorIconImage class. """
     # test default
-    view = SupervisorIconImage(DummyHttpContext())
+    view = SupervisorIconImage(http_context)
     assert view.buffer is not None
     # test that a second instance would get the same object
     ref_buffer = view.buffer
-    view = SupervisorIconImage(DummyHttpContext())
+    view = SupervisorIconImage(http_context)
     assert view.buffer is not None
     assert view.buffer is ref_buffer
 
 
-def test_software_icon_image():
+def test_software_icon_image(http_context):
     """ Test the SoftwareIconImage class. """
     # test default
-    view = SoftwareIconImage(DummyHttpContext())
+    view = SoftwareIconImage(http_context)
     assert view.buffer is None
     # load an image
     icon_path = os.path.join(os.path.dirname(supervisor.__file__), 'ui', 'images', 'icon.png')
     SoftwareIconImage.set_path(icon_path)
-    view = SoftwareIconImage(DummyHttpContext())
+    view = SoftwareIconImage(http_context)
     assert view.buffer is not None
     # test that a second instance would get the same object
     ref_buffer = view.buffer
-    view = SoftwareIconImage(DummyHttpContext())
+    view = SoftwareIconImage(http_context)
     assert view.buffer is not None
     assert view.buffer is ref_buffer

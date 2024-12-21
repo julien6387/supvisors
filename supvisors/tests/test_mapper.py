@@ -27,6 +27,7 @@ def test_nic_information_not_loopback():
     assert nic_info.nic_name == 'eth0'
     assert nic_info.ipv4_address == '192.168.1.1'
     assert nic_info.netmask == '255.255.255.0'
+    assert nic_info.network_address == '192.168.1.0'
     assert not nic_info.is_loopback
     assert nic_info.serial() == {'nic_name': 'eth0',
                                  'ipv4_address': '192.168.1.1',
@@ -35,14 +36,15 @@ def test_nic_information_not_loopback():
 
 def test_nic_information_loopback():
     """ Test the NicInformation class with a loopback interface. """
-    nic_info = NicInformation('lo', '127.5.10.10', '255.255.255.0')
+    nic_info = NicInformation('lo', '127.5.10.10', '255.0.0.0')
     assert nic_info.nic_name == 'lo'
     assert nic_info.ipv4_address == '127.5.10.10'
-    assert nic_info.netmask == '255.255.255.0'
+    assert nic_info.netmask == '255.0.0.0'
+    assert nic_info.network_address == '127.0.0.0'
     assert nic_info.is_loopback
     assert nic_info.serial() == {'nic_name': 'lo',
                                  'ipv4_address': '127.5.10.10',
-                                 'netmask': '255.255.255.0'}
+                                 'netmask': '255.0.0.0'}
 
 
 def test_get_interface_info():
@@ -71,11 +73,11 @@ def test_get_network_info():
         assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', nic_info.netmask)
 
 
-def test_network_address(mocker, supvisors):
+def test_network_address(mocker, logger_instance):
     """ Test the NetworkAddress class. """
     mocked_sock = mocker.patch('socket.gethostbyaddr', side_effect=lambda x: (x, [x], [x]))
     # test NetworkAddress creation with no additional parameters
-    addr = NetworkAddress(supvisors.logger)
+    addr = NetworkAddress(logger_instance)
     assert addr.host_name == ''
     assert addr.aliases == []
     assert addr.ipv4_addresses == []
@@ -85,13 +87,14 @@ def test_network_address(mocker, supvisors):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.get_network_ip('192.168.1.0') == ''
     assert addr.serial() == {'host_name': '',
                              'aliases': [],
                              'ipv4_addresses': [],
                              'nic_info': None}
     # test NetworkAddress creation with NicInformation
     nic_info = NicInformation('eth0', '192.168.1.1', '255.255.255.0')
-    addr = NetworkAddress(supvisors.logger, nic_info=nic_info)
+    addr = NetworkAddress(logger_instance, nic_info=nic_info)
     assert addr.host_name == '192.168.1.1'
     assert addr.aliases == ['192.168.1.1']
     assert addr.ipv4_addresses == ['192.168.1.1']
@@ -101,6 +104,8 @@ def test_network_address(mocker, supvisors):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
+    assert addr.get_network_ip('192.168.11.0') == ''
     assert addr.serial() == {'host_name': '192.168.1.1',
                              'aliases': ['192.168.1.1'],
                              'ipv4_addresses': ['192.168.1.1'],
@@ -108,7 +113,7 @@ def test_network_address(mocker, supvisors):
                                           'ipv4_address': '192.168.1.1',
                                           'netmask': '255.255.255.0'}}
     # test NetworkAddress creation with host id
-    addr = NetworkAddress(supvisors.logger, host_id='10.0.0.1')
+    addr = NetworkAddress(logger_instance, host_id='10.0.0.1')
     assert addr.host_name == '10.0.0.1'
     assert addr.aliases == ['10.0.0.1']
     assert addr.ipv4_addresses == ['10.0.0.1']
@@ -118,13 +123,14 @@ def test_network_address(mocker, supvisors):
     assert addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.get_network_ip('192.168.1.0') == ''
     assert addr.serial() == {'host_name': '10.0.0.1',
                              'aliases': ['10.0.0.1'],
                              'ipv4_addresses': ['10.0.0.1'],
                              'nic_info': None}
     # test NetworkAddress creation with both NicInformation and host id
     # NicInformation takes precedence
-    addr = NetworkAddress(supvisors.logger, nic_info=nic_info, host_id='10.0.0.1')
+    addr = NetworkAddress(logger_instance, nic_info=nic_info, host_id='10.0.0.1')
     assert addr.host_name == '192.168.1.1'
     assert addr.aliases == ['192.168.1.1']
     assert addr.ipv4_addresses == ['192.168.1.1']
@@ -134,6 +140,8 @@ def test_network_address(mocker, supvisors):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
+    assert addr.get_network_ip('192.168.11.0') == ''
     assert addr.serial() == {'host_name': '192.168.1.1',
                              'aliases': ['192.168.1.1'],
                              'ipv4_addresses': ['192.168.1.1'],
@@ -141,8 +149,8 @@ def test_network_address(mocker, supvisors):
                                           'ipv4_address': '192.168.1.1',
                                           'netmask': '255.255.255.0'}}
     # test NetworkAddress creation from payload
-    addr = NetworkAddress(supvisors.logger, host_id='10.0.0.1')
-    addr.from_payload(NetworkAddress(supvisors.logger, nic_info=nic_info).serial())
+    addr = NetworkAddress(logger_instance, host_id='10.0.0.1')
+    addr.from_payload(NetworkAddress(logger_instance, nic_info=nic_info).serial())
     assert addr.host_name == '192.168.1.1'
     assert addr.aliases == ['192.168.1.1']
     assert addr.ipv4_addresses == ['192.168.1.1']
@@ -153,6 +161,8 @@ def test_network_address(mocker, supvisors):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
+    assert addr.get_network_ip('192.168.11.0') == ''
     assert addr.serial() == {'host_name': '192.168.1.1',
                              'aliases': ['192.168.1.1'],
                              'ipv4_addresses': ['192.168.1.1'],
@@ -161,7 +171,7 @@ def test_network_address(mocker, supvisors):
                                           'netmask': '255.255.255.0'}}
     # test NetworkAddress creation with gaierror
     mocked_sock.side_effect = socket.gaierror
-    addr = NetworkAddress(supvisors.logger, nic_info=nic_info)
+    addr = NetworkAddress(logger_instance, nic_info=nic_info)
     assert addr.host_name == ''
     assert addr.aliases == []
     assert addr.ipv4_addresses == []
@@ -171,6 +181,8 @@ def test_network_address(mocker, supvisors):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
+    assert addr.get_network_ip('192.168.11.0') == ''
     assert addr.serial() == {'host_name': '',
                              'aliases': [],
                              'ipv4_addresses': [],
@@ -179,10 +191,10 @@ def test_network_address(mocker, supvisors):
                                           'netmask': '255.255.255.0'}}
 
 
-def test_local_network(mocker, supvisors):
+def test_local_network(logger_instance):
     """ Test the LocalNetwork class. """
-    network = LocalNetwork(supvisors.logger)
-    assert network.logger is supvisors.logger
+    network = LocalNetwork(logger_instance)
+    assert network.logger is logger_instance
     assert network.machine_id == '01:23:45:67:89:ab'
     assert network.fqdn == 'supv01.bzh'
     assert sorted(network.addresses.keys()) == [nic_name for _, nic_name in socket.if_nameindex()
@@ -191,6 +203,12 @@ def test_local_network(mocker, supvisors):
     assert network.host_matches('10.0.0.1')
     assert not network.host_matches('10.0.0.2')
     assert not network.host_matches('supv03')
+    # test get_network_address
+    assert network.get_network_address('10.0.0.1') == '10.0.0.0'
+    assert network.get_network_address('10.0.0.2') == ''
+    # test get_network_address
+    assert network.get_network_ip('10.0.0.0') == '10.0.0.1'
+    assert network.get_network_ip('10.0.1.0') == ''
     # test serial
     assert network.serial() == {'fqdn': 'supv01.bzh',
                                 'machine_id': '01:23:45:67:89:ab',
@@ -201,7 +219,7 @@ def test_local_network(mocker, supvisors):
                                                                     'netmask': '255.255.255.0',
                                                                     'nic_name': 'eth0'}}}}
     # test LocalNetwork creation from payload
-    other = LocalNetwork(supvisors.logger)
+    other = LocalNetwork(logger_instance)
     payload = {'fqdn': 'supv01.bzh',
                'machine_id': '01:23:45:67:89:ab',
                'addresses': {'eth0': {'host_name': 'supv02',
@@ -224,12 +242,12 @@ def test_local_network(mocker, supvisors):
                                                                     'nic_name': 'eth0'}}}}
 
 
-def test_sup_id_create_no_match(supvisors):
+def test_sup_id_create_no_match(supvisors_instance):
     """ Test the values set at SupvisorsInstanceId construction. """
     no_matches = ['', 'ident>', 'cliche81:12000:', '10.0.0.1:145000']
     # test with no match but default options loaded
     for item in no_matches:
-        sup_id = SupvisorsInstanceId(item, supvisors)
+        sup_id = SupvisorsInstanceId(item, supvisors_instance)
         assert sup_id.identifier is None
         assert sup_id.nick_identifier is None
         assert sup_id.host_id is None
@@ -249,13 +267,16 @@ def test_sup_id_create_no_match(supvisors):
         assert sup_id.is_valid(('10.0.0.1', 25000))
         assert sup_id.is_valid(('cliche81', 25000))
         assert not sup_id.is_valid(('10.0.0.1', 7777))
+        assert sup_id.get_network_ip(None) is None
+        assert sup_id.get_network_ip('10.0.0.0') is None
+        assert sup_id.get_network_ip('10.0.1.0') is None
 
 
-def test_sup_id_create_simple_no_default(supvisors):
+def test_sup_id_create_simple_no_default(supvisors_instance):
     """ Test the values set at SupvisorsInstanceId construction. """
-    supvisors.options.event_port = 0
+    supvisors_instance.options.event_port = 0
     # test with no match and no default option loaded
-    sup_id = SupvisorsInstanceId('', supvisors)
+    sup_id = SupvisorsInstanceId('', supvisors_instance)
     assert sup_id.identifier is None
     assert sup_id.nick_identifier is None
     assert sup_id.host_id is None
@@ -275,12 +296,15 @@ def test_sup_id_create_simple_no_default(supvisors):
     assert sup_id.is_valid(('10.0.0.1', 25000))
     assert not sup_id.is_valid(('10.0.0.1', 7777))
     assert sup_id.is_valid(('cliche81', 25000))
+    assert sup_id.get_network_ip(None) is None
+    assert sup_id.get_network_ip('10.0.0.0') is None
+    assert sup_id.get_network_ip('10.0.1.0') is None
 
 
-def test_sup_id_create_host(supvisors):
+def test_sup_id_create_host(supvisors_instance):
     """ Test the values set at SupvisorsInstanceId construction. """
     # test with simple host name match
-    sup_id = SupvisorsInstanceId('10.0.0.1', supvisors)
+    sup_id = SupvisorsInstanceId('10.0.0.1', supvisors_instance)
     assert sup_id.identifier == '10.0.0.1:25000'
     assert sup_id.nick_identifier == '10.0.0.1'
     assert sup_id.host_id == '10.0.0.1'
@@ -302,12 +326,15 @@ def test_sup_id_create_host(supvisors):
     assert sup_id.is_valid(('10.0.0.1', 25000))
     assert not sup_id.is_valid(('10.0.0.1', 7777))
     assert not sup_id.is_valid(('cliche81', 7777))
+    assert sup_id.get_network_ip(None) == '10.0.0.1'
+    assert sup_id.get_network_ip('10.0.0.0') == '10.0.0.1'
+    assert sup_id.get_network_ip('10.0.1.0') == '10.0.0.1'
 
 
-def test_sup_id_create_host_port(supvisors):
+def test_sup_id_create_host_port(supvisors_instance):
     """ Test the values set at SupvisorsInstanceId construction. """
     # test with host+ports match
-    sup_id = SupvisorsInstanceId('10.0.0.1:7777', supvisors)
+    sup_id = SupvisorsInstanceId('10.0.0.1:7777', supvisors_instance)
     assert sup_id.identifier == '10.0.0.1:7777'
     assert sup_id.nick_identifier == '10.0.0.1:7777'
     assert sup_id.host_id == '10.0.0.1'
@@ -329,9 +356,12 @@ def test_sup_id_create_host_port(supvisors):
     assert sup_id.is_valid(('10.0.0.1', 7777))
     assert not sup_id.is_valid(('10.0.0.1', 25000))
     assert sup_id.is_valid(('cliche81', 7777))  # no local_view
+    assert sup_id.get_network_ip(None) == '10.0.0.1'
+    assert sup_id.get_network_ip('10.0.0.0') == '10.0.0.1'
+    assert sup_id.get_network_ip('10.0.1.0') == '10.0.0.1'
     # test with host+ports match (internal port defined)
-    supvisors.options.event_port = 0
-    sup_id = SupvisorsInstanceId('10.0.0.1:7777', supvisors)
+    supvisors_instance.options.event_port = 0
+    sup_id = SupvisorsInstanceId('10.0.0.1:7777', supvisors_instance)
     assert sup_id.identifier == '10.0.0.1:7777'
     assert sup_id.nick_identifier == '10.0.0.1:7777'
     assert sup_id.host_id == '10.0.0.1'
@@ -353,11 +383,15 @@ def test_sup_id_create_host_port(supvisors):
     assert sup_id.is_valid(('10.0.0.1', 7777))
     assert not sup_id.is_valid(('10.0.0.1', 25000))
     assert sup_id.is_valid(('cliche81', 7777))  # no local_view
+    assert sup_id.get_network_ip(None) == '10.0.0.1'
+    assert sup_id.get_network_ip('10.0.0.0') == '10.0.0.1'
+    assert sup_id.get_network_ip('10.0.1.0') == '10.0.0.1'
 
-def test_sup_id_create_identifier(supvisors):
+
+def test_sup_id_create_identifier(supvisors_instance):
     """ Test the values set at SupvisorsInstanceId construction. """
     # test with identifier set and only host name
-    sup_id = SupvisorsInstanceId('<supvisors>10.0.0.0', supvisors)
+    sup_id = SupvisorsInstanceId('<supvisors>10.0.0.0', supvisors_instance)
     assert sup_id.identifier == '10.0.0.0:25000'
     assert sup_id.nick_identifier == 'supvisors'
     assert sup_id.host_id == '10.0.0.0'
@@ -379,8 +413,11 @@ def test_sup_id_create_identifier(supvisors):
     assert sup_id.is_valid(('10.0.0.0', 25000))
     assert sup_id.is_valid(('10.0.0.1', 25000))  # no local_view
     assert not sup_id.is_valid(('cliche81', 7777))
+    assert sup_id.get_network_ip(None) == '10.0.0.0'
+    assert sup_id.get_network_ip('10.0.0.0') == '10.0.0.0'
+    assert sup_id.get_network_ip('10.0.1.0') == '10.0.0.0'
     # test with identifier, host name and http port set
-    sup_id = SupvisorsInstanceId('<supvisors>10.0.0.0:8888', supvisors)
+    sup_id = SupvisorsInstanceId('<supvisors>10.0.0.0:8888', supvisors_instance)
     assert sup_id.identifier == '10.0.0.0:8888'
     assert sup_id.nick_identifier == 'supvisors'
     assert sup_id.host_id == '10.0.0.0'
@@ -402,18 +439,21 @@ def test_sup_id_create_identifier(supvisors):
     assert sup_id.is_valid(('10.0.0.0', 8888))
     assert sup_id.is_valid(('10.0.0.1', 8888))  # no local_view
     assert not sup_id.is_valid(('cliche81', 7777))
+    assert sup_id.get_network_ip(None) == '10.0.0.0'
+    assert sup_id.get_network_ip('10.0.0.0') == '10.0.0.0'
+    assert sup_id.get_network_ip('10.0.1.0') == '10.0.0.0'
 
 
 @pytest.fixture
-def mapper(mocker, supvisors):
+def mapper(mocker, supvisors_instance):
     """ Return the instance to test. """
     mocker.patch('uuid.getnode', return_value=1250999896491)
-    return SupvisorsMapper(supvisors)
+    return SupvisorsMapper(supvisors_instance)
 
 
-def test_mapper_create(supvisors, mapper):
+def test_mapper_create(supvisors_instance, mapper):
     """ Test the values set at construction. """
-    assert mapper.supvisors is supvisors
+    assert mapper.supvisors is supvisors_instance
     assert mapper.local_network.serial() == {'fqdn': 'supv01.bzh',
                                              'machine_id': '01:23:45:67:89:ab',
                                              'addresses': {'eth0': {'host_name': 'supv01.bzh',
@@ -422,7 +462,7 @@ def test_mapper_create(supvisors, mapper):
                                                                     'nic_info': {'ipv4_address': '10.0.0.1',
                                                                                  'netmask': '255.255.255.0',
                                                                                  'nic_name': 'eth0'}}}}
-    assert mapper.logger is supvisors.logger
+    assert mapper.logger is supvisors_instance.logger
     assert mapper.instances == {}
     assert mapper._nick_identifiers == {}
     assert mapper.nodes == {}
@@ -435,9 +475,9 @@ def test_mapper_create(supvisors, mapper):
         mapper.local_nick_identifier
 
 
-def test_get_nick_identifier(supvisors):
+def test_get_nick_identifier(supvisors_instance):
     """ Test the SupvisorsMapper.get_nick_identifier method. """
-    smapper = supvisors.mapper
+    smapper = supvisors_instance.mapper
     assert smapper.get_nick_identifier(smapper.local_identifier) == smapper.local_nick_identifier
     assert smapper.get_nick_identifier('10.0.0.1:25000') == '10.0.0.1'
     assert smapper.get_nick_identifier('10.0.0.2:25000') == '10.0.0.2'
@@ -501,21 +541,21 @@ def test_mapper_configure(mocker, mapper):
     assert not mocked_find.called
 
 
-def test_find_local_identifier(supvisors):
+def test_find_local_identifier(supvisors_instance):
     """ Test the SupvisorsMapper.find_local_identifier method in the default test instance. """
-    smapper = supvisors.mapper
+    smapper = supvisors_instance.mapper
     smapper._find_local_identifier({'test'})
     assert smapper.local_identifier == '10.0.0.1:25000'
     for identifier, supvisors_id in smapper.instances.items():
         assert identifier != 'supv01.bzh' or supvisors_id.stereotypes == ['test']
 
 
-def test_find_local_identifier_fqdn(supvisors, mapper):
+def test_find_local_identifier_fqdn(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when the item host name matches the . """
     fqdn = socket.getfqdn()
     items = [fqdn, '<supervisor>10.0.0.5:7777']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
         assert supvisors_id.stereotypes == []
     # 1. force host name and aliases
@@ -538,13 +578,13 @@ def test_find_local_identifier_fqdn(supvisors, mapper):
         assert identifier != fqdn or supvisors_id.stereotypes == ['test_2']
 
 
-def test_find_local_identifier_host_name(supvisors, mapper):
+def test_find_local_identifier_host_name(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the host name and the HTTP
     server port. """
     host_name, fqdn = socket.gethostname(), socket.getfqdn()
     items = ['127.0.0.1', f'{host_name}:25000']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
         assert supvisors_id.stereotypes == []
     # 1. force host name and aliases
@@ -566,14 +606,14 @@ def test_find_local_identifier_host_name(supvisors, mapper):
         assert identifier != fqdn or supvisors_id.stereotype == ['test_2']
 
 
-def test_find_local_identifier_ip_address(supvisors, mapper):
+def test_find_local_identifier_ip_address(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the IP address of the host
     and the HTTP server port. """
     host_name, fqdn = socket.gethostname(), socket.getfqdn()
     _, _, ip_addresses = socket.gethostbyaddr(fqdn)
     items = ['127.0.0.1', f'<host>{ip_addresses[0]}:25000']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
         assert supvisors_id.stereotypes == []
     # 1. force host name and aliases
@@ -595,27 +635,26 @@ def test_find_local_identifier_ip_address(supvisors, mapper):
         assert identifier != fqdn or supvisors_id.stereotypes == ['test_2']
 
 
-def test_find_local_identifier_inconsistent(supvisors, mapper):
+def test_find_local_identifier_inconsistent(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when the identifier corresponds to thr local Supvisors
     instance but the host_name and http_port do not match. """
     host_name = socket.gethostname()
-    supvisors_id = SupvisorsInstanceId(f'<{host_name}>10.0.0.5:7777', supvisors)
+    supvisors_id = SupvisorsInstanceId(f'<{host_name}>10.0.0.5:7777', supvisors_instance)
     mapper._instances[supvisors_id.identifier] = supvisors_id
     assert supvisors_id.stereotypes == []
     # find self
-    print(supvisors.supervisor_data.identifier)
     with pytest.raises(ValueError):
         mapper._find_local_identifier({'test'})
     assert supvisors_id.stereotypes == []
 
 
-def test_find_local_identifier_multiple(supvisors, mapper):
+def test_find_local_identifier_multiple(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when more than one instance matches the host name
     or IP address of the host. """
     host_name, fqdn = socket.gethostname(), socket.getfqdn()
     items = ['10.0.0.1', f'{host_name}:25000']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
         assert supvisors_id.stereotypes == []
         # update default processing of host
@@ -627,13 +666,13 @@ def test_find_local_identifier_multiple(supvisors, mapper):
         assert supvisors_id.stereotypes == []
 
 
-def test_find_local_identifier_none(supvisors, mapper):
+def test_find_local_identifier_none(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when no instance matches the host name
     or IP address of the host. """
     host_name = socket.gethostname()
     items = ['10.0.0.2', '<dummy>cliche:60000', f'{host_name}:60000']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
     with pytest.raises(ValueError):
         mapper._find_local_identifier({'test'})
@@ -641,13 +680,13 @@ def test_find_local_identifier_none(supvisors, mapper):
         assert supvisors_id.stereotypes == []
 
 
-def test_filter(supvisors, mapper):
+def test_filter(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.filter method. """
     # add context
     hostname = socket.gethostname()
     items = ['127.0.0.1', '<host>10.0.0.1:2222', f'{hostname}:60000', '10.0.0.2']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
         mapper._nick_identifiers[supvisors_id.nick_identifier] = supvisors_id.identifier
     # force host name to FQDN
@@ -694,12 +733,12 @@ def test_identify(mapper):
     assert sup_id.stereotypes == ['test']
 
 
-def test_assign_stereotypes(supvisors, mapper):
+def test_assign_stereotypes(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.assign_stereotypes method. """
     # add context
     items = ['10.0.0.1', '10.0.0.3', '10.0.0.4', '10.0.0.2']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
         assert supvisors_id.stereotypes == []
     assert mapper.stereotypes == {}
@@ -744,13 +783,13 @@ def test_assign_stereotypes(supvisors, mapper):
     assert mapper.instances['10.0.0.4:25000'].serial()['stereotypes'] == ['other test']
 
 
-def test_check_candidate(supvisors, mapper):
+def test_check_candidate(supvisors_instance, mapper):
     """ Test the SupvisorsMapper.check_candidate method. """
     # add context
     hostname = socket.gethostname()
     items = ['127.0.0.1', '<host>10.0.0.1:2222', f'{hostname}:60000', '10.0.0.2']
     for item in items:
-        supvisors_id = SupvisorsInstanceId(item, supvisors)
+        supvisors_id = SupvisorsInstanceId(item, supvisors_instance)
         mapper._instances[supvisors_id.identifier] = supvisors_id
         mapper._nick_identifiers[supvisors_id.nick_identifier] = supvisors_id.identifier
     # force host name to FQDN

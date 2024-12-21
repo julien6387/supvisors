@@ -27,18 +27,18 @@ from supvisors.external_com.supvisorszmq import *
 
 
 @pytest.fixture
-def publisher(supvisors):
-    test_publisher = ZmqEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
+def publisher(supvisors_instance):
+    test_publisher = ZmqEventPublisher(supvisors_instance.mapper.local_instance, supvisors_instance.logger)
     yield test_publisher
     test_publisher.close()
     time.sleep(0.5)
 
 
 @pytest.fixture
-def subscriber(mocker, supvisors):
+def subscriber(mocker, supvisors_instance):
     test_subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(),
-                                                 'localhost', supvisors.options.event_port,
-                                                 supvisors.logger)
+                                                 'localhost', supvisors_instance.options.event_port,
+                                                 supvisors_instance.logger)
     mocker.patch.object(test_subscriber, 'on_receive')
     yield test_subscriber
     test_subscriber.stop()
@@ -46,10 +46,10 @@ def subscriber(mocker, supvisors):
 
 
 @pytest.fixture
-def real_subscriber(supvisors):
+def real_subscriber(supvisors_instance):
     test_subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(),
-                                                 'localhost', supvisors.options.event_port,
-                                                 supvisors.logger)
+                                                 'localhost', supvisors_instance.options.event_port,
+                                                 supvisors_instance.logger)
     test_subscriber.subscribe_all()
     yield test_subscriber
     test_subscriber.stop()
@@ -64,12 +64,13 @@ def wait_thread_alive(thr: AsyncEventThread, max_time: int = 5) -> bool:
     return thr.loop and thr.loop.is_running()
 
 
-def test_external_publish_subscribe(supvisors):
+def test_external_publish_subscribe(supvisors_instance):
     """ Test the ZeroMQ publish-subscribe sockets used in the event interface of Supvisors. """
     # create publisher and subscriber
-    publisher = ZmqEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
-    subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost', supvisors.options.event_port,
-                                            supvisors.logger)
+    publisher = ZmqEventPublisher(supvisors_instance.mapper.local_instance, supvisors_instance.logger)
+    subscriber = SupvisorsZmqEventInterface(zmq.asyncio.Context.instance(), 'localhost',
+                                            supvisors_instance.options.event_port,
+                                            supvisors_instance.logger)
     subscriber.start()
     assert wait_thread_alive(subscriber.thread)
     # check that the ZMQ sockets are ready

@@ -33,7 +33,7 @@ def test_expand_faults():
     assert SupvisorsFaults.DISABLED.value == Faults.DISABLED
 
 
-def test_patch_logger(supvisors):
+def test_patch_logger():
     """ Test the patch_logger function. """
     # check initial context
     assert not hasattr(Handler, '_emit')

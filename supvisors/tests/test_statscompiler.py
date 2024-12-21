@@ -66,14 +66,14 @@ def test_trunc_depth():
 
 # Host Statistics part
 @pytest.fixture
-def host_statistics_instance(supvisors):
+def host_statistics_instance(logger_instance):
     # testing with period 12 and history depth 2
-    return HostStatisticsInstance('10.0.0.1', 12, 2, supvisors.logger)
+    return HostStatisticsInstance('10.0.0.1', 12, 2, logger_instance)
 
 
-def test_host_statistics_instance_creation(host_statistics_instance, supvisors):
+def test_host_statistics_instance_creation(host_statistics_instance, supvisors_instance):
     """ Test the creation of HostStatisticsInstance. """
-    assert host_statistics_instance.logger is supvisors.logger
+    assert host_statistics_instance.logger is supvisors_instance.logger
     assert host_statistics_instance.identifier == '10.0.0.1'
     assert host_statistics_instance.period == 12
     assert host_statistics_instance.depth == 2
@@ -329,11 +329,11 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
 
 
 @pytest.fixture
-def host_statistics_compiler(supvisors):
-    return HostStatisticsCompiler(supvisors)
+def host_statistics_compiler(supvisors_instance):
+    return HostStatisticsCompiler(supvisors_instance)
 
 
-def test_host_statistics_compiler_creation(supvisors, host_statistics_compiler):
+def test_host_statistics_compiler_creation(supvisors_instance, host_statistics_compiler):
     """ Test the creation of HostStatisticsCompiler. """
     assert host_statistics_compiler.nb_cores == {}
     identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000',
@@ -344,8 +344,8 @@ def test_host_statistics_compiler_creation(supvisors, host_statistics_compiler):
         for period, period_instances in period_map.items():
             assert isinstance(period_instances, HostStatisticsInstance)
             assert period_instances.period == period
-            assert period_instances.depth == supvisors.options.stats_histo
-            assert period_instances.logger is supvisors.logger
+            assert period_instances.depth == supvisors_instance.options.stats_histo
+            assert period_instances.logger is supvisors_instance.logger
 
 
 def test_host_statistics_compiler_get_stats(host_statistics_compiler):
@@ -520,15 +520,15 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
 
 
 @pytest.fixture
-def proc_statistics_holder(supvisors):
-    return ProcStatisticsHolder('dummy_proc', supvisors.options, supvisors.logger)
+def proc_statistics_holder(supvisors_instance):
+    return ProcStatisticsHolder('dummy_proc', supvisors_instance.options, supvisors_instance.logger)
 
 
-def test_proc_statistics_holder_creation(supvisors, proc_statistics_holder):
+def test_proc_statistics_holder_creation(supvisors_instance, proc_statistics_holder):
     """ Test the creation of ProcStatisticsHolder. """
     assert proc_statistics_holder.namespec == 'dummy_proc'
-    assert proc_statistics_holder.options is supvisors.options
-    assert proc_statistics_holder.logger is supvisors.logger
+    assert proc_statistics_holder.options is supvisors_instance.options
+    assert proc_statistics_holder.logger is supvisors_instance.logger
     assert proc_statistics_holder.instance_map == {}
 
 
@@ -660,19 +660,19 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
 
 
 @pytest.fixture
-def proc_statistics_compiler(supvisors):
-    return ProcStatisticsCompiler(supvisors.options, supvisors.logger)
+def proc_statistics_compiler(supvisors_instance):
+    return ProcStatisticsCompiler(supvisors_instance.options, supvisors_instance.logger)
 
 
-def test_proc_statistics_compiler_creation(supvisors, proc_statistics_compiler):
+def test_proc_statistics_compiler_creation(supvisors_instance, proc_statistics_compiler):
     """ Test the creation of ProcStatisticsCompiler. """
-    assert proc_statistics_compiler.options is supvisors.options
-    assert proc_statistics_compiler.logger is supvisors.logger
+    assert proc_statistics_compiler.options is supvisors_instance.options
+    assert proc_statistics_compiler.logger is supvisors_instance.logger
     assert proc_statistics_compiler.holder_map == {}
     assert proc_statistics_compiler.nb_cores == {}
 
 
-def test_proc_statistics_compiler_get_stats(mocker, supvisors, proc_statistics_compiler):
+def test_proc_statistics_compiler_get_stats(mocker, supvisors_instance, proc_statistics_compiler):
     """ Test the ProcStatisticsCompiler.get_stats method """
     mocked_stats = mocker.patch('supvisors.statscompiler.ProcStatisticsHolder.get_stats')
     # test on unknown namespec
@@ -686,7 +686,7 @@ def test_proc_statistics_compiler_get_stats(mocker, supvisors, proc_statistics_c
     assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', 12.5, 1)]
     mocked_holder.get_stats.reset_mock()
     # test on known namespec and solaris mode (nb_cores not set)
-    supvisors.options.stats_irix_mode = False
+    supvisors_instance.options.stats_irix_mode = False
     assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', 12.5) == 'some stats'
     assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', 12.5, 1)]
     mocked_holder.get_stats.reset_mock()

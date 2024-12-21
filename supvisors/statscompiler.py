@@ -227,7 +227,7 @@ class HostStatisticsCompiler:
             for identifier in supvisors.mapper.instances}
         self.nb_cores: Dict[str, int] = {}
 
-    def get_stats(self, identifier: str, period: int) -> HostStatisticsInstance:
+    def get_stats(self, identifier: str, period: float) -> HostStatisticsInstance:
         """ Return the HostStatisticsInstance corresponding to a Supvisors instance and a period. """
         identifier_instance = self.instance_map.get(identifier)
         if identifier_instance:

@@ -14,14 +14,17 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import List
+from typing import Callable, List
+
+from supervisor.http import NOT_DONE_YET
 
 from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import ConciliationStrategies, SupvisorsStates
 from supvisors.utils import simple_duration
 from .viewcontext import *
 from .viewmain import MainView
-from .webutils import *
+from .webutils import (ProcessRowTypes, SupvisorsPages, SupvisorsSymbols, apply_shade,
+                       WebMessage, SupvisorsGravities)
 
 
 class ConciliationView(MainView):
@@ -36,7 +39,7 @@ class ConciliationView(MainView):
     def __init__(self, context):
         """ Call of the superclass constructors. """
         MainView.__init__(self, context)
-        self.page_name: str = CONCILIATION_PAGE
+        self.page_name: str = SupvisorsPages.CONCILIATION_PAGE
         # get applicable conciliation strategies (USER excluded)
         self.strategies: List[str] = [x.name.lower() for x in ConciliationStrategies]
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
@@ -58,7 +61,7 @@ class ConciliationView(MainView):
             # conciliation requests MUST be sent to MASTER and namespec MUST be reset
             master = self.sup_ctx.master_identifier
             parameters = {NAMESPEC: '', ACTION: strategy}
-            url = self.view_ctx.format_url(master, CONCILIATION_PAGE, **parameters)
+            url = self.view_ctx.format_url(master, SupvisorsPages.CONCILIATION_PAGE, **parameters)
             elt.attributes(href=url)
 
     def get_conciliation_data(self):
@@ -114,7 +117,7 @@ class ConciliationView(MainView):
     def _write_conflict_detail(self, tr_elt, info):
         """ In a conflicts table, write the process entry in conflict. """
         tr_elt.findmeld('section_td_mid').replace('')
-        tr_elt.findmeld('process_td_mid').content(SUB_SYMBOL)
+        tr_elt.findmeld('process_td_mid').content(SupvisorsSymbols.SUB_SYMBOL)
         self._write_conflict_identifier(tr_elt, info)
         self._write_conflict_uptime(tr_elt, info)
         self._write_conflict_process_actions(tr_elt, info)
@@ -125,7 +128,7 @@ class ConciliationView(MainView):
         identifier = info['identifier']
         nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
         elt = tr_elt.findmeld('conflict_instance_a_mid')
-        url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE)
+        url = self.view_ctx.format_url(identifier, SupvisorsPages.PROC_INSTANCE_PAGE)
         elt.attributes(href=url)
         elt.content(nick_identifier)
 
@@ -142,7 +145,7 @@ class ConciliationView(MainView):
         for action in self.process_methods:
             elt = tr_elt.findmeld(action + '_a_mid')
             parameters = {NAMESPEC: namespec, IDENTIFIER: identifier, ACTION: action}
-            url = self.view_ctx.format_url('', CONCILIATION_PAGE, **parameters)
+            url = self.view_ctx.format_url('', SupvisorsPages.CONCILIATION_PAGE, **parameters)
             elt.attributes(href=url)
 
     def _write_conflict_strategies(self, tr_elt, info, shaded_tr):
@@ -160,7 +163,7 @@ class ConciliationView(MainView):
             # conciliation requests MUST be sent to the Supvisors Master
             master = self.sup_ctx.master_identifier
             parameters = {NAMESPEC: namespec, ACTION: strategy}
-            url = self.view_ctx.format_url(master, CONCILIATION_PAGE, **parameters)
+            url = self.view_ctx.format_url(master, SupvisorsPages.CONCILIATION_PAGE, **parameters)
             elt.attributes(href=url)
 
     def make_callback(self, namespec: str, action: str):
@@ -184,8 +187,8 @@ class ConciliationView(MainView):
         def on_wait():
             if identifier in running_identifiers:
                 return NOT_DONE_YET
-            return info_message(f'process {namespec} stopped on {identifier}')
-
+            return WebMessage(f'process {namespec} stopped on {identifier}',
+                              SupvisorsGravities.INFO).gravity_message
         on_wait.delay = 0.1
         return on_wait
 
@@ -202,18 +205,18 @@ class ConciliationView(MainView):
         def on_wait():
             if len(running_identifiers) > 1:
                 return NOT_DONE_YET
-            return info_message(f'processes {namespec} stopped but on {kept_identifier}')
+            return WebMessage(f'processes {namespec} stopped but on {kept_identifier}',
+                              SupvisorsGravities.INFO).gravity_message
 
         on_wait.delay = 0.1
         return on_wait
 
-    def conciliation_action(self, namespec, action):
+    def conciliation_action(self, namespec, action) -> Callable:
         """ Performs the automatic conciliation to solve the conflicts. """
         if namespec:
             # conciliate only one process
             conciliate_conflicts(self.supvisors, ConciliationStrategies[action], [self.sup_ctx.get_process(namespec)])
-            return delayed_info(f'{action} in progress for {namespec}')
-        else:
-            # conciliate all conflicts
-            conciliate_conflicts(self.supvisors, ConciliationStrategies[action], self.sup_ctx.conflicts())
-            return delayed_info(f'{action} in progress for all conflicts')
+            return WebMessage(f'{action} in progress for {namespec}', SupvisorsGravities.INFO).delayed_message
+        # conciliate all conflicts
+        conciliate_conflicts(self.supvisors, ConciliationStrategies[action], self.sup_ctx.conflicts())
+        return WebMessage(f'{action} in progress for all conflicts', SupvisorsGravities.INFO).delayed_message

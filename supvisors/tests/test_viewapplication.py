@@ -21,15 +21,13 @@ from supervisor.web import MeldView
 
 from supvisors.ttypes import ApplicationStates
 from supvisors.web.viewapplication import *
-from .base import DummyHttpContext
 from .conftest import create_element
 
 
 @pytest.fixture
-def view(supvisors):
+def view(http_context):
     """ Fixture for the instance to test. """
-    http_context = DummyHttpContext('ui/application.html')
-    http_context.supervisord.supvisors = supvisors
+    http_context.template.replace('index.html', 'application.html')
     view = ApplicationView(http_context)
     view.view_ctx = Mock(parameters={}, **{'format_url.return_value': 'an url'})
     return view
@@ -46,7 +44,7 @@ def test_init(view):
 
 def test_handle_parameters(mocker, view):
     """ Test the handle_parameters method. """
-    mocker.patch('supvisors.web.viewapplication.error_message', return_value='an error')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
     mocked_handle = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_parameters')
     # patch context
     view.view_ctx.application_name = None
@@ -54,7 +52,7 @@ def test_handle_parameters(mocker, view):
     view.handle_parameters()
     assert mocked_handle.call_args_list == [call(view)]
     assert view.application is None
-    assert view.view_ctx.store_message == 'an error'
+    assert view.view_ctx.store_message == ('erro', 'Unknown application: None at now')
     assert view.view_ctx.redirect
     mocked_handle.reset_mock()
     # test with application selected
@@ -189,9 +187,9 @@ def test_write_actions(mocker, view):
     # test call
     view.write_actions(mocked_header)
     assert mocked_super.call_args_list == [call(mocked_header)]
-    assert view.view_ctx.format_url.call_args_list == [call('', APPLICATION_PAGE, action='startapp'),
-                                                       call('', APPLICATION_PAGE, action='stopapp'),
-                                                       call('', APPLICATION_PAGE, action='restartapp')]
+    assert view.view_ctx.format_url.call_args_list == [call('', SupvisorsPages.APPLICATION_PAGE, action='startapp'),
+                                                       call('', SupvisorsPages.APPLICATION_PAGE, action='stopapp'),
+                                                       call('', SupvisorsPages.APPLICATION_PAGE, action='restartapp')]
     assert startapp_a_mid.attributes.call_args_list == [call(href='a start url')]
     assert stopapp_a_mid.attributes.call_args_list == [call(href='a stop url')]
     assert restartapp_a_mid.attributes.call_args_list == [call(href='a restart url')]
@@ -462,7 +460,7 @@ def test_write_process_shex(view):
     view.write_process_shex(tr_elt, info, True)
     assert view.view_ctx.format_url.call_args_list == [call('', 'application.html', pshex='0001')]
     assert shex_td_mid.attrib['class'] == 'shaded'
-    assert shex_a_mid.content.call_args_list == [call(SHEX_SHRINK)]
+    assert shex_a_mid.content.call_args_list == [call(SupvisorsSymbols.SHEX_SHRINK)]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
     tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
@@ -471,13 +469,13 @@ def test_write_process_shex(view):
     view.write_process_shex(tr_elt, info, False)
     assert view.view_ctx.format_url.call_args_list == [call('', 'application.html', pshex='fffe')]
     assert shex_td_mid.attrib['class'] == ''
-    assert shex_a_mid.content.call_args_list == [call(SHEX_EXPAND)]
+    assert shex_a_mid.content.call_args_list == [call(SupvisorsSymbols.SHEX_EXPAND)]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
 
 
 def test_make_callback(mocker, view):
     """ Test the make_callback method. """
-    mocker.patch('supvisors.web.viewapplication.delayed_error', return_value='Delayed')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
     mocked_clear_proc = mocker.patch.object(view, 'clearlog_process_action', return_value='Clear process logs')
     mocked_restart_proc = mocker.patch.object(view, 'restart_process_action', return_value='Restart process')
     mocked_stop_proc = mocker.patch.object(view, 'stop_process_action', return_value='Stop process')
@@ -489,7 +487,8 @@ def test_make_callback(mocker, view):
     view.view_ctx = Mock(strategy=StartingStrategies.LOCAL, **{'get_process_status.return_value': None})
     # test with no application set
     for action in ['startapp', 'stopapp', 'restartapp', 'anything', 'start', 'stop', 'restart', 'clearlog']:
-        assert view.make_callback('dummy', action) == 'Delayed'
+        cb = view.make_callback('dummy', action)
+        assert cb() == ('erro', 'No application selected at now')
     # test with application set
     view.application = Mock()
     # test calls for different actions
@@ -499,7 +498,8 @@ def test_make_callback(mocker, view):
     assert mocked_stop_app.call_args_list == [call()]
     assert view.make_callback('', 'restartapp') == 'Restart application'
     assert mocked_restart_app.call_args_list == [call(StartingStrategies.LOCAL)]
-    assert view.make_callback('dummy', 'anything') == 'Delayed'
+    cb = view.make_callback('dummy', 'anything')
+    assert cb() == ('erro', 'No such process named dummy at now')
     # change view context for the remaining actions
     view.view_ctx.get_process_status.return_value = 'None'
     # test start process

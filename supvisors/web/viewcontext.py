@@ -16,13 +16,15 @@
 
 import math
 from distutils.util import strtobool
-from typing import Optional, Tuple
-from urllib.parse import quote
+from typing import Optional, Tuple, Type
+from urllib.parse import ParseResult, quote, urlparse
+
+from supervisor.web import ViewContext
 
 from supvisors.process import ProcessStatus
 from supvisors.ttypes import StartingStrategies, NameList
 from supvisors.utils import get_bit, set_bit
-from .webutils import SUPVISORS_PAGE, error_message
+from .webutils import SupvisorsPages, SupvisorsGravities, WebMessage
 
 # form parameters
 SERVER_URL = 'SERVER_URL'
@@ -33,7 +35,7 @@ IDENTIFIER = 'ident'  # navigation
 APPLI = 'appname'  # navigation
 
 ACTION = 'action'
-NAMESPEC = 'namespec'   # used for actions
+NAMESPEC = 'namespec'  # used for actions
 PROCESS = 'processname'  # used to tail (but also to display statistics)
 
 PERIOD = 'period'
@@ -57,14 +59,14 @@ HEADERS = 'headers'
 LOCATION = 'Location'
 
 
-class ViewContext:
+class SupvisorsViewContext:
     """ Class used to retrieve the parameters selected on the web page.
     It is also used to format href in html pages. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Define attributes for statistics selection. """
         # store the HTML context
-        self.http_context = context
+        self.http_context: ViewContext = context
         # keep references to Supvisors instance
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
@@ -89,10 +91,14 @@ class ViewContext:
         self.update_disk_stats_choice()
         self.update_partition_name()
         self.update_device_name()
+        # find the netmask associated
+        parsed_exitf_url: ParseResult = urlparse(context.form['SERVER_URL'])
+        hostname = parsed_exitf_url.hostname
+        self.network_address = self.supvisors.mapper.local_network.get_network_address(hostname)
 
     # information extracted
     @property
-    def strategy(self) -> StartingStrategies:
+    def strategy(self) -> Type[StartingStrategies]:
         return StartingStrategies[self.parameters[STRATEGY]]
 
     @property
@@ -167,7 +173,7 @@ class ViewContext:
         """ Extract message gravity from context form. """
         return self.http_context.form.get(GRAVITY)
 
-    def set_message_default(self, message: str, gravity: str):
+    def set_message_default(self, message: str, gravity: SupvisorsGravities):
         """ Set the message and gravity if there is no existing message. """
         if not self.message:
             self.http_context.form[GRAVITY] = gravity
@@ -216,7 +222,8 @@ class ViewContext:
             if self.supvisors.context.is_namespec(str_value):
                 value = str_value
             else:
-                self.store_message = error_message(f'Incorrect {NAMESPEC}: {str_value}')
+                self.store_message = WebMessage(f'Incorrect {NAMESPEC}: {str_value}',
+                                                SupvisorsGravities.ERROR).gravity_message
         # assign value found or default
         self.logger.trace(f'ViewContext.update_namespec: {NAMESPEC} set to {value}')
         self.parameters[NAMESPEC] = value
@@ -271,7 +278,7 @@ class ViewContext:
         :return: the application shex bytearray.
         """
         nb_applications = len(self.supvisors.context.applications)
-        return ViewContext._get_default_shex(nb_applications, expanded)
+        return SupvisorsViewContext._get_default_shex(nb_applications, expanded)
 
     def get_default_process_shex(self, application_name: str, expanded: bool) -> bytearray:
         """ Get a default process shex bytearray filled with 1 if expanded, for the considered application.
@@ -281,7 +288,7 @@ class ViewContext:
         :return: the process shex bytearray.
         """
         nb_processes = len(self.supvisors.context.applications[application_name].processes)
-        return ViewContext._get_default_shex(nb_processes, expanded)
+        return SupvisorsViewContext._get_default_shex(nb_processes, expanded)
 
     def update_application_shrink_expand(self):
         """ Extract process display choices from context.
@@ -323,7 +330,9 @@ class ViewContext:
             if str_value in check_list:
                 value = str_value
             else:
-                self.store_message = error_message(f'Incorrect {param}: {str_value}')
+                self.store_message = WebMessage(f'Incorrect {param}: {str_value}',
+                                                SupvisorsGravities.ERROR).gravity_message
+                self.logger.error(f'ViewContext._update_string: incorrect {param}: {str_value}')
         # assign value found or default
         self.logger.trace(f'ViewContext._update_string: {param} set to {value}')
         self.parameters[param] = value
@@ -336,13 +345,15 @@ class ViewContext:
             try:
                 int_value = int(str_value)
             except ValueError:
-                self.store_message = error_message(f'{param} is not an integer: {str_value}')
+                self.store_message = WebMessage(f'{param} is not an integer: {str_value}',
+                                                SupvisorsGravities.ERROR).gravity_message
             else:
                 # check that int_value is defined in check list
                 if int_value in check_list:
                     value = int_value
                 else:
-                    self.store_message = error_message(f'Incorrect {param}: {int_value}')
+                    self.store_message = WebMessage(f'Incorrect {param}: {int_value}',
+                                                    SupvisorsGravities.ERROR).gravity_message
         # assign value found or default
         self.logger.trace(f'ViewContext._update_integer: {param} set to {value}')
         self.parameters[param] = value
@@ -355,13 +366,15 @@ class ViewContext:
             try:
                 float_value = float(str_value)
             except ValueError:
-                self.store_message = error_message(f'{param} is not a float: {str_value}')
+                self.store_message = WebMessage(f'{param} is not a float: {str_value}',
+                                                SupvisorsGravities.ERROR).gravity_message
             else:
                 # check that float_value is defined in check list
                 if float_value in check_list:
                     value = float_value
                 else:
-                    self.store_message = error_message(f'Incorrect {param}: {float_value}')
+                    self.store_message = WebMessage(f'Incorrect {param}: {float_value}',
+                                                    SupvisorsGravities.ERROR).gravity_message
         # assign value found or default
         self.logger.trace(f'ViewContext._update_float: {param} set to {value}')
         self.parameters[param] = value
@@ -374,7 +387,8 @@ class ViewContext:
             try:
                 value = strtobool(str_value)
             except ValueError:
-                self.store_message = error_message(f'{param} is not a boolean-like: {str_value}')
+                self.store_message = WebMessage(f'{param} is not a boolean-like: {str_value}',
+                                                SupvisorsGravities.ERROR).gravity_message
         # assign value found or default
         self.logger.trace(f'ViewContext._update_boolean: {param} set to {value}')
         self.parameters[param] = value
@@ -390,13 +404,16 @@ class ViewContext:
 
     def format_url(self, identifier: str, page: str, **kwargs):
         """ Format URL from parameters. """
-        netloc = ''
         # build network location if identifier is provided
         if identifier:
-            instance = self.supvisors.mapper.instances[identifier]
-            netloc = f'http://{quote(instance.host_id)}:{instance.http_port}/'
+            sup_id = self.supvisors.mapper.instances[identifier]
+        else:
+            sup_id = self.supvisors.mapper.local_instance
+        # use network_address to get the relevant host_id
+        host_id = sup_id.get_network_ip(self.network_address)
+        netloc = f'http://{quote(host_id)}:{sup_id.http_port}/'
         # shex must be reset if the Supvisors instance changes
-        local_identifier = not identifier or identifier == self.local_identifier
+        local_identifier = sup_id.identifier == self.local_identifier
         # build URL from netloc, page and attributes
         return f'{netloc}{page}?{self.url_parameters(not local_identifier, **kwargs)}'
 
@@ -406,7 +423,7 @@ class ViewContext:
             args = {MESSAGE: self.store_message[1], GRAVITY: self.store_message[0]}
             form = self.http_context.form
             # if redirect requested, go back to main page
-            path_translated = '/' + SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
+            path_translated = '/' + SupvisorsPages.SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
             location = f'{form[SERVER_URL]}{path_translated}?{self.url_parameters(False, **args)}'
             self.http_context.response[HEADERS][LOCATION] = location
 

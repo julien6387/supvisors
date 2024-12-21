@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import pickle
 import random
 import sys
 from socket import getfqdn
@@ -28,148 +29,150 @@ from .conftest import create_application, create_process
 
 # ApplicationRules part
 @pytest.fixture
-def rules(supvisors):
+def rules_instance(supvisors_instance):
     """ Return the instance to test. """
-    return ApplicationRules(supvisors)
+    return ApplicationRules(supvisors_instance)
 
 
-def test_rules_create(rules):
+def test_rules_create(rules_instance):
     """ Test the values set at construction. """
     # check application default rules
-    assert not rules.managed
-    assert rules.distribution == DistributionRules.ALL_INSTANCES
-    assert rules.identifiers == ['*']
-    assert rules.hash_identifiers == []
-    assert rules.start_sequence == 0
-    assert rules.stop_sequence == -1
-    assert rules.starting_strategy == StartingStrategies.CONFIG
-    assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
-    assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
-    assert rules.status_tree is None
+    assert not rules_instance.managed
+    assert rules_instance.distribution == DistributionRules.ALL_INSTANCES
+    assert rules_instance.identifiers == ['*']
+    assert rules_instance.hash_identifiers == []
+    assert rules_instance.start_sequence == 0
+    assert rules_instance.stop_sequence == -1
+    assert rules_instance.starting_strategy == StartingStrategies.CONFIG
+    assert rules_instance.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert rules_instance.running_failure_strategy == RunningFailureStrategies.CONTINUE
+    assert rules_instance.status_tree is None
 
 
-def test_rules_check_stop_sequence(rules):
+def test_rules_check_stop_sequence(rules_instance):
     """ Test the assignment of stop sequence to start sequence if default still set. """
     # test when default still used
-    assert rules.start_sequence == 0
-    assert rules.stop_sequence == -1
-    rules.check_stop_sequence('crash')
-    assert rules.start_sequence == 0
-    assert rules.stop_sequence == 0
+    assert rules_instance.start_sequence == 0
+    assert rules_instance.stop_sequence == -1
+    rules_instance.check_stop_sequence('crash')
+    assert rules_instance.start_sequence == 0
+    assert rules_instance.stop_sequence == 0
     # test when value has been set
-    rules.start_sequence = 12
-    rules.stop_sequence = 50
-    rules.check_stop_sequence('crash')
-    assert rules.start_sequence == 12
-    assert rules.stop_sequence == 50
+    rules_instance.start_sequence = 12
+    rules_instance.stop_sequence = 50
+    rules_instance.check_stop_sequence('crash')
+    assert rules_instance.start_sequence == 12
+    assert rules_instance.stop_sequence == 50
 
 
-def test_rules_check_hash_identifiers(rules):
+def test_rules_check_hash_identifiers(rules_instance):
     """ Test the resolution of identifiers when hash_identifiers is set. """
     # set initial attributes
-    rules.hash_identifiers = ['*']
-    rules.identifiers = []
-    rules.start_sequence = 1
+    rules_instance.hash_identifiers = ['*']
+    rules_instance.identifiers = []
+    rules_instance.start_sequence = 1
     # 1. test with application without ending index
-    rules.check_hash_identifiers('crash')
+    rules_instance.check_hash_identifiers('crash')
     # identifiers is unchanged and start_sequence is invalidated
-    assert rules.hash_identifiers == ['*']
-    assert rules.identifiers == []
-    assert rules.start_sequence == 0
+    assert rules_instance.hash_identifiers == ['*']
+    assert rules_instance.identifiers == []
+    assert rules_instance.start_sequence == 0
     # 2. test with application with 0-ending index
-    rules.start_sequence = 1
-    rules.check_hash_identifiers('sample_test_0')
+    rules_instance.start_sequence = 1
+    rules_instance.check_hash_identifiers('sample_test_0')
     # identifiers is unchanged and start_sequence is invalidated
-    assert rules.hash_identifiers == ['*']
-    assert rules.identifiers == []
-    assert rules.start_sequence == 0
+    assert rules_instance.hash_identifiers == ['*']
+    assert rules_instance.identifiers == []
+    assert rules_instance.start_sequence == 0
     # 3. update rules to test '#' with all instances available
     # address '10.0.0.1' has an index of 1-1 in supvisors_mapper
-    rules.start_sequence = 1
-    rules.check_hash_identifiers('sample_test_1')
-    assert rules.identifiers == ['10.0.0.1:25000']
-    assert rules.start_sequence == 1
+    rules_instance.start_sequence = 1
+    rules_instance.check_hash_identifiers('sample_test_1')
+    assert rules_instance.identifiers == ['10.0.0.1:25000']
+    assert rules_instance.start_sequence == 1
     # 4. update rules to test '#' with a subset of instances available
-    rules.hash_identifiers = ['10.0.0.0:25000', '10.0.0.3:25000', '10.0.0.5:25000']
-    rules.identifiers = []
+    rules_instance.hash_identifiers = ['10.0.0.0:25000', '10.0.0.3:25000', '10.0.0.5:25000']
+    rules_instance.identifiers = []
     # here, at index 2-1 of this list, '10.0.0.5' can be found
-    rules.check_hash_identifiers('sample_test_2')
-    assert rules.identifiers == ['10.0.0.3:25000']
-    assert rules.start_sequence == 1
+    rules_instance.check_hash_identifiers('sample_test_2')
+    assert rules_instance.identifiers == ['10.0.0.3:25000']
+    assert rules_instance.start_sequence == 1
     # 5. test the case where procnumber is greater than the subset list of instances available
-    rules.hash_identifiers = ['10.0.0.1:25000']
-    rules.identifiers = []
-    rules.check_hash_identifiers('sample_test_2')
-    assert rules.identifiers == ['10.0.0.1:25000']
-    assert rules.start_sequence == 1
+    rules_instance.hash_identifiers = ['10.0.0.1:25000']
+    rules_instance.identifiers = []
+    rules_instance.check_hash_identifiers('sample_test_2')
+    assert rules_instance.identifiers == ['10.0.0.1:25000']
+    assert rules_instance.start_sequence == 1
 
 
-def test_rules_check_dependencies(mocker, rules):
+def test_rules_check_dependencies(mocker, rules_instance):
     """ Test the dependencies in process rules. """
     mocked_stop = mocker.patch('supvisors.application.ApplicationRules.check_stop_sequence')
     mocked_hash = mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     # test with no hash
-    rules.hash_identifiers = []
-    rules.check_dependencies('dummy')
+    rules_instance.hash_identifiers = []
+    rules_instance.check_dependencies('dummy')
     assert mocked_stop.call_args_list == [call('dummy')]
     assert not mocked_hash.called
     mocker.resetall()
     # test with hash
-    rules.hash_identifiers = ['*']
-    rules.check_dependencies('dummy')
+    rules_instance.hash_identifiers = ['*']
+    rules_instance.check_dependencies('dummy')
     assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_hash.call_args_list == [call('dummy')]
 
 
-def test_rules_str(rules):
+def test_rules_str(rules_instance):
     """ Test the string output. """
-    assert str(rules) == ("managed=False distribution=ALL_INSTANCES identifiers=['*'] start_sequence=0 stop_sequence=-1"
-                          " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE"
-                          " status_formula=None")
+    assert str(rules_instance) == ("managed=False distribution=ALL_INSTANCES identifiers=['*']"
+                                   " start_sequence=0 stop_sequence=-1"
+                                   " starting_strategy=CONFIG starting_failure_strategy=ABORT"
+                                   " running_failure_strategy=CONTINUE"
+                                   " status_formula=None")
 
 
-def test_rules_serial(rules):
+def test_rules_serial(rules_instance):
     """ Test the serialization of the ApplicationRules object. """
     # default is not managed so result is short
-    assert rules.serial() == {'managed': False}
+    assert rules_instance.serial() == {'managed': False}
     # check managed and distributed
-    rules.managed = True
-    assert rules.serial() == {'managed': True, 'distribution': 'ALL_INSTANCES', 'identifiers': ['*'],
-                              'start_sequence': 0, 'stop_sequence': -1,
-                              'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
-                              'running_failure_strategy': 'CONTINUE',
-                              'status_formula': ''}
+    rules_instance.managed = True
+    assert rules_instance.serial() == {'managed': True, 'distribution': 'ALL_INSTANCES', 'identifiers': ['*'],
+                                       'start_sequence': 0, 'stop_sequence': -1,
+                                       'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
+                                       'running_failure_strategy': 'CONTINUE',
+                                       'status_formula': ''}
     # finally check managed and not distributed
-    rules.distribution = DistributionRules.SINGLE_INSTANCE
-    rules.status_formula = 'dumb and dumber'
-    assert rules.serial() == {'managed': True, 'distribution': 'SINGLE_INSTANCE', 'identifiers': ['*'],
-                              'start_sequence': 0, 'stop_sequence': -1,
-                              'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
-                              'running_failure_strategy': 'CONTINUE',
-                              'status_formula': 'dumb and dumber'}
+    rules_instance.distribution = DistributionRules.SINGLE_INSTANCE
+    rules_instance.status_formula = 'dumb and dumber'
+    assert rules_instance.serial() == {'managed': True, 'distribution': 'SINGLE_INSTANCE', 'identifiers': ['*'],
+                                       'start_sequence': 0, 'stop_sequence': -1,
+                                       'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
+                                       'running_failure_strategy': 'CONTINUE',
+                                       'status_formula': 'dumb and dumber'}
 
 
 # Homogeneous group part
-def test_homogeneous_group_create(supvisors):
+def test_homogeneous_group_create(supvisors_instance):
     """ Test the values set at construction. """
-    group = HomogeneousGroup('yeux', supvisors)
-    assert group.supvisors is supvisors
+    group = HomogeneousGroup('yeux', supvisors_instance)
+    assert group.supvisors is supvisors_instance
     assert group.program_name == 'yeux'
     assert group.at_identifiers is None
     assert group.hash_identifiers is None
     assert group.processes == []
-    assert group.logger is supvisors.logger
+    assert group.logger is supvisors_instance.logger
 
 
-def test_homogeneous_group_add_remove(supvisors):
+def test_homogeneous_group_add_remove(supvisors_instance):
     """ Test the HomogeneousGroup methods add_process and remove_process. """
-    group = HomogeneousGroup('yeux', supvisors)
+    group = HomogeneousGroup('yeux', supvisors_instance)
     # get 2 processes for test
     info = process_info_by_name('yeux_00')
-    process_1 = create_process(info, supvisors)
+    process_1 = create_process(info, supvisors_instance)
     process_1.add_info('10.0.0.1', info)
     info = process_info_by_name('yeux_01')
-    process_2 = create_process(info, supvisors)
+    process_2 = create_process(info, supvisors_instance)
     process_2.add_info('10.0.0.1', info)
     # 1. add a process with default rules to the application
     group.add_process(process_1)
@@ -228,16 +231,16 @@ def test_homogeneous_group_add_remove(supvisors):
 
 
 @pytest.fixture
-def homogeneous_group(supvisors):
+def homogeneous_group(supvisors_instance):
     """ Return the HomogeneousGroup instance to test. """
-    group = HomogeneousGroup('yeux', supvisors)
+    group = HomogeneousGroup('yeux', supvisors_instance)
     # add 2 processes of the same program
     info = process_info_by_name('yeux_00')
-    process_1 = create_process(info, supvisors)
+    process_1 = create_process(info, supvisors_instance)
     process_1.add_info('10.0.0.1:25000', info)
     group.add_process(process_1)
     info = process_info_by_name('yeux_01')
-    process_2 = create_process(info, supvisors)
+    process_2 = create_process(info, supvisors_instance)
     process_2.add_info('10.0.0.1:25000', info)
     group.add_process(process_2)
     return group
@@ -419,12 +422,12 @@ def test_homogeneous_group_resolve_hash_list(homogeneous_group):
 
 
 # ApplicationStatus part
-def test_application_create(supvisors):
+def test_application_create(supvisors_instance):
     """ Test the values set at construction. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     # check application default attributes
-    assert application.supvisors is supvisors
-    assert application.logger is supvisors.logger
+    assert application.supvisors is supvisors_instance
+    assert application.logger is supvisors_instance.logger
     assert application.application_name == 'ApplicationTest'
     assert application.state == ApplicationStates.STOPPED
     assert not application.major_failure
@@ -441,9 +444,9 @@ def test_application_create(supvisors):
     assert application.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
 
 
-def test_application_running(supvisors):
+def test_application_running(supvisors_instance):
     """ Test the running method. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     assert not application.running()
     # loop on all states
     for state in ApplicationStates:
@@ -451,9 +454,9 @@ def test_application_running(supvisors):
         assert application.running() == (state in [ApplicationStates.STARTING, ApplicationStates.RUNNING])
 
 
-def test_application_stopped(supvisors):
+def test_application_stopped(supvisors_instance):
     """ Test the ApplicationStatus.stopped method. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     assert application.stopped()
     # loop on all states
     for state in ApplicationStates:
@@ -461,26 +464,26 @@ def test_application_stopped(supvisors):
         assert application.stopped() == (state == ApplicationStates.STOPPED)
 
 
-def test_application_never_started(supvisors):
+def test_application_never_started(supvisors_instance):
     """ Test the ApplicationStatus.never_started method. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     assert application.never_started()
     # add a stopped process that has already been started
     info = any_stopped_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     application.add_process(process)
     application.update_state()
     assert not application.never_started()
 
 
-def test_application_has_running_processes(supvisors):
+def test_application_has_running_processes(supvisors_instance):
     """ Test the ApplicationStatus.has_running_processes method used to know if at least one process is RUNNING. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     assert not application.has_running_processes()
     # add a stopped process
     info = any_stopped_process_info()
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     application.add_process(process)
     application.update()
@@ -488,7 +491,7 @@ def test_application_has_running_processes(supvisors):
     assert not application.has_running_processes()
     # add a running process
     info = any_process_info_by_state(ProcessStates.RUNNING)
-    process = create_process(info, supvisors)
+    process = create_process(info, supvisors_instance)
     process.add_info('10.0.0.1', info)
     application.add_process(process)
     application.update_state()
@@ -496,11 +499,11 @@ def test_application_has_running_processes(supvisors):
     assert application.has_running_processes()
 
 
-def test_application_get_operational_status(supvisors):
+def test_application_get_operational_status(supvisors_instance):
     """ Test the ApplicationStatus.get_operational_status method used to get a descriptive operational status. """
     # create address status instance
-    application = create_application('ApplicationTest', supvisors)
-    # test with non RUNNING application
+    application = create_application('ApplicationTest', supvisors_instance)
+    # test with non-RUNNING application
     for state in [ApplicationStates.STOPPED, ApplicationStates.STARTING, ApplicationStates.STOPPING]:
         for minor_failure in [True, False]:
             for major_failure in [True, False]:
@@ -529,11 +532,10 @@ def test_application_get_operational_status(supvisors):
         assert application.get_operational_status() == 'Not Operational'
 
 
-def test_application_serial(supvisors):
+def test_application_serial(supvisors_instance):
     """ Test the serial method used to get a serializable form of Application. """
-    import pickle
     # create address status instance
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     application._state = ApplicationStates.RUNNING
     application.major_failure = False
     application.minor_failure = True
@@ -548,14 +550,14 @@ def test_application_serial(supvisors):
     assert serialized == loaded
 
 
-def test_application_add_remove_process(supvisors):
+def test_application_add_remove_process(supvisors_instance):
     """ Test the add_process and remove_process methods. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     # get 3 processes for test
     processes = []
     for name in ['xclock', 'yeux_00', 'yeux_01']:
         info = process_info_by_name(name)
-        process = create_process(info, supvisors)
+        process = create_process(info, supvisors_instance)
         process.add_info('10.0.0.1', info)
         processes.append(process)
     process_1 = processes[0]
@@ -646,18 +648,18 @@ def test_application_add_remove_process(supvisors):
     assert group.hash_identifiers is None
 
 
-def test_application_possible_identifiers(supvisors):
+def test_application_possible_identifiers(supvisors_instance):
     """ Test the ApplicationStatus.possible_identifiers method. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
-    process1 = create_process(info, supvisors)
+    process1 = create_process(info, supvisors_instance)
     for node_name in ['10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000']:
         process1.add_info(node_name, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
-    process2 = create_process(info, supvisors)
+    process2 = create_process(info, supvisors_instance)
     for node_name in ['10.0.0.1:25000', '10.0.0.4:25000']:
         process2.add_info(node_name, info.copy())
     application.add_process(process2)
@@ -677,34 +679,34 @@ def test_application_possible_identifiers(supvisors):
     assert application.possible_identifiers() == ['10.0.0.4:25000']
     # test with full status and all instances in rules + re-enable on '10.0.0.1'
     process2.update_disability('10.0.0.1:25000', False)
-    for node_name in supvisors.mapper.instances:
+    for node_name in supvisors_instance.mapper.instances:
         process1.add_info(node_name, info.copy())
         process2.add_info(node_name, info.copy())
-    assert sorted(application.possible_identifiers()) == sorted(supvisors.mapper.instances.keys())
+    assert sorted(application.possible_identifiers()) == sorted(supvisors_instance.mapper.instances.keys())
     # restrict again instances in rules
     application.rules.identifiers = ['10.0.0.2:25000', '10.0.0.5:25000']
     assert application.possible_identifiers() == ['10.0.0.2:25000', '10.0.0.5:25000']
 
 
-def test_application_possible_node_identifiers(supvisors):
-    """ Test the ApplicationStatus.possible_node_identifiers method.
+def test_application_possible_node_identifiers(supvisors_instance):
+    """ Test the ApplicationStatus.supvisors_instance method.
     Same test logic as above but update the node mapping before. """
     # update the node mapping
     fqdn = getfqdn()
-    supvisors.mapper._nodes = {'10.0.0.1': ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000'],
-                               '10.0.0.2': ['10.0.0.2:25000', '10.0.0.4:25000'],
-                               fqdn: [f'{fqdn}:25000', f'{fqdn}:15000']}
+    supvisors_instance.mapper._nodes = {'10.0.0.1': ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000'],
+                                        '10.0.0.2': ['10.0.0.2:25000', '10.0.0.4:25000'],
+                                        fqdn: [f'{fqdn}:25000', f'{fqdn}:15000']}
     # create the test application
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
-    process1 = create_process(info, supvisors)
+    process1 = create_process(info, supvisors_instance)
     for identifier in ['10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000']:
         process1.add_info(identifier, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
-    process2 = create_process(info, supvisors)
+    process2 = create_process(info, supvisors_instance)
     for identifier in ['10.0.0.1:25000', '10.0.0.4:25000']:
         process2.add_info(identifier, info.copy())
     application.add_process(process2)
@@ -725,27 +727,27 @@ def test_application_possible_node_identifiers(supvisors):
     assert application.possible_node_identifiers() == ['10.0.0.2:25000', '10.0.0.4:25000']
     # test with full status and all instances in rules + re-enable on '10.0.0.1'
     process2.update_disability('10.0.0.1:25000', False)
-    for identifier in supvisors.mapper.instances:
+    for identifier in supvisors_instance.mapper.instances:
         process1.add_info(identifier, info.copy())
         process2.add_info(identifier, info.copy())
-    assert sorted(application.possible_node_identifiers()) == sorted(supvisors.mapper.instances.keys())
+    assert sorted(application.possible_node_identifiers()) == sorted(supvisors_instance.mapper.instances.keys())
     # restrict again instances in rules
     application.rules.identifiers = ['10.0.0.2:25000', '10.0.0.5:25000']
     assert application.possible_node_identifiers() == ['10.0.0.2:25000', '10.0.0.5:25000']
 
 
-def test_application_get_instance_processes(supvisors):
+def test_application_get_instance_processes(supvisors_instance):
     """ Test the ApplicationStatus.get_instance_processes method. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
-    process1 = create_process(info, supvisors)
+    process1 = create_process(info, supvisors_instance)
     for node_name in ['10.0.0.2', '10.0.0.3', '10.0.0.4']:
         process1.add_info(node_name, info.copy())
     application.add_process(process1)
     # add another process to the application
     info = any_stopped_process_info()
-    process2 = create_process(info, supvisors)
+    process2 = create_process(info, supvisors_instance)
     for node_name in ['10.0.0.1', '10.0.0.4']:
         process2.add_info(node_name, info.copy())
     application.add_process(process2)
@@ -758,11 +760,11 @@ def test_application_get_instance_processes(supvisors):
 
 
 @pytest.fixture
-def filled_application(supvisors):
+def filled_application(supvisors_instance):
     """ Create an ApplicationStatus and add all processes of the database. """
-    application = create_application('ApplicationTest', supvisors)
+    application = create_application('ApplicationTest', supvisors_instance)
     for info in database_copy():
-        process = create_process(info, supvisors)
+        process = create_process(info, supvisors_instance)
         process.add_info('10.0.0.1', info)
         # set random sequence to process
         process.rules.start_sequence = random.randint(0, 2)
