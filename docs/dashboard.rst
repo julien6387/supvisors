@@ -88,6 +88,19 @@ Copyright
 The bottom part of the menu contains a contact link to the |Supvisors| owner and maintainer and a copyright information.
 
 
+General comment about the navigation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The browser may access the |Supvisors| Web UI using a host name or an IP address in the URL.
+
+During the handshake, the |Supvisors| instances share their network data, including the IPv4 address and netmask for
+every network interface. This allow them to establish the base network address of all |Supvisors| instances per network
+interface.
+
+When navigating with the browser between different nodes, |Supvisors| uses the IP address corresponding to the current
+URL (if available).
+
+
 Common footer
 -------------
 
