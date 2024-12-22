@@ -15,6 +15,9 @@
 * Take into account the network data in the **Supvisors** Web UI, so that the same network interface is used
   when navigating to another node.
 
+* Add a session cookie to **Supvisors** Web UI client.
+  TODO
+
 * Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
   and modes information from a single **Supvisors** instance.
   This information has been removed from the XML-RPCs `get_instance_info` and `get_all_instances_info`.

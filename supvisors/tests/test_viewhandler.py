@@ -22,7 +22,6 @@ from supervisor.states import SupervisorStates, ProcessStates
 from supvisors import __version__
 from supvisors.ttypes import ApplicationStates, SupvisorsInstanceStates
 from supvisors.web.viewhandler import *
-from supvisors.web.viewimage import process_cpu_img, process_mem_img
 from .conftest import create_element, create_application
 
 
@@ -433,7 +432,6 @@ def test_write_header(mocker, handler):
 
 def test_write_software(mocker, supvisors_instance, handler):
     """ Test the ViewHandler.write_software method. """
-    mocked_path = mocker.patch('supvisors.web.viewimage.SoftwareIconImage.set_path')
     mocked_name = create_element()
     mocked_icon = create_element()
     mocked_card = create_element({'software_icon_mid': mocked_icon, 'software_name_mid': mocked_name})
@@ -447,7 +445,6 @@ def test_write_software(mocker, supvisors_instance, handler):
     assert mocked_card.findmeld.call_args_list == [call('software_name_mid'), call('software_icon_mid')]
     assert mocked_name.content.call_args_list == [call('Supvisors tests')]
     assert mocked_icon.replace.call_args_list == [call('')]
-    assert not mocked_path.called
     # reset mocks
     mocked_header.reset_all()
     # 2. test both user software name & icon set
@@ -458,7 +455,6 @@ def test_write_software(mocker, supvisors_instance, handler):
     assert mocked_card.findmeld.call_args_list == [call('software_name_mid')]
     assert mocked_name.content.call_args_list == [call('Supvisors tests')]
     assert not mocked_icon.replace.called
-    assert mocked_path.call_args_list == [call('/tmp/an_icon.png')]
     # reset mocks
     mocked_header.reset_all()
     mocker.resetall()
@@ -471,7 +467,6 @@ def test_write_software(mocker, supvisors_instance, handler):
     assert not mocked_card.findmeld.called
     assert not mocked_name.content.called
     assert not mocked_icon.replace.called
-    assert not mocked_path.called
 
 
 def test_write_status(handler):
@@ -1122,10 +1117,23 @@ def test_write_process_plots_no_plot(mocker, handler):
     """ Test the write_process_plots method in the event of matplotlib import error. """
     mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
     mocker.patch.dict('sys.modules', {'supvisors.web.plot': None})
+    # create xhtml context
+    cpuimage_img_mid = create_element()
+    memimage_img_mid = create_element()
+    cpuimage_fig_mid = create_element()
+    memimage_fig_mid = create_element()
+    stats_elt = create_element({'cpuimage_img_mid': cpuimage_img_mid, 'memimage_img_mid': memimage_img_mid,
+                                'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid})
     # test call
-    assert not handler.write_process_plots(None)
+    handler.write_process_plots(stats_elt, None)
     # test that plot methods are not called
     assert not mocked_export.called
+    # test that elements are replaced
+    assert stats_elt.findmeld.call_args_list == [call('cpuimage_fig_mid'), call('memimage_fig_mid')]
+    assert cpuimage_fig_mid.replace.call_args_list == [call('')]
+    assert memimage_fig_mid.replace.call_args_list == [call('')]
+    assert not cpuimage_img_mid.attributes.called
+    assert not memimage_img_mid.attributes.called
 
 
 def test_write_process_plots(mocker, handler):
@@ -1136,12 +1144,28 @@ def test_write_process_plots(mocker, handler):
     mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
     mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
+    cpu_buffer, mem_buffer = Mock(), Mock()
+    image_views = {StatsViews.process_cpu: cpu_buffer, StatsViews.process_mem: mem_buffer}
+    image_names = {StatsViews.process_cpu: 'cpu_image.png', StatsViews.process_mem: 'mem_image.png'}
+    handler.view_ctx = Mock(session=Mock(**{'get_image.side_effect': lambda x: image_views[x],
+                                            'get_image_name.side_effect': lambda x: image_names[x]}))
+    # create xhtml context
+    cpuimage_img_mid = create_element()
+    memimage_img_mid = create_element()
+    cpuimage_fig_mid = create_element()
+    memimage_fig_mid = create_element()
+    stats_elt = create_element({'cpuimage_img_mid': cpuimage_img_mid, 'memimage_img_mid': memimage_img_mid,
+                                'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid})
     # test call with dummy stats
     proc_stats = Mock(times=[1, 2, 3], cpu=[10, 16, 24], mem=[20, 32, 32])
-    assert handler.write_process_plots(proc_stats)
+    handler.write_process_plots(stats_elt, proc_stats)
     assert mocked_time.call_args_list == [call([1, 2, 3]), call([1, 2, 3])]
     assert mocked_plot.call_args_list == [call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])]
-    assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
+    assert mocked_export.call_args_list == [call(cpu_buffer), call(mem_buffer)]
+    assert not cpuimage_fig_mid.replace.called
+    assert not memimage_fig_mid.replace.called
+    assert cpuimage_img_mid.attributes.call_args_list == [call(src='cpu_image.png')]
+    assert memimage_img_mid.attributes.call_args_list == [call(src='mem_image.png')]
 
 
 def test_write_process_statistics(mocker, handler):
@@ -1155,11 +1179,8 @@ def test_write_process_statistics(mocker, handler):
     process_td_mid = create_element()
     node_td_mid = create_element()
     ipaddress_td_mid = create_element()
-    cpuimage_fig_mid = create_element()
-    memimage_fig_mid = create_element()
     stats_elt = create_element({'process_td_mid': process_td_mid, 'node_td_mid': node_td_mid,
-                                'ipaddress_td_mid': ipaddress_td_mid,
-                                'cpuimage_fig_mid': cpuimage_fig_mid, 'memimage_fig_mid': memimage_fig_mid})
+                                'ipaddress_td_mid': ipaddress_td_mid})
     root_elt = create_element({'pstats_div_mid': stats_elt})
     # test call with no namespec selection
     info = {}
@@ -1172,8 +1193,6 @@ def test_write_process_statistics(mocker, handler):
     assert not process_td_mid.content.called
     assert not node_td_mid.content.called
     assert not ipaddress_td_mid.content.called
-    assert not cpuimage_fig_mid.replace.called
-    assert not memimage_fig_mid.replace.called
     assert not mocked_plots.called
     root_elt.reset_all()
     # test call with namespec selection and no stats found
@@ -1187,8 +1206,6 @@ def test_write_process_statistics(mocker, handler):
     assert not process_td_mid.content.called
     assert not node_td_mid.content.called
     assert not ipaddress_td_mid.content.called
-    assert not cpuimage_fig_mid.replace.called
-    assert not memimage_fig_mid.replace.called
     assert not mocked_plots.called
     root_elt.reset_all()
     mocker.resetall()
@@ -1203,26 +1220,21 @@ def test_write_process_statistics(mocker, handler):
     assert process_td_mid.content.call_args_list == [call('dummy_proc')]
     assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
     assert ipaddress_td_mid.content.call_args_list == [call('10.0.0.1')]
-    assert not cpuimage_fig_mid.replace.called
-    assert not memimage_fig_mid.replace.called
-    assert mocked_plots.call_args_list == [call('dummy_stats')]
+    assert mocked_plots.call_args_list == [call(stats_elt, 'dummy_stats')]
     root_elt.reset_all()
     mocker.resetall()
     # test again with matplotlib import failure
     mocked_plots.return_value = False
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
-    assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid'),
-                                                 call('cpuimage_fig_mid'), call('memimage_fig_mid')]
+    assert stats_elt.findmeld.call_args_list == [call('process_td_mid'), call('node_td_mid'), call('ipaddress_td_mid')]
     assert not stats_elt.replace.called
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert process_td_mid.content.call_args_list == [call('dummy_proc')]
     assert node_td_mid.content.call_args_list == [call('10.0.0.1')]
     assert ipaddress_td_mid.content.call_args_list == [call('10.0.0.1')]
-    assert cpuimage_fig_mid.replace.call_args_list == [call('')]
-    assert memimage_fig_mid.replace.call_args_list == [call('')]
-    assert mocked_plots.call_args_list == [call('dummy_stats')]
+    assert mocked_plots.call_args_list == [call(stats_elt, 'dummy_stats')]
 
 
 def test_handle_action(handler):

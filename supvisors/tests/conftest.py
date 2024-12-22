@@ -140,6 +140,7 @@ def http_context(supvisors_instance) -> ViewContext:
     # NOTE: request is not set
     return ViewContext(template=view_template,
                        form=form,
+                       request=Mock(header=[]),
                        response={'headers': {'Location': None}},
                        supervisord=supvisors_instance.supervisor_data.supervisord)
 

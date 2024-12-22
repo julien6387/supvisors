@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import os
 from threading import RLock
 
 from supervisor import xmlrpc
@@ -28,7 +29,7 @@ from supervisor.xmlrpc import Faults
 from supvisors.web.viewapplication import ApplicationView
 from supvisors.web.viewconciliation import ConciliationView
 from supvisors.web.viewhostinstance import HostInstanceView
-from supvisors.web.viewimage import *
+from supvisors.web.viewimage import SupervisorIconImage, SoftwareIconImage
 from supvisors.web.viewmaintail import MainTailView
 from supvisors.web.viewprocinstance import ProcInstanceView
 from supvisors.web.viewsupvisors import SupvisorsView
@@ -106,13 +107,6 @@ def update_views() -> None:
     # set main tail page (reuse of Supervisor tail.html)
     VIEWS['maintail.html'] = {'template': 'ui/tail.html', 'view': MainTailView}
     # set fake pages to export images
-    VIEWS['process_cpu.png'] = {'template': None, 'view': ProcessCpuImageView}
-    VIEWS['process_mem.png'] = {'template': None, 'view': ProcessMemoryImageView}
-    VIEWS['host_cpu.png'] = {'template': None, 'view': HostCpuImageView}
-    VIEWS['host_mem.png'] = {'template': None, 'view': HostMemoryImageView}
-    VIEWS['host_net_io.png'] = {'template': None, 'view': HostNetworkIoImageView}
-    VIEWS['host_disk_io.png'] = {'template': None, 'view': HostDiskIoImageView}
-    VIEWS['host_disk_usage.png'] = {'template': None, 'view': HostDiskUsageImageView}
     VIEWS['supervisor_icon.png'] = {'template': None, 'view': SupervisorIconImage}
     VIEWS['software_icon.png'] = {'template': None, 'view': SoftwareIconImage}
 

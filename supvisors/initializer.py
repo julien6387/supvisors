@@ -21,6 +21,7 @@ from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 
 from supvisors.internal_com.mapper import SupvisorsMapper
+from supvisors.web.sessionviews import SessionViews
 from .commander import Starter, Stopper, StarterModel
 from .context import Context
 from .listener import SupervisorListener
@@ -135,3 +136,7 @@ class Supvisors:
         self.listener = SupervisorListener(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)
+        # TODO: HTTP sessions
+        # TODO: no expiry date (1 session cookie per browser, independent from number of pages), but close all on stopping ?
+        # TODO: name the process png ?
+        self.sessions = SessionViews(self)

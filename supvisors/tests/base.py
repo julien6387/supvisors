@@ -34,6 +34,7 @@ from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompil
 from supvisors.supervisordata import SupervisorData
 from supvisors.supervisorupdater import SupervisorUpdater
 from supvisors.utils import extract_process_info
+from supvisors.web.sessionviews import SessionViews
 
 
 class MockedSupvisors:
@@ -73,6 +74,7 @@ class MockedSupvisors:
         self.fsm = Mock(spec=FiniteStateMachine, force_distribution=False)
         self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
+        self.sessions = SessionViews(self)
         # should be set in listener
         self.rpc_handler = Mock(spec=RpcHandler)
         self.rpc_handler.__init__()

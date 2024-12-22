@@ -20,16 +20,15 @@ import pytest
 
 from supvisors.initializer import *
 from supvisors.statscollector import StatisticsCollectorProcess
-from .base import DummySupervisor
 
 
-def test_creation(mocker):
+def test_creation(mocker, supervisor_instance):
     """ Test the values set at construction. """
     mocked_parser = mocker.patch('supvisors.initializer.Parser', return_value='Parser')
     mocked_srv_options = Mock(procnumbers={})
     mocked_options = mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_srv_options)
     # create the instance to test, using default empty configuration
-    supv = Supvisors(DummySupervisor())
+    supv = Supvisors(supervisor_instance)
     # test calls
     assert mocked_options.called
     assert mocked_parser.called
@@ -56,51 +55,48 @@ def test_creation(mocker):
     assert isinstance(supv.listener, SupervisorListener)
 
 
-def test_create_logger():
+def test_create_logger(supervisor_instance):
     """ Test the create_logger method. """
     # create Supvisors instance
-    supervisor = DummySupervisor()
     # test AUTO logfile
     logger_config = get_logger_configuration()
     logger_config['logfile'] = Automatic
-    assert create_logger(supervisor, logger_config) is supervisor.options.logger
-    assert supervisor.options.logger.handlers[0].fmt == LOGGER_FORMAT
+    assert create_logger(supervisor_instance, logger_config) is supervisor_instance.options.logger
+    assert supervisor_instance.options.logger.handlers[0].fmt == LOGGER_FORMAT
     # test defined logfile
     logger_config['prefix'] = 'Supvisors'
     logger_config['logfile'] = '/tmp/dummy.log'
-    logger = create_logger(supervisor, logger_config)
-    assert logger is not supervisor.options.logger
-    assert supervisor.options.logger.handlers[0].fmt == LOGGER_FORMAT
+    logger = create_logger(supervisor_instance, logger_config)
+    assert logger is not supervisor_instance.options.logger
+    assert supervisor_instance.options.logger.handlers[0].fmt == LOGGER_FORMAT
     assert logger.handlers[0].fmt == f'Supvisors;{LOGGER_FORMAT}'
 
 
-def test_identifier_exception(mocker):
+def test_identifier_exception(mocker, supervisor_instance):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     mocker.patch('supvisors.initializer.SupvisorsMapper.configure', side_effect=ValueError)
-    # create Supvisors instance
-    supervisord_instance = DummySupervisor()
     # test that local node exception raises a failure to Supervisor
     with pytest.raises(ValueError):
-        Supvisors(supervisord_instance)
+        Supvisors(supervisor_instance)
 
 
-def test_psutil_exception(mocker):
+def test_psutil_exception(mocker, supervisor_instance):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     mocker.patch.dict('sys.modules', {'supvisors.statscollector': None})
     # create Supvisors instance
-    supvisors = Supvisors(DummySupervisor())
+    supvisors = Supvisors(supervisor_instance)
     # test that parser exception is accepted
     assert supvisors.stats_collector is None
 
 
-def test_parser_exception(mocker):
+def test_parser_exception(mocker, supervisor_instance):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.Parser', side_effect=Exception)
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     # create Supvisors instance
-    supvisors = Supvisors(DummySupervisor())
+    supvisors = Supvisors(supervisor_instance)
     # test that parser exception is accepted
     assert supvisors.parser is None
 

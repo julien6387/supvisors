@@ -16,10 +16,12 @@
 
 import io
 import os
+from enum import Enum
 
 import supervisor
 from supervisor.compat import as_bytes
 from supervisor.medusa.http_server import http_date
+from supervisor.web import ViewContext
 
 
 # exchange class for images
@@ -36,25 +38,16 @@ class StatsImage:
         return self.contents
 
 
-# instance for image buffers
-host_cpu_img = StatsImage()
-host_mem_img = StatsImage()
-host_net_io_img = StatsImage()
-host_disk_io_img = StatsImage()
-host_disk_usage_img = StatsImage()
-
-process_cpu_img = StatsImage()
-process_mem_img = StatsImage()
-
-
 # simple handlers for web images
 class ImageView:
+    """ TODO. """
+
     content_type = 'image/png'
     delay = .5
 
-    def __init__(self, context, buffer):
-        self.context = context
-        self.buffer = buffer
+    def __init__(self, context: ViewContext, image: StatsImage):
+        self.context: ViewContext = context
+        self.buffer = image
 
     def __call__(self):
         response = self.context.response
@@ -71,60 +64,76 @@ class ImageView:
         return response
 
 
+def get_session(context: ViewContext):
+    """ TODO. """
+    return context.supervisord.supvisors.sessions.get_session(context)
+
+
 class HostCpuImageView(ImageView):
     """ Dummy view holding the Host CPU image. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Link to the Host CPU buffer. """
-        ImageView.__init__(self, context, host_cpu_img)
+        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_cpu))
 
 
 class HostMemoryImageView(ImageView):
     """ Dummy view holding the Host Memory image. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Link to the Host Memory buffer. """
-        ImageView.__init__(self, context, host_mem_img)
+        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_mem))
 
 
 class HostNetworkIoImageView(ImageView):
     """ Dummy view holding the Host Network IO image. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Link to the Host Network IO buffer. """
-        ImageView.__init__(self, context, host_net_io_img)
+        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_net_io))
 
 
 class HostDiskIoImageView(ImageView):
     """ Dummy view holding the Host Disk IO image. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Link to the Host Network buffer. """
-        ImageView.__init__(self, context, host_disk_io_img)
+        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_disk_io))
 
 
 class HostDiskUsageImageView(ImageView):
     """ Dummy view holding the Host Disk usage image. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Link to the Host Disk usage buffer. """
-        ImageView.__init__(self, context, host_disk_usage_img)
+        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_disk_usage))
 
 
 class ProcessCpuImageView(ImageView):
     """ Dummy view holding the Process CPU image. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Link to the Process CPU buffer. """
-        ImageView.__init__(self, context, process_cpu_img)
+        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.process_cpu))
 
 
 class ProcessMemoryImageView(ImageView):
     """ Dummy view holding the Process Memory image. """
 
-    def __init__(self, context):
+    def __init__(self, context: ViewContext):
         """ Link to the Process Memory buffer. """
-        ImageView.__init__(self, context, process_mem_img)
+        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.process_mem))
+
+
+class StatsViews(Enum):
+    """ TODO. """
+    host_cpu = HostCpuImageView
+    host_mem = HostMemoryImageView
+    host_net_io = HostNetworkIoImageView
+    host_disk_io = HostDiskIoImageView
+    host_disk_usage = HostDiskUsageImageView
+    process_cpu = ProcessCpuImageView
+    process_mem = ProcessMemoryImageView
 
 
 # Trick to make available the Supervisor icon from Supvisors Web UI

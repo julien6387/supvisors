@@ -20,8 +20,6 @@ import pytest
 
 from supvisors.statscollector import LocalNodeInfo
 from supvisors.web.viewhostinstance import *
-from supvisors.web.viewimage import (host_cpu_img, host_net_io_img, host_mem_img,
-                                     host_disk_io_img, host_disk_usage_img)
 from .conftest import create_element
 
 
@@ -99,7 +97,7 @@ def test_write_contents_no_plot(mocker, supvisors_instance, view):
     assert mocked_memory.call_args_list == [call(contents_elt, 'mem', 'times')]
     assert mocked_network.call_args_list == [call(contents_elt, 'net_io')]
     assert mocked_disk.call_args_list == [call(contents_elt, dummy_stats)]
-    assert mocked_cpu_img.call_args_list == [call('cpu', 'times')]
+    assert mocked_cpu_img.call_args_list == [call(contents_elt, 'cpu', 'times')]
     assert not mocked_mem_img.called
     assert not mocked_net_io_img.called
     assert not mocked_disk_img.called
@@ -150,10 +148,10 @@ def test_write_contents(mocker, supvisors_instance, view):
     assert mocked_memory.call_args_list == [call(contents_elt, 'mem', 'times')]
     assert mocked_network.call_args_list == [call(contents_elt, 'net_io')]
     assert mocked_disk.call_args_list == [call(contents_elt, dummy_stats)]
-    assert mocked_cpu_img.call_args_list == [call('cpu', 'times')]
-    assert mocked_mem_img.call_args_list == [call('mem', 'times')]
-    assert mocked_net_io_img.call_args_list == [call('net_io')]
-    assert mocked_disk_img.call_args_list == [call(dummy_stats)]
+    assert mocked_cpu_img.call_args_list == [call(contents_elt, 'cpu', 'times')]
+    assert mocked_mem_img.call_args_list == [call(contents_elt, 'mem', 'times')]
+    assert mocked_net_io_img.call_args_list == [call(contents_elt, 'net_io')]
+    assert mocked_disk_img.call_args_list == [call(contents_elt, dummy_stats)]
     assert not contents_elt.findmeld.called
     assert not cpu_image_fig_mid.replace.called
     assert not mem_image_fig_mid.replace.called

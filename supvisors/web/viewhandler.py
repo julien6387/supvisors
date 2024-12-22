@@ -30,7 +30,7 @@ from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
 from supvisors.utils import get_stats, get_small_value
 from .viewcontext import *
-from .viewimage import process_cpu_img, process_mem_img, SoftwareIconImage
+from .viewimage import StatsViews
 from .webutils import (SupvisorsPages, SupvisorsSymbols,
                        update_attrib, print_message, generic_rpc, format_gravity_message)
 
@@ -51,7 +51,7 @@ class ViewHandler(MeldView):
         self.has_host_statistics = True
         self.has_process_statistics = True
         # init view_ctx (only for tests)
-        self.view_ctx: Optional[SupvisorsViewContext] = None
+        self.view_ctx: Optional[SupvisorsViewContext] = None  # TODO: why not created right here ?
 
     @property
     def local_identifier(self):
@@ -257,9 +257,7 @@ class ViewHandler(MeldView):
                 # write software name
                 card_elt.findmeld('software_name_mid').content(self.supvisors.options.software_name)
             # write user icon
-            if self.supvisors.options.software_icon:
-                SoftwareIconImage.set_path(self.supvisors.options.software_icon)
-            else:
+            if not self.supvisors.options.software_icon:
                 card_elt.findmeld('software_icon_mid').replace('')
 
     def write_status(self, header_elt):
@@ -559,24 +557,31 @@ class ViewHandler(MeldView):
             if dev is not None:
                 ref_elt.findmeld(dev_mid).content(get_small_value(dev))
 
-    def write_process_plots(self, proc_stats: ProcStatisticsInstance) -> bool:
+    def write_process_plots(self, stats_elt, proc_stats: ProcStatisticsInstance) -> None:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
             from .plot import StatisticsPlot
+            session = self.view_ctx.session
             # build CPU image (if SOLARIS mode configured, CPU values have already been adjusted)
             cpu_img = StatisticsPlot(self.logger)
             cpu_img.add_timeline(proc_stats.times)
             cpu_img.add_plot('CPU', '%', proc_stats.cpu)
-            cpu_img.export_image(process_cpu_img)
+            cpu_img.export_image(session.get_image(StatsViews.process_cpu))
+            # set session-dependent image name
+            elt = stats_elt.findmeld('cpuimage_img_mid')
+            elt.attributes(src=session.get_image_name(StatsViews.process_cpu))
             # build Memory image
             mem_img = StatisticsPlot(self.logger)
             mem_img.add_timeline(proc_stats.times)
             mem_img.add_plot('MEM', '%', proc_stats.mem)
-            mem_img.export_image(process_mem_img)
-            return True
+            mem_img.export_image(session.get_image(StatsViews.process_mem))
+            # set session-dependent image name
+            elt = stats_elt.findmeld('memimage_img_mid')
+            elt.attributes(src=session.get_image_name(StatsViews.process_mem))
         except ImportError:
-            # matplotlib not installed
-            return False
+            # matplolib not installed: remove figure elements
+            for mid in ['cpuimage_fig_mid', 'memimage_fig_mid']:
+                stats_elt.findmeld(mid).replace('')
 
     def write_process_statistics(self, root, info: Payload) -> None:
         """ Display detailed statistics about the selected process. """
@@ -597,10 +602,7 @@ class ViewHandler(MeldView):
                 stats_elt.findmeld('node_td_mid').content(supvisors_id.host_id)
                 stats_elt.findmeld('ipaddress_td_mid').content(supvisors_id.ip_address)
                 # write CPU / Memory plots
-                if not self.write_process_plots(proc_stats):
-                    # matplolib not installed: remove figure elements
-                    for mid in ['cpuimage_fig_mid', 'memimage_fig_mid']:
-                        stats_elt.findmeld(mid).replace('')
+                self.write_process_plots(stats_elt, proc_stats)
         else:
             # remove stats part if empty
             stats_elt.replace('')
