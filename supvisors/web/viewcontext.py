@@ -80,7 +80,7 @@ class SupvisorsViewContext:
         parsed_exitf_url: ParseResult = urlparse(context.form['SERVER_URL'])
         hostname = parsed_exitf_url.hostname
         self.network_address = self.supvisors.mapper.local_network.get_network_address(hostname)
-        self.logger.warn(f'SupvisorsViewContext: network_address={self.network_address}')
+        self.logger.debug(f'SupvisorsViewContext: network_address={self.network_address}')
 
     @property
     def supvisors(self):

@@ -14,126 +14,90 @@
 # limitations under the License.
 # ======================================================================
 
+import datetime
 import io
 import os
-from enum import Enum
+from typing import Optional
 
 import supervisor
 from supervisor.compat import as_bytes
 from supervisor.medusa.http_server import http_date
-from supervisor.web import ViewContext
+from supervisor.web import VIEWS, ViewContext
 
 
 # exchange class for images
 class StatsImage:
-    """ Buffer class holding PNG contents. """
+    """ Buffer class holding image contents. """
 
     def __init__(self):
+        """ Initialization of the attributes. """
         self.contents = None
 
-    def new_image(self):
+    def new_image(self) -> io.BytesIO:
+        """ Return a new BytesIO for the image. """
         if self.contents:
             self.contents.close()
         self.contents = io.BytesIO()
         return self.contents
 
 
-# simple handlers for web images
-class ImageView:
-    """ TODO. """
+class TemporaryStatsImage(StatsImage):
+    """ StatsImage with an expiry date. """
 
-    content_type = 'image/png'
+    EXPIRY_DURATION = 5  # seconds
+
+    def __init__(self):
+        """ Initialization of the attributes. """
+        super().__init__()
+        self.expiry_date = None
+        self.reset_expiry_date()
+
+    @property
+    def expired(self) -> bool:
+        return datetime.datetime.now() > self.expiry_date
+
+    def reset_expiry_date(self):
+        """ When the image is being reused, reset the expiry date. """
+        self.expiry_date = datetime.datetime.now() + datetime.timedelta(seconds=self.EXPIRY_DURATION)
+
+
+class ImageView:
+    """ Simple handler for web images. """
+
+    # The delay constant is needed by Supervisor
     delay = .5
 
-    def __init__(self, context: ViewContext, image: StatsImage):
+    def __init__(self, context: ViewContext, image: Optional[StatsImage]):
+        """ Initialization of the attributes. """
         self.context: ViewContext = context
-        self.buffer = image
+        self.image: Optional[StatsImage] = image
 
     def __call__(self):
+        """ The ImageView instance is a callable. """
         response = self.context.response
         headers = response['headers']
-        headers['Content-Type'] = self.content_type
+        headers['Content-Type'] = 'image/png'
         headers['Pragma'] = 'no-cache'
         headers['Cache-Control'] = 'no-cache'
         headers['Expires'] = http_date.build_http_date(0)
-        if self.buffer.contents:
-            body = self.buffer.contents.getvalue()
+        if self.image and self.image.contents:
+            body = self.image.contents.getvalue()
         else:
-            body = b""
+            body = b''
         response['body'] = as_bytes(body)
         return response
 
 
-def get_session(context: ViewContext):
-    """ TODO. """
-    return context.supervisord.supvisors.sessions.get_session(context)
-
-
-class HostCpuImageView(ImageView):
-    """ Dummy view holding the Host CPU image. """
+class StatsView(ImageView):
+    """ View dedicated to the display of a statistics diagram. """
 
     def __init__(self, context: ViewContext):
-        """ Link to the Host CPU buffer. """
-        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_cpu))
+        """ Use context template to get image identification. """
+        # get the image buffer from the image name set in the template attribute
+        stats_image = VIEWS.get(context.template, {}).get('buffer')
+        # call the Image View constructor with the image buffer
+        ImageView.__init__(self, context, stats_image)
 
-
-class HostMemoryImageView(ImageView):
-    """ Dummy view holding the Host Memory image. """
-
-    def __init__(self, context: ViewContext):
-        """ Link to the Host Memory buffer. """
-        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_mem))
-
-
-class HostNetworkIoImageView(ImageView):
-    """ Dummy view holding the Host Network IO image. """
-
-    def __init__(self, context: ViewContext):
-        """ Link to the Host Network IO buffer. """
-        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_net_io))
-
-
-class HostDiskIoImageView(ImageView):
-    """ Dummy view holding the Host Disk IO image. """
-
-    def __init__(self, context: ViewContext):
-        """ Link to the Host Network buffer. """
-        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_disk_io))
-
-
-class HostDiskUsageImageView(ImageView):
-    """ Dummy view holding the Host Disk usage image. """
-
-    def __init__(self, context: ViewContext):
-        """ Link to the Host Disk usage buffer. """
-        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.host_disk_usage))
-
-
-class ProcessCpuImageView(ImageView):
-    """ Dummy view holding the Process CPU image. """
-
-    def __init__(self, context: ViewContext):
-        """ Link to the Process CPU buffer. """
-        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.process_cpu))
-
-
-class ProcessMemoryImageView(ImageView):
-    """ Dummy view holding the Process Memory image. """
-
-    def __init__(self, context: ViewContext):
-        """ Link to the Process Memory buffer. """
-        ImageView.__init__(self, context, get_session(context).get_image(StatsViews.process_mem))
-
-
-class StatsViews(Enum):
-    """ TODO. """
-    host_cpu = HostCpuImageView
-    host_mem = HostMemoryImageView
-    host_net_io = HostNetworkIoImageView
-    host_disk_io = HostDiskIoImageView
-    host_disk_usage = HostDiskUsageImageView
-    process_cpu = ProcessCpuImageView
-    process_mem = ProcessMemoryImageView
 
 
 # Trick to make available the Supervisor icon from Supvisors Web UI
@@ -149,7 +113,7 @@ def create_icon(icon_path) -> StatsImage:
 class SupervisorIconImage(ImageView):
     """ Dummy view holding the Supervisor Icon. """
 
-    _icon: StatsImage = None
+    _icon: Optional[StatsImage] = None
 
     def __init__(self, context):
         """ Link to the Process Memory buffer. """
@@ -167,7 +131,7 @@ class SupervisorIconImage(ImageView):
 class SoftwareIconImage(ImageView):
     """ Dummy view holding the Process Memory image. """
 
-    _icon: StatsImage = None
+    _icon: Optional[StatsImage] = None
 
     def __init__(self, context):
         """ Link to the Process Memory buffer. """

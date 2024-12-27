@@ -47,7 +47,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         super().handle_parameters()
         # pre-fill the message here to warn the user about the actions on this page
         # it will always be displayed by default unless it is overwritten by another message
-        self.view_ctx.set_message_default('The Supvisors rules do NOT apply here', SupvisorsGravities.WARNING)
+        self.view_ctx.set_message_default('The Supvisors rules do NOT apply here', SupvisorsGravities.WARNING.value)
 
     def write_options(self, header_elt):
         """ Write configured periods for statistics.

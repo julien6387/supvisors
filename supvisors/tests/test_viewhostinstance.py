@@ -545,14 +545,21 @@ def test_write_cpu_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(cpu_id=0, **{'cpu_id_to_string.return_value': SupvisorsViewContext.cpu_id_to_string(0)})
+    cpu_buffer = Mock()
+    view.view_ctx = Mock(cpu_id=0,
+                         session=Mock(**{'get_image.return_value': ('cpu_image.png', cpu_buffer)}),
+                         **{'cpu_id_to_string.return_value': SupvisorsViewContext.cpu_id_to_string(0)})
+    # create xhtml context
+    cpu_image_img_mid = create_element()
+    contents_elt = create_element({'cpu_image_img_mid': cpu_image_img_mid})
     # just test calls to StatisticsPlot
     dummy_cpu_stats = ['#all stats', '#0 stats', '#1 stats']
     dummy_times_stats = [1, 2, 3]
-    view._write_cpu_image(dummy_cpu_stats, dummy_times_stats)
+    view._write_cpu_image(contents_elt, dummy_cpu_stats, dummy_times_stats)
     assert mocked_time.call_args_list == [call(dummy_times_stats)]
     assert mocked_plot.call_args_list == [call('CPU #all', '%', '#all stats')]
-    assert mocked_export.call_args_list == [call(host_cpu_img)]
+    assert mocked_export.call_args_list == [call(cpu_buffer)]
+    assert cpu_image_img_mid.attributes.call_args_list == [call(src='cpu_image.png')]
 
 
 def test_write_mem_image(mocker, view):
@@ -560,13 +567,20 @@ def test_write_mem_image(mocker, view):
     mocked_export = mocker.patch('supvisors.web.plot.StatisticsPlot.export_image')
     mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
+    # set context (meant to be set through render)
+    mem_buffer = Mock()
+    view.view_ctx = Mock(session=Mock(**{'get_image.return_value': ('mem_image.png', mem_buffer)}))
+    # create xhtml context
+    mem_image_img_mid = create_element()
+    contents_elt = create_element({'mem_image_img_mid': mem_image_img_mid})
     # just test calls to StatisticsPlot
     dummy_mem_stats = ['mem 1', 'mem 2']
     dummy_times_stats = [1, 2, 3]
-    view._write_mem_image(dummy_mem_stats, dummy_times_stats)
+    view._write_mem_image(contents_elt, dummy_mem_stats, dummy_times_stats)
     assert mocked_time.call_args_list == [call(dummy_times_stats)]
     assert mocked_plot.call_args_list == [call('MEM', '%', dummy_mem_stats)]
-    assert mocked_export.call_args_list == [call(host_mem_img)]
+    assert mocked_export.call_args_list == [call(mem_buffer)]
+    assert mem_image_img_mid.attributes.call_args_list == [call(src='mem_image.png')]
 
 
 def test_write_net_io_image(mocker, view):
@@ -575,15 +589,21 @@ def test_write_net_io_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(nic_name='eth0')
+    netio_buffer = Mock()
+    view.view_ctx = Mock(nic_name='eth0',
+                         session=Mock(**{'get_image.return_value': ('netio_image.png', netio_buffer)}))
+    # create xhtml context
+    net_io_image_img_mid = create_element()
+    contents_elt = create_element({'net_io_image_img_mid': net_io_image_img_mid})
     # just test calls to StatisticsPlot
     dummy_io_stats = {'lo': [[1, 2, 3, 4], ['lo recv', 'lo sent']],
                       'eth0': [[2, 3, 4], ['eth0 recv', 'eth0 sent']]}
-    view._write_net_io_image(dummy_io_stats)
+    view._write_net_io_image(contents_elt, dummy_io_stats)
     assert mocked_time.call_args_list == [call([2, 3, 4])]
     assert mocked_plot.call_args_list == [call('eth0 received', 'kbits/s', 'eth0 recv'),
                                           call('eth0 sent', 'kbits/s', 'eth0 sent')]
-    assert mocked_export.call_args_list == [call(host_net_io_img)]
+    assert mocked_export.call_args_list == [call(netio_buffer)]
+    assert net_io_image_img_mid.attributes.call_args_list == [call(src='netio_image.png')]
 
 
 def test_write_disk_image(mocker, view):
@@ -592,16 +612,18 @@ def test_write_disk_image(mocker, view):
     mocked_io = mocker.patch.object(view, '_write_disk_io_image')
     # set context (meant to be set through render)
     stats = Mock(disk_usage='disk usage', disk_io='disk io')
+    # create xhtml context
+    contents_elt = create_element()
     # Disk IO selection
     view.view_ctx = Mock(disk_stats='io')
-    view._write_disk_image(stats)
-    assert mocked_io.call_args_list == [call('disk io')]
+    view._write_disk_image(contents_elt, stats)
+    assert mocked_io.call_args_list == [call(contents_elt, 'disk io')]
     assert not mocked_usage.called
     mocker.resetall()
     # Disk IO selection
     view.view_ctx.disk_stats = 'usage'
-    view._write_disk_image(stats)
-    assert mocked_usage.call_args_list == [call('disk usage')]
+    view._write_disk_image(contents_elt, stats)
+    assert mocked_usage.call_args_list == [call(contents_elt, 'disk usage')]
     assert not mocked_io.called
 
 
@@ -611,15 +633,21 @@ def test_write_disk_io_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(device='sda')
+    diskio_buffer = Mock()
+    view.view_ctx = Mock(device='sda',
+                         session=Mock(**{'get_image.return_value': ('diskio_image.png', diskio_buffer)}))
+    # create xhtml context
+    disk_io_image_img_mid = create_element()
+    contents_elt = create_element({'disk_io_image_img_mid': disk_io_image_img_mid})
     # just test calls to StatisticsPlot
     dummy_io_stats = {'sda': [[1, 2, 3, 4], ['sda read', 'sda written']],
                       'sdb': [[2, 3, 4], ['sdb read', 'sdb written']]}
-    view._write_disk_io_image(dummy_io_stats)
+    view._write_disk_io_image(contents_elt, dummy_io_stats)
     assert mocked_time.call_args_list == [call([1, 2, 3, 4])]
     assert mocked_plot.call_args_list == [call('sda read', 'kbits/s', 'sda read'),
                                           call('sda written', 'kbits/s', 'sda written')]
-    assert mocked_export.call_args_list == [call(host_disk_io_img)]
+    assert mocked_export.call_args_list == [call(diskio_buffer)]
+    assert disk_io_image_img_mid.attributes.call_args_list == [call(src='diskio_image.png')]
 
 
 def test_write_disk_usage_image(mocker, view):
@@ -628,11 +656,17 @@ def test_write_disk_usage_image(mocker, view):
     mocked_plot = mocker.patch('supvisors.web.plot.StatisticsPlot.add_plot')
     mocked_time = mocker.patch('supvisors.web.plot.StatisticsPlot.add_timeline')
     # set context (meant to be set through render)
-    view.view_ctx = Mock(partition='/root')
+    diskusage_buffer = Mock()
+    view.view_ctx = Mock(partition='/root',
+                         session=Mock(**{'get_image.return_value': ('diskusage_image.png', diskusage_buffer)}))
+    # create xhtml context
+    disk_usage_image_img_mid = create_element()
+    contents_elt = create_element({'disk_usage_image_img_mid': disk_usage_image_img_mid})
     # just test calls to StatisticsPlot
     dummy_io_stats = {'/': [[1, 2, 3, 4], ['/ percent']],
                       '/root': [[2, 3, 4], ['/root percent']]}
-    view._write_disk_usage_image(dummy_io_stats)
+    view._write_disk_usage_image(contents_elt, dummy_io_stats)
     assert mocked_time.call_args_list == [call([2, 3, 4])]
     assert mocked_plot.call_args_list == [call('/root', '%', '/root percent')]
-    assert mocked_export.call_args_list == [call(host_disk_usage_img)]
+    assert mocked_export.call_args_list == [call(diskusage_buffer)]
+    assert disk_usage_image_img_mid.attributes.call_args_list == [call(src='diskusage_image.png')]

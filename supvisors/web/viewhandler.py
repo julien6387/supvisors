@@ -29,8 +29,8 @@ from supvisors.statemodes import StateModes, SupvisorsStateModes
 from supvisors.statscompiler import ProcStatisticsInstance
 from supvisors.ttypes import SupvisorsStates, Payload, PayloadList
 from supvisors.utils import get_stats, get_small_value
+from .sessionviews import StatsType
 from .viewcontext import *
-from .viewimage import StatsViews
 from .webutils import (SupvisorsPages, SupvisorsSymbols,
                        update_attrib, print_message, generic_rpc, format_gravity_message)
 
@@ -557,27 +557,31 @@ class ViewHandler(MeldView):
             if dev is not None:
                 ref_elt.findmeld(dev_mid).content(get_small_value(dev))
 
-    def write_process_plots(self, stats_elt, proc_stats: ProcStatisticsInstance) -> None:
+    def write_process_plots(self, namespec: str, stats_elt, proc_stats: ProcStatisticsInstance) -> None:
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
         try:
             from .plot import StatisticsPlot
+            # get image buffer
             session = self.view_ctx.session
+            image_name, image = self.view_ctx.session.get_image(StatsType.PROCESS_CPU, self.view_ctx.identifier,
+                                                                self.view_ctx.period, specific=namespec)
             # build CPU image (if SOLARIS mode configured, CPU values have already been adjusted)
             cpu_img = StatisticsPlot(self.logger)
             cpu_img.add_timeline(proc_stats.times)
             cpu_img.add_plot('CPU', '%', proc_stats.cpu)
-            cpu_img.export_image(session.get_image(StatsViews.process_cpu))
+            cpu_img.export_image(image)
             # set session-dependent image name
-            elt = stats_elt.findmeld('cpuimage_img_mid')
-            elt.attributes(src=session.get_image_name(StatsViews.process_cpu))
+            stats_elt.findmeld('cpuimage_img_mid').attributes(src=image_name)
+            # get Memory image buffer
+            image_name, image = self.view_ctx.session.get_image(StatsType.PROCESS_MEM, self.view_ctx.identifier,
+                                                                self.view_ctx.period, specific=namespec)
             # build Memory image
             mem_img = StatisticsPlot(self.logger)
             mem_img.add_timeline(proc_stats.times)
             mem_img.add_plot('MEM', '%', proc_stats.mem)
-            mem_img.export_image(session.get_image(StatsViews.process_mem))
+            mem_img.export_image(image)
             # set session-dependent image name
-            elt = stats_elt.findmeld('memimage_img_mid')
-            elt.attributes(src=session.get_image_name(StatsViews.process_mem))
+            stats_elt.findmeld('memimage_img_mid').attributes(src=image_name)
         except ImportError:
             # matplolib not installed: remove figure elements
             for mid in ['cpuimage_fig_mid', 'memimage_fig_mid']:
@@ -602,7 +606,7 @@ class ViewHandler(MeldView):
                 stats_elt.findmeld('node_td_mid').content(supvisors_id.host_id)
                 stats_elt.findmeld('ipaddress_td_mid').content(supvisors_id.ip_address)
                 # write CPU / Memory plots
-                self.write_process_plots(stats_elt, proc_stats)
+                self.write_process_plots(namespec, stats_elt, proc_stats)
         else:
             # remove stats part if empty
             stats_elt.replace('')

@@ -16,7 +16,8 @@
   when navigating to another node.
 
 * Add a session cookie to **Supvisors** Web UI client.
-  TODO
+  All statistics images served by the **Supvisors** Web UI are xxx enough to enable multiple auto-refreshed views
+  in the browser tabs. 
 
 * Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
   and modes information from a single **Supvisors** instance.
