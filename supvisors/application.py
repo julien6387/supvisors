@@ -831,6 +831,7 @@ class ApplicationStatus:
             if leaf in self.processes:
                 return self._get_process_status(leaf)
             matches = self._get_matches(leaf)
+            self.logger.debug(f'ApplicationStatus.evaluate: leaf={leaf} matches={matches}')
             if len(matches) == 1:
                 return self._get_process_status(matches[0])
             elif len(matches) >= 1:
@@ -868,7 +869,7 @@ class ApplicationStatus:
         The major failure is set according to the status formula.
         If no major failure, any process in failure implies a minor failure if part of the starting sequence.
 
-        :return: None
+        :return: None.
         """
         # evaluate the status formula against the current processes' state
         try:
@@ -880,6 +881,8 @@ class ApplicationStatus:
                               f' - {exc}')
             self.major_failure = True
         else:
+            self.logger.debug(f'ApplicationStatus.update_status_formula: formula={self.rules._status_formula}'
+                              f' result={result}')
             self.major_failure = not result
         # check for a minor failure in start sequence processes
         if not self.major_failure:
