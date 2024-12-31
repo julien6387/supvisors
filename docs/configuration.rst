@@ -396,6 +396,12 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
+    .. important::
+
+        |Supvisors| collect the process statistics considering the process spawned by |Supervisor| and its children.
+        In the event where the program command starts a process that is not attached to the command itself
+        (e.g. a Docker container), the process statistics will NOT take into account this process and its children.
+
 ``stats_collecting_period``
 
     This is the *minimum* duration between 2 statistics measurements on one entity (host or process).

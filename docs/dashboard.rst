@@ -425,6 +425,12 @@ and ``stderr_logfile`` options of the |Supervisor| program configuration.
     are not disabled through the ``stats_enabled`` option of the :ref:`supvisors_section` of the |Supervisor|
     configuration file.
 
+.. important::
+
+    |Supvisors| collect the process statistics considering the process spawned by |Supervisor| and its children.
+    In the event where the program command starts a process that is not attached to the command itself
+    (e.g. a Docker container), the process statistics will NOT take into account this process and its children.
+
 Here is the color code used for process states:
 
     * grey if the process state is ``UNKNOWN`` or if the process is disabled ;
