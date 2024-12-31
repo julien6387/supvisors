@@ -539,6 +539,7 @@ def test_get_node_characteristics(ctx):
 
 def test_get_node_stats(supvisors_instance, ctx):
     """ Test the ViewContext.get_instance_stats method. """
+    supvisors_instance.host_compiler.add_instance(ctx.local_identifier)
     # test with default address
     instance_stats = ctx.get_instance_stats()
     assert instance_stats.identifier == supvisors_instance.mapper.local_identifier

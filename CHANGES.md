@@ -2,6 +2,8 @@
 
 ## 0.19 (2025-xx-xx)
 
+* Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.
+* 
 * Refactoring of the **Supvisors** internal state machine.
   The state `INITIALIZATION` has been renamed as `SYNCHRONIZATION` and a new state `ELECTION` has been added
   to get more stability in the *Master* election.

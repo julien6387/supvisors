@@ -56,13 +56,13 @@ class MulticastSender:
     def send_discovery_event(self, payload: Payload):
         """ Multicast the discovery event.
         It is not necessary to add a message size. """
-        self.logger.trace('MulticastSender.emit_message')
+        self.logger.trace(f'MulticastSender.send_discovery_event: payload={payload}')
         message = payload_to_bytes((NotificationHeaders.DISCOVERY.value, payload))
         try:
             self.socket.sendto(message, self.mc_group)
         except OSError:
-            self.logger.error('MulticastSender.emit_message: failed to send DISCOVERY message')
-            self.logger.info(f'MulticastSender.emit_message: {traceback.format_exc()}')
+            self.logger.error('MulticastSender.send_discovery_event: failed to send DISCOVERY message')
+            self.logger.info(f'MulticastSender.send_discovery_event: {traceback.format_exc()}')
 
 
 # Reception part
@@ -117,16 +117,14 @@ class MulticastReceiver(threading.Thread):
 
     def datagram_received(self, data, address: Ipv4Address) -> None:
         """ Decode the message received to put it into the asynchronous queue. """
-        self.logger.debug(f'MulticastReceiver.datagram_received: size={len(data)} from {address}')
+        self.logger.trace(f'MulticastReceiver.datagram_received: size={len(data)} from {address}')
         msg_type, payload = bytes_to_payload(data)
         if self.callback:
-            # check the address (log only once)
-            updated_address = address[0], payload['http_port']
-            if updated_address not in self.log_warnings and address[0] not in payload['ip_addresses']:
-                self.logger.warn(f'MulticastReceiver.datagram_received: UDP address={address[0]} does not fit'
-                                 f" the discovery event {payload['ip_addresses']}")
-                self.log_warnings.add(updated_address)
+            self.logger.trace(f'MulticastReceiver.datagram_received: payload={payload}')
             # the payload is not needed for now
+            # NOTE: by design, the initial identification of the remote Supvisors instance uses the source IP address
+            #       of the datagram packet
+            updated_address = address[0], payload['http_port']
             self.callback(((payload['identifier'], payload['nick_identifier'], updated_address), (msg_type, ())))
 
     def open_multicast(self) -> None:

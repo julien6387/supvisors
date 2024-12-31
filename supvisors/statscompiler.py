@@ -219,19 +219,25 @@ class HostStatisticsCompiler:
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
-        # the list of Supvisors instances is fixed so prepare the structures
-        self.instance_map: HostStatisticsCompiler.HostStatisticsMap = {
-            identifier: {period: HostStatisticsInstance(identifier, period, supvisors.options.stats_histo,
-                                                        supvisors.logger)
-                         for period in supvisors.options.stats_periods}
-            for identifier in supvisors.mapper.instances}
+        self.supvisors = supvisors
+        # Instance structures
+        self.instance_map: HostStatisticsCompiler.HostStatisticsMap = {}
         self.nb_cores: Dict[str, int] = {}
 
-    def get_stats(self, identifier: str, period: float) -> HostStatisticsInstance:
+    def add_instance(self, identifier: str) -> None:
+        """ Add a new Supvisors instance to the statistics structures."""
+        self.instance_map[identifier] = {period: HostStatisticsInstance(identifier, period,
+                                                                        self.supvisors.options.stats_histo,
+                                                                        self.supvisors.logger)
+                                         for period in self.supvisors.options.stats_periods}
+        self.nb_cores[identifier] = 1
+
+    def get_stats(self, identifier: str, period: float) -> Optional[HostStatisticsInstance]:
         """ Return the HostStatisticsInstance corresponding to a Supvisors instance and a period. """
         identifier_instance = self.instance_map.get(identifier)
         if identifier_instance:
             return identifier_instance.get(period)
+        return None
 
     def get_nb_cores(self, identifier: str) -> int:
         """ Return the number of CPU cores linked to a Supvisors instance. """
@@ -240,15 +246,20 @@ class HostStatisticsCompiler:
     def push_statistics(self, identifier: str, stats: Payload) -> PayloadList:
         """ Insert a new statistics measure for identifier. """
         integrated_stats = []
-        if identifier in self.instance_map:
-            for period, stats_instance in self.instance_map[identifier].items():
-                result = stats_instance.push_statistics(stats)
-                if result:
-                    integrated_stats.append(result)
-            # set the number of processor cores
-            # in the case of multiple cores, the first series of values are average values
-            nb = len(stats['cpu'])
-            self.nb_cores[identifier] = nb if nb == 1 else nb - 1
+        # create the statistics instance if it does not exist
+        host_instance = self.instance_map.get(identifier)
+        if not host_instance:
+            self.add_instance(identifier)
+        # consider new statistics on host
+        host_instance = self.instance_map[identifier]
+        for period, stats_instance in host_instance.items():
+            result = stats_instance.push_statistics(stats)
+            if result:
+                integrated_stats.append(result)
+        # set the number of processor cores
+        # in the case of multiple cores, the first series of values are average values
+        nb = len(stats['cpu'])
+        self.nb_cores[identifier] = nb if nb == 1 else nb - 1
         return integrated_stats
 
 

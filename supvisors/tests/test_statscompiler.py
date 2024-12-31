@@ -335,10 +335,26 @@ def host_statistics_compiler(supvisors_instance):
 
 def test_host_statistics_compiler_creation(supvisors_instance, host_statistics_compiler):
     """ Test the creation of HostStatisticsCompiler. """
+    assert host_statistics_compiler.supvisors is supvisors_instance
+    assert host_statistics_compiler.instance_map == {}
     assert host_statistics_compiler.nb_cores == {}
-    identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000',
-                   '10.0.0.4:25000', '10.0.0.5:25000', '10.0.0.6:25000']
-    assert sorted(host_statistics_compiler.instance_map.keys()) == sorted(identifiers)
+
+
+def test_host_statistics_compiler_add_instance(supvisors_instance, host_statistics_compiler):
+    """ Test the HostStatisticsCompiler.add_instance method """
+    # add a first instance
+    host_statistics_compiler.add_instance('10.0.0.1:25000')
+    assert sorted(host_statistics_compiler.instance_map.keys()) == ['10.0.0.1:25000']
+    for period_map in host_statistics_compiler.instance_map.values():
+        assert sorted(period_map.keys()) == [5.0, 15.0, 60.0]
+        for period, period_instances in period_map.items():
+            assert isinstance(period_instances, HostStatisticsInstance)
+            assert period_instances.period == period
+            assert period_instances.depth == supvisors_instance.options.stats_histo
+            assert period_instances.logger is supvisors_instance.logger
+    # add a second instance
+    host_statistics_compiler.add_instance('10.0.0.2:25000')
+    assert sorted(host_statistics_compiler.instance_map.keys()) == ['10.0.0.1:25000', '10.0.0.2:25000']
     for period_map in host_statistics_compiler.instance_map.values():
         assert sorted(period_map.keys()) == [5.0, 15.0, 60.0]
         for period, period_instances in period_map.items():
@@ -348,14 +364,22 @@ def test_host_statistics_compiler_creation(supvisors_instance, host_statistics_c
             assert period_instances.logger is supvisors_instance.logger
 
 
-def test_host_statistics_compiler_get_stats(host_statistics_compiler):
+@pytest.fixture
+def filled_host_statistics_compiler(supvisors_instance, host_statistics_compiler):
+    """ Add all declared Supvisors instances to the compiler. """
+    for identifier in supvisors_instance.mapper.instances:
+        host_statistics_compiler.add_instance(identifier)
+    return host_statistics_compiler
+
+
+def test_host_statistics_compiler_get_stats(filled_host_statistics_compiler):
     """ Test the HostStatisticsCompiler.get_stats method """
     # test with unknown identifier
-    assert host_statistics_compiler.get_stats('10.0.0.0:25000', 5.0) is None
+    assert filled_host_statistics_compiler.get_stats('10.0.0.0:25000', 5.0) is None
     # test with correct identifier but unknown period
-    assert host_statistics_compiler.get_stats('10.0.0.1:25000', 1.0) is None
+    assert filled_host_statistics_compiler.get_stats('10.0.0.1:25000', 1.0) is None
     # test with correct identifier and period
-    instance = host_statistics_compiler.get_stats('10.0.0.1:25000', 15.0)
+    instance = filled_host_statistics_compiler.get_stats('10.0.0.1:25000', 15.0)
     assert instance and instance.period == 15.0
 
 
@@ -371,28 +395,22 @@ def test_host_statistics_compiler_get_nb_cores(host_statistics_compiler):
     assert host_statistics_compiler.get_nb_cores('10.0.0.1:25000') == 4
 
 
-def test_host_statistics_compiler_push_statistics(mocker, host_statistics_compiler):
+def test_host_statistics_compiler_push_statistics(mocker, filled_host_statistics_compiler):
     """ Test the HostStatisticsCompiler.push_statistics method """
-    for identifier, period_maps in host_statistics_compiler.instance_map.items():
-        for instance in period_maps.values():
-            mocker.patch.object(instance, 'push_statistics')
-    # test with unknown identifier
+    mocker.patch('supvisors.statscompiler.HostStatisticsInstance.push_statistics',
+                 return_value={'cpu': [1.0]})
+    # test with unknown identifier: a new instance will be created
     host_stats = {'cpu': [1, 2, 3, 4, 5]}
-    host_statistics_compiler.push_statistics('10.0.0.0:25000', host_stats)
-    assert host_statistics_compiler.nb_cores == {}
-    assert all((not instance.push_statistics.called
-                for identifier, period_maps in host_statistics_compiler.instance_map.items()
-                for instance in period_maps.values()))
+    expected = [{'cpu': [1.0]}] * 3  # one per period
+    assert filled_host_statistics_compiler.push_statistics('10.0.0.0:25000', host_stats) == expected
+    assert filled_host_statistics_compiler.nb_cores == {'10.0.0.0:25000': 4,
+                                                        '10.0.0.1:25000': 1, '10.0.0.2:25000': 1, '10.0.0.3:25000': 1,
+                                                        '10.0.0.4:25000': 1, '10.0.0.5:25000': 1, '10.0.0.6:25000': 1}
     # test with known identifier
-    host_statistics_compiler.push_statistics('10.0.0.1:25000', host_stats)
-    assert host_statistics_compiler.nb_cores == {'10.0.0.1:25000': 4}
-    for identifier, period_maps in host_statistics_compiler.instance_map.items():
-        if identifier == '10.0.0.1:25000':
-            assert all((instance.push_statistics.call_args_list == [call(host_stats)]
-                        for instance in period_maps.values()))
-        else:
-            assert all((not instance.push_statistics.called
-                        for instance in period_maps.values()))
+    filled_host_statistics_compiler.push_statistics('10.0.0.1:25000', host_stats)
+    assert filled_host_statistics_compiler.nb_cores == {'10.0.0.0:25000': 4,
+                                                        '10.0.0.1:25000': 4, '10.0.0.2:25000': 1, '10.0.0.3:25000': 1,
+                                                        '10.0.0.4:25000': 1, '10.0.0.5:25000': 1, '10.0.0.6:25000': 1}
 
 
 # Process Statistics part

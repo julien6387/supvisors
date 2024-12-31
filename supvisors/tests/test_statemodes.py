@@ -329,9 +329,8 @@ def test_select_master_core(supvisors_instance, simple_sm):
                                  '10.0.0.4:25000': 'STOPPED',
                                  '10.0.0.5:25000': 'STOPPED',
                                  '10.0.0.6:25000': 'STOPPED'}}
-    simple_sm.on_instance_state_event('10.0.0.1:25000', event)
-    simple_sm.on_instance_state_event('10.0.0.2:25000', event)
-
+    simple_sm.instance_state_modes['10.0.0.1:25000'].update(event)
+    simple_sm.instance_state_modes['10.0.0.2:25000'].update(event)
     # check conditions
     simple_sm.evaluate_stability()
     assert not simple_sm.core_instances_running()
@@ -339,7 +338,6 @@ def test_select_master_core(supvisors_instance, simple_sm):
     assert simple_sm.get_master_identifiers() == {''}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
-
     # Trigger Master selection
     simple_sm.select_master()
     assert simple_sm.master_identifier == '10.0.0.2:25000'
@@ -348,11 +346,10 @@ def test_select_master_core(supvisors_instance, simple_sm):
     assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000', ''}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
-
     # test completion on SupvisorsStateModes.core_instances_running
     event['instance_states']['10.0.0.3:25000'] = 'RUNNING'
-    simple_sm.on_instance_state_event('10.0.0.1:25000', event)
-    simple_sm.on_instance_state_event('10.0.0.2:25000', event)
+    simple_sm.instance_state_modes['10.0.0.1:25000'].update(event)
+    simple_sm.instance_state_modes['10.0.0.2:25000'].update(event)
     # still not stable ('10.0.0.2:25000' missing)
     simple_sm.evaluate_stability()
     assert simple_sm.stable_identifiers == set()
@@ -380,11 +377,11 @@ def test_supvisors_state_modes_established(supvisors_instance, simple_sm):
                                  '10.0.0.4:25000': 'STOPPED',
                                  '10.0.0.5:25000': 'STOPPED',
                                  '10.0.0.6:25000': 'STOPPED'}}
-    simple_sm.on_instance_state_event('10.0.0.1:25000', event)
+    simple_sm.instance_state_modes['10.0.0.1:25000'].update(event)
     event.update({'fsm_statecode': 4, 'fsm_statename': 'OPERATION',
                   'master_identifier': '10.0.0.3:25000'})
-    simple_sm.on_instance_state_event('10.0.0.2:25000', event)
-    simple_sm.on_instance_state_event('10.0.0.3:25000', event)
+    simple_sm.instance_state_modes['10.0.0.2:25000'].update(event)
+    simple_sm.instance_state_modes['10.0.0.3:25000'].update(event)
     # check conditions
     assert simple_sm.master_identifier == ''
     simple_sm.evaluate_stability()
@@ -418,10 +415,10 @@ def test_supvisors_state_modes_split_brain(supvisors_instance, simple_sm):
                                  '10.0.0.4:25000': 'STOPPED',
                                  '10.0.0.5:25000': 'STOPPED',
                                  '10.0.0.6:25000': 'STOPPED'}}
-    simple_sm.on_instance_state_event('10.0.0.1:25000', event)
-    simple_sm.on_instance_state_event('10.0.0.3:25000', event)
+    simple_sm.instance_state_modes['10.0.0.1:25000'].update(event)
+    simple_sm.instance_state_modes['10.0.0.3:25000'].update(event)
     event.update({'master_identifier': '10.0.0.2:25000'})
-    simple_sm.on_instance_state_event('10.0.0.2:25000', event)
+    simple_sm.instance_state_modes['10.0.0.2:25000'].update(event)
     # check conditions
     assert simple_sm.master_identifier == '10.0.0.3:25000'
     simple_sm.evaluate_stability()
@@ -459,10 +456,10 @@ def test_supvisors_state_modes_split_brain_core(supvisors_instance, simple_sm):
                                  '10.0.0.4:25000': 'STOPPED',
                                  '10.0.0.5:25000': 'STOPPED',
                                  '10.0.0.6:25000': 'STOPPED'}}
-    simple_sm.on_instance_state_event('10.0.0.1:25000', event)
-    simple_sm.on_instance_state_event('10.0.0.3:25000', event)
+    simple_sm.instance_state_modes['10.0.0.1:25000'].update(event)
+    simple_sm.instance_state_modes['10.0.0.3:25000'].update(event)
     event.update({'master_identifier': '10.0.0.2:25000'})
-    simple_sm.on_instance_state_event('10.0.0.2:25000', event)
+    simple_sm.instance_state_modes['10.0.0.2:25000'].update(event)
     # check conditions
     assert simple_sm.master_identifier == '10.0.0.3:25000'
     simple_sm.evaluate_stability()
@@ -500,10 +497,10 @@ def test_supvisors_state_modes_user(supvisors_instance, simple_sm):
                                  '10.0.0.4:25000': 'STOPPED',
                                  '10.0.0.5:25000': 'STOPPED',
                                  '10.0.0.6:25000': 'STOPPED'}}
-    simple_sm.on_instance_state_event('10.0.0.1:25000', event)
-    simple_sm.on_instance_state_event('10.0.0.3:25000', event)
+    simple_sm.instance_state_modes['10.0.0.1:25000'].update(event)
+    simple_sm.instance_state_modes['10.0.0.3:25000'].update(event)
     event.update({'master_identifier': '10.0.0.3:25000'})
-    simple_sm.on_instance_state_event('10.0.0.2:25000', event)
+    simple_sm.instance_state_modes['10.0.0.2:25000'].update(event)
     # check conditions
     assert simple_sm.master_identifier == ''
     simple_sm.evaluate_stability()

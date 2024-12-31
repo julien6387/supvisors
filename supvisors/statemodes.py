@@ -299,8 +299,10 @@ class SupvisorsStateModes:
     # Global update from a notification
     def on_instance_state_event(self, identifier: str, event: Payload):
         """ The event is fired on change by the remote Supvisors instance. """
-        self.instance_state_modes[identifier].update(event)
-        self.export_status()
+        # ignore if sent by the local Supvisors instance because information may be lost in the gap
+        if identifier != self.local_identifier:
+            self.instance_state_modes[identifier].update(event)
+            self.export_status()
 
     # Data publication and export
     def serial(self) -> Payload:
