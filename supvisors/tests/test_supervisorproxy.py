@@ -120,14 +120,15 @@ def test_proxy_xml_rpc(proxy):
     ref_usage = proxy.last_used
     mocked_fct.reset_mock()
     # test minor exception (remote Supvisors instance is operational)
-    mocked_fct.side_effect = RPCError(code=58)
-    proxy.xml_rpc('normal', mocked_fct, ('hello', 28))
-    assert mocked_fct.call_args_list == [call('hello', 28)]
-    assert proxy.last_used > ref_usage
-    ref_usage = proxy.last_used
-    mocked_fct.reset_mock()
+    for exc_class in [RPCError(code=58), xmlrpclib.Fault(77, 'fault')]:
+        mocked_fct.side_effect = exc_class
+        proxy.xml_rpc('normal', mocked_fct, ('hello', 28))
+        assert mocked_fct.call_args_list == [call('hello', 28)]
+        assert proxy.last_used > ref_usage
+        ref_usage = proxy.last_used
+        mocked_fct.reset_mock()
     # test major exception (remote Supvisors instance is NOT operational)
-    for exc_class in [OSError, HTTPException, xmlrpclib.Fault(77, 'fault'), KeyError, ValueError, TypeError]:
+    for exc_class in [OSError, HTTPException, KeyError, ValueError, TypeError]:
         mocked_fct.side_effect = exc_class
         with pytest.raises(SupervisorProxyException):
             proxy.xml_rpc('normal', mocked_fct, ('hello',))

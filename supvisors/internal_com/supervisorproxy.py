@@ -107,9 +107,9 @@ class SupervisorProxy:
         # call the XML-RPC
         try:
             return fct(*args)
-        except RPCError as exc:
-            # the request is unexpected by an operational remote instance and the XML-RPC error is raised
-            # no impact in proxy
+        except (RPCError, xmlrpclib.Fault) as exc:
+            # the request is unexpected by the remote instance and the XML-RPC error is raised
+            # no impact to the proxy
             self.logger.warn(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
                              f' {fct_name}{args} failed - {str(exc)}')
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
@@ -123,13 +123,6 @@ class SupervisorProxy:
             message = f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier} not reachable - {str(exc)}'
             self.logger.log(log_level, message)
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
-            raise SupervisorProxyException
-        except xmlrpclib.Fault as exc:
-            # undoubtedly an implementation error (unknown method)
-            self.logger.critical(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
-                                 f' {fct_name}{args} software error - {str(exc)}')
-            self.logger.error(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
-            # FIXME: got BAD_NAME, so move to the first one
             raise SupervisorProxyException
         except (KeyError, ValueError, TypeError) as exc:
             # JSON serialization issue / implementation error
@@ -351,6 +344,7 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
             if self.status.identifier != self.local_identifier and self.status.has_active_state():
                 origin = self._get_origin(self.status.identifier)
                 message = NotificationHeaders.INSTANCE_FAILURE.value, None
+                # FIXME: using the proxy_server from another may cause issues when the proxies are being closed
                 self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
         self.logger.debug('SupervisorProxyThread.run: exiting main loop'
                           f' for identifier={self.status.usage_identifier}')
