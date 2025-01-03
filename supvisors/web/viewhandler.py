@@ -54,7 +54,8 @@ class ViewHandler(MeldView):
         self.has_host_statistics = True
         self.has_process_statistics = True
         # init view_ctx (only for tests)
-        self.view_ctx: Optional[SupvisorsViewContext] = None  # TODO: why not created right here ?
+        self.view_ctx: SupvisorsViewContext = SupvisorsViewContext(self.context)
+        self.logger.debug(f'ViewHandler: new context {self.view_ctx.parameters}')
 
     @property
     def local_identifier(self):
@@ -117,8 +118,6 @@ class ViewHandler(MeldView):
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
-        self.view_ctx = SupvisorsViewContext(self.context)
-        self.logger.debug(f'ViewHandler.handle_parameters: new context {self.view_ctx.parameters}')
 
     def write_style(self, root):
         """ Entry point for additional style instructions. """

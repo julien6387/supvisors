@@ -31,6 +31,8 @@ from .conftest import create_application, create_process, create_element
 def view(http_context):
     """ Return the instance to test. """
     http_context.template.replace('index.html', 'proc_instance.html')
+    for attr in ['message', 'namespec', 'processname', 'nic', 'partition', 'device']:
+        del http_context.form[attr]
     return ProcInstanceView(http_context)
 
 
@@ -41,15 +43,8 @@ def test_init(view):
         assert isinstance(view, klass)
     # test default page name
     assert view.page_name == SupvisorsPages.PROC_INSTANCE_PAGE
-
-
-def test_handle_parameters(mocker, view):
-    """ Test the handle_parameters method. """
-    mocked_handle = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_parameters')
-    view.view_ctx = Mock()
-    view.handle_parameters()
-    assert mocked_handle.call_args_list == [call()]
-    assert view.view_ctx.set_message_default.call_args_list == [call('The Supvisors rules do NOT apply here', 'warn')]
+    assert view.view_ctx.http_context.form[GRAVITY] == 'warn'
+    assert view.view_ctx.http_context.form[MESSAGE] == 'The Supvisors rules do NOT apply here'
 
 
 def test_write_options(mocker, view):

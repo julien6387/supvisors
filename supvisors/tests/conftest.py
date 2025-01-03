@@ -133,7 +133,7 @@ def http_context(supvisors_instance) -> ViewContext:
             'processname': 'dummy_proc',
             'appname': 'dummy_appli',
             'nic': 'eth0',
-            'period': 5.1,
+            'period': 5,
             'auto': 'false',
             'diskstats': 'io',
             'partition': '/', 'device': 'sda'}

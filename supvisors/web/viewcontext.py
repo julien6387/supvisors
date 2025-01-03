@@ -16,7 +16,7 @@
 
 import math
 from distutils.util import strtobool
-from typing import Optional, Tuple, Type
+from typing import Optional, Tuple
 from urllib.parse import ParseResult, quote, urlparse
 
 from supervisor.web import ViewContext
@@ -68,7 +68,7 @@ class SupvisorsViewContext:
         """ Define attributes for statistics selection. """
         # store the HTML context
         self.http_context: ViewContext = context
-        # TODO: test cookies
+        # cookies
         self.session: SupvisorsSession = self.supvisors.sessions.get_session(context)
         # initialize parameters
         self.parameters = {}
@@ -96,7 +96,7 @@ class SupvisorsViewContext:
 
     # information extracted
     @property
-    def strategy(self) -> Type[StartingStrategies]:
+    def strategy(self) -> StartingStrategies:
         return StartingStrategies[self.parameters[STRATEGY]]
 
     @property
@@ -157,7 +157,7 @@ class SupvisorsViewContext:
 
     # simple extraction from context form
     def extract_parameters(self):
-        """ TODO. """
+        """ Extract all parameters from the URL. """
         self.update_strategy()
         self.update_auto_refresh()
         self.update_identifier()
@@ -188,7 +188,7 @@ class SupvisorsViewContext:
         """ Extract message gravity from context form. """
         return self.http_context.form.get(GRAVITY)
 
-    def set_message_default(self, message: str, gravity: SupvisorsGravities):
+    def set_default_message(self, message: str, gravity: SupvisorsGravities):
         """ Set the message and gravity if there is no existing message. """
         if not self.message:
             self.http_context.form[GRAVITY] = gravity

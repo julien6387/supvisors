@@ -30,28 +30,19 @@ class ApplicationView(ViewHandler):
     """ Supvisors Application page. """
 
     def __init__(self, context):
-        """ Call of the superclass constructors. """
+        """ Initialization of the attributes. """
         ViewHandler.__init__(self, context)
         self.page_name = SupvisorsPages.APPLICATION_PAGE
         # init parameters
-        self.application_name: str = ''
+        self.application_name: Optional[str] = self.view_ctx.application_name
         self.application: Optional[ApplicationStatus] = None
-
-    def handle_parameters(self) -> None:
-        """ Retrieve the parameters selected on the web page.
-
-        :return: None
-        """
-        ViewHandler.handle_parameters(self)
-        # check if application name is available
-        self.application_name = self.view_ctx.application_name
         try:
             # store application
             self.application = self.sup_ctx.applications[self.application_name]
         except KeyError:
             # may happen when the user clicks from a page of the previous launch while the current Supvisors is still
-            # in INITIALIZATION stats or if wrong application_name set in URL
-            self.logger.error(f'ApplicationView.handle_parameters: unknown application_name={self.application_name}')
+            # in SYNCHRONIZATION state or if wrong application_name set in URL
+            self.logger.error(f'ApplicationView: unknown application_name={self.application_name}')
             # redirect page to main page to avoid infinite error loop
             self.view_ctx.store_message = WebMessage(f'Unknown application: {self.application_name}',
                                                      SupvisorsGravities.ERROR).gravity_message

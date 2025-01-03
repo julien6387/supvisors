@@ -50,7 +50,8 @@ def test_init(http_context, handler):
     assert handler.local_identifier == handler.supvisors.mapper.local_identifier
     assert handler.has_host_statistics
     assert handler.has_process_statistics
-    assert handler.view_ctx is None
+    assert handler.view_ctx is not None
+    assert isinstance(handler.view_ctx, SupvisorsViewContext)
 
 
 def test_call(mocker, handler):
@@ -103,15 +104,6 @@ def test_render_action_in_progress(mocker, supvisors_instance, handler):
     assert mocked_header.call_args_list == [call(header_elt)]
     assert mocked_nav.call_args_list == [call(mocked_root)]
     assert mocked_contents.call_args_list == [call(contents_elt)]
-
-
-def test_handle_parameters(supvisors_instance, handler):
-    """ Test the handle_parameters method. """
-    supvisors_instance.context.get_all_namespecs = Mock(return_value=[])
-    assert handler.view_ctx is None
-    handler.handle_parameters()
-    assert handler.view_ctx is not None
-    assert isinstance(handler.view_ctx, SupvisorsViewContext)
 
 
 def test_write_style(supvisors_instance, handler):

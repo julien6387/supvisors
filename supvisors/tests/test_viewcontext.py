@@ -72,17 +72,17 @@ def test_properties(ctx):
     assert ctx.gravity == 'none'
 
 
-def test_set_message_default(ctx):
-    """ Test the ViewContext.set_message_default method. """
+def test_set_default_message(ctx):
+    """ Test the ViewContext.set_default_message method. """
     assert ctx.message == 'hi chaps'
     assert ctx.gravity == 'none'
     # check that the message is not replaced when there is already one stored
-    ctx.set_message_default('beware of the dog', 'Warn')
+    ctx.set_default_message('beware of the dog', 'Warn')
     assert ctx.message == 'hi chaps'
     assert ctx.gravity == 'none'
     # reset the form and retry
     ctx.http_context.form.update({GRAVITY: '', MESSAGE: ''})
-    ctx.set_message_default('beware of the dog', 'Warn')
+    ctx.set_default_message('beware of the dog', 'Warn')
     assert ctx.message == 'beware of the dog'
     assert ctx.gravity == 'Warn'
 
@@ -252,8 +252,8 @@ def test_update_float(ctx):
     assert ctx.parameters == ref_parameters
     # test with known parameter, float and value in list
     assert 'period' in ctx.http_context.form
-    ctx._update_float('period', [5.1, 15.0, 60.0])
-    ref_parameters.update({'period': 5.1})
+    ctx._update_float('period', [5.0, 15.0, 60.0])
+    ref_parameters.update({'period': 5.0})
     assert ctx.parameters == ref_parameters
 
 
