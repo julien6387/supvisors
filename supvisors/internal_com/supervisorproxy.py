@@ -280,15 +280,15 @@ class SupervisorProxy:
 
     def restart(self) -> None:
         """ Restart a Supervisor instance asynchronously. """
-        # TODO: secure all app stop with stopAllProcesses ?
-        #       this will ensure a graceful stop because restart returns immediately and then kills everything
+        # TBC: secure all app stop with stopAllProcesses ?
+        #      this will ensure a graceful stop because restart returns immediately and then kills everything
         # self.xml_rpc('supervisor.stopAllProcesses', self.proxy.supervisor.stopAllProcesses, ())
         self.xml_rpc('supervisor.restart', self.proxy.supervisor.restart, ())
 
     def shutdown(self) -> None:
         """ Shutdown a Supervisor instance asynchronously. """
-        # TODO: secure all app stop with stopAllProcesses ?
-        #       this will ensure a graceful stop because shutdown returns immediately and then kills everything
+        # TBC: secure all app stop with stopAllProcesses ?
+        #      this will ensure a graceful stop because shutdown returns immediately and then kills everything
         # self.xml_rpc('supervisor.stopAllProcesses', self.proxy.supervisor.stopAllProcesses, ())
         self.xml_rpc('supervisor.shutdown', self.proxy.supervisor.shutdown, ())
 
