@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import os
 from unittest.mock import call, Mock
 
 import pytest
@@ -111,6 +112,31 @@ def test_handle_parameters(supvisors_instance, handler):
     handler.handle_parameters()
     assert handler.view_ctx is not None
     assert isinstance(handler.view_ctx, SupvisorsViewContext)
+
+
+def test_write_style(supvisors_instance, handler):
+    """ Test the write_style method. """
+    assert handler.user_css == ''
+    # build xml template
+    mocked_style = create_element()
+    mocked_root = create_element({'style_mid': mocked_style})
+    # call method with empty user css
+    handler.write_style(mocked_root)
+    assert mocked_style.content.call_args_list == [call('')]
+    mocked_style.content.reset_mock()
+    # set user files
+    test_css = os.path.join(os.path.dirname(__file__), '..', 'test', 'ui', 'test.css')
+    supvisors_instance.options.css_files = [test_css, test_css]
+    # call method with non-empty user css
+    handler.write_style(mocked_root)
+    expected = """footer p:last-of-type {
+    color: var(--crash-color);
+}
+footer p:last-of-type {
+    color: var(--crash-color);
+}
+"""
+    assert mocked_style.content.call_args_list == [call(expected)]
 
 
 def test_write_common(mocker, supvisors_instance, handler):

@@ -27,11 +27,13 @@
 
 * Add a new option `supvisors_failure_strategy` to decide what to do when the initial conditions are not met anymore.
 
+* Add a new option `css_files` to allow user CSS in the **Supvisors** Web UI.
+
 * Remove the Supvisors instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
 
 * Add the process PID to the process statistics event.
 
-* Replace the global clear by individual unsubscriptions when Supervisor stops.
+* Cancel individual subscriptions from the Supervisor events rather than perform a global clear.
 
 * Consider variable CPU frequency value returned by `psutil`.
 

@@ -65,6 +65,7 @@ class SupvisorsOptions:
         - multicast_interface: UDP Multicast Group interface ;
         - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
+        - css_files: list of css files used to override the Supvisors default CSS ;
         - event_link: type of the event link used to publish all Supvisors events ;
         - event_port: port number used to publish all Supvisors events ;
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive ;
@@ -122,8 +123,9 @@ class SupvisorsOptions:
         self.multicast_group = self._get_value(config, 'multicast_group', None, self.to_multicast_group)
         self.multicast_interface = self._get_value(config, 'multicast_interface', None, self.to_ip_address)
         self.multicast_ttl = self._get_value(config, 'multicast_ttl', 1, self.to_ttl)
-        # get the rules files
+        # get the rules and CSS files
         self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
+        self.css_files = self._get_value(config, 'css_files', None, self.to_filepaths)
         # if event_port is not defined, it will be set later based on Supervisor HTTP port
         self.event_link = self._get_value(config, 'event_link', EventLinks.NONE, self.to_event_link)
         self.event_port = self._get_value(config, 'event_port', 0, self.to_port_num)
@@ -162,7 +164,9 @@ class SupvisorsOptions:
 
     def __str__(self):
         """ Contents as string. """
-        mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}' if self.multicast_group else None
+        mc_group = None
+        if self.multicast_group:
+            mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}'
         return (f'software_name="{self.software_name}"'
                 f' software_icon={self.software_icon}'
                 f' supvisors_list={self.supvisors_list}'
@@ -171,6 +175,7 @@ class SupvisorsOptions:
                 f' multicast_interface={self.multicast_interface}'
                 f' multicast_ttl={self.multicast_ttl}'
                 f' rules_files={self.rules_files}'
+                f' css_files={self.css_files}'
                 f' event_link={self.event_link.name}'
                 f' event_port={self.event_port}'
                 f' auto_fence={self.auto_fence}'

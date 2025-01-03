@@ -197,6 +197,20 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  Yes.
 
+``css_files``
+
+    A space-separated sequence of file globs, in the same vein as
+    `supervisord include section <http://supervisord.org/configuration.html#include-section-values>`_.
+    Instead of ``ini`` files, CSS files are expected here. |br|
+    The content of these CSS files is added after the |Supvisors| CSS files, so that the user can override
+    the |Supvisors| Web UI style.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``auto_fence``
 
     When true, |Supvisors| will definitely disconnect a |Supvisors| instance that is inactive. |br|

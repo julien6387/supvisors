@@ -32,7 +32,8 @@ def config():
             'software_icon': 'my_icon.png',
             'supvisors_list': 'cliche01,cliche03,cliche02', 'stereotypes': 'test',
             'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
-            'rules_files': 'my_movies.xml', 'auto_fence': 'true',
+            'rules_files': 'my_movies.xml', 'css_files': 'test.css',
+            'auto_fence': 'true',
             'event_link': 'zmq', 'event_port': '60002',
             'synchro_options': 'LIST,USER', 'synchro_timeout': '20',
             'inactivity_ticks': '9',
@@ -58,7 +59,8 @@ def opt(supervisor_instance, logger_instance):
 def filled_opt(mocker, supervisor_instance, logger_instance, config):
     """ Test the values of options with defined Supvisors configuration. """
     mocker.patch('supvisors.options.SupvisorsOptions.to_existing_file', return_value='my_icon.png')
-    mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
+    mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths',
+                 side_effect=[['my_movies.xml'], ['test.css']])
     return SupvisorsOptions(supervisor_instance, logger_instance, **config)
 
 
@@ -95,6 +97,7 @@ def test_options_creation(opt):
     assert opt.multicast_interface is None
     assert opt.multicast_ttl == 1
     assert opt.rules_files is None
+    assert opt.css_files is None
     assert opt.event_link == EventLinks.NONE
     assert opt.event_port == 0
     assert not opt.auto_fence
@@ -124,6 +127,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.multicast_interface == '192.168.1.1'
     assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
+    assert filled_opt.css_files == ['test.css']
     assert filled_opt.event_link == EventLinks.ZMQ
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
@@ -149,7 +153,7 @@ def test_str(opt):
     assert str(opt) == ('software_name="" software_icon=None'
                         ' supvisors_list=None stereotypes=set()'
                         ' multicast_group=None multicast_interface=None multicast_ttl=1'
-                        ' rules_files=None'
+                        ' rules_files=None css_files=None'
                         ' event_link=NONE event_port=0'
                         " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
                         ' inactivity_ticks=2 core_identifiers=set()'
@@ -169,7 +173,7 @@ def test_filled_str(filled_opt):
                           " supvisors_list=['cliche01', 'cliche03', 'cliche02']"
                           " stereotypes={'test'}"
                           ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
-                          " rules_files=['my_movies.xml']"
+                          " rules_files=['my_movies.xml'] css_files=['test.css']"
                           ' event_link=ZMQ event_port=60002'
                           ' auto_fence=True'
                           " synchro_options=['LIST', 'USER'] synchro_timeout=20"

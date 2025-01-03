@@ -38,6 +38,9 @@ from .webutils import (SupvisorsPages, SupvisorsSymbols,
 class ViewHandler(MeldView):
     """ Helper class to share rendering and behavior between handlers inheriting from MeldView. """
 
+    # load user CSS files once only
+    user_css: str = ''
+
     def __init__(self, context):
         """ Initialization of the attributes. """
         MeldView.__init__(self, context)
@@ -119,6 +122,12 @@ class ViewHandler(MeldView):
 
     def write_style(self, root):
         """ Entry point for additional style instructions. """
+        if not ViewHandler.user_css and self.supvisors.options.css_files:
+            for file in self.supvisors.options.css_files:
+                with open(file) as fic:
+                    ViewHandler.user_css += fic.read()
+                    ViewHandler.user_css += '\n'
+        root.findmeld('style_mid').content(ViewHandler.user_css)
 
     def write_common(self, root):
         """ Common rendering of the Supvisors pages. """
