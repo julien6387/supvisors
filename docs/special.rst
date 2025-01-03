@@ -330,6 +330,12 @@ The *load* of a node is defined as the sum of the loads of the |Supvisors| insta
 When applying the ``CONFIG`` strategy, |Supvisors| chooses the first |Supvisors| instance available in the
 ``supvisors_list``.
 
+.. attention::
+
+    Using the ``CONFIG`` strategy when the discovery mode activated will give non-deterministic results
+    because the list |Supvisors| instances is built on-the-fly, whereas the list of items in the ``supvisors_list``
+    option is fixed.
+
 When applying the ``LESS_LOADED`` strategy, |Supvisors| chooses the |Supvisors| instance in the ``supvisors_list``
 having the lowest *load*.
 The aim is to distribute the process load among the available |Supvisors| instances.
@@ -345,15 +351,6 @@ having the lowest *load* on the node having the lowest *load*.
 When applying the ``MOST_LOADED_NODE`` strategy, |Supvisors| chooses the |Supvisors| instance in the ``supvisors_list``
 having the greatest *load* on the node having the greatest *load*.
 
-When applying the ``LOCAL`` strategy, |Supvisors| chooses the local |Supvisors| instance.
-A typical use case is to start an HCI application on a given console, while other applications / services may be
-distributed over other nodes.
-
-.. attention::
-
-    A consequence of choosing the ``LOCAL`` strategy as the default ``starting_strategy``
-    in the :ref:`supvisors_section` is that all programs will be started on the |Supvisors| *Master* instance.
-
 .. note::
 
     When a single |Supvisors| instance is running on each node, ``LESS_LOADED_NODE`` and ``MOST_LOADED_NODE`` are
@@ -367,6 +364,14 @@ distributed over other nodes.
     In the event where the |Supvisors| instance is running in a Docker container, a particular attention must be taken
     to ensure that the Docker container is configured so that the ``uuid.getnode()`` function returns the right value.
 
+When applying the ``LOCAL`` strategy, |Supvisors| chooses the local |Supvisors| instance.
+A typical use case is to start an HCI application on a given console, while other applications / services may be
+distributed over other nodes.
+
+.. attention::
+
+    A consequence of choosing the ``LOCAL`` strategy as the default ``starting_strategy``
+    in the :ref:`supvisors_section` is that all programs will be started on the |Supvisors| *Master* instance.
 
 Starting a process
 ~~~~~~~~~~~~~~~~~~
