@@ -17,14 +17,13 @@
 import datetime
 import re
 import uuid
-from enum import Enum
 from typing import Dict, Optional, Tuple
 
 from supervisor.loggers import Logger
 from supervisor.medusa.http_server import get_header
 from supervisor.web import VIEWS, ViewContext
 
-from supvisors.ttypes import NameList
+from supvisors.ttypes import StatsType, NameList
 from .viewimage import TemporaryStatsImage, StatsView, SoftwareIconImage
 
 # Cookie naming
@@ -36,12 +35,6 @@ COOKIE = re.compile(f'Cookie: {SUPVISORS_SESSION}=(.*)', re.IGNORECASE)
 def get_cookie(context: ViewContext):
     """ Get the cookie text from the Supervisor HTTP context. """
     return get_header(COOKIE, context.request.header)
-
-
-# TODO: move elsewhere ?
-class StatsType(Enum):
-    """ The Supvisors statistics types. """
-    HOST_CPU, HOST_MEM, HOST_NET_IO, HOST_DISK_IO, HOST_DISK_USAGE, PROCESS_CPU, PROCESS_MEM = range(7)
 
 
 class SupvisorsSession:

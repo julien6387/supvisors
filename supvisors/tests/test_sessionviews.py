@@ -31,12 +31,6 @@ def test_get_cookie(http_context):
     assert get_cookie(http_context) == '1234'
 
 
-def test_stats_type():
-    """ Test the StatsType enumeration. """
-    expected = ['HOST_CPU', 'HOST_MEM', 'HOST_NET_IO', 'HOST_DISK_IO', 'HOST_DISK_USAGE', 'PROCESS_CPU', 'PROCESS_MEM']
-    assert [x.name for x in StatsType] == expected
-
-
 def test_supvisors_session(mocker, logger_instance):
     """ Test the SupvisorsSession class. """
     mocker.patch('uuid.uuid4', return_value=1234)

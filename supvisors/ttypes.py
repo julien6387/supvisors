@@ -123,6 +123,12 @@ class EventHeaders(Enum):
     PROCESS_STATISTICS = 'pstats'
 
 
+# for statistics images
+class StatsType(Enum):
+    """ The Supvisors statistics types. """
+    HOST_CPU, HOST_MEM, HOST_NET_IO, HOST_DISK_IO, HOST_DISK_USAGE, PROCESS_CPU, PROCESS_MEM = range(7)
+
+
 # State lists commonly used
 WORKING_STATES = [SupvisorsStates.ELECTION, SupvisorsStates.DISTRIBUTION,
                   SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]

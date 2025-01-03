@@ -127,6 +127,12 @@ def test_event_headers():
     assert [x.name for x in EventHeaders] == expected
 
 
+def test_stats_type():
+    """ Test the StatsType enumeration. """
+    expected = ['HOST_CPU', 'HOST_MEM', 'HOST_NET_IO', 'HOST_DISK_IO', 'HOST_DISK_USAGE', 'PROCESS_CPU', 'PROCESS_MEM']
+    assert [x.name for x in StatsType] == expected
+
+
 def test_invalid_transition():
     """ Test the exception InvalidTransition. """
     # test with unknown attributes
