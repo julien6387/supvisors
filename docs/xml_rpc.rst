@@ -42,6 +42,7 @@ Status
             'identifier'       ``str``           The |Supvisors| local instance identifier (``host_id:http_port``).
             'nick_identifier'  ``str``           The |Supvisors| local instance nick name, or a copy of the |Supvisors|
                                                  identifier if not set.
+            'now_monotonic'    ``float``         The monotonic time, in the reference time of the local host.
             'fsm_statecode'    ``int``           The |Supvisors| state, in [0;8].
             'fsm_statename'    ``str``           The |Supvisors| state as string, in [``'OFF'``, ``'SYNCHRONIZATION'``,
                                                  ``ELECTION``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
@@ -64,6 +65,7 @@ Status
             'identifier'       ``str``           The |Supvisors| instance identifier (``host_id:http_port``).
             'nick_identifier'  ``str``           The |Supvisors| instance nick name, or a copy of the |Supvisors|
                                                  identifier if not set.
+            'now_monotonic'    ``float``         The monotonic time, in the reference time of the local host.
             'fsm_statecode'    ``int``           The |Supvisors| state, in [0;8].
             'fsm_statename'    ``str``           The |Supvisors| state as string, in [``'OFF'``, ``'SYNCHRONIZATION'``,
                                                  ``ELECTION``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
@@ -156,6 +158,7 @@ Status
             Key                Type      Description
             ================== ========= ===========
             'application_name' ``str``   The Application name.
+            'now_monotonic'    ``float`` The monotonic time, in the reference time of the local host.
             'statecode'        ``int``   The Application state, in [0;4].
             'statename'        ``str``   The Application state as string, in [``'UNKNOWN'``, ``'STOPPED'``,
                                          ``'STARTING'``, ``'STOPPING'``, ``'RUNNING'``].
@@ -172,13 +175,14 @@ Status
             ================== =============== ===========
             'application_name' ``str``         The Application name the process belongs to.
             'process_name'     ``str``         The Process name.
+            'now_monotonic'    ``float``       The monotonic time, in the reference time of the local host.
+            'last_event_mtime' ``float``       The monotonic time of the last event received for this process,
+                                               in the reference time of the local host.
             'statecode'        ``int``         The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
             'statename'        ``str``         The Process state as string, in [``'STOPPED'``, ``'STARTING'``,
                                                ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``,
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
-            'last_event_time'  ``float``       The local monotonic time of the last event received for this process,
-                                               in seconds.
             'identifiers'      ``list(str)``   The identifiers of all |Supvisors| instances where the process is
                                                running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.

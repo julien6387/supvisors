@@ -15,7 +15,7 @@
 # ======================================================================
 
 import time
-from typing import Callable
+from typing import Callable, Type
 
 from supervisor.compat import as_bytes, as_string
 from supervisor.http import NOT_DONE_YET

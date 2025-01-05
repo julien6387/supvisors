@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
-
+import time
 from typing import Dict, List, Optional, Tuple
 
 from .ttypes import (CPUHistoryStats, CPUInstantStats,
@@ -173,6 +173,7 @@ class HostStatisticsInstance:
                 uptime, cpu, mem, net_io, disk_io, disk_usage = self.integrate(stats)
                 # create the result structure (use a copy as the _push functions will pop the original data)
                 result = {'identifier': self.identifier,
+                          'now_monotonic': time.monotonic(),
                           'target_period': self.period,
                           'period': (self.ref_stats['now'] - self.ref_start_time,
                                      stats['now'] - self.ref_start_time),
@@ -304,6 +305,7 @@ class ProcStatisticsInstance:
                 result = {'namespec': self.namespec,
                           'identifier': self.identifier,
                           'pid': self.pid,
+                          'now_monotonic': time.monotonic(),
                           'target_period': self.period,
                           'period': (self.ref_stats['now'] - self.ref_start_time,
                                      proc_stats['now'] - self.ref_start_time),

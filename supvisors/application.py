@@ -16,6 +16,7 @@
 
 import ast
 import re
+import time
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 from supervisor.loggers import Logger
@@ -506,9 +507,10 @@ class ApplicationStatus:
     def serial(self) -> Payload:
         """ Get a serializable form of the application status.
 
-        :return: the application status in a dictionary
+        :return: the application status in a dictionary.
         """
-        return {'application_name': self.application_name, 'managed': self.rules.managed,
+        return {'application_name': self.application_name,
+                'managed': self.rules.managed, 'now_monotonic': time.monotonic(),
                 'statecode': self.state.value, 'statename': self.state.name,
                 'major_failure': self.major_failure, 'minor_failure': self.minor_failure}
 

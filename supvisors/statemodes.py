@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import time
 from typing import Any, Dict, Optional
 
 from supervisor.loggers import Logger
@@ -101,6 +102,7 @@ class StateModes:
         """ Return a serializable form of the StatesModes. """
         return {'identifier': self.identifier,
                 'nick_identifier': self.nick_identifier,
+                'now_monotonic': time.monotonic(),
                 'fsm_statecode': self.state.value, 'fsm_statename': self.state.name,
                 'degraded_mode': self.degraded_mode,
                 'discovery_mode': self.discovery_mode,
@@ -135,7 +137,7 @@ class SupvisorsStateModes:
         #       based on the declared Supvisors instances and the discovered ones
         self.instance_state_modes: StateModesMap = {identifier: StateModes(sup_id)
                                                     for identifier, sup_id in supvisors.mapper.instances.items()}
-        # fill the local instance to initiate the first publication / other instances will be received
+        # fill the local instance to initiate the first publication / other instances will be filled by notification
         self.local_state_modes.instance_states = {identifier: SupvisorsInstanceStates.STOPPED
                                                   for identifier in supvisors.mapper.instances}
         # even if no instance is declared, the local Supvisors instance is always configured
@@ -302,6 +304,7 @@ class SupvisorsStateModes:
         # ignore if sent by the local Supvisors instance because information may be lost in the gap
         if identifier != self.local_identifier:
             self.instance_state_modes[identifier].update(event)
+            # export the Supvisors status because starting / stopping identifiers may have changed
             self.export_status()
 
     # Data publication and export
@@ -331,7 +334,7 @@ class SupvisorsStateModes:
 
     def is_stable(self) -> bool:
         """ Return True if the Supvisors context is stable. """
-        # FIXME: add condition all in same FSM state ?
+        # TBC: add condition all in same FSM state ?
         return len(self.stable_identifiers) > 0
 
     def evaluate_stability(self) -> None:
@@ -415,7 +418,6 @@ class SupvisorsStateModes:
             all_candidates = self.local_state_modes.running_identifiers()
         # NOTE: choose Master among the core instances because they are expected to be more stable
         #       this logic is applied regardless of CORE being selected as synchro_options
-        #       TODO: document this
         core_candidates = [identifier for identifier in self.mapper.core_identifiers
                            if identifier in all_candidates]
         self.logger.debug(f'SupvisorsStateModes.select_master: core_candidates={core_candidates}')
@@ -454,5 +456,3 @@ class SupvisorsStateModes:
         stable_running_identifiers = {identifier for identifier in self.stable_identifiers
                                       if self.is_running(identifier)}
         return core_identifiers.issubset(stable_running_identifiers)
-
-    # TBC do the same for LIST and STRICT ?

@@ -737,7 +737,7 @@ class ApplicationStartJobs(ApplicationJobs):
 
         :return: None
         """
-        # FIXME: what if any process of this application is already running (started manually) ?
+        # TBC: what if any process of this application is already running (started manually) ?
         # get all ProcessStartCommand of the application
         commands = [process for sequence in self.planned_jobs.values() for process in sequence]
         # find the applicable Supvisors instances iaw strategy
@@ -773,7 +773,7 @@ class ApplicationStartJobs(ApplicationJobs):
 
         :return: None
         """
-        # FIXME: what if any process of this application is already running (started manually) ?
+        # TBC: what if any process of this application is already running (started manually) ?
         # get all ProcessStartCommand of the application
         commands = [process for sequence in self.planned_jobs.values() for process in sequence]
         # find the applicable Supvisors instances iaw strategy

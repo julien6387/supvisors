@@ -136,7 +136,5 @@ class Supvisors:
         self.listener = SupervisorListener(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)
-        # TODO: HTTP sessions
-        # TODO: no expiry date (1 session cookie per browser, independent from number of pages), but close all on stopping ?
-        # TODO: name the process png ?
+        # HTTP sessions manager
         self.sessions = SessionViews(self)

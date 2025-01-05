@@ -1058,11 +1058,12 @@ def test_on_process_removed_event_running_process(mocker, supvisors_instance, co
     assert mocked_publisher.send_process_event.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process_1',
                 'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
-                'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+                'last_event_mtime': 1234, 'now_monotonic': 1234,
+                'identifiers': [], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'managed': True,
                 'statecode': 0, 'statename': 'STOPPED',
-                'major_failure': False, 'minor_failure': False}
+                'now_monotonic': 1234, 'major_failure': False, 'minor_failure': False}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
     mocked_publisher.send_process_event.reset_mock()
     mocked_publisher.send_process_status.reset_mock()
@@ -1079,11 +1080,12 @@ def test_on_process_removed_event_running_process(mocker, supvisors_instance, co
     assert mocked_publisher.send_process_event.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process_2',
                 'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
-                'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+                'last_event_mtime': 1234, 'now_monotonic': 1234,
+                'identifiers': [], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'managed': True,
                 'statecode': 4, 'statename': 'DELETED',
-                'major_failure': False, 'minor_failure': False}
+                'now_monotonic': 1234, 'major_failure': False, 'minor_failure': False}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
 
 
@@ -1149,14 +1151,16 @@ def test_on_process_removed_event_running_group(mocker, supvisors_instance, cont
     assert mocked_publisher.send_process_event.call_args_list == [call(expected_1), call(expected_2)]
     expected_1 = {'application_name': 'dummy_application', 'process_name': 'dummy_process_1',
                   'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
-                  'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+                  'last_event_mtime': 1234, 'now_monotonic': 1234,
+                  'identifiers': [], 'extra_args': ''}
     expected_2 = {'application_name': 'dummy_application', 'process_name': 'dummy_process_2',
                   'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
-                  'last_event_time': 1234, 'identifiers': [], 'extra_args': ''}
+                  'last_event_mtime': 1234, 'now_monotonic': 1234,
+                  'identifiers': [], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected_1), call(expected_2)]
     expected = {'application_name': 'dummy_application', 'managed': True,
                 'statecode': 4, 'statename': 'DELETED',
-                'major_failure': False, 'minor_failure': False}
+                'now_monotonic': 1234, 'major_failure': False, 'minor_failure': False}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
 
 
@@ -1291,14 +1295,17 @@ def test_on_process_state_event_locally_unknown_forced(mocker, supvisors_instanc
     assert application.state == ApplicationStates.STOPPED
     expected = {'group': 'dummy_application', 'name': 'dummy_process', 'pid': 0, 'expected': False,
                 'identifier': '10.0.0.3', 'state': ProcessStates.FATAL, 'extra_args': '-h',
-                'now': 1234, 'now_monotonic': 234, 'spawnerr': 'bad luck'}
+                'now': 1234, 'now_monotonic': 234, 'event_mtime': 1234,
+                'spawnerr': 'bad luck'}
     assert mocked_publisher.send_process_event.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process',
                 'statecode': ProcessStates.FATAL, 'statename': 'FATAL', 'expected_exit': True,
-                'last_event_time': 1234, 'identifiers': ['10.0.0.2:25000'], 'extra_args': ''}
+                'last_event_mtime': 1234, 'now_monotonic': 1234,
+                'identifiers': ['10.0.0.2:25000'], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
-    expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': ApplicationStates.STOPPED.value,
-                'statename': ApplicationStates.STOPPED.name, 'major_failure': False, 'minor_failure': True}
+    expected = {'application_name': 'dummy_application', 'managed': True,
+                'statecode': ApplicationStates.STOPPED.value, 'statename': ApplicationStates.STOPPED.name,
+                'now_monotonic': 1234, 'major_failure': False, 'minor_failure': True}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
 
 
@@ -1371,14 +1378,16 @@ def test_on_process_state_event(mocker, supvisors_instance, context):
     assert application.state == ApplicationStates.STARTING
     assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
     expected = {'group': 'dummy_application', 'name': 'dummy_process',
-                'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0}
+                'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0,
+                'event_mtime': 1234}
     assert mocked_publisher.send_process_event.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process',
                 'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                'last_event_time': 1234, 'identifiers': ['10.0.0.1:25000'], 'extra_args': ''}
+                'now_monotonic': 1234, 'last_event_mtime': 1234,
+                'identifiers': ['10.0.0.1:25000'], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
-                'major_failure': False, 'minor_failure': False}
+                'now_monotonic': 1234, 'major_failure': False, 'minor_failure': False}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]
     # reset mocks
     mocked_update_args.reset_mock()
@@ -1394,12 +1403,14 @@ def test_on_process_state_event(mocker, supvisors_instance, context):
     assert application.state == ApplicationStates.STARTING
     assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
     expected = {'group': 'dummy_application', 'name': 'dummy_process',
-                'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0}
+                'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0,
+                'event_mtime': 1234}
     assert mocked_publisher.send_process_event.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'process_name': 'dummy_process',
                 'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                'last_event_time': 1234, 'identifiers': ['10.0.0.1:25000'], 'extra_args': ''}
+                'now_monotonic': 1234, 'last_event_mtime': 1234,
+                'identifiers': ['10.0.0.1:25000'], 'extra_args': ''}
     assert mocked_publisher.send_process_status.call_args_list == [call(expected)]
     expected = {'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
-                'major_failure': False, 'minor_failure': False}
+                'now_monotonic': 1234, 'major_failure': False, 'minor_failure': False}
     assert mocked_publisher.send_application_status.call_args_list == [call(expected)]

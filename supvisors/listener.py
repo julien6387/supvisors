@@ -282,8 +282,8 @@ class SupervisorListener:
     def _get_local_process_info(self, namespec: str) -> Payload:
         """ Use the Supvisors RPCInterface to get local information on this process.
 
-        :param namespec: the process namespec
-        :return: the process local information
+        :param namespec: the process namespec.
+        :return: the process local information.
         """
         try:
             rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
@@ -295,8 +295,8 @@ class SupervisorListener:
     def on_process_added(self, event: ProcessAddedEvent) -> None:
         """ Called when a process has been added due to a numprocs change.
 
-        :param event: the ProcessAddedEvent object
-        :return: None
+        :param event: the ProcessAddedEvent object.
+        :return: None.
         """
         try:
             namespec = make_namespec(event.process.group.config.name, event.process.config.name)
@@ -540,7 +540,7 @@ class SupervisorListener:
         nick_identifier = ''
         if identifier:
             nick_identifier = self.supvisors.mapper.instances[identifier].nick_identifier
-        # create payload from event
+        # create payload from event (the 'forced' entry is the only one added vs a normal payload)
         payload = {'identifier': identifier, 'nick_identifier': nick_identifier,
                    'group': process.application_name, 'name': process.process_name,
                    'state': forced_state, 'forced': True,

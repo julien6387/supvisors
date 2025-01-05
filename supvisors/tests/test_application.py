@@ -532,8 +532,9 @@ def test_application_get_operational_status(supvisors_instance):
         assert application.get_operational_status() == 'Not Operational'
 
 
-def test_application_serial(supvisors_instance):
+def test_application_serial(mocker, supvisors_instance):
     """ Test the serial method used to get a serializable form of Application. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     # create address status instance
     application = create_application('ApplicationTest', supvisors_instance)
     application._state = ApplicationStates.RUNNING
@@ -542,8 +543,10 @@ def test_application_serial(supvisors_instance):
     application.start_failure = False
     # test to_json method
     serialized = application.serial()
-    assert serialized == {'application_name': 'ApplicationTest', 'managed': False,
-                          'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': True}
+    assert serialized == {'application_name': 'ApplicationTest',
+                          'managed': False, 'now_monotonic': 1234.56,
+                          'statecode': 2, 'statename': 'RUNNING',
+                          'major_failure': False, 'minor_failure': True}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)

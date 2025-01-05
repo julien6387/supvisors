@@ -590,7 +590,10 @@ class Context:
                 application_impacted = False
                 # get process targets
                 application, event_process = app_proc
-                processes = [event_process] if event_process else application.get_instance_processes(status.identifier)
+                if event_process:
+                    processes = [event_process]
+                else:
+                    processes = application.get_instance_processes(status.identifier)
                 for process in processes:
                     # WARN: process_failures are not triggered here as the processes have been properly stopped
                     #  as a consequence of the user action
@@ -694,6 +697,8 @@ class Context:
                     application.update()
                     # publish process event, status and application status
                     if self.external_publisher:
+                        # timestamp the event in the local reference time
+                        event['event_mtime'] = time.monotonic()
                         self.external_publisher.send_process_event(event)
                         self.external_publisher.send_process_status(process.serial())
                         self.external_publisher.send_application_status(application.serial())

@@ -45,10 +45,12 @@ def test_api_version(rpc):
     assert rpc.get_api_version() == __version__
 
 
-def test_supvisors_state(rpc):
+def test_supvisors_state(mocker, rpc):
     """ Test the get_supvisors_state RPC. """
-    assert rpc.get_supvisors_state() == { 'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
-                                          'fsm_statecode': 0, 'fsm_statename': 'OFF',
+    mocker.patch('time.monotonic', return_value=1234.56)
+    assert rpc.get_supvisors_state() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                                         'now_monotonic': 1234.56,
+                                         'fsm_statecode': 0, 'fsm_statename': 'OFF',
                                          'discovery_mode': False, 'degraded_mode': False,
                                          'master_identifier': '',
                                          'starting_jobs': [], 'stopping_jobs': [],
@@ -143,10 +145,12 @@ def test_all_instances_info(supvisors_instance, rpc):
     assert rpc.get_all_instances_info() == ['address_info_1', 'address_info_2']
 
 
-def test_instance_state_modes(rpc):
+def test_instance_state_modes(mocker, rpc):
     """ Test the get_instance_state_modes RPC. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     # test with known identifier
     expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                'now_monotonic': 1234.56,
                 'degraded_mode': False, 'discovery_mode': False,
                 'fsm_statecode': 0, 'fsm_statename': 'OFF',
                 'instance_states': {'10.0.0.1:25000': 'STOPPED',
@@ -164,9 +168,11 @@ def test_instance_state_modes(rpc):
     assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
 
 
-def test_all_instances_state_modes(supvisors_instance, rpc):
+def test_all_instances_state_modes(mocker, supvisors_instance, rpc):
     """ Test the get_all_instances_state_modes RPC. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     self_expected = {'degraded_mode': False, 'discovery_mode': False,
+                     'now_monotonic': 1234.56,
                      'fsm_statecode': 0, 'fsm_statename': 'OFF',
                      'instance_states': {'10.0.0.1:25000': 'STOPPED',
                                          '10.0.0.2:25000': 'STOPPED',
@@ -177,6 +183,7 @@ def test_all_instances_state_modes(supvisors_instance, rpc):
                      'master_identifier': '',
                      'starting_jobs': False, 'stopping_jobs': False}
     other_base_expected = {'degraded_mode': False, 'discovery_mode': False,
+                           'now_monotonic': 1234.56,
                            'fsm_statecode': 0, 'fsm_statename': 'OFF',
                            'instance_states': {},
                            'master_identifier': '',
@@ -196,10 +203,12 @@ def test_all_instances_state_modes(supvisors_instance, rpc):
 def test_application_info(mocker, supvisors_instance, rpc):
     """ Test the get_application_info RPC. """
     application = create_application('TestApplication', supvisors_instance)
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_serial = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
-    assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication', 'managed': False,
+    assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication',
+                                                 'managed': False, 'now_monotonic': 1234.56,
                                                  'major_failure': False, 'minor_failure': False,
                                                  'statecode': 0, 'statename': 'STOPPED'}
     assert mocked_check.call_args_list == [call()]

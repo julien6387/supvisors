@@ -16,7 +16,6 @@
 
 import multiprocessing
 import os
-import time
 from unittest.mock import call, Mock
 
 import pytest
@@ -212,6 +211,7 @@ def test_host_statistics_instance_integrate(host_statistics_instance):
 
 def test_host_statistics_instance_push_statistics(mocker, host_statistics_instance):
     """ Test the reception of new host statistics. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_stats = mocker.patch.object(host_statistics_instance, 'integrate')
     mocked_times = mocker.patch.object(host_statistics_instance, '_push_times_stats')
     mocked_cpu = mocker.patch.object(host_statistics_instance, '_push_cpu_stats')
@@ -268,6 +268,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     result = host_statistics_instance.push_statistics(stats3)
     # this update is taken into account
     assert result == {'identifier': '10.0.0.1',
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (0.0, 12.2),
                       'cpu': ['cpu_stats 3'],
@@ -309,6 +310,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     result = host_statistics_instance.push_statistics(stats5)
     # this update is taken into account
     assert result == {'identifier': '10.0.0.1',
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (12.2, 26.4),
                       'cpu': ['cpu_stats 5'],
@@ -459,6 +461,7 @@ def test_proc_statistics_instance_integrate(proc_statistics_instance):
 
 def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instance):
     """ Test the ProcStatisticsInstance.push_statistics method. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_integ = mocker.patch.object(proc_statistics_instance, 'integrate')
     # push first set of measures to become the first reference statistics
     stats1 = {'now': 1.0}
@@ -489,6 +492,7 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
                       'pid': 1234,
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (0.0, 14.0),
                       'cpu': 5.2,
@@ -507,6 +511,7 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
                       'pid': 1234,
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (14.0, 29.0),
                       'cpu': 6.9,
@@ -525,6 +530,7 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
                       'pid': 1234,
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (29.0, 44.0),
                       'cpu': 4.4,

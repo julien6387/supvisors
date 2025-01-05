@@ -18,7 +18,7 @@
   when navigating to another node.
 
 * Add a session cookie to **Supvisors** Web UI client.
-  All statistics images served by the **Supvisors** Web UI are xxx enough to enable multiple auto-refreshed views
+  All statistics images served by the **Supvisors** Web UI are renamed to allow multiple auto-refreshed views
   in the browser tabs. 
 
 * Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
@@ -32,6 +32,12 @@
 * Remove the Supvisors instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
 
 * Add the process PID to the process statistics event.
+
+* Add a timestamp to the events of the **Supvisors** event interface.
+  This timestamp is also added to the XML-RPCs `get_supvisors_state`, `get_instance_state_modes`,
+  `get_all_instances_state_modes`, `get_application_info`, `get_all_applications_info`, `get_process_info`,
+  `get_all_process_info`.
+  The `last_event_time` in the Process status event is renamed as `last_event_mtime`.
 
 * Cancel individual subscriptions from the Supervisor events rather than perform a global clear.
 

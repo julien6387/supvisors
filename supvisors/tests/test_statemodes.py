@@ -21,8 +21,9 @@ import pytest
 from supvisors.statemodes import *
 
 
-def test_state_modes(supvisors_instance):
+def test_state_modes(mocker, supvisors_instance):
     """ Test the StateModes class. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     sup_id = SupvisorsInstanceId('10.0.0.1', supvisors_instance)
     sm = StateModes(sup_id)
     assert sm.identifier == '10.0.0.1:25000'
@@ -35,6 +36,7 @@ def test_state_modes(supvisors_instance):
     assert not sm.stopping_jobs
     assert sm.instance_states == {}
     assert sm.serial() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                           'now_monotonic': 1234.56,
                            'fsm_statecode': 0, 'fsm_statename': 'OFF',
                            'degraded_mode': False, 'discovery_mode': False,
                            'master_identifier': '',
@@ -44,6 +46,7 @@ def test_state_modes(supvisors_instance):
     assert sm.running_identifiers() == set()
     # update the context (no stability)
     payload = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+               'now_monotonic': 1234.56,
                'fsm_statecode': SupvisorsStates.ELECTION.value,
                'fsm_statename': SupvisorsStates.ELECTION.name,
                'degraded_mode': True,
@@ -69,6 +72,7 @@ def test_state_modes(supvisors_instance):
                                   '10.0.0.4': SupvisorsInstanceStates.FAILED,
                                   '10.0.0.5': SupvisorsInstanceStates.ISOLATED}
     assert sm.serial() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                           'now_monotonic': 1234.56,
                            'fsm_statecode': 2, 'fsm_statename': 'ELECTION',
                            'degraded_mode': True, 'discovery_mode': True,
                            'master_identifier': '10.0.0.1',
@@ -148,8 +152,9 @@ def test_supvisors_state_modes(supvisors_instance, state_modes):
         assert not state_modes.is_running(identifier)
 
 
-def test_supvisors_state_modes_discovery(supvisors_instance, state_modes_discovery):
+def test_supvisors_state_modes_discovery(mocker, supvisors_instance, state_modes_discovery):
     """ Test the SupvisorsStateModes creation with discovery mode (simplified). """
+    mocker.patch('time.monotonic', return_value=1234.56)
     assert state_modes_discovery.discovery_mode
     assert state_modes_discovery.local_state_modes.discovery_mode
     # add discovered instance
@@ -159,10 +164,11 @@ def test_supvisors_state_modes_discovery(supvisors_instance, state_modes_discove
     assert state_modes_discovery.instance_state_modes['10.0.0.0'].serial() == StateModes(sup_id).serial()
 
 
-def test_supvisors_state_modes_normal(supvisors_instance, simple_sm):
+def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     """ Test the SupvisorsStateModes accessors on the local state & modes.
     Follow the expected logic of events in a normal Supvisors startup.
     """
+    mocker.patch('time.monotonic', return_value=1234.56)
     # The local Supvisors instance becomes RUNNING
     simple_sm.update_instance_state('10.0.0.1:25000', SupvisorsInstanceStates.RUNNING)
     assert simple_sm.local_state_modes.instance_states['10.0.0.1:25000'] == SupvisorsInstanceStates.RUNNING
@@ -198,6 +204,7 @@ def test_supvisors_state_modes_normal(supvisors_instance, simple_sm):
     supvisors_instance.rpc_handler.send_state_event.reset_mock()
     # Notification of remote state & modes event
     event = {'identifier': '10.0.0.2:25000', 'nick_identifier': '10.0.0.2',
+             'now_monotonic': 1234.56,
              'fsm_statecode': 2, 'fsm_statename': 'ELECTION',
              'degraded_mode': False, 'discovery_mode': False,
              'master_identifier': '',
