@@ -607,6 +607,7 @@ def test_proxy_server_creation(supvisors, proxy_server):
     """ Test the SupervisorProxyServer creation. """
     assert proxy_server.supvisors is supvisors
     assert proxy_server.proxies == {}
+    assert not proxy_server.stop_event.is_set()
     assert proxy_server.local_identifier == supvisors.mapper.local_identifier
 
 
@@ -646,6 +647,7 @@ def test_proxy_server_get_proxy(supvisors, mocked_rpc, proxy_server):
     assert proxy_server.proxies == {'10.0.0.2:25000': proxy_2bis}
     # test stop
     proxy_server.stop()
+    assert proxy_server.stop_event.is_set()
     assert proxy_server.proxies == {'10.0.0.2:25000': proxy_2bis}
     assert not proxy_2bis.is_alive()
 
@@ -677,6 +679,8 @@ def test_server_proxy_push_message(mocker, supvisors, mocked_rpc, proxy_server):
     # stop all and reset
     proxy_server.stop()
     proxy_server.proxies = {}
+    assert proxy_server.stop_event.is_set()
+    proxy_server.stop_event.clear()
     # test publish
     proxy_server.push_publication({'message': 'test publish'})
     assert len(mocked_push.call_args_list) == 4
@@ -687,6 +691,8 @@ def test_server_proxy_push_message(mocker, supvisors, mocked_rpc, proxy_server):
     # stop all and reset
     proxy_server.stop()
     proxy_server.proxies = {}
+    assert proxy_server.stop_event.is_set()
+    proxy_server.stop_event.clear()
     # test post_discovery
     proxy_server.push_notification({'message': 'test discovery'})
     assert mocked_push.call_args_list == [call((InternalEventHeaders.NOTIFICATION, {'message': 'test discovery'}))]

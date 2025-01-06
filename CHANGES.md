@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.18.7 (2025-01-07)
+
+* Fix a random Python crash due to race condition when restarting **Supvisors**.
+
+
 ## 0.18.6 (2024-08-20)
 
 * Completion of fix about process CPU statistics when using SOLARIS mode.
