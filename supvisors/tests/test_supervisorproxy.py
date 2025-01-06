@@ -636,6 +636,7 @@ def test_proxy_server_creation(supvisors_instance, proxy_server):
     """ Test the SupervisorProxyServer creation. """
     assert proxy_server.supvisors is supvisors_instance
     assert proxy_server.proxies == {}
+    assert not proxy_server.stop_event.is_set()
     assert proxy_server.local_identifier == supvisors_instance.mapper.local_identifier
 
 
@@ -675,6 +676,7 @@ def test_proxy_server_get_proxy(supvisors_instance, mocked_rpc, proxy_server):
     assert proxy_server.proxies == {'10.0.0.2:25000': proxy_2bis}
     # test stop
     proxy_server.stop()
+    assert proxy_server.stop_event.is_set()
     assert proxy_server.proxies == {'10.0.0.2:25000': proxy_2bis}
     assert not proxy_2bis.is_alive()
 
@@ -703,8 +705,15 @@ def test_server_proxy_push_message(mocker, supvisors_instance, mocked_rpc, proxy
     assert sorted(proxy_server.proxies.keys()) == ['10.0.0.1:25000']
     # stop all and reset
     proxy_server.stop()
+    assert proxy_server.stop_event.is_set()
     proxy_server.proxies = {}
+    # stopped flag is set, so proxy creation is disabled
+    proxy_server.push_request('10.0.0.1:25000', {'message': 'test request'})
+    proxy_server.push_publication({'message': 'test publish'})
+    proxy_server.push_notification({'message': 'test discovery'})
+    assert not mocked_push.called
     # test publish
+    proxy_server.stop_event.clear()
     proxy_server.push_publication({'message': 'test publish'})
     assert len(mocked_push.call_args_list) == 3
     for called in mocked_push.call_args_list:
@@ -713,7 +722,9 @@ def test_server_proxy_push_message(mocker, supvisors_instance, mocked_rpc, proxy
     mocked_push.reset_mock()
     # stop all and reset
     proxy_server.stop()
+    assert proxy_server.stop_event.is_set()
     proxy_server.proxies = {}
+    proxy_server.stop_event.clear()
     # test post_discovery
     proxy_server.push_notification({'message': 'test discovery'})
     assert mocked_push.call_args_list == [call((InternalEventHeaders.NOTIFICATION, {'message': 'test discovery'}))]

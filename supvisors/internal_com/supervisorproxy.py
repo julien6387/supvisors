@@ -344,7 +344,6 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
             if self.status.identifier != self.local_identifier and self.status.has_active_state():
                 origin = self._get_origin(self.status.identifier)
                 message = NotificationHeaders.INSTANCE_FAILURE.value, None
-                # FIXME: using the proxy_server from another may cause issues when the proxies are being closed
                 self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
         self.logger.debug('SupervisorProxyThread.run: exiting main loop'
                           f' for identifier={self.status.usage_identifier}')
@@ -372,6 +371,8 @@ class SupervisorProxyServer:
         """ Initialization of the attributes. """
         self.supvisors = supvisors
         self.proxies: Dict[str, SupervisorProxyThread] = {}
+        # do not allow the creation of a new proxy when stop is requested
+        self.stop_event: threading.Event = threading.Event()
 
     @property
     def logger(self) -> Logger:
@@ -405,6 +406,9 @@ class SupervisorProxyServer:
 
     def stop(self):
         """ Stop all the proxy threads. """
+        # prevent the creation of new threads, especially for INSTANCE_FAILURE notification
+        self.stop_event.set()
+        # stop all threads
         self.logger.debug(f'SupervisorProxyServer.stop: {list(self.proxies.keys())}')
         for proxy in self.proxies.values():
             proxy.stop()
@@ -415,31 +419,34 @@ class SupervisorProxyServer:
         """ Send an XML-RPC request to a Supervisor proxy.
 
         :param identifier: the identifier of the Supvisors instance to request.
-        :param message: the message to send.
+        :param message: the message to push.
         :return: None.
         """
-        proxy = self.get_proxy(identifier)
-        if proxy:
-            proxy.push_message((InternalEventHeaders.REQUEST, (self.local_identifier, message)))
+        if not self.stop_event.is_set():
+            proxy = self.get_proxy(identifier)
+            if proxy:
+                proxy.push_message((InternalEventHeaders.REQUEST, (self.local_identifier, message)))
 
     def push_publication(self, message):
         """ Send a publication to all remote Supervisor proxies.
 
-        :param message: the message to send.
+        :param message: the message to publish.
         :return: None.
         """
-        for identifier in self.supvisors.mapper.instances:
-            # No publication to self instance because the event has already been processed.
-            if identifier != self.local_identifier:
-                proxy = self.get_proxy(identifier)
-                if proxy:
-                    proxy.push_message((InternalEventHeaders.PUBLICATION, (self.local_identifier, message)))
+        if not self.stop_event.is_set():
+            for identifier in self.supvisors.mapper.instances:
+                # No publication to self instance because the event has already been processed.
+                if identifier != self.local_identifier:
+                    proxy = self.get_proxy(identifier)
+                    if proxy:
+                        proxy.push_message((InternalEventHeaders.PUBLICATION, (self.local_identifier, message)))
 
     def push_notification(self, message):
         """ Send a discovery event to all remote Supervisor proxies.
 
-        :param message: the message to send.
+        :param message: the message to notify.
         :return: None.
         """
-        proxy = self.get_proxy(self.local_identifier)
-        proxy.push_message((InternalEventHeaders.NOTIFICATION, message))
+        if not self.stop_event.is_set():
+            proxy = self.get_proxy(self.local_identifier)
+            proxy.push_message((InternalEventHeaders.NOTIFICATION, message))
