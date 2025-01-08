@@ -33,7 +33,7 @@ def test_expand_faults():
     assert SupvisorsFaults.DISABLED.value == Faults.DISABLED
 
 
-def test_patch_logger(supvisors):
+def test_patch_logger(mocker, supvisors):
     """ Test the patch_logger function. """
     # check initial context
     assert not hasattr(Handler, '_emit')
@@ -62,11 +62,16 @@ def test_patch_logger(supvisors):
     assert RotatingFileHandler._emit is Handler._emit
     assert RotatingFileHandler.emit is not ref_rotating_file_handler_emit
     assert RotatingFileHandler.emit is not Handler.emit
-    # test log emission
+    # test log emission with normal handler
     io = BoundIO(1 << 10)
     handler = StreamHandler(io)
     handler.emit(LogRecord(LevelsByName.INFO, 'hello'))
     assert io.getvalue() == b'hello'
+    # test log emission with rotating file handler
+    handler = RotatingFileHandler('/tmp/dummy.txt')
+    mocked_roll = mocker.patch.object(handler, 'doRollover')
+    handler.emit(LogRecord(LevelsByName.INFO, 'hello'))
+    assert mocked_roll.call_args_list == [call()]
 
 
 def test_patch_591():
