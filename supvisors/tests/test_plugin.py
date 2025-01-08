@@ -37,15 +37,31 @@ def test_patch_logger(supvisors):
     """ Test the patch_logger function. """
     # check initial context
     assert not hasattr(Handler, '_emit')
-    ref_emit = Handler.emit
+    assert not hasattr(SyslogHandler, '_emit')
+    assert not hasattr(RotatingFileHandler, '_emit')
+    ref_handler_emit = Handler.emit
+    ref_syslog_handler_emit = SyslogHandler.emit
+    ref_rotating_file_handler_emit = RotatingFileHandler.emit
     # check monkeypatch
     patch_logger()
-    assert Handler._emit is ref_emit
-    assert Handler.emit is not ref_emit
+    assert Handler._emit is ref_handler_emit
+    assert Handler.emit is not ref_handler_emit
+    assert SyslogHandler._emit is ref_syslog_handler_emit
+    assert SyslogHandler._emit is not Handler._emit
+    assert SyslogHandler.emit is not ref_syslog_handler_emit
+    assert RotatingFileHandler._emit is Handler._emit
+    assert RotatingFileHandler.emit is not ref_rotating_file_handler_emit
+    assert RotatingFileHandler.emit is not Handler.emit
     # check again monkeypatch to ensure that Supvisors patches do not override renamed Supervisor functions
     patch_logger()
-    assert Handler._emit is ref_emit
-    assert Handler.emit is not ref_emit
+    assert Handler._emit is ref_handler_emit
+    assert Handler.emit is not ref_handler_emit
+    assert SyslogHandler._emit is ref_syslog_handler_emit
+    assert SyslogHandler._emit is not Handler._emit
+    assert SyslogHandler.emit is not ref_syslog_handler_emit
+    assert RotatingFileHandler._emit is Handler._emit
+    assert RotatingFileHandler.emit is not ref_rotating_file_handler_emit
+    assert RotatingFileHandler.emit is not Handler.emit
     # test log emission
     io = BoundIO(1 << 10)
     handler = StreamHandler(io)

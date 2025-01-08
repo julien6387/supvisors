@@ -2,7 +2,9 @@
 
 ## 0.18.7 (2025-01-07)
 
-* Fix a random Python crash due to race condition when restarting **Supvisors**.
+* Fix a random Python crash due to an I/O exception when the Supervisor log file is rolling over.
+
+* Fix a possible race condition when restarting **Supvisors**.
 
 
 ## 0.18.6 (2024-08-20)
