@@ -94,8 +94,6 @@ class ViewHandler(MeldView):
 
     def render(self):
         """ Handle the rendering of the Supvisors pages. """
-        # manage parameters
-        self.handle_parameters()
         # manage action
         message = self.handle_action()
         if message is NOT_DONE_YET:
@@ -115,9 +113,6 @@ class ViewHandler(MeldView):
         # send message only at the end to get all URL parameters
         self.view_ctx.fire_message()
         return as_string(root.write_xhtmlstring())
-
-    def handle_parameters(self):
-        """ Retrieve the parameters selected on the web page. """
 
     def write_style(self, root):
         """ Entry point for additional style instructions. """
