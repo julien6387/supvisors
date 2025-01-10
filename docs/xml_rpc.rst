@@ -131,10 +131,11 @@ Status
             'node_name'               ``str``   The name of the node where the |Supvisors| instance is running.
             'port'                    ``int``   The HTTP port of the |Supvisors| instance.
             'statecode'	              ``int``   The |Supvisors| instance state, in [0;5].
-            'statename'	              ``str``   The |Supvisors| instance state as string, in [``'SILENT'``, ``'CHECKING'``,
-                                                `'CHECKED'``, ``'RUNNING'``, ``'FAILED'``, ``'ISOLATED'``].
-            'loading'                 ``int``   The sum of the expected loading of the processes running on the |Supvisors|
-                                                instance, in [0;100]%.
+            'statename'	              ``str``   The |Supvisors| instance state as string, in [``'STOPPED'``,
+                                                ``'CHECKING'``, `'CHECKED'``, ``'RUNNING'``, ``'FAILED'``,
+                                                ``'ISOLATED'``].
+            'loading'                 ``int``   The sum of the expected loading of the processes running on the
+                                                |Supvisors| instance, in [0;100]%.
             'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
             'remote_sequence_counter' ``int``   The remote TICK counter, i.e. the number of TICK events received since
                                                 the remote |Supvisors| instance is running.
