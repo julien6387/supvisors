@@ -8,7 +8,7 @@
   The state `INITIALIZATION` has been renamed as `SYNCHRONIZATION` and a new state `ELECTION` has been added
   to get more stability in the *Master* election.
 
-* Fix the issue raised by the rejected [Pull Request #120](https://github.com/julien6387/supvisors/pull/120).
+* Implement the enhancement requested by the [Pull Request #120](https://github.com/julien6387/supvisors/pull/120).
   **Supvisors** uses the `ioctl` functions to get the relevant network data on all network interfaces and matches
   the local instance on the whole information available.
   During the handshake, the local network data is shared with the other **Supvisors** instances using the new XML-RPC

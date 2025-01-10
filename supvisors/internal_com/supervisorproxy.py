@@ -113,7 +113,6 @@ class SupervisorProxy:
             self.logger.warn(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
                              f' {fct_name}{args} failed - {str(exc)}')
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
-            return None
         except (OSError, HTTPException) as exc:
             # transport issue due to network or remote Supervisor failure (includes a bunch of exceptions, such as
             # socket.gaierror, ConnectionResetError, ConnectionRefusedError, CannotSendRequest, IncompleteRead, etc.)
@@ -135,6 +134,7 @@ class SupervisorProxy:
             # reset the proxy, same reason as above
             self._proxy = None
             raise SupervisorProxyException
+        return None
 
     def send_remote_comm_event(self, event_type: str, event) -> None:
         """ Send a user message to the remote Supervisor using the sendRemoteCommEvent XML-RPC. """

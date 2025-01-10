@@ -64,34 +64,22 @@ def test_proxy_creation(mocked_rpc, proxy, supvisors_instance):
     """ Test the SupvisorsProxy creation. """
     assert proxy.supvisors is supvisors_instance
     assert proxy.status is supvisors_instance.context.instances['10.0.0.2:25000']
-    assert proxy.proxy is not None
-    assert proxy.supvisors is supvisors
-    assert proxy.status is supvisors.context.instances['10.0.0.1:25000']
     assert proxy._proxy is None
     assert 0.0 < proxy.last_used < time.monotonic()
     assert proxy.logger is supvisors_instance.logger
     assert proxy.local_identifier == supvisors_instance.mapper.local_identifier
-    assert mocked_rpc.call_args_list == [call({'SUPERVISOR_SERVER_URL': 'http://10.0.0.2:25000',
-    assert proxy.logger is supvisors.logger
-    assert proxy.local_identifier == supvisors.mapper.local_identifier
 
 
 
-def test_proxy_proxy(mocked_rpc, supvisors, proxy):
+def test_proxy_proxy(mocked_rpc, supvisors_instance, proxy):
     """ Test the SupvisorsProxy proxy property. """
     # test with non-local proxy
     assert proxy._proxy is None
     assert proxy.status.supvisors_id.identifier != proxy.local_identifier
     assert proxy.proxy is not None
-    assert mocked_rpc.call_args_list == [call({'SUPERVISOR_SERVER_URL': 'http://10.0.0.1:25000',
+    assert mocked_rpc.call_args_list == [call({'SUPERVISOR_SERVER_URL': 'http://10.0.0.2:25000',
                                                'SUPERVISOR_USERNAME': 'user',
                                                'SUPERVISOR_PASSWORD': 'p@$$w0rd'})]
-
-
-def test_proxy_proxy(supvisors_instance, proxy):
-    """ Test the SupvisorsProxy proxy property. """
-    # test with non-local proxy
-    assert proxy.status.supvisors_id.identifier != proxy.local_identifier
     ref_proxy = proxy._proxy
     ref_usage = proxy.last_used
     mocked_rpc.reset_mock()
@@ -565,20 +553,20 @@ def test_proxy_run(mocker, supvisors_instance, proxy_thread):
     proxy_thread.stop()
     proxy_thread.join()
     assert not proxy_thread.is_alive()
-    assert mocked_close.call_args_list == [call('10.0.0.1:25000')]
+    assert mocked_close.call_args_list == [call('10.0.0.2:25000')]
 
 
 def test_proxy_handle_exception(mocker, supvisors_instance, proxy_thread):
     """ Test the SupvisorsProxy thread run / stop with an exception on the local proxy. """
     mocked_push = mocker.patch.object(supvisors_instance.rpc_handler.proxy_server, 'push_notification')
     # test with non-local and non-active state
-    supvisors_instance.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.STOPPED
+    supvisors_instance.context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.STOPPED
     proxy_thread.handle_exception()
     assert not mocked_push.called
     # test with non-local and active state
-    supvisors_instance.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_instance.context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
     proxy_thread.handle_exception()
-    assert mocked_push.call_args_list == [call((('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000)),
+    assert mocked_push.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)),
                                                 (NotificationHeaders.INSTANCE_FAILURE.value, None)))]
     mocked_push.reset_mock()
     # test with local
