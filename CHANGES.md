@@ -2,6 +2,57 @@
 
 ## 0.19 (2025-xx-xx)
 
+* Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.
+
+* Refactoring of the **Supvisors** internal state machine.
+  The state `INITIALIZATION` has been renamed as `SYNCHRONIZATION` and a new state `ELECTION` has been added
+  to get more stability in the *Master* election.
+
+* Fix the issue raised by the rejected [Pull Request #120](https://github.com/julien6387/supvisors/pull/120).
+  **Supvisors** uses the `ioctl` functions to get the relevant network data on all network interfaces and matches
+  the local instance on the whole information available.
+  During the handshake, the local network data is shared with the other **Supvisors** instances using the new XML-RPC
+  `get_local_supvisors_info`.
+
+* Take into account the network data in the **Supvisors** Web UI, so that the same network interface is used
+  when navigating to another node.
+
+* Add a session cookie to **Supvisors** Web UI client.
+  All statistics images served by the **Supvisors** Web UI are renamed to allow multiple auto-refreshed views
+  in the browser tabs. 
+
+* Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
+  and modes information from a single **Supvisors** instance.
+  This information has been removed from the XML-RPCs `get_instance_info` and `get_all_instances_info`.
+
+* Add a new option `supvisors_failure_strategy` to decide what to do when the initial conditions are not met anymore.
+
+* Add a new option `css_files` to allow user CSS in the **Supvisors** Web UI.
+
+* Remove the Supvisors instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
+
+* Add the process PID to the process statistics event.
+
+* Add a timestamp to the events of the **Supvisors** event interface.
+  This timestamp is also added to the XML-RPCs `get_supvisors_state`, `get_instance_state_modes`,
+  `get_all_instances_state_modes`, `get_application_info`, `get_all_applications_info`, `get_process_info`,
+  `get_all_process_info`.
+  The `last_event_time` in the Process status event is renamed as `last_event_mtime`.
+
+* Cancel individual subscriptions from the Supervisor events rather than perform a global clear.
+
+* Consider variable CPU frequency value returned by `psutil`.
+
+
+## 0.18.7 (2025-01-10)
+
+* Fix a random Python crash due to an I/O exception when the Supervisor log file is rolling over.
+
+* Fix a possible race condition in the Supervisor proxies management.
+
+
+## 0.19 (2025-xx-xx)
+
 * Fix a random Python crash due to race condition when restarting **Supvisors**.
 
 * Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.

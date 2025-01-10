@@ -83,7 +83,7 @@
                 <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
             </program>
             <program name="web_server">
-                <identifiers>rocky54</identifiers>
+                <identifiers>supv04</identifiers>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <expected_loading>3</expected_loading>

@@ -93,7 +93,7 @@ class StartingStrategyTest(RunningIdentifiersTest):
         # print(loadings)
         self.assertEqual(self.loading, {'17.0.1.11:60000': loadings[0],
                                         'supv02:60000': loadings[1],
-                                        '192.168.1.70:30000': loadings[2]})
+                                        '17.0.1.11:30000': loadings[2]})
 
     def test_config(self):
         """ Test the CONFIG starting strategy.
