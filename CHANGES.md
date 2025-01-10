@@ -29,7 +29,8 @@
 
 * Add a new option `css_files` to allow user CSS in the **Supvisors** Web UI.
 
-* Remove the Supvisors instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
+* Remove the **Supvisors** instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
+  **Supvisors** instances are `STOPPED` when created.
 
 * Add the process PID to the process statistics event.
 
