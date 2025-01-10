@@ -81,11 +81,11 @@ nav .STOPPED.active {
 }
 
 nav .CHECKING {
-    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 10%, grey 20%, transparent 30%);
+    background-image: radial-gradient(ellipse 75% 170% at center right, var(--running-color) 10%, var(--stopped-color) 20%, transparent 30%);
 }
 
 nav .CHECKING.active {
-    background-image: radial-gradient(circle at center left, grey 30%, var(--running-color) 40%, transparent 50%);
+    background-image: radial-gradient(circle at center left, var(--stopped-color) 30%, var(--running-color) 40%, transparent 50%);
 }
 
 nav .RUNNING, nav .CHECKED {
