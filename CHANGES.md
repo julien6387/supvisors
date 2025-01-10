@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.18.7 (2025-01-10)
+
+* Fix a random Python crash due to an I/O exception when the Supervisor log file is rolling over.
+
+* Fix a possible race condition in the Supervisor proxies management.
+
+
 ## 0.18.6 (2024-08-20)
 
 * Completion of fix about process CPU statistics when using SOLARIS mode.

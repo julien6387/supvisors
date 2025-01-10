@@ -2,8 +2,8 @@
 <root>
 
     <!-- aliases -->
-    <alias name="distribute_sublist">@,rocky52:60000,supv-03,rocky54</alias>
-    <alias name="consoles">rocky52:60000,supv-01</alias>
+    <alias name="distribute_sublist">@,supv02:60000,supv-03,supv04</alias>
+    <alias name="consoles">supv02:60000,supv-01</alias>
 
     <!-- models -->
     <model name="disk_01">
@@ -13,7 +13,7 @@
 
     <model name="disk_02">
         <reference>disk_01</reference>
-        <identifiers>rocky52:60000</identifiers>
+        <identifiers>supv02:60000</identifiers>
     </model>
 
     <model name="disk_03">
@@ -83,7 +83,7 @@
                 <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
             </program>
             <program name="web_server">
-                <identifiers>rocky54</identifiers>
+                <identifiers>supv04</identifiers>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <expected_loading>3</expected_loading>
@@ -114,7 +114,7 @@
             </program>
             <program name="converter_07">
                 <reference>converter</reference>
-                <identifiers>rocky52:60000</identifiers>
+                <identifiers>supv02:60000</identifiers>
             </program>
             <program pattern="^converter_\d+$">
                 <reference>converter</reference>

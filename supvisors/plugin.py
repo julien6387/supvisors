@@ -17,7 +17,7 @@
 from threading import RLock
 
 from supervisor import xmlrpc
-from supervisor.loggers import Handler
+from supervisor.loggers import Handler, RotatingFileHandler, SyslogHandler
 from supervisor.options import ServerOptions
 from supervisor.process import Subprocess
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
@@ -61,19 +61,30 @@ def cleanup_fds(self) -> None:
     """
 
 
+# create a global lock for all calls to log emission
+logger_mutex = RLock()
+
+
+# use an emit method that uses the global lock
+def handler_emit(self, record):
+    """ emit method applicable to most Handler classes. """
+    with logger_mutex:
+        self._emit(record)
+
+
+def rotating_file_handler_emit(self, record):
+    """ emit method applicable to RotatingFileHandler class. """
+    with logger_mutex:
+        self._emit(record)
+        self.doRollover()
+
+
 def patch_logger():
-    """ Make Supervisor logger thread-safe. """
-    # create global lock for all calls
-    Handler.logger_mutex = RLock()
-
-    # use an emit method that uses the global lock
-    def emit(self, record):
-        with Handler.logger_mutex:
-            self._emit(record)
-
-    # update the Handler class
+    """ Make Supervisor logger thread-safe by updating the log Handler classes. """
     if not hasattr(Handler, '_emit'):
-        Handler._emit, Handler.emit = Handler.emit, emit
+        Handler._emit, Handler.emit = Handler.emit, handler_emit
+        SyslogHandler._emit, SyslogHandler.emit = SyslogHandler.emit, handler_emit
+        RotatingFileHandler.emit = rotating_file_handler_emit
 
 
 def patch_591() -> None:

@@ -25,7 +25,7 @@ xml_valid_require = ['lxml >= 4.6.2']
 flask_require_36 = ['flask-restx == 0.5.1', 'Flask < 3', 'Werkzeug == 2.0.3']
 flask_require = ['flask-restx >= 1.1.0, < 1.3']
 zmq_require = ['pyzmq >= 25.1.1']
-websockets_require = ['websockets >= 10.4']
+websockets_require = ['websockets >= 10.4, < 14']
 
 testing_extras = ['pytest >= 2.5.2', 'pytest-cov', 'pytest-mock', 'pytest-asyncio < 0.22']
 
