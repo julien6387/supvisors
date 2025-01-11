@@ -530,7 +530,7 @@ class SupvisorsMapper:
         :param payload: the network information of the remote Supvisors instance.
         :return: None.
         """
-        self.logger.warn(f'SupvisorsMapper.identify: {payload}')
+        self.logger.debug(f'SupvisorsMapper.identify: {payload}')
         identifier = payload['identifier']
         sup_id: SupvisorsInstanceId = self.instances[identifier]
         # build LocalNetwork from the payload as it is, and assign it to the remote view
