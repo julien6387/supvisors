@@ -217,21 +217,16 @@ class ControllerPlugin(ControllerPluginBase):
                 max_nick_identifiers = ControllerPlugin.max_template(info_list, 'nick_identifier', 'Nickname')
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supvisors identifier')
                 max_hosts = ControllerPlugin.max_template(info_list, 'node_name', 'Host')
-                max_masters = ControllerPlugin.max_template(info_list, 'master_identifier', 'Master')
                 template = (f'%(nick_identifier)-{max_nick_identifiers}s%(identifier)-{max_identifiers}s'
                             f'%(node_name)-{max_hosts}s%(port)-7s'
-                            '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
-                            '%(proc_failure)-11s'
-                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_masters}s'
-                            '%(starting)-10s%(stopping)-10s')
+                            '%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
+                            '%(proc_failure)-11s')
                 # print title
                 payload = {'nick_identifier': 'Nickname', 'identifier': 'Supvisors identifier',
                            'node_name': 'Host', 'port': 'Port',
-                           'state': 'State', 'discovery': 'Discovery',
+                           'state': 'State',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
-                           'proc_failure': 'Processes',
-                           'fsm_state': 'FSM', 'master': 'Master',
-                           'starting': 'Starting', 'stopping': 'Stopping'}
+                           'proc_failure': 'Processes'}
                 self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
@@ -243,15 +238,10 @@ class ControllerPlugin(ControllerPluginBase):
                                    'identifier': info['identifier'],
                                    'node_name': info['node_name'], 'port': info['port'],
                                    'state': info['statename'],
-                                   'discovery': info['discovery_mode'],
                                    'load': f"{info['loading']}%",
                                    'ltime': simple_localtime(info['local_time']),
                                    'counter': info['remote_sequence_counter'],
-                                   'proc_failure': 'error' if info['process_failure'] else 'ok',
-                                   'fsm_state': info['fsm_statename'],
-                                   'master': info['master_identifier'],
-                                   'starting': info['starting_jobs'],
-                                   'stopping': info['stopping_jobs']}
+                                   'proc_failure': 'error' if info['process_failure'] else 'ok'}
                         self.ctl.output(template % payload)
 
     def help_instance_status(self):
