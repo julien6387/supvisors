@@ -428,7 +428,7 @@ class SupvisorsViewContext:
         # use network_address to get the relevant host_id
         host_id = sup_id.get_network_ip(self.network_address)
         netloc = f'http://{quote(host_id)}:{sup_id.http_port}/'
-        self.logger.debug(f'SupvisorsViewContext: netloc={netloc}')
+        self.logger.trace(f'SupvisorsViewContext: netloc={netloc}')
         # shex must be reset if the Supvisors instance changes
         local_identifier = sup_id.identifier == self.local_identifier
         # build URL from netloc, page and attributes
