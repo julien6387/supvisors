@@ -361,13 +361,15 @@ class Context:
             application.add_process(process)
         return process
 
-    def load_processes(self, status: SupvisorsInstanceStatus, all_info: Optional[PayloadList]) -> None:
+    def load_processes(self, status: SupvisorsInstanceStatus, all_info: Optional[PayloadList],
+                       check_state: bool = True) -> None:
         """ Load application dictionary from the process information received from the remote Supvisors.
 
         This is meant to happen only in CHECKING state.
 
         :param status: the Supvisors instance.
         :param all_info: the process information got from the node.
+        :param check_state: set to True if CHECKING state should be verified.
         :return: None.
         """
         self.logger.trace(f'Context.load_processes: identifier={status.usage_identifier} all_info={all_info}')
@@ -379,7 +381,7 @@ class Context:
                              f' Supvisors={status.usage_identifier}')
             # go back to STOPPED to give it a chance at next TICK
             status.state = SupvisorsInstanceStates.STOPPED
-        elif status.state == SupvisorsInstanceStates.CHECKING:
+        elif not check_state or status.state == SupvisorsInstanceStates.CHECKING:
             # TODO: check process remote monotonic time vs CHECKING local time
             # store processes into their application entry
             for info in all_info:

@@ -1074,7 +1074,7 @@ class FiniteStateMachine:
         :param event: the process information.
         :return: None.
         """
-        self.context.load_processes(status, [event])
+        self.context.load_processes(status, [event], check_state=False)
 
     def on_process_removed_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.

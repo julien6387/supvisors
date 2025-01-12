@@ -1305,7 +1305,7 @@ def test_on_process_added_event(mocker, supvisors_instance, fsm):
     mocked_load = mocker.patch.object(fsm.context, 'load_processes')
     status = supvisors_instance.context.instances['10.0.0.1:25000']
     fsm.on_process_added_event(status, {'info': 'dummy_info'})
-    assert mocked_load.call_args_list == [call(status, [{'info': 'dummy_info'}])]
+    assert mocked_load.call_args_list == [call(status, [{'info': 'dummy_info'}], check_state=False)]
 
 
 def test_on_process_removed_event(mocker, supvisors_instance, fsm):
