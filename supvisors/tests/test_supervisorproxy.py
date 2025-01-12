@@ -645,7 +645,7 @@ def test_proxy_server_creation(supvisors_instance, proxy_server):
     assert proxy_server.local_identifier == supvisors_instance.mapper.local_identifier
 
 
-def test_proxy_server_get_proxy(supvisors_instance, proxy_server):
+def test_proxy_server_get_proxy(mocker, supvisors_instance, proxy_server):
     """ Test the SupervisorProxyServer get_proxy method. """
     assert proxy_server.proxies == {}
     # get a proxy from a non-isolated instance (instance not stored)
@@ -686,6 +686,16 @@ def test_proxy_server_get_proxy(supvisors_instance, proxy_server):
     assert proxy_server.stop_event.is_set()
     with proxy_server.mutex:
         assert proxy_server.proxies == {}
+    # hit lines corresponding to incomplete stop
+    proxy_server.stop_event.clear()
+    proxy_2 = proxy_server.get_proxy('10.0.0.2:25000')
+    proxy_2.live_event.wait()
+    assert proxy_2.is_alive()
+    mocker.patch.object(proxy_server, 'on_proxy_closing')
+    proxy_server.stop()
+    assert not proxy_1.is_alive()
+    with proxy_server.mutex:
+        assert proxy_server.proxies == {'10.0.0.2:25000': proxy_2}
 
 
 def test_server_proxy_push_message(mocker, supvisors_instance, mocked_rpc, proxy_server):
