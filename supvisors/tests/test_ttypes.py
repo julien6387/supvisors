@@ -120,6 +120,12 @@ def test_notification_headers():
     assert [x.name for x in NotificationHeaders] == expected
 
 
+def test_authorization_types():
+    """ Test the AuthorizationTypes enumeration. """
+    expected = ['UNKNOWN', 'AUTHORIZED', 'NOT_AUTHORIZED', 'INCONSISTENT']
+    assert [x.name for x in AuthorizationTypes] == expected
+
+
 def test_event_headers():
     """ Test the RemoteCommEvents enumeration. """
     expected = ['SUPVISORS', 'INSTANCE', 'APPLICATION', 'PROCESS_EVENT', 'PROCESS_STATUS',

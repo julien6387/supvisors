@@ -706,11 +706,12 @@ def test_authorization_not_checking(supvisors_instance, context):
     """ Test the Context.on_authorization method with non-CHECKING identifier. """
     status = context.instances['10.0.0.1:25000']
     # check no change if no CHECKING state
-    event = {'authorized': None, 'now_monotonic': time.monotonic()}
+    event = {'authorization': AuthorizationTypes.UNKNOWN.value,
+             'now_monotonic': time.monotonic()}
     for fencing in [True, False]:
         supvisors_instance.options.auto_fence = fencing
-        for authorization in [None, True, False]:
-            event['authorized'] = authorization
+        for authorization in AuthorizationTypes:
+            event['authorization'] = authorization.value
             for state in SupvisorsInstanceStates:
                 if state != SupvisorsInstanceStates.CHECKING:
                     status._state = state
@@ -721,8 +722,8 @@ def test_authorization_not_checking(supvisors_instance, context):
     status.state = SupvisorsInstanceStates.CHECKING
     for fencing in [True, False]:
         supvisors_instance.options.auto_fence = fencing
-        for authorization in [None, True, False]:
-            event['authorized'] = authorization
+        for authorization in AuthorizationTypes:
+            event['authorization'] = authorization.value
             context.on_authorization(status, event)
             assert status.state == SupvisorsInstanceStates.CHECKING
 
@@ -733,23 +734,25 @@ def test_authorization_checking_normal(mocker, context):
     # test current state not CHECKING
     status = context.instances['10.0.0.1:25000']
     status._state = SupvisorsInstanceStates.RUNNING
-    event = {'authorized': True, 'now_monotonic': time.monotonic()}
+    event = {'authorization': AuthorizationTypes.AUTHORIZED.value,
+             'now_monotonic': time.monotonic()}
     context.on_authorization(status, event)
     assert not mocked_invalid.called
-    # test authorization None (error in handshake)
+    # test authorization UNKNOWN (error in handshake)
     status._state = SupvisorsInstanceStates.CHECKING
-    event['authorized'] = None
+    event['authorization'] = AuthorizationTypes.UNKNOWN
     context.on_authorization(status, event)
     assert not mocked_invalid.called
     assert status.state == SupvisorsInstanceStates.STOPPED
-    # test not authorized
+    # test not authorized / unknown authorization code / inconsistency
     status._state = SupvisorsInstanceStates.CHECKING
-    event['authorized'] = False
-    context.on_authorization(status, event)
-    assert mocked_invalid.call_args_list == [call(status, True)]
-    mocked_invalid.reset_mock()
+    for auth_code in [AuthorizationTypes.NOT_AUTHORIZED.value, AuthorizationTypes.INCONSISTENT.value, 10]:
+        event['authorization'] = auth_code
+        context.on_authorization(status, event)
+        assert mocked_invalid.call_args_list == [call(status, True)]
+        mocked_invalid.reset_mock()
     # test authorized
-    event['authorized'] = True
+    event['authorization'] = AuthorizationTypes.AUTHORIZED
     context.on_authorization(status, event)
     assert not mocked_invalid.called
 

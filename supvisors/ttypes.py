@@ -25,7 +25,7 @@ SUPVISORS_PUBLICATION = 'SupvisorsPublication'
 SUPVISORS_NOTIFICATION = 'SupvisorsNotification'
 
 
-# all enumerations
+# Supvisors states
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
     STOPPED, CHECKING, CHECKED, RUNNING, FAILED, ISOLATED = range(6)
@@ -41,6 +41,7 @@ class ApplicationStates(Enum):
     STOPPED, STARTING, RUNNING, STOPPING, DELETED = range(5)
 
 
+# Supvisors options
 class EventLinks(Enum):
     """ Available link types used to publish all Supvisors events. """
     NONE, ZMQ, WS = range(3)
@@ -72,11 +73,6 @@ class SupvisorsFailureStrategies(Enum):
     CONTINUE, RESYNC, SHUTDOWN = range(3)
 
 
-class ProcessRequestResult(Enum):
-    """ The possible results after a process request. """
-    IN_PROGRESS, SUCCESS, FAILED, TIMED_OUT = range(4)
-
-
 class DistributionRules(Enum):
     """ Rule applicable to the distribution of an application. """
     ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
@@ -92,14 +88,18 @@ class SynchronizationOptions(Enum):
     STRICT, LIST, TIMEOUT, CORE, USER = range(5)
 
 
-# for internal publish / subscribe
+# Supvisors internal
+class ProcessRequestResult(Enum):
+    """ The possible results after a process request. """
+    IN_PROGRESS, SUCCESS, FAILED, TIMED_OUT = range(4)
+
+
 class PublicationHeaders(Enum):
     """ Enumeration class for the publication headers in messages between Listener and MainLoop. """
     (TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
      HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(8)
 
 
-# for deferred XML-RPC requests
 class RequestHeaders(Enum):
     """ Enumeration class for the headers of deferred XML-RPC messages sent to SupervisorProxyServer. """
     (CHECK_INSTANCE,
@@ -110,6 +110,11 @@ class RequestHeaders(Enum):
 class NotificationHeaders(Enum):
     """ Enumeration class for the notification headers in messages between Listener and MainLoop. """
     IDENTIFICATION, AUTHORIZATION, STATE, ALL_INFO, DISCOVERY, INSTANCE_FAILURE = range(6)
+
+
+class AuthorizationTypes(Enum):
+    """ The possible results of authorization check. """
+    UNKNOWN, AUTHORIZED, NOT_AUTHORIZED, INCONSISTENT = range(4)
 
 
 class EventHeaders(Enum):
@@ -123,7 +128,6 @@ class EventHeaders(Enum):
     PROCESS_STATISTICS = 'pstats'
 
 
-# for statistics images
 class StatsType(Enum):
     """ The Supvisors statistics types. """
     HOST_CPU, HOST_MEM, HOST_NET_IO, HOST_DISK_IO, HOST_DISK_USAGE, PROCESS_CPU, PROCESS_MEM = range(7)

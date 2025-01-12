@@ -28,7 +28,7 @@ from .internal_com.mapper import SupvisorsMapper
 from .process import ProcessRules, ProcessStatus
 from .statemodes import SupvisorsStateModes
 from .ttypes import (ApplicationStates, SupvisorsInstanceStates, WORKING_STATES,
-                     Ipv4Address, NameList, Payload, PayloadList, LoadMap)
+                     Ipv4Address, NameList, Payload, PayloadList, LoadMap, AuthorizationTypes)
 
 # annotation types
 InstancesMap = Dict[str, SupvisorsInstanceStatus]
@@ -489,26 +489,35 @@ class Context:
         :param event: the Supvisors instance authorization status.
         :return: None.
         """
-        authorized, timestamp = event['authorized'], event['now_monotonic']
+        auth_code, timestamp = event['authorization'], event['now_monotonic']
+        try:
+            authorization = AuthorizationTypes(auth_code)
+        except ValueError:
+            self.logger.error(f'SupervisorProxy.is_authorized: unknown AuthorizationTypes code={auth_code}')
+            authorization = AuthorizationTypes.NOT_AUTHORIZED
         # check Supvisors instance state
         if not status.is_checking(timestamp):
             self.logger.error('Context.on_authorization: auth rejected from non-CHECKING'
                               f' Supvisors={status.usage_identifier} at timestamp={timestamp}')
             return None
         # process authorization status
-        if authorized is None:
+        if authorization == AuthorizationTypes.UNKNOWN:
             # the check call in SupervisorProxy failed
             # the remote Supvisors instance is likely starting, restarting or shutting down so defer
             self.logger.warn('Context.on_authorization: failed to get auth status'
                              f' from Supvisors={status.usage_identifier}')
             # go back to STOPPED to give it a chance at next TICK
             status.state = SupvisorsInstanceStates.STOPPED
-        elif not authorized:
+        elif authorization == AuthorizationTypes.NOT_AUTHORIZED:
             self.logger.warn('Context.on_authorization: the local Supvisors instance is isolated'
                              f' by Supvisors={status.usage_identifier}')
             self.invalidate(status, True)
+        elif authorization == AuthorizationTypes.INCONSISTENT:
+            self.logger.warn('Context.on_authorization: the local Supvisors configuration is inconsistent'
+                             f' with the configuration of Supvisors={status.usage_identifier}')
+            self.invalidate(status, True)
         else:
-            self.logger.info(f'Context.on_authorization: local Supvisors instance is authorized to work with'
+            self.logger.info(f'Context.on_authorization: the local Supvisors instance is authorized to work with'
                              f' Supvisors={status.usage_identifier}')
             status.state = SupvisorsInstanceStates.CHECKED
 

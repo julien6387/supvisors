@@ -19,6 +19,10 @@
 
 * Constraint the handshake in time, so that late notifications are not considered.
 
+* Check the strategy consistency in the handshake.
+  If the options `auto_fence`, `starting_strategy`, `conciliation_strategy` and `supvisors_failure_strategy` are not
+  strictly identical, the local and remote Supvisors instances will isolate each other.
+
 * Add a session cookie to **Supvisors** Web UI client.
   All statistics images served by the **Supvisors** Web UI are renamed to allow multiple auto-refreshed views
   in the browser tabs. 

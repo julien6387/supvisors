@@ -214,13 +214,15 @@ behavior may happen. The present section details where it is applicable.
 ``auto_fence``
 
     When true, |Supvisors| will definitely disconnect a |Supvisors| instance that is inactive. |br|
-    This functionality is detailed in :ref:`auto_fencing`.
+    This functionality is detailed in :ref:`auto_fencing`. |br|
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
 
     *Default*:  ``false``.
 
     *Required*:  No.
 
-    *Identical*:  No.
+    *Identical*:  Yes.
 
 
 ``event_link``
@@ -333,9 +335,9 @@ behavior may happen. The present section details where it is applicable.
     in a degraded mode. |br|
     If ``RESYNC`` is selected, |Supvisors| will transition to the ``SYNCHRONIZATION`` state and wait for the selected
     conditions to be met again. |br|
-    If ``SHUTDOWN`` is selected, |Supvisors| will shut down.
-    It is highly recommended that this parameter is identical to all |Supvisors| instances or |Supvisors| may become
-    inconsistent.
+    If ``SHUTDOWN`` is selected, |Supvisors| will shut down. |br|
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
 
     *Default*:  ``CONTINUE``.
 
@@ -349,8 +351,8 @@ behavior may happen. The present section details where it is applicable.
     Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` , ``LESS_LOADED_NODE``,
     ``MOST_LOADED_NODE``}. |br|
     The use of this option is detailed in :ref:`starting_strategy`. |br|
-    It is highly recommended that this parameter is identical to all |Supvisors| instances or the startup sequence would
-    be different depending on which |Supvisors| instance is the *Master*.
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
 
     *Default*:  ``CONFIG``.
 
@@ -363,8 +365,8 @@ behavior may happen. The present section details where it is applicable.
     The strategy used to solve conflicts upon detection that multiple instances of the same program are running. |br|
     Possible values are in { ``SENICIDE``, ``INFANTICIDE``, ``USER``, ``STOP``, ``RESTART``, ``RUNNING_FAILURE`` }.
     The use of this option is detailed in :ref:`conciliation`. |br|
-    It is highly recommended that this parameter is identical to all |Supvisors| instances or the conciliation phase
-    would behave differently depending on which |Supvisors| instance is the *Master*.
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
 
     *Default*:  ``USER``.
 

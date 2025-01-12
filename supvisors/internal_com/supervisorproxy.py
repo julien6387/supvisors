@@ -30,9 +30,10 @@ from supervisor.loggers import Logger, LevelsByName
 from supervisor.xmlrpc import RPCError
 
 from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.rpcinterface import RPCInterface
 from supvisors.ttypes import (Ipv4Address, SupvisorsInstanceStates,
                               SUPVISORS_PUBLICATION, SUPVISORS_NOTIFICATION,
-                              RequestHeaders, PublicationHeaders, NotificationHeaders)
+                              RequestHeaders, PublicationHeaders, NotificationHeaders, AuthorizationTypes)
 from supvisors.utils import SupervisorServerUrl
 
 # life expectation for the local proxy
@@ -192,25 +193,28 @@ class SupervisorProxy:
         # always send the remote network information
         self._transfer_network_info(timestamp)
         # additional information sent internally depends on the actual authorization
-        authorized = self._is_authorized()
+        authorization = self._is_authorized()
         self.logger.info(f'SupervisorProxy.check_instance: identifier={self.status.usage_identifier}'
-                         f' authorized={authorized} at timestamp={timestamp}')
-        if authorized:
+                         f' authorization={authorization} at timestamp={timestamp}')
+        if authorization == AuthorizationTypes.AUTHORIZED:
             # state & modes and process info already include a 'now_monotonic' field
             self._transfer_states_modes()
             self._transfer_process_info()
         # inform local Supvisors that authorization result is available
         # NOTE: use the proxy server to switch to the relevant proxy thread
         origin = self._get_origin(self.status.identifier)
-        auth_info = {'authorized': authorized, 'now_monotonic': timestamp}
+        auth_info = {'authorization': authorization.value, 'now_monotonic': timestamp}
         message = NotificationHeaders.AUTHORIZATION.value, auth_info
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
-    def _is_authorized(self) -> Optional[bool]:
-        """ Get authorization from the remote Supvisors instance.
-        If the remote Supvisors instance considers the local Supvisors instance as ISOLATED, authorization is denied.
+    def _is_authorized(self) -> AuthorizationTypes:
+        """ Evaluate the authorization to communicate with the remote Supvisors instance.
 
-        :return: True if the local Supvisors instance is accepted by the remote Supvisors instance.
+        If the remote Supvisors instance considers the local Supvisors instance as ISOLATED, authorization is denied.
+        If the strategies configured in the remote Supvisors instance are not compatible with the local Supvisors
+        instance, authorization is also denied.
+
+        :return: the authorization status.
         """
         # check authorization
         local_status_payload = self.xml_rpc('supvisors.get_instance_info',
@@ -219,16 +223,27 @@ class SupervisorProxy:
         self.logger.debug(f'SupervisorProxy.is_authorized: local_status_payload={local_status_payload}')
         # the remote Supvisors instance is likely starting, restarting or shutting down so give it a chance
         if local_status_payload is None:
-            return None
+            return AuthorizationTypes.UNKNOWN
         # check the local Supvisors instance state as seen by the remote Supvisors instance
         state = local_status_payload[0]['statecode']
         try:
             instance_state = SupvisorsInstanceStates(state)
         except ValueError:
             self.logger.error(f'SupervisorProxy.is_authorized: unknown Supvisors instance state={state}')
-            return False
-        # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
-        return instance_state != SupvisorsInstanceStates.ISOLATED
+            return AuthorizationTypes.NOT_AUTHORIZED
+        # authorization is not granted if the remote Supvisors instances has isolated the local Supvisors instance
+        if instance_state == SupvisorsInstanceStates.ISOLATED:
+            return AuthorizationTypes.NOT_AUTHORIZED
+        # check strategies: local and remote must be consistent
+        strategies_payload = self.xml_rpc('supvisors.get_strategies',
+                                          self.proxy.supvisors.get_strategies,
+                                          ())
+        self.logger.debug(f'SupervisorProxy.is_authorized: strategies_payload={strategies_payload}')
+        if strategies_payload != RPCInterface(self.supvisors).get_strategies():
+            return AuthorizationTypes.INCONSISTENT
+        # TODO: check core identifiers
+        # authorization is granted
+        return AuthorizationTypes.AUTHORIZED
 
     def _transfer_network_info(self, timestamp: float) -> None:
         """ Get the network information about the remote Supvisors instance.

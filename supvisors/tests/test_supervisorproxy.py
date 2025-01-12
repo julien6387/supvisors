@@ -21,9 +21,11 @@ from unittest.mock import call, patch, Mock, DEFAULT
 import pytest
 from supervisor.xmlrpc import Faults
 
+from build.lib.supvisors.tests.conftest import supvisors_instance
 from supvisors.internal_com.supervisorproxy import *
 from supvisors.rpcinterface import SupvisorsFaults
-from supvisors.ttypes import SupvisorsInstanceStates
+from supvisors.ttypes import (SupvisorsInstanceStates, ConciliationStrategies, StartingStrategies,
+                              SupvisorsFailureStrategies)
 
 
 def test_internal_event_headers():
@@ -191,7 +193,7 @@ def test_publish(mocker, supvisors_instance, proxy):
 def test_proxy_check_instance(mocker, supvisors_instance, mocked_rpc, proxy):
     """ Test the SupervisorProxy.check_instance method. """
     mocker.patch('time.monotonic', return_value=1234.56)
-    mocked_auth = mocker.patch.object(proxy, '_is_authorized', return_value=False)
+    mocked_auth = mocker.patch.object(proxy, '_is_authorized', return_value=AuthorizationTypes.NOT_AUTHORIZED)
     mocked_netw = mocker.patch.object(proxy, '_transfer_network_info')
     mocked_mode = mocker.patch.object(proxy, '_transfer_states_modes')
     mocked_info = mocker.patch.object(proxy, '_transfer_process_info')
@@ -202,25 +204,28 @@ def test_proxy_check_instance(mocker, supvisors_instance, mocked_rpc, proxy):
     assert mocked_auth.call_args_list == [call()]
     assert not mocked_mode.called
     assert not mocked_info.called
-    expected = NotificationHeaders.AUTHORIZATION.value, {'authorized': False, 'now_monotonic': 1234.56}
+    expected = NotificationHeaders.AUTHORIZATION.value, {'authorization': AuthorizationTypes.NOT_AUTHORIZED.value,
+                                                         'now_monotonic': 1234.56}
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
     mocked_netw.reset_mock()
     mocked_send.reset_mock()
     mocker.resetall()
     # test with authorization
-    mocked_auth.return_value = True
+    mocked_auth.return_value = AuthorizationTypes.AUTHORIZED
     proxy.check_instance()
     assert mocked_netw.call_args_list == [call(1234.56)]
     assert mocked_auth.call_args_list == [call()]
     assert mocked_mode.call_args_list == [call()]
     assert mocked_info.call_args_list == [call()]
-    expected = NotificationHeaders.AUTHORIZATION.value, {'authorized': True, 'now_monotonic': 1234.56}
+    expected = NotificationHeaders.AUTHORIZATION.value, {'authorization': AuthorizationTypes.AUTHORIZED.value,
+                                                         'now_monotonic': 1234.56}
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
 
 
-def test_proxy_is_authorized(mocked_rpc, proxy):
+def test_proxy_is_authorized(mocked_rpc, supvisors_instance, proxy):
     """ Test the SupervisorProxy._is_authorized method. """
     info_rpc = proxy.proxy.supvisors.get_instance_info
+    strategy_rpc = proxy.proxy.supvisors.get_strategies
     # test with transport failure
     info_rpc.side_effect = OSError
     with pytest.raises(SupervisorProxyException):
@@ -229,25 +234,40 @@ def test_proxy_is_authorized(mocked_rpc, proxy):
     info_rpc.reset_mock()
     # test with XML-RPC application failure
     info_rpc.side_effect = RPCError(Faults.NOT_EXECUTABLE)
-    assert proxy._is_authorized() is None
+    assert proxy._is_authorized() == AuthorizationTypes.UNKNOWN
     assert info_rpc.call_args_list == [call(proxy.local_identifier)]
     info_rpc.reset_mock()
     # test with a mocked rpc interface
     info_rpc.side_effect = None
     # test with local Supvisors instance isolated by remote
     info_rpc.return_value = [{'statecode': SupvisorsInstanceStates.ISOLATED.value}]
-    assert proxy._is_authorized() is False
+    assert proxy._is_authorized() == AuthorizationTypes.NOT_AUTHORIZED
     assert info_rpc.call_args_list == [call(proxy.local_identifier)]
     info_rpc.reset_mock()
     # test with local Supvisors instance not isolated by remote
+    # test inconsistency
+    strategy_rpc.return_value = {'auto-fencing': False,
+                                 'starting': StartingStrategies.MOST_LOADED.name,
+                                 'conciliation': ConciliationStrategies.SENICIDE.name,
+                                 'supvisors_failure': SupvisorsFailureStrategies.RESYNC.name}
     for state in [x for x in SupvisorsInstanceStates if x != SupvisorsInstanceStates.ISOLATED]:
         info_rpc.return_value = [{'statecode': state.value}]
-        assert proxy._is_authorized() is True
+        assert proxy._is_authorized() == AuthorizationTypes.INCONSISTENT
+        assert info_rpc.call_args_list == [call(proxy.local_identifier)]
+        info_rpc.reset_mock()
+    # test consistency
+    strategy_rpc.return_value = {'auto-fencing': True,
+                                 'starting': 'CONFIG',
+                                 'conciliation': 'USER',
+                                 'supvisors_failure': 'CONTINUE'}
+    for state in [x for x in SupvisorsInstanceStates if x != SupvisorsInstanceStates.ISOLATED]:
+        info_rpc.return_value = [{'statecode': state.value}]
+        assert proxy._is_authorized() == AuthorizationTypes.AUTHORIZED
         assert info_rpc.call_args_list == [call(proxy.local_identifier)]
         info_rpc.reset_mock()
     # test with local Supvisors instance not isolated by remote but returning an unknown state
     info_rpc.return_value = [{'statecode': 128}]
-    assert proxy._is_authorized() is False
+    assert proxy._is_authorized() == AuthorizationTypes.NOT_AUTHORIZED
     assert info_rpc.call_args_list == [call(proxy.local_identifier)]
 
 
