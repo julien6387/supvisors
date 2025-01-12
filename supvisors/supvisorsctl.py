@@ -24,7 +24,7 @@ from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
 from supervisor.loggers import getLevelNumByDescription
 from supervisor.options import ClientOptions, make_namespec, split_namespec
-from supervisor.states import ProcessStates, getProcessStateDescription
+from supervisor.states import RUNNING_STATES, ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
 from . import __version__
@@ -1032,7 +1032,8 @@ class ControllerPlugin(ControllerPluginBase):
             if not namespecs or 'all' in namespecs:
                 try:
                     namespecs = [make_namespec(info['application_name'], info['process_name'])
-                                 for info in self.supvisors().get_all_process_info()]
+                                 for info in self.supvisors().get_all_process_info()
+                                 if info['statecode'] in RUNNING_STATES]
                 except xmlrpclib.Fault as e:
                     self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC

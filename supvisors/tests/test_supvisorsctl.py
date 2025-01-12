@@ -211,8 +211,9 @@ def _check_stop_process_command(controller, mocked_check, mocked_info, mocked_rp
                                 help_cmd, do_cmd, all_results, sel_args, sel_results):
     """ Common test of a stopping command. """
     # test request to stop all
-    mocked_info.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1'},
-                                {'application_name': 'appli_2', 'process_name': 'proc_3'}]
+    mocked_info.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1', 'statecode': 10},
+                                {'application_name': 'appli_2', 'process_name': 'proc_3', 'statecode': 20},
+                                {'application_name': 'appli_2', 'process_name': 'proc_2', 'statecode': 0}]
     # first possibility: use no name
     rpc_result = [call(result) for result in all_results]
     _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, '', rpc_result)

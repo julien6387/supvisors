@@ -27,6 +27,8 @@
   and modes information from a single **Supvisors** instance.
   This information has been removed from the XML-RPCs `get_instance_info` and `get_all_instances_info`.
 
+* Update the `stop_process` command, so that the XML-RPC request is sent only to running-like processes.
+
 * Add a new option `supvisors_failure_strategy` to decide what to do when the initial conditions are not met anymore.
 
 * Add a new option `css_files` to allow user CSS in the **Supvisors** Web UI.
