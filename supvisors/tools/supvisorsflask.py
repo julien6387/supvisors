@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -24,7 +21,6 @@ from supervisor.childutils import getRPCInterface
 
 from .apis import api
 from .apis.utils import parse_args
-
 
 # Create the Flask application
 app = Flask(__name__)

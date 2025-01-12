@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2022 Julien LE CLEACH
 #
@@ -66,6 +63,22 @@ class SupvisorsState(Resource):
         return g.proxy.supvisors.get_supvisors_state()
 
 
+@api.route('/all_instances_state_modes', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_all_instances_state_modes))
+class SupvisorsAllInstanceStateModes(Resource):
+    @staticmethod
+    def get():
+        return jsonify(g.proxy.supvisors.get_all_instances_state_modes())
+
+
+@api.route('/instance_state_modes/<string:identifier>', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_instance_state_modes))
+class SupvisorsInstanceStateModes(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.get_instance_state_modes))
+    def get(self, identifier):
+        return g.proxy.supvisors.get_instance_state_modes(identifier)
+
+
 @api.route('/master_identifier', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_master_identifier))
 class SupvisorsMasterIdentifier(Resource):
@@ -80,6 +93,22 @@ class SupvisorsStrategies(Resource):
     @staticmethod
     def get():
         return g.proxy.supvisors.get_strategies()
+
+
+@api.route('/statistics_status', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_statistics_status))
+class SupvisorsStatisticsStatus(Resource):
+    @staticmethod
+    def get():
+        return g.proxy.supvisors.get_statistics_status()
+
+
+@api.route('/local_supvisors_info', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_local_supvisors_info))
+class SupvisorsLocalInfo(Resource):
+    @staticmethod
+    def get():
+        return g.proxy.supvisors.get_local_supvisors_info()
 
 
 @api.route('/all_instances_info', methods=('GET',))
@@ -154,6 +183,22 @@ class SupvisorsLocalProcessInfo(Resource):
         return g.proxy.supvisors.get_local_process_info(namespec)
 
 
+@api.route('/all_inner_process_info/<string:identifier>', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_all_inner_process_info))
+class SupvisorsAllInnerProcessInfo(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.get_all_inner_process_info))
+    def get(self, identifier):
+        return g.proxy.supvisors.get_all_inner_process_info(identifier)
+
+
+@api.route('/inner_process_info/<string:identifier>/<string:namespec>', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_inner_process_info))
+class SupvisorsInnerProcessInfo(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.get_inner_process_info))
+    def get(self, identifier, namespec):
+        return g.proxy.supvisors.get_inner_process_info(identifier, namespec)
+
+
 @api.route('/process_rules/<string:namespec>', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_process_rules))
 class SupvisorsProcessRules(Resource):
@@ -180,6 +225,17 @@ class SupvisorsStartApplication(Resource):
     def post(self, strategy, application_name):
         args = wait_parser.parse_args()
         return g.proxy.supvisors.start_application(strategy, application_name, args.wait)
+
+
+@api.route(f'/test_start_application/<any({StartingStrategiesParam}):strategy>/<string:application_name>',
+           methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.test_start_application))
+class SupvisorsTestStartApplication(Resource):
+    # keep this instead of using get_docstring_parameters as it is useful to display the enumeration literals
+    @api.doc(params={'strategy': f'the starting strategy in {{{StartingStrategiesParam}}}',
+                     'application_name': 'the name of the application'})
+    def post(self, strategy, application_name):
+        return g.proxy.supvisors.test_start_application(strategy, application_name)
 
 
 @api.route(f'/stop_application/<string:application_name>', methods=('POST',))
@@ -227,6 +283,16 @@ class SupvisorsStartProcess(Resource):
         return g.proxy.supvisors.start_process(strategy, namespec, args.extra_args, args.wait)
 
 
+@api.route(f'/test_start_process/<any({StartingStrategiesParam}):strategy>/<string:namespec>', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.test_start_process))
+class SupvisorsTestStartProcess(Resource):
+    # keep this instead of using get_docstring_parameters as it is useful to display the enumeration literals
+    @api.doc(params={'strategy': f'the starting strategy in {{{StartingStrategiesParam}}}',
+                     'namespec': 'the namespec of the process to start'})
+    def post(self, strategy, namespec):
+        return g.proxy.supvisors.test_start_process(strategy, namespec)
+
+
 @api.route(f'/start_any_process/<any({StartingStrategiesParam}):strategy>/<string:regex>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.start_any_process))
 class SupvisorsStartAnyProcess(Resource):
@@ -239,7 +305,7 @@ class SupvisorsStartAnyProcess(Resource):
         return g.proxy.supvisors.start_any_process(strategy, regex, args.extra_args, args.wait)
 
 
-@api.route(f'/stop_process/<string:namespec>', methods=('POST',))
+@api.route('/stop_process/<string:namespec>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.stop_process))
 class SupvisorsStopProcess(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.stop_process))
@@ -261,7 +327,7 @@ class SupvisorsRestartProcess(Resource):
         return g.proxy.supvisors.restart_process(strategy, namespec, args.extra_args, args.wait)
 
 
-@api.route(f'/update_numprocs/<string:program_name>/<int:numprocs>', methods=('POST',))
+@api.route('/update_numprocs/<string:program_name>/<int:numprocs>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.update_numprocs))
 class SupvisorsUpdateNumprocs(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.update_numprocs))
@@ -271,7 +337,7 @@ class SupvisorsUpdateNumprocs(Resource):
         return g.proxy.supvisors.update_numprocs(program_name, numprocs, args.wait)
 
 
-@api.route(f'/enable/<string:program_name>', methods=('POST',))
+@api.route('/enable/<string:program_name>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.enable))
 class SupvisorsEnable(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.enable))
@@ -281,7 +347,7 @@ class SupvisorsEnable(Resource):
         return g.proxy.supvisors.enable(program_name, args.wait)
 
 
-@api.route(f'/disable/<string:program_name>', methods=('POST',))
+@api.route('/disable/<string:program_name>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.disable))
 class SupvisorsDisable(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.disable))
@@ -300,7 +366,7 @@ class SupvisorsConciliate(Resource):
         return g.proxy.supvisors.conciliate(strategy)
 
 
-@api.route(f'/restart_sequence', methods=('POST',))
+@api.route('/restart_sequence', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.restart_sequence))
 class SupvisorsRestartSequence(Resource):
     @api.expect(wait_parser)
@@ -309,7 +375,7 @@ class SupvisorsRestartSequence(Resource):
         return g.proxy.supvisors.restart_sequence(args.wait)
 
 
-@api.route(f'/restart', methods=('POST',))
+@api.route('/restart', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.restart))
 class SupvisorsRestart(Resource):
     @staticmethod
@@ -317,7 +383,7 @@ class SupvisorsRestart(Resource):
         return g.proxy.supvisors.restart()
 
 
-@api.route(f'/shutdown', methods=('POST',))
+@api.route('/shutdown', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.shutdown))
 class SupvisorsShutdown(Resource):
     @staticmethod
@@ -325,7 +391,7 @@ class SupvisorsShutdown(Resource):
         return g.proxy.supvisors.shutdown()
 
 
-@api.route(f'/end_sync', methods=('POST',))
+@api.route('/end_sync', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.end_sync))
 class SupvisorsEndSync(Resource):
     @staticmethod
@@ -333,7 +399,7 @@ class SupvisorsEndSync(Resource):
         return g.proxy.supvisors.end_sync()
 
 
-@api.route(f'/end_sync/<string:identifier>', methods=('POST',))
+@api.route('/end_sync/<string:identifier>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.end_sync))
 class SupvisorsEndSyncMaster(Resource):
     @staticmethod
@@ -348,3 +414,27 @@ class SupvisorsChangeLogLevel(Resource):
     @api.doc(params={'log_level': f'the new logger level in {{{LoggerLevelsParam}}}'})
     def post(self, log_level):
         return g.proxy.supvisors.change_log_level(log_level)
+
+
+@api.route('/enable_host_statistics/<int:enabled>', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.enable_host_statistics))
+class SupvisorsEnableHostStatistics(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.enable_host_statistics))
+    def post(self, enabled: int):
+        return g.proxy.supvisors.enable_host_statistics(bool(enabled))
+
+
+@api.route('/enable_process_statistics/<int:enabled>', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.enable_process_statistics))
+class SupvisorsEnableProcessStatistics(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.enable_process_statistics))
+    def post(self, enabled: int):
+        return g.proxy.supvisors.enable_process_statistics(bool(enabled))
+
+
+@api.route('/update_collecting_period/<float:period>', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.update_collecting_period))
+class SupvisorsUpdateCollectingPeriod(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.update_collecting_period))
+    def post(self, period: float):
+        return g.proxy.supvisors.update_collecting_period(period)

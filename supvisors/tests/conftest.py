@@ -206,8 +206,12 @@ def mock_xml_rpc(proxy):
     # set defaults for Supvisors XML-RPCs
     proxy.supvisors.get_api_version.return_value = '1.0'
     proxy.supvisors.get_supvisors_state.return_value = {'fsm_statename': 'OPERATION', 'starting_jobs': []}
+    proxy.supvisors.get_all_instances_state_modes.return_value = [{'fsm_statename': 'OPERATION'}]
+    proxy.supvisors.get_instance_state_modes.return_value = {'fsm_statename': 'OPERATION'}
     proxy.supvisors.get_master_identifier.return_value = 'server_01'
     proxy.supvisors.get_strategies.return_value = {'auto-fencing': False, 'conciliation': 'USER'}
+    proxy.supvisors.get_statistics_status.return_value = {'host_stats': True}
+    proxy.supvisors.get_local_supvisors_info.return_value = {'host': 'localhost'}
     proxy.supvisors.get_all_instances_info.return_value = [{'identifier': 'server_01', 'statename': 'RUNNING'},
                                                            {'identifier': 'server_02', 'stopping': False}]
     proxy.supvisors.get_instance_info.return_value = {'identifier': 'server_02', 'stopping': False}
@@ -221,13 +225,19 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.get_all_local_process_info.return_value = [{'process_name': 'import', 'statename': 'STOPPED'},
                                                                {'process_name': 'browser', 'pid': 4321}]
     proxy.supvisors.get_local_process_info.return_value = {'process_name': 'browser', 'pid': 4321}
+    proxy.supvisors.get_all_inner_process_info.return_value = [{'process_name': 'import', 'statename': 'STOPPED',
+                                                                'inner': True},
+                                                               {'process_name': 'browser', 'pid': 4321, 'inner': True}]
+    proxy.supvisors.get_inner_process_info.return_value = {'process_name': 'browser', 'pid': 4321, 'inner': True}
     proxy.supvisors.get_process_rules.return_value = {'process_name': 'browser', 'required': True}
     proxy.supvisors.get_conflicts.return_value = []
     proxy.supvisors.start_application.return_value = True
+    proxy.supvisors.test_start_application.return_value = True
     proxy.supvisors.stop_application.return_value = True
     proxy.supvisors.restart_application.return_value = True
     proxy.supvisors.start_args.return_value = True
     proxy.supvisors.start_process.return_value = True
+    proxy.supvisors.test_start_process.return_value = True
     proxy.supvisors.start_any_process.return_value = 'dummy_group:dummy_process'
     proxy.supvisors.stop_process.return_value = True
     proxy.supvisors.restart_process.return_value = True
@@ -240,3 +250,6 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.shutdown.return_value = True
     proxy.supvisors.end_sync.return_value = True
     proxy.supvisors.change_log_level.return_value = True
+    proxy.supvisors.enable_host_statistics.return_value = True
+    proxy.supvisors.enable_process_statistics.return_value = True
+    proxy.supvisors.update_collecting_period.return_value = True
