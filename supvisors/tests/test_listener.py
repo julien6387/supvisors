@@ -200,18 +200,34 @@ def test_on_tick_stats(mocker, supvisors_instance, discovery_listener):
     mocked_collector.get_host_stats.return_value = host_stats
     proc_stats = [{'namespec': 'dummy_1'}, {'namespec': 'dummy_2'}]
     mocked_collector.get_process_stats.return_value = proc_stats
-    # test tick event with stats_collector set
-    discovery_listener._on_tick_stats()
-    assert mocked_host.call_args_list == [call(discovery_listener.local_identifier, host_stats[0])]
-    assert mocked_collector.alive.called
-    assert mocked_proc.call_args_list == [call(discovery_listener.local_identifier, proc_stats[0]),
-                                          call(discovery_listener.local_identifier, proc_stats[1])]
-    assert discovery_listener.rpc_handler.send_host_statistics.call_args_list == [call(host_stats[0])]
-    assert discovery_listener.rpc_handler.send_process_statistics.call_args_list == [call(proc_stats[0]),
-                                                                                     call(proc_stats[1])]
-    mocked_collector.reset_mock()
-    discovery_listener.rpc_handler.reset_mock()
-    mocker.resetall()
+    # test tick event with stats_collector set but Supvisors state not in WORKING_STATES
+    for state in [SupvisorsStates.OFF, SupvisorsStates.SYNCHRONIZATION, SupvisorsStates.RESTARTING,
+                  SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.FINAL]:
+        supvisors_instance.state_modes.state = state
+        discovery_listener._on_tick_stats()
+        assert mocked_host.call_args_list == [call(discovery_listener.local_identifier, host_stats[0])]
+        assert mocked_collector.alive.called
+        assert mocked_proc.call_args_list == [call(discovery_listener.local_identifier, proc_stats[0]),
+                                              call(discovery_listener.local_identifier, proc_stats[1])]
+        assert not discovery_listener.rpc_handler.send_host_statistics.called
+        assert not discovery_listener.rpc_handler.send_process_statistics.called
+        mocked_collector.reset_mock()
+        discovery_listener.rpc_handler.reset_mock()
+        mocker.resetall()
+    # test tick event with stats_collector set but Supvisors state not in WORKING_STATES
+    for state in WORKING_STATES:
+        supvisors_instance.state_modes.state = state
+        discovery_listener._on_tick_stats()
+        assert mocked_host.call_args_list == [call(discovery_listener.local_identifier, host_stats[0])]
+        assert mocked_collector.alive.called
+        assert mocked_proc.call_args_list == [call(discovery_listener.local_identifier, proc_stats[0]),
+                                              call(discovery_listener.local_identifier, proc_stats[1])]
+        assert discovery_listener.rpc_handler.send_host_statistics.call_args_list == [call(host_stats[0])]
+        assert discovery_listener.rpc_handler.send_process_statistics.call_args_list == [call(proc_stats[0]),
+                                                                                         call(proc_stats[1])]
+        mocked_collector.reset_mock()
+        discovery_listener.rpc_handler.reset_mock()
+        mocker.resetall()
     # test tick event when statistics collector is not available
     supvisors_instance.stats_collector = None
     discovery_listener._on_tick_stats()

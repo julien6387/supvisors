@@ -34,7 +34,9 @@ from .process import ProcessStatus
 from .statemachine import FiniteStateMachine
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
-                     SUPVISORS_PUBLICATION, SUPVISORS_NOTIFICATION, PublicationHeaders, NotificationHeaders, Payload)
+                     SUPVISORS_PUBLICATION, SUPVISORS_NOTIFICATION,
+                     SupvisorsStates, PublicationHeaders, NotificationHeaders,
+                     Payload, WORKING_STATES)
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
@@ -89,6 +91,11 @@ class SupervisorListener:
     def local_status(self) -> SupvisorsInstanceStatus:
         """ Get the local Supvisors instance status. """
         return self.supvisors.context.local_status
+
+    @property
+    def supvisors_state(self) -> SupvisorsStates:
+        """ Get the Supvisors state. """
+        return self.supvisors.state_modes.state
 
     @property
     def local_identifier(self) -> str:
@@ -231,18 +238,23 @@ class SupervisorListener:
         """ Publish the host and process statistics collected since the latest tick. """
         if self.stats_collector:
             self.stats_collector.alive()
+            process_stats = self.supvisors_state in WORKING_STATES
             # get and publish the host statistics collected from the last tick
             for stats in self.stats_collector.get_host_stats():
                 # send to local host compiler
                 self.on_host_statistics(self.local_identifier, stats)
-                # publish host statistics to other Supvisors instances
-                self.rpc_handler.send_host_statistics(stats)
+                # share only when synchronization phase is completed
+                if process_stats:
+                    # publish host statistics to other Supvisors instances
+                    self.rpc_handler.send_host_statistics(stats)
             # get and publish the process statistics collected from the last tick
             for stats in self.stats_collector.get_process_stats():
                 # send to local process compiler
                 self.on_process_statistics(self.local_identifier, stats)
-                # publish host statistics to other Supvisors instances
-                self.rpc_handler.send_process_statistics(stats)
+                # share only when synchronization phase is completed
+                if process_stats:
+                    # publish host statistics to other Supvisors instances
+                    self.rpc_handler.send_process_statistics(stats)
 
     def on_process_state(self, event: events.ProcessStateEvent) -> None:
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
