@@ -169,40 +169,41 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     Follow the expected logic of events in a normal Supvisors startup.
     """
     mocker.patch('time.monotonic', return_value=1234.56)
+    mocked_send = mocker.patch.object(supvisors_instance.rpc_handler, 'send_state_event')
     # The local Supvisors instance becomes RUNNING
     assert not simple_sm.update_mark
     simple_sm.update_instance_state('10.0.0.1:25000', SupvisorsInstanceStates.RUNNING)
     assert simple_sm.local_state_modes.instance_states['10.0.0.1:25000'] == SupvisorsInstanceStates.RUNNING
     assert simple_sm.update_mark
-    assert not supvisors_instance.rpc_handler.send_state_event.called
+    assert not mocked_send.called
     # Notification of local state & modes event
     expected = simple_sm.local_state_modes.serial()
     simple_sm.on_instance_state_event('10.0.0.1:25000', expected)
     assert simple_sm.instance_state_modes['10.0.0.1:25000'].serial() == expected
-    assert not supvisors_instance.rpc_handler.send_state_event.called
+    assert not mocked_send.called
     # the local Supvisors instance goes to SYNCHRONIZATION
     simple_sm.state = SupvisorsStates.SYNCHRONIZATION
     assert simple_sm.state == SupvisorsStates.SYNCHRONIZATION
     expected.update({'fsm_statecode': 1, 'fsm_statename': 'SYNCHRONIZATION'})
-    assert supvisors_instance.rpc_handler.send_state_event.call_args_list == [call(expected)]
-    supvisors_instance.rpc_handler.send_state_event.reset_mock()
+    assert mocked_send.call_args_list == [call(expected)]
+    mocked_send.reset_mock()
     # degraded_mode set because lots of Supvisors instances are missing
     assert supvisors_instance.external_publisher is None
     simple_sm.degraded_mode = True
     assert simple_sm.degraded_mode
-    assert supvisors_instance.rpc_handler.send_state_event.call_args_list == [call(simple_sm.local_state_modes.serial())]
-    supvisors_instance.rpc_handler.send_state_event.reset_mock()
+    assert mocked_send.call_args_list == [call(simple_sm.local_state_modes.serial())]
+    mocked_send.reset_mock()
     # Notification of local state & modes event
     expected = simple_sm.local_state_modes.serial()
     simple_sm.on_instance_state_event('10.0.0.1:25000', expected)
     assert simple_sm.instance_state_modes['10.0.0.1:25000'].serial() == expected
-    assert not supvisors_instance.rpc_handler.send_state_event.called
+    assert not mocked_send.called
     # a remote instance state is RUNNING
     simple_sm.update_instance_state('10.0.0.2:25000', SupvisorsInstanceStates.RUNNING)
     assert simple_sm.local_state_modes.instance_states['10.0.0.2:25000'] == SupvisorsInstanceStates.RUNNING
     expected['instance_states']['10.0.0.2:25000'] = 'RUNNING'
     assert simple_sm.update_mark
-    assert not supvisors_instance.rpc_handler.send_state_event.called
+    assert not mocked_send.called
     # Notification of remote state & modes event
     event = {'identifier': '10.0.0.2:25000', 'nick_identifier': '10.0.0.2',
              'now_monotonic': 1234.56,
@@ -218,18 +219,18 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
                                  '10.0.0.6:25000': 'STOPPED'}}
     simple_sm.on_instance_state_event('10.0.0.2:25000', event)
     assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == event
-    assert not supvisors_instance.rpc_handler.send_state_event.called
+    assert not mocked_send.called
     # the local Supvisors instance goes to ELECTION
     simple_sm.state = SupvisorsStates.ELECTION
     assert simple_sm.state == SupvisorsStates.ELECTION
     expected.update({'fsm_statecode': 2, 'fsm_statename': 'ELECTION'})
-    assert supvisors_instance.rpc_handler.send_state_event.call_args_list == [call(expected)]
-    supvisors_instance.rpc_handler.send_state_event.reset_mock()
+    assert mocked_send.call_args_list == [call(expected)]
+    mocked_send.reset_mock()
     # Notification of local state & modes event
     expected = simple_sm.local_state_modes.serial()
     simple_sm.on_instance_state_event('10.0.0.1:25000', expected)
     assert simple_sm.instance_state_modes['10.0.0.1:25000'].serial() == expected
-    assert not supvisors_instance.rpc_handler.send_state_event.called
+    assert not mocked_send.called
     # Master management
     # add an external publisher
     supvisors_instance.external_publisher = Mock()

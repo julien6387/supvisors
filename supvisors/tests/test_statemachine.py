@@ -805,9 +805,10 @@ def test_conciliation_state_master(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.OPERATION
 
 
-def test_restarting_state_master(supvisors_ctx):
+def test_restarting_state_master(mocker, supvisors_ctx):
     """ Test the RestartingState of the Supvisors FSM / Master case. """
     mocked_stopping = supvisors_ctx.stopper.in_progress
+    mocked_send = mocker.patch.object(supvisors_ctx.rpc_handler, 'send_restart')
     # create instance to test
     state = RestartingState(supvisors_ctx)
     state.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
@@ -816,11 +817,9 @@ def test_restarting_state_master(supvisors_ctx):
     assert isinstance(state, SynchronizedState)
     assert isinstance(state, MasterSlaveState)
     assert isinstance(state, EndingState)
-
     # test all applicable to WorkingState
     mocked_stopping.return_value = False
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
-
     # RestartingState specific
     # stay in RESTARTING while stopping is in progress
     mocked_stopping.return_value = True
@@ -829,11 +828,12 @@ def test_restarting_state_master(supvisors_ctx):
     assert state.next() == SupvisorsStates.FINAL
     # test exit method: call Supervisor restart
     state.exit()
-    assert supvisors_ctx.rpc_handler.send_restart.call_args_list == [call(state.local_identifier)]
+    assert mocked_send.call_args_list == [call(state.local_identifier)]
 
 
-def test_restarting_state_slave(supvisors_ctx):
+def test_restarting_state_slave(mocker, supvisors_ctx):
     """ Test the RestartingState of the Supvisors FSM / Slave case. """
+    mocked_send = mocker.patch.object(supvisors_ctx.rpc_handler, 'send_restart')
     # create instance to test
     state = RestartingState(supvisors_ctx)
     state.state_modes.master_identifier = '10.0.0.2:25000'
@@ -842,10 +842,8 @@ def test_restarting_state_slave(supvisors_ctx):
     assert isinstance(state, SynchronizedState)
     assert isinstance(state, MasterSlaveState)
     assert isinstance(state, EndingState)
-
     # test all applicable to WorkingState
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
-
     # RestartingState specific
     # master_state if OFF by default
     assert state.next() == SupvisorsStates.FINAL
@@ -863,12 +861,13 @@ def test_restarting_state_slave(supvisors_ctx):
 
     # test exit method: call Supervisor restart
     state.exit()
-    assert supvisors_ctx.rpc_handler.send_restart.call_args_list == [call(state.local_identifier)]
+    assert mocked_send.call_args_list == [call(state.local_identifier)]
 
 
-def test_shutting_down_state_master(supvisors_ctx):
+def test_shutting_down_state_master(mocker, supvisors_ctx):
     """ Test the ShuttingDownState of the Supvisors FSM / Master case. """
     mocked_stopping = supvisors_ctx.stopper.in_progress
+    mocked_send = mocker.patch.object(supvisors_ctx.rpc_handler, 'send_shutdown')
     # create instance to test
     state = ShuttingDownState(supvisors_ctx)
     state.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
@@ -877,11 +876,9 @@ def test_shutting_down_state_master(supvisors_ctx):
     assert isinstance(state, SynchronizedState)
     assert isinstance(state, MasterSlaveState)
     assert isinstance(state, EndingState)
-
     # test all applicable to WorkingState
     mocked_stopping.return_value = False
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
-
     # ShuttingDownState specific
     # stay in SHUTTING_DOWN while stopping is in progress
     mocked_stopping.return_value = True
@@ -890,11 +887,12 @@ def test_shutting_down_state_master(supvisors_ctx):
     assert state.next() == SupvisorsStates.FINAL
     # test exit method: call Supervisor restart
     state.exit()
-    assert supvisors_ctx.rpc_handler.send_shutdown.call_args_list == [call(state.local_identifier)]
+    assert mocked_send.call_args_list == [call(state.local_identifier)]
 
 
-def test_shutting_down_state_slave(supvisors_ctx):
+def test_shutting_down_state_slave(mocker, supvisors_ctx):
     """ Test the ShuttingDownState of the Supvisors FSM / Slave case. """
+    mocked_send = mocker.patch.object(supvisors_ctx.rpc_handler, 'send_shutdown')
     # create instance to test
     state = ShuttingDownState(supvisors_ctx)
     state.state_modes.master_identifier = '10.0.0.2:25000'
@@ -903,10 +901,8 @@ def test_shutting_down_state_slave(supvisors_ctx):
     assert isinstance(state, SynchronizedState)
     assert isinstance(state, MasterSlaveState)
     assert isinstance(state, EndingState)
-
     # test all applicable to WorkingState
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
-
     # ShuttingDownState specific
     # master_state if OFF by default
     assert state.next() == SupvisorsStates.FINAL
@@ -921,10 +917,9 @@ def test_shutting_down_state_slave(supvisors_ctx):
     # lose Master
     state.state_modes.master_identifier = ''
     assert state.next() == SupvisorsStates.FINAL
-
     # test exit method: call Supervisor restart
     state.exit()
-    assert supvisors_ctx.rpc_handler.send_shutdown.call_args_list == [call(state.local_identifier)]
+    assert mocked_send.call_args_list == [call(state.local_identifier)]
 
 
 def test_final_state(supvisors_ctx):
@@ -1377,10 +1372,10 @@ def test_on_authorization(mocker, supvisors_instance, fsm):
     assert mocked_auth.call_args == call(status, True)
 
 
-def test_restart_sequence_event(supvisors_instance, fsm):
+def test_restart_sequence_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
     # inject restart event and test setting of redeploy_mark
-    mocked_restart = supvisors_instance.rpc_handler.send_restart_sequence
+    mocked_restart = mocker.patch.object(supvisors_instance.rpc_handler, 'send_restart_sequence')
     supvisors_instance.state_modes.master_identifier = '10.0.0.1'
     assert not fsm.force_distribution
     # test when not master
@@ -1399,22 +1394,22 @@ def test_restart_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a restart event. """
     # inject restart event and test call to fsm set_state RESTARTING
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = supvisors_instance.rpc_handler.send_restart_all
+    mocked_restart = mocker.patch.object(supvisors_instance.rpc_handler, 'send_restart_all')
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_restart()
     assert not mocked_fsm.called
-    assert not mocked_send.called
+    assert not mocked_restart.called
     # test when not master and Master set
     supvisors_instance.state_modes.master_identifier = '10.0.0.1'
     fsm.on_restart()
     assert not mocked_fsm.called
-    assert mocked_send.call_args_list == [call('10.0.0.1')]
-    mocked_send.reset_mock()
+    assert mocked_restart.call_args_list == [call('10.0.0.1')]
+    mocked_restart.reset_mock()
     # test when master
     fsm.state_modes.master_identifier = fsm.context.local_identifier
     fsm.on_restart()
-    assert not mocked_send.called
+    assert not mocked_restart.called
     assert mocked_fsm.call_args_list == [call(SupvisorsStates.RESTARTING)]
 
 
@@ -1422,22 +1417,22 @@ def test_shutdown_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a shutdown event. """
     # inject shutdown event and test call to fsm set_state SHUTTING_DOWN
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
-    mocked_send = supvisors_instance.rpc_handler.send_shutdown_all
+    mocked_shutdown = mocker.patch.object(supvisors_instance.rpc_handler, 'send_shutdown_all')
     # test when not master and Master not set
     with pytest.raises(ValueError):
         fsm.on_shutdown()
     assert not mocked_fsm.called
-    assert not mocked_send.called
+    assert not mocked_shutdown.called
     # test when not master and Master set
     supvisors_instance.state_modes.master_identifier = '10.0.0.1'
     fsm.on_shutdown()
     assert not mocked_fsm.called
-    assert mocked_send.call_args_list == [call('10.0.0.1')]
-    mocked_send.reset_mock()
+    assert mocked_shutdown.call_args_list == [call('10.0.0.1')]
+    mocked_shutdown.reset_mock()
     # test when master
     fsm.state_modes.master_identifier = fsm.context.local_identifier
     fsm.on_shutdown()
-    assert not mocked_send.called
+    assert not mocked_shutdown.called
     assert mocked_fsm.call_args_list == [call(SupvisorsStates.SHUTTING_DOWN)]
 
 

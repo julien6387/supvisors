@@ -157,7 +157,6 @@ class SupervisorListener:
             # NOTE: The communication structures cannot be created before this level
             #       Before running, Supervisor forks when daemonized and the sockets are then lost
             #       At this point, Supervisor has forked if not daemonized
-            self.supvisors.rpc_handler = RpcHandler(self.supvisors)
             if self.supvisors.options.discovery_mode:
                 self.supvisors.discovery_handler = SupvisorsDiscovery(self.supvisors)
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)

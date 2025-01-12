@@ -760,7 +760,7 @@ def test_authorization_checking_normal(mocker, context):
 def test_on_local_tick_event(mocker, supvisors_instance, context):
     """ Test the handling of a TICK event on the local Supvisors instance. """
     mocker.patch('supvisors.context.time.time', return_value=3600)
-    mocked_check = supvisors_instance.rpc_handler.send_check_instance
+    mocked_check = mocker.patch.object(supvisors_instance.rpc_handler, 'send_check_instance')
     supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = supvisors_instance.external_publisher.send_instance_status
     # check the current context
@@ -832,7 +832,7 @@ def test_on_tick_event(mocker, supvisors_instance, context):
     """
     mocker.patch('time.time', return_value=7200)
     mocker.patch('time.monotonic', return_value=3600)
-    mocked_check = supvisors_instance.rpc_handler.send_check_instance
+    mocked_check = mocker.patch.object(supvisors_instance.rpc_handler, 'send_check_instance')
     supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_send = supvisors_instance.external_publisher.send_instance_status
     # check the current context

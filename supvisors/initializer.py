@@ -20,10 +20,10 @@ from supervisor import supervisord
 from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 
-from supvisors.internal_com.mapper import SupvisorsMapper
-from supvisors.web.sessionviews import SessionViews
 from .commander import Starter, Stopper, StarterModel
 from .context import Context
+from .internal_com.mapper import SupvisorsMapper
+from .internal_com.rpchandler import RpcHandler
 from .listener import SupervisorListener
 from .options import SupvisorsOptions, SupvisorsServerOptions, Automatic, get_logger_configuration
 from .sparser import Parser
@@ -34,6 +34,7 @@ from .strategy import RunningFailureHandler
 from .supervisordata import SupervisorData
 from .supervisorupdater import SupervisorUpdater
 from .ttypes import Payload
+from .web.sessionviews import SessionViews
 
 # use ';' in logger output as separator because easier to cut
 LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
@@ -136,5 +137,7 @@ class Supvisors:
         self.listener = SupervisorListener(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)
+        # create the XML-RPC handler for deferred requests and publications
+        self.rpc_handler = RpcHandler(self)
         # HTTP sessions manager
         self.sessions = SessionViews(self)

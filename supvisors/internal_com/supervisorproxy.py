@@ -342,7 +342,8 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
         SupervisorProxy.__init__(self, status, supvisors)
         # thread logic
         self.queue: queue.Queue = queue.Queue()
-        self.event: threading.Event = threading.Event()
+        self.live_event: threading.Event = threading.Event()
+        self.stop_event: threading.Event = threading.Event()
 
     def push_message(self, message):
         """ Add an event to send to a Supervisor instance through an XML-RPC. """
@@ -350,13 +351,14 @@ class SupervisorProxyThread(threading.Thread, SupervisorProxy):
 
     def stop(self):
         """ Set the event to stop the main loop. """
-        self.event.set()
+        self.stop_event.set()
 
     def run(self):
         """ Proxy main loop. """
+        self.live_event.set()
         self.logger.debug('SupervisorProxyThread.run: entering main loop'
                           f' for identifier={self.status.usage_identifier}')
-        while not self.event.is_set():
+        while not self.stop_event.is_set():
             try:
                 event = self.queue.get(timeout=SupervisorProxyThread.QUEUE_TIMEOUT)
             except queue.Empty:
@@ -439,11 +441,10 @@ class SupervisorProxyServer:
             with self.mutex:
                 self.proxies[identifier] = proxy
         elif proxy and status.isolated:
-            # destroy the proxy of an ISOLATED Supvisors instance
+            # force the proxy of an ISOLATED Supvisors instance to stop
             proxy.stop()
             proxy.join()
-            with self.mutex:
-                del self.proxies[identifier]
+            # the proxy entry will be deleted from proxies just before exiting
             proxy = None
         return proxy
 

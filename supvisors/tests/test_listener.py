@@ -74,7 +74,6 @@ def test_on_running_exception(mocker, listener):
 def test_on_running_external(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor RUNNING event.
     No discovery service, but an external publisher. """
-    ref_rpc_handler = listener.rpc_handler
     mocked_prepare = mocker.patch.object(supvisors_instance.supervisor_updater, 'on_supervisor_start')
     mocked_external_publisher = Mock()
     mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
@@ -84,7 +83,6 @@ def test_on_running_external(mocker, supvisors_instance, listener):
     # test attributes and calls
     assert mocked_prepare.called
     assert mocked_publisher_creation.called
-    assert listener.rpc_handler is not ref_rpc_handler
     assert supvisors_instance.discovery_handler is None
     assert listener.external_publisher is mocked_external_publisher
     assert supvisors_instance.external_publisher is listener.external_publisher
@@ -94,7 +92,6 @@ def test_on_running_external(mocker, supvisors_instance, listener):
 def test_on_running_discovery(mocker, supvisors_instance, discovery_listener):
     """ Test the reception of a Supervisor RUNNING event.
     Discovery service, but no external publisher. """
-    ref_rpc_handler = discovery_listener.rpc_handler
     mocked_prepare = mocker.patch.object(supvisors_instance.supervisor_updater, 'on_supervisor_start')
     mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
                                              return_value=None)
@@ -103,7 +100,6 @@ def test_on_running_discovery(mocker, supvisors_instance, discovery_listener):
     # test attributes and calls
     assert mocked_prepare.called
     assert mocked_publisher_creation.called
-    assert discovery_listener.rpc_handler is not ref_rpc_handler
     assert supvisors_instance.discovery_handler is not None
     assert discovery_listener.external_publisher is None
     assert supvisors_instance.external_publisher is discovery_listener.external_publisher
@@ -169,6 +165,7 @@ def test_on_tick(mocker, supvisors_instance, discovery_listener):
     # create patches
     mocker.patch('time.monotonic', return_value=34.56)
     mocked_tick = mocker.patch.object(supvisors_instance.context, 'on_local_tick_event')
+    mocked_send = mocker.patch.object(discovery_listener.rpc_handler, 'send_tick_event')
     mocked_timer = supvisors_instance.fsm.on_timer_event
     mocked_stats = mocker.patch.object(discovery_listener, '_on_tick_stats')
     # create discovery_handler, as done in listener.on_running
@@ -184,7 +181,7 @@ def test_on_tick(mocker, supvisors_instance, discovery_listener):
                                  'stereotypes': ['supvisors_test']}
     assert mocked_tick.call_args_list == [call(expected_tick)]
     assert mocked_timer.call_args_list == [call(expected_tick)]
-    assert discovery_listener.rpc_handler.send_tick_event.call_args_list == [call(expected_tick)]
+    assert mocked_send.call_args_list == [call(expected_tick)]
     assert discovery_listener.mc_sender.send_discovery_event.call_args_list == [call(expected_discovery)]
     assert mocked_stats.call_args_list == [call()]
 
@@ -194,6 +191,8 @@ def test_on_tick_stats(mocker, supvisors_instance, discovery_listener):
     # create patches
     mocked_host = mocker.patch.object(discovery_listener, 'on_host_statistics')
     mocked_proc = mocker.patch.object(discovery_listener, 'on_process_statistics')
+    mocked_send_host = mocker.patch.object(discovery_listener.rpc_handler, 'send_host_statistics')
+    mocked_send_proc = mocker.patch.object(discovery_listener.rpc_handler, 'send_process_statistics')
     # add some data to the statistics collector
     supvisors_instance.stats_collector = mocked_collector = Mock()
     host_stats = [{'now': 8.5, 'cpu': [(25, 400)], 'mem': 76.1, 'io': {'lo': (500, 500)}}]
@@ -209,10 +208,9 @@ def test_on_tick_stats(mocker, supvisors_instance, discovery_listener):
         assert mocked_collector.alive.called
         assert mocked_proc.call_args_list == [call(discovery_listener.local_identifier, proc_stats[0]),
                                               call(discovery_listener.local_identifier, proc_stats[1])]
-        assert not discovery_listener.rpc_handler.send_host_statistics.called
-        assert not discovery_listener.rpc_handler.send_process_statistics.called
+        assert not mocked_send_host.called
+        assert not mocked_send_proc.called
         mocked_collector.reset_mock()
-        discovery_listener.rpc_handler.reset_mock()
         mocker.resetall()
     # test tick event with stats_collector set but Supvisors state not in WORKING_STATES
     for state in WORKING_STATES:
@@ -222,11 +220,9 @@ def test_on_tick_stats(mocker, supvisors_instance, discovery_listener):
         assert mocked_collector.alive.called
         assert mocked_proc.call_args_list == [call(discovery_listener.local_identifier, proc_stats[0]),
                                               call(discovery_listener.local_identifier, proc_stats[1])]
-        assert discovery_listener.rpc_handler.send_host_statistics.call_args_list == [call(host_stats[0])]
-        assert discovery_listener.rpc_handler.send_process_statistics.call_args_list == [call(proc_stats[0]),
-                                                                                         call(proc_stats[1])]
+        assert mocked_send_host.call_args_list == [call(host_stats[0])]
+        assert mocked_send_proc.call_args_list == [call(proc_stats[0]), call(proc_stats[1])]
         mocked_collector.reset_mock()
-        discovery_listener.rpc_handler.reset_mock()
         mocker.resetall()
     # test tick event when statistics collector is not available
     supvisors_instance.stats_collector = None
@@ -234,8 +230,8 @@ def test_on_tick_stats(mocker, supvisors_instance, discovery_listener):
     assert not mocked_host.called
     assert not mocked_collector.alive.called
     assert not mocked_proc.called
-    assert not discovery_listener.rpc_handler.send_host_statistics.called
-    assert not discovery_listener.rpc_handler.send_process_statistics.called
+    assert not mocked_send_host.called
+    assert not mocked_send_proc.called
 
 
 def test_on_process_state_exception(listener):
@@ -250,6 +246,7 @@ def test_on_process_state(mocker, supvisors_instance, listener):
     mocker.patch('supvisors.listener.time.time', return_value=77)
     mocker.patch('supvisors.listener.time.monotonic', return_value=23.9)
     mocked_fsm = supvisors_instance.fsm.on_process_state_event
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_state_event')
     mocked_start = mocker.patch.object(supvisors_instance.supervisor_data, 'update_start')
     mocked_stop = mocker.patch.object(supvisors_instance.supervisor_data, 'update_stop')
     # test process event
@@ -278,14 +275,13 @@ def test_on_process_state(mocker, supvisors_instance, listener):
                     'pid': 1234, 'disabled': True,
                     'expected': True, 'spawnerr': 'resource not available'}
         assert mocked_fsm.call_args_list == [call(listener.local_status, expected)]
-        assert listener.rpc_handler.send_process_state_event.call_args_list == [call(expected)]
+        assert mocked_send.call_args_list == [call(expected)]
         if call_start:
             assert mocked_start.call_args_list == [call('dummy_group:dummy_process')]
         if call_stop:
             assert mocked_stop.call_args_list == [call('dummy_group:dummy_process')]
         # reset the mocks
         mocked_fsm.reset_mock()
-        listener.rpc_handler.send_process_state_event.reset_mock()
         mocker.resetall()
 
 
@@ -313,6 +309,7 @@ def test_get_local_process_info(supvisors_instance, listener):
 def test_on_process_added(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_ADDED event. """
     mocked_fsm = supvisors_instance.fsm.on_process_added_event
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_added_event')
     # patch context
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
                     'extra_args': '-s test', 'now': 77, 'pid': 1234,
@@ -323,13 +320,13 @@ def test_on_process_added(mocker, supvisors_instance, listener):
     event = ProcessAddedEvent(process)
     listener.on_process_added(event)
     assert mocked_fsm.call_args_list == [call(listener.local_status, process_info)]
-    assert listener.rpc_handler.send_process_added_event.call_args_list == [call(process_info)]
-    listener.rpc_handler.send_process_added_event.reset_mock()
+    assert mocked_send.call_args_list == [call(process_info)]
+    mocked_send.reset_mock()
     # test exception
     mocked_get.return_value = None
     listener.on_process_added(event)
     assert mocked_fsm.call_args_list == [call(listener.local_status, process_info)]
-    assert not listener.rpc_handler.send_process_added_event.called
+    assert not mocked_send.called
 
 
 def test_on_process_removed_exception(supvisors_instance, listener):
@@ -339,23 +336,25 @@ def test_on_process_removed_exception(supvisors_instance, listener):
     assert not mocked_fsm.called
 
 
-def test_on_process_removed(supvisors_instance, listener):
+def test_on_process_removed(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_REMOVED event. """
     mocked_fsm = supvisors_instance.fsm.on_process_removed_event
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_removed_event')
     # test process event
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessRemovedEvent(process)
     listener.on_process_removed(event)
     expected = {'name': 'dummy_process', 'group': 'dummy_group'}
     assert mocked_fsm.call_args_list == [call(listener.local_status, expected)]
-    assert listener.rpc_handler.send_process_removed_event.call_args_list == [call(expected)]
+    assert mocked_send.call_args_list == [call(expected)]
 
 
-def test_on_process_disability_exception(listener):
+def test_on_process_disability_exception(mocker, listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a ProcessEnabledEvent or
     a ProcessDisabledEvent. """
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_disability_event')
     listener.on_process_disability(None)
-    assert not listener.rpc_handler.send_process_disability_event.called
+    assert not mocked_send.called
 
 
 def test_on_process_disability(mocker, listener):
@@ -365,31 +364,34 @@ def test_on_process_disability(mocker, listener):
                     'extra_args': '-s test', 'now': 77, 'pid': 1234,
                     'expected': True, 'spawnerr': 'resource not available'}
     mocker.patch.object(listener, '_get_local_process_info', return_value=process_info)
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_disability_event')
     # test PROCESS_ENABLED event
     process_info['disabled'] = False
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessEnabledEvent(process)
     listener.on_process_disability(event)
-    assert listener.rpc_handler.send_process_disability_event.call_args_list == [call(process_info)]
-    listener.rpc_handler.send_process_disability_event.reset_mock()
+    assert mocked_send.call_args_list == [call(process_info)]
+    mocked_send.reset_mock()
     # test PROCESS_DISABLED event
     process_info['disabled'] = True
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
     event = ProcessDisabledEvent(process)
     listener.on_process_disability(event)
-    assert listener.rpc_handler.send_process_disability_event.call_args_list == [call(process_info)]
+    assert mocked_send.call_args_list == [call(process_info)]
 
 
-def test_on_group_added_exception(listener):
+def test_on_group_added_exception(mocker, listener):
     """ Test the protection of the Supervisor thread in case of exception while processing
     a ProcessGroupAddedEvent. """
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_added_event')
     listener.on_group_added(None)
-    assert not listener.rpc_handler.send_process_added_event.called
+    assert not mocked_send.called
 
 
 def test_on_group_added(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_ADDED event. """
     mocked_fsm = supvisors_instance.fsm.on_process_added_event
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_added_event')
     mocked_prepare = mocker.patch.object(supvisors_instance.supervisor_updater, 'on_group_added')
     mocked_processes = mocker.patch.object(supvisors_instance.supervisor_data, 'get_group_processes',
                                            return_value={'dummy_proc': Mock()})
@@ -401,27 +403,29 @@ def test_on_group_added(mocker, supvisors_instance, listener):
     assert mocked_processes.call_args_list == [call('dummy_application')]
     assert mocked_local.call_args_list == [call('dummy_application:dummy_proc')]
     assert mocked_fsm.call_args_list == [call(listener.local_status, {'namespec': 'dummy_proc'})]
-    assert listener.rpc_handler.send_process_added_event.call_args_list == [call({'namespec': 'dummy_proc'})]
+    assert mocked_send.call_args_list == [call({'namespec': 'dummy_proc'})]
 
 
-def test_on_group_removed_exception(supvisors_instance, listener):
+def test_on_group_removed_exception(mocker, supvisors_instance, listener):
     """ Test the protection of the Supervisor thread in case of exception while processing
     a ProcessGroupRemovedEvent. """
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_removed_event')
     mocked_fsm = supvisors_instance.fsm.on_process_removed_event
     listener.on_group_removed(None)
     assert not mocked_fsm.called
-    assert not listener.rpc_handler.send_process_removed_event.called
+    assert not mocked_send.called
 
 
-def test_on_group_removed(supvisors_instance, listener):
+def test_on_group_removed(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor PROCESS_GROUP_REMOVED event. """
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_removed_event')
     mocked_fsm = supvisors_instance.fsm.on_process_removed_event
     # test process event
     event = ProcessGroupRemovedEvent('dummy_application')
     listener.on_group_removed(event)
     expected = {'name': '*', 'group': 'dummy_application'}
     assert mocked_fsm.call_args_list == [call(listener.local_status, expected)]
-    assert listener.rpc_handler.send_process_removed_event.call_args_list == [call(expected)]
+    assert mocked_send.call_args_list == [call(expected)]
 
 
 def test_read_notification_wrong_type(supvisors_instance, listener):
@@ -779,6 +783,7 @@ def test_force_process_state(mocker, supvisors_instance, listener):
     mocker.patch('time.time', return_value=45.6)
     # patch publisher
     mocked_fsm = mocker.patch.object(supvisors_instance.fsm, 'on_process_state_event')
+    mocked_send = mocker.patch.object(listener.rpc_handler, 'send_process_state_event')
     # test the call
     process = Mock(application_name='appli', process_name='process', extra_args='-h')
     listener.force_process_state(process, '10.0.0.1:25000', 56, ProcessStates.FATAL, 'bad luck')
@@ -790,4 +795,4 @@ def test_force_process_state(mocker, supvisors_instance, listener):
                 'pid': 0, 'expected': False,
                 'spawnerr': 'bad luck'}
     assert mocked_fsm.call_args_list == [call(listener.local_status, expected)]
-    assert listener.rpc_handler.send_process_state_event.call_args_list == [call(expected)]
+    assert mocked_send.call_args_list == [call(expected)]

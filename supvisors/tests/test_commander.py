@@ -857,7 +857,7 @@ def test_application_start_job_process_job(mocker, supvisors_instance, applicati
     mocker.patch('time.monotonic', return_value=1234.56)
     mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors_instance.listener.force_process_state
-    mocked_pusher = supvisors_instance.rpc_handler.send_start_process
+    mocked_pusher = mocker.patch.object(supvisors_instance.rpc_handler, 'send_start_process')
     mocked_failure = mocker.patch.object(application_start_job_1, 'process_failure')
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1:25000'
@@ -1014,9 +1014,9 @@ def test_application_stop_job_creation(supvisors_instance, application_stop_job_
     assert application_stop_job_1.failure_state == ProcessStates.STOPPED
 
 
-def test_application_stop_job_process_job(supvisors_instance, application_stop_job_1, stop_sample_test_1):
+def test_application_stop_job_process_job(mocker, supvisors_instance, application_stop_job_1, stop_sample_test_1):
     """ Test the ApplicationStopJobs.process_job method. """
-    mocked_stop = supvisors_instance.rpc_handler.send_stop_process
+    mocked_stop = mocker.patch.object(supvisors_instance.rpc_handler, 'send_stop_process')
     # set context
     supvisors_instance.context.instances['10.0.0.1:25000'].times.remote_sequence_counter = 14
     # test with stopped process
@@ -2010,10 +2010,10 @@ def test_stopper_publish_state_modes(supvisors_instance, stopper_instance):
     assert not supvisors_instance.state_modes.stopping_jobs
 
 
-def test_process_start_command_model(supvisors_instance):
+def test_process_start_command_model(mocker, supvisors_instance):
     """ Test the ProcessStartCommandModel class. """
     # get patches
-    mocked_start = supvisors_instance.rpc_handler.send_start_process
+    mocked_start = mocker.patch.object(supvisors_instance.rpc_handler, 'send_start_process')
     supvisors_instance.starter_model.event_list = []
     # test creation
     info = process_info_by_name('xlogo')

@@ -26,6 +26,7 @@ from supervisor.states import STOPPED_STATES, SupervisorStates, ProcessStates
 from supvisors.context import Context
 from supvisors.initializer import LOGGER_FORMAT
 from supvisors.internal_com.mapper import SupvisorsMapper
+from supvisors.internal_com.rpchandler import RpcHandler
 from supvisors.options import SupvisorsOptions, SupvisorsServerOptions
 from supvisors.rpcinterface import RPCInterface
 from supvisors.statemodes import SupvisorsStateModes
@@ -57,16 +58,17 @@ class MockedSupvisors:
         self.stats_collector = StatisticsCollectorProcess(self)
         self.host_compiler = HostStatisticsCompiler(self)
         self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
-        # build context from node mapper
+        # create normal structures
         self.state_modes = SupvisorsStateModes(self)
         self.context = Context(self)
+        self.rpc_handler = RpcHandler(self)
+        self.sessions = SessionViews(self)
         # mock by spec
         from supvisors.commander import Starter, Stopper, StarterModel
         from supvisors.strategy import RunningFailureHandler
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.listener import SupervisorListener
         from supvisors.sparser import Parser
-        from supvisors.internal_com.rpchandler import RpcHandler
         self.starter = Mock(spec=Starter)
         self.starter_model = Mock(spec=StarterModel)
         self.stopper = Mock(spec=Stopper)
@@ -74,10 +76,7 @@ class MockedSupvisors:
         self.fsm = Mock(spec=FiniteStateMachine, force_distribution=False)
         self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
-        self.sessions = SessionViews(self)
         # should be set in listener
-        self.rpc_handler = Mock(spec=RpcHandler)
-        self.rpc_handler.__init__()
         self.discovery_handler = None
         self.external_publisher = None
 

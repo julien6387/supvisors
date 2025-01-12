@@ -23,8 +23,9 @@ from supvisors.internal_com.multicast import *
 
 
 @pytest.fixture
-def discovery(supvisors_instance):
+def discovery(mocker, supvisors_instance):
     """ Create the MulticastSender instance. """
+    mocker.patch.object(supvisors_instance.rpc_handler, 'push_notification')
     # set the options
     supvisors_instance.options.multicast_group = '239.0.0.1', 7777
     supvisors_instance.options.multicast_ttl = 1

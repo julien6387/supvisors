@@ -33,7 +33,6 @@ def test_creation(mocker, supervisor_instance):
     assert mocked_options.called
     assert mocked_parser.called
     # test instances
-    assert supv.rpc_handler is None
     assert supv.discovery_handler is None
     assert supv.external_publisher is None
     assert isinstance(supv.options, SupvisorsOptions)
@@ -51,8 +50,9 @@ def test_creation(mocker, supervisor_instance):
     assert isinstance(supv.host_compiler, HostStatisticsCompiler)
     assert isinstance(supv.process_compiler, ProcStatisticsCompiler)
     assert isinstance(supv.fsm, FiniteStateMachine)
-    assert supv.parser == 'Parser'
+    assert isinstance(supv.rpc_handler, RpcHandler)
     assert isinstance(supv.listener, SupervisorListener)
+    assert supv.parser == 'Parser'
 
 
 def test_create_logger(supervisor_instance):

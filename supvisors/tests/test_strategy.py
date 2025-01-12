@@ -284,13 +284,14 @@ def test_infanticide_strategy(supvisors_instance, conflicts):
     assert supvisors_instance.stopper.next.called
 
 
-def test_user_strategy(supvisors_instance, conflicts):
+def test_user_strategy(mocker, supvisors_instance, conflicts):
     """ Test the strategy that consists in doing nothing (trivial). """
+    mocked_send = mocker.patch.object(supvisors_instance.rpc_handler, 'send_stop_process')
     strategy = UserStrategy(supvisors_instance)
     strategy.conciliate(conflicts)
     # check that processes are NOT requested to stop
     assert not supvisors_instance.stopper.stop_process.called
-    assert not supvisors_instance.rpc_handler.send_stop_process.called
+    assert not mocked_send.called
 
 
 def test_stop_strategy(supvisors_instance, conflicts):
@@ -303,9 +304,10 @@ def test_stop_strategy(supvisors_instance, conflicts):
     assert supvisors_instance.stopper.next.called
 
 
-def test_restart_strategy(supvisors_instance, conflicts):
+def test_restart_strategy(mocker, supvisors_instance, conflicts):
     """ Test the strategy that consists in stopping all processes and restart a single one. """
     # get patches
+    mocked_send = mocker.patch.object(supvisors_instance.rpc_handler, 'send_stop_process')
     mocked_restart = supvisors_instance.stopper.default_restart_process
     mocked_next = supvisors_instance.stopper.next
     # call the conciliation
@@ -313,7 +315,7 @@ def test_restart_strategy(supvisors_instance, conflicts):
     strategy.conciliate(conflicts)
     # check that all processes are NOT requested to stop directly
     assert not supvisors_instance.stopper.stop_process.called
-    assert not supvisors_instance.rpc_handler.send_stop_process.called
+    assert not mocked_send.called
     # test failure_handler call
     assert mocked_restart.call_args_list == [call(conflicts[0], False), call(conflicts[1], False)]
     assert mocked_next.called
