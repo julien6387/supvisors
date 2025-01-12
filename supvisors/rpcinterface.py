@@ -831,7 +831,7 @@ class RPCInterface:
         """ Following a numprocs increase, check that the processes have been added to Supvisors.
 
         :param namespecs: the namespecs of the new processes.
-        :return: None
+        :return: None.
         """
         self.logger.debug(f'RPCInterface._check_process_insertion: new processes={namespecs}')
         local_identifier = self.supvisors.mapper.local_identifier
@@ -849,7 +849,7 @@ class RPCInterface:
         """ Following a numprocs decrease, check that the processes have been removed from Supvisors.
 
         :param namespecs: the namespecs of the new processes.
-        :return: None
+        :return: None.
         """
         self.logger.debug(f'RPCInterface._check_process_deletion: stale processes={namespecs}')
         local_identifier = self.supvisors.mapper.local_identifier
