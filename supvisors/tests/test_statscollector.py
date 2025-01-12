@@ -569,13 +569,13 @@ def test_statistics_collector_process(mocker, supvisors_instance):
     assert collector.cmd_recv.poll(timeout=0.5)
     assert collector.cmd_recv.recv() == (StatsMsgType.PID, ('dummy_process', 1234))
     # test get_host_stats
-    assert collector.get_host_stats() == []
+    assert list(collector.get_host_stats()) == []
     host_stats = {'cpu': 28, 'mem': 12}
     collector.host_stats_send.send(host_stats)
     assert collector.host_stats_recv.poll(timeout=0.5)
-    assert collector.get_host_stats() == [host_stats]
+    assert list(collector.get_host_stats()) == [host_stats]
     # test get_process_stats
-    assert collector.get_process_stats() == []
+    assert list(collector.get_process_stats()) == []
     proc_stats = {'namespec': 'dummy_process',
                   'pid': 1234,
                   'now': 4321,
@@ -584,7 +584,7 @@ def test_statistics_collector_process(mocker, supvisors_instance):
                   'proc_memory': 5}
     collector.proc_stats_send.send(proc_stats)
     assert collector.proc_stats_recv.poll(timeout=0.5)
-    assert collector.get_process_stats() == [proc_stats]
+    assert list(collector.get_process_stats()) == [proc_stats]
     # test statistics deactivation
     collector.enable_host_statistics(False)
     assert collector.cmd_recv.poll(timeout=0.5)
