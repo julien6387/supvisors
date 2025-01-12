@@ -304,7 +304,7 @@ def test_master(controller, plugin, mocked_check):
 def test_strategies(controller, plugin, mocked_check):
     """ Test the master request. """
     mocked_rpc = plugin.supvisors().get_strategies
-    mocked_rpc.return_value = {'conciliation': 'hard', 'starting': 'easy', 'auto-fencing': True}
+    mocked_rpc.return_value = {'conciliation': 'hard', 'starting': 'easy', 'auto-fencing': True, 'supvisors_failure': 'resync'}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_strategies, plugin.do_strategies, '', [call()])
 
 
