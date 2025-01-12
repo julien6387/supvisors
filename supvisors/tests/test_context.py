@@ -608,7 +608,7 @@ def test_publish_process_failures(supvisors_instance, context):
     application_3.update.reset_mock()
     # test with external publisher set
     supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
-    context.publish_process_failures({proc_2, proc_1})
+    context.publish_process_failures([proc_2, proc_1])  # use list instead of set to keep ordering
     assert application_1.update.call_args_list == [call()]
     assert not application_2.update.called
     assert application_3.update.call_args_list == [call()]
