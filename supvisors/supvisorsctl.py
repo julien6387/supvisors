@@ -179,6 +179,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output(f"Auto-fencing: {strategies['auto-fencing']}")
+                self.ctl.output(f"Failure:      {strategies['supvisors_failure']}")
                 self.ctl.output(f"Conciliation: {strategies['conciliation']}")
                 self.ctl.output(f"Starting:     {strategies['starting']}")
 
@@ -1158,7 +1159,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_lazy_update_numprocs(self):
         """ Print the help of the lazy_update_numprocs command. """
-        self.ctl.output('lazy_update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs (lazy mode).')
+        self.ctl.output('lazy_update_numprocs program_name numprocs\t\tUpdate the program numprocs (lazy mode).')
 
     def do_enable(self, arg):
         """ Command to enable the processes corresponding to the program.
