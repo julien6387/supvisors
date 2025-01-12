@@ -202,7 +202,7 @@ class RPCInterface:
         :return: a list of structures containing information about all applications.
         :rtype: list[dict[str, Any]]
         :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-            ``INITIALIZATION`` state.
+            ``SYNCHRONIZATION`` state.
         """
         self._check_from_distribution()
         return [self.get_application_info(application_name)
@@ -215,7 +215,7 @@ class RPCInterface:
         :return: a structure containing information about the application.
         :rtype: dict[str, Any]
         :raises RPCError: with code:
-            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``SYNCHRONIZATION`` state ;
             ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors**.
         """
         self._check_from_distribution()
@@ -228,7 +228,7 @@ class RPCInterface:
         :return: a structure containing the rules.
         :rtype: dict[str, Any]
         :raises RPCError: with code:
-            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``SYNCHRONIZATION`` state ;
             ``Faults.BAD_NAME`` if ``application_name`` is unknown to **Supvisors**.
         """
         self._check_from_distribution()
@@ -242,7 +242,7 @@ class RPCInterface:
         :return: a list of structures containing information about the processes.
         :rtype: list[dict[str, Any]]
         :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-            ``INITIALIZATION`` state.
+            ``SYNCHRONIZATION`` state.
         """
         self._check_from_distribution()
         return [process.serial()
@@ -257,7 +257,7 @@ class RPCInterface:
         :return: a list of structures containing information about the processes.
         :rtype: list[dict[str, Any]]
         :raises RPCError: with code:
-            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``SYNCHRONIZATION`` state ;
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
         """
         self._check_from_distribution()
@@ -268,7 +268,7 @@ class RPCInterface:
 
     def get_all_local_process_info(self) -> PayloadList:
         """ Get information about all processes located on this Supvisors instance.
-        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in ``INITIALIZATION`` state,
+        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in ``SYNCHRONIZATION`` state,
         and giving the extra arguments of the process.
 
         :return: a list of structures containing information about the processes.
@@ -280,7 +280,7 @@ class RPCInterface:
 
     def get_local_process_info(self, namespec: str) -> Payload:
         """ Get local information about a process named ``namespec``.
-        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in ``INITIALIZATION`` state,
+        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in ``SYNCHRONIZATION`` state,
         and giving the extra arguments of the process.
 
         :param str namespec: the process namespec (``name``, ``group:name``).
@@ -349,7 +349,7 @@ class RPCInterface:
         :return: a list of structures containing the rules.
         :rtype: list[dict[str, Any]]
         :raises RPCError: with code:
-            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state ;
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``SYNCHRONIZATION`` state ;
             ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
         """
         self._check_from_distribution()
@@ -364,7 +364,7 @@ class RPCInterface:
         :return: a list of structures containing information about the conflicting processes.
         :rtype: list[dict[str, Any]]
         :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
-            ``INITIALIZATION`` state,
+            ``SYNCHRONIZATION`` state,
         """
         self._check_from_distribution()
         return [process.serial() for process in self.supvisors.context.conflicts()]
@@ -1121,7 +1121,7 @@ class RPCInterface:
         :return: always ``True`` unless error.
         :rtype: bool
         :raises RPCError: with code ```SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still
-            in state ``INITIALIZATION`` or has no Master instance to perform the request.
+            in state ``SYNCHRONIZATION`` or has no Master instance to perform the request.
         """
         self._check_from_distribution()
         self.supvisors.fsm.on_restart()
@@ -1133,7 +1133,7 @@ class RPCInterface:
         :return: always ``True`` unless error.
         :rtype: bool
         :raises RPCError: with code ```SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still
-            in state ``INITIALIZATION`` or has no Master instance to perform the request.
+            in state ``SYNCHRONIZATION`` or has no Master instance to perform the request.
         """
         self._check_from_distribution()
         self.supvisors.fsm.on_shutdown()
@@ -1145,7 +1145,7 @@ class RPCInterface:
         :return: always ``True`` unless error.
         :rtype: bool
         :raises RPCError: with code:
-            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``INITIALIZATION`` ;
+            ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``SYNCHRONIZATION`` ;
             ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if the synchronization is ending (master elected) ;
             ``SupvisorsFaults.NOT_APPLICABLE`` if the synchro_options does not include ``USER`` ;
             ``Faults.BAD_NAME`` if master is an unknown Supvisors identifier ;
@@ -1314,7 +1314,7 @@ class RPCInterface:
                     'type string or integer expected')
 
     def _check_from_distribution(self) -> None:
-        """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
+        """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is in SYNCHRONIZATION. """
         self._check_state([SupvisorsStates.DISTRIBUTION,
                            SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION,
                            SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN])
