@@ -27,7 +27,6 @@ from supervisor.loggers import Logger
 
 from supvisors.ttypes import Ipv4Address, NotificationHeaders, Payload
 from .internalinterface import payload_to_bytes, bytes_to_payload
-from .mapper import SupvisorsInstanceId
 
 # timeout for polling, in milliseconds
 POLL_TIMEOUT = 500
@@ -174,7 +173,6 @@ class SupvisorsDiscovery:
         mc_ttl = supvisors.options.multicast_ttl
         mc_interface = supvisors.options.multicast_interface
         # create the Multicast message emitter
-        local_instance: SupvisorsInstanceId = supvisors.mapper.local_instance
         self.mc_sender: MulticastSender = MulticastSender(mc_group, mc_ttl, supvisors.logger)
         # create the Multicast message receiver
         callback = supvisors.rpc_handler.push_notification
