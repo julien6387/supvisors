@@ -190,6 +190,7 @@ def test_publish(mocker, supvisors_instance, proxy):
 
 def test_proxy_check_instance(mocker, supvisors_instance, mocked_rpc, proxy):
     """ Test the SupervisorProxy.check_instance method. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_auth = mocker.patch.object(proxy, '_is_authorized', return_value=False)
     mocked_netw = mocker.patch.object(proxy, '_transfer_network_info')
     mocked_mode = mocker.patch.object(proxy, '_transfer_states_modes')
@@ -197,11 +198,11 @@ def test_proxy_check_instance(mocker, supvisors_instance, mocked_rpc, proxy):
     mocked_send = supvisors_instance.rpc_handler.proxy_server.push_notification
     # test with no authorization
     proxy.check_instance()
-    assert mocked_netw.call_args_list == [call()]
+    assert mocked_netw.call_args_list == [call(1234.56)]
     assert mocked_auth.call_args_list == [call()]
     assert not mocked_mode.called
     assert not mocked_info.called
-    expected = NotificationHeaders.AUTHORIZATION.value, False
+    expected = NotificationHeaders.AUTHORIZATION.value, {'authorized': False, 'now_monotonic': 1234.56}
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
     mocked_netw.reset_mock()
     mocked_send.reset_mock()
@@ -209,11 +210,11 @@ def test_proxy_check_instance(mocker, supvisors_instance, mocked_rpc, proxy):
     # test with authorization
     mocked_auth.return_value = True
     proxy.check_instance()
-    assert mocked_netw.call_args_list == [call()]
+    assert mocked_netw.call_args_list == [call(1234.56)]
     assert mocked_auth.call_args_list == [call()]
     assert mocked_mode.call_args_list == [call()]
     assert mocked_info.call_args_list == [call()]
-    expected = NotificationHeaders.AUTHORIZATION.value, True
+    expected = NotificationHeaders.AUTHORIZATION.value, {'authorized': True, 'now_monotonic': 1234.56}
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
 
 
@@ -257,13 +258,13 @@ def test_proxy_transfer_network_info(supvisors_instance, mocked_rpc, proxy):
     # test with transport failure
     info_rpc.side_effect = HTTPException
     with pytest.raises(SupervisorProxyException):
-        proxy._transfer_network_info()
+        proxy._transfer_network_info(1234.56)
     assert info_rpc.call_args_list == [call()]
     assert not mocked_send.called
     info_rpc.reset_mock()
     # test with XML-RPC application failure
     info_rpc.side_effect = RPCError(Faults.ABNORMAL_TERMINATION)
-    proxy._transfer_network_info()
+    proxy._transfer_network_info(1234.56)
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.IDENTIFICATION.value, None
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
@@ -273,10 +274,11 @@ def test_proxy_transfer_network_info(supvisors_instance, mocked_rpc, proxy):
     netw_info = {'identifier': '10.0.0.1:25000',
                 'nick_identifier': '10.0.0.1',
                 'host_id': '10.0.0.1',
-                'http_port': 25000}
+                'http_port': 25000,
+                 'now_monotonic': 1234.56}
     info_rpc.side_effect = None
     info_rpc.return_value = netw_info
-    proxy._transfer_network_info()
+    proxy._transfer_network_info(1234.56)
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.IDENTIFICATION.value, netw_info
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]

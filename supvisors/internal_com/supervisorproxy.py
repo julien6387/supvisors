@@ -188,19 +188,22 @@ class SupervisorProxy:
 
         :return: None.
         """
+        timestamp = time.monotonic()
         # always send the remote network information
-        self._transfer_network_info()
+        self._transfer_network_info(timestamp)
         # additional information sent internally depends on the actual authorization
         authorized = self._is_authorized()
         self.logger.info(f'SupervisorProxy.check_instance: identifier={self.status.usage_identifier}'
-                         f' authorized={authorized}')
+                         f' authorized={authorized} at timestamp={timestamp}')
         if authorized:
+            # state & modes and process info already include a 'now_monotonic' field
             self._transfer_states_modes()
             self._transfer_process_info()
         # inform local Supvisors that authorization result is available
         # NOTE: use the proxy server to switch to the relevant proxy thread
         origin = self._get_origin(self.status.identifier)
-        message = NotificationHeaders.AUTHORIZATION.value, authorized
+        auth_info = {'authorized': authorized, 'now_monotonic': timestamp}
+        message = NotificationHeaders.AUTHORIZATION.value, auth_info
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
     def _is_authorized(self) -> Optional[bool]:
@@ -227,7 +230,7 @@ class SupervisorProxy:
         # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
         return instance_state != SupvisorsInstanceStates.ISOLATED
 
-    def _transfer_network_info(self) -> None:
+    def _transfer_network_info(self, timestamp: float) -> None:
         """ Get the network information about the remote Supvisors instance.
 
         :return: None.
@@ -239,6 +242,8 @@ class SupervisorProxy:
         # provide the local Supvisors with the remote Supvisors instance network information
         # NOTE: use the proxy server to switch to the relevant proxy thread
         origin = self._get_origin(self.status.identifier)
+        if network_info:
+            network_info['now_monotonic'] = timestamp
         message = NotificationHeaders.IDENTIFICATION.value, network_info
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
@@ -449,7 +454,6 @@ class SupervisorProxyServer:
         with self.mutex:
             if self.proxies:
                 self.logger.error(f'SupervisorProxyServer.stop: proxies not empty {list(self.proxies.keys())}')
-
 
     def push_request(self, identifier: str, message):
         """ Send an XML-RPC request to a Supervisor proxy.
