@@ -156,6 +156,8 @@ class SupvisorsInstanceStatus:
         self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.STOPPED
         self.times: SupvisorsTimes = SupvisorsTimes(self.identifier, self.logger)
         self.processes: Dict[str, ProcessStatus] = {}
+        # store the time when the CHECKING state is reached to detect obsolete notifications
+        self.checking_time: float = 0.0
         # the local instance may use the process statistics collector
         self.stats_collector = None
         if supvisors.mapper.local_identifier == self.identifier:
@@ -200,6 +202,9 @@ class SupvisorsInstanceStatus:
             self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.usage_identifier} is {self.state.name}')
             # update the information in the local state & modes
             self.supvisors.state_modes.update_instance_state(self.identifier, new_state)
+            # TBC: test JLC
+            if new_state == SupvisorsInstanceStates.CHECKING:
+                self.checking_time = time.monotonic()
 
     @property
     def running(self) -> bool:
@@ -249,6 +254,15 @@ class SupvisorsInstanceStatus:
         #       or unreachable, because the periodic check is performed on the new local TICK.
         counter_diff = local_sequence_counter - self.times.local_sequence_counter
         return self.has_active_state() and counter_diff > self.supvisors.options.inactivity_ticks
+
+    def is_checking(self, timestamp: float) -> bool:
+        """ Return True if the Supvisors instance is in CHECKING state and the timestamp is later than the entry date
+        in the CHECKING state.
+
+        :param timestamp: the message timestamp.
+        :return: True if the CHECKING state is valid.
+        """
+        return self.state == SupvisorsInstanceStates.CHECKING and timestamp > self.checking_time
 
     def update_tick(self, remote_sequence_counter: int, remote_mtime: float, remote_time: float,
                     local_sequence_counter: int = -1):

@@ -1010,11 +1010,13 @@ def test_set_state_master(supvisors_instance, fsm):
 def test_on_timer_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a timer event. """
     mocked_timer = mocker.patch.object(supvisors_instance.context, 'on_timer_event')
+    mocked_defer = mocker.patch.object(supvisors_instance.state_modes, 'deferred_publish_status')
     mocked_next = mocker.patch.object(supvisors_instance.fsm, 'next')
     event = {'counter': 1234}
     fsm.on_timer_event(event)
     assert mocked_timer.call_args_list == [call(event)]
-    assert mocked_next.called
+    assert mocked_defer.call_args_list == [call()]
+    assert mocked_next.call_args_list == [call()]
 
 
 def test_on_tick_event(mocker, supvisors_instance, fsm):

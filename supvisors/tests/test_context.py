@@ -515,7 +515,8 @@ def test_load_processes(mocker, supvisors_instance, context):
     assert context.applications == {}
     for node in context.instances.values():
         assert node.processes == {}
-    # load ProcessInfoDatabase with known node
+    # load ProcessInfoDatabase with known node in CHECKING state
+    status_10001._state = SupvisorsInstanceStates.CHECKING
     context.load_processes(status_10001, database_copy())
     # check context contents
     assert sorted(context.applications.keys()) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
@@ -532,9 +533,16 @@ def test_load_processes(mocker, supvisors_instance, context):
     assert all(application.update_sequences.called and application.update.called
                for application in context.applications.values())
     mocker.resetall()
-    # load ProcessInfoDatabase in other known node
+    # load ProcessInfoDatabase in other known node not in CHECKING state
+    assert status_10002.state == SupvisorsInstanceStates.STOPPED
+    context.load_processes(status_10002, database_copy())
+    assert sorted(context.applications.keys()) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
+    assert status_10002.processes == {}
+    # load ProcessInfoDatabase in other known node not in CHECKING state
+    status_10002._state = SupvisorsInstanceStates.CHECKING
     context.load_processes(status_10002, database_copy())
     # check context contents
+    status_10001._state = SupvisorsInstanceStates.CHECKING
     assert sorted(context.applications.keys()) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
     assert sorted(context.applications['crash'].processes.keys()) == ['late_segv', 'segv']
     assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
@@ -552,6 +560,7 @@ def test_load_processes(mocker, supvisors_instance, context):
     info = any_process_info()
     info.update({'group': 'dummy_application', 'name': 'dummy_process'})
     database = [info]
+    status_10004._state = SupvisorsInstanceStates.CHECKING
     context.load_processes(status_10004, database)
     # check context contents
     assert sorted(context.applications.keys()) == ['crash', 'dummy_application', 'firefox',
@@ -591,7 +600,7 @@ def test_publish_process_failures(supvisors_instance, context):
     proc_2 = Mock(application_name='dummy_application_3', **{'serial.return_value': proc_2_serial})
     # test with no external publisher set
     assert supvisors_instance.external_publisher is None
-    context.publish_process_failures({proc_2, proc_1})
+    context.publish_process_failures([proc_2, proc_1])  # use list instead of set to keep ordering
     assert application_1.update.call_args_list == [call()]
     assert not application_2.update.called
     assert application_3.update.call_args_list == [call()]
@@ -599,7 +608,7 @@ def test_publish_process_failures(supvisors_instance, context):
     application_3.update.reset_mock()
     # test with external publisher set
     supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
-    context.publish_process_failures([proc_2, proc_1])
+    context.publish_process_failures({proc_2, proc_1})
     assert application_1.update.call_args_list == [call()]
     assert not application_2.update.called
     assert application_3.update.call_args_list == [call()]
@@ -675,22 +684,47 @@ def test_on_discovery_event(supvisors_instance, context):
 def test_on_identification_event(mocker, supvisors_instance, context):
     """ Test the Context.on_identification_event method. """
     mocked_identify = mocker.patch.object(supvisors_instance.mapper, 'identify')
-    context.on_identification_event({'event': 'data'})
-    assert mocked_identify.call_args_list == [(call({'event': 'data'}))]
+    # test in non-CHECKING state
+    payload = {'event': 'data', 'identifier': '10.0.0.2:25000', 'now_monotonic': time.monotonic()}
+    status = context.instances[payload['identifier']]
+    status._state = SupvisorsInstanceStates.STOPPED
+    assert status.checking_time == 0.0
+    context.on_identification_event(payload)
+    assert not mocked_identify.called
+    # test in CHECKING state with older timestamp
+    status.state = SupvisorsInstanceStates.CHECKING
+    assert status.checking_time > payload['now_monotonic']
+    context.on_identification_event(payload)
+    assert not mocked_identify.called
+    # test in CHECKING state with newer timestamp
+    payload['now_monotonic'] = time.monotonic()
+    context.on_identification_event(payload)
+    assert mocked_identify.call_args_list == [(call(payload))]
 
 
 def test_authorization_not_checking(supvisors_instance, context):
     """ Test the Context.on_authorization method with non-CHECKING identifier. """
     status = context.instances['10.0.0.1:25000']
-    # check no change
+    # check no change if no CHECKING state
+    event = {'authorized': None, 'now_monotonic': time.monotonic()}
     for fencing in [True, False]:
         supvisors_instance.options.auto_fence = fencing
-        for authorization in [True, False]:
+        for authorization in [None, True, False]:
+            event['authorized'] = authorization
             for state in SupvisorsInstanceStates:
                 if state != SupvisorsInstanceStates.CHECKING:
                     status._state = state
-                    context.on_authorization(status, authorization)
+                    context.on_authorization(status, event)
                     assert status.state == state
+    # check no change if CHECKING state but older timestamp
+    status._state = SupvisorsInstanceStates.STOPPED
+    status.state = SupvisorsInstanceStates.CHECKING
+    for fencing in [True, False]:
+        supvisors_instance.options.auto_fence = fencing
+        for authorization in [None, True, False]:
+            event['authorized'] = authorization
+            context.on_authorization(status, event)
+            assert status.state == SupvisorsInstanceStates.CHECKING
 
 
 def test_authorization_checking_normal(mocker, context):
@@ -699,20 +733,24 @@ def test_authorization_checking_normal(mocker, context):
     # test current state not CHECKING
     status = context.instances['10.0.0.1:25000']
     status._state = SupvisorsInstanceStates.RUNNING
-    context.on_authorization(status, True)
+    event = {'authorized': True, 'now_monotonic': time.monotonic()}
+    context.on_authorization(status, event)
     assert not mocked_invalid.called
     # test authorization None (error in handshake)
     status._state = SupvisorsInstanceStates.CHECKING
-    context.on_authorization(status, None)
+    event['authorized'] = None
+    context.on_authorization(status, event)
     assert not mocked_invalid.called
     assert status.state == SupvisorsInstanceStates.STOPPED
     # test not authorized
     status._state = SupvisorsInstanceStates.CHECKING
-    context.on_authorization(status, False)
+    event['authorized'] = False
+    context.on_authorization(status, event)
     assert mocked_invalid.call_args_list == [call(status, True)]
     mocked_invalid.reset_mock()
     # test authorized
-    context.on_authorization(status, True)
+    event['authorized'] = True
+    context.on_authorization(status, event)
     assert not mocked_invalid.called
 
 

@@ -364,6 +364,8 @@ class Context:
     def load_processes(self, status: SupvisorsInstanceStatus, all_info: Optional[PayloadList]) -> None:
         """ Load application dictionary from the process information received from the remote Supvisors.
 
+        This is meant to happen only in CHECKING state.
+
         :param status: the Supvisors instance.
         :param all_info: the process information got from the node.
         :return: None.
@@ -377,7 +379,8 @@ class Context:
                              f' Supvisors={status.usage_identifier}')
             # go back to STOPPED to give it a chance at next TICK
             status.state = SupvisorsInstanceStates.STOPPED
-        else:
+        elif status.state == SupvisorsInstanceStates.CHECKING:
+            # TODO: check process remote monotonic time vs CHECKING local time
             # store processes into their application entry
             for info in all_info:
                 # get or create process
@@ -389,6 +392,11 @@ class Context:
             for application in self.applications.values():
                 application.update_sequences()
                 application.update()
+        else:
+            # may happen if CHECKING phase too long
+            # (lots of Supvisors instances and local instance busy processing too many events)
+            self.logger.debug(f'Context.load_processes: unexpected with non-CHECKING'
+                              f' Supvisors={status.usage_identifier}')
 
     def publish_process_failures(self, failed_processes: Set[ProcessStatus]) -> None:
         """ Publish the Supvisors events related with the processes failures.
@@ -462,37 +470,47 @@ class Context:
         :param event: the network information of the remote Supvisors instance.
         :return: None.
         """
-        self.mapper.identify(event)
+        # only accepted if later than CHECKING date
+        identifier, timestamp = event['identifier'], event['now_monotonic']
+        status: SupvisorsInstanceStatus = self.instances[identifier]
+        if status.is_checking(timestamp):
+            self.mapper.identify(event)
+        else:
+            # may happen if CHECKING phase too long
+            # (lots of Supvisors instances and local instance busy processing too many events)
+            self.logger.debug(f'Context.on_identification_event: unexpected with Supvisors={status.usage_identifier}'
+                              f' and timestamp={timestamp} (CHECKING at {status.checking_time}')
 
-    def on_authorization(self, status: SupvisorsInstanceStatus, authorized: Optional[bool]) -> None:
+    def on_authorization(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
         authorizes the local Supvisors instance to process its events.
 
         :param status: the Supvisors instance that sent the event.
-        :param authorized: the Supvisors instance authorization status.
+        :param event: the Supvisors instance authorization status.
         :return: None.
         """
+        authorized, timestamp = event['authorized'], event['now_monotonic']
         # check Supvisors instance state
-        if status.state != SupvisorsInstanceStates.CHECKING:
+        if not status.is_checking(timestamp):
             self.logger.error('Context.on_authorization: auth rejected from non-CHECKING'
-                              f' Supvisors={status.usage_identifier}')
+                              f' Supvisors={status.usage_identifier} at timestamp={timestamp}')
+            return None
+        # process authorization status
+        if authorized is None:
+            # the check call in SupervisorProxy failed
+            # the remote Supvisors instance is likely starting, restarting or shutting down so defer
+            self.logger.warn('Context.on_authorization: failed to get auth status'
+                             f' from Supvisors={status.usage_identifier}')
+            # go back to STOPPED to give it a chance at next TICK
+            status.state = SupvisorsInstanceStates.STOPPED
+        elif not authorized:
+            self.logger.warn('Context.on_authorization: the local Supvisors instance is isolated'
+                             f' by Supvisors={status.usage_identifier}')
+            self.invalidate(status, True)
         else:
-            # process authorization status
-            if authorized is None:
-                # the check call in SupervisorProxy failed
-                # the remote Supvisors instance is likely starting, restarting or shutting down so defer
-                self.logger.warn('Context.on_authorization: failed to get auth status'
-                                 f' from Supvisors={status.usage_identifier}')
-                # go back to STOPPED to give it a chance at next TICK
-                status.state = SupvisorsInstanceStates.STOPPED
-            elif not authorized:
-                self.logger.warn('Context.on_authorization: the local Supvisors instance is isolated'
-                                 f' by Supvisors={status.usage_identifier}')
-                self.invalidate(status, True)
-            else:
-                self.logger.info(f'Context.on_authorization: local Supvisors instance is authorized to work with'
-                                 f' Supvisors={status.usage_identifier}')
-                status.state = SupvisorsInstanceStates.CHECKED
+            self.logger.info(f'Context.on_authorization: local Supvisors instance is authorized to work with'
+                             f' Supvisors={status.usage_identifier}')
+            status.state = SupvisorsInstanceStates.CHECKED
 
     def on_local_tick_event(self, event: Payload) -> None:
         """ Method called upon reception of a tick event from the local Supvisors instance.
@@ -555,7 +573,7 @@ class Context:
         # check all Supvisors instances
         for status in self.instances.values():
             if status.is_inactive(sequence_counter):
-                self.logger.warn(f'Context.on_timer_event: {status.identifier} FAILED')
+                self.logger.warn(f'Context.on_timer_event: {status.usage_identifier} FAILED')
                 status.state = SupvisorsInstanceStates.FAILED
                 self.export_status(status)
 
@@ -566,7 +584,7 @@ class Context:
         :return: None.
         """
         # processes will be dealt in FAILED processing
-        self.logger.warn(f'Context.on_instance_failure: {status.identifier} FAILED')
+        self.logger.warn(f'Context.on_instance_failure: {status.usage_identifier} FAILED')
         status.state = SupvisorsInstanceStates.FAILED
         self.export_status(status)
 

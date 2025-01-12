@@ -146,6 +146,7 @@ def test_create_no_collector(supvisors_instance, supvisors_id, status):
     assert status.times.local_time == 0.0
     assert status.times.start_local_mtime == -1.0
     assert status.processes == {}
+    assert status.checking_time == 0.0
     # process_collector is None because local_identifier is different in supvisors_mapper and in SupvisorsInstanceId
     assert status.stats_collector is None
 
@@ -167,6 +168,7 @@ def test_create_collector(supvisors_instance, local_supvisors_id, local_status):
     assert local_status.times.local_time == 0.0
     assert local_status.times.start_local_mtime == -1.0
     assert local_status.processes == {}
+    assert local_status.checking_time == 0.0
     # process_collector is set as SupvisorsInstanceId and supvisors_mapper's local_identifier are identical
     #  and the option process_stats_enabled is True
     assert local_status.stats_collector is not None
@@ -238,6 +240,19 @@ def test_inactive(status):
             assert status.is_inactive(10)
         else:
             assert not status.is_inactive(10)
+
+
+def test_is_checking(mocker, status):
+    """ Test the SupvisorsInstanceStatus.is_checking method. """
+    mocker.patch('time.monotonic', return_value=1234.56)
+    assert status.state == SupvisorsInstanceStates.STOPPED
+    assert not status.is_checking(1234.56)
+    status.state = SupvisorsInstanceStates.CHECKING
+    assert not status.is_checking(1234.56)
+    assert status.is_checking(1234.57)
+    status._state = SupvisorsInstanceStates.CHECKED
+    assert not status.is_checking(1234.56)
+    assert not status.is_checking(1234.57)
 
 
 def test_isolation(status):

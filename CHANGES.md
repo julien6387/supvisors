@@ -17,6 +17,8 @@
 * Take into account the network data in the **Supvisors** Web UI, so that the same network interface is used
   when navigating to another node.
 
+* Constraint the handshake in time, so that late notifications are not considered.
+
 * Add a session cookie to **Supvisors** Web UI client.
   All statistics images served by the **Supvisors** Web UI are renamed to allow multiple auto-refreshed views
   in the browser tabs. 

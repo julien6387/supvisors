@@ -991,6 +991,7 @@ class FiniteStateMachine:
     def on_timer_event(self, event: Payload) -> None:
         """ Periodic task used to check if remote Supvisors instances are still active. """
         self.context.on_timer_event(event)
+        self.state_modes.deferred_publish_status()
         self.next()
 
     def on_tick_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
