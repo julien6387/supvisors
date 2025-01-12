@@ -21,7 +21,6 @@ from unittest.mock import call, patch, Mock, DEFAULT
 import pytest
 from supervisor.xmlrpc import Faults
 
-from build.lib.supvisors.tests.conftest import supvisors_instance
 from supvisors.internal_com.supervisorproxy import *
 from supvisors.rpcinterface import SupvisorsFaults
 from supvisors.ttypes import (SupvisorsInstanceStates, ConciliationStrategies, StartingStrategies,
