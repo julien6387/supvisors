@@ -233,6 +233,7 @@ class SupervisorProxy:
     def _transfer_network_info(self, timestamp: float) -> None:
         """ Get the network information about the remote Supvisors instance.
 
+        :param timestamp: the handshake timestamp.
         :return: None.
         """
         network_info = self.xml_rpc('supvisors.get_local_supvisors_info',
