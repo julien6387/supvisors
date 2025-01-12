@@ -144,6 +144,8 @@ class SupvisorsStateModes:
         self.discovery_mode: bool = supvisors.options.discovery_mode
         # the identifiers of the stable Supvisors instances (dynamic context)
         self.stable_identifiers: NameSet = set()
+        # publication mark to avoid sending too many events
+        self.update_mark: bool = False
 
     # Shortcuts to Supvisors main objects
     @property
@@ -295,17 +297,9 @@ class SupvisorsStateModes:
         if new_state != SupvisorsInstanceStates.RUNNING and identifier == self.master_identifier:
             self.master_identifier = ''
         else:
-            # avoid double publication
-            self.publish_status()
-
-    # Global update from a notification
-    def on_instance_state_event(self, identifier: str, event: Payload):
-        """ The event is fired on change by the remote Supvisors instance. """
-        # ignore if sent by the local Supvisors instance because information may be lost in the gap
-        if identifier != self.local_identifier:
-            self.instance_state_modes[identifier].update(event)
-            # export the Supvisors status because starting / stopping identifiers may have changed
-            self.export_status()
+            # avoid double publication (first one done through master_identifier)
+            # avoid sending too many publication events linked to Supvisors instance state in the synchronization phase
+            self.update_mark = True
 
     # Data publication and export
     def serial(self) -> Payload:
@@ -322,10 +316,31 @@ class SupvisorsStateModes:
         # always export any change on self status
         self.export_status()
 
+    def deferred_publish_status(self) -> None:
+        """ Publish the local Supvisors state and modes to the other Supvisors instances if the instance_states
+        has changed since last call.
+
+        Publications related to Supvisors instances state are too numerous, especially in SYNCHRONIZATION phase,
+        with many Supvisors instances (>30), to be sent individually, so they're marked and sent on timer event.
+        As it is only needed for context stability evaluation, it is good enough.
+        """
+        if self.update_mark:
+            self.publish_status()
+            self.update_mark = False
+
     def export_status(self) -> None:
         """ External publication to Supvisors listeners. """
         if self.external_publisher:
             self.external_publisher.send_supvisors_status(self.serial())
+
+    # Global update from a notification
+    def on_instance_state_event(self, identifier: str, event: Payload):
+        """ The event is fired on change by the remote Supvisors instance. """
+        # ignore if sent by the local Supvisors instance because information may be lost in the gap
+        if identifier != self.local_identifier:
+            self.instance_state_modes[identifier].update(event)
+            # export the Supvisors status because starting / stopping identifiers may have changed
+            self.export_status()
 
     # Master selection
     def is_running(self, identifier: str) -> bool:
