@@ -119,8 +119,25 @@ class NetworkAddress:
             self.logger.error(f'NetworkAddress.get_local_view: unknown address {host_id}')
 
     def host_matches(self, host_id: str) -> bool:
-        """ Return True if one local address matches the host identifier passed in parameter. """
+        """ Return True if one local address matches the host identifier passed in parameter.
+        Use all addresses returned by gethostbyaddr. """
         return host_id in [self.host_name] + self.aliases + self.ipv4_addresses
+
+    def ip_matches(self, ip_address: str) -> bool:
+        """ Return True if this instance matches the ip_address passed in parameter. """
+        if self.nic_info:
+            return ip_address == self.nic_info.ipv4_address
+        return False
+
+    def name_matches(self, host_name: str) -> bool:
+        """ Return True if the host name or any alias matches the host identifier passed in parameter.
+
+        The test of nic_info is not an error, as this method is used to get the network address corresponding
+        to the host name in parameter. The network address is only available in the NicInformation.
+        """
+        if self.nic_info:
+            return host_name in [self.host_name] + self.aliases
+        return False
 
     def get_network_ip(self, network_address: str) -> str:
         """ Return the main IPv4 address if corresponding to the same network. """
@@ -155,17 +172,29 @@ class LocalNetwork:
                                                      for nic_info in get_network_info()}
 
     def host_matches(self, host_id: str) -> bool:
-        """ Return True if one local address matches the host identifier passed in parameter. """
-        return next((True for addr in self.addresses.values()
-                     if addr.host_matches(host_id)), False)
+        """ Return True if any local address matches the host identifier passed in parameter.
+        This is only used to find the local identifier.
+        """
+        return next((True for netw in self.addresses.values()
+                     if netw.host_matches(host_id)), False)
 
-    def get_network_address(self, hostname: str) -> str:
-        """ Return the network address of the interface matching the hostname. """
+    def get_network_address(self, host_id: str) -> str:
+        """ Return the network address of the interface matching the host_id.
+        This is only used for web navigation.
+        """
+        # first try: host_id is an IP address
         for netw in self.addresses.values():
-            if netw.host_matches(hostname):
-                return netw.nic_info.network_address if netw.nic_info else ''
+            if netw.ip_matches(host_id):
+                # if there is a match, there must be a NicInformation
+                return netw.nic_info.network_address
+        # second try: host_id is a host name or alias
+        # WARN: this may not identify a unique network interface
+        for netw in self.addresses.values():
+            if netw.name_matches(host_id):
+                # if there is a match, there must be a NicInformation
+                return netw.nic_info.network_address
         self.logger.debug('LocalNetwork.get_network_address: cannot find any network address matching'
-                          f' hostname={hostname}')
+                          f' hostname={host_id}')
         return ''
 
     def get_network_ip(self, network_address: str) -> str:

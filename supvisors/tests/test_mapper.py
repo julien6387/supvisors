@@ -75,7 +75,6 @@ def test_get_network_info():
 
 def test_network_address(mocker, logger_instance):
     """ Test the NetworkAddress class. """
-    mocked_sock = mocker.patch('socket.gethostbyaddr', side_effect=lambda x: (x, [x], [x]))
     # test NetworkAddress creation with no additional parameters
     addr = NetworkAddress(logger_instance)
     assert addr.host_name == ''
@@ -87,6 +86,9 @@ def test_network_address(mocker, logger_instance):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert not addr.ip_matches('192.168.1.1')
+    for name in ['supv01.bzh', 'cliche01', 'supv01']:
+        assert not addr.name_matches(name)
     assert addr.get_network_ip('192.168.1.0') == ''
     assert addr.serial() == {'host_name': '',
                              'aliases': [],
@@ -95,8 +97,8 @@ def test_network_address(mocker, logger_instance):
     # test NetworkAddress creation with NicInformation
     nic_info = NicInformation('eth0', '192.168.1.1', '255.255.255.0')
     addr = NetworkAddress(logger_instance, nic_info=nic_info)
-    assert addr.host_name == '192.168.1.1'
-    assert addr.aliases == ['192.168.1.1']
+    assert addr.host_name == 'supv01.bzh'
+    assert addr.aliases == ['cliche01', 'supv01']
     assert addr.ipv4_addresses == ['192.168.1.1']
     assert addr.nic_info is nic_info
     assert not addr.host_matches('')
@@ -104,35 +106,47 @@ def test_network_address(mocker, logger_instance):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.ip_matches('192.168.1.1')
+    assert not addr.ip_matches('10.0.0.2')
+    for name in ['supv01.bzh', 'cliche01', 'supv01']:
+        assert addr.name_matches(name)
+    for name in ['supv02.bzh', 'cliche03', 'supv04']:
+        assert not addr.name_matches(name)
     assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
     assert addr.get_network_ip('192.168.11.0') == ''
-    assert addr.serial() == {'host_name': '192.168.1.1',
-                             'aliases': ['192.168.1.1'],
+    assert addr.serial() == {'host_name': 'supv01.bzh',
+                             'aliases': ['cliche01', 'supv01'],
                              'ipv4_addresses': ['192.168.1.1'],
                              'nic_info': {'nic_name': 'eth0',
                                           'ipv4_address': '192.168.1.1',
                                           'netmask': '255.255.255.0'}}
     # test NetworkAddress creation with host id
-    addr = NetworkAddress(logger_instance, host_id='10.0.0.1')
-    assert addr.host_name == '10.0.0.1'
-    assert addr.aliases == ['10.0.0.1']
-    assert addr.ipv4_addresses == ['10.0.0.1']
+    addr = NetworkAddress(logger_instance, host_id='10.0.0.2')
+    assert addr.host_name == 'supv02.bzh'
+    assert addr.aliases == ['cliche02', 'supv02']
+    assert addr.ipv4_addresses == ['10.0.0.2']
     assert addr.nic_info is None
     assert not addr.host_matches('')
     assert not addr.host_matches('192.168.1.1')
-    assert addr.host_matches('10.0.0.1')
+    assert addr.host_matches('10.0.0.2')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert not addr.ip_matches('192.168.1.1')
+    assert not addr.ip_matches('10.0.0.2')
+    for name in ['supv01.bzh', 'cliche01', 'supv01']:
+        assert not addr.name_matches(name)
+    for name in ['supv02.bzh', 'cliche02', 'supv02']:
+        assert not addr.name_matches(name)
     assert addr.get_network_ip('192.168.1.0') == ''
-    assert addr.serial() == {'host_name': '10.0.0.1',
-                             'aliases': ['10.0.0.1'],
-                             'ipv4_addresses': ['10.0.0.1'],
+    assert addr.serial() == {'host_name': 'supv02.bzh',
+                             'aliases': ['cliche02', 'supv02'],
+                             'ipv4_addresses': ['10.0.0.2'],
                              'nic_info': None}
     # test NetworkAddress creation with both NicInformation and host id
     # NicInformation takes precedence
-    addr = NetworkAddress(logger_instance, nic_info=nic_info, host_id='10.0.0.1')
-    assert addr.host_name == '192.168.1.1'
-    assert addr.aliases == ['192.168.1.1']
+    addr = NetworkAddress(logger_instance, nic_info=nic_info, host_id='10.0.0.3')
+    assert addr.host_name == 'supv01.bzh'
+    assert addr.aliases == ['cliche01', 'supv01']
     assert addr.ipv4_addresses == ['192.168.1.1']
     assert addr.nic_info is nic_info
     assert not addr.host_matches('')
@@ -140,19 +154,25 @@ def test_network_address(mocker, logger_instance):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.ip_matches('192.168.1.1')
+    assert not addr.ip_matches('10.0.0.3')
+    for name in ['supv01.bzh', 'cliche01', 'supv01']:
+        assert addr.name_matches(name)
+    for name in ['supv02.bzh', 'cliche03', 'supv04']:
+        assert not addr.name_matches(name)
     assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
     assert addr.get_network_ip('192.168.11.0') == ''
-    assert addr.serial() == {'host_name': '192.168.1.1',
-                             'aliases': ['192.168.1.1'],
+    assert addr.serial() == {'host_name': 'supv01.bzh',
+                             'aliases': ['cliche01', 'supv01'],
                              'ipv4_addresses': ['192.168.1.1'],
                              'nic_info': {'nic_name': 'eth0',
                                           'ipv4_address': '192.168.1.1',
                                           'netmask': '255.255.255.0'}}
     # test NetworkAddress creation from payload
-    addr = NetworkAddress(logger_instance, host_id='10.0.0.1')
+    addr = NetworkAddress(logger_instance, host_id='10.0.0.3')
     addr.from_payload(NetworkAddress(logger_instance, nic_info=nic_info).serial())
-    assert addr.host_name == '192.168.1.1'
-    assert addr.aliases == ['192.168.1.1']
+    assert addr.host_name == 'supv01.bzh'
+    assert addr.aliases == ['cliche01', 'supv01']
     assert addr.ipv4_addresses == ['192.168.1.1']
     assert addr.nic_info is not nic_info
     assert addr.nic_info.serial() == nic_info.serial()
@@ -161,16 +181,22 @@ def test_network_address(mocker, logger_instance):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.ip_matches('192.168.1.1')
+    assert not addr.ip_matches('10.0.0.3')
+    for name in ['supv01.bzh', 'cliche01', 'supv01']:
+        assert addr.name_matches(name)
+    for name in ['supv02.bzh', 'cliche03', 'supv04']:
+        assert not addr.name_matches(name)
     assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
     assert addr.get_network_ip('192.168.11.0') == ''
-    assert addr.serial() == {'host_name': '192.168.1.1',
-                             'aliases': ['192.168.1.1'],
+    assert addr.serial() == {'host_name': 'supv01.bzh',
+                             'aliases': ['cliche01', 'supv01'],
                              'ipv4_addresses': ['192.168.1.1'],
                              'nic_info': {'nic_name': 'eth0',
                                           'ipv4_address': '192.168.1.1',
                                           'netmask': '255.255.255.0'}}
     # test NetworkAddress creation with gaierror
-    mocked_sock.side_effect = socket.gaierror
+    mocker.patch('socket.gethostbyaddr', side_effect=socket.gaierror)
     addr = NetworkAddress(logger_instance, nic_info=nic_info)
     assert addr.host_name == ''
     assert addr.aliases == []
@@ -181,6 +207,12 @@ def test_network_address(mocker, logger_instance):
     assert not addr.host_matches('10.0.0.1')
     assert not addr.host_matches('eth0')
     assert not addr.host_matches('255.255.255.0')
+    assert addr.ip_matches('192.168.1.1')
+    assert not addr.ip_matches('10.0.0.2')
+    for name in ['supv01.bzh', 'cliche01', 'supv01']:
+        assert not addr.name_matches(name)
+    for name in ['supv02.bzh', 'cliche03', 'supv04']:
+        assert not addr.name_matches(name)
     assert addr.get_network_ip('192.168.1.0') == '192.168.1.1'
     assert addr.get_network_ip('192.168.11.0') == ''
     assert addr.serial() == {'host_name': '',
@@ -206,6 +238,8 @@ def test_local_network(logger_instance):
     # test get_network_address
     assert network.get_network_address('10.0.0.1') == '10.0.0.0'
     assert network.get_network_address('10.0.0.2') == ''
+    assert network.get_network_address('supv01.bzh') == '10.0.0.0'
+    assert network.get_network_address('supv02.bzh') == ''
     # test get_network_address
     assert network.get_network_ip('10.0.0.0') == '10.0.0.1'
     assert network.get_network_ip('10.0.1.0') == ''
