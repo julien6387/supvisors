@@ -33,6 +33,9 @@
 
 * Update the `stop_process` command, so that the XML-RPC request is sent only to running-like processes.
 
+* Update the `get_master_identifier` XML-RPC, so that it returns both the identifier and its nickname in a dictionary.
+  The `master` command is updated accordingly.
+
 * Add a new option `supvisors_failure_strategy` to decide what to do when the initial conditions are not met anymore.
 
 * Add a new option `css_files` to allow user CSS in the **Supvisors** Web UI.

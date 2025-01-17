@@ -158,16 +158,20 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to get the Master Supvisors instance. """
         if self._upcheck():
             try:
-                identifier = self.supvisors().get_master_identifier()
+                payload = self.supvisors().get_master_identifier()
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output(identifier)
+                if payload:
+                    self.ctl.output(f"Nick identifier: {payload['nick_identifier']}")
+                    self.ctl.output(f"Identifier:      {payload['identifier']}")
+                else:
+                    self.ctl.output('No Supvisors Master')
 
     def help_master(self):
         """ Print the help of the master command. """
-        self.ctl.output('master\t\t\t\tGet the Master Supvisors instance.')
+        self.ctl.output('master\t\t\t\tGet the Supvisors Master identification.')
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """

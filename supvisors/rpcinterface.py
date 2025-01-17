@@ -29,6 +29,13 @@ from .strategy import get_supvisors_instance, conciliate_conflicts
 from .ttypes import *
 from .utils import extract_process_info
 
+# annotation types for RPC
+EnumParameterType = Union[str, int]
+OnWaitReturnType = Union[Type[NOT_DONE_YET], bool]
+WaitReturnType = Union[Callable[[], OnWaitReturnType], bool]
+OnWaitStringReturnType = Union[Type[NOT_DONE_YET], str]
+WaitStringReturnType = Union[Callable[[], OnWaitStringReturnType], str]
+
 
 def startProcess(self, name: str, wait: bool = True):
     """ Overridden startProcess to handle a disabled process.
@@ -50,13 +57,6 @@ def startProcess(self, name: str, wait: bool = True):
 
 class RPCInterface:
     """ This class holds the XML-RPC extension provided by **Supvisors**. """
-
-    # annotation types for RPC
-    EnumParameterType = Union[str, int]
-    OnWaitReturnType = Union[Type[NOT_DONE_YET], bool]
-    WaitReturnType = Union[Callable[[], OnWaitReturnType], bool]
-    OnWaitStringReturnType = Union[Type[NOT_DONE_YET], str]
-    WaitStringReturnType = Union[Callable[[], OnWaitStringReturnType], str]
 
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes.
@@ -120,13 +120,18 @@ class RPCInterface:
         return [self.supvisors.state_modes.instance_state_modes[identifier].serial()
                 for identifier in identifiers]
 
-    def get_master_identifier(self) -> str:
+    def get_master_identifier(self) -> Payload:
         """ Get the identification of the **Supvisors** instance elected as **Supvisors** *Master*.
 
-        :return: the identifier of the **Supvisors** *Master* instance.
-        :rtype: str.
+        :return: the identifier of the **Supvisors** *Master* instance and its nickname.
+        :rtype: dict[str, str].
         """
-        return self.supvisors.state_modes.master_identifier
+        # TODO: update doc
+        master_instance = self.supvisors.context.master_instance
+        if master_instance:
+            return {'identifier': master_instance.supvisors_id.identifier,
+                    'nick_identifier': master_instance.supvisors_id.nick_identifier}
+        return {}
 
     def get_strategies(self) -> Payload:
         """ Get the default strategies applied by **Supvisors**:
@@ -412,7 +417,7 @@ class RPCInterface:
             self._raise(Faults.ABNORMAL_TERMINATION, 'start_application', f'failed to start {application_name}')
         # wait until application fully RUNNING or (failed)
         if wait and in_progress:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # check starter
                 if self.supvisors.starter.in_progress():
                     return NOT_DONE_YET
@@ -484,7 +489,7 @@ class RPCInterface:
         self.logger.debug(f'RPCInterface.stop_application: {application_name} in_progress={in_progress}')
         # wait until application fully STOPPED
         if wait and in_progress:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # check stopper
                 if self.supvisors.stopper.in_progress():
                     return NOT_DONE_YET
@@ -529,7 +534,7 @@ class RPCInterface:
         # theoretically, wait until application is stopped then running
         # in practice, just check stopper and start activity, even if not fully related to this call
         if wait:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # stopping phase
                 if onwait.waitstop:
                     if not self.supvisors.stopper.in_progress():
@@ -631,7 +636,7 @@ class RPCInterface:
             self._raise(Faults.ABNORMAL_TERMINATION, 'start_process', f'failed to start {namespec}')
         # wait until application fully RUNNING or failed
         if wait:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # check starter
                 if self.supvisors.starter.in_progress():
                     return NOT_DONE_YET
@@ -713,7 +718,7 @@ class RPCInterface:
         # start the chosen one and return its namespec
         bool_or_callable = self.start_process(strategy, namespec, extra_args, wait)
         if wait and callable(bool_or_callable):
-            def onwait() -> RPCInterface.OnWaitStringReturnType:
+            def onwait() -> OnWaitStringReturnType:
                 if bool_or_callable() is True:
                     return namespec
                 return NOT_DONE_YET
@@ -750,7 +755,7 @@ class RPCInterface:
         # theoretically, wait until processes are stopped
         # in practice, just check stopper, even if not fully related to this call
         if wait:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # check stopper
                 if self.supvisors.stopper.in_progress():
                     return NOT_DONE_YET
@@ -804,7 +809,7 @@ class RPCInterface:
         # theoretically, wait until processes are stopped then running
         # in practice, just check stopper and start activity, even if not fully related to this call
         if wait:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # stopping phase
                 if onwait.waitstop:
                     if not self.supvisors.stopper.in_progress():
@@ -892,7 +897,7 @@ class RPCInterface:
                                   if proc not in processes_to_stop]
             self._check_process_deletion(processes_to_check)
         else:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # check stopper
                 if self.supvisors.stopper.in_progress():
                     return NOT_DONE_YET
@@ -912,7 +917,8 @@ class RPCInterface:
             return onwait  # deferred
         return True
 
-    def update_numprocs(self, program_name: str, numprocs: int, wait: bool = True, lazy: bool = False) -> WaitReturnType:
+    def update_numprocs(self, program_name: str, numprocs: int, wait: bool = True,
+                        lazy: bool = False) -> WaitReturnType:
         """ Update dynamically the numprocs of the program.
         Implementation of Supervisor issue #177 - Dynamic numproc change.
 
@@ -989,7 +995,7 @@ class RPCInterface:
             local_identifier = self.supvisors.mapper.local_identifier
 
             # wait until processes are removed from Supvisors
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 for namespec in subprocesses:
                     proc = self._get_application_process(namespec)[1]
                     if proc.disabled_on(local_identifier):
@@ -1037,7 +1043,7 @@ class RPCInterface:
         self.supvisors.stopper.next()
         if wait:
             # wait until processes are in STOPPED_STATES
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # check stopper
                 if onwait.waitstop:
                     if self.supvisors.stopper.in_progress():
@@ -1098,7 +1104,7 @@ class RPCInterface:
         # call for restart sequence. will be re-directed to master if local Supvisors instance is not
         self.supvisors.fsm.on_restart_sequence()
         if wait:
-            def onwait() -> RPCInterface.OnWaitReturnType:
+            def onwait() -> OnWaitReturnType:
                 # first wait for DISTRIBUTION state
                 if onwait.wait_state == SupvisorsStates.DISTRIBUTION:
                     if self.supvisors.fsm.state == SupvisorsStates.DISTRIBUTION:

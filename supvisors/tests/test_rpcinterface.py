@@ -63,11 +63,11 @@ def test_supvisors_state(mocker, rpc):
 
 
 def test_master_node(supvisors_instance, rpc):
-    """ Test the get_master_address RPC. """
+    """ Test the get_master_identifier RPC. """
     # prepare context
-    supvisors_instance.state_modes.master_identifier = '10.0.0.1'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
     # test call
-    assert rpc.get_master_identifier() == '10.0.0.1'
+    assert rpc.get_master_identifier() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1'}
 
 
 def test_strategies(supvisors_instance, rpc):
