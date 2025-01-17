@@ -327,6 +327,16 @@ class SupvisorsRestartProcess(Resource):
         return g.proxy.supvisors.restart_process(strategy, namespec, args.extra_args, args.wait)
 
 
+@api.route('/lazy_update_numprocs/<string:program_name>/<int:numprocs>', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.update_numprocs))
+class SupvisorsLazyUpdateNumprocs(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.update_numprocs))
+    @api.expect(wait_parser)
+    def post(self, program_name, numprocs):
+        args = wait_parser.parse_args()
+        return g.proxy.supvisors.update_numprocs(program_name, numprocs, args.wait, True)
+
+
 @api.route('/update_numprocs/<string:program_name>/<int:numprocs>', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.update_numprocs))
 class SupvisorsUpdateNumprocs(Resource):
@@ -416,20 +426,36 @@ class SupvisorsChangeLogLevel(Resource):
         return g.proxy.supvisors.change_log_level(log_level)
 
 
-@api.route('/enable_host_statistics/<int:enabled>', methods=('POST',))
+@api.route('/enable_host_statistics', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.enable_host_statistics))
 class SupvisorsEnableHostStatistics(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.enable_host_statistics))
-    def post(self, enabled: int):
-        return g.proxy.supvisors.enable_host_statistics(bool(enabled))
+    def post(self):
+        return g.proxy.supvisors.enable_host_statistics(True)
 
 
-@api.route('/enable_process_statistics/<int:enabled>', methods=('POST',))
+@api.route('/disable_host_statistics', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.enable_host_statistics))
+class SupvisorsEnableHostStatistics(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.enable_host_statistics))
+    def post(self):
+        return g.proxy.supvisors.enable_host_statistics(False)
+
+
+@api.route('/enable_process_statistics', methods=('POST',))
 @api.doc(description=get_docstring_description(RPCInterface.enable_process_statistics))
 class SupvisorsEnableProcessStatistics(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.enable_process_statistics))
-    def post(self, enabled: int):
-        return g.proxy.supvisors.enable_process_statistics(bool(enabled))
+    def post(self):
+        return g.proxy.supvisors.enable_process_statistics(True)
+
+
+@api.route('/disable_process_statistics', methods=('POST',))
+@api.doc(description=get_docstring_description(RPCInterface.enable_process_statistics))
+class SupvisorsEnableProcessStatistics(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.enable_process_statistics))
+    def post(self):
+        return g.proxy.supvisors.enable_process_statistics(False)
 
 
 @api.route('/update_collecting_period/<float:period>', methods=('POST',))

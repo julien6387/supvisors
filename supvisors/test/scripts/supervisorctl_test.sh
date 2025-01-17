@@ -81,7 +81,7 @@ sendRequest lazy_update_numprocs converter 12
 sendRequest update_numprocs converter 10
 sendRequest update_numprocs converter 15
 sendRequest disable converter
-sendRequest enable converter 15
+sendRequest enable converter
 
 # command requests on applications
 sendRequest restart_application MOST_LOADED database

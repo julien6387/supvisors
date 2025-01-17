@@ -169,6 +169,7 @@ class RPCInterface:
     def get_local_supvisors_info(self) -> str:
         """ Get network information about the local **Supvisors** instance.
 
+        TODO: change to network_info + identifier (no arg is self)
         :return: a structure containing network information about the local **Supvisors** instance.
         :rtype: dict[str, Any].
         """
@@ -725,6 +726,8 @@ class RPCInterface:
             onwait.delay = 0.5
             return onwait  # deferred
         return namespec
+
+    # TODO: def stop_all_processes(self, wait: bool = True) -> WaitReturnType:
 
     def stop_process(self, namespec: str, wait: bool = True) -> WaitReturnType:
         """ Stop the process named ``namespec`` on the **Supvisors** instance where it is running.

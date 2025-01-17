@@ -934,26 +934,40 @@ def test_supvisors_enable_host_statistics(xml_rpc, client):
     """ Check the enable_host_statistics REST API. """
     base_url = '/supvisors/enable_host_statistics'
     mocked_func = xml_rpc.supvisors.enable_host_statistics
-    # test error with missing parameter
-    check_post_error(client, f'{base_url}', mocked_func)
-    # test error with incorrect parameter (not an int)
+    # test error with incorrect parameter (not expected)
     check_post_error(client, f'{base_url}/lots', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/0', mocked_func, [call(False)])
-    check_post_success(client, f'{base_url}/1', mocked_func, [call(True)])
+    check_post_success(client, f'{base_url}', mocked_func, [call(True)])
+
+
+def test_supvisors_disable_host_statistics(xml_rpc, client):
+    """ Check the disable_host_statistics REST API. """
+    base_url = '/supvisors/disable_host_statistics'
+    mocked_func = xml_rpc.supvisors.enable_host_statistics
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}/lots', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}', mocked_func, [call(False)])
 
 
 def test_supvisors_enable_process_statistics(xml_rpc, client):
     """ Check the enable_process_statistics REST API. """
     base_url = '/supvisors/enable_process_statistics'
     mocked_func = xml_rpc.supvisors.enable_process_statistics
-    # test error with missing parameter
-    check_post_error(client, f'{base_url}', mocked_func)
-    # test error with incorrect parameter (not an int)
+    # test error with incorrect parameter (not expected)
     check_post_error(client, f'{base_url}/lots', mocked_func)
     # test with parameters
-    check_post_success(client, f'{base_url}/0', mocked_func, [call(False)])
-    check_post_success(client, f'{base_url}/1', mocked_func, [call(True)])
+    check_post_success(client, f'{base_url}', mocked_func, [call(True)])
+
+
+def test_supvisors_disable_process_statistics(xml_rpc, client):
+    """ Check the disable_process_statistics REST API. """
+    base_url = '/supvisors/disable_process_statistics'
+    mocked_func = xml_rpc.supvisors.enable_process_statistics
+    # test error with incorrect parameter (not expected)
+    check_post_error(client, f'{base_url}/lots', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}', mocked_func, [call(False)])
 
 
 def test_supvisors_update_collecting_period(xml_rpc, client):
