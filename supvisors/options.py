@@ -218,7 +218,7 @@ class SupvisorsOptions:
             self.synchro_options.remove(SynchronizationOptions.STRICT)
         # synchro_options must not be empty
         if not self.synchro_options:
-            raise ValueError('synchro_options must not be empty')
+            raise ValueError('synchro_options shall not be empty')
         # using TIMEOUT in synchro_options invalidates SupvisorsFailureStrategies
         # otherwise the SynchronizedState._check_failure_strategy may always trigger
         if (SynchronizationOptions.TIMEOUT in self.synchro_options
