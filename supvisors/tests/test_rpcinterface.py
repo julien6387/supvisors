@@ -64,9 +64,10 @@ def test_supvisors_state(mocker, rpc):
 
 def test_master_node(supvisors_instance, rpc):
     """ Test the get_master_identifier RPC. """
-    # prepare context
+    # test with no master
+    assert rpc.get_master_identifier() == {}
+    # test with master
     supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
-    # test call
     assert rpc.get_master_identifier() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1'}
 
 
