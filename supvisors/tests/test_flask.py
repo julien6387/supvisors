@@ -830,6 +830,21 @@ def test_supvisors_restart_process(xml_rpc, client):
                        mocked_func, [call('LESS_LOADED_NODE', 'my_movies:converter_02', '-x 2', False)])
 
 
+def test_supvisors_lazy_update_numprocs(xml_rpc, client):
+    """ Check the lazy_update_numprocs REST API. """
+    base_url = '/supvisors/lazy_update_numprocs'
+    mocked_func = xml_rpc.supvisors.update_numprocs
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    check_post_error(client, f'{base_url}/converter', mocked_func)
+    # test error with incorrect parameter (not an integer)
+    check_post_error(client, f'{base_url}/converter/hello', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/converter/10', mocked_func, [call('converter', 10, True, True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/converter/10?wait=false', mocked_func, [call('converter', 10, False, True)])
+
+
 def test_supvisors_update_numprocs(xml_rpc, client):
     """ Check the update_numprocs REST API. """
     base_url = '/supvisors/update_numprocs'
