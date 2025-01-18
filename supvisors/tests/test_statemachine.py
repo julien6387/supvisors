@@ -36,6 +36,12 @@ def supvisors_ctx(supvisors_instance):
     return supvisors_instance
 
 
+def set_instance_state(supvisors_instance, identifier: str, state: SupvisorsInstanceStates):
+    """ Update the internal state_modes structure, so that the identifier is seen in state for all instances. """
+    for sm in supvisors_instance.state_modes.instance_state_modes.values():
+        sm.instance_states[identifier] = state
+
+
 def test_base_state(supvisors_ctx):
     """ Test the SupvisorsBaseState of the FSM. """
     state = SupvisorsBaseState(supvisors_ctx)
@@ -102,12 +108,12 @@ def test_on_state(supvisors_ctx):
     supvisors_ctx.options.synchro_options = [opt for opt in SynchronizationOptions]
     assert state._check_strict_failure() is True  # some non-RUNNING
     assert state._check_list_failure() is True  # some non-RUNNING
-    assert state._check_core_failure() is False  # no core instances
+    assert state._check_core_failure() is True  # no core instances
     assert state._check_user_failure() is True  # one FAILED instance
     assert state.sync_alerts == {SynchronizationOptions.STRICT: True,
                                  SynchronizationOptions.LIST: True,
                                  SynchronizationOptions.TIMEOUT: False,
-                                 SynchronizationOptions.CORE: False,
+                                 SynchronizationOptions.CORE: True,
                                  SynchronizationOptions.USER: True}
     # raise CORE failure and fix FAILED
     supvisors_ctx.mapper._core_identifiers = ['10.0.0.1:25000']
@@ -122,20 +128,19 @@ def test_on_state(supvisors_ctx):
                                  SynchronizationOptions.CORE: True,
                                  SynchronizationOptions.USER: False}
     # force state context stabilization
-    state.state_modes.stable_identifiers = set(supvisors_ctx.mapper.instances.keys())
-    assert state._check_strict_failure() is True  # some not RUNNING
-    assert state._check_list_failure() is True  # some not RUNNING
-    assert state._check_core_failure() is True  # core instance still not RUNNING
+    supvisors_ctx.mapper.initial_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000']
+    state.state_modes.stable_identifiers = {'10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.2:25000'}
+    assert state._check_strict_failure() is False
+    assert state._check_list_failure() is True
+    assert state._check_core_failure() is False
     assert state._check_user_failure() is False
-    assert state.sync_alerts == {SynchronizationOptions.STRICT: True,
+    assert state.sync_alerts == {SynchronizationOptions.STRICT: False,
                                  SynchronizationOptions.LIST: True,
                                  SynchronizationOptions.TIMEOUT: False,
-                                 SynchronizationOptions.CORE: True,
+                                 SynchronizationOptions.CORE: False,
                                  SynchronizationOptions.USER: False}
     # ack all alerts for code coverage
-    for identifier in supvisors_ctx.mapper.instances:
-        supvisors_ctx.context.instances[identifier]._state = SupvisorsInstanceStates.RUNNING
-        supvisors_ctx.state_modes.local_state_modes.instance_states[identifier] = SupvisorsInstanceStates.RUNNING
+    state.state_modes.stable_identifiers = set(supvisors_ctx.mapper.instances.keys())
     assert state._check_strict_failure() is False
     assert state._check_list_failure() is False
     assert state._check_core_failure() is False
@@ -182,14 +187,13 @@ def check_synchronized_state(fsm_state: SynchronizedState, forced_state: Supviso
     fsm_state.supvisors.options.synchro_options = [SynchronizationOptions.USER]
     fsm_state.supvisors.options.supvisors_failure_strategy = SupvisorsFailureStrategies.CONTINUE
     fsm_state.context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.FAILED
-    fsm_state.supvisors.mapper._core_identifiers = []
     assert fsm_state.next() == default_state
     assert fsm_state._check_user_failure()
     assert not fsm_state.state_modes.degraded_mode
     # test no transition with no CORE failure, STRICT failure and RESYNC strategy
     fsm_state.supvisors.options.synchro_options = [SynchronizationOptions.CORE, SynchronizationOptions.STRICT]
     fsm_state.supvisors.options.supvisors_failure_strategy = SupvisorsFailureStrategies.RESYNC
-    fsm_state.supvisors.mapper._core_identifiers = []
+    set_instance_state(fsm_state.supvisors, '10.0.0.1:25000', SupvisorsInstanceStates.RUNNING)
     assert fsm_state.next() == default_state
     assert fsm_state._check_core_failure() is False
     assert fsm_state._check_strict_failure()
@@ -198,7 +202,7 @@ def check_synchronized_state(fsm_state: SynchronizedState, forced_state: Supviso
     # test no transition with no USER failure, CORE failure and SHUTDOWN strategy
     fsm_state.supvisors.options.synchro_options = [SynchronizationOptions.CORE, SynchronizationOptions.USER]
     fsm_state.supvisors.options.supvisors_failure_strategy = SupvisorsFailureStrategies.SHUTDOWN
-    fsm_state.supvisors.mapper._core_identifiers = ['10.0.0.1:25000']
+    set_instance_state(fsm_state.supvisors, '10.0.0.1:25000', SupvisorsInstanceStates.CHECKED)
     assert fsm_state.next() == default_state
     assert fsm_state._check_user_failure() is False
     assert fsm_state._check_core_failure()
@@ -221,24 +225,21 @@ def check_master_slave_state(fsm_state: MasterSlaveState, forced_state: Supvisor
                              default_state: SupvisorsStates = None):
     """ Test the transitions from any state inheriting from MasterSlaveState. """
     ref_master_identifier = fsm_state.state_modes.master_identifier
-
     # SynchronizedState test is applicable (includes OnState)
     check_synchronized_state(fsm_state, forced_state, default_state)
-
     # MasterSlaveState specific
     # prepare stability
     for sm in fsm_state.state_modes.instance_state_modes.values():
         sm.master_identifier = ref_master_identifier
+        sm.instance_states_SAVE = sm.instance_states
         sm.instance_states = {identifier: SupvisorsInstanceStates.RUNNING
                               for identifier in fsm_state.supvisors.mapper.instances}
     unstable_sm = fsm_state.state_modes.instance_state_modes['10.0.0.5:25000']
-
     # stable and Master shared
     fsm_state.state_modes.evaluate_stability()
     assert fsm_state.state_modes.stable_identifiers
     assert fsm_state.state_modes.check_master()
     assert fsm_state.next() == forced_state or SupvisorsStates.OFF  # Master state in slave
-
     # stable and Master not shared
     # WARN: next() calls evaluate_stability
     fsm_state.state_modes.evaluate_stability()
@@ -246,7 +247,6 @@ def check_master_slave_state(fsm_state: MasterSlaveState, forced_state: Supvisor
     assert not fsm_state.state_modes.check_master()
     assert fsm_state.state_modes.stable_identifiers
     assert fsm_state.next() == forced_state or SupvisorsStates.ELECTION
-
     # unstable and Master shared
     unstable_sm.master_identifier = ref_master_identifier
     unstable_sm.instance_states = {}
@@ -254,7 +254,6 @@ def check_master_slave_state(fsm_state: MasterSlaveState, forced_state: Supvisor
     assert not fsm_state.state_modes.stable_identifiers
     assert fsm_state.state_modes.check_master()
     assert fsm_state.next() == forced_state or SupvisorsStates.OFF  # Master state in slave
-
     # unstable and no Master shared
     unstable_sm.master_identifier = '10.0.0.5:25000'
     fsm_state.state_modes.evaluate_stability()
@@ -265,10 +264,14 @@ def check_master_slave_state(fsm_state: MasterSlaveState, forced_state: Supvisor
         assert result == default_state
     else:
         assert result == default_state or SupvisorsStates.OFF  # No-Master state in slave
+    # reset stability
+    for sm in fsm_state.state_modes.instance_state_modes.values():
+        sm.master_identifier = ref_master_identifier
+        sm.instance_states = sm.instance_states_SAVE
 
 
-def test_master_slave_state(supvisors_ctx):
-    """ Test the MasterSlaveState of the FSM. """
+def test_master_slave_state_common(supvisors_ctx):
+    """ Test the MasterSlaveState of the FSM / common part. """
     state = MasterSlaveState(supvisors_ctx)
     assert isinstance(state, SupvisorsBaseState)
     assert isinstance(state, OnState)
@@ -286,52 +289,50 @@ def test_master_slave_state(supvisors_ctx):
     supvisors_ctx.state_modes.master_identifier = '10.0.0.2:25000'
     assert state._slave_next() == SupvisorsStates.OFF
     supvisors_ctx.state_modes.master_identifier = ''
-
     # test dependency between action and master/slave action
     with patch.multiple(state, _common_next=DEFAULT,
                         _master_enter=DEFAULT, _master_next=DEFAULT, _master_exit=DEFAULT,
                         _slave_enter=DEFAULT, _slave_next=DEFAULT, _slave_exit=DEFAULT) as patches:
         # test on slave
         assert not supvisors_ctx.context.is_master
-
         state.enter()
         assert all(not p.called or pname == '_slave_enter' for pname, p in patches.items())
         patches['_slave_enter'].reset_mock()
-
         state.next()
         assert all(not p.called or pname in ['_slave_next', '_common_next']
                    for pname, p in patches.items())
         patches['_common_next'].reset_mock()
         patches['_slave_next'].reset_mock()
-
         state.exit()
         assert all(not p.called or pname == '_slave_exit' for pname, p in patches.items())
         patches['_slave_exit'].reset_mock()
-
         # test on master
         supvisors_ctx.state_modes.master_identifier = state.local_identifier
         assert supvisors_ctx.context.is_master
-
         state.enter()
         assert all(not p.called or pname == '_master_enter' for pname, p in patches.items())
         patches['_master_enter'].reset_mock()
-
         state.next()
         assert all(not p.called or pname in ['_master_next', '_common_next']
                    for pname, p in patches.items())
         patches['_common_next'].reset_mock()
         patches['_master_next'].reset_mock()
-
         state.exit()
         assert all(not p.called or pname == '_master_exit' for pname, p in patches.items())
         patches['_master_exit'].reset_mock()
 
-    # test all applicable to MasterSlaveState
-    # test Master
+
+def test_master_slave_state_master(supvisors_ctx):
+    """ Test the MasterSlaveState of the FSM / Master part. """
+    state = MasterSlaveState(supvisors_ctx)
     supvisors_ctx.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
     assert state.context.is_master
     check_master_slave_state(state)
-    # test Slave
+
+
+def test_master_slave_state_slave(supvisors_ctx):
+    """ Test the MasterSlaveState of the FSM / Slave part. """
+    state = MasterSlaveState(supvisors_ctx)
     supvisors_ctx.state_modes.master_identifier = '10.0.0.2:25000'
     assert not state.context.is_master
     check_master_slave_state(state, default_state=SupvisorsStates.OFF)
@@ -342,9 +343,9 @@ def check_working_state(state: WorkingState, forced_state: SupvisorsStates = Non
     """ Test the transitions from any state inheriting from WorkingState. """
     # MasterSlaveState test is applicable (includes OnState and SynchronizedState)
     check_master_slave_state(state, forced_state, default_state)
-
     # WorkingState specific
     status = state.context.instances['10.0.0.3:25000']
+    ref_state = status.state
     # presence of CHECKED instances
     status._state = SupvisorsInstanceStates.CHECKED
     assert state.next() == SupvisorsStates.ELECTION  # presence of CHECKED instance
@@ -353,30 +354,28 @@ def check_working_state(state: WorkingState, forced_state: SupvisorsStates = Non
     state.supvisors.fsm.force_distribution = True
     assert state.next() == SupvisorsStates.ELECTION
     state.supvisors.fsm.force_distribution = False
+    # reset context
+    status._state = ref_state
 
 
-def test_working_state(mocker, supvisors_ctx):
-    """ Test the WorkingState of the FSM. """
+def test_working_state_slave(mocker, supvisors_ctx):
+    """ Test the WorkingState of the FSM / Slave part. """
     state = WorkingState(supvisors_ctx)
     assert isinstance(state, SupvisorsBaseState)
     assert isinstance(state, OnState)
     assert isinstance(state, SynchronizedState)
     assert isinstance(state, MasterSlaveState)
-
     # mock FAILED instance
     mocker.patch.object(state.context, 'publish_process_failures')
     status = state.context.instances['10.0.0.4:25000']
     proc_1 = Mock(**{'invalidate_identifier.return_value': False})
     proc_2 = Mock(**{'invalidate_identifier.return_value': True})
     mocker.patch.object(status, 'running_processes', return_value=[proc_1, proc_2])
-
     # Test Slave part
     supvisors_ctx.state_modes.master_identifier = '10.0.0.2:25000'
     assert not state.context.is_master
-
     # test all applicable to WorkingState
     check_working_state(state, default_state=SupvisorsStates.OFF)
-
     # lost_instances / no trigger
     supvisors_ctx.starter.reset_mock()
     supvisors_ctx.stopper.reset_mock()
@@ -388,19 +387,30 @@ def test_working_state(mocker, supvisors_ctx):
     assert not supvisors_ctx.failure_handler.add_default_job.called
     assert not supvisors_ctx.failure_handler.trigger_jobs.called
 
+
+def test_working_state_master(mocker, supvisors_ctx):
+    """ Test the WorkingState of the FSM / Master part. """
+    state = WorkingState(supvisors_ctx)
+    assert isinstance(state, SupvisorsBaseState)
+    assert isinstance(state, OnState)
+    assert isinstance(state, SynchronizedState)
+    assert isinstance(state, MasterSlaveState)
+    # mock FAILED instance
+    mocker.patch.object(state.context, 'publish_process_failures')
+    status = state.context.instances['10.0.0.4:25000']
+    proc_1 = Mock(**{'invalidate_identifier.return_value': False})
+    proc_2 = Mock(**{'invalidate_identifier.return_value': True})
+    mocker.patch.object(status, 'running_processes', return_value=[proc_1, proc_2])
     # Test Master part
     supvisors_ctx.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
     assert state.context.is_master
-
     # test all applicable to WorkingState
     check_working_state(state)
-
     # lost_instances / trigger
     supvisors_ctx.starter.reset_mock()
     supvisors_ctx.stopper.reset_mock()
     supvisors_ctx.failure_handler.add_default_job.reset_mock()
     supvisors_ctx.failure_handler.trigger_jobs.reset_mock()
-
     status._state = SupvisorsInstanceStates.FAILED
     assert state.next() is None
     assert state.lost_instances == ['10.0.0.4:25000']
@@ -485,17 +495,19 @@ def test_synchronization_state_enter(supvisors_ctx, sync_state):
 def test_synchronization_state_check_end_sync_strict(supvisors_instance, sync_state):
     """ Test the SynchronizationState of the Supvisors FSM / _check_end_sync_strict method. """
     supvisors_instance.mapper.initial_identifiers = ['10.0.0.2:25000', '10.0.0.1:25000']
-    assert sync_state.context.instances['10.0.0.2:25000']._state == SupvisorsInstanceStates.STOPPED
-    assert sync_state.context.instances['10.0.0.1:25000']._state == SupvisorsInstanceStates.RUNNING
     # test with option STRICT not set
     supvisors_instance.options.synchro_options = []
     assert sync_state._check_end_sync_strict() is None
     # test with option STRICT set
     supvisors_instance.options.synchro_options = [SynchronizationOptions.STRICT]
-    # test when there are still UNKNOWN Supvisors instances
+    # test with unstable context
+    assert supvisors_instance.state_modes.stable_identifiers == set()
     assert sync_state._check_end_sync_strict() is False
-    # test when all initial instances are RUNNING, even there are still unknown states
-    sync_state.context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
+    # test with stable incomplete context
+    supvisors_instance.state_modes.stable_identifiers = {'10.0.0.2:25000', '10.0.0.3:25000'}
+    assert sync_state._check_end_sync_strict() is False
+    # test with stable complete context
+    supvisors_instance.state_modes.stable_identifiers.add('10.0.0.1:25000')
     assert sync_state._check_end_sync_strict()
 
 
@@ -506,15 +518,14 @@ def test_synchronization_state_check_end_sync_list(supvisors_instance, sync_stat
     assert sync_state._check_end_sync_list() is None
     # test with option LIST set
     supvisors_instance.options.synchro_options = [SynchronizationOptions.LIST]
-    # test when there are still non-RUNNING Supvisors instances
-    sync_state.context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
+    # test with unstable context
+    assert supvisors_instance.state_modes.stable_identifiers == set()
     assert sync_state._check_end_sync_list() is False
-    sync_state.context.instances['10.0.0.6:25000']._state = SupvisorsInstanceStates.RUNNING
-    sync_state.context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.RUNNING
-    assert not sync_state._check_end_sync_list()
-    # test when all Supvisors instances are RUNNING
-    for instance in sync_state.context.instances.values():
-        instance._state = SupvisorsInstanceStates.RUNNING
+    # test with stable incomplete context
+    supvisors_instance.state_modes.stable_identifiers = {'10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.5:25000'}
+    assert sync_state._check_end_sync_list() is False
+    # test with stable complete context
+    supvisors_instance.state_modes.stable_identifiers.update({'10.0.0.1:25000', '10.0.0.6:25000', '10.0.0.4:25000'})
     assert sync_state._check_end_sync_list()
 
 
@@ -539,18 +550,19 @@ def test_synchronization_state_check_end_sync_core(supvisors_instance, sync_stat
     assert sync_state._check_end_sync_core(80) is None
     # test with option CORE set
     supvisors_instance.options.synchro_options = [SynchronizationOptions.CORE]
-    # test when with no core instances
+    assert supvisors_instance.mapper.core_identifiers == []
+    # test when with no core instances (unexpected)
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1)
+    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
     # test with NOT all core instances running
     supvisors_instance.mapper._core_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000']
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
-    # test with all core instances running / unstability
+    # test with all core instances running / unstable
     supvisors_instance.mapper._core_identifiers = ['10.0.0.2:25000']
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
-    # test with all core instances running / stability
+    # test with all core instances running / stable
     supvisors_instance.state_modes.stable_identifiers = {identifier for identifier in supvisors_instance.mapper.instances}
     supvisors_instance.state_modes.local_state_modes.instance_states['10.0.0.2:25000'] = SupvisorsInstanceStates.RUNNING
     assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
@@ -613,6 +625,8 @@ def test_election_state(mocker, supvisors_ctx):
     assert mocked_abort.called
     # SynchronizedState test is applicable
     check_synchronized_state(state, default_state=SupvisorsStates.ELECTION)
+    # reset Master
+    supvisors_ctx.state_modes.master_identifier = ''
     # ElectionState specific
     # prepare stability
     for sm in state.state_modes.instance_state_modes.values():

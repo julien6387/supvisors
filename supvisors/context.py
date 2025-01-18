@@ -144,17 +144,6 @@ class Context:
                 for machine_id, identifiers in self.mapper.nodes.items()}
 
     # methods on instances
-    def initial_running(self) -> bool:
-        """ Return True if all declared Supervisor instances are in RUNNING state. """
-        return all(status.state == SupvisorsInstanceStates.RUNNING
-                   for identifier, status in self.instances.items()
-                   if identifier in self.mapper.initial_identifiers)
-
-    def all_running(self) -> bool:
-        """ Return True if all Supervisor instances are in RUNNING state. """
-        return all(status.state == SupvisorsInstanceStates.RUNNING
-                   for status in self.instances.values())
-
     def running_identifiers(self) -> NameList:
         """ Return the identifiers of the Supervisor instances in RUNNING state. """
         return self.identifiers_by_states([SupvisorsInstanceStates.RUNNING])

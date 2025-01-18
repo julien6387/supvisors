@@ -122,46 +122,10 @@ def test_get_nodes_load(mocker, context):
     assert context.get_nodes_load() == {'01:23:45:67:89:ab': 10, 'ab:cd:ef:01:23:45': 8}
 
 
-def test_initial_running(supvisors_instance, context):
-    """ Test the check of initial Supvisors instances running. """
-    # update mapper
-    supvisors_instance.mapper.initial_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000']
-    assert not context.initial_running()
-    # add some RUNNING
-    context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.RUNNING
-    assert not context.initial_running()
-    # add some RUNNING so that all initial instances are RUNNING
-    context.instances['10.0.0.3:25000']._state = SupvisorsInstanceStates.RUNNING
-    assert context.initial_running()
-    # set all RUNNING
-    for instance in context.instances.values():
-        instance._state = SupvisorsInstanceStates.RUNNING
-    assert context.initial_running()
-
-
-def test_all_running(context):
-    """ Test the check of all Supvisors instances running. """
-    assert not context.all_running()
-    # add some RUNNING
-    context.local_status._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.2:25000']._state = SupvisorsInstanceStates.RUNNING
-    context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.RUNNING
-    assert not context.all_running()
-    # set all RUNNING
-    for instance in context.instances.values():
-        instance._state = SupvisorsInstanceStates.RUNNING
-    assert context.all_running()
-
-
 def test_instances_by_states(supvisors_instance, context):
     """ Test the access to instances in unknown state. """
     # test initial states
     all_instances = sorted(supvisors_instance.mapper.instances.keys())
-    assert not context.all_running()
     assert context.running_identifiers() == []
     assert context.isolated_identifiers() == []
     assert sorted(context.valid_identifiers()) == all_instances
@@ -176,7 +140,6 @@ def test_instances_by_states(supvisors_instance, context):
     context.instances['10.0.0.5:25000']._state = SupvisorsInstanceStates.FAILED
     context.instances['10.0.0.6:25000']._state = SupvisorsInstanceStates.CHECKED
     # test new states
-    assert not context.all_running()
     assert context.running_identifiers() == ['10.0.0.1:25000']
     assert context.isolated_identifiers() == ['10.0.0.3:25000']
     assert sorted(context.valid_identifiers()) == sorted(['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.4:25000',
@@ -185,6 +148,7 @@ def test_instances_by_states(supvisors_instance, context):
     assert context.identifiers_by_states([SupvisorsInstanceStates.RUNNING,
                                           SupvisorsInstanceStates.ISOLATED]) == ['10.0.0.1:25000', '10.0.0.3:25000']
     assert context.identifiers_by_states([SupvisorsInstanceStates.STOPPED]) == ['10.0.0.4:25000']
+
 
 def test_activate_checked(context):
     """ Test the activation of checked Supvisors instances. """

@@ -216,7 +216,7 @@ class OnState(SupvisorsBaseState):
         in the supvisors_list option are running, and True otherwise.
         Return None if the STRICT option is not set. """
         if SynchronizationOptions.STRICT in self.supvisors.options.synchro_options:
-            if self.context.initial_running():
+            if self.state_modes.initial_running():
                 if self.sync_alerts[SynchronizationOptions.STRICT]:
                     self.sync_alerts[SynchronizationOptions.STRICT] = False
                     self.logger.warn('OnState.check_strict_failure: all expected Supvisors instances are RUNNING')
@@ -235,7 +235,7 @@ class OnState(SupvisorsBaseState):
         declared in the supvisors_list option and those discovered) are running, and True otherwise.
         Return None if the LIST option is not set. """
         if SynchronizationOptions.LIST in self.supvisors.options.synchro_options:
-            if self.context.all_running():
+            if self.state_modes.all_running():
                 if self.sync_alerts[SynchronizationOptions.LIST]:
                     self.sync_alerts[SynchronizationOptions.LIST] = False
                     self.logger.warn('OnState.check_list_failure: all known Supvisors instances are RUNNING')
@@ -251,7 +251,11 @@ class OnState(SupvisorsBaseState):
 
         More particularly, if the CORE option is set, return False if all the core Supvisors instances are running,
         and True otherwise.
-        Return None if the CORE option is not set. """
+        Return None if the CORE option is not set.
+
+        NOTE: the CORE option is unset at startup if core_identifiers is not set or empty, so it is considered
+              as a failure here (not meant to happen anyway).
+        """
         if SynchronizationOptions.CORE in self.supvisors.options.synchro_options:
             if self.state_modes.core_instances_running():
                 if self.sync_alerts[SynchronizationOptions.CORE]:
@@ -310,7 +314,6 @@ class SynchronizationState(OnState):
         """
         failure = self._check_strict_failure()
         if failure is False:
-            self.logger.info('SynchronizationState.check_end_sync_strict: all expected Supvisors instances are RUNNING')
             return True
         return False if failure else None
 
@@ -322,7 +325,6 @@ class SynchronizationState(OnState):
         """
         failure = self._check_list_failure()
         if failure is False:
-            self.logger.info('SynchronizationState.check_end_sync_list: all known Supvisors instances are RUNNING')
             return True
         return False if failure else None
 
@@ -361,10 +363,9 @@ class SynchronizationState(OnState):
             # in case of late start, a security limit of SYNCHRO_TIMEOUT_MIN is kept to give a chance
             # to other Supvisors instances and limit the number of re-distributions
             if uptime >= SupvisorsOptions.SYNCHRO_TIMEOUT_MIN:
-                self.logger.info('SynchronizationState.check_end_sync_core: all core Supvisors instances are RUNNING')
                 return True
-            self.logger.debug('SynchronizationState.check_end_sync_core: all core Supvisors instances are RUNNING'
-                              f' but wait ({uptime} < {SupvisorsOptions.SYNCHRO_TIMEOUT_MIN})')
+            self.logger.info('SynchronizationState.check_end_sync_core: all core Supvisors instances are RUNNING,'
+                             f' waiting ({uptime} < {SupvisorsOptions.SYNCHRO_TIMEOUT_MIN})')
             return False
         return False if failure else None
 

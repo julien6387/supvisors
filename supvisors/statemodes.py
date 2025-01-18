@@ -63,19 +63,21 @@ class StateModes:
         """ Property getter for the 'nick_identifier' attribute of the Supvisors instance. """
         return self.supvisors_id.nick_identifier
 
-    def get_stable_identifiers(self) -> NameSet:
+    def get_stable_running_identifiers(self) -> NameSet:
         """ Check the context stability of the Supvisors instance, by returning all its known remote Supvisors instances
-        that are in a stable state (RUNNING, STOPPED, ISOLATED).
+        that are in a RUNNING state.
 
-        In the event where any remote Supvisors instance is NOT in a stable state, the method returns an empty set.
+        In the event where any remote Supvisors instance is NOT in a stable state (RUNNING, STOPPED, ISOLATED),
+        the method returns an empty set.
 
-        :return: the Supvisors identifiers if the context is completely stable.
+        :return: the running Supvisors identifiers if the context is completely stable.
         """
         stable_identifiers = set()
         for identifier, state in self.instance_states.items():
             if state not in StateModes.STABLE_STATES:
                 return set()
-            stable_identifiers.add(identifier)
+            if state == SupvisorsInstanceStates.RUNNING:
+                stable_identifiers.add(identifier)
         return stable_identifiers
 
     def running_identifiers(self) -> NameSet:
@@ -356,16 +358,13 @@ class SupvisorsStateModes:
         """ Evaluate the Supvisors stability, i.e. if all stable identifiers are identical for all Supvisors instances.
 
         This is called periodically from the Supvisors FSM.
-
-        NOTE: a stable Supvisors instance is not necessarily RUNNING.
         """
-        stable_identifiers = [sm.get_stable_identifiers()
+        stable_identifiers = [sm.get_stable_running_identifiers()
                               for identifier, sm in self.instance_state_modes.items()
                               if self.is_running(identifier)]
         self.logger.debug(f'SupvisorsStateModes.update_stability: stable_identifiers={stable_identifiers}')
         if stable_identifiers and all(identifiers == stable_identifiers[0]
                                       for identifiers in stable_identifiers):
-            # TBC: store only running ones ?
             self.stable_identifiers = stable_identifiers[0]
         else:
             self.stable_identifiers = set()
@@ -457,17 +456,48 @@ class SupvisorsStateModes:
             # the important thing is to exit the SYNCHRONIZATION state if a USER Master is available
             self.master_identifier = next(iter(masters))
 
-    # Core instances
+    # Consolidated running instances
+    def all_running(self) -> bool:
+        """ Check if all Supvisors instances are in RUNNING state.
+
+        This is checked against the stable identifiers to ensure that the Supvisors instances are seen as RUNNING
+        by all Supvisors instances.
+        That's why this method is not in Supvisors Context module anymore.
+
+        :return: True if all Supvisors instances are in RUNNING state.
+        """
+        self.logger.debug(f'SupvisorsStateModes.all_running: stable_identifiers={self.stable_identifiers}'
+                          f' (expected nb={len(self.instance_state_modes)})')
+        return len(self.stable_identifiers) == len(self.instance_state_modes)
+
+    def initial_running(self) -> bool:
+        """ Check if all declared Supvisors instances are in RUNNING state.
+
+        This is checked against the stable identifiers to ensure that the declared Supvisors instances are seen
+        as RUNNING by all Supvisors instances.
+        That's why this method is not in Supvisors Context module anymore.
+
+        :return: True if all declared Supvisors instances are in RUNNING state, False other or no declared instance.
+        """
+        initial_identifiers = set(self.mapper.initial_identifiers)
+        if initial_identifiers:
+            self.logger.debug(f'SupvisorsStateModes.initial_running: stable_identifiers={self.stable_identifiers}'
+                              f' initial_identifiers={initial_identifiers}')
+            return initial_identifiers.issubset(self.stable_identifiers)
+        return False
+
     def core_instances_running(self) -> bool:
         """ Check if all Supvisors Core instances are in RUNNING state.
 
         This is checked against the stable identifiers to ensure that the Supvisors Core instances are seen as RUNNING
         by all Supvisors instances.
-        That's why this method is not in Supvisors Context module.
+        That's why this method is not in Supvisors Context module anymore.
 
-        :return: True if all Supvisors Core instances are in RUNNING state.
+        :return: True if all Supvisors Core instances are in RUNNING state, False otherwise or no Core instance.
         """
         core_identifiers = set(self.mapper.core_identifiers)
-        stable_running_identifiers = {identifier for identifier in self.stable_identifiers
-                                      if self.is_running(identifier)}
-        return core_identifiers.issubset(stable_running_identifiers)
+        if core_identifiers:
+            self.logger.debug(f'SupvisorsStateModes.core_instances_running: stable_identifiers={self.stable_identifiers}'
+                              f' core_identifiers={core_identifiers}')
+            return core_identifiers.issubset(self.stable_identifiers)
+        return False

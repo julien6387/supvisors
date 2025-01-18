@@ -42,7 +42,7 @@ def test_state_modes(mocker, supvisors_instance):
                            'master_identifier': '',
                            'starting_jobs': False, 'stopping_jobs': False,
                            'instance_states': {}}
-    assert sm.get_stable_identifiers() == set()
+    assert sm.get_stable_running_identifiers() == set()
     assert sm.running_identifiers() == set()
     # update the context (no stability)
     payload = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
@@ -83,13 +83,13 @@ def test_state_modes(mocker, supvisors_instance):
                                                '10.0.0.3': 'RUNNING',
                                                '10.0.0.4': 'FAILED',
                                                '10.0.0.5': 'ISOLATED'}}
-    assert sm.get_stable_identifiers() == set()
+    assert sm.get_stable_running_identifiers() == set()
     assert sm.running_identifiers() == {'10.0.0.3'}
     # update the context (force stability)
     sm.instance_states['10.0.0.1'] = SupvisorsInstanceStates.RUNNING
     sm.instance_states['10.0.0.2'] = SupvisorsInstanceStates.RUNNING
     sm.instance_states['10.0.0.4'] = SupvisorsInstanceStates.STOPPED
-    assert sm.get_stable_identifiers() == set(sm.instance_states.keys())
+    assert sm.get_stable_running_identifiers() == {'10.0.0.3', '10.0.0.1', '10.0.0.2'}
     assert sm.running_identifiers() == {'10.0.0.1', '10.0.0.2', '10.0.0.3'}
 
 
@@ -245,7 +245,7 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     simple_sm.on_instance_state_event('10.0.0.2:25000', event)
     assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == event
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000'}
     assert simple_sm.get_master_identifiers() == {''}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
@@ -317,7 +317,7 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     sup_id = supvisors_instance.mapper.instances['10.0.0.2:25000']
     assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == StateModes(sup_id).serial()
     assert simple_sm.master_identifier == ''
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000'}
     assert simple_sm.get_master_identifiers() == {''}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
@@ -348,7 +348,7 @@ def test_select_master_core(supvisors_instance, simple_sm):
     # check conditions
     simple_sm.evaluate_stability()
     assert not simple_sm.core_instances_running()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000'}
     assert simple_sm.get_master_identifiers() == {''}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
@@ -371,7 +371,7 @@ def test_select_master_core(supvisors_instance, simple_sm):
     # full stability
     simple_sm.on_instance_state_event('10.0.0.3:25000', event)
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.core_instances_running()
 
 
@@ -399,7 +399,7 @@ def test_supvisors_state_modes_established(supvisors_instance, simple_sm):
     # check conditions
     assert simple_sm.master_identifier == ''
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.get_master_identifiers() == {'10.0.0.3:25000', ''}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
@@ -410,7 +410,6 @@ def test_supvisors_state_modes_established(supvisors_instance, simple_sm):
     assert simple_sm.get_master_identifiers() == {'10.0.0.3:25000'}
     assert simple_sm.check_master()
     assert simple_sm.check_master(False)
-
 
 
 def test_supvisors_state_modes_split_brain(supvisors_instance, simple_sm):
@@ -436,7 +435,7 @@ def test_supvisors_state_modes_split_brain(supvisors_instance, simple_sm):
     # check conditions
     assert simple_sm.master_identifier == '10.0.0.3:25000'
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000', '10.0.0.3:25000'}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
@@ -450,7 +449,7 @@ def test_supvisors_state_modes_split_brain(supvisors_instance, simple_sm):
     # 10.0.0.2 do not change and 10.0.0.3 changes
     simple_sm.on_instance_state_event('10.0.0.3:25000', event)
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000'}
     assert simple_sm.check_master()
     assert simple_sm.check_master(False)
@@ -477,7 +476,7 @@ def test_supvisors_state_modes_split_brain_core(supvisors_instance, simple_sm):
     # check conditions
     assert simple_sm.master_identifier == '10.0.0.3:25000'
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000', '10.0.0.3:25000'}
     assert not simple_sm.check_master()
     # Trigger Master selection
@@ -490,7 +489,7 @@ def test_supvisors_state_modes_split_brain_core(supvisors_instance, simple_sm):
     event.update({'master_identifier': '10.0.0.3:25000'})
     simple_sm.on_instance_state_event('10.0.0.2:25000', event)
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.get_master_identifiers() == {'10.0.0.3:25000'}
     assert simple_sm.check_master()
 
@@ -518,7 +517,7 @@ def test_supvisors_state_modes_user(supvisors_instance, simple_sm):
     # check conditions
     assert simple_sm.master_identifier == ''
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.get_master_identifiers() == {'', '10.0.0.3:25000'}
     assert not simple_sm.check_master()
     # Trigger Master selection
@@ -531,6 +530,38 @@ def test_supvisors_state_modes_user(supvisors_instance, simple_sm):
     event.update({'master_identifier': '10.0.0.3:25000'})
     simple_sm.on_instance_state_event('10.0.0.3:25000', event)
     simple_sm.evaluate_stability()
-    assert simple_sm.stable_identifiers == set(supvisors_instance.mapper.instances.keys())
+    assert simple_sm.stable_identifiers == {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
     assert simple_sm.get_master_identifiers() == {'10.0.0.3:25000'}
     assert simple_sm.check_master()
+
+
+def test_all_running(simple_sm):
+    """ Test the check of all Supvisors instances running. """
+    assert simple_sm.stable_identifiers == set()
+    assert simple_sm.mapper.core_identifiers == []
+    simple_sm.mapper.initial_identifiers = []
+    # initial test
+    assert not simple_sm.all_running()
+    assert not simple_sm.initial_running()
+    assert not simple_sm.core_instances_running()
+    # add initial identifiers
+    simple_sm.mapper.initial_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000']
+    assert not simple_sm.all_running()
+    assert not simple_sm.initial_running()
+    assert not simple_sm.core_instances_running()
+    # add some as stable and add some core identifiers
+    simple_sm.stable_identifiers = {'10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000'}
+    simple_sm.mapper._core_identifiers = ['10.0.0.2:25000', '10.0.0.4:25000']
+    assert not simple_sm.all_running()
+    assert simple_sm.initial_running()
+    assert not simple_sm.core_instances_running()
+    # add some as stable and add some core identifiers
+    simple_sm.stable_identifiers.add('10.0.0.4:25000')
+    assert not simple_sm.all_running()
+    assert simple_sm.initial_running()
+    assert simple_sm.core_instances_running()
+    # set all as stable
+    simple_sm.stable_identifiers.update({'10.0.0.5:25000', '10.0.0.6:25000'})
+    assert simple_sm.all_running()
+    assert simple_sm.initial_running()
+    assert simple_sm.core_instances_running()
