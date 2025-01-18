@@ -111,6 +111,8 @@ When the ``STRICT`` option is selected, the synchronization is complete when all
 in the ``supvisors_list`` option are marked as ``RUNNING``.
 This excludes any |Supvisors| instance that has been added to |Supvisors| in discovery mode.
 
+This option is automatically disabled if the ``supvisors_list`` option is not set or empty.
+
 This option prevails over the ``LIST`` and ``USER`` options if combined with them.
 
 ``LIST`` option
@@ -122,6 +124,11 @@ This includes the |Supvisors| instances declared in the ``supvisors_list`` optio
 that has been added to |Supvisors| in discovery mode.
 
 This option prevails over the ``USER`` options if combined with it.
+
+.. attention:
+
+    When used together with the discovery mode, the synchronization may be completed very quickly in the event where
+    only the local |Supvisors| instance has been discovered.
 
 ``TIMEOUT`` option
 ******************
@@ -148,6 +155,8 @@ that may be started only on demand.
 In this case, it would be a pity to always wait for ``synchro_timeout`` seconds.
 That's why the ``core_identifiers`` attribute has been introduced so that the synchronization phase is considered
 completed when a subset of the |Supvisors| instances declared in ``supvisors_list`` are ``RUNNING``.
+
+This option is automatically disabled if the ``core_identifiers`` option is not set or empty.
 
 This option prevails over ``LIST`` and ``USER`` options if combined with them.
 
