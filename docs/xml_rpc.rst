@@ -80,6 +80,14 @@ Status
 
         .. automethod:: get_master_identifier()
 
+            ================== ================= ===========
+            Key                Type              Description
+            ================== ================= ===========
+            'identifier'       ``str``           The |Supvisors| *Master* instance identifier (``host_id:http_port``).
+            'nick_identifier'  ``str``           The |Supvisors| *Master* instance nick name, or a copy
+                                                 of the |Supvisors| identifier if not set.
+            ================== ================= ===========
+
         .. automethod:: get_strategies()
 
             =================== ========= ===========

@@ -123,10 +123,11 @@ class RPCInterface:
     def get_master_identifier(self) -> Payload:
         """ Get the identification of the **Supvisors** instance elected as **Supvisors** *Master*.
 
+        The payload returned is empty if the **Supvisors** *Master* is not set yet.
+
         :return: the identifier of the **Supvisors** *Master* instance and its nickname.
         :rtype: dict[str, str].
         """
-        # TODO: update doc
         master_instance = self.supvisors.context.master_instance
         if master_instance:
             return {'identifier': master_instance.supvisors_id.identifier,
