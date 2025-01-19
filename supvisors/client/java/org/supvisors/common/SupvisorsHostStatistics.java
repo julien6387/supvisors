@@ -56,6 +56,9 @@ public class SupvisorsHostStatistics {
     /** The identifier of the Supvisors instance. */
     private String identifier;
 
+    /** The monotonic time of the message, in the local reference time. */
+    private Double now_monotonic;
+
     /** The configured integration period. */
     private Float target_period;
 
@@ -86,6 +89,7 @@ public class SupvisorsHostStatistics {
     @SuppressWarnings({"unchecked"})
     public SupvisorsHostStatistics(HashMap statsInfo)  {
         this.identifier = (String) statsInfo.get("identifier");
+        this.now_monotonic = (Double) statsInfo.get("now_monotonic");
         this.target_period = (Float) statsInfo.get("target_period");
         this.period = DataConversion.arrayToFloatList((Object[]) statsInfo.get("period"));
         this.cpu = DataConversion.arrayToFloatList((Object[]) statsInfo.get("cpu"));
@@ -102,6 +106,15 @@ public class SupvisorsHostStatistics {
      */
     public String getIdentifier() {
         return this.identifier;
+    }
+
+    /**
+     * The getNowMonotonic method returns the monotonic time of the event.
+     *
+     * @return Double: The number of seconds since the local node startup.
+     */
+    public Double getNowMonotonic() {
+        return this.now_monotonic;
     }
 
     /**
@@ -215,6 +228,7 @@ public class SupvisorsHostStatistics {
     public String toString() {
         return "SupvisorsHostStatistics("
             + "identifier=" + this.identifier
+            + " nowMonotonic=" + this.now_monotonic
             + " target_period=" + this.target_period
             + " startPeriod=" + this.getStartPeriod()
             + " endPeriod=" + this.getEndPeriod()

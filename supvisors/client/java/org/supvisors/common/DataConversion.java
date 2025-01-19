@@ -16,8 +16,10 @@
 
 package org.supvisors.common;
 
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Objects;
@@ -110,7 +112,7 @@ public final class DataConversion {
     }
 
     /**
-     * The stringsToNamespec function joins group and process names into a namspec.
+     * The stringsToNamespec function joins group and process names into a namespec.
      * The function accepts 3 patterns:
      *     "processName" + "processName" returns "processName",
      *     "groupName" + "processName" returns "groupName:processName",
@@ -128,6 +130,34 @@ public final class DataConversion {
             return groupName + ":*";
         }
         return groupName + ":" + processName;
+    }
+
+    /**
+     * The timestampToDate function converts a POSIX timestamp into a printable date and time.
+     *
+     * @param Double timestamp: The POSIX timestamp.
+     * @return String: The date and time.
+     */
+    public static String timestampToDate(final Double timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        if (timestamp > 0.0) {
+            return "\"" + sdf.format(new Date(new Double(timestamp * 1000L).longValue())) + "\"";
+        }
+        return "0";
+    }
+
+    /**
+     * The timestampToDate function converts a POSIX timestamp into a printable date and time.
+     *
+     * @param Integer timestamp: The POSIX timestamp.
+     * @return String: The date and time.
+     */
+    public static String timestampToDate(final Integer timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        if (timestamp > 0) {
+            return "\"" + sdf.format(new Date(new Long(timestamp * 1000L))) + "\"";
+        }
+        return "0";
     }
 
     /**

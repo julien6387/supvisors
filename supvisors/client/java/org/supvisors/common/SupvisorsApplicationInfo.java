@@ -62,6 +62,9 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      */
     private Boolean managed;
 
+    /** The monotonic time of the message, in the local reference time. */
+    private Double now_monotonic;
+
     /**
      * A status telling if the running application has a major failure,
      * i.e. at least one of its required processes is stopped.
@@ -83,6 +86,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
         this.application_name = (String) applicationInfo.get("application_name");
         this.statename = State.valueOf((String) applicationInfo.get("statename"));
         this.managed = (Boolean) applicationInfo.get("managed");
+        this.now_monotonic = (Double) applicationInfo.get("now_monotonic");
         this.major_failure = (Boolean) applicationInfo.get("major_failure");
         this.minor_failure = (Boolean) applicationInfo.get("minor_failure");
     }
@@ -124,6 +128,15 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getNowMonotonic method returns the monotonic time of the event.
+     *
+     * @return Double: The number of seconds since the local node startup.
+     */
+    public Double getNowMonotonic() {
+        return this.now_monotonic;
+    }
+
+    /**
      * The hasMajorFailure method returns the status of the major failure for the application.
      *
      * @return Boolean: True if a major failure is raised.
@@ -147,10 +160,10 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsApplicationInfo("
-            + "name=" + this.application_name
+        return "SupvisorsApplicationInfo(name=" + this.application_name
             + " state=" + this.statename
             + " managed=" + this.managed
+            + " nowMonotonic=" + this.now_monotonic
             + " majorFailure=" + this.major_failure
             + " minorFailure=" + this.minor_failure + ")";
     }

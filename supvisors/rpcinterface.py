@@ -316,7 +316,7 @@ class RPCInterface:
         if not identifiers:
             self._raise(Faults.BAD_NAME, 'get_inner_process_info',
                         f'identifier={identifier} is unknown to Supvisors')
-        # no need to check if the process info_map has an entry for the Supviors instance
+        # no need to check if the process info_map has an entry for the Supvisors instance
         # because it would not make sense if it didn't
         return [proc.info_map[ident]
                 for ident in identifiers

@@ -55,6 +55,8 @@
 
 * Consider variable CPU frequency value returned by `psutil`.
 
+* Apply the XML-RPC updates on the JAVA client and the Flask interface.
+
 
 ## 0.18.7 (2025-01-10)
 

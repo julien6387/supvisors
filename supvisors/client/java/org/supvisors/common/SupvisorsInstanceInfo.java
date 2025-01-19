@@ -16,10 +16,7 @@
 
 package org.supvisors.common;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
-import com.google.gson.annotations.SerializedName;
 
 /**
  * The Class SupvisorsInstanceInfo.
@@ -71,18 +68,6 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /** True if one of the local processes has crashed or has exited unexpectedly. */
     private Boolean process_failure;
 
-    /** The instance state. */
-    private SupvisorsState fsm_statename;
-
-    /** The instance discovery mode. */
-    private Boolean discovery_mode;
-
-    /** True if the Supvisors instance has starting jobs in progress. */
-    private Boolean starting_jobs;
-
-    /** True if the Supvisors instance has stopping jobs in progress. */
-    private Boolean stopping_jobs;
-
     /**
      * This constructor gets all information from an HashMap.
      *
@@ -97,15 +82,11 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
         this.remote_sequence_counter = (Integer) instanceInfo.get("remote_sequence_counter");
         this.remote_mtime = (Double) instanceInfo.get("remote_mtime");
         this.remote_time = (Integer) instanceInfo.get("remote_time");
-        this.remote_sequence_counter = (Integer) instanceInfo.get("local_sequence_counter");
+        this.local_sequence_counter = (Integer) instanceInfo.get("local_sequence_counter");
         this.local_mtime = (Double) instanceInfo.get("local_mtime");
         this.local_time = (Integer) instanceInfo.get("local_time");
         this.loading = (Integer) instanceInfo.get("loading");
         this.process_failure = (Boolean) instanceInfo.get("process_failure");
-        this.fsm_statename = SupvisorsState.valueOf((String) instanceInfo.get("fsm_statename"));
-        this.discovery_mode = (Boolean) instanceInfo.get("discovery_mode");
-        this.starting_jobs = (Boolean) instanceInfo.get("starting_jobs");
-        this.stopping_jobs = (Boolean) instanceInfo.get("stopping_jobs");
     }
 
     /**
@@ -127,12 +108,22 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNickIdentifier method returns the identifier of the Supervisor instance.
+     * The getNickIdentifier method returns the nickname of the Supervisor instance.
      *
-     * @return String: The identifier of the Supervisor instance.
+     * @return String: The nickname of the Supervisor instance.
      */
     public String getNickIdentifier() {
         return this.nick_identifier;
+    }
+
+    /**
+     * The getSupvisorsIdentifier method returns the identification of the Supvisors instance,
+     * as a SupvisorsIdentifier instance.
+     *
+     * @return SupvisorsIdentifier: a SupvisorsIdentifier instance.
+     */
+    public SupvisorsIdentifier getSupvisorsIdentifier() {
+        return new SupvisorsIdentifier(this.identifier, this.nick_identifier);
     }
 
     /**
@@ -197,7 +188,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      * The getLocalSequenceCounter method returns the local TICK counter, when the latest remote TICK was received
      * from the remote node.
      *
-     * @return Integer: The number of TICK events received.
+     * @return Double: The number of TICK events received.
      */
     public Integer getLocalSequenceCounter() {
         return this.local_sequence_counter;
@@ -241,48 +232,11 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getSupvisorsState method returns the state of Supvisors.
-     *
-     * @return SupvisorsState: The state of Supvisors.
-     */
-    public SupvisorsState getSupvisorsState() {
-        return this.fsm_statename;
-    }
-
-    /**
-     * The inDiscoveryMode method returns True if the Supvisors instance is in discovery mode.
-     *
-     * @return Boolean: The discovery mode status.
-     */
-    public Boolean inDiscoveryMode() {
-        return this.discovery_mode;
-    }
-
-    /**
-     * The hasStartingJobs method returns True if the Supvisors instance has jobs in progress in its Starter.
-     *
-     * @return Boolean: The starting jobs progress.
-     */
-    public Boolean hasStartingJobs() {
-        return this.starting_jobs;
-    }
-
-    /**
-     * The hasStoppingJobs method returns True if the Supvisors instance has jobs in progress in its Stopper.
-     *
-     * @return Boolean: The stopping jobs progress.
-     */
-    public Boolean hasStoppingJobs() {
-        return this.stopping_jobs;
-    }
-
-    /**
      * The toString method returns True if one of the local processes has crashed or has exited unexpectedly.
      *
      * @return Boolean: The process failure status.
      */
     public String toString() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsInstanceInfo(identifier=" + this.identifier
             + " nickIdentifier=" + this.nick_identifier
             + " nodeName=" + this.node_name
@@ -290,16 +244,12 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
             + " state=" + this.statename
             + " remoteSequenceCounter=" + this.remote_sequence_counter
             + " remoteMonotonicTime=" + this.remote_mtime
-            + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
+            + " remoteTime=" + DataConversion.timestampToDate(this.remote_time)
             + " localSequenceCounter=" + this.local_sequence_counter
             + " localMonotonicTime=" + this.local_mtime
-            + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
+            + " localTime=" + DataConversion.timestampToDate(this.local_time)
             + " loading=" + this.loading
-            + " processFailure=" + this.process_failure
-            + " supvisorsState=" + this.fsm_statename
-            + " discoveryMode=" + this.discovery_mode
-            + " startingJobs=" + this.starting_jobs
-            + " stoppingJobs=" + this.stopping_jobs + ")";
+            + " processFailure=" + this.process_failure + ")";
     }
 
 }

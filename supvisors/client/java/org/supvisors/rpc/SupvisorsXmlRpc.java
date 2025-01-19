@@ -66,12 +66,50 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The getAllInstancesStateModes method returns information about the state & modes of all Supvisors instances.
+     *
+     * @return HashMap<String, SupvisorsStateModes>: State & modes for all Supvisors instances, sorted by name.
+     */
+    public HashMap<String, SupvisorsStateModes> getAllInstancesStateModes() throws XmlRpcException {
+        Object[] objectsArray = client.rpcCall(Namespace + "get_all_instances_state_modes", null, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsStateModes.class);
+    }
+
+    /**
+     * The getInstanceStateModes method returns information about a Supvisors instance, or multiple Supvisors instances
+     * identified by a stereotype.
+     *
+     * @param String identifier: The identifier of the Supvisors instance, or a stereotype.
+     * @return HashMap<String, SupvisorsStateModes>: Information for the Supvisors instances, sorted by name.
+     * @throws XmlRpcException: with code BAD_NAME if identifier is unknown to Supvisors.
+     */
+    public HashMap<String, SupvisorsStateModes> getInstanceStateModes(final String identifier) throws XmlRpcException {
+        Object[] params = new Object[]{identifier};
+        Object[] objectsArray = client.rpcCall(Namespace + "get_instance_state_modes", params, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsStateModes.class);
+    }
+
+    /**
+     * The getNetworkInfo method returns network information about the host where a Supvisors instance is running.
+     *
+     * @param String identifier: The identifier of the Supvisors instance.
+     * @return SupvisorsNetworkInfo: Network information about the host.
+     * @throws XmlRpcException: with code BAD_NAME if identifier is unknown to Supvisors.
+     */
+    public SupvisorsNetworkInfo getNetworkInfo(final String identifier) throws XmlRpcException {
+        Object[] params = new Object[]{identifier};
+        HashMap result = client.rpcCall(Namespace + "get_network_info", params, HashMap.class);
+        return new SupvisorsNetworkInfo(result);
+    }
+
+    /**
      * The getMasterIdentifier method returns the identifier of the Supvisors Master.
      *
-     * @return String: The Supvisors instance identifier.
+     * @return SupvisorsIdentifier: The Supvisors instance identifier.
      */
-    public String getMasterIdentifier() throws XmlRpcException {
-        return client.rpcCall(Namespace + "get_master_identifier", null, String.class);
+    public SupvisorsIdentifier getMasterIdentifier() throws XmlRpcException {
+        HashMap result = client.rpcCall(Namespace + "get_master_identifier", null, HashMap.class);
+        return new SupvisorsIdentifier(result);
     }
 
     /**
@@ -442,6 +480,7 @@ public class SupvisorsXmlRpc {
      * @param String programName: The name of the program.
      * @param Integer numProcs: The new number of processes.
      * @param Boolean wait: If true, the RPC returns only when the Supvisors is fully re-configured.
+     * @param Boolean lazy: If true, Supvisors let the processes in excess run until they terminate themselves.
      * @return Boolean: Always True unless error.
      * @throws XmlRpcException: with code BAD_SUPVISORS_STATE if Supvisors is not in state CONCILIATION.
      * @throws XmlRpcException: with code BAD_NAME if programName is unknown to Supvisors.
@@ -450,8 +489,8 @@ public class SupvisorsXmlRpc {
      * @throws XmlRpcException: with code STILL_RUNNING if any program process could not be stopped.
      */
     public Boolean updateNumprocs(final String programName, final Integer numProcs,
-            final Boolean wait) throws XmlRpcException {
-        Object[] params = new Object[]{programName, numProcs, wait};
+            final Boolean wait, final Boolean lazy) throws XmlRpcException {
+        Object[] params = new Object[]{programName, numProcs, wait, lazy};
         return client.rpcCall(Namespace + "update_numprocs", params, Boolean.class);
     }
 
@@ -619,7 +658,9 @@ public class SupvisorsXmlRpc {
         System.out.println("### Testing supvisors.getSupvisorsState(...) ###");
         System.out.println(supvisors.getSupvisorsState());
         System.out.println("### Testing supvisors.getMasterIdentifier(...) ###");
-        System.out.println(supvisors.getMasterIdentifier());
+        SupvisorsIdentifier master = supvisors.getMasterIdentifier();
+        System.out.println(master);
+        System.out.println(master.getName());
         System.out.println("### Testing supvisors.getStrategies(...) ###");
         System.out.println(supvisors.getStrategies());
 
@@ -631,6 +672,16 @@ public class SupvisorsXmlRpc {
         String identifier = instances.entrySet().iterator().next().getValue().getIdentifier();
         instances = supvisors.getInstanceInfo(identifier);
         System.out.println(instances);
+
+        // test Supvisors instance state & modes rpc
+        System.out.println("### Testing supvisors.getAllInstancesStateModes(...) ###");
+        System.out.println(supvisors.getAllInstancesStateModes());
+        System.out.println("### Testing supvisors.getInstanceStateModes(...) ###");
+        System.out.println(supvisors.getInstanceStateModes(identifier));
+
+        // test Supvisors instance network info
+        System.out.println("### Testing supvisors.getNetworkInfo(...) ###");
+        System.out.println(supvisors.getNetworkInfo(identifier));
 
         // test application status rpc
         System.out.println("### Testing supvisors.getAllApplicationInfo(...) ###");
@@ -659,6 +710,8 @@ public class SupvisorsXmlRpc {
         System.out.println("### Testing supvisors.getLocalProcessInfo(...) ###");
         SupvisorsLocalProcessInfo event = supvisors.getLocalProcessInfo(processName);
         System.out.println(event);
+
+        // test process inner status rpc: NOT IMPLEMENTED because it is a debug feature
 
         // test application rules rpc
         System.out.println("### Testing supvisors.getApplicationRules(...) ###");
@@ -705,8 +758,10 @@ public class SupvisorsXmlRpc {
         System.out.println("### Testing supvisors.restartProcess(...) ###");
         System.out.println(supvisors.restartProcess(StartingStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
         System.out.println("### Testing supvisors.update_numprocs(...) ###");
-        System.out.println(supvisors.updateNumprocs("converter", 10, true));
-        System.out.println(supvisors.updateNumprocs("converter", 15, true));
+        System.out.println(supvisors.updateNumprocs("converter", 12, true, false));
+        System.out.println(supvisors.updateNumprocs("converter", 10, true, true));
+        System.out.println(supvisors.updateNumprocs("converter", 12, true, false));
+        System.out.println(supvisors.updateNumprocs("converter", 15, true, true));
         System.out.println("### Testing supvisors.disable(...) ###");
         System.out.println(supvisors.disable("converter", true));
         System.out.println("### Testing supvisors.enable(...) ###");

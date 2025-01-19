@@ -16,7 +16,6 @@
 
 package org.supvisors.common;
 
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -35,14 +34,17 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     /** The process name. */
     private String process_name;
 
+    /** The monotonic time of the message, in the local reference time. */
+    private Double now_monotonic;
+
+    /** The monotonic time of the last Process event received for this process. */
+    private Double last_event_mtime;
+
     /** The process state. */
     private ProcessState statecode;
 
     /** A status telling if the process has exited expectantly. */
     private Boolean expected_exit;
-
-    /** The monotonic time of the last event received for this process. */
-    private Double last_event_time;
 
     /** The identifiers of the Supvisors instances where the process is running. */
     private List<String> identifiers;
@@ -58,9 +60,10 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     public SupvisorsProcessInfo(HashMap processInfo)  {
         this.process_name = (String) processInfo.get("process_name");
         this.application_name = (String) processInfo.get("application_name");
+        this.now_monotonic = (Double) processInfo.get("now_monotonic");
+        this.last_event_mtime = (Double) processInfo.get("last_event_mtime");
         this.statecode = ProcessState.valueOf((String) processInfo.get("statename"));
         this.expected_exit = (Boolean) processInfo.get("expected_exit");
-        this.last_event_time = (Double) processInfo.get("last_event_time");
         this.identifiers = DataConversion.arrayToStringList((Object[]) processInfo.get("identifiers"));
         this.extra_args = (String) processInfo.get("extra_args");
    }
@@ -93,6 +96,24 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getNowMonotonic method returns the monotonic time of the event.
+     *
+     * @return Double: The number of seconds since the local node startup.
+     */
+    public Double getNowMonotonic() {
+        return this.now_monotonic;
+    }
+
+    /**
+     * The getLastEventMonotonicTime method returns the monotonic time of the last event received for the process.
+     *
+     * @return Double: The monotonic time of the last Process event received.
+     */
+    public Double getLastEventMonotonicTime() {
+        return this.last_event_mtime;
+    }
+
+    /**
      * The getState method returns the state of the process.
      *
      * @return ProcessState: The state of the process.
@@ -109,15 +130,6 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      */
     public Boolean getExpectedExitStatus() {
         return this.expected_exit;
-    }
-
-    /**
-     * The getLastEventTime method returns the monotonic time of the last event received for the process.
-     *
-     * @return Double: The monotonic time of the last event received.
-     */
-    public Double getLastEventTime() {
-        return this.last_event_time;
     }
 
     /**
@@ -145,13 +157,13 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return String: The contents of the SupvisorsProcessInfo instance.
      */
     public String toString() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsProcessInfo(namespec=" + this.getName()
             + " applicationName=" + this.application_name
             + " processName=" + this.process_name
+            + " nowMonotonic=" + this.now_monotonic
+            + " lastEventMonotonicTime=" + this.last_event_mtime
             + " state=" + this.statecode
             + " expectedExitStatus=" + this.expected_exit
-            + " lastEventTime=" + this.last_event_time
             + " identifiers=" + this.identifiers
             + " extraArgs=\"" + this.extra_args + "\")";
     }
