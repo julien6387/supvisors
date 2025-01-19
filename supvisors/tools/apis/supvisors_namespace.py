@@ -103,12 +103,12 @@ class SupvisorsStatisticsStatus(Resource):
         return g.proxy.supvisors.get_statistics_status()
 
 
-@api.route('/local_supvisors_info', methods=('GET',))
-@api.doc(description=get_docstring_description(RPCInterface.get_local_supvisors_info))
-class SupvisorsLocalInfo(Resource):
-    @staticmethod
-    def get():
-        return g.proxy.supvisors.get_local_supvisors_info()
+@api.route('/network_info/<string:identifier>', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_network_info))
+class SupvisorsNetworkInfo(Resource):
+    @api.doc(params=get_docstring_parameters(RPCInterface.get_network_info))
+    def get(self, identifier):
+        return g.proxy.supvisors.get_network_info(identifier)
 
 
 @api.route('/all_instances_info', methods=('GET',))

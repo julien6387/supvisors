@@ -225,7 +225,7 @@ class SupervisorListener:
             # publish the TICK to all Supvisors instances
             self.rpc_handler.send_tick_event(payload)
             if self.mc_sender:
-                payload = self.supvisors.mapper.local_instance.serial()
+                payload = self.supvisors.mapper.local_instance.serial(with_network=False)
                 self.mc_sender.send_discovery_event(payload)
             # handle the statistics collection
             self._on_tick_stats()

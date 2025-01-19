@@ -101,7 +101,7 @@ Status
                                           state.
             =================== ========= ===========
 
-        .. automethod:: get_local_supvisors_info()
+        .. automethod:: get_network_info(identifier)
 
             ================== ================= ===========
             Key                Type              Description

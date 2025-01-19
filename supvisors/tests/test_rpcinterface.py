@@ -100,8 +100,8 @@ def test_statistics_status(supvisors_instance, rpc):
     assert rpc.get_statistics_status() == {'host_stats': False, 'process_stats': False, 'collecting_period': 7.5}
 
 
-def test_local_supvisors_info(rpc):
-    """ Test the get_local_supvisors_info RPC. """
+def test_network_info(rpc):
+    """ Test the get_network_info RPC. """
     expected = {'identifier': '10.0.0.1:25000',
                 'nick_identifier': '10.0.0.1',
                 'host_id': '10.0.0.1',
@@ -115,7 +115,11 @@ def test_local_supvisors_info(rpc):
                                                    'nic_info': {'ipv4_address': '10.0.0.1',
                                                                 'netmask': '255.255.255.0',
                                                                 'nic_name': 'eth0'}}}}}
-    assert rpc.get_local_supvisors_info() == expected
+    assert rpc.get_network_info(rpc.supvisors.mapper.local_identifier) == expected
+    # test with unknown identifier
+    with pytest.raises(RPCError) as exc:
+        rpc.get_network_info('10.0.0.0')
+    assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
 
 
 def test_instance_info(rpc):

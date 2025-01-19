@@ -580,8 +580,27 @@ def test_find_local_identifier(supvisors_instance):
     smapper = supvisors_instance.mapper
     smapper._find_local_identifier({'test'})
     assert smapper.local_identifier == '10.0.0.1:25000'
+    assert smapper.local_instance.local_view is smapper.local_network
     for identifier, supvisors_id in smapper.instances.items():
         assert identifier != 'supv01.bzh' or supvisors_id.stereotypes == ['test']
+    # check serial
+    expected = {'host_id': '10.0.0.1',
+                'http_port': 25000,
+                'identifier': '10.0.0.1:25000',
+                'nick_identifier': '10.0.0.1',
+                'stereotypes': ['supvisors_test'],
+                'network': {'fqdn': 'supv01.bzh',
+                            'machine_id': '01:23:45:67:89:ab',
+                            'addresses': {'eth0': {'host_name': 'supv01.bzh',
+                                                   'aliases': ['cliche01', 'supv01'],
+                                                   'ipv4_addresses': ['10.0.0.1'],
+                                                   'nic_info': {
+                                                       'ipv4_address': '10.0.0.1',
+                                                       'netmask': '255.255.255.0',
+                                                       'nic_name': 'eth0'}}}}}
+    assert smapper.local_instance.serial() == expected
+    del expected['network']
+    assert smapper.local_instance.serial(with_network=False) == expected
 
 
 def test_find_local_identifier_fqdn(supvisors_instance, mapper):
@@ -736,10 +755,12 @@ def test_filter(supvisors_instance, mapper):
 def test_identify(mapper):
     """ Test the SupvisorsMapper.identify method. """
     mapper.configure(['10.0.0.1', '10.0.0.2'], {'test'}, [])
-    sup_id: SupvisorsInstanceId = mapper.instances['10.0.0.1:25000']
-    assert not sup_id.local_view
-    assert not sup_id.remote_view
-    payload = mapper.serial()
+    # test first instance
+    sup_id_1: SupvisorsInstanceId = mapper.instances['10.0.0.1:25000']
+    assert sup_id_1 is mapper.local_instance
+    assert sup_id_1.local_view is mapper.local_network
+    assert not sup_id_1.remote_view
+    payload = sup_id_1.serial()
     assert payload == {'identifier': '10.0.0.1:25000',
                        'nick_identifier': '10.0.0.1',
                        'host_id': '10.0.0.1',
@@ -762,9 +783,41 @@ def test_identify(mapper):
                                        'nic_info': {'ipv4_address': '10.0.0.1',
                                                     'netmask': '255.255.255.0',
                                                     'nic_name': 'eth0'}}}}
-    assert sup_id.local_view.serial() == expected
-    assert sup_id.remote_view.serial() == expected
-    assert sup_id.stereotypes == ['test']
+    assert sup_id_1.local_view is mapper.local_network
+    assert sup_id_1.local_view.serial() == expected
+    assert sup_id_1.remote_view.serial() == expected
+    assert sup_id_1.stereotypes == ['test']
+    # test second instance
+    sup_id_2: SupvisorsInstanceId = mapper.instances['10.0.0.2:25000']
+    assert sup_id_2 is not mapper.local_instance
+    assert not sup_id_2.local_view
+    assert not sup_id_2.remote_view
+    payload = {'identifier': '10.0.0.2:25000',
+               'nick_identifier': '10.0.0.2',
+               'host_id': '10.0.0.2',
+               'http_port': 25000,
+               'stereotypes': [],
+               'network': {'addresses': {'eth0': {'host_name': 'supv02.bzh',
+                                                  'aliases': ['cliche02', 'supv02'],
+                                                  'ipv4_addresses': ['10.0.0.2'],
+                                                  'nic_info': {'ipv4_address': '10.0.0.2',
+                                                               'netmask': '255.255.255.0',
+                                                               'nic_name': 'eth0'}}},
+                           'fqdn': 'supv02.bzh',
+                           'machine_id': '01:23:45:67:89:ab'}}
+    mapper.identify(payload)
+    expected = {'fqdn': 'supv02.bzh',
+                'machine_id': '01:23:45:67:89:ab',
+                'addresses': {'eth0': {'host_name': 'supv02.bzh',
+                                       'aliases': ['cliche02', 'supv02'],
+                                       'ipv4_addresses': ['10.0.0.2'],
+                                       'nic_info': {'ipv4_address': '10.0.0.2',
+                                                    'netmask': '255.255.255.0',
+                                                    'nic_name': 'eth0'}}}}
+    assert sup_id_2.remote_view.serial() == expected
+    expected['fqdn'] = 'supv01.bzh'
+    assert sup_id_2.local_view.serial() == expected
+    assert sup_id_2.stereotypes == []
 
 
 def test_assign_stereotypes(supvisors_instance, mapper):

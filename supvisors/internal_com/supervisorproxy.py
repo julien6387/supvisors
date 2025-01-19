@@ -251,9 +251,9 @@ class SupervisorProxy:
         :param timestamp: the handshake timestamp.
         :return: None.
         """
-        network_info = self.xml_rpc('supvisors.get_local_supvisors_info',
-                                    self.proxy.supvisors.get_local_supvisors_info,
-                                    ())
+        network_info = self.xml_rpc('supvisors.get_network_info',
+                                    self.proxy.supvisors.get_network_info,
+                                    (self.status.identifier,))
         self.logger.debug(f'SupervisorProxy.transfer_network_info: network_info={network_info}')
         # provide the local Supvisors with the remote Supvisors instance network information
         # NOTE: use the proxy server to switch to the relevant proxy thread

@@ -272,19 +272,19 @@ def test_proxy_is_authorized(mocked_rpc, supvisors_instance, proxy):
 
 def test_proxy_transfer_network_info(mocker, proxy_server, mocked_rpc, proxy):
     """ Test the SupervisorProxy._transfer_network_info method. """
-    info_rpc = proxy.proxy.supvisors.get_local_supvisors_info
+    info_rpc = proxy.proxy.supvisors.get_network_info
     mocked_send = mocker.patch.object(proxy_server, 'push_notification')
     # test with transport failure
     info_rpc.side_effect = HTTPException
     with pytest.raises(SupervisorProxyException):
         proxy._transfer_network_info(1234.56)
-    assert info_rpc.call_args_list == [call()]
+    assert info_rpc.call_args_list == [call('10.0.0.2:25000')]
     assert not mocked_send.called
     info_rpc.reset_mock()
     # test with XML-RPC application failure
     info_rpc.side_effect = RPCError(Faults.ABNORMAL_TERMINATION)
     proxy._transfer_network_info(1234.56)
-    assert info_rpc.call_args_list == [call()]
+    assert info_rpc.call_args_list == [call('10.0.0.2:25000')]
     expected = NotificationHeaders.IDENTIFICATION.value, None
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
     info_rpc.reset_mock()
@@ -298,7 +298,7 @@ def test_proxy_transfer_network_info(mocker, proxy_server, mocked_rpc, proxy):
     info_rpc.side_effect = None
     info_rpc.return_value = netw_info
     proxy._transfer_network_info(1234.56)
-    assert info_rpc.call_args_list == [call()]
+    assert info_rpc.call_args_list == [call('10.0.0.2:25000')]
     expected = NotificationHeaders.IDENTIFICATION.value, netw_info
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
 

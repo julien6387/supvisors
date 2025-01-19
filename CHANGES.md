@@ -12,7 +12,7 @@
   **Supvisors** uses the `ioctl` functions to get the relevant network data on all network interfaces and matches
   the local instance on the whole information available.
   During the handshake, the local network data is shared with the other **Supvisors** instances using the new XML-RPC
-  `get_local_supvisors_info`.
+  `get_network_info`.
 
 * Take into account the network data in the **Supvisors** Web UI, so that the same network interface is used
   when navigating to another node.

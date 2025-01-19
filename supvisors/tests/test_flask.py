@@ -520,11 +520,15 @@ def test_supvisors_statistics_status(xml_rpc, client):
     check_get_success(client, f'{base_url}', mocked_func, [call()], {'host_stats': True})
 
 
-def test_supvisors_local_supvisors_info(xml_rpc, client):
-    """ Check the local_supvisors_info REST API. """
-    base_url = '/supvisors/local_supvisors_info'
-    mocked_func = xml_rpc.supvisors.get_local_supvisors_info
-    check_get_success(client, f'{base_url}', mocked_func, [call()], {'host': 'localhost'})
+def test_supvisors_network_info(xml_rpc, client):
+    """ Check the network_info REST API. """
+    base_url = '/supvisors/network_info'
+    mocked_func = xml_rpc.supvisors.get_network_info
+    # test error with missing parameter
+    check_get_error(client, f'{base_url}', mocked_func)
+    # test with parameters
+    check_get_success(client, f'{base_url}/server_02', mocked_func, [call('server_02')],
+                      {'host': 'localhost'})
 
 
 def test_supvisors_all_instances_info(xml_rpc, client):

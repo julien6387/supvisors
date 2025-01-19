@@ -351,16 +351,19 @@ class SupvisorsInstanceId:
             self.logger.debug(f'SupvisorsInstanceId.parse_from_string: identifier={self.identifier}'
                               f' host_id={self.host_id} http_port={self.http_port}')
 
-    def serial(self) -> Payload:
+    def serial(self, with_network: Optional[bool] = True) -> Payload:
         """ Get a serializable form of the instance parameters.
 
         :return: the instance parameters in a dictionary.
         """
-        return {'identifier': self.identifier,
-                'nick_identifier': self.nick_identifier,
-                'host_id': self.host_id,
-                'http_port': self.http_port,
-                'stereotypes': self.stereotypes}
+        payload = {'identifier': self.identifier,
+                   'nick_identifier': self.nick_identifier,
+                   'host_id': self.host_id,
+                   'http_port': self.http_port,
+                   'stereotypes': self.stereotypes}
+        if self.local_view and with_network:
+            payload['network'] = self.local_view.serial()
+        return payload
 
     def __repr__(self) -> str:
         """ Initialization of the attributes.
@@ -511,6 +514,9 @@ class SupvisorsMapper:
         if len(matching_identifiers) == 1:
             self.local_identifier = matching_identifiers[0]
             self.logger.info(f'SupvisorsMapper.find_local_identifier: {str(self.local_instance)}')
+            # assign the local network to the instance
+            self.local_instance.local_view = self.local_network
+            # check consistence with Supervisor configuration
             configured_identifier = self.supvisors.supervisor_data.identifier
             if configured_identifier not in [DEFAULT_IDENTIFIER, self.local_nick_identifier]:
                 self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
@@ -565,9 +571,10 @@ class SupvisorsMapper:
         # build LocalNetwork from the payload as it is, and assign it to the remote view
         sup_id.remote_view = remote_view = LocalNetwork(self.logger)
         remote_view.from_payload(payload['network'])
-        # build a local view from it
-        sup_id.local_view = local_view = LocalNetwork(self.logger)
-        local_view.from_network(remote_view)
+        # build a local view from it (local instance already configured)
+        if not sup_id.local_view:
+            sup_id.local_view = local_view = LocalNetwork(self.logger)
+            local_view.from_network(remote_view)
         # update nodes using machine id as a key
         self.nodes.setdefault(remote_view.machine_id, []).append(sup_id.identifier)
         # assign the stereotypes
@@ -621,12 +628,3 @@ class SupvisorsMapper:
                                  f' <{known_nick_identifier}>{identifier}')
             return False
         return True
-
-    def serial(self) -> Payload:
-        """ Get a serializable form of the full identification of the local Supvisors instance.
-
-        :return: the full identification of the local Supvisors instance.
-        """
-        payload = self.local_instance.serial()
-        payload['network'] = self.local_network.serial()
-        return payload

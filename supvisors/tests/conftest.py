@@ -211,7 +211,7 @@ def mock_xml_rpc(proxy):
     proxy.supvisors.get_master_identifier.return_value = 'server_01'
     proxy.supvisors.get_strategies.return_value = {'auto-fencing': False, 'conciliation': 'USER'}
     proxy.supvisors.get_statistics_status.return_value = {'host_stats': True}
-    proxy.supvisors.get_local_supvisors_info.return_value = {'host': 'localhost'}
+    proxy.supvisors.get_network_info.return_value = {'host': 'localhost'}
     proxy.supvisors.get_all_instances_info.return_value = [{'identifier': 'server_01', 'statename': 'RUNNING'},
                                                            {'identifier': 'server_02', 'stopping': False}]
     proxy.supvisors.get_instance_info.return_value = {'identifier': 'server_02', 'stopping': False}

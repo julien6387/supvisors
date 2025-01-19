@@ -167,14 +167,18 @@ class RPCInterface:
                 'process_stats': options.process_stats_enabled and has_collector,
                 'collecting_period': options.collecting_period}
 
-    def get_local_supvisors_info(self) -> str:
-        """ Get network information about the local **Supvisors** instance.
+    def get_network_info(self, identifier: str) -> str:
+        """ Get network information about the **Supvisors** instance.
 
-        TODO: change to network_info + identifier (no arg is self)
-        :return: a structure containing network information about the local **Supvisors** instance.
+        :return: a structure containing network information about the **Supvisors** instance.
         :rtype: dict[str, Any].
+        :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
         """
-        return self.supvisors.mapper.serial()
+        identifiers = self.supvisors.mapper.filter([identifier])
+        if not identifiers:
+            self._raise(Faults.BAD_NAME, 'get_network_info',
+                        f'identifier={identifier} is unknown to Supvisors')
+        return self.supvisors.mapper.instances[identifier].serial()
 
     def get_all_instances_info(self) -> PayloadList:
         """ Get information about all **Supvisors** instances.
