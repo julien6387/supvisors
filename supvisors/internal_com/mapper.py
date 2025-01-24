@@ -263,7 +263,7 @@ class SupvisorsInstanceId:
     def __init__(self, item: str, supvisors: Any):
         """ Initialization of the attributes.
 
-        :param item: the Supervisor parameters to be parsed
+        :param item: the Supervisor parameters to be parsed.
         """
         self.supvisors = supvisors
         # attributes set a posteriori

@@ -800,7 +800,7 @@ public class SupvisorsXmlRpc {
         try {
             Thread.sleep(60000);
         } catch (InterruptedException e) {
-            // no matter
+            // doesn't matter
         }
 
         System.out.println("### Testing supvisors.shutdown(...) ###");
