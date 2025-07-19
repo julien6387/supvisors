@@ -1050,17 +1050,17 @@ class Commander:
         In the same idea, clear the processes from failed_processes if their starting or stopping is planned.
         An additional automatic behaviour on the same entity may not be suitable or even consistent.
         This case may seem a bit far-fetched, but it has already happened actually in a degraded environment:
-            - let N1 and N2 be 2 running Supvisors instances ;
-            - let P be a process running on N2 ;
-            - N2 is lost (let's assume a network congestion, NOT a node crash) so P becomes FATAL ;
-            - P is requested to restart on N1 (automatic strategy, user action, etc.) ;
-            - while P is still in planned jobs, N2 comes back and thus P becomes RUNNING again ;
+            - let N1 and N2 be 2 running Supvisors instances;
+            - let P be a process running on N2;
+            - N2 is lost (let's assume a network congestion, NOT a node crash) so P becomes FATAL;
+            - P is requested to restart on N1 (automatic strategy, user action, etc.);
+            - while P is still in planned jobs, N2 comes back and thus P becomes RUNNING again;
             - N2 gets lost again. P becomes FATAL again whereas its starting on N1 is still in the pipe.
 
-        :param invalidated_identifiers: the identifiers of the Supvisors instances that have just been declared SILENT
+        :param invalidated_identifiers: the identifiers of the Supvisors instances that have just been declared SILENT.
         :param failed_processes: the processes that were running on the invalidated Supvisors instances and thus
-        declared in failure
-        :return: None
+        declared in failure.
+        :return: None.
         """
         # clear the invalidated Supvisors instances from the pending requests
         for application_jobs in list(self.current_jobs.values()):

@@ -51,7 +51,7 @@ class SupvisorsInstanceView(ViewHandler, StatusView):
     def write_status(self, header_elt):
         """ Rendering of the header part of the Supvisors Instance page. """
         # set Master symbol
-        if self.sup_ctx.is_master:
+        if self.state_modes.is_master():
             header_elt.findmeld('master_mid').content(SupvisorsSymbols.MASTER_SYMBOL)
         # set Supvisors instance identifier
         header_elt.findmeld('instance_mid').content(self.local_nick_identifier)

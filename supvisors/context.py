@@ -39,9 +39,9 @@ class Context:
     """ The Context class holds the main data of Supvisors.
 
     Attributes are:
-        - supvisors: the Supvisors global structure ;
-        - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier) ;
-        - applications: the dictionary of all ApplicationStatus (key is application name) ;
+        - supvisors: the Supvisors global structure;
+        - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier);
+        - applications: the dictionary of all ApplicationStatus (key is application name);
         - start_date: the date since Supvisors entered the OFF state.
     """
 
@@ -101,19 +101,9 @@ class Context:
 
     # Master instance status and operations
     @property
-    def master_identifier(self) -> str:
-        """ Get the identifier of the Supvisors Master instance. """
-        return self.state_modes.master_identifier
-
-    @property
-    def is_master(self) -> bool:
-        """ Return True if the local Supvisors instance is the Supvisors Master instance. """
-        return self.master_identifier == self.local_identifier
-
-    @property
     def master_instance(self) -> Optional[SupvisorsInstanceStatus]:
         """ Get local Supvisors instance structure. """
-        return self.instances.get(self.master_identifier)
+        return self.instances.get(self.state_modes.master_identifier)
 
     # methods on nodes
     def is_valid(self, identifier: str, nick_identifier: str,

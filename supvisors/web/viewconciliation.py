@@ -59,7 +59,7 @@ class ConciliationView(MainView):
         for strategy in self.strategies:
             elt = contents_elt.findmeld(f'{strategy}_strategy_a_mid')
             # conciliation requests MUST be sent to MASTER and namespec MUST be reset
-            master = self.sup_ctx.master_identifier
+            master = self.state_modes.master_identifier
             parameters = {NAMESPEC: '', ACTION: strategy}
             url = self.view_ctx.format_url(master, SupvisorsPages.CONCILIATION_PAGE, **parameters)
             elt.attributes(href=url)
@@ -161,7 +161,7 @@ class ConciliationView(MainView):
         for strategy in self.strategies:
             elt = td_elt.findmeld(f'{strategy}_local_strategy_a_mid')
             # conciliation requests MUST be sent to the Supvisors Master
-            master = self.sup_ctx.master_identifier
+            master = self.state_modes.master_identifier
             parameters = {NAMESPEC: namespec, ACTION: strategy}
             url = self.view_ctx.format_url(master, SupvisorsPages.CONCILIATION_PAGE, **parameters)
             elt.attributes(href=url)

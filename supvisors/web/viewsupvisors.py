@@ -91,7 +91,7 @@ class SupvisorsView(MainView):
         else:
             update_attrib(elt, 'class', 'off')
         nick_identifier = status.supvisors_id.nick_identifier
-        if status.identifier == self.sup_ctx.master_identifier:
+        if status.identifier == self.state_modes.master_identifier:
             nick_identifier = f'{SupvisorsSymbols.MASTER_SYMBOL} {nick_identifier}'
         elt.content(nick_identifier)
         # set Supvisors instance state
@@ -165,7 +165,7 @@ class SupvisorsView(MainView):
         # check if user end of sync is allowed
         user_sync = (SynchronizationOptions.USER in self.supvisors.options.synchro_options
                      and self.supvisors.fsm.state == SupvisorsStates.SYNCHRONIZATION
-                     and not self.sup_ctx.master_identifier)
+                     and not self.state_modes.master_identifier)
         # create a box for every Supvisors instances
         identifiers = list(self.supvisors.mapper.instances.keys())
         # in discovery mode, other Supvisors instances arrive randomly in every Supvisors instance

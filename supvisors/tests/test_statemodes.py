@@ -150,6 +150,7 @@ def test_supvisors_state_modes(supvisors_instance, state_modes):
     assert not state_modes.stopping_jobs
     for identifier in supvisors_instance.mapper.instances:
         assert not state_modes.is_running(identifier)
+    assert not state_modes.is_master()
 
 
 def test_supvisors_state_modes_discovery(mocker, supvisors_instance, state_modes_discovery):
@@ -165,7 +166,7 @@ def test_supvisors_state_modes_discovery(mocker, supvisors_instance, state_modes
 
 
 def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
-    """ Test the SupvisorsStateModes accessors on the local state & modes.
+    """ Test the SupvisorsStateModes accessors on the local state and modes.
     Follow the expected logic of events in a normal Supvisors startup.
     """
     mocker.patch('time.monotonic', return_value=1234.56)
@@ -176,7 +177,7 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     assert simple_sm.local_state_modes.instance_states['10.0.0.1:25000'] == SupvisorsInstanceStates.RUNNING
     assert simple_sm.update_mark
     assert not mocked_send.called
-    # Notification of local state & modes event
+    # Notification of local state and modes event
     expected = simple_sm.local_state_modes.serial()
     simple_sm.on_instance_state_event('10.0.0.1:25000', expected)
     assert simple_sm.instance_state_modes['10.0.0.1:25000'].serial() == expected
@@ -257,6 +258,7 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     assert not supvisors_instance.mapper.core_identifiers
     simple_sm.select_master()
     assert simple_sm.master_identifier == '10.0.0.1:25000'
+    assert simple_sm.is_master()
     assert simple_sm.master_state_modes is simple_sm.instance_state_modes['10.0.0.1:25000']
     assert simple_sm.master_state == SupvisorsStates.ELECTION
     assert simple_sm.get_master_identifiers() == {'10.0.0.1:25000', ''}
@@ -355,6 +357,7 @@ def test_select_master_core(supvisors_instance, simple_sm):
     # Trigger Master selection
     simple_sm.select_master()
     assert simple_sm.master_identifier == '10.0.0.2:25000'
+    assert not simple_sm.is_master()
     assert simple_sm.master_state_modes is simple_sm.instance_state_modes['10.0.0.2:25000']
     assert simple_sm.master_state == SupvisorsStates.ELECTION
     assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000', ''}
@@ -495,7 +498,7 @@ def test_supvisors_state_modes_split_brain_core(supvisors_instance, simple_sm):
 
 
 def test_supvisors_state_modes_user(supvisors_instance, simple_sm):
-    """ Test the SupvisorsStateModes accessors on the local state & modes.
+    """ Test the SupvisorsStateModes accessors on the local state and modes.
     Follow the expected logic of events in a case where the Supvisors user has selected a Master
     on a remote Supvisors instance with USER sync option.
     """

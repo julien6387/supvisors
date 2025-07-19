@@ -337,7 +337,7 @@ class ProcInstanceView(SupvisorsInstanceView):
     def write_supervisord_status(self, tr_elt, info: Payload) -> None:
         """ Write the supervisord status into a table. """
         # display Master symbol in shex column
-        if self.sup_ctx.is_master:
+        if self.state_modes.is_master():
             elt = tr_elt.findmeld('shex_td_mid')
             elt.content(SupvisorsSymbols.MASTER_SYMBOL)
         # print process name

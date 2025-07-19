@@ -215,7 +215,7 @@ class SupvisorsStateModes:
     @property
     def degraded_mode(self) -> bool:
         """ Return True if the Supvisors in running in a degraded context,
-        i.e. any expected Supvisors instance is missing. """
+        i.e., any expected Supvisors instance is missing. """
         return self.local_state_modes.degraded_mode
 
     @degraded_mode.setter
@@ -273,6 +273,11 @@ class SupvisorsStateModes:
         if self.local_state_modes.stopping_jobs != in_progress:
             self.local_state_modes.stopping_jobs = in_progress
             self.publish_status()
+
+    # Master identity
+    def is_master(self) -> bool:
+        """ Return True if the local Supvisors instance is the Supvisors Master instance. """
+        return self.master_identifier == self.local_identifier
 
     # Supvisors instance update
     def add_instance(self, identifier: str) -> None:

@@ -64,29 +64,9 @@ def test_create(supvisors_instance, context):
     assert context.local_identifier == '10.0.0.1:25000'
     assert context.local_status == context.instances['10.0.0.1:25000']
     assert context.applications == {}
-    assert context.master_identifier == ''
-    assert not context.is_master
     assert context.master_instance is None
     assert context.start_date == 0.0
     assert context.uptime > 0.0
-
-
-def test_master_identifier(supvisors_instance, context):
-    """ Test the access to master identifier. """
-    local_identifier = supvisors_instance.mapper.local_identifier
-    assert context.master_identifier == ''
-    assert not context.is_master
-    assert context.master_instance is None
-    # set remote instance as Master
-    supvisors_instance.state_modes.master_identifier = '10.0.0.2:25000'
-    assert context.master_identifier == '10.0.0.2:25000'
-    assert not context.is_master
-    assert context.master_instance is context.instances['10.0.0.2:25000']
-    # set local instance as Master
-    supvisors_instance.state_modes.master_identifier = local_identifier
-    assert context.master_identifier == local_identifier
-    assert context.is_master
-    assert context.master_instance is context.local_status
 
 
 def test_is_valid(context):

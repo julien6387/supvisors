@@ -1169,7 +1169,7 @@ class RPCInterface:
             ``Faults.NOT_RUNNING`` if the selected Master Supvisors instance is not in state ``RUNNING``.
         """
         self._check_state([SupvisorsStates.SYNCHRONIZATION])
-        if self.supvisors.context.master_identifier:
+        if self.supvisors.state_modes.master_identifier:
             self._raise(SupvisorsFaults.BAD_SUPVISORS_STATE.value, 'end_sync', 'Supvisors synchronization ending')
         if SynchronizationOptions.USER not in self.supvisors.options.synchro_options:
             self._raise(SupvisorsFaults.NOT_APPLICABLE.value, 'end_sync', 'USER expected in synchro_options')

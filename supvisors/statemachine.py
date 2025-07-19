@@ -381,7 +381,7 @@ class SynchronizationState(_OnState):
             # accept any master remotely selected
             self.state_modes.accept_master()
             # the Master Supvisors instance must be seen as running
-            if self.context.master_identifier and self.context.master_instance.running:
+            if self.state_modes.master_identifier and self.context.master_instance.running:
                 self.logger.info('SynchronizationState.check_end_sync_user: the Supvisors Master instance is RUNNING')
                 return True
             return False
@@ -425,7 +425,7 @@ class SynchronizationState(_OnState):
 
 
 class _SynchronizedState(_OnState):
-    """ The PostSynchronizationState is applicable to all FSM states past the SYNCHRONIZATION state.
+    """ The SynchronizedState is applicable to all FSM states past the SYNCHRONIZATION state.
 
     It increases the level of checking instances to go back to SYNCHRONIZATION state
     when the initial conditions are not met anymore.
@@ -507,14 +507,14 @@ class ElectionState(_SynchronizedState):
                 # WARN: a non-conditioned transition to DISTRIBUTION may loop infinitely
                 #       if the Master is still seen in ELECTION
                 # the Master transitions to DISTRIBUTION
-                if self.context.is_master:
+                if self.state_modes.is_master():
                     return SupvisorsStates.DISTRIBUTION
                 # the Slave waits for the Master to transition
                 if self.state_modes.master_state != SupvisorsStates.ELECTION:
                     return self.state_modes.master_state
             # re-evaluate the context to possibly get a more relevant Master
             self.state_modes.select_master()
-            # NOTE: after local Master selection, wait for selection to be shared and agreed
+            # NOTE: after Master local selection, wait for selection to be shared and agreed
             #       among all Supvisors instances
         else:
             self.logger.info('ElectionState.next: waiting for the Supvisors context to stabilize')
@@ -539,7 +539,7 @@ class _MasterSlaveState(_SynchronizedState):
 
         :return: None.
         """
-        if self.context.is_master:
+        if self.state_modes.is_master():
             self._master_enter()
         else:
             self._slave_enter()
@@ -574,15 +574,23 @@ class _MasterSlaveState(_SynchronizedState):
         # common behaviour
         self._common_next()
         # specific behaviour
-        if self.context.is_master:
+        if self.state_modes.is_master():
             return self._master_next()
         return self._slave_next()
 
     def _common_next(self) -> None:
-        """ Eventual additional operations to be performed by Master and Slaves.
+        """ Operations to be performed by Master and Slaves.
 
         :return: None.
         """
+        # At this point, there may be a list of FAILED Supvisors instances
+        self.logger.debug(f'MasterSlaveState.common_next: invalid={self.lost_instances}')
+        if self.lost_instances:
+            # inform Starter and Stopper because processes in failure may be removed if already in their pipes
+            # NOTE: any Supvisors instance can be requested by the user to plan and drive an application start sequence
+            #       only the automatic start sequence (DISTRIBUTION) is driven by the Master instance
+            self.supvisors.starter.on_instances_invalidation(self.lost_instances, self.lost_processes)
+            self.supvisors.stopper.on_instances_invalidation(self.lost_instances, self.lost_processes)
 
     def _master_next(self) -> Optional[SupvisorsStates]:
         """ Evaluate the current Supvisors status for the Supvisors Master instance to decide
@@ -608,7 +616,7 @@ class _MasterSlaveState(_SynchronizedState):
 
         :return: None.
         """
-        if self.context.is_master:
+        if self.state_modes.is_master():
             self._master_exit()
         else:
             self._slave_exit()
@@ -646,59 +654,7 @@ class _MasterSlaveState(_SynchronizedState):
         return None
 
 
-class _WorkingState(_MasterSlaveState):
-    """ Base class for working (DISTRIBUTION, OPERATION, CONCILIATION) states.
-
-    It transitions back to ELECTION when new Supvisors instances come into Supvisors.
-    Exception is made for DISTRIBUTION to let the distribution end without interference.
-    TBC: failure_handler in DISTRIBUTION ?
-
-    It manages the impact on start/stop sequences when Supvisors instances are lost.
-    The Master may re-distribute the lost processes.
-    """
-
-    def _activate_instances(self) -> Optional[SupvisorsStates]:
-        """ Back to ELECTION when a new Supvisors instance is detected. """
-        checked_identifiers = self.context.activate_checked()
-        if checked_identifiers:
-            # call enter again to trigger a new distribution
-            self.logger.info('WorkingState.activate_instances: ELECTION required because of new'
-                             f' Supvisors instances={checked_identifiers}')
-            return SupvisorsStates.ELECTION
-        return None
-
-    def _common_next(self) -> None:
-        """ Eventual additional operations to be performed by Master and Slaves.
-
-        :return: None.
-        """
-        # At this point, there may be a list of FAILED Supvisors instances
-        self.logger.debug(f'WorkingState.common_next: invalid={self.lost_instances}')
-        if self.lost_instances:
-            # inform Starter and Stopper because processes in failure may be removed if already in their pipes
-            # NOTE: any Supvisors instance can be requested by the user to plan and drive an application start sequence
-            #       only the automatic start sequence (DISTRIBUTION) is driven by the Master instance
-            self.supvisors.starter.on_instances_invalidation(self.lost_instances, self.lost_processes)
-            self.supvisors.stopper.on_instances_invalidation(self.lost_instances, self.lost_processes)
-
-    def _master_next(self) -> Optional[SupvisorsStates]:
-        """ A Master instance in a working state tries to re-distribute the processes that were running
-        on a Supvisors instance that has been lost.
-
-        :return: None.
-        """
-        # At this point, there may be a list of FAILED Supvisors instances
-        if self.lost_processes:
-            # the Master fixes failures if any
-            for process in self.lost_processes:
-                self.supvisors.failure_handler.add_default_job(process)
-            # trigger remaining jobs in RunningFailureHandler
-            self.supvisors.failure_handler.trigger_jobs()
-        # no state decision at this stage
-        return None
-
-
-class DistributionState(_WorkingState):
+class DistributionState(_MasterSlaveState):
     """ In the DISTRIBUTION state, Supvisors starts automatically the applications having a starting model.
 
     The distribution jobs are driven by the Supvisors Master instance only.
@@ -707,7 +663,7 @@ class DistributionState(_WorkingState):
     def _activate_instances(self) -> Optional[SupvisorsStates]:
         """ Do NOT allow CHECKED instances to be considered in distribution.
 
-        When a start sequence is started, it is better NOT to add new instances in the plan.
+        When a start sequence is started, it is better to avoid adding new instances in the plan.
         New Supvisors instances will be activated in OPERATION state, leading to a new ELECTION / DISTRIBUTION phase.
         """
         return None
@@ -729,6 +685,42 @@ class DistributionState(_WorkingState):
         return SupvisorsStates.OPERATION
 
 
+class _WorkingState(_MasterSlaveState):
+    """ Base class for working (OPERATION, CONCILIATION) states.
+
+    It transitions back to ELECTION when new Supvisors instances come into Supvisors.
+
+    It manages the impact on start/stop sequences when Supvisors instances are lost.
+    The Master may re-distribute the lost processes.
+    """
+
+    def _activate_instances(self) -> Optional[SupvisorsStates]:
+        """ Back to ELECTION when a new Supvisors instance is detected. """
+        checked_identifiers = self.context.activate_checked()
+        if checked_identifiers:
+            # call enter again to trigger a new distribution
+            self.logger.info('WorkingState.activate_instances: ELECTION required because of new'
+                             f' Supvisors instances={checked_identifiers}')
+            return SupvisorsStates.ELECTION
+        return None
+
+    def _master_next(self) -> Optional[SupvisorsStates]:
+        """ A Master instance in a working state tries to re-distribute the processes that were running
+        on a Supvisors instance that has been lost.
+
+        :return: None.
+        """
+        # At this point, there may be a list of FAILED Supvisors instances
+        if self.lost_processes:
+            # the Master fixes failures if any
+            for process in self.lost_processes:
+                self.supvisors.failure_handler.add_default_job(process)
+            # trigger remaining jobs in RunningFailureHandler
+            self.supvisors.failure_handler.trigger_jobs()
+        # no state decision at this stage
+        return None
+
+
 class OperationState(_WorkingState):
     """ In the OPERATION state, Supvisors is waiting for requests. """
 
@@ -736,7 +728,7 @@ class OperationState(_WorkingState):
         """ Check that all Supvisors instances are still active.
         Look after possible conflicts due to multiple running instances of the same process.
 
-        :return: the new Supvisors state
+        :return: The new Supvisors state.
         """
         # check if jobs are in progress
         if self.supvisors.starter.in_progress() or self.supvisors.stopper.in_progress():
@@ -750,11 +742,11 @@ class OperationState(_WorkingState):
 class ConciliationState(_WorkingState):
     """ In the CONCILIATION state, Supvisors conciliates the conflicts.
 
-    The conciliation jobs are driven by the Supvisors Master instance only.
+    Only the Supvisors Master instance drives the conciliation jobs.
     """
 
     def _master_enter(self) -> None:
-        """ When entering the CONCILIATION state, conciliate automatically the conflicts. """
+        """ When entering the CONCILIATION state, automatically conciliate the conflicts. """
         conciliate_conflicts(self.supvisors,
                              self.supvisors.options.conciliation_strategy,
                              self.context.conflicts())
@@ -1037,7 +1029,7 @@ class FiniteStateMachine:
             # trigger an automatic (so involving the Master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
-            if self.context.is_master and process.crashed():
+            if self.state_modes.is_master() and process.crashed():
                 strategy = process.rules.running_failure_strategy
                 if strategy == RunningFailureStrategies.RESTART:
                     self.on_restart()
@@ -1091,7 +1083,7 @@ class FiniteStateMachine:
         self.logger.debug(f'FiniteStateMachine.on_state_event: Supvisors={status.usage_identifier} sent {event}')
         self.state_modes.on_instance_state_event(status.identifier, event)
         # NOTE: any update on the Master state and modes must be considered immediately
-        if status.identifier == self.context.master_identifier:
+        if status.identifier == self.state_modes.master_identifier:
             self.next()
 
     def on_all_process_info(self, status: SupvisorsInstanceStatus, all_info: Optional[PayloadList]) -> None:
@@ -1116,12 +1108,12 @@ class FiniteStateMachine:
 
         :return: None.
         """
-        if self.context.is_master:
+        if self.state_modes.is_master():
             self.set_state(SupvisorsStates.RESTARTING)
         else:
-            if self.context.master_identifier:
+            if self.state_modes.master_identifier:
                 # re-route the command to Master
-                self.supvisors.rpc_handler.send_restart_all(self.context.master_identifier)
+                self.supvisors.rpc_handler.send_restart_all(self.state_modes.master_identifier)
             else:
                 message = 'no Master instance to perform the Supvisors restart request'
                 self.logger.error(f'FiniteStateMachine.on_restart: {message}')
@@ -1132,12 +1124,12 @@ class FiniteStateMachine:
 
         :return: None.
         """
-        if self.context.is_master:
+        if self.state_modes.is_master():
             self.set_state(SupvisorsStates.SHUTTING_DOWN)
         else:
-            if self.context.master_identifier:
+            if self.state_modes.master_identifier:
                 # re-route the command to Master
-                self.supvisors.rpc_handler.send_shutdown_all(self.context.master_identifier)
+                self.supvisors.rpc_handler.send_shutdown_all(self.state_modes.master_identifier)
             else:
                 message = 'no Master instance to perform the Supvisors restart request'
                 self.logger.error(f'FiniteStateMachine.on_restart: {message}')
