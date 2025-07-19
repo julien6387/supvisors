@@ -15,7 +15,7 @@
 # ======================================================================
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from supervisor.loggers import Logger
 
@@ -25,7 +25,7 @@ from .ttypes import SupvisorsStates, SupvisorsInstanceStates, NameSet, Payload
 
 
 class StateModes:
-    """ The Supvisors state and modes, as seen by a Supvisors instance.
+    """ The Supvisors instance state and modes.
 
     Attributes are:
         * identifier: the identifier of the Supvisors instance.
@@ -120,7 +120,7 @@ StateModesMap = Dict[str, StateModes]
 
 
 class SupvisorsStateModes:
-    """ The Supvisors global state & modes.
+    """ The Supvisors global state and modes.
 
     This structure holds references to the state and modes declared by every Supvisors instance.
 
@@ -182,13 +182,13 @@ class SupvisorsStateModes:
         return self.instance_state_modes.get(self.master_identifier)
 
     @property
-    def starting_identifiers(self):
+    def starting_identifiers(self) -> List[str]:
         """ Return the list of Supvisors instances where starting jobs are in progress. """
         return [identifier for identifier, state_modes in self.instance_state_modes.items()
                 if state_modes.starting_jobs]
 
     @property
-    def stopping_identifiers(self):
+    def stopping_identifiers(self) -> List[str]:
         """ Return the list of Supvisors instances where stopping jobs are in progress. """
         return [identifier for identifier, state_modes in self.instance_state_modes.items()
                 if state_modes.stopping_jobs]
@@ -324,7 +324,7 @@ class SupvisorsStateModes:
 
         Publications related to Supvisors instances state are too numerous, especially in SYNCHRONIZATION phase,
         with many Supvisors instances (>30), to be sent individually, so they're marked and sent on timer event.
-        As it is only needed for context stability evaluation, it is good enough.
+        As it is only necessary for context stability evaluation, it is good enough.
         """
         if self.update_mark:
             self.publish_status()
@@ -382,7 +382,7 @@ class SupvisorsStateModes:
 
         :return: the Master identifiers.
         """
-        # it could return directly a set but useful to debug
+        # it could directly return a set but useful to debug
         all_masters = {identifier: sm.master_identifier
                        for identifier, sm in self.instance_state_modes.items()
                        if self.is_running(identifier)}
@@ -415,7 +415,7 @@ class SupvisorsStateModes:
 
         This method is called from a situation where there is either no master, or is it not running,
         or there are multiple master instances declared over all the Supvisors instances.
-        In all cases, the context is fully stable, i.e. all Supvisors instances have a common perception of the other
+        In all cases, the context is fully stable, i.e., all Supvisors instances have a common perception of the other
         Supvisors instances.
 
         This method can also be called upon Supvisors user initiative to end the synchronization phase.
@@ -451,7 +451,7 @@ class SupvisorsStateModes:
         masters.discard('')
         self.logger.debug(f'SupvisorsStateModes.accept_master: masters={masters}')
         if masters:
-            # arbitrarily choice: pick up the first one
+            # arbitrary choice: pick up the first one
             # if there's a conflict, il will be solved in ELECTION state
             # the important thing is to exit the SYNCHRONIZATION state if a USER Master is available
             self.master_identifier = next(iter(masters))

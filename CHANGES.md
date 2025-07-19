@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.19 (2025-xx-xx)
+## 0.19 (2025-07-22)
 
 * Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.
 
@@ -8,7 +8,7 @@
   The state `INITIALIZATION` has been renamed as `SYNCHRONIZATION` and a new state `ELECTION` has been added
   to get more stability in the *Master* election.
 
-* Implement the enhancement requested by the [Pull Request #120](https://github.com/julien6387/supvisors/pull/120).
+* Implement the enhancement requested through the [Pull Request #120](https://github.com/julien6387/supvisors/pull/120).
   **Supvisors** uses the `ioctl` functions to get the relevant network data on all network interfaces and matches
   the local instance on the whole information available.
   During the handshake, the local network data is shared with the other **Supvisors** instances using the new XML-RPC
@@ -26,6 +26,8 @@
 * Add a session cookie to the **Supvisors** Web UI client.
   All statistics images served by the **Supvisors** Web UI are renamed to allow multiple auto-refreshed views
   in the browser tabs. 
+
+* Rework the XML-RPC `restart_sequence` logic, so that it does not require a **Supvisors** state change.
 
 * Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
   and modes information from a single **Supvisors** instance.

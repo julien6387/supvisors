@@ -443,26 +443,6 @@ def test_proxy_shutdown(mocked_rpc, proxy):
     assert shutdown_rpc.call_args_list == [call()]
 
 
-def test_proxy_restart_sequence(mocked_rpc, proxy):
-    """ Test the SupervisorProxy function to trigger the start_sequence of Supvisors. """
-    restart_rpc = proxy.proxy.supvisors.restart_sequence
-    # test with transport failure
-    restart_rpc.side_effect = http.client.IncompleteRead
-    with pytest.raises(SupervisorProxyException):
-        proxy.restart_sequence()
-    assert restart_rpc.call_args_list == [call()]
-    restart_rpc.reset_mock()
-    # test with XML-RPC application failure
-    restart_rpc.side_effect = RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR)
-    proxy.restart_sequence()
-    assert restart_rpc.call_args_list == [call()]
-    restart_rpc.reset_mock()
-    # test with a mocked rpc interface
-    restart_rpc.side_effect = None
-    proxy.restart_sequence()
-    assert restart_rpc.call_args_list == [call()]
-
-
 def test_proxy_restart_all(mocked_rpc, proxy):
     """ Test the SupervisorProxy function to restart Supvisors. """
     restart_rpc = proxy.proxy.supvisors.restart
@@ -522,7 +502,7 @@ def test_proxy_execute(mocker, proxy):
     # patch main loop subscriber
     mocked_proxy = mocker.patch.multiple(proxy, check_instance=DEFAULT,
                                          start_process=DEFAULT, stop_process=DEFAULT,
-                                         restart=DEFAULT, shutdown=DEFAULT, restart_sequence=DEFAULT,
+                                         restart=DEFAULT, shutdown=DEFAULT,
                                          restart_all=DEFAULT, shutdown_all=DEFAULT)
     # test incorrect request type
     proxy.execute((28, 'error'))
@@ -538,8 +518,6 @@ def test_proxy_execute(mocker, proxy):
     check_call(proxy, mocked_proxy, 'restart', RequestHeaders.RESTART, None)
     # test shutdown
     check_call(proxy, mocked_proxy, 'shutdown', RequestHeaders.SHUTDOWN, None)
-    # test restart_sequence
-    check_call(proxy, mocked_proxy, 'restart_sequence', RequestHeaders.RESTART_SEQUENCE, None)
     # test restart_all
     check_call(proxy, mocked_proxy, 'restart_all', RequestHeaders.RESTART_ALL, None)
     # test shutdown

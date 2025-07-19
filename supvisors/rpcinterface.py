@@ -327,9 +327,9 @@ class RPCInterface:
         on the Supvisors instance.
         Mainly used for debug purpose.
 
-        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
-        :param str namespec: the process namespec (``name``, ``group:name``).
-        :return: a structure containing information about the process.
+        :param str identifier: The identifier of the Supvisors instance where the Supervisor daemon is running.
+        :param str namespec: The process namespec (``name``, ``group:name``).
+        :return: A structure containing information about the process.
         :rtype: list[dict[str, Any]]
         :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
         :raises RPCError: with code ``Faults.BAD_NAME`` if ``namespec`` is unknown to **Supvisors**.
@@ -410,11 +410,10 @@ class RPCInterface:
         # check application is managed
         if application_name not in self.supvisors.context.get_managed_applications():
             self._raise(SupvisorsFaults.NOT_MANAGED.value, 'start_application', application_name)
-        # check application is not already RUNNING
+        # check that the application is not already RUNNING
         if application.state != ApplicationStates.STOPPED:
             self._raise(Faults.ALREADY_STARTED, 'start_application', application_name)
-        # if impossible due to a lack of resources, second try without optional
-        # return false if still impossible
+        # trigger the application start and monitor progress
         self.supvisors.starter.start_application(strategy_enum, application)
         in_progress = self.supvisors.starter.in_progress()
         self.logger.debug(f'RPCInterface.start_application: {application_name} in_progress={in_progress}')
@@ -1100,34 +1099,37 @@ class RPCInterface:
         return False
 
     def restart_sequence(self, wait=True) -> WaitReturnType:
-        """ Triggers the whole starting sequence by going back to the DISTRIBUTION state.
+        """ Trigger the application starting sequence.
 
-        :param bool wait: if ``True``, wait for **Supvisors** to reach the OPERATION state.
+        :param bool wait: if ``True``, wait for the **Supvisors** Starter to complete.
         :return: always ``True`` unless error.
         :rtype: bool
-        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in
-            ``OPERATION`` state.
+        :raises RPCError: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
+            in ``OPERATION`` state or if starting / stopping jobs are in progress;
+            ``Faults.ABNORMAL_TERMINATION`` if the internal start request failed.
         """
         self._check_operating()
-        # call for restart sequence. will be re-directed to master if local Supvisors instance is not
-        self.supvisors.fsm.on_restart_sequence()
-        if wait:
+        # check that no starting / stopping jobs are in progress at Supvisors level
+        if self.supvisors.state_modes.starting_identifiers or self.supvisors.state_modes.stopping_identifiers:
+            self._raise(SupvisorsFaults.BAD_SUPVISORS_STATE.value, 'restart_sequence', 'jobs in progress')
+        # trigger the application start sequence and monitor progress
+        self.supvisors.starter.start_applications()
+        in_progress = self.supvisors.starter.in_progress()
+        self.logger.debug(f'RPCInterface.restart_sequence: in_progress={in_progress}')
+        if not in_progress:
+            # no job has been queued
+            self._raise(Faults.ABNORMAL_TERMINATION, 'restart_sequence', 'failed to trigger start sequence')
+        # wait until starter is idle
+        if wait and in_progress:
             def onwait() -> OnWaitReturnType:
-                # first wait for DISTRIBUTION state
-                if onwait.wait_state == SupvisorsStates.DISTRIBUTION:
-                    if self.supvisors.fsm.state == SupvisorsStates.DISTRIBUTION:
-                        onwait.wait_state = SupvisorsStates.OPERATION
+                # check starter
+                if self.supvisors.starter.in_progress():
                     return NOT_DONE_YET
-                else:
-                    # when reached, wait for OPERATION state
-                    if self.supvisors.fsm.state != SupvisorsStates.OPERATION:
-                        return NOT_DONE_YET
-                    return True
+                return True
 
             onwait.delay = 0.5
-            onwait.wait_state = SupvisorsStates.DISTRIBUTION
             return onwait  # deferred
-        return True
+        return in_progress
 
     def restart(self) -> bool:
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.

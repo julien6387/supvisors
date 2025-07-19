@@ -1090,16 +1090,15 @@ class Starter(Commander):
     pickup_logic = min
 
     # command methods
-    def start_applications(self, forced: bool) -> None:
+    def start_applications(self) -> None:
         """ Plan and start the necessary jobs to start all the applications having a start_sequence.
 
         This method is called in the DISTRIBUTION state.
         It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file.
 
-        :param forced: a status telling if a full restart is required.
         :return: None.
         """
-        self.logger.debug(f'Starter.start_applications: forced={forced}')
+        self.logger.debug(f'Starter.start_applications')
         # internal call: default strategy always used
         for application_name, application in self.supvisors.context.applications.items():
             self.logger.debug(f'Starter.start_applications: {str(application)}'
@@ -1107,8 +1106,9 @@ class Starter(Commander):
                               f' never_started={application.never_started()}')
             # auto-started applications (start_sequence > 0) are not restarted if they have been stopped intentionally
             # exception is made for applications in failure: give them a chance
-            # TODO: forced / never_started logic to be reviewed
-            if application.rules.start_sequence > 0 and (forced or application.never_started()
+            # TODO: never_started logic to be reviewed
+            #       do not forget the EXITED processes
+            if application.rules.start_sequence > 0 and (application.never_started()
                                                          or application.major_failure or application.minor_failure):
                 self.logger.debug(f'Starter.start_applications: starting {application_name} planned')
                 self.store_application(application)

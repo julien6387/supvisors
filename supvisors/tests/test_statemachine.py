@@ -20,6 +20,8 @@ import pytest
 from supervisor.states import ProcessStates
 
 from supvisors.statemachine import *
+from supvisors.statemachine import (_SupvisorsBaseState, _OnState, _SynchronizedState, _MasterSlaveState,
+                                    _WorkingState, _EndingState)
 from supvisors.ttypes import ConciliationStrategies, SupvisorsInstanceStates, SupvisorsStates
 
 
@@ -44,7 +46,7 @@ def set_instance_state(supvisors_instance, identifier: str, state: SupvisorsInst
 
 def test_base_state(supvisors_ctx):
     """ Test the SupvisorsBaseState of the FSM. """
-    state = SupvisorsBaseState(supvisors_ctx)
+    state = _SupvisorsBaseState(supvisors_ctx)
     # check attributes at creation
     assert state.supvisors is supvisors_ctx
     assert state.lost_instances == []
@@ -80,7 +82,7 @@ def test_base_state(supvisors_ctx):
     assert supvisors_ctx.stopper.abort.called
 
 
-def check_on_state(fsm_state: OnState, forced_state: SupvisorsStates = None, default_state: SupvisorsStates = None):
+def check_on_state(fsm_state: _OnState, forced_state: SupvisorsStates = None, default_state: SupvisorsStates = None):
     """ Test the transitions from any state inheriting from OnState. """
     # default: local is RUNNING and no sync option set
     assert fsm_state.next() == default_state
@@ -92,8 +94,8 @@ def check_on_state(fsm_state: OnState, forced_state: SupvisorsStates = None, def
 
 def test_on_state(supvisors_ctx):
     """ Test the OnState of the FSM. """
-    state = OnState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
+    state = _OnState(supvisors_ctx)
+    assert isinstance(state, _SupvisorsBaseState)
     # set local to STOPPED => transition to OFF
     check_on_state(state)
     # reset FAILED and call next to get lost instances
@@ -152,7 +154,7 @@ def test_on_state(supvisors_ctx):
                                  SynchronizationOptions.USER: False}
 
 
-def check_synchronized_state(fsm_state: SynchronizedState, forced_state: SupvisorsStates = None,
+def check_synchronized_state(fsm_state: _SynchronizedState, forced_state: SupvisorsStates = None,
                              default_state: SupvisorsStates = None):
     """ Test the transitions from any state inheriting from SynchronizedState. """
     # OnState test is applicable
@@ -214,14 +216,14 @@ def check_synchronized_state(fsm_state: SynchronizedState, forced_state: Supviso
 
 def test_synchronized_state(supvisors_ctx):
     """ Test the SynchronizedState of the FSM. """
-    state = SynchronizedState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
+    state = _SynchronizedState(supvisors_ctx)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
     # test all applicable to SynchronizedState
     check_synchronized_state(state)
 
 
-def check_master_slave_state(fsm_state: MasterSlaveState, forced_state: SupvisorsStates = None,
+def check_master_slave_state(fsm_state: _MasterSlaveState, forced_state: SupvisorsStates = None,
                              default_state: SupvisorsStates = None):
     """ Test the transitions from any state inheriting from MasterSlaveState. """
     ref_master_identifier = fsm_state.state_modes.master_identifier
@@ -272,10 +274,10 @@ def check_master_slave_state(fsm_state: MasterSlaveState, forced_state: Supvisor
 
 def test_master_slave_state_common(supvisors_ctx):
     """ Test the MasterSlaveState of the FSM / common part. """
-    state = MasterSlaveState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
+    state = _MasterSlaveState(supvisors_ctx)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
     # call empty enter / exit methods
     state._master_enter()
     state._slave_enter()
@@ -324,7 +326,7 @@ def test_master_slave_state_common(supvisors_ctx):
 
 def test_master_slave_state_master(supvisors_ctx):
     """ Test the MasterSlaveState of the FSM / Master part. """
-    state = MasterSlaveState(supvisors_ctx)
+    state = _MasterSlaveState(supvisors_ctx)
     supvisors_ctx.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
     assert state.context.is_master
     check_master_slave_state(state)
@@ -332,13 +334,13 @@ def test_master_slave_state_master(supvisors_ctx):
 
 def test_master_slave_state_slave(supvisors_ctx):
     """ Test the MasterSlaveState of the FSM / Slave part. """
-    state = MasterSlaveState(supvisors_ctx)
+    state = _MasterSlaveState(supvisors_ctx)
     supvisors_ctx.state_modes.master_identifier = '10.0.0.2:25000'
     assert not state.context.is_master
     check_master_slave_state(state, default_state=SupvisorsStates.OFF)
 
 
-def check_working_state(state: WorkingState, forced_state: SupvisorsStates = None,
+def check_working_state(state: _WorkingState, forced_state: SupvisorsStates = None,
                         default_state: SupvisorsStates = None):
     """ Test the transitions from any state inheriting from WorkingState. """
     # MasterSlaveState test is applicable (includes OnState and SynchronizedState)
@@ -350,21 +352,17 @@ def check_working_state(state: WorkingState, forced_state: SupvisorsStates = Non
     status._state = SupvisorsInstanceStates.CHECKED
     assert state.next() == SupvisorsStates.ELECTION  # presence of CHECKED instance
     assert status.state == SupvisorsInstanceStates.RUNNING
-    # force_distribution
-    state.supvisors.fsm.force_distribution = True
-    assert state.next() == SupvisorsStates.ELECTION
-    state.supvisors.fsm.force_distribution = False
     # reset context
     status._state = ref_state
 
 
 def test_working_state_slave(mocker, supvisors_ctx):
     """ Test the WorkingState of the FSM / Slave part. """
-    state = WorkingState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
+    state = _WorkingState(supvisors_ctx)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
     # mock FAILED instance
     mocker.patch.object(state.context, 'publish_process_failures')
     status = state.context.instances['10.0.0.4:25000']
@@ -390,11 +388,11 @@ def test_working_state_slave(mocker, supvisors_ctx):
 
 def test_working_state_master(mocker, supvisors_ctx):
     """ Test the WorkingState of the FSM / Master part. """
-    state = WorkingState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
+    state = _WorkingState(supvisors_ctx)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
     # mock FAILED instance
     mocker.patch.object(state.context, 'publish_process_failures')
     status = state.context.instances['10.0.0.4:25000']
@@ -422,11 +420,11 @@ def test_working_state_master(mocker, supvisors_ctx):
 
 def test_ending_state(mocker, supvisors_ctx):
     """ Test the EndingState of the FSM. """
-    state = EndingState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
+    state = _EndingState(supvisors_ctx)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
 
     # check calls to abort_jobs / stop_applications
     mocked_abort = mocker.patch.object(state, '_abort_jobs')
@@ -459,7 +457,7 @@ def test_ending_state(mocker, supvisors_ctx):
 def test_off_state(supvisors_ctx):
     """ Test the OffState state of the Supvisors FSM. """
     state = OffState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
+    assert isinstance(state, _SupvisorsBaseState)
     # 1. test enter method
     assert state.context.start_date == 0.0
     state.enter()
@@ -483,8 +481,8 @@ def sync_state(supvisors_ctx) -> SynchronizationState:
 
 def test_synchronization_state_enter(supvisors_ctx, sync_state):
     """ Test the SynchronizationState of the Supvisors FSM / enter method. """
-    assert isinstance(sync_state, SupvisorsBaseState)
-    assert isinstance(sync_state, OnState)
+    assert isinstance(sync_state, _SupvisorsBaseState)
+    assert isinstance(sync_state, _OnState)
     # test that jobs are aborted
     sync_state.enter()
     assert supvisors_ctx.failure_handler.abort.called
@@ -616,9 +614,9 @@ def test_synchronization_state_next(mocker, sync_state):
 def test_election_state(mocker, supvisors_ctx):
     """ Test the ElectionState state of the Supvisors FSM. """
     state = ElectionState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
     # test that jobs are aborted on enter
     mocked_abort = mocker.patch.object(state, '_abort_jobs')
     state.enter()
@@ -668,19 +666,16 @@ def test_distribution_state_master(supvisors_ctx):
     """ Test the DistributionState of the Supvisors FSM / Master case. """
     state = DistributionState(supvisors_ctx)
     state.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, WorkingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _WorkingState)
 
     # test enter
-    for forced in [True, False]:
-        supvisors_ctx.fsm.force_distribution = forced
-        state.enter()
-        assert supvisors_ctx.starter.start_applications.call_args_list == [call(forced)]
-        assert not supvisors_ctx.fsm.force_distribution
-        supvisors_ctx.starter.start_applications.reset_mock()
+    state.enter()
+    assert supvisors_ctx.starter.start_applications.call_args_list == [call()]
+    supvisors_ctx.starter.start_applications.reset_mock()
 
     # test no change on CHECKED instance
     checked_status = supvisors_ctx.context.instances['10.0.0.3:25000']
@@ -705,18 +700,15 @@ def test_distribution_state_slave(supvisors_ctx):
     """ Test the DistributionState of the Supvisors FSM / Slave case. """
     state = DistributionState(supvisors_ctx)
     state.state_modes.master_identifier = '10.0.0.2:25000'
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, WorkingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _WorkingState)
 
     # test enter
-    for forced in [True, False]:
-        supvisors_ctx.fsm.force_distribution = forced
-        state.enter()
-        assert not supvisors_ctx.starter.start_applications.called
-        assert not supvisors_ctx.fsm.force_distribution
+    state.enter()
+    assert not supvisors_ctx.starter.start_applications.called
 
     # test no change on CHECKED instance
     checked_status = supvisors_ctx.context.instances['10.0.0.3:25000']
@@ -737,11 +729,11 @@ def test_operation_state_master(mocker, supvisors_ctx):
     # create instance
     state = OperationState(supvisors_ctx)
     state.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, WorkingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _WorkingState)
 
     # WorkingState test is applicable (includes OnState, SynchronizedState and MasterSlaveState)
     mocked_start.return_value = True
@@ -782,11 +774,11 @@ def test_conciliation_state_master(mocker, supvisors_ctx):
     # create instance
     state = ConciliationState(supvisors_ctx)
     state.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, WorkingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _WorkingState)
 
     # WorkingState test is applicable (includes OnState, SynchronizedState and MasterSlaveState)
     mocked_start.return_value = True
@@ -826,11 +818,11 @@ def test_restarting_state_master(mocker, supvisors_ctx):
     # create instance to test
     state = RestartingState(supvisors_ctx)
     state.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, EndingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _EndingState)
     # test all applicable to WorkingState
     mocked_stopping.return_value = False
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
@@ -851,11 +843,11 @@ def test_restarting_state_slave(mocker, supvisors_ctx):
     # create instance to test
     state = RestartingState(supvisors_ctx)
     state.state_modes.master_identifier = '10.0.0.2:25000'
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, EndingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _EndingState)
     # test all applicable to WorkingState
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
     # RestartingState specific
@@ -885,11 +877,11 @@ def test_shutting_down_state_master(mocker, supvisors_ctx):
     # create instance to test
     state = ShuttingDownState(supvisors_ctx)
     state.state_modes.master_identifier = supvisors_ctx.mapper.local_identifier
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, EndingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _EndingState)
     # test all applicable to WorkingState
     mocked_stopping.return_value = False
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
@@ -910,11 +902,11 @@ def test_shutting_down_state_slave(mocker, supvisors_ctx):
     # create instance to test
     state = ShuttingDownState(supvisors_ctx)
     state.state_modes.master_identifier = '10.0.0.2:25000'
-    assert isinstance(state, SupvisorsBaseState)
-    assert isinstance(state, OnState)
-    assert isinstance(state, SynchronizedState)
-    assert isinstance(state, MasterSlaveState)
-    assert isinstance(state, EndingState)
+    assert isinstance(state, _SupvisorsBaseState)
+    assert isinstance(state, _OnState)
+    assert isinstance(state, _SynchronizedState)
+    assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _EndingState)
     # test all applicable to WorkingState
     check_master_slave_state(state, forced_state=SupvisorsStates.FINAL, default_state=SupvisorsStates.FINAL)
     # ShuttingDownState specific
@@ -939,7 +931,7 @@ def test_shutting_down_state_slave(mocker, supvisors_ctx):
 def test_final_state(supvisors_ctx):
     """ Test the Final state of the fsm. """
     state = FinalState(supvisors_ctx)
-    assert isinstance(state, SupvisorsBaseState)
+    assert isinstance(state, _SupvisorsBaseState)
     # no enter / next / exit implementation. just call it without test
     state.enter()
     state.next()
@@ -960,7 +952,6 @@ def test_creation(supvisors_instance, fsm):
     assert fsm.logger is supvisors_instance.logger
     assert fsm.context is supvisors_instance.context
     assert fsm.state_modes is supvisors_instance.state_modes
-    assert not fsm.force_distribution
     # test that the INITIALIZATION state is triggered at creation
     assert fsm.state == SupvisorsStates.OFF
     assert isinstance(fsm.instance, OffState)
@@ -976,8 +967,48 @@ def test_fsm_next(mocker, supvisors_instance, fsm):
     assert mocker_state.called
 
 
+def test_set_state_common(supvisors_instance, fsm):
+    """ Test the state transitions in the common (Master/Slave) part of the FSM (OFF to ELECTION included). """
+    assert fsm.state == SupvisorsStates.OFF
+    # no change
+    fsm.set_state(None)
+    assert fsm.state == SupvisorsStates.OFF
+    # all proposals back to OFF because the local instance is not RUNNING
+    assert supvisors_instance.context.local_status.state == SupvisorsInstanceStates.STOPPED
+    for fsm_state in SupvisorsStates:
+        fsm.set_state(fsm_state)
+        assert fsm.state == SupvisorsStates.OFF
+    # set the local instance to RUNNING
+    supvisors_instance.context.local_status._state = SupvisorsInstanceStates.RUNNING
+    # test that invalid transitions are not accepted
+    supvisors_instance.state_modes.state = SupvisorsStates.OFF
+    for fsm_state in SupvisorsStates:
+        if fsm_state not in FiniteStateMachine._Transitions[SupvisorsStates.OFF]:
+            fsm.set_state(SupvisorsStates.ELECTION)
+            assert fsm.state == SupvisorsStates.OFF
+    # test transition to SYNCHRONIZATION
+    fsm.set_state(SupvisorsStates.SYNCHRONIZATION)
+    assert fsm.state == SupvisorsStates.SYNCHRONIZATION
+    # test that invalid transitions are not accepted
+    for fsm_state in SupvisorsStates:
+        if fsm_state not in FiniteStateMachine._Transitions[SupvisorsStates.SYNCHRONIZATION]:
+            fsm.set_state(fsm_state)
+            assert fsm.state == SupvisorsStates.SYNCHRONIZATION
+    # test transition to ELECTION
+    fsm.set_state(SupvisorsStates.ELECTION)
+    assert fsm.state == SupvisorsStates.ELECTION
+    # test that invalid transitions are not accepted
+    for fsm_state in SupvisorsStates:
+        if fsm_state not in FiniteStateMachine._Transitions[SupvisorsStates.ELECTION]:
+            fsm.set_state(fsm_state)
+            assert fsm.state == SupvisorsStates.ELECTION
+    # test transition to DISTRIBUTION
+    fsm.set_state(SupvisorsStates.DISTRIBUTION)
+    assert fsm.state == SupvisorsStates.DISTRIBUTION
+
+
 def test_set_state_slave(supvisors_instance, fsm):
-    """ Test the state transitions in a Slave FSM. """
+    """ Test the state transitions in a Slave FSM from DISTRIBUTION state. """
     assert fsm.state == SupvisorsStates.OFF
     supvisors_instance.state_modes.master_identifier = '10.0.0.2:25000'
     # no change
@@ -992,9 +1023,11 @@ def test_set_state_slave(supvisors_instance, fsm):
     supvisors_instance.context.local_status._state = SupvisorsInstanceStates.RUNNING
     # test that invalid transitions are not accepted
     supvisors_instance.state_modes.state = SupvisorsStates.OFF
-    assert SupvisorsStates.ELECTION not in FiniteStateMachine._Transitions[SupvisorsStates.OFF]
-    fsm.set_state(SupvisorsStates.ELECTION)
-    assert fsm.state == SupvisorsStates.OFF
+    for fsm_state in SupvisorsStates:
+        if fsm_state not in FiniteStateMachine._Transitions[SupvisorsStates.OFF]:
+            fsm.set_state(SupvisorsStates.ELECTION)
+            assert fsm.state == SupvisorsStates.OFF
+    # test transition
     # CONCILIATION proposal back to OFF (Master state), then SYNCHRONIZATION
     assert SupvisorsStates.CONCILIATION not in FiniteStateMachine._Transitions[SupvisorsStates.ELECTION]
     fsm.set_state(SupvisorsStates.CONCILIATION)
@@ -1002,13 +1035,18 @@ def test_set_state_slave(supvisors_instance, fsm):
 
 
 def test_set_state_master(supvisors_instance, fsm):
-    """ Test the state transitions in a MAster FSM. """
+    """ Test the state transitions in a Master FSM. """
     assert fsm.state == SupvisorsStates.OFF
     # test that any transition is accepted in Slave
     supvisors_instance.state_modes.master_identifier = supvisors_instance.mapper.local_identifier
     # no change
     fsm.set_state(None)
     assert fsm.state == SupvisorsStates.OFF
+    # all proposals back to OFF because the local instance is not RUNNING
+    assert supvisors_instance.context.local_status.state == SupvisorsInstanceStates.STOPPED
+    for fsm_state in SupvisorsStates:
+        fsm.set_state(fsm_state)
+        assert fsm.state == SupvisorsStates.OFF
     # test that invalid transitions are not accepted
     supvisors_instance.state_modes.state = SupvisorsStates.OFF
     assert SupvisorsStates.ELECTION not in FiniteStateMachine._Transitions[SupvisorsStates.OFF]
@@ -1074,7 +1112,7 @@ def test_process_state_event_process_not_found(mocker, supvisors_instance, fsm):
 
 def test_process_state_event_not_master(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a process state event.
-    Test case: process is found but local Supvisors instance is not master. """
+    Test case: process is found, but local Supvisors instance is not master. """
     # prepare context
     process = Mock()
     # get patches
@@ -1386,31 +1424,13 @@ def test_on_authorization(mocker, supvisors_instance, fsm):
     assert mocked_auth.call_args == call(status, True)
 
 
-def test_restart_sequence_event(mocker, supvisors_instance, fsm):
-    """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
-    # inject restart event and test setting of redeploy_mark
-    mocked_restart = mocker.patch.object(supvisors_instance.rpc_handler, 'send_restart_sequence')
-    supvisors_instance.state_modes.master_identifier = '10.0.0.1'
-    assert not fsm.force_distribution
-    # test when not master
-    fsm.on_restart_sequence()
-    assert not fsm.force_distribution
-    assert mocked_restart.call_args_list == [call('10.0.0.1')]
-    mocked_restart.reset_mock()
-    # test when master
-    fsm.state_modes.master_identifier = fsm.context.local_identifier
-    fsm.on_restart_sequence()
-    assert not mocked_restart.called
-    assert fsm.force_distribution
-
-
 def test_restart_event(mocker, supvisors_instance, fsm):
     """ Test the actions triggered in state machine upon reception of a restart event. """
     # inject restart event and test call to fsm set_state RESTARTING
     mocked_fsm = mocker.patch.object(fsm, 'set_state')
     mocked_restart = mocker.patch.object(supvisors_instance.rpc_handler, 'send_restart_all')
     # test when not master and Master not set
-    with pytest.raises(ValueError):
+    with pytest.raises(RuntimeError):
         fsm.on_restart()
     assert not mocked_fsm.called
     assert not mocked_restart.called

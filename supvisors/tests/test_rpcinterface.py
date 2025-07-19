@@ -1782,35 +1782,68 @@ def test_conciliate(mocker, rpc):
     assert mocked_conciliate.call_args_list == [call(rpc.supvisors, ConciliationStrategies.INFANTICIDE, [1, 2, 4])]
 
 
-def test_restart_sequence(mocker, rpc):
+def test_restart_sequence(mocker, rpc, supvisors_instance):
     """ Test the restart_sequence RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    # test no wait
+    mocked_start = supvisors_instance.starter.start_applications
+    mocked_progress = supvisors_instance.starter.in_progress
+    # test exception when starter in progress
+    rpc.supvisors.state_modes.local_state_modes.starting_jobs = True
+    with pytest.raises(RPCError) as exc:
+        rpc.restart_sequence(True)
+    assert exc.value.args[0] == SupvisorsFaults.BAD_SUPVISORS_STATE.value
+    assert mocked_check.call_args_list == [call()]
+    assert not mocked_progress.called
+    mocker.resetall()
+    rpc.supvisors.state_modes.local_state_modes.starting_jobs = False
+    # test exception when stopper in progress
+    rpc.supvisors.state_modes.local_state_modes.stopping_jobs = True
+    with pytest.raises(RPCError) as exc:
+        rpc.restart_sequence(True)
+    assert exc.value.args[0] == SupvisorsFaults.BAD_SUPVISORS_STATE.value
+    assert mocked_check.call_args_list == [call()]
+    assert not mocked_progress.called
+    mocker.resetall()
+    rpc.supvisors.state_modes.local_state_modes.stopping_jobs = False
+    # test failed no wait
+    mocked_progress.return_value = False
+    with pytest.raises(RPCError) as exc:
+        rpc.restart_sequence(False)
+    assert exc.value.args[0] == Faults.ABNORMAL_TERMINATION
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_start.call_args_list == [call()]
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_start.reset_mock()
+    mocked_progress.reset_mock()
+    # test successful no wait
+    mocked_progress.return_value = True
     assert rpc.restart_sequence(False)
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_restart_sequence.call_args_list == [call()]
-    mocked_check.reset_mock()
-    rpc.supvisors.fsm.on_restart_sequence.reset_mock()
-    # test wait and done
+    assert mocked_start.call_args_list == [call()]
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_start.reset_mock()
+    mocked_progress.reset_mock()
+    # test wait and not done
     deferred = rpc.restart_sequence()
     # result is a function for deferred result
     assert callable(deferred)
-    assert deferred.wait_state == SupvisorsStates.DISTRIBUTION
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_restart_sequence.call_args_list == [call()]
-    # test returned function: first wait for DEPLOYMENT state to be reached
-    rpc.supvisors.fsm.state = SupvisorsStates.OPERATION
+    assert mocked_start.call_args_list == [call()]
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_start.reset_mock()
+    mocked_progress.reset_mock()
+    # test returned function: return True when job in progress
     assert deferred() == NOT_DONE_YET
-    assert deferred.wait_state == SupvisorsStates.DISTRIBUTION
-    # test returned function: when DEPLOYMENT state reached, wait for OPERATION state to be reached
-    rpc.supvisors.fsm.state = SupvisorsStates.DISTRIBUTION
-    assert deferred() == NOT_DONE_YET
-    assert deferred.wait_state == SupvisorsStates.OPERATION
-    assert deferred() == NOT_DONE_YET
-    assert deferred.wait_state == SupvisorsStates.OPERATION
-    # test returned function: when DEPLOYMENT state reached, return true
-    rpc.supvisors.fsm.state = SupvisorsStates.OPERATION
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_progress.reset_mock()
+    # test returned function: return True if job not in progress anymore
+    mocked_progress.return_value = False
     assert deferred()
+    assert mocked_progress.call_args_list == [call()]
 
 
 def test_restart(mocker, supvisors_instance, rpc):

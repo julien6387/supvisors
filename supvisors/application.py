@@ -517,7 +517,7 @@ class ApplicationStatus:
     def __str__(self) -> str:
         """ Get the application status as string.
 
-        :return: the printable application status
+        :return: the printable application status.
         """
         return (f'application_name={self.application_name} managed={self.rules.managed} state={self.state.name}'
                 f' major_failure={self.major_failure} minor_failure={self.minor_failure}')
@@ -526,8 +526,8 @@ class ApplicationStatus:
     def add_process(self, process: ProcessStatus) -> None:
         """ Add a new process to the process list.
 
-        :param process: the process status to be added to the application
-        :return: None
+        :param process: the process status to be added to the application.
+        :return: None.
         """
         self.logger.trace(f'ApplicationStatus.add_process: {self.application_name}'
                           f' - adding process={process.process_name}')
@@ -654,8 +654,8 @@ class ApplicationStatus:
     def get_instance_processes(self, identifier: str) -> ProcessList:
         """ Return the list of application processes configured in the Supervisor instance.
 
-        :param identifier: the Supervisor instance where the processes qre configured
-        :return: the list of application processes in the Supervisor instance
+        :param identifier: the Supervisor instance where the processes qre configured.
+        :return: the list of application processes in the Supervisor instance.
         """
         return [process for process in self.processes.values()
                 if identifier in process.info_map]
@@ -764,9 +764,9 @@ class ApplicationStatus:
             # if at least one process is STARTING, let's consider that application is starting
             return ApplicationStates.STARTING
         if running:
-            # all processes in the sequence are RUNNING, so application is RUNNING
+            # all processes in the sequence are RUNNING, so the application is RUNNING
             return ApplicationStates.RUNNING
-        # all processes in the sequence are STOPPED, so application is STOPPED
+        # all processes in the sequence are STOPPED, so the application is STOPPED
         return ApplicationStates.STOPPED
 
     def update_status_required(self, sequenced_processes: ProcessMap) -> None:

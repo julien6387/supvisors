@@ -110,7 +110,7 @@ def test_publication_headers():
 def test_request_headers():
     """ Test the RequestHeaders enumeration. """
     expected = ['CHECK_INSTANCE', 'START_PROCESS', 'STOP_PROCESS',
-                'RESTART', 'SHUTDOWN', 'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
+                'RESTART', 'SHUTDOWN', 'RESTART_ALL', 'SHUTDOWN_ALL']
     assert [x.name for x in RequestHeaders] == expected
 
 

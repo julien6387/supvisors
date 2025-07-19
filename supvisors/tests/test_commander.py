@@ -1527,13 +1527,13 @@ def test_starter_start_applications(mocker, supvisors_instance, starter_instance
     service.rules.start_sequence = 0
     supvisors_instance.context.applications['service'] = service
     # call starter start_applications and check nothing is triggered
-    starter_instance.start_applications(False)
+    starter_instance.start_applications()
     assert not mocked_store.called
     assert mocked_next.call_args_list == [call()]
     mocker.resetall()
     # test again with failure set
     service.major_failure = True
-    starter_instance.start_applications(False)
+    starter_instance.start_applications()
     assert not mocked_store.called
     assert mocked_next.call_args_list == [call()]
     mocker.resetall()
@@ -1582,16 +1582,10 @@ def test_starter_start_applications(mocker, supvisors_instance, starter_instance
     process.add_info('10.0.0.1:25000', info)
     stopped_app.add_process(process)
     # call starter start_applications and check what is triggered
-    starter_instance.start_applications(False)
+    starter_instance.start_applications()
     mocked_store.assert_has_calls([call(appli_2), call(sample_test_major), call(sample_test_minor)],
                                   any_order=True)
     assert call(stopped_app) not in mocked_store.call_args_list
-    assert mocked_next.call_args_list == [call()]
-    mocker.resetall()
-    # call starter forced start_applications and check what is triggered
-    starter_instance.start_applications(True)
-    mocked_store.assert_has_calls([call(appli_2), call(sample_test_major), call(sample_test_minor),
-                                   call(stopped_app)], any_order=True)
     assert mocked_next.call_args_list == [call()]
 
 

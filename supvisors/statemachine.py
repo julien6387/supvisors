@@ -31,7 +31,7 @@ from .ttypes import (SupvisorsInstanceStates, SupvisorsStates, SynchronizationOp
 
 
 # FSM base states
-class SupvisorsBaseState:
+class _SupvisorsBaseState:
     """ Base class for a state with simple entry / next / exit actions. """
 
     def __init__(self, supvisors: Any) -> None:
@@ -153,7 +153,7 @@ class SupvisorsBaseState:
         self.supvisors.stopper.abort()
 
 
-class OffState(SupvisorsBaseState):
+class OffState(_SupvisorsBaseState):
     """ Entry state of the Supvisors FSM.
 
     No Master / slave at this stage.
@@ -187,7 +187,7 @@ class OffState(SupvisorsBaseState):
         return SupvisorsStates.OFF
 
 
-class OnState(SupvisorsBaseState):
+class _OnState(_SupvisorsBaseState):
     """ Base class for all states when the local Supvisors instance is operational.
 
     No Master / slave at this stage.
@@ -287,7 +287,7 @@ class OnState(SupvisorsBaseState):
         return None
 
 
-class SynchronizationState(OnState):
+class SynchronizationState(_OnState):
     """ In the SYNCHRONIZATION state, Supvisors synchronizes all known Supvisors instances.
 
     The Supvisors local instance must be RUNNING.
@@ -424,7 +424,7 @@ class SynchronizationState(OnState):
         self.logger.info(f'SynchronizationState.exit: nodes={self.supvisors.mapper.nodes}')
 
 
-class SynchronizedState(OnState):
+class _SynchronizedState(_OnState):
     """ The PostSynchronizationState is applicable to all FSM states past the SYNCHRONIZATION state.
 
     It increases the level of checking instances to go back to SYNCHRONIZATION state
@@ -485,7 +485,7 @@ class SynchronizedState(OnState):
         return None
 
 
-class ElectionState(SynchronizedState):
+class ElectionState(_SynchronizedState):
     """ In the ELECTION state, a Supvisors Master instance is elected. """
 
     def enter(self) -> None:
@@ -521,7 +521,7 @@ class ElectionState(SynchronizedState):
         return SupvisorsStates.ELECTION
 
 
-class MasterSlaveState(SynchronizedState):
+class _MasterSlaveState(_SynchronizedState):
     """ The PostSynchronizationState is applicable to all FSM states past the ELECTION state.
 
     It assumes that a Supvisors Master instance is available. If it's not the case anymore, back to ELECTION.
@@ -646,7 +646,7 @@ class MasterSlaveState(SynchronizedState):
         return None
 
 
-class WorkingState(MasterSlaveState):
+class _WorkingState(_MasterSlaveState):
     """ Base class for working (DISTRIBUTION, OPERATION, CONCILIATION) states.
 
     It transitions back to ELECTION when new Supvisors instances come into Supvisors.
@@ -665,13 +665,6 @@ class WorkingState(MasterSlaveState):
             self.logger.info('WorkingState.activate_instances: ELECTION required because of new'
                              f' Supvisors instances={checked_identifiers}')
             return SupvisorsStates.ELECTION
-        # the distribution can be requested by the Supvisors user
-        if self.supvisors.fsm.force_distribution:
-            # just go to ELECTION
-            # NOTE: this flag is only set on the Master instance
-            #       may a new Master be elected, the user request will simply be cancelled at DISTRIBUTION entry
-            self.logger.debug('WorkingState.activate_instances: ELECTION required because of force_distribution')
-            return SupvisorsStates.ELECTION
         return None
 
     def _common_next(self) -> None:
@@ -683,6 +676,8 @@ class WorkingState(MasterSlaveState):
         self.logger.debug(f'WorkingState.common_next: invalid={self.lost_instances}')
         if self.lost_instances:
             # inform Starter and Stopper because processes in failure may be removed if already in their pipes
+            # NOTE: any Supvisors instance can be requested by the user to plan and drive an application start sequence
+            #       only the automatic start sequence (DISTRIBUTION) is driven by the Master instance
             self.supvisors.starter.on_instances_invalidation(self.lost_instances, self.lost_processes)
             self.supvisors.stopper.on_instances_invalidation(self.lost_instances, self.lost_processes)
 
@@ -703,7 +698,7 @@ class WorkingState(MasterSlaveState):
         return None
 
 
-class DistributionState(WorkingState):
+class DistributionState(_WorkingState):
     """ In the DISTRIBUTION state, Supvisors starts automatically the applications having a starting model.
 
     The distribution jobs are driven by the Supvisors Master instance only.
@@ -719,14 +714,7 @@ class DistributionState(WorkingState):
 
     def _master_enter(self):
         """ Trigger the automatic start and stop. """
-        self.supvisors.starter.start_applications(self.supvisors.fsm.force_distribution)
-        self.supvisors.fsm.force_distribution = False
-
-    def _slave_enter(self):
-        """ Cancel the distribution request (very unlikely). """
-        if self.supvisors.fsm.force_distribution:
-            self.logger.warn('DistributionState.slave_enter: user restart sequence cancelled due to a change of Master')
-            self.supvisors.fsm.force_distribution = False
+        self.supvisors.starter.start_applications()
 
     def _master_next(self) -> Optional[SupvisorsStates]:
         """ Check if the starting tasks are completed.
@@ -741,7 +729,7 @@ class DistributionState(WorkingState):
         return SupvisorsStates.OPERATION
 
 
-class OperationState(WorkingState):
+class OperationState(_WorkingState):
     """ In the OPERATION state, Supvisors is waiting for requests. """
 
     def _master_next(self) -> SupvisorsStates:
@@ -759,7 +747,7 @@ class OperationState(WorkingState):
         return SupvisorsStates.OPERATION
 
 
-class ConciliationState(WorkingState):
+class ConciliationState(_WorkingState):
     """ In the CONCILIATION state, Supvisors conciliates the conflicts.
 
     The conciliation jobs are driven by the Supvisors Master instance only.
@@ -789,7 +777,7 @@ class ConciliationState(WorkingState):
         return SupvisorsStates.CONCILIATION
 
 
-class EndingState(MasterSlaveState):
+class _EndingState(_MasterSlaveState):
     """ Base class for ending (RESTARTING, SHUTTING_DOWN) states. """
 
     def _master_enter(self) -> None:
@@ -822,7 +810,7 @@ class EndingState(MasterSlaveState):
         return None
 
 
-class RestartingState(EndingState):
+class RestartingState(_EndingState):
     """ In the RESTARTING state, Supvisors stops all applications before triggering a restart
     of the local Supvisors instance.
 
@@ -863,7 +851,7 @@ class RestartingState(EndingState):
         self.supvisors.rpc_handler.send_restart(self.local_identifier)
 
 
-class ShuttingDownState(EndingState):
+class ShuttingDownState(_EndingState):
     """ In the SHUTTING_DOWN state, Supvisors stops all applications before triggering a shutdown
     of the local Supvisors instance.
 
@@ -904,7 +892,7 @@ class ShuttingDownState(EndingState):
         self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
 
 
-class FinalState(SupvisorsBaseState):
+class FinalState(_SupvisorsBaseState):
     """ This is a final state for Master and Slaves.
     Whatever it is consecutive to a shutdown or a restart, the Supervisor 'session' will end. """
 
@@ -914,9 +902,8 @@ class FiniteStateMachine:
     A state is able to evaluate itself for transitions.
 
     Attributes are:
-        - state: the current state of this state machine ;
-        - instance: the current state instance ;
-        - force_distribution: a status telling if a DISTRIBUTION state is pending.
+        - state: the current state of this state machine;
+        - instance: the current state instance.
     """
 
     def __init__(self, supvisors: Any) -> None:
@@ -925,9 +912,8 @@ class FiniteStateMachine:
         :param supvisors: the Supvisors global structure
         """
         self.supvisors = supvisors
-        self.instance: SupvisorsBaseState = OffState(supvisors)
+        self.instance: _SupvisorsBaseState = OffState(supvisors)
         self.instance.enter()
-        self.force_distribution: bool = False
 
     @property
     def logger(self) -> Logger:
@@ -964,13 +950,12 @@ class FiniteStateMachine:
         self.set_state(self.instance.next())
 
     def set_state(self, next_state: Optional[SupvisorsStates]) -> None:
-        """ Update the current state of the state machine and transitions as long as possible.
-        The transition can be forced, especially when getting the first Master state.
+        """ Update the current state of the state machine, and transition as much as possible.
 
-        :param next_state: the new FSM state.
+        :param next_state: The new FSM state.
         :return: None.
         """
-        # NOTE: in the event of a Slave FSM, the master state may not be known yet, hence the test on next_state
+        # NOTE: in the event of a Slave FSM, the Master state may not be known yet, hence the test on next_state
         while next_state and next_state != self.state:
             # check that the transition is allowed
             # although a Slave Supvisors always follows the Master state, it is expected not to miss a transition
@@ -998,8 +983,8 @@ class FiniteStateMachine:
     def on_tick_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to refresh the data related to the Supvisors instance.
 
-        :param status: the Supvisors instance that sent the event.
-        :param event: the tick event.
+        :param status: The Supvisors instance that sent the event.
+        :param event: The tick event.
         :return: None.
         """
         self.context.on_tick_event(status, event)
@@ -1010,7 +995,7 @@ class FiniteStateMachine:
         No need to test if the discovery mode is enabled.
         This is managed in the internal communication layer.
 
-        :param event: the discovery event.
+        :param event: The discovery event.
         :return: None.
         """
         self.context.on_discovery_event(event[0], event[1])
@@ -1024,16 +1009,16 @@ class FiniteStateMachine:
         """
         self.context.on_identification_event(event)
 
-    def on_authorization(self, status: SupvisorsInstanceStatus, authorized: Optional[bool]) -> None:
+    def on_authorization(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used during the handshake between Supvisors instances.
 
         :param status: the Supvisors instance that sent the event.
-        :param authorized: the authorization status as seen by the remote Supvisors instance.
+        :param event: the authorization event.
         :return: None.
         """
         self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={status.usage_identifier}'
-                          f' authorized={authorized}')
-        self.context.on_authorization(status, authorized)
+                          f' event={event}')
+        self.context.on_authorization(status, event)
 
     def on_process_state_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event sent from the Supvisors instance.
@@ -1049,7 +1034,7 @@ class FiniteStateMachine:
             # inform starter and stopper
             self.supvisors.starter.on_event(process, status.identifier)
             self.supvisors.stopper.on_event(process, status.identifier)
-            # trigger an automatic (so master only) behaviour for a running failure
+            # trigger an automatic (so involving the Master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
             if self.context.is_master and process.crashed():
@@ -1126,17 +1111,6 @@ class FiniteStateMachine:
         """
         self.context.on_instance_failure(status)
 
-    def on_restart_sequence(self) -> None:
-        """ This event is used to transition the state machine to the DISTRIBUTION state.
-
-        :return: None.
-        """
-        if self.context.is_master:
-            self.force_distribution = True
-        else:
-            # re-route the command to Master
-            self.supvisors.rpc_handler.send_restart_sequence(self.context.master_identifier)
-
     def on_restart(self) -> None:
         """ This event is used to transition the state machine to the RESTARTING state.
 
@@ -1151,7 +1125,7 @@ class FiniteStateMachine:
             else:
                 message = 'no Master instance to perform the Supvisors restart request'
                 self.logger.error(f'FiniteStateMachine.on_restart: {message}')
-                raise ValueError(message)
+                raise RuntimeError(message)
 
     def on_shutdown(self) -> None:
         """ This event is used to transition the state machine to the SHUTTING_DOWN state.

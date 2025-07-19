@@ -50,11 +50,6 @@ def test_all_requests(mocker, supvisors_instance):
     expected = '10.0.0.1', (RequestHeaders.SHUTDOWN.value, None)
     assert proxy_server.push_request.call_args_list == [call(*expected)]
     proxy_server.push_request.reset_mock()
-    # test push RESTART_SEQUENCE
-    handler.send_restart_sequence('10.0.0.1')
-    expected = '10.0.0.1', (RequestHeaders.RESTART_SEQUENCE.value, None)
-    assert proxy_server.push_request.call_args_list == [call(*expected)]
-    proxy_server.push_request.reset_mock()
     # test push RESTART_ALL
     handler.send_restart_all('10.0.0.1')
     expected = '10.0.0.1', (RequestHeaders.RESTART_ALL.value, None)

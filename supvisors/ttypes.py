@@ -104,7 +104,7 @@ class RequestHeaders(Enum):
     """ Enumeration class for the headers of deferred XML-RPC messages sent to SupervisorProxyServer. """
     (CHECK_INSTANCE,
      START_PROCESS, STOP_PROCESS,
-     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(8)
+     RESTART, SHUTDOWN, RESTART_ALL, SHUTDOWN_ALL) = range(7)
 
 
 class NotificationHeaders(Enum):

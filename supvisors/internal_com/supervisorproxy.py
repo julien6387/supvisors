@@ -174,8 +174,6 @@ class SupervisorProxy:
             self.restart()
         elif request_type == RequestHeaders.SHUTDOWN:
             self.shutdown()
-        elif request_type == RequestHeaders.RESTART_SEQUENCE:
-            self.restart_sequence()
         elif request_type == RequestHeaders.RESTART_ALL:
             self.restart_all()
         elif request_type == RequestHeaders.SHUTDOWN_ALL:
@@ -317,10 +315,6 @@ class SupervisorProxy:
         #      this will ensure a graceful stop because shutdown returns immediately and then kills everything
         # self.xml_rpc('supervisor.stopAllProcesses', self.proxy.supervisor.stopAllProcesses, ())
         self.xml_rpc('supervisor.shutdown', self.proxy.supervisor.shutdown, ())
-
-    def restart_sequence(self) -> None:
-        """ Ask the Supvisors Master to trigger the DEPLOYMENT phase. """
-        self.xml_rpc('supvisors.restart_sequence', self.proxy.supvisors.restart_sequence, ())
 
     def restart_all(self) -> None:
         """ Ask the Supvisors Master to restart Supvisors. """
