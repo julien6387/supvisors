@@ -77,14 +77,21 @@ Here follows a few definitions of terms are used throughout the present document
 Platform Requirements
 ---------------------
 
-|Supvisors| has been tested and is known to run on Linux (Rocky 8.5, RedHat 8.2 and Ubuntu 20.04 LTS).
+|Supvisors| has been tested and is known to run on Linux (Rocky 8, RedHat 8, Ubuntu 20 to 24).
 
 |Supvisors| will not run at all under any version of Windows.
 
 |Supvisors| works with :command:`Python 3.6` to :command:`Python 3.12`.
+From the version 0.19, |Supvisors|  works with :command:`Python 3.9` to :command:`Python 3.12`.
+
+Due to the lack of support of :command:`Python 3.6` and :command:`Python 3.7` in the Ubuntu releases provided
+in the Standard GitHub-hosted runners, |Supvisors| is now based on the minimal :command:`Python` release provided
+in RedHat 9, i.e., :command:`Python 3.9`.
+
+|Supvisors| 0.18.7 is therefore the last version supporting :command:`Python 3.6` to :command:`Python 3.8`.
 
 An old release of |Supvisors| (version 0.1, available on PyPi) works with :command:`Python 2.7` (and previous
-versions of |Supervisor|, i.e. 3.3.0) but is not maintained anymore.
+versions of |Supervisor|, i.e. 3.3.0).
 
 The CSS of the Dashboard has been written for Firefox ESR 91.3.0.
 The compatibility with other browsers or other versions of Firefox is unknown.
@@ -95,24 +102,23 @@ Installation
 
 |Supvisors| has the following dependencies:
 
-+----------------+--------------------+------------------------------------------------------------------------------------+
-| Package        | Minimal release    | Usage                                                                              |
-+================+====================+====================================================================================+
-| |Supervisor|   | 4.2.4              | Base software, extended by |Supvisors|                                             |
-+----------------+--------------------+------------------------------------------------------------------------------------+
-| |psutil|       | 5.7.3              | *(optional)* Information about system usage                                        |
-+----------------+--------------------+------------------------------------------------------------------------------------+
-| matplotlib_    | 3.3.3              | *(optional)* Graphs for Dashboard                                                  |
-+----------------+--------------------+------------------------------------------------------------------------------------+
-| |lxml|         | 4.6.2              | *(optional)* XSD validation of the XML rules file                                  |
-+----------------+--------------------+------------------------------------------------------------------------------------+
-| |Flask-RESTX|  | 0.5.1 (py36) |br|  | *(optional)* Expose the Supervisor and Supvisors XML-RPC API through a REST API    |
-|                | 1.1.0 (py37+)      |                                                                                    |
-+----------------+--------------------+------------------------------------------------------------------------------------+
-| |PyZMQ|        | 25.1.1             | *(optional)* Alternative for the Supvisors Event interface                         |
-+----------------+--------------------+------------------------------------------------------------------------------------+
-| |Websockets|   | 10.4               | *(optional)* Alternative for the Supvisors Event interface (requires Python 3.7+)  |
-+----------------+--------------------+------------------------------------------------------------------------------------+
++----------------+-----------------+---------------------------------------------------------------------------------+
+| Package        | Minimal release | Usage                                                                           |
++================+=================+=================================================================================+
+| |Supervisor|   | 4.2.4           | Base software, extended by |Supvisors|                                          |
++----------------+-----------------+---------------------------------------------------------------------------------+
+| |psutil|       | 5.9.0           | *(optional)* Information about system usage                                     |
++----------------+-----------------+---------------------------------------------------------------------------------+
+| matplotlib_    | 3.5.1           | *(optional)* Graphs for Dashboard                                               |
++----------------+-----------------+---------------------------------------------------------------------------------+
+| |lxml|         | 4.8.0           | *(optional)* XSD validation of the XML rules file                               |
++----------------+-----------------+---------------------------------------------------------------------------------+
+| |Flask-RESTX|  | 1.2.0           | *(optional)* Expose the Supervisor and Supvisors XML-RPC API through a REST API |
++----------------+-----------------+---------------------------------------------------------------------------------+
+| |PyZMQ|        | 25.1.1          | *(optional)* Alternative for the Supvisors Event interface                      |
++----------------+-----------------+---------------------------------------------------------------------------------+
+| |Websockets|   | 11.0.3          | *(optional)* Alternative for the Supvisors Event interface                      |
++----------------+-----------------+---------------------------------------------------------------------------------+
 
 With an Internet access
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -134,13 +140,13 @@ Supvisors can be installed with ``pip install``:
    # install for XML validation only (includes lxml)
    [bash] > pip install supvisors[xml_valid]
 
-   # install for the REST API (includes flask-restx)
+   # install for the REST API (includes Flask-RESTX)
    [bash] > pip install supvisors[flask]
 
    # install for the ZMQ event interface (includes PyZMQ)
    [bash] > pip install supvisors[zmq]
 
-   # install for the Websockets event interface (includes websockets, requires Python 3.7+)
+   # install for the Websockets event interface (includes websockets)
    [bash] > pip install supvisors[ws]
 
 Without an Internet access

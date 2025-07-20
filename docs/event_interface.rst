@@ -10,10 +10,6 @@ The |Supvisors| Event Interface can be created either using a |ZeroMQ| socket or
 
 All messages consist in a header and a body.
 
-.. attention::
-
-    The |websockets| implementation requires a :command:`Python` version 3.7 or later.
-
 Message header
 --------------
 
@@ -345,10 +341,6 @@ The binary JAR of :program:`Google Gson 2.8.6` is available in the
 
 |websockets| Implementation
 ---------------------------
-
-.. attention::
-
-    The |websockets| implementation requires a :command:`Python` version 3.7 or later.
 
 When the ``event_link`` option is set to ``WS``, |Supvisors| creates a |websockets| server that binds on all interfaces
 using the ``event_port`` option defined in the :ref:`supvisors_section` of the |Supervisor| configuration file.

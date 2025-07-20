@@ -52,26 +52,32 @@ Also provided in the scope of this project:
 
 ## Supported Platforms
 
-**Supvisors** has been tested and is known to run on Linux (Rocky 8.5, RedHat 8.2 and Ubuntu 20.04 LTS).
+**Supvisors** has been tested and is known to run on Linux (Rocky 8, RedHat 8, Ubuntu 20 to 24).
 It will likely work fine on most UNIX systems.
 
 **Supvisors** will not run at all under any version of Windows.
 
-**Supvisors** works with `Python 3.6` to `Python 3.12`.
+From the version 0.19, **Supvisors** works with `Python 3.9` to `Python 3.12`.
+
+Due to the lack of support of `Python 3.6` and `Python 3.7` in the Ubuntu releases provided in the Standard
+GitHub-hosted runners, **Supvisors** is now based on the minimal `Python` release provided in RedHat 9,
+i.e., `Python 3.9`.
+
+**Supvisors** 0.18.7 is therefore the last version supporting `Python 3.6` to `Python 3.8`.
 
 ## Dependencies
 
 **Supvisors** has dependencies on:
 
-| Package                                            | Optional | Minimal release             |
-|----------------------------------------------------|----------|-----------------------------|
-| [Supervisor](http://supervisord.org)               |          | 4.2.4                       |
-| [psutil](https://pypi.python.org/pypi/psutil)      | X        | 5.7.3                       |
-| [matplotlib](http://matplotlib.org)                | X        | 3.3.3                       |
-| [lxml](http://lxml.de)                             | X        | 4.6.2                       |
-| [Flask-RESTX](https://flask-restx.readthedocs.io)  | X        | 0.5.1 (py36), 1.1.0 (py37+) |
-| [PyZMQ](http://pyzmq.readthedocs.io)               | X        | 25.1.1                      |
-| [websockets](https://websockets.readthedocs.io)    | X        | 10.4 (py37+)                |
+| Package                                            | Optional | Minimal release |
+|----------------------------------------------------|----------|-----------------|
+| [Supervisor](http://supervisord.org)               |          | 4.2.4           |
+| [psutil](https://pypi.python.org/pypi/psutil)      | X        | 5.9.0           |
+| [matplotlib](http://matplotlib.org)                | X        | 3.5.1           |
+| [lxml](http://lxml.de)                             | X        | 4.8.0           |
+| [Flask-RESTX](https://flask-restx.readthedocs.io)  | X        | 1.2.0           |
+| [PyZMQ](http://pyzmq.readthedocs.io)               | X        | 25.1.1          |
+| [websockets](https://websockets.readthedocs.io)    | X        | 11.0.3          |
 
 Please note that some of these dependencies may have their own dependencies.
 

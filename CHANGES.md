@@ -2,6 +2,8 @@
 
 ## 0.19 (2025-07-20)
 
+* Python 3.9 becomes the minimal version.
+
 * Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.
 
 * Refactoring of the **Supvisors** internal state machine.
@@ -65,6 +67,8 @@
 
 
 ## 0.18.7 (2025-01-10)
+
+* Last **Supvisors** version supporting Python 3.6 to Python 3.8.
 
 * Fix a random Python crash due to an I/O exception when the Supervisor log file is rolling over.
 
