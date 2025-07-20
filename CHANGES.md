@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.19 (2025-07-20)
+## 0.19 (2025-07-21)
 
 * Python 3.9 becomes the minimal version.
   Python 3.6 to Python 3.8 are not supported anymore.
