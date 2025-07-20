@@ -94,7 +94,7 @@ def test_write_instance_box_title(mocker, supvisors_instance, view):
     assert mocked_sync_a_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_sync_a_mid.content.call_args_list == [call('&#160;&#10026;&#160;')]
     # test Supvisors instance element
-    assert mocked_identifier_mid.attrib['class'] == 'on'
+    assert mocked_identifier_mid.attrib['class'] == 'on active'
     expected_url = 'http://10.0.0.1:25000/index.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
@@ -118,7 +118,7 @@ def test_write_instance_box_title(mocker, supvisors_instance, view):
     assert not mocked_sync_a_mid.attributes.called
     assert not mocked_sync_a_mid.content.called
     # test Supvisors instance element
-    assert mocked_identifier_mid.attrib['class'] == 'on'
+    assert mocked_identifier_mid.attrib['class'] == 'on active'
     expected_url = 'http://10.0.0.1:25000/index.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
     assert mocked_identifier_mid.content.call_args_list == [call(f'{SupvisorsSymbols.MASTER_SYMBOL} 10.0.0.1')]
@@ -143,7 +143,7 @@ def test_write_instance_box_title(mocker, supvisors_instance, view):
     assert not mocked_sync_a_mid.attributes.called
     assert mocked_sync_a_mid.content.call_args_list == [call('&#160;&#10026;&#160;')]
     # test Supvisors instance element
-    assert mocked_identifier_mid.attrib['class'] == 'off'
+    assert mocked_identifier_mid.attrib['class'] == 'off active'
     assert not mocked_identifier_mid.attributes.called
     assert mocked_identifier_mid.content.call_args_list == [call(f'{SupvisorsSymbols.MASTER_SYMBOL} 10.0.0.1')]
     # test state element

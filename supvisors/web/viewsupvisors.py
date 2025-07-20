@@ -93,6 +93,8 @@ class SupvisorsView(MainView):
         nick_identifier = status.supvisors_id.nick_identifier
         if status.identifier == self.state_modes.master_identifier:
             nick_identifier = f'{SupvisorsSymbols.MASTER_SYMBOL} {nick_identifier}'
+        if status.identifier == self.state_modes.local_identifier:
+            update_attrib(elt, 'class', 'active')
         elt.content(nick_identifier)
         # set Supvisors instance state
         elt = instance_div_elt.findmeld('state_th_mid')
