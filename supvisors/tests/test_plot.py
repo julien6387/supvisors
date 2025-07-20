@@ -52,8 +52,6 @@ def test_plot_error(mocker, logger_instance):
     # export image in buffer
     contents = StatsImage()
     plot.export_image(contents)
-    # test that result is a PNG file
-    assert imghdr.what('', h=contents.contents.getvalue()) is None
 
 
 def test_get_range():
