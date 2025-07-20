@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function internal_data_bus_running() {
-  local result=`supervisorctl -s http://localhost:61000 status scen3_internal_data_bus | awk '{print $2}'`
+  local result=`supvisorsctl -s ${SUPERVISOR_SERVER_URL} sstatus scen3_internal_data_bus | tail -1 | awk '{print $3}'`
   echo $result
 }
 
