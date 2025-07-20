@@ -192,8 +192,8 @@ class SupervisorProxy:
         self._transfer_network_info(timestamp)
         # additional information sent internally depends on the actual authorization
         authorization = self._is_authorized()
-        self.logger.info(f'SupervisorProxy.check_instance: identifier={self.status.usage_identifier}'
-                         f' authorization={authorization.name} at timestamp={timestamp}')
+        self.logger.debug(f'SupervisorProxy.check_instance: identifier={self.status.usage_identifier}'
+                          f' authorization={authorization.name} at timestamp={timestamp}')
         if authorization == AuthorizationTypes.AUTHORIZED:
             # state & modes and process info already include a 'now_monotonic' field
             self._transfer_states_modes()

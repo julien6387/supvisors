@@ -108,7 +108,7 @@ class NetworkAddress:
     def _get_local_view(self, host_id: str) -> None:
         """ Get hostname, aliases and all IP addresses for the host_id.
 
-        :param host_id: the host name or IP address.
+        :param host_id: The host name or IP address.
         :return: None.
         """
         try:
@@ -502,8 +502,8 @@ class SupvisorsMapper:
 
         It can be either the Supervisor identifier or a name built using the host name or any of its known IP addresses.
 
-        :param stereotypes: the local Supvisors instance stereotypes.
-        :return: the identifier of the Supvisors instance.
+        :param stereotypes: The local Supvisors instance stereotypes.
+        :return: The identifier of the Supvisors instance.
         """
         http_port = self.supvisors.supervisor_data.server_port
         # try to find a Supvisors instance corresponding to the network configuration
@@ -541,8 +541,8 @@ class SupvisorsMapper:
         If the identifier is not found, it is removed from the list.
         If more than one occurrence of the same identifier is found, only the first one is kept.
 
-        :param identifier_list: a list of Supvisors identifiers and/or nick identifiers and/or stereotypes.
-        :return: the filtered list of Supvisors identifiers.
+        :param identifier_list: A list of Supvisors identifiers and/or nick identifiers and/or stereotypes.
+        :return: The filtered list of Supvisors identifiers.
         """
         identifiers = []
         # filter unknown Supvisors identifiers and expand the stereotypes

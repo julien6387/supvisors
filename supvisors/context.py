@@ -448,7 +448,7 @@ class Context:
     def on_identification_event(self, event: Payload) -> None:
         """ Complete the remote Supvisors instance identification.
 
-        :param event: the network information of the remote Supvisors instance.
+        :param event: The network information of the remote Supvisors instance.
         :return: None.
         """
         # only accepted if later than CHECKING date
@@ -460,7 +460,7 @@ class Context:
             # may happen if CHECKING phase too long
             # (lots of Supvisors instances and local instance busy processing too many events)
             self.logger.debug(f'Context.on_identification_event: unexpected with Supvisors={status.usage_identifier}'
-                              f' and timestamp={timestamp} (CHECKING at {status.checking_time}')
+                              f' and timestamp={timestamp} (CHECKING at {status.checking_time})')
 
     def on_authorization(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance

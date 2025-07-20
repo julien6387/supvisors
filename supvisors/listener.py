@@ -440,7 +440,7 @@ class SupervisorListener:
         # NOTE: IDENTIFICATION messages contain the network information of the Supvisors instance
         #       it has to be considered before the validity of the event_origin can be checked
         if header == NotificationHeaders.IDENTIFICATION:
-            self.logger.trace(f'SupervisorListener.read_notification: IDENTIFICATION from {event_origin}')
+            self.logger.debug(f'SupervisorListener.read_notification: IDENTIFICATION from {event_origin}')
             self.fsm.on_identification_event(event_data)
             return
         # check message origin validity
