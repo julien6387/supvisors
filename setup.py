@@ -85,6 +85,5 @@ setup(name='supvisors',
       zip_safe=False,
       test_suite="supvisors.tests",
       entry_points={'console_scripts': ['supvisorsctl = supvisors.supvisorsctl:main',
-                                        'supvisors_breed = supvisors.tools.breed:main',
                                         'supvisorsflask = supvisors.tools.supvisorsflask:main']}
       )

@@ -200,8 +200,6 @@ The initial |Supervisor| configuration is as follows:
             └── group_server.ini
 
 
-.. _supvisors_breed:
-
 Homogeneous applications
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -213,75 +211,6 @@ However, it is possible to assign multiple times the same program to different g
 Assuming that the :program:`Scenario 2` application is delivered with the |Supervisor| configuration files for one
 generic item to control and assuming that there are X items to control, the first job is duplicate X times all group
 definitions.
-
-This may be a bit painful when X is great or when the number of applications concerned is great, so a script is
-provided in the |Supvisors| package to make life easier.
-
-.. code-block:: bash
-
-    [bash] > supvisors_breed -h
-    usage: supvisors_breed [-h] -t TEMPLATE [-p PATTERN] -d DESTINATION
-                    [-b app=nb [app=nb ...]] [-x] [-v]
-
-    Duplicate the application definitions
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      -t TEMPLATE, --template TEMPLATE
-                            the template folder
-      -p PATTERN, --pattern PATTERN
-                            the search pattern from the template folder
-      -d DESTINATION, --destination DESTINATION
-                            the destination folder
-      -b app=nb [app=nb ...], --breed app=nb [app=nb ...]
-                            the applications to breed
-      -x, --extra           create new files
-      -v, --verbose         activate logs
-
-For this example, let's define X=3. Using greater values don't change the complexity of what follows. It would just
-need more resources to test.
-:program:`supvisors_breed` duplicates 3 times the :program:`scen2_srv` and :program:`scen2_hci` groups
-found in the ``template_etc`` folder and writes new configuration files into the ``etc`` folder.
-
-.. code-block:: bash
-
-    [bash] > supvisors_breed -d etc -t template_etc -b scen2_srv=3 -x -v
-    ArgumentParser: Namespace(breed={'scen2_srv': 3}, destination='etc', extra=True, pattern='server/*.ini', template='template_etc', verbose=True)
-    Configuration files found:
-        server/programs_server.ini
-        server/group_server.ini
-    Template group elements found:
-        group:scen2_srv
-    New File: server/group_scen2_srv_01.ini
-    New [group:scen2_srv_01]
-    New File: server/group_scen2_srv_02.ini
-    New [group:scen2_srv_02]
-    New File: server/group_scen2_srv_03.ini
-    New [group:scen2_srv_03]
-    Writing file: etc/server/programs_server.ini
-    Empty sections for file: server/group_server.ini
-    Writing file: etc/server/group_scen2_srv_01.ini
-    Writing file: etc/server/group_scen2_srv_02.ini
-    Writing file: etc/server/group_scen2_srv_03.ini
-
-    [bash] > supvisors_breed -d etc -t template_etc -b scen2_hci=3 -x -v
-    ArgumentParser: Namespace(breed={'scen2_hci': 3}, destination='etc', extra=True, pattern='console/*ini', template='template_etc', verbose=True)
-    Configuration files found:
-        console/group_console.ini
-        console/programs_console.ini
-    Template group elements found:
-        group:scen2_hci
-    New File: console/group_scen2_hci_01.ini
-    New [group:scen2_hci_01]
-    New File: console/group_scen2_hci_02.ini
-    New [group:scen2_hci_02]
-    New File: console/group_scen2_hci_03.ini
-    New [group:scen2_hci_03]
-    Empty sections for file: console/group_console.ini
-    Writing file: etc/console/programs_console.ini
-    Writing file: etc/console/group_scen2_hci_01.ini
-    Writing file: etc/console/group_scen2_hci_02.ini
-    Writing file: etc/console/group_scen2_hci_03.ini
 
 .. attention::
 

@@ -155,35 +155,12 @@ consoles and servers (|Req 12 abbr| and |Req 20 abbr|), this program follows the
 let's remove it from :program:`scen3_srv` and :program:`scen3_hci` and to insert it into the common services.
 
 Like the :program:`scen2_hci` of the :program:`Scenario 2`, :program:`scen3_hci` needs to be duplicated so this an
-instance could be started on each console. In this example, there are 3 consoles. :program:`supvisors_breed` will thus
-be used again to duplicate 3 times the :program:`scen3_hci` groups and programs found in the ``template_etc`` folder.
+instance could be started on each console. In this example, there are 3 consoles. The :program:`scen3_hci` groups
+and programs found in the ``template_etc`` folder are duplicated 3 times.
 
 However, unlike :program:`Scenario 2` where any :program:`scen2_hci` could be started from any console, only one
-:program:`scen3_hci` has to be started here per console and including more than one instance of it in the local
-|Supervisor| is useless. So the option ``-x`` of :program:`supvisors_breed` will be used so that the duplicated
-configurations are written into separated files in the ``etc`` folder. That will allow more flexibility when including
-files from the |Supervisor| configuration file.
-
-.. code-block:: bash
-
-    [bash] > supvisors_breed -d etc -t template_etc -b scen3_hci=3 -x -v
-    ArgumentParser: Namespace(breed={'scen3_hci': 3}, destination='etc', extra=True, pattern='**/*.ini', template='template_etc', verbose=True)
-    Configuration files found:
-        console/group_console.ini
-        console/programs_console.ini
-    Template group elements found:
-        group:scen3_hci
-    New File: console/group_scen3_hci_01.ini
-    New [group:scen3_hci_01]
-    New File: console/group_scen3_hci_02.ini
-    New [group:scen3_hci_02]
-    New File: console/group_scen3_hci_03.ini
-    New [group:scen3_hci_03]
-    Empty sections for file: console/group_console.ini
-    Writing file: etc/console/programs_console.ini
-    Writing file: etc/console/group_scen3_hci_01.ini
-    Writing file: etc/console/group_scen3_hci_02.ini
-    Writing file: etc/console/group_scen3_hci_03.ini
+:program:`scen3_hci` has to be started here per console, and including more than one instance of it in the local
+|Supervisor| is useless.
 
 .. note:: *About the choice to prefix all program names with 'scen3_'*
 
