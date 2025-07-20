@@ -60,6 +60,7 @@ class SupervisorProxy:
         self.supvisors = supvisors
         # create an XML-RPC client to the local Supervisor instance
         self._proxy: Optional[ServerProxy] = None
+        self.connected: bool = False
         self.last_used: float = time.monotonic()
 
     @property
@@ -78,7 +79,7 @@ class SupervisorProxy:
         if not self._proxy:
             self._proxy = self._get_proxy()
         elif self.status.supvisors_id.identifier == self.local_identifier:
-            # WARN: The proxy to the local Supervisor is a LOT less used than the others and is really subject
+            # WARN: The proxy to the local Supervisor is a LOT less used than the other proxies and is really subject
             #       to be broken by the http_channel.kill_zombies (supervisor/medusa/http_server.py) that will close
             #       the channel after 30 minutes of inactivity (magic number).
             #       So, let's re-create the local proxy once every 20 minutes.
@@ -107,9 +108,12 @@ class SupervisorProxy:
         self.last_used = time.monotonic()
         # call the XML-RPC
         try:
-            return fct(*args)
+            result = fct(*args)
+            # on success, the proxy is considered connected
+            self.connected = True
+            return result
         except (RPCError, xmlrpclib.Fault) as exc:
-            # the request is unexpected by the remote instance and the XML-RPC error is raised
+            # the request is unexpected by the remote instance, and the XML-RPC error is raised
             # no impact to the proxy
             self.logger.warn(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
                              f' {fct_name}{args} failed - {str(exc)}')
@@ -119,21 +123,23 @@ class SupervisorProxy:
             # socket.gaierror, ConnectionResetError, ConnectionRefusedError, CannotSendRequest, IncompleteRead, etc.)
             # also raised if the HTTP channel has been closed by the Supervisor kill_zombies (30 minutes inactivity)
             # the proxy is not operational - error log only if instance is active
-            log_level = LevelsByName.ERRO if self.status.has_active_state() else LevelsByName.DEBG
+            log_level = LevelsByName.ERRO if self.connected else LevelsByName.DEBG
             message = f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier} not reachable - {str(exc)}'
             self.logger.log(log_level, message)
             self.logger.debug(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
             # NOTE: when the other end is not ready, the ServerProxy is not valid and cannot be reused, so reset it
             #       further calls would raise CannotSendRequest exceptions
             self._proxy = None
+            # the proxy is marked disconnected to limit the log traces
+            self.connected = False
             raise SupervisorProxyException
         except (KeyError, ValueError, TypeError) as exc:
             # JSON serialization issue / implementation error
-            self.logger.error(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
-                              f' {fct_name}{args} data error - {str(exc)}')
-            self.logger.error(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
-            # reset the proxy, same reason as above
-            self._proxy = None
+            self.logger.critical(f'SupervisorProxy.xml_rpc: Supervisor={self.status.usage_identifier}'
+                                 f' {fct_name}{args} data error - {str(exc)}')
+            self.logger.critical(f'SupervisorProxy.xml_rpc: {traceback.format_exc()}')
+            # the proxy is marked disconnected to limit the log traces
+            self.connected = False
             raise SupervisorProxyException
         return None
 
@@ -151,7 +157,8 @@ class SupervisorProxy:
             self.logger.error(f'SupervisorRemoteProxy.publish: unexpected publication={publication_message}')
             return
         # publish the message to the supvisors instance
-        # if the remote instance is not active, publish only TICK events
+        # if the remote instance is not active, try to publish only TICK events
+        # NOTE: the real instance state is used instead of the self.connected flag
         if publication_type == PublicationHeaders.TICK or self.status.has_active_state():
             message = self._get_origin(from_identifier), publication_message
             self.send_remote_comm_event(SUPVISORS_PUBLICATION, message)
