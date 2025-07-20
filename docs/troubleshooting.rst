@@ -327,10 +327,10 @@ Then |Supervisor| shall be started by passing this identification to the :progra
     [bash] > supervisord -ni supv-01
 
 
-Remote host ``SILENT``
-----------------------
+Remote host ``STOPPED``
+-----------------------
 
-A remote |Supvisors| instance may be declared ``SILENT``, although :program:`supervisord` is running on the remote host.
+A remote |Supvisors| instance may be declared ``STOPPED``, although :program:`supervisord` is running on the remote host.
 
 Firewall rules
 ~~~~~~~~~~~~~~

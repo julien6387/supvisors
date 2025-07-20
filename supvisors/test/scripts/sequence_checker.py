@@ -81,7 +81,7 @@ class Program:
 
 
 def database_status_logic(app):
-    # specific major failure
+    """ Specific major failure for database application. """
     for proc_name in ['register_movies_01', 'register_movies_02', 'register_movies_03']:
         process = app.programs[proc_name]
         if not ((process.state in RUNNING_STATES)
@@ -181,7 +181,7 @@ class Application:
                 for program in self.programs.values():
                     if (program.state == ProcessStates.FATAL or
                             (program.state == ProcessStates.EXITED and not program.expected_exit)):
-                        major_failure = True
+                        minor_failure = True
             return major_failure, minor_failure
         # required case
         return self.has_major_failure(), self.has_minor_failure()
@@ -261,9 +261,9 @@ class SequenceChecker(SupvisorsEventQueues):
 class CheckSequenceTest(unittest.TestCase):
     """ Common class used to check starting and stopping sequences. """
 
-    HOST_01 = 'supv01:60000'
+    HOST_01 = '17.0.1.11:60000'
     HOST_02 = 'supv02:60000'
-    HOST_03 = '17.0.1.11:30000'
+    HOST_03 = '192.168.1.70:30000'
     HOST_04 = 'supv04:60000'
 
     def setUp(self):

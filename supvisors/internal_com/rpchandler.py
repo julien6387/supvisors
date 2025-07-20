@@ -110,14 +110,6 @@ class RpcHandler:
         """
         self.push_request(identifier, RequestHeaders.SHUTDOWN)
 
-    def send_restart_sequence(self, identifier: str):
-        """ Send request to trigger the DEPLOYMENT phase.
-
-        :param identifier: the Master Supvisors instance.
-        :return: None.
-        """
-        self.push_request(identifier, RequestHeaders.RESTART_SEQUENCE)
-
     def send_restart_all(self, identifier: str):
         """ Send request to restart Supvisors.
 

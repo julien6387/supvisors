@@ -180,17 +180,8 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         # use the conciliation function in parameter
         print('### [INFO] start conciliation')
         conciliation()
-        # check supvisors event
-        # in the event of a Supvisors conciliation, multiple CONCILIATION events may be raised with stopping / starting
-        # modes on or off (max 4 for a restart conciliation)
-        event = self._get_next_supvisors_event()
-        max_conciliation_events = 4
-        while event['fsm_statename'] == 'CONCILIATION' and max_conciliation_events:
-            event = self._get_next_supvisors_event()
-            max_conciliation_events -= 1
         # check supvisors event: OPERATION state is expected
-        self.assertEqual('OPERATION', event['fsm_statename'])
-        self.assertEqual([], event['stopping_jobs'])
+        self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'fsm_statename': 'OPERATION'}], 10)
         # check that there is no conflict anymore
         self._check_no_conflict()
 
@@ -222,13 +213,7 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         self.assertEqual(3, len(received_events))
         self.assertEqual([], expected_events)
         # multiple CONCILIATION events will be raised with stopping mode on or off
-        event = self._get_next_supvisors_event()
-        max_conciliation_events = 6
-        while event['fsm_statename'] == 'CONCILIATION' and max_conciliation_events:
-            event = self._get_next_supvisors_event()
-            max_conciliation_events -= 1
-        # check supvisors event: OPERATION state is expected
-        self.assertEqual('OPERATION', event['fsm_statename'])
+        self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'fsm_statename': 'OPERATION'}], 10)
         # check that there is no conflict anymore
         self._check_no_conflict()
 
@@ -257,8 +242,7 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
                     event = self._get_next_process_event()
                     assert {'name': program, 'state': 20, 'identifier': identifier}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
-        event = self._get_next_supvisors_event()
-        self.assertEqual('CONCILIATION', event['fsm_statename'])
+        self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'fsm_statename': 'CONCILIATION'}], 10)
 
     def _check_database_conflicts(self):
         """ Test conflicts on database application using XML-RPC. """
@@ -289,8 +273,7 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
                 event = self._get_next_process_event()
                 assert {'name': 'manager', 'state': 20, 'identifier': identifier}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
-        event = self._get_next_supvisors_event()
-        self.assertEqual('CONCILIATION', event['fsm_statename'])
+        self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'fsm_statename': 'CONCILIATION'}], 10)
 
     def _check_manager_conflicts(self):
         """ Test conflicts on the my_movies:manager process using RPC. """

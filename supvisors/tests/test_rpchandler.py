@@ -19,10 +19,10 @@ from unittest.mock import call
 from supvisors.internal_com.rpchandler import *
 
 
-def test_all_requests(mocker, supvisors):
+def test_all_requests(mocker, supvisors_instance):
     """ Test the requests of the RpcHandler communication. """
-    handler = RpcHandler(supvisors)
-    assert handler.logger is supvisors.logger
+    handler = RpcHandler(supvisors_instance)
+    assert handler.logger is supvisors_instance.logger
     # mock proxy server
     proxy_server = mocker.patch.object(handler, 'proxy_server')
     # test push CHECK_INSTANCE
@@ -50,11 +50,6 @@ def test_all_requests(mocker, supvisors):
     expected = '10.0.0.1', (RequestHeaders.SHUTDOWN.value, None)
     assert proxy_server.push_request.call_args_list == [call(*expected)]
     proxy_server.push_request.reset_mock()
-    # test push RESTART_SEQUENCE
-    handler.send_restart_sequence('10.0.0.1')
-    expected = '10.0.0.1', (RequestHeaders.RESTART_SEQUENCE.value, None)
-    assert proxy_server.push_request.call_args_list == [call(*expected)]
-    proxy_server.push_request.reset_mock()
     # test push RESTART_ALL
     handler.send_restart_all('10.0.0.1')
     expected = '10.0.0.1', (RequestHeaders.RESTART_ALL.value, None)
@@ -73,10 +68,10 @@ def test_all_requests(mocker, supvisors):
     assert proxy_server.stop.call_args_list == [call()]
 
 
-def test_all_publications(mocker, supvisors):
+def test_all_publications(mocker, supvisors_instance):
     """ Test the publications of the RpcHandler communication. """
-    handler = RpcHandler(supvisors)
-    assert handler.logger is supvisors.logger
+    handler = RpcHandler(supvisors_instance)
+    assert handler.logger is supvisors_instance.logger
     # mock proxy server
     proxy_server = mocker.patch.object(handler, 'proxy_server')
     # test push TICK
@@ -127,10 +122,10 @@ def test_all_publications(mocker, supvisors):
     assert proxy_server.stop.call_args_list == [call()]
 
 
-def test_discovery_event(mocker, supvisors):
+def test_discovery_event(mocker, supvisors_instance):
     """ Test the discovery events of the RpcHandler communication. """
-    handler = RpcHandler(supvisors)
-    assert handler.logger is supvisors.logger
+    handler = RpcHandler(supvisors_instance)
+    assert handler.logger is supvisors_instance.logger
     # mock proxy server
     proxy_server = mocker.patch.object(handler, 'proxy_server')
     # test push STATE

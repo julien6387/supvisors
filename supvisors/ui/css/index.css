@@ -44,6 +44,10 @@
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
 
+#index_contents th a.active {
+    color: var(--selected-color);
+}
+
 #index_contents tr:first-child th {
     border-bottom: solid 1px var(--border-color);
 }

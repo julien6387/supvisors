@@ -14,6 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
+import time
 from typing import Dict, List, Optional, Tuple
 
 from .ttypes import (CPUHistoryStats, CPUInstantStats,
@@ -173,6 +174,7 @@ class HostStatisticsInstance:
                 uptime, cpu, mem, net_io, disk_io, disk_usage = self.integrate(stats)
                 # create the result structure (use a copy as the _push functions will pop the original data)
                 result = {'identifier': self.identifier,
+                          'now_monotonic': time.monotonic(),
                           'target_period': self.period,
                           'period': (self.ref_stats['now'] - self.ref_start_time,
                                      stats['now'] - self.ref_start_time),
@@ -219,19 +221,25 @@ class HostStatisticsCompiler:
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
-        # the list of Supvisors instances is fixed so prepare the structures
-        self.instance_map: HostStatisticsCompiler.HostStatisticsMap = {
-            identifier: {period: HostStatisticsInstance(identifier, period, supvisors.options.stats_histo,
-                                                        supvisors.logger)
-                         for period in supvisors.options.stats_periods}
-            for identifier in supvisors.mapper.instances}
+        self.supvisors = supvisors
+        # Instance structures
+        self.instance_map: HostStatisticsCompiler.HostStatisticsMap = {}
         self.nb_cores: Dict[str, int] = {}
 
-    def get_stats(self, identifier: str, period: int) -> HostStatisticsInstance:
+    def add_instance(self, identifier: str) -> None:
+        """ Add a new Supvisors instance to the statistics structures."""
+        self.instance_map[identifier] = {period: HostStatisticsInstance(identifier, period,
+                                                                        self.supvisors.options.stats_histo,
+                                                                        self.supvisors.logger)
+                                         for period in self.supvisors.options.stats_periods}
+        self.nb_cores[identifier] = 1
+
+    def get_stats(self, identifier: str, period: float) -> Optional[HostStatisticsInstance]:
         """ Return the HostStatisticsInstance corresponding to a Supvisors instance and a period. """
         identifier_instance = self.instance_map.get(identifier)
         if identifier_instance:
             return identifier_instance.get(period)
+        return None
 
     def get_nb_cores(self, identifier: str) -> int:
         """ Return the number of CPU cores linked to a Supvisors instance. """
@@ -240,15 +248,20 @@ class HostStatisticsCompiler:
     def push_statistics(self, identifier: str, stats: Payload) -> PayloadList:
         """ Insert a new statistics measure for identifier. """
         integrated_stats = []
-        if identifier in self.instance_map:
-            for period, stats_instance in self.instance_map[identifier].items():
-                result = stats_instance.push_statistics(stats)
-                if result:
-                    integrated_stats.append(result)
-            # set the number of processor cores
-            # in the case of multiple cores, the first series of values are average values
-            nb = len(stats['cpu'])
-            self.nb_cores[identifier] = nb if nb == 1 else nb - 1
+        # create the statistics instance if it does not exist
+        host_instance = self.instance_map.get(identifier)
+        if not host_instance:
+            self.add_instance(identifier)
+        # consider new statistics on host
+        host_instance = self.instance_map[identifier]
+        for period, stats_instance in host_instance.items():
+            result = stats_instance.push_statistics(stats)
+            if result:
+                integrated_stats.append(result)
+        # set the number of processor cores
+        # in the case of multiple cores, the first series of values are average values
+        nb = len(stats['cpu'])
+        self.nb_cores[identifier] = nb if nb == 1 else nb - 1
         return integrated_stats
 
 
@@ -262,11 +275,12 @@ def cpu_process_statistics(latest: float, ref: float, host_work: float) -> float
 class ProcStatisticsInstance:
     """ This class handles statistics for a process running on a Supervisor instance and for a given period. """
 
-    def __init__(self, namespec: str = '', identifier: str = '', period: float = 0.0, depth: int = 0):
+    def __init__(self, namespec: str = '', identifier: str = '', pid: int = 0, period: float = 0.0, depth: int = 0):
         """ Initialization of the attributes. """
         # parameters
         self.namespec: str = namespec
         self.identifier: str = identifier
+        self.pid: int = pid
         self.period: float = period
         self.depth: int = depth
         self.ref_stats: Payload = {}
@@ -291,6 +305,8 @@ class ProcStatisticsInstance:
                 # create the result structure (use a copy as the _push functions will pop)
                 result = {'namespec': self.namespec,
                           'identifier': self.identifier,
+                          'pid': self.pid,
+                          'now_monotonic': time.monotonic(),
                           'target_period': self.period,
                           'period': (self.ref_stats['now'] - self.ref_start_time,
                                      proc_stats['now'] - self.ref_start_time),
@@ -326,15 +342,14 @@ class ProcStatisticsHolder:
 
     Attributes are:
 
-        - namespec: the process namespec
-        - pid: the process PID
-        - options: the Supvisors options
-        - logger: the global Supvisors logger
+        - namespec: the process namespec ;
+        - options: the Supvisors options ;
+        - logger: the global Supvisors logger ;
         - instance_map: a dictionary of ProcStatisticsInstance for all Supvisors instances where the process is running
                         and for all periods.
     """
 
-    IdentifierInstanceMap = Dict[str, Tuple[float, Dict[int, ProcStatisticsInstance]]]
+    IdentifierInstanceMap = Dict[str, Tuple[int, Dict[float, ProcStatisticsInstance]]]
 
     def __init__(self, namespec: str, options, logger):
         """ Initialization of the attributes. """
@@ -367,7 +382,7 @@ class ProcStatisticsHolder:
             if not identifier_instance or pid != ref_pid:
                 # process has been (re-)started on Supervisord instance
                 self.logger.debug(f'ProcStatisticsHolder.push_statistics: {self.namespec} started on {identifier}')
-                identifier_instance = {period: ProcStatisticsInstance(self.namespec, identifier,
+                identifier_instance = {period: ProcStatisticsInstance(self.namespec, identifier, pid,
                                                                       period, self.options.stats_histo)
                                        for period in self.options.stats_periods}
                 self.instance_map[identifier] = pid, identifier_instance

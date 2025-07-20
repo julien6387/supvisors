@@ -19,50 +19,46 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.web import MeldView
 
+from supvisors.application import ApplicationRules
 from supvisors.ttypes import ApplicationStates
 from supvisors.web.viewapplication import *
-from .base import DummyHttpContext
 from .conftest import create_element
 
 
 @pytest.fixture
-def view(supvisors):
+def empty_view(mocker, http_context):
     """ Fixture for the instance to test. """
-    http_context = DummyHttpContext('ui/application.html')
-    http_context.supervisord.supvisors = supvisors
-    view = ApplicationView(http_context)
-    view.view_ctx = Mock(parameters={}, **{'format_url.return_value': 'an url'})
-    return view
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
+    http_context.template.replace('index.html', 'application.html')
+    return ApplicationView(http_context)
 
 
-def test_init(view):
-    """ Test the values set at construction. """
-    # create instance
-    assert isinstance(view, ViewHandler)
-    assert isinstance(view, MeldView)
-    assert view.application_name == ''
-    assert view.application is None
+@pytest.fixture
+def view(mocker, supvisors_instance, http_context):
+    """ Fixture for the instance to test. """
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
+    http_context.template.replace('index.html', 'application.html')
+    rules = ApplicationRules(supvisors_instance)
+    appli = ApplicationStatus('dummy_appli', rules, supvisors_instance)
+    supvisors_instance.context.applications['dummy_appli'] = appli
+    for attr in ['namespec', 'processname', 'nic', 'partition', 'device']:
+        del http_context.form[attr]
+    return ApplicationView(http_context)
 
 
-def test_handle_parameters(mocker, view):
-    """ Test the handle_parameters method. """
-    mocker.patch('supvisors.web.viewapplication.error_message', return_value='an error')
-    mocked_handle = mocker.patch('supvisors.web.viewhandler.ViewHandler.handle_parameters')
-    # patch context
-    view.view_ctx.application_name = None
-    # test with no application selected
-    view.handle_parameters()
-    assert mocked_handle.call_args_list == [call(view)]
-    assert view.application is None
-    assert view.view_ctx.store_message == 'an error'
-    assert view.view_ctx.redirect
-    mocked_handle.reset_mock()
-    # test with application selected
-    view.view_ctx = Mock(application_name='dummy_appli', store_message=None, redirect=False)
-    view.sup_ctx.applications['dummy_appli'] = 'dummy_appli'
-    view.handle_parameters()
-    assert mocked_handle.call_args_list == [call(view)]
-    assert view.application == 'dummy_appli'
+def test_init_no_app(empty_view):
+    """ Test the values set at construction when no application is available. """
+    assert isinstance(empty_view, ViewHandler)
+    assert isinstance(empty_view, MeldView)
+    assert empty_view.application_name is None
+    assert empty_view.application is None
+    assert empty_view.view_ctx.store_message == ('erro', 'Unknown application: None at now')
+    assert empty_view.view_ctx.redirect
+
+
+def test_init(supvisors_instance, view):
+    """ Test the values set at construction when the application is available. """
+    assert view.application is supvisors_instance.context.applications['dummy_appli']
     assert view.view_ctx.store_message is None
     assert not view.view_ctx.redirect
 
@@ -189,9 +185,9 @@ def test_write_actions(mocker, view):
     # test call
     view.write_actions(mocked_header)
     assert mocked_super.call_args_list == [call(mocked_header)]
-    assert view.view_ctx.format_url.call_args_list == [call('', APPLICATION_PAGE, action='startapp'),
-                                                       call('', APPLICATION_PAGE, action='stopapp'),
-                                                       call('', APPLICATION_PAGE, action='restartapp')]
+    assert view.view_ctx.format_url.call_args_list == [call('', SupvisorsPages.APPLICATION_PAGE, action='startapp'),
+                                                       call('', SupvisorsPages.APPLICATION_PAGE, action='stopapp'),
+                                                       call('', SupvisorsPages.APPLICATION_PAGE, action='restartapp')]
     assert startapp_a_mid.attributes.call_args_list == [call(href='a start url')]
     assert stopapp_a_mid.attributes.call_args_list == [call(href='a stop url')]
     assert restartapp_a_mid.attributes.call_args_list == [call(href='a restart url')]
@@ -462,7 +458,7 @@ def test_write_process_shex(view):
     view.write_process_shex(tr_elt, info, True)
     assert view.view_ctx.format_url.call_args_list == [call('', 'application.html', pshex='0001')]
     assert shex_td_mid.attrib['class'] == 'shaded'
-    assert shex_a_mid.content.call_args_list == [call(SHEX_SHRINK)]
+    assert shex_a_mid.content.call_args_list == [call(SupvisorsSymbols.SHEX_SHRINK)]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
     tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
@@ -471,13 +467,13 @@ def test_write_process_shex(view):
     view.write_process_shex(tr_elt, info, False)
     assert view.view_ctx.format_url.call_args_list == [call('', 'application.html', pshex='fffe')]
     assert shex_td_mid.attrib['class'] == ''
-    assert shex_a_mid.content.call_args_list == [call(SHEX_EXPAND)]
+    assert shex_a_mid.content.call_args_list == [call(SupvisorsSymbols.SHEX_EXPAND)]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
 
 
 def test_make_callback(mocker, view):
     """ Test the make_callback method. """
-    mocker.patch('supvisors.web.viewapplication.delayed_error', return_value='Delayed')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
     mocked_clear_proc = mocker.patch.object(view, 'clearlog_process_action', return_value='Clear process logs')
     mocked_restart_proc = mocker.patch.object(view, 'restart_process_action', return_value='Restart process')
     mocked_stop_proc = mocker.patch.object(view, 'stop_process_action', return_value='Stop process')
@@ -486,12 +482,9 @@ def test_make_callback(mocker, view):
     mocked_stop_app = mocker.patch.object(view, 'stop_application_action', return_value='Stop application')
     mocked_start_app = mocker.patch.object(view, 'start_application_action', return_value='Start application')
     # patch view context
-    view.view_ctx = Mock(strategy=StartingStrategies.LOCAL, **{'get_process_status.return_value': None})
-    # test with no application set
-    for action in ['startapp', 'stopapp', 'restartapp', 'anything', 'start', 'stop', 'restart', 'clearlog']:
-        assert view.make_callback('dummy', action) == 'Delayed'
+    view.view_ctx.parameters[STRATEGY] = 'LOCAL'
+    mocker.patch.object(view.view_ctx, 'get_process_status', return_value=None)
     # test with application set
-    view.application = Mock()
     # test calls for different actions
     assert view.make_callback('', 'startapp') == 'Start application'
     assert mocked_start_app.call_args_list == [call(StartingStrategies.LOCAL)]
@@ -499,7 +492,8 @@ def test_make_callback(mocker, view):
     assert mocked_stop_app.call_args_list == [call()]
     assert view.make_callback('', 'restartapp') == 'Restart application'
     assert mocked_restart_app.call_args_list == [call(StartingStrategies.LOCAL)]
-    assert view.make_callback('dummy', 'anything') == 'Delayed'
+    cb = view.make_callback('dummy', 'anything')
+    assert cb() == ('erro', 'No such process named dummy at now')
     # change view context for the remaining actions
     view.view_ctx.get_process_status.return_value = 'None'
     # test start process
@@ -514,6 +508,11 @@ def test_make_callback(mocker, view):
     # test clear logs process
     assert view.make_callback('dummy', 'clearlog') == 'Clear process logs'
     assert mocked_clear_proc.call_args_list == [call('dummy')]
+    # test with no application set
+    view.application = None
+    for action in ['startapp', 'stopapp', 'restartapp', 'anything', 'start', 'stop', 'restart', 'clearlog']:
+        cb = view.make_callback('dummy', action)
+        assert cb() == ('erro', 'No application selected at now')
 
 
 def test_start_application_action(mocker, view):

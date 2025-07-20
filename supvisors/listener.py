@@ -34,7 +34,9 @@ from .process import ProcessStatus
 from .statemachine import FiniteStateMachine
 from .statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from .ttypes import (ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent, ProcessEnabledEvent, ProcessDisabledEvent,
-                     SUPVISORS_PUBLICATION, SUPVISORS_NOTIFICATION, PublicationHeaders, NotificationHeaders, Payload)
+                     SUPVISORS_PUBLICATION, SUPVISORS_NOTIFICATION,
+                     SupvisorsStates, PublicationHeaders, NotificationHeaders,
+                     Payload, WORKING_STATES)
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
@@ -72,18 +74,8 @@ class SupervisorListener:
         #       Before running, Supervisor forks when daemonized and the sockets are then lost
         # add new events to Supervisor EventTypes
         add_process_events()
-        # subscribe to internal events
-        events.subscribe(events.SupervisorRunningEvent, self.on_running)
-        events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
-        events.subscribe(events.ProcessStateEvent, self.on_process_state)
-        events.subscribe(ProcessAddedEvent, self.on_process_added)
-        events.subscribe(ProcessRemovedEvent, self.on_process_removed)
-        events.subscribe(ProcessEnabledEvent, self.on_process_disability)
-        events.subscribe(ProcessDisabledEvent, self.on_process_disability)
-        events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
-        events.subscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
-        events.subscribe(events.Tick5Event, self.on_tick)
-        events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
+        # subscribe to Supervisor events
+        self._subscribe()
 
     @property
     def logger(self) -> Logger:
@@ -99,6 +91,11 @@ class SupervisorListener:
     def local_status(self) -> SupvisorsInstanceStatus:
         """ Get the local Supvisors instance status. """
         return self.supvisors.context.local_status
+
+    @property
+    def supvisors_state(self) -> SupvisorsStates:
+        """ Get the Supvisors state. """
+        return self.supvisors.state_modes.state
 
     @property
     def local_identifier(self) -> str:
@@ -160,7 +157,6 @@ class SupervisorListener:
             # NOTE: The communication structures cannot be created before this level
             #       Before running, Supervisor forks when daemonized and the sockets are then lost
             #       At this point, Supervisor has forked if not daemonized
-            self.supvisors.rpc_handler = RpcHandler(self.supvisors)
             if self.supvisors.options.discovery_mode:
                 self.supvisors.discovery_handler = SupvisorsDiscovery(self.supvisors)
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
@@ -195,8 +191,8 @@ class SupervisorListener:
                 self.logger.debug('SupervisorListener.on_stopping: stopping external publisher...')
                 self.external_publisher.close()
                 self.logger.debug('SupervisorListener.on_stopping: external publisher stopped')
-            # unsubscribe from events
-            events.clear()
+            # unsubscribe from Supervisor events
+            self._unsubscribe()
             # finally, close logger
             # WARN: only if it is not the supervisor logger
             if hasattr(self.logger, 'SUPVISORS'):
@@ -219,7 +215,6 @@ class SupervisorListener:
             payload = {'when': event.when,
                        'when_monotonic': time.monotonic(),
                        'sequence_counter': self.counter}
-            payload.update(self.local_instance.serial())
             self.counter += 1
             self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
             # trigger the periodic check
@@ -230,6 +225,7 @@ class SupervisorListener:
             # publish the TICK to all Supvisors instances
             self.rpc_handler.send_tick_event(payload)
             if self.mc_sender:
+                payload = self.supvisors.mapper.local_instance.serial(with_network=False)
                 self.mc_sender.send_discovery_event(payload)
             # handle the statistics collection
             self._on_tick_stats()
@@ -241,18 +237,23 @@ class SupervisorListener:
         """ Publish the host and process statistics collected since the latest tick. """
         if self.stats_collector:
             self.stats_collector.alive()
+            process_stats = self.supvisors_state in WORKING_STATES
             # get and publish the host statistics collected from the last tick
             for stats in self.stats_collector.get_host_stats():
                 # send to local host compiler
                 self.on_host_statistics(self.local_identifier, stats)
-                # publish host statistics to other Supvisors instances
-                self.rpc_handler.send_host_statistics(stats)
+                # share only when synchronization phase is completed
+                if process_stats:
+                    # publish host statistics to other Supvisors instances
+                    self.rpc_handler.send_host_statistics(stats)
             # get and publish the process statistics collected from the last tick
             for stats in self.stats_collector.get_process_stats():
                 # send to local process compiler
                 self.on_process_statistics(self.local_identifier, stats)
-                # publish host statistics to other Supvisors instances
-                self.rpc_handler.send_process_statistics(stats)
+                # share only when synchronization phase is completed
+                if process_stats:
+                    # publish host statistics to other Supvisors instances
+                    self.rpc_handler.send_process_statistics(stats)
 
     def on_process_state(self, event: events.ProcessStateEvent) -> None:
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
@@ -292,8 +293,8 @@ class SupervisorListener:
     def _get_local_process_info(self, namespec: str) -> Payload:
         """ Use the Supvisors RPCInterface to get local information on this process.
 
-        :param namespec: the process namespec
-        :return: the process local information
+        :param namespec: the process namespec.
+        :return: the process local information.
         """
         try:
             rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
@@ -305,8 +306,8 @@ class SupervisorListener:
     def on_process_added(self, event: ProcessAddedEvent) -> None:
         """ Called when a process has been added due to a numprocs change.
 
-        :param event: the ProcessAddedEvent object
-        :return: None
+        :param event: the ProcessAddedEvent object.
+        :return: None.
         """
         try:
             namespec = make_namespec(event.process.group.config.name, event.process.config.name)
@@ -436,6 +437,12 @@ class SupervisorListener:
             self.logger.trace(f'SupervisorListener.read_notification: DISCOVERY from {event_origin}')
             self.fsm.on_discovery_event(event_origin)
             return
+        # NOTE: IDENTIFICATION messages contain the network information of the Supvisors instance
+        #       it has to be considered before the validity of the event_origin can be checked
+        if header == NotificationHeaders.IDENTIFICATION:
+            self.logger.debug(f'SupervisorListener.read_notification: IDENTIFICATION from {event_origin}')
+            self.fsm.on_identification_event(event_data)
+            return
         # check message origin validity
         status: SupvisorsInstanceStatus = self.supvisors.context.is_valid(*event_origin)
         if not status:
@@ -544,7 +551,7 @@ class SupervisorListener:
         nick_identifier = ''
         if identifier:
             nick_identifier = self.supvisors.mapper.instances[identifier].nick_identifier
-        # create payload from event
+        # create payload from event (the 'forced' entry is the only one added vs a normal payload)
         payload = {'identifier': identifier, 'nick_identifier': nick_identifier,
                    'group': process.application_name, 'name': process.process_name,
                    'state': forced_state, 'forced': True,
@@ -556,3 +563,33 @@ class SupervisorListener:
         self.fsm.on_process_state_event(self.local_status, payload)
         # publish to the other Supvisors instances
         self.rpc_handler.send_process_state_event(payload)
+
+    def _subscribe(self) -> None:
+        """ Subscribe to internal Supervisor events. """
+        events.subscribe(events.SupervisorRunningEvent, self.on_running)
+        events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
+        events.subscribe(events.ProcessStateEvent, self.on_process_state)
+        events.subscribe(ProcessAddedEvent, self.on_process_added)
+        events.subscribe(ProcessRemovedEvent, self.on_process_removed)
+        events.subscribe(ProcessEnabledEvent, self.on_process_disability)
+        events.subscribe(ProcessDisabledEvent, self.on_process_disability)
+        events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
+        events.subscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
+        events.subscribe(events.Tick5Event, self.on_tick)
+        events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
+
+    def _unsubscribe(self) -> None:
+        """ Unsubscribe from internal Supervisor events. """
+        # WARNING: do NOT use events.clear()
+        #          it may affect other plugins
+        events.unsubscribe(events.SupervisorRunningEvent, self.on_running)
+        events.unsubscribe(events.SupervisorStoppingEvent, self.on_stopping)
+        events.unsubscribe(events.ProcessStateEvent, self.on_process_state)
+        events.unsubscribe(ProcessAddedEvent, self.on_process_added)
+        events.unsubscribe(ProcessRemovedEvent, self.on_process_removed)
+        events.unsubscribe(ProcessEnabledEvent, self.on_process_disability)
+        events.unsubscribe(ProcessDisabledEvent, self.on_process_disability)
+        events.unsubscribe(events.ProcessGroupAddedEvent, self.on_group_added)
+        events.unsubscribe(events.ProcessGroupRemovedEvent, self.on_group_removed)
+        events.unsubscribe(events.Tick5Event, self.on_tick)
+        events.unsubscribe(events.RemoteCommunicationEvent, self.on_remote_event)

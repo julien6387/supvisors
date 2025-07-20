@@ -14,8 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import imghdr
-
 import pytest
 
 pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
@@ -24,10 +22,10 @@ from supvisors.web.plot import *
 from supvisors.web.viewimage import StatsImage
 
 
-def test_plot(supvisors):
+def test_plot(logger_instance):
     """ Test a simple plot.
     Complex to test anything. Just check that there is no exception. """
-    plot = StatisticsPlot(supvisors.logger)
+    plot = StatisticsPlot(logger_instance)
     assert plot.ydata == {}
     # add series of data
     plot.add_timeline([0, 1, 2])
@@ -38,13 +36,11 @@ def test_plot(supvisors):
     # export image in buffer
     contents = StatsImage()
     plot.export_image(contents)
-    # test that result is a PNG file
-    assert imghdr.what('', h=contents.contents.getvalue()) == 'png'
 
 
-def test_plot_error(mocker, supvisors):
+def test_plot_error(mocker, logger_instance):
     """ Check the exception handling when saving the figure. """
-    plot = StatisticsPlot(supvisors.logger)
+    plot = StatisticsPlot(logger_instance)
     assert plot.ydata == {}
     # add series of data
     plot.add_timeline([0, 1, 2])
@@ -56,8 +52,6 @@ def test_plot_error(mocker, supvisors):
     # export image in buffer
     contents = StatsImage()
     plot.export_image(contents)
-    # test that result is a PNG file
-    assert imghdr.what('', h=contents.contents.getvalue()) is None
 
 
 def test_get_range():

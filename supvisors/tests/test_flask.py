@@ -481,6 +481,24 @@ def test_supvisors_supvisors_state(xml_rpc, client):
                       {'fsm_statename': 'OPERATION', 'starting_jobs': []})
 
 
+def test_supvisors_all_instances_state_modes(xml_rpc, client):
+    """ Check the all_instances_state_modes REST API. """
+    base_url = '/supvisors/all_instances_state_modes'
+    mocked_func = xml_rpc.supvisors.get_all_instances_state_modes
+    check_get_success(client, f'{base_url}', mocked_func, [call()], [{'fsm_statename': 'OPERATION'}])
+
+
+def test_supvisors_instances_state_modes(xml_rpc, client):
+    """ Check the instances_state_modes REST API. """
+    base_url = '/supvisors/instance_state_modes'
+    mocked_func = xml_rpc.supvisors.get_instance_state_modes
+    # test error with missing parameter
+    check_get_error(client, f'{base_url}', mocked_func)
+    # test with parameters
+    check_get_success(client, f'{base_url}/server_02', mocked_func, [call('server_02')],
+                      {'fsm_statename': 'OPERATION'})
+
+
 def test_supvisors_master_identifier(xml_rpc, client):
     """ Check the master_identifier REST API. """
     base_url = '/supvisors/master_identifier'
@@ -493,6 +511,24 @@ def test_supvisors_strategies(xml_rpc, client):
     base_url = '/supvisors/strategies'
     mocked_func = xml_rpc.supvisors.get_strategies
     check_get_success(client, f'{base_url}', mocked_func, [call()], {'auto-fencing': False, 'conciliation': 'USER'})
+
+
+def test_supvisors_statistics_status(xml_rpc, client):
+    """ Check the statistics_status REST API. """
+    base_url = '/supvisors/statistics_status'
+    mocked_func = xml_rpc.supvisors.get_statistics_status
+    check_get_success(client, f'{base_url}', mocked_func, [call()], {'host_stats': True})
+
+
+def test_supvisors_network_info(xml_rpc, client):
+    """ Check the network_info REST API. """
+    base_url = '/supvisors/network_info'
+    mocked_func = xml_rpc.supvisors.get_network_info
+    # test error with missing parameter
+    check_get_error(client, f'{base_url}', mocked_func)
+    # test with parameters
+    check_get_success(client, f'{base_url}/server_02', mocked_func, [call('server_02')],
+                      {'host': 'localhost'})
 
 
 def test_supvisors_all_instances_info(xml_rpc, client):
@@ -586,6 +622,31 @@ def test_supvisors_local_process_info(xml_rpc, client):
                       {'process_name': 'browser', 'pid': 4321})
 
 
+def test_supvisors_all_inner_process_info(xml_rpc, client):
+    """ Check the all_inner_process_info REST API. """
+    base_url = '/supvisors/all_inner_process_info'
+    mocked_func = xml_rpc.supvisors.get_all_inner_process_info
+    # test error with missing parameter
+    check_get_error(client, f'{base_url}', mocked_func)
+    # test with parameters
+    check_get_success(client, f'{base_url}/10.0.0.1:25000', mocked_func, [call('10.0.0.1:25000')],
+                      [{'process_name': 'import', 'statename': 'STOPPED', 'inner': True},
+                       {'process_name': 'browser', 'pid': 4321, 'inner': True}])
+
+
+def test_supvisors_inner_process_info(xml_rpc, client):
+    """ Check the inner_process_info REST API. """
+    base_url = '/supvisors/inner_process_info'
+    mocked_func = xml_rpc.supvisors.get_inner_process_info
+    # test error with missing parameter
+    check_get_error(client, f'{base_url}', mocked_func)
+    check_get_error(client, f'{base_url}/browser', mocked_func)
+    # test with parameters
+    check_get_success(client, f'{base_url}/10.0.0.1:25000/browser', mocked_func,
+                      [call('10.0.0.1:25000', 'browser')],
+                      {'process_name': 'browser', 'pid': 4321, 'inner': True})
+
+
 def test_supvisors_process_rules(xml_rpc, client):
     """ Check the process_rules REST API. """
     base_url = '/supvisors/process_rules'
@@ -618,6 +679,20 @@ def test_supvisors_start_application(xml_rpc, client):
     mocked_func.reset_mock()
     check_post_success(client, f'{base_url}/LESS_LOADED/database?wait=false', mocked_func,
                        [call('LESS_LOADED', 'database', False)])
+
+
+def test_supvisors_test_start_application(xml_rpc, client):
+    """ Check the test_start_application REST API. """
+    base_url = '/supvisors/test_start_application'
+    mocked_func = xml_rpc.supvisors.test_start_application
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    check_post_error(client, f'{base_url}/CONFIG', mocked_func)
+    # test error with incorrect parameter (unknown strategy)
+    check_post_error(client, f'{base_url}/NAWAK/my_movies:converter_02', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/LESS_LOADED/database', mocked_func,
+                       [call('LESS_LOADED', 'database')])
 
 
 def test_supvisors_stop_application(xml_rpc, client):
@@ -691,6 +766,20 @@ def test_supvisors_start_process(xml_rpc, client):
                        mocked_func, [call('LESS_LOADED_NODE', 'my_movies:converter_02', '-x 2', False)])
 
 
+def test_supvisors_test_start_process(xml_rpc, client):
+    """ Check the test_start_process REST API. """
+    base_url = '/supvisors/test_start_process'
+    mocked_func = xml_rpc.supvisors.test_start_process
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    check_post_error(client, f'{base_url}/CONFIG', mocked_func)
+    # test error with incorrect parameter (unknown strategy)
+    check_post_error(client, f'{base_url}/NAWAK/my_movies:converter_02', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/MOST_LOADED/my_movies:converter_02', mocked_func,
+                       [call('MOST_LOADED', 'my_movies:converter_02')])
+
+
 def test_supvisors_start_any_process(xml_rpc, client):
     """ Check the start_any_process REST API. """
     base_url = '/supvisors/start_any_process'
@@ -743,6 +832,21 @@ def test_supvisors_restart_process(xml_rpc, client):
     mocked_func.reset_mock()
     check_post_success(client, f'{base_url}/LESS_LOADED_NODE/my_movies:converter_02?extra_args=-x%202&wait=false',
                        mocked_func, [call('LESS_LOADED_NODE', 'my_movies:converter_02', '-x 2', False)])
+
+
+def test_supvisors_lazy_update_numprocs(xml_rpc, client):
+    """ Check the lazy_update_numprocs REST API. """
+    base_url = '/supvisors/lazy_update_numprocs'
+    mocked_func = xml_rpc.supvisors.update_numprocs
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    check_post_error(client, f'{base_url}/converter', mocked_func)
+    # test error with incorrect parameter (not an integer)
+    check_post_error(client, f'{base_url}/converter/hello', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/converter/10', mocked_func, [call('converter', 10, True, True)])
+    mocked_func.reset_mock()
+    check_post_success(client, f'{base_url}/converter/10?wait=false', mocked_func, [call('converter', 10, False, True)])
 
 
 def test_supvisors_update_numprocs(xml_rpc, client):
@@ -843,6 +947,58 @@ def test_supvisors_change_log_level(xml_rpc, client):
     check_post_error(client, f'{base_url}/chatty', mocked_func)
     # test with parameters
     check_post_success(client, f'{base_url}/debug', mocked_func, [call('debug')])
+
+
+def test_supvisors_enable_host_statistics(xml_rpc, client):
+    """ Check the enable_host_statistics REST API. """
+    base_url = '/supvisors/enable_host_statistics'
+    mocked_func = xml_rpc.supvisors.enable_host_statistics
+    # test error with incorrect parameter (not expected)
+    check_post_error(client, f'{base_url}/lots', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}', mocked_func, [call(True)])
+
+
+def test_supvisors_disable_host_statistics(xml_rpc, client):
+    """ Check the disable_host_statistics REST API. """
+    base_url = '/supvisors/disable_host_statistics'
+    mocked_func = xml_rpc.supvisors.enable_host_statistics
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}/lots', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}', mocked_func, [call(False)])
+
+
+def test_supvisors_enable_process_statistics(xml_rpc, client):
+    """ Check the enable_process_statistics REST API. """
+    base_url = '/supvisors/enable_process_statistics'
+    mocked_func = xml_rpc.supvisors.enable_process_statistics
+    # test error with incorrect parameter (not expected)
+    check_post_error(client, f'{base_url}/lots', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}', mocked_func, [call(True)])
+
+
+def test_supvisors_disable_process_statistics(xml_rpc, client):
+    """ Check the disable_process_statistics REST API. """
+    base_url = '/supvisors/disable_process_statistics'
+    mocked_func = xml_rpc.supvisors.enable_process_statistics
+    # test error with incorrect parameter (not expected)
+    check_post_error(client, f'{base_url}/lots', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}', mocked_func, [call(False)])
+
+
+def test_supvisors_update_collecting_period(xml_rpc, client):
+    """ Check the update_collecting_period REST API. """
+    base_url = '/supvisors/update_collecting_period'
+    mocked_func = xml_rpc.supvisors.update_collecting_period
+    # test error with missing parameter
+    check_post_error(client, f'{base_url}', mocked_func)
+    # test error with incorrect parameter (not an int)
+    check_post_error(client, f'{base_url}/lots', mocked_func)
+    # test with parameters
+    check_post_success(client, f'{base_url}/5.2', mocked_func, [call(5.2)])
 
 
 # test error handlers

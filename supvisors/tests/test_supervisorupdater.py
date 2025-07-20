@@ -24,20 +24,20 @@ from supvisors.ttypes import ProgramConfig, SupvisorsProcessConfig
 
 
 @pytest.fixture
-def updater(supervisor, supvisors):
+def updater(supvisors_instance):
     """ Return the instance to test. """
-    return SupervisorUpdater(supvisors)
+    return SupervisorUpdater(supvisors_instance)
 
 
-def test_creation(supvisors, updater):
+def test_creation(supvisors_instance, updater):
     """ Test the SupervisorUpdater constructor. """
-    assert updater.supvisors is supvisors
-    assert updater.logger is supvisors.logger
-    assert updater.server_options is supvisors.server_options
-    assert updater.supervisor is supvisors.supervisor_data
+    assert updater.supvisors is supvisors_instance
+    assert updater.logger is supvisors_instance.logger
+    assert updater.server_options is supvisors_instance.server_options
+    assert updater.supervisor is supvisors_instance.supervisor_data
 
 
-def test_on_supervisor_start(mocker, supvisors, updater):
+def test_on_supervisor_start(mocker, updater):
     """ Test the on_supervisor_start method. """
     mocked_replace_tail = mocker.patch.object(updater.supervisor, 'replace_tail_handlers')
     mocked_replace_default = mocker.patch.object(updater.supervisor, 'replace_default_handler')
@@ -50,7 +50,7 @@ def test_on_supervisor_start(mocker, supvisors, updater):
     assert mocked_write.called
 
 
-def test_on_group_added(mocker, supvisors, updater):
+def test_on_group_added(mocker, updater):
     """ Test the on_group_added method. """
     mocked_update = mocker.patch.object(updater.supervisor, 'complete_internal_data')
     mocked_write = mocker.patch.object(updater.server_options, 'write_disabilities')
@@ -59,7 +59,7 @@ def test_on_group_added(mocker, supvisors, updater):
     assert mocked_write.called
 
 
-def test_enable_program(mocker, supvisors, updater):
+def test_enable_program(mocker, updater):
     """ Test the enable_program method. """
     mocked_replace_tail = mocker.patch.object(updater.supervisor, 'enable_program')
     mocked_enable = mocker.patch.object(updater.server_options, 'enable_program')
@@ -68,7 +68,7 @@ def test_enable_program(mocker, supvisors, updater):
     assert mocked_enable.call_args_list == [call('dummy_program')]
 
 
-def test_disable_program(mocker, supvisors, updater):
+def test_disable_program(mocker, updater):
     """ Test the disable_program method. """
     mocked_replace_tail = mocker.patch.object(updater.supervisor, 'disable_program')
     mocked_disable = mocker.patch.object(updater.server_options, 'disable_program')

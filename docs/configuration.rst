@@ -61,22 +61,29 @@ behavior may happen. The present section details where it is applicable.
 
     .. note::
 
-        ``host_name`` can be the host name, the fully qualified domain name, one of the node aliases or IP addresses.
-        |Supvisors| uses the ``socket.gethostbyaddr(host_name)`` function to identify the |Supvisors| instance declared.
+        ``host_name`` can be a host name, a fully qualified domain name, a node alias or an IP address.
 
-    .. note::
+    .. important::
+
+        The chosen name or IP address must be known to every node declared in the ``supvisors_list``
+        on the network interface considered, or |Supvisors| internal communication will fail. |br|
+        Check the network configuration.
+
+    .. important::
+
+        The local |Supvisors| instance must identify itself in one element of the list. |br|
+        To that end, |Supvisors| tries to match these items with the elements returned by the ``socket.gethostbyaddr``
+        function applied to the main IP address of every network interface. |br|
+        Check the network configuration.
+
+     .. note::
 
         In user-related features (options, rules, XML-RPC) where a |Supvisors| identifier is requested,
         ``nick_identifier`` and ``host_name:http_port`` can both be used indifferently.
 
-    .. attention::
-
-        The chosen host name, alias or IP address must be known to every node in the ``supvisors_list``
-        on the network interface considered. If it's not the case, check the network configuration.
-
     .. hint::
 
-        If the |Supvisors| is configured with at most one |Supvisors| instance per host, the ``host_name`` is a
+        If the |Supvisors| is configured with at most one |Supvisors| instance per host, the ``host_name`` alone is a
         fully acceptable declaration.
 
     .. hint::
@@ -190,16 +197,32 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  Yes.
 
+``css_files``
+
+    A space-separated sequence of file globs, in the same vein as
+    `supervisord include section <http://supervisord.org/configuration.html#include-section-values>`_.
+    Instead of ``ini`` files, CSS files are expected here. |br|
+    The content of these CSS files is added after the |Supvisors| CSS files, so that the user can override
+    the |Supvisors| Web UI style.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``auto_fence``
 
     When true, |Supvisors| will definitely disconnect a |Supvisors| instance that is inactive. |br|
-    This functionality is detailed in :ref:`auto_fencing`.
+    This functionality is detailed in :ref:`auto_fencing`. |br|
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
 
     *Default*:  ``false``.
 
     *Required*:  No.
 
-    *Identical*:  No.
+    *Identical*:  Yes.
 
 
 ``event_link``
@@ -209,8 +232,7 @@ behavior may happen. The present section details where it is applicable.
     Value in [``NONE`` ; ``ZMQ`` ; ``WS``]. Other protocols may be considered in the future. |br|
     If set to ``NONE``, the interface is not available. |br|
     If set to ``ZMQ``, events are published through a |ZeroMQ| TCP socket. |br|
-    If set to ``WS``, events are published through |Websockets| (requires a :command:`Python` version 3.7
-    or later). |br|
+    If set to ``WS``, events are published through |Websockets|. |br|
     The protocol of this interface is detailed in :ref:`event_interface`.
 
     *Default*:  NONE.
@@ -303,6 +325,54 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  Yes.
 
+``supvisors_failure_strategy``
+
+    The strategy used when the conditions implied by the ``synchro_options`` are not met anymore.
+    As an example, is the system still operational when a |Supvisors| *Core* instance is missing? |br|
+    Possible values are in { ``CONTINUE``, ``RESYNC``, ``SHUTDOWN``}. |br|
+    If ``CONTINUE`` is selected, |Supvisors| will deal with the missing |Supvisors| instance and continue
+    in a degraded mode. |br|
+    If ``RESYNC`` is selected, |Supvisors| will transition to the ``SYNCHRONIZATION`` state and wait for the selected
+    conditions to be met again. |br|
+    If ``SHUTDOWN`` is selected, |Supvisors| will shut down. |br|
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
+
+    *Default*:  ``CONTINUE``.
+
+    *Required*:  No.
+
+    *Identical*:  Yes.
+
+``starting_strategy``
+
+    The strategy used to start applications on |Supvisors| instances. |br|
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` , ``LESS_LOADED_NODE``,
+    ``MOST_LOADED_NODE``}. |br|
+    The use of this option is detailed in :ref:`starting_strategy`. |br|
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
+
+    *Default*:  ``CONFIG``.
+
+    *Required*:  No.
+
+    *Identical*:  Yes.
+
+``conciliation_strategy``
+
+    The strategy used to solve conflicts upon detection that multiple instances of the same program are running. |br|
+    Possible values are in { ``SENICIDE``, ``INFANTICIDE``, ``USER``, ``STOP``, ``RESTART``, ``RUNNING_FAILURE`` }.
+    The use of this option is detailed in :ref:`conciliation`. |br|
+    This parameter must be identical to all |Supvisors| instances. If any inconsistency is detected, the |Supvisors|
+    instances will isolate each other.
+
+    *Default*:  ``USER``.
+
+    *Required*:  No.
+
+    *Identical*:  Yes.
+
 ``disabilities_file``
 
     The file path that will be used to persist the program disabilities. This option has been added in support of the
@@ -326,35 +396,6 @@ behavior may happen. The present section details where it is applicable.
         If the file does not exist at startup, all processes are enabled by default and a first version of the file
         will be written down accordingly.
 
-``starting_strategy``
-
-    The strategy used to start applications on |Supvisors| instances. |br|
-    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` , ``LESS_LOADED_NODE``,
-    ``MOST_LOADED_NODE``}. |br|
-    The use of this option is detailed in :ref:`starting_strategy`. |br|
-    It is highly recommended that this parameter is identical to all |Supvisors| instances or the startup sequence would
-    be different depending on which |Supvisors| instance is the *Master*.
-
-    *Default*:  ``CONFIG``.
-
-    *Required*:  No.
-
-    *Identical*:  Yes.
-
-``conciliation_strategy``
-
-    The strategy used to solve conflicts upon detection that multiple instances of the same program are running. |br|
-    Possible values are in { ``SENICIDE``, ``INFANTICIDE``, ``USER``, ``STOP``, ``RESTART``, ``RUNNING_FAILURE`` }.
-    The use of this option is detailed in :ref:`conciliation`. |br|
-    It is highly recommended that this parameter is identical to all |Supvisors| instances or the conciliation phase
-    would behave differently depending on which |Supvisors| instance is the *Master*.
-
-    *Default*:  ``USER``.
-
-    *Required*:  No.
-
-    *Identical*:  Yes.
-
 ``stats_enabled``
 
     By default, |Supvisors| can provide basic statistics on the node and the processes spawned by |Supervisor|
@@ -369,6 +410,12 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  No.
+
+    .. important::
+
+        |Supvisors| collect the process statistics considering the process spawned by |Supervisor| and its children.
+        In the event where the program command starts a process that is not attached to the command itself
+        (e.g. a Docker container), the process statistics will NOT take into account this process and its children.
 
 ``stats_collecting_period``
 

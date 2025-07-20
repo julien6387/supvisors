@@ -115,7 +115,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the database application.
         The movie_server_xx processes are started first, then the register_movies_xx.
         FATAL process events are expected, according to the test platform. """
-        # define 'import_database' application
+        # define 'database' application
         application = Application('database', database_status_logic)
         self.context.add_application(application)
         for program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03']:
@@ -146,7 +146,8 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_register_movies_starting(self):
         """ Check the starting of the register_movies programs. """
-        config = [('register_movies_01', self.HOST_01), ('register_movies_02', self.HOST_03),
+        config = [('register_movies_01', self.HOST_01),
+                  ('register_movies_02', self.HOST_03),
                   ('register_movies_03', self.HOST_01)]
         # define the expected events for the register_movies_xx programs
         application = self.context.get_application('database')

@@ -1,0 +1,3 @@
+footer p:last-of-type {
+    color: var(--crash-color);
+}

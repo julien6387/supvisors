@@ -21,34 +21,26 @@ import pytest
 
 from supvisors.statscollector import LocalNodeInfo
 from supvisors.web.viewcontext import *
-from .base import DummyHttpContext
 
 url_attr_template = r'(.+=.+)'
 
 
 @pytest.fixture
-def http_context(supvisors) -> DummyHttpContext:
-    """ Fixture for Dummy HTTP Context. """
-    http_context = DummyHttpContext('')
-    http_context.supervisord.supvisors = supvisors
-    return http_context
-
-
-@pytest.fixture
-def ctx(http_context) -> ViewContext:
+def ctx(http_context) -> SupvisorsViewContext:
     """ Fixture for the instance to test. """
-    return ViewContext(http_context)
+    return SupvisorsViewContext(http_context)
 
 
-def test_init(http_context, supvisors, ctx):
-    """ Test the values set at ViewContext construction. """
+def test_init(http_context, supvisors_instance, ctx):
+    """ Test the values set at SupvisorsViewContext construction. """
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
-    assert ctx.local_identifier == supvisors.mapper.local_identifier
+    assert ctx.local_identifier == supvisors_instance.mapper.local_identifier
     assert ctx.parameters == {'ident': '10.0.0.4:25000', 'namespec': None, 'period': 5.0,
                               'appname': None, 'processname': None, 'cpuid': 0,
                               'nic': None, 'auto': False, 'strategy': 'CONFIG', 'ashex': '',
                               'diskstats': 'io', 'partition': None, 'device': None}
+    assert ctx.network_address == '10.0.0.0'
     # errors must be set due to dummy values
     assert isinstance(ctx.store_message, tuple)
     assert len(ctx.store_message) == 2
@@ -57,7 +49,7 @@ def test_init(http_context, supvisors, ctx):
 
 
 def test_properties(ctx):
-    """ Test the ViewContext properties. """
+    """ Test the SupvisorsViewContext properties. """
     assert ctx.strategy == StartingStrategies.CONFIG
     assert not ctx.auto_refresh
     assert ctx.identifier == '10.0.0.4:25000'
@@ -80,23 +72,23 @@ def test_properties(ctx):
     assert ctx.gravity == 'none'
 
 
-def test_set_message_default(ctx):
-    """ Test the ViewContext.set_message_default method. """
+def test_set_default_message(ctx):
+    """ Test the ViewContext.set_default_message method. """
     assert ctx.message == 'hi chaps'
     assert ctx.gravity == 'none'
     # check that the message is not replaced when there is already one stored
-    ctx.set_message_default('beware of the dog', 'Warn')
+    ctx.set_default_message('beware of the dog', 'Warn')
     assert ctx.message == 'hi chaps'
     assert ctx.gravity == 'none'
     # reset the form and retry
     ctx.http_context.form.update({GRAVITY: '', MESSAGE: ''})
-    ctx.set_message_default('beware of the dog', 'Warn')
+    ctx.set_default_message('beware of the dog', 'Warn')
     assert ctx.message == 'beware of the dog'
     assert ctx.gravity == 'Warn'
 
 
 def test_url_parameters(ctx):
-    """ Test the ViewContext.url_parameters method. """
+    """ Test the SupvisorsViewContext.url_parameters method. """
     # test default
     assert ctx.url_parameters(False) == 'diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
     assert ctx.url_parameters(True) == 'diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
@@ -149,15 +141,15 @@ def test_url_parameters(ctx):
 
 
 def test_cpu_id_to_string():
-    """ Test the ViewContext.cpu_id_to_string method. """
+    """ Test the SupvisorsViewContext.cpu_id_to_string method. """
     for idx in range(1, 10):
-        assert ViewContext.cpu_id_to_string(idx) == str(idx - 1)
-    assert ViewContext.cpu_id_to_string(0) == 'all'
-    assert ViewContext.cpu_id_to_string(-5) == 'all'
+        assert SupvisorsViewContext.cpu_id_to_string(idx) == str(idx - 1)
+    assert SupvisorsViewContext.cpu_id_to_string(0) == 'all'
+    assert SupvisorsViewContext.cpu_id_to_string(-5) == 'all'
 
 
 def test_update_string(ctx):
-    """ Test the ViewContext._update_string method. """
+    """ Test the SupvisorsViewContext._update_string method. """
     # keep a copy of parameters
     ref_parameters = ctx.parameters.copy()
     # test with unknown parameter and no default value
@@ -188,7 +180,7 @@ def test_update_string(ctx):
 
 
 def test_update_integer(ctx):
-    """ Test the ViewContext._update_integer method. """
+    """ Test the SupvisorsViewContext._update_integer method. """
     # keep a copy of parameters
     ref_parameters = ctx.parameters.copy()
     # test with unknown parameter and no default value
@@ -227,7 +219,7 @@ def test_update_integer(ctx):
 
 
 def test_update_float(ctx):
-    """ Test the ViewContext._update_float method. """
+    """ Test the SupvisorsViewContext._update_float method. """
     # keep a copy of parameters
     ref_parameters = ctx.parameters.copy()
     # test with unknown parameter and no default value
@@ -260,13 +252,13 @@ def test_update_float(ctx):
     assert ctx.parameters == ref_parameters
     # test with known parameter, float and value in list
     assert 'period' in ctx.http_context.form
-    ctx._update_float('period', [5.1, 15.0, 60.0])
-    ref_parameters.update({'period': 5.1})
+    ctx._update_float('period', [5.0, 15.0, 60.0])
+    ref_parameters.update({'period': 5.0})
     assert ctx.parameters == ref_parameters
 
 
 def test_update_boolean(ctx):
-    """ Test the ViewContext._update_boolean method. """
+    """ Test the SupvisorsViewContext._update_boolean method. """
     # keep a copy of parameters
     ref_parameters = ctx.parameters.copy()
     # test with unknown parameter and no default value
@@ -296,8 +288,8 @@ def test_update_boolean(ctx):
 
 
 def test_update_period(mocker, ctx):
-    """ Test the ViewContext.update_period method. """
-    mocked_update = mocker.patch('supvisors.web.viewcontext.ViewContext._update_float')
+    """ Test the SupvisorsViewContext.update_period method. """
+    mocked_update = mocker.patch('supvisors.web.viewcontext.SupvisorsViewContext._update_float')
     # test method with statistics enabled
     ctx.update_period()
     assert mocked_update.call_args_list == [call(PERIOD, ctx.supvisors.options.stats_periods,
@@ -311,7 +303,7 @@ def test_update_period(mocker, ctx):
 
 
 def test_update_identifier(ctx):
-    """ Test the ViewContext.update_identifier method. """
+    """ Test the SupvisorsViewContext.update_identifier method. """
     # reset parameter because called in constructor
     del ctx.parameters[IDENTIFIER]
     # test call with valid value
@@ -405,16 +397,16 @@ def test_update_namespec(mocker, ctx):
 
 
 def test_update_cpu_id(mocker, ctx):
-    """ Test the ViewContext.update_cpu_id method. """
-    mocker.patch('supvisors.web.viewcontext.ViewContext.get_nb_cores', return_value=2)
-    mocked_update = mocker.patch('supvisors.web.viewcontext.ViewContext._update_integer')
+    """ Test the SupvisorsViewContext.update_cpu_id method. """
+    mocker.patch('supvisors.web.viewcontext.SupvisorsViewContext.get_nb_cores', return_value=2)
+    mocked_update = mocker.patch('supvisors.web.viewcontext.SupvisorsViewContext._update_integer')
     # test call
     ctx.update_cpu_id()
     assert mocked_update.call_args_list == [call(CPU, [0, 1, 2])]
 
 
 def test_update_nic_name(mocker, ctx):
-    """ Test the ViewContext.update_nic_name method. """
+    """ Test the SupvisorsViewContext.update_nic_name method. """
     mocked_stats = mocker.patch.object(ctx, 'get_instance_stats', return_value=None)
     # reset parameter because called in constructor
     del ctx.parameters[NIC]
@@ -436,14 +428,14 @@ def test_update_nic_name(mocker, ctx):
 
 
 def test_update_disk_stats_choice(ctx):
-    """ Test the ViewContext.update_disk_stats_choice method. """
+    """ Test the SupvisorsViewContext.update_disk_stats_choice method. """
     del ctx.parameters[DISK_STATS]
     ctx.update_disk_stats_choice()
     assert ctx.parameters[DISK_STATS] == 'io'
 
 
 def test_update_partition_name(mocker, ctx):
-    """ Test the ViewContext.update_partition_name method. """
+    """ Test the SupvisorsViewContext.update_partition_name method. """
     mocked_stats = mocker.patch.object(ctx, 'get_instance_stats', return_value=None)
     # reset parameter because called in constructor
     del ctx.parameters[PARTITION]
@@ -465,7 +457,7 @@ def test_update_partition_name(mocker, ctx):
 
 
 def test_update_device_name(mocker, ctx):
-    """ Test the ViewContext.update_device_name method. """
+    """ Test the SupvisorsViewContext.update_device_name method. """
     mocked_stats = mocker.patch.object(ctx, 'get_instance_stats', return_value=None)
     # reset parameter because called in constructor
     del ctx.parameters[DEVICE]
@@ -486,22 +478,22 @@ def test_update_device_name(mocker, ctx):
     assert ctx.parameters[DEVICE] == 'sda'
 
 
-def test_format_url(supvisors, ctx):
-    """ Test the ViewContext.format_url method. """
+def test_format_url(supvisors_instance, ctx):
+    """ Test the SupvisorsViewContext.format_url method. """
     # test without node and arguments
-    expected = 'index.html?diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
+    expected = 'http://10.0.0.1:25000/index.html?diskstats=io&ident=10.0.0.4%3A25000&period=5.0&strategy=CONFIG'
     assert ctx.format_url(None, 'index.html') == expected
     # test with local node and arguments
-    local_instance = supvisors.mapper.local_instance
+    local_instance = supvisors_instance.mapper.local_instance
     base_address = f'http://{local_instance.host_id}:25000/index.html?'
     url = ctx.format_url(ctx.local_identifier, 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'ashex': 'args'})
     expected = 'appliname=dummy_appli&ashex=args&diskstats=io&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
-    url = ctx.format_url('10.0.0.1:25000', 'index.html',
+    url = ctx.format_url('10.0.0.2:25000', 'index.html',
                          **{'period': 10, 'appliname': 'dummy_appli', 'ashex': 'args'})
-    base_address = 'http://10.0.0.1:25000/index.html?'
+    base_address = 'http://10.0.0.2:25000/index.html?'
     expected = 'appliname=dummy_appli&diskstats=io&ident=10.0.0.4%3A25000&period=10&strategy=CONFIG'
     assert url == base_address + expected
 
@@ -528,10 +520,10 @@ def test_get_nb_cores(ctx):
     # test new call
     assert ctx.get_nb_cores(ctx.local_identifier) == 4
     # test with unknown address
-    assert ctx.get_nb_cores('10.0.0.1:25000') == 0
+    assert ctx.get_nb_cores('10.0.0.2:25000') == 0
     # test with known address
-    stats.nb_cores['10.0.0.1:25000'] = 8
-    assert ctx.get_nb_cores('10.0.0.1:25000') == 8
+    stats.nb_cores['10.0.0.2:25000'] = 8
+    assert ctx.get_nb_cores('10.0.0.2:25000') == 8
 
 
 def test_get_node_characteristics(ctx):
@@ -545,11 +537,12 @@ def test_get_node_characteristics(ctx):
     assert ctx.get_node_characteristics() is None
 
 
-def test_get_node_stats(supvisors, ctx):
+def test_get_node_stats(supvisors_instance, ctx):
     """ Test the ViewContext.get_instance_stats method. """
+    supvisors_instance.host_compiler.add_instance(ctx.local_identifier)
     # test with default address
     instance_stats = ctx.get_instance_stats()
-    assert instance_stats.identifier == supvisors.mapper.local_identifier
+    assert instance_stats.identifier == supvisors_instance.mapper.local_identifier
     assert instance_stats.period == 5.0
     # test with unknown identifier
     assert ctx.get_instance_stats('10.0.0.0:25000') is None
@@ -562,12 +555,12 @@ def test_get_node_stats(supvisors, ctx):
     assert ctx.get_instance_stats('10.0.0.1:25000') is None
 
 
-def test_get_process_stats(mocker, supvisors, ctx):
+def test_get_process_stats(mocker, supvisors_instance, ctx):
     """ Test the ViewContext.get_process_stats method. """
     # test no result as no data stored
     assert ctx.get_process_stats('dummy_proc', ctx.local_identifier) is None
     # fill some internal structures
-    mocked_stats = mocker.patch.object(supvisors.process_compiler, 'get_stats', return_value='mock stats')
+    mocked_stats = mocker.patch.object(supvisors_instance.process_compiler, 'get_stats', return_value='mock stats')
     assert ctx.get_process_stats('dummy_proc', '10.0.0.1') == 'mock stats'
     assert mocked_stats.call_args_list == [call('dummy_proc', '10.0.0.1', 5.0)]
 
@@ -608,27 +601,27 @@ def test_get_default_shex(ctx):
     assert ctx._get_default_shex(7, False).hex() == '00'
 
 
-def test_get_default_application_shex(supvisors, ctx):
+def test_get_default_application_shex(supvisors_instance, ctx):
     """ Test the ViewContext.get_default_application_shex method. """
-    supvisors.context.applications = {f'appli_{x}': Mock() for x in range(15)}
+    supvisors_instance.context.applications = {f'appli_{x}': Mock() for x in range(15)}
     assert ctx.get_default_application_shex(True).hex() == 'ffff'
     assert ctx.get_default_application_shex(False).hex() == '0000'
 
 
-def test_get_default_process_shex(supvisors, ctx):
+def test_get_default_process_shex(supvisors_instance, ctx):
     """ Test the ViewContext.get_default_process_shex method. """
-    supvisors.context.applications = {'dummy_appli': Mock(processes=list(range(17)))}
+    supvisors_instance.context.applications = {'dummy_appli': Mock(processes=list(range(17)))}
     assert ctx.get_default_process_shex('dummy_appli', True).hex() == 'ffffff'
     assert ctx.get_default_process_shex('dummy_appli', False).hex() == '000000'
 
 
-def test_update_application_shrink_expand(supvisors, ctx):
+def test_update_application_shrink_expand(supvisors_instance, ctx):
     """ Test the ViewContext.update_application_shrink_expand method. """
     # check default
     assert ctx.application_shex == ''
     assert APP_SHRINK_EXPAND not in ctx.http_context.form
     # test with applications in the context
-    supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
+    supvisors_instance.context.applications = {'abc': [], 'def': [], 'ghi': []}
     # test with unknown parameter and no default value
     ctx.update_application_shrink_expand()
     assert ctx.application_shex == 'ff'
@@ -649,7 +642,7 @@ def test_update_application_shrink_expand(supvisors, ctx):
     assert ctx.application_shex == '9a'
 
 
-def test_update_process_shrink_expand(supvisors, ctx):
+def test_update_process_shrink_expand(supvisors_instance, ctx):
     """ Test the ViewContext.update_process_shrink_expand method. """
     # check default
     assert not ctx.application_name
@@ -659,7 +652,7 @@ def test_update_process_shrink_expand(supvisors, ctx):
     ctx.update_process_shrink_expand()
     assert PROC_SHRINK_EXPAND not in ctx.parameters
     # test with applications in the context, but still no application set in context form
-    supvisors.context.applications['dummy_appli'] = Mock(processes={'abc': [], 'def': [], 'ghi': []})
+    supvisors_instance.context.applications['dummy_appli'] = Mock(processes={'abc': [], 'def': [], 'ghi': []})
     ctx.update_process_shrink_expand()
     assert PROC_SHRINK_EXPAND not in ctx.parameters
     # set the application in the context form
@@ -685,10 +678,10 @@ def test_update_process_shrink_expand(supvisors, ctx):
     assert ctx.process_shex == '9a'
 
 
-def test_get_application_shex(supvisors, ctx):
+def test_get_application_shex(supvisors_instance, ctx):
     """ Test the ViewContext.get_application_shex method. """
     # patch the context
-    supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
+    supvisors_instance.context.applications = {'abc': [], 'def': [], 'ghi': []}
     # only 'def' is visible
     ba = bytearray([0xff])
     set_bit(ba, 0, 0)
@@ -710,10 +703,10 @@ def test_get_application_shex(supvisors, ctx):
     assert get_bit(ba.fromhex('fe'), 2)
 
 
-def test_get_process_shex(supvisors, ctx):
+def test_get_process_shex(supvisors_instance, ctx):
     """ Test the ViewContext.get_process_shex method. """
     # patch the context
-    supvisors.context.applications['dummy_appli'] = Mock(processes={'abc': [], 'def': [], 'ghi': []})
+    supvisors_instance.context.applications['dummy_appli'] = Mock(processes={'abc': [], 'def': [], 'ghi': []})
     # set the application in the context form
     ctx.http_context.form[APPLI] = 'dummy_appli'
     ctx.update_application_name()

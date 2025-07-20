@@ -200,7 +200,6 @@ class ProcessStatus:
 
     Attributes are:
         - supvisors: the Supvisors global structure ;
-        - logger: the Supvisors global logger ;
         - application_name: the application name, or group name from a Supervisor point of view ;
         - process_name: the process name ;
         - namespec: the process namespec ;
@@ -208,7 +207,7 @@ class ProcessStatus:
         - forced_state: the state forced by Supvisors upon unexpected event ;
         - forced_reason: the reason why the state would be forced ;
         - expected_exit: a status telling if the process has exited expectantly ;
-        - last_event_time: the local monotonic time of the last information received ;
+        - last_event_mtime: the local monotonic time of the last information received ;
         - extra_args: the additional arguments passed to the command line ;
         - program_name: the program name, as found in the [program] section of the Supervisor configuration file ;
         - process_index: always 0 unless the process is part of a homogeneous group ;
@@ -217,45 +216,36 @@ class ProcessStatus:
         - rules: the rules related to this process.
     """
 
-    supvisors: Any = None
     # attributes
-    application_name: str = ''
-    process_name: str = ''
-    namespec: str = ''
     _state: ProcessStates = ProcessStates.UNKNOWN
     forced_state: Optional[ProcessStates] = None
     forced_reason: str = ''
     expected_exit: bool = True
-    last_event_time: float = 0.0
+    last_event_mtime: float = 0.0
     # common information across all Supvisors instances
     _program_name: str = ''
     _process_index: int = 0
     _extra_args: str = ''
-    # rules part
-    rules: ProcessRules = None
-    # only one running identifier is expected for managed processes
-    running_identifiers: Set[str] = None
-    info_map: Dict[str, Payload] = None
 
     def __init__(self, application_name: str, process_name: str, rules: ProcessRules, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
-        :param application_name: the name of the application the process belongs to
-        :param process_name: the name of the process
-        :param rules: the rules loaded from the rules file
-        :param supvisors: the global Supvisors structure
+        :param application_name: the name of the application the process belongs to.
+        :param process_name: the name of the process.
+        :param rules: the rules loaded from the rules file.
+        :param supvisors: the global Supvisors structure.
         """
         # keep a reference of the Supvisors data
-        self.supvisors = supvisors
+        self.supvisors: Any = supvisors
         # attributes
-        self.application_name = application_name
-        self.process_name = process_name
-        self.namespec = make_namespec(application_name, process_name)
+        self.application_name: str = application_name
+        self.process_name: str = process_name
+        self.namespec: str = make_namespec(application_name, process_name)
         # rules part
-        self.rules = rules
+        self.rules: ProcessRules = rules
         # one single running identifier is expected for managed processes
-        self.running_identifiers = set()  # identifiers
-        self.info_map = {}  # identifier: process_info
+        self.running_identifiers: Set[str] = set()  # identifiers
+        self.info_map: Dict[str, Payload] = {}  # identifier: process_info
 
     @property
     def logger(self) -> Logger:
@@ -266,7 +256,7 @@ class ProcessStatus:
     def state(self) -> ProcessStates:
         """ Getter of state attribute.
 
-        :return: the process state
+        :return: the process state.
         """
         return self._state
 
@@ -283,8 +273,8 @@ class ProcessStatus:
     def state(self, new_state: ProcessStates) -> None:
         """ Setter of state attribute.
 
-        :param new_state: the new process state
-        :return: None
+        :param new_state: the new process state.
+        :return: None.
         """
         if self._state != new_state:
             self._state = new_state
@@ -295,8 +285,8 @@ class ProcessStatus:
         This may be caused by a process command that has not been acknowledged in due time, so here is a final check
         in the event where messages have crossed.
 
-        :param event: the forced event
-        :return: True if the process state has been forced
+        :param event: the forced event.
+        :return: True if the process state has been forced.
         """
         force_state = True
         # check current state on targeted identifier
@@ -309,7 +299,7 @@ class ProcessStatus:
             force_state = instance_info['event_time'] <= event_time
         # apply forced state only if no event has been received since the forced state has been evaluated
         if force_state:
-            self.last_event_time = time.monotonic()
+            self.last_event_mtime = time.monotonic()
             self.forced_state = event['state']
             self.forced_reason = event['spawnerr']
             self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.displayed_state_string()}'
@@ -321,8 +311,8 @@ class ProcessStatus:
     def reset_forced_state(self, state: ProcessStates = None):
         """ Reset forced_state upon reception of new information only if not STOPPED (default state in Supervisor).
 
-        :param state: the new state (provided only when Supervisor information is added for the first time)
-        :return: None
+        :param state: the new state (provided only when Supervisor information is added for the first time).
+        :return: None.
         """
         if self.forced_state is not None and state != ProcessStates.STOPPED:
             self.forced_state = None
@@ -333,7 +323,7 @@ class ProcessStatus:
     def extra_args(self) -> str:
         """ Getter of the extra arguments attribute.
 
-        :return: the extra arguments applicable to the command line of the process
+        :return: the extra arguments applicable to the command line of the process.
         """
         return self._extra_args
 
@@ -341,8 +331,8 @@ class ProcessStatus:
     def extra_args(self, new_args: str) -> None:
         """ Setter of the extra arguments attribute.
 
-        :param new_args: the extra arguments applicable to the command line of the process
-        :return: None
+        :param new_args: the extra arguments applicable to the command line of the process.
+        :return: None.
         """
         if self._extra_args != new_args:
             self._extra_args = new_args
@@ -355,7 +345,7 @@ class ProcessStatus:
     def program_name(self) -> str:
         """ Getter of the program_name attribute.
 
-        :return: the program name
+        :return: the program name.
         """
         return self._program_name
 
@@ -363,8 +353,8 @@ class ProcessStatus:
     def program_name(self, prg_name: str) -> None:
         """ Setter of the program_name attribute.
 
-        :param prg_name: the new program name
-        :return: None
+        :param prg_name: the new program name.
+        :return: None.
         """
         if self._program_name and self._program_name != prg_name:
             # this is very unlikely, almost mischievous if it ever happens
@@ -378,7 +368,7 @@ class ProcessStatus:
     def process_index(self) -> int:
         """ Getter of the _process_index attribute.
 
-        :return: the process index (always 0 unless part of a homogeneous group)
+        :return: the process index (always 0 unless part of a homogeneous group).
         """
         return self._process_index
 
@@ -386,8 +376,8 @@ class ProcessStatus:
     def process_index(self, idx: int) -> None:
         """ Setter of the _process_index attribute.
 
-        :param idx: the new process index
-        :return: None
+        :param idx: the new process index.
+        :return: None.
         """
         if self._process_index > 0 and self._process_index != idx:
             # very strange but it may happen if numprocs_start options are configured differently
@@ -401,13 +391,14 @@ class ProcessStatus:
         """ Get a serializable form of the ProcessStatus.
         For the publication to an external subscriber, choose the displayed state.
 
-        :return: the process status in a dictionary
+        :return: the process status in a dictionary.
         """
         return {'application_name': self.application_name,
                 'process_name': self.process_name,
+                'now_monotonic': time.monotonic(),
                 'statecode': self.displayed_state, 'statename': self.displayed_state_string(),
                 'expected_exit': self.expected_exit,
-                'last_event_time': self.last_event_time,
+                'last_event_mtime': self.last_event_mtime,
                 'identifiers': list(self.running_identifiers),
                 'extra_args': self.extra_args}
 
@@ -415,8 +406,8 @@ class ProcessStatus:
     def get_pid(self, identifier: str) -> int:
         """ Return the PID of the process located on the Supvisors instance identified.
 
-        :param identifier: the Supvisors instance identifier
-        :return: the PID
+        :param identifier: the Supvisors instance identifier.
+        :return: the PID.
         """
         if self.state == ProcessStates.RUNNING and identifier in self.running_identifiers:
             return self.info_map[identifier]['pid']
@@ -425,7 +416,7 @@ class ProcessStatus:
     def disabled(self) -> bool:
         """ Check if the process is disabled on all Supvisors instances knowing the process.
 
-        :return: the disabled status of the process
+        :return: the disabled status of the process.
         """
         return self.info_map and all(info['disabled'] for info in self.info_map.values())
 
@@ -625,8 +616,8 @@ class ProcessStatus:
         info = self.info_map[identifier] = payload
         # keep date of last information received
         # use local time here as there is no guarantee that Supvisors instances will be time-synchronized
-        self.last_event_time = time.monotonic()
-        info['local_time'] = self.last_event_time
+        self.last_event_mtime = time.monotonic()
+        info['local_mtime'] = self.last_event_mtime
         info['event_time'] = info['now_monotonic']
         self.update_uptime(info)
         # WARN: when a new Supvisors instance comes in group, extra_args is kept only if information ties in
@@ -664,8 +655,8 @@ class ProcessStatus:
         info.update(payload)
         # keep date of last information received
         # use local time here as there is no guarantee that Supervisors will be time synchronized
-        self.last_event_time = time.monotonic()
-        info['local_time'] = self.last_event_time
+        self.last_event_mtime = time.monotonic()
+        info['local_mtime'] = self.last_event_mtime
         info['event_time'] = info['now_monotonic']
         # last received extra_args are always applicable
         self.extra_args = payload['extra_args']
@@ -726,8 +717,8 @@ class ProcessStatus:
     def update_uptime(info: Payload) -> None:
         """ Update uptime entry of a process information.
 
-        :param info: the process information related to a given Supervisor
-        :return: None
+        :param info: the process information related to a given Supervisor.
+        :return: None.
         """
         info['uptime'] = ((info['now_monotonic'] - info['start_monotonic'])
                           if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING] else 0)
@@ -735,8 +726,8 @@ class ProcessStatus:
     def invalidate_identifier(self, identifier: str) -> bool:
         """ Update the status of a process that was running on a lost / non-responsive Supvisors instance.
 
-        :param identifier: the identifier of the Supvisors instance from which no more information is received
-        :return: True if process not running anywhere anymore
+        :param identifier: the identifier of the Supvisors instance from which no more information is received.
+        :return: True if process not running anywhere anymore.
         """
         self.logger.debug(f'ProcessStatus.invalidate_identifier: namespec={self.namespec}'
                           f' - Supvisors={identifier} invalidated')
@@ -757,8 +748,8 @@ class ProcessStatus:
         """ Update the status of a process that has been removed from the identified Supvisors instance,
         following an XML-RPC update_numprocs.
 
-        :param identifier: the identifier of the Supvisors instance from which the process has been removed
-        :return: True if the process is not defined anywhere anymore
+        :param identifier: the identifier of the Supvisors instance from which the process has been removed.
+        :return: True if the process is not defined anywhere anymore.
         """
         del self.info_map[identifier]
         return self.info_map == {}
@@ -766,9 +757,9 @@ class ProcessStatus:
     def update_status(self, identifier: str, new_state: ProcessStates) -> None:
         """ Updates the state and list of running Supvisors instances iaw the new event.
 
-        :param identifier: the identifier of the Supvisors instance from which new information has been received
-        :param new_state: the new state of the process on the considered Supervisor
-        :return: None
+        :param identifier: the identifier of the Supvisors instance from which new information has been received.
+        :param new_state: the new state of the process on the considered Supervisor.
+        :return: None.
         """
         # update running identifiers list
         if new_state in STOPPED_STATES:
@@ -794,7 +785,7 @@ class ProcessStatus:
                     self.expected_exit = True
                 else:
                     # for STOPPED_STATES, consider the most recent event time in the local reference time
-                    info = max(self.info_map.values(), key=lambda x: x['local_time'])
+                    info = max(self.info_map.values(), key=lambda x: x['local_mtime'])
                     self.state = info['state']
                     self.expected_exit = info['expected']
         # log the new status
@@ -807,7 +798,7 @@ class ProcessStatus:
     def _evaluate_conflict(self) -> None:
         """ Get a synthetic state if several processes are in a RUNNING-like state.
 
-        :return: True if a conflict is detected, None otherwise
+        :return: True if a conflict is detected, None otherwise.
         """
         # several processes seem to be in a running state so that becomes tricky
         states = {self.info_map[identifier]['state'] for identifier in self.running_identifiers}
@@ -822,8 +813,8 @@ class ProcessStatus:
         """ Return the first matching running state.
          The sequence defined in the Supervisor RUNNING_STATES is suitable here.
 
-        :param states: a list of all process states of the present process over all Supervisors
-        :return: a running state if found in list, STOPPING otherwise
+        :param states: a list of all process states of the present process over all Supervisors.
+        :return: a running state if found in list, STOPPING otherwise.
         """
         # There may be STOPPING states in the list
         # In this state, the process is not removed yet from the running_identifiers

@@ -155,14 +155,16 @@ def test_local_node_info(mocker):
     assert info.nb_core_logical == 8
     assert info.frequency == '3000 MHz'
     assert info.physical_memory == '15.02 GiB'
-    # test call with less RAM (even if it is very unlikely)
+    info.refresh()
+    assert info.frequency == '3000 MHz'
+    # test call with less RSS (even if it is very unlikely)
     mocked_ram.return_value = Mock(total=16123456)
     info = LocalNodeInfo()
     assert info.nb_core_physical == 4
     assert info.nb_core_logical == 8
     assert info.frequency == '3000 MHz'
     assert info.physical_memory == '15.38 MiB'
-    # test again with less RAM (even if it is VERY unlikely)
+    # test again with even less RSS (even if it is VERY unlikely)
     mocked_ram.return_value = Mock(total=16123)
     info = LocalNodeInfo()
     assert info.nb_core_physical == 4
@@ -537,12 +539,12 @@ def test_statistics_collector_task_main_killed(mocker, pipes):
     assert time.monotonic() - start_time > HEARTBEAT_TIMEOUT
 
 
-def test_statistics_collector_process(mocker, supvisors):
+def test_statistics_collector_process(mocker, supvisors_instance):
     """ Test the StatisticsCollectorProcess class. """
     mocked_process = Mock(spec=mp.Process, exitcode=None)
     mocked_creation = mocker.patch('multiprocessing.Process', return_value=mocked_process)
     # test creation
-    collector = StatisticsCollectorProcess(supvisors)
+    collector = StatisticsCollectorProcess(supvisors_instance)
     assert type(collector.cmd_recv) is mp.connection.Connection
     assert type(collector.cmd_send) is mp.connection.Connection
     assert type(collector.host_stats_recv) is mp.connection.Connection
@@ -567,13 +569,13 @@ def test_statistics_collector_process(mocker, supvisors):
     assert collector.cmd_recv.poll(timeout=0.5)
     assert collector.cmd_recv.recv() == (StatsMsgType.PID, ('dummy_process', 1234))
     # test get_host_stats
-    assert collector.get_host_stats() == []
+    assert list(collector.get_host_stats()) == []
     host_stats = {'cpu': 28, 'mem': 12}
     collector.host_stats_send.send(host_stats)
     assert collector.host_stats_recv.poll(timeout=0.5)
-    assert collector.get_host_stats() == [host_stats]
+    assert list(collector.get_host_stats()) == [host_stats]
     # test get_process_stats
-    assert collector.get_process_stats() == []
+    assert list(collector.get_process_stats()) == []
     proc_stats = {'namespec': 'dummy_process',
                   'pid': 1234,
                   'now': 4321,
@@ -582,7 +584,7 @@ def test_statistics_collector_process(mocker, supvisors):
                   'proc_memory': 5}
     collector.proc_stats_send.send(proc_stats)
     assert collector.proc_stats_recv.poll(timeout=0.5)
-    assert collector.get_process_stats() == [proc_stats]
+    assert list(collector.get_process_stats()) == [proc_stats]
     # test statistics deactivation
     collector.enable_host_statistics(False)
     assert collector.cmd_recv.poll(timeout=0.5)

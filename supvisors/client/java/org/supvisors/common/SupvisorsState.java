@@ -19,7 +19,9 @@ package org.supvisors.common;
 /**
  * The State enumeration for Supvisors.
  *
- * INITIALIZATION is used when Supvisors is synchronizing with all other Supvisors instances.
+ * OFF is the Supvisors entry state, used until the local Supvisors instance is operational.
+ * SYNCHRONIZATION is used when Supvisors is synchronizing all Supvisors instances.
+ * ELECTION is used when Supvisors is electing the Supvisors Master instance (must be unanimous).
  * DISTRIBUTION is used when Supvisors is starting applications automatically.
  * OPERATION is used when Supvisors is working normally.
  * CONCILIATION is used when Supvisors is conciliating conflicts due to multiple instance of the same process.
@@ -28,13 +30,15 @@ package org.supvisors.common;
  * FINAL is used just before Supvisors is shut down.
  */
 public enum SupvisorsState {
-    INITIALIZATION(0),
-    DISTRIBUTION(1),
-    OPERATION(2),
-    CONCILIATION(3),
-    RESTARTING(4),
-    SHUTTING_DOWN(5),
-    FINAL(7);
+    OFF(0),
+    SYNCHRONIZATION(1),
+    ELECTION(2),
+    DISTRIBUTION(3),
+    OPERATION(4),
+    CONCILIATION(5),
+    RESTARTING(6),
+    SHUTTING_DOWN(7),
+    FINAL(8);
 
     /** The state code. */
     private int stateCode;

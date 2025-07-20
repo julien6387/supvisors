@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
 #
@@ -17,10 +14,10 @@
 # limitations under the License.
 # ======================================================================
 
-import pytest
-
 from argparse import Namespace
 from unittest.mock import call, mock_open, Mock
+
+import pytest
 
 from supvisors.tools.breed import *
 

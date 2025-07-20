@@ -33,7 +33,7 @@ def test_expand_faults():
     assert SupvisorsFaults.DISABLED.value == Faults.DISABLED
 
 
-def test_patch_logger(mocker, supvisors):
+def test_patch_logger(mocker):
     """ Test the patch_logger function. """
     # check initial context
     assert not hasattr(Handler, '_emit')
@@ -118,29 +118,6 @@ def test_update_views():
     view = VIEWS['proc_instance.html']
     assert re.search(r'supvisors/ui/proc_instance\.html$', view['template'])
     assert ProcInstanceView == view['view']
-    # check Supvisors process plot images
-    view = VIEWS['process_mem.png']
-    assert view['template'] is None
-    assert ProcessMemoryImageView == view['view']
-    view = VIEWS['process_cpu.png']
-    assert view['template'] is None
-    assert ProcessCpuImageView == view['view']
-    # check Supvisors host plot images
-    view = VIEWS['host_mem.png']
-    assert view['template'] is None
-    assert HostMemoryImageView == view['view']
-    view = VIEWS['host_cpu.png']
-    assert view['template'] is None
-    assert HostCpuImageView == view['view']
-    view = VIEWS['host_net_io.png']
-    assert view['template'] is None
-    assert HostNetworkIoImageView == view['view']
-    view = VIEWS['host_disk_io.png']
-    assert view['template'] is None
-    assert HostDiskIoImageView == view['view']
-    view = VIEWS['host_disk_usage.png']
-    assert view['template'] is None
-    assert HostDiskUsageImageView == view['view']
     # test supervisor icon provider
     view = VIEWS['supervisor_icon.png']
     assert view['template'] is None

@@ -32,13 +32,15 @@ def config():
             'software_icon': 'my_icon.png',
             'supvisors_list': 'cliche01,cliche03,cliche02', 'stereotypes': 'test',
             'multicast_group': '239.0.0.1:7777', 'multicast_interface': '192.168.1.1', 'multicast_ttl': '5',
-            'rules_files': 'my_movies.xml', 'auto_fence': 'true',
+            'rules_files': 'my_movies.xml', 'css_files': 'test.css',
+            'auto_fence': 'true',
             'event_link': 'zmq', 'event_port': '60002',
             'synchro_options': 'LIST,USER', 'synchro_timeout': '20',
             'inactivity_ticks': '9',
             'core_identifiers': 'cliche01,cliche03',
             'disabilities_file': '/tmp/disabilities.json',
             'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
+            'supvisors_failure_strategy': 'CONTINUE',
             'stats_enabled': 'process', 'stats_collecting_period': '2',
             'stats_periods': '5,50,77.7', 'stats_histo': '100',
             'stats_irix_mode': 'true',
@@ -48,23 +50,24 @@ def config():
 
 
 @pytest.fixture
-def opt(supervisor, supvisors):
+def opt(supervisor_instance, logger_instance):
     """ Create a Supvisors-like structure filled with some instances. """
-    return SupvisorsOptions(supervisor, supvisors.logger)
+    return SupvisorsOptions(supervisor_instance, logger_instance)
 
 
 @pytest.fixture
-def filled_opt(mocker, supervisor, supvisors, config):
+def filled_opt(mocker, supervisor_instance, logger_instance, config):
     """ Test the values of options with defined Supvisors configuration. """
     mocker.patch('supvisors.options.SupvisorsOptions.to_existing_file', return_value='my_icon.png')
-    mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
-    return SupvisorsOptions(supervisor, supvisors.logger, **config)
+    mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths',
+                 side_effect=[['my_movies.xml'], ['test.css']])
+    return SupvisorsOptions(supervisor_instance, logger_instance, **config)
 
 
 @pytest.fixture
-def server_opt(supvisors):
+def server_opt(supvisors_instance):
     """ Create a Supvisors-like structure filled with some instances. """
-    return SupvisorsServerOptions(supvisors)
+    return SupvisorsServerOptions(supvisors_instance)
 
 
 def test_empty_logger_configuration():
@@ -94,6 +97,7 @@ def test_options_creation(opt):
     assert opt.multicast_interface is None
     assert opt.multicast_ttl == 1
     assert opt.rules_files is None
+    assert opt.css_files is None
     assert opt.event_link == EventLinks.NONE
     assert opt.event_port == 0
     assert not opt.auto_fence
@@ -103,6 +107,7 @@ def test_options_creation(opt):
     assert opt.disabilities_file is None
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
+    assert opt.supvisors_failure_strategy == SupvisorsFailureStrategies.CONTINUE
     assert opt.host_stats_enabled
     assert opt.process_stats_enabled
     assert opt.collecting_period == 5
@@ -122,6 +127,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.multicast_interface == '192.168.1.1'
     assert filled_opt.multicast_ttl == 5
     assert filled_opt.rules_files == ['my_movies.xml']
+    assert filled_opt.css_files == ['test.css']
     assert filled_opt.event_link == EventLinks.ZMQ
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
@@ -131,6 +137,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.disabilities_file == '/tmp/disabilities.json'
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
+    assert filled_opt.supvisors_failure_strategy == SupvisorsFailureStrategies.CONTINUE
     assert not filled_opt.host_stats_enabled
     assert filled_opt.process_stats_enabled
     assert filled_opt.collecting_period == 2.0
@@ -146,11 +153,12 @@ def test_str(opt):
     assert str(opt) == ('software_name="" software_icon=None'
                         ' supvisors_list=None stereotypes=set()'
                         ' multicast_group=None multicast_interface=None multicast_ttl=1'
-                        ' rules_files=None'
+                        ' rules_files=None css_files=None'
                         ' event_link=NONE event_port=0'
                         " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
                         ' inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
+                        ' supvisors_failure_strategy=CONTINUE'
                         ' host_stats_enabled=True process_stats_enabled=True'
                         ' collecting_period=5 stats_periods=[10] stats_histo=200'
                         ' stats_irix_mode=False tail_limit=1024 tailf_limit=1024')
@@ -165,7 +173,7 @@ def test_filled_str(filled_opt):
                           " supvisors_list=['cliche01', 'cliche03', 'cliche02']"
                           " stereotypes={'test'}"
                           ' multicast_group=239.0.0.1:7777 multicast_interface=192.168.1.1 multicast_ttl=5'
-                          " rules_files=['my_movies.xml']"
+                          " rules_files=['my_movies.xml'] css_files=['test.css']"
                           ' event_link=ZMQ event_port=60002'
                           ' auto_fence=True'
                           " synchro_options=['LIST', 'USER'] synchro_timeout=20"
@@ -173,6 +181,7 @@ def test_filled_str(filled_opt):
                           f' core_identifiers={var}'
                           ' disabilities_file=/tmp/disabilities.json'
                           ' conciliation_strategy=SENICIDE starting_strategy=MOST_LOADED'
+                          ' supvisors_failure_strategy=CONTINUE'
                           ' host_stats_enabled=False process_stats_enabled=True'
                           ' collecting_period=2.0 stats_periods=[5.0, 50.0, 77.7] stats_histo=100'
                           ' stats_irix_mode=True tail_limit=1048576 tailf_limit=512')
@@ -188,17 +197,24 @@ def test_get_value(opt, config):
 
 
 def test_check_synchro_options(opt, config):
-    """ Test the SupvisorsOptions.check_synchro_options method. """
+    """ Test the SupvisorsOptions.check_options method. """
     opt.synchro_options = [SynchronizationOptions.STRICT, SynchronizationOptions.CORE]
     assert not opt.supvisors_list
     assert not opt.core_identifiers
-    # call to check_synchro_options will empty synchro_options
+    # check that STRICT is disabled when no supvisors_list
+    # check that CORE is disabled when no core_identifiers
+    # check exception when no synchro_options
     with pytest.raises(ValueError):
-        opt.check_synchro_options()
+        opt.check_options()
+    # check that using TIMEOUT is not compatible with SupvisorsFailureStrategies
+    opt.synchro_options = [SynchronizationOptions.TIMEOUT]
+    for opt.supvisors_failure_strategy in [SupvisorsFailureStrategies.RESYNC, SupvisorsFailureStrategies.SHUTDOWN]:
+        opt.check_options()
+        assert opt.supvisors_failure_strategy == SupvisorsFailureStrategies.CONTINUE
     # call check_synchro_options with USER and TIMEOUT
     for option in [SynchronizationOptions.USER, SynchronizationOptions.TIMEOUT]:
         opt.synchro_options = [option]
-        opt.check_synchro_options()
+        opt.check_options()
         assert opt.synchro_options == [option]
 
 
@@ -433,6 +449,22 @@ def test_starting_strategy():
     assert SupvisorsOptions.to_starting_strategy('MOST_LOADED') == StartingStrategies.MOST_LOADED
 
 
+def test_supvisors_failure_strategy():
+    """ Test the conversion of a string to a Supvisors failure strategy. """
+    error_message = common_error_message.format('supvisors_failure_strategy')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_supvisors_failure_strategy('123456')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_supvisors_failure_strategy('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_supvisors_failure_strategy('configs')
+    # test valid values
+    assert SupvisorsOptions.to_supvisors_failure_strategy('resync') == SupvisorsFailureStrategies.RESYNC
+    assert SupvisorsOptions.to_supvisors_failure_strategy('CONTinue') == SupvisorsFailureStrategies.CONTINUE
+    assert SupvisorsOptions.to_supvisors_failure_strategy('shutDOWN') == SupvisorsFailureStrategies.SHUTDOWN
+
+
 def test_statistics_type():
     """ Test the conversion of a string to a pair of booleans for host and process statistics. """
     error_message = common_error_message.format('stats_enabled')
@@ -526,7 +558,7 @@ def create_server(mocker, server_opt, config):
     return server_opt
 
 
-def test_server_options_disabilities(mocker, supvisors, server_opt):
+def test_server_options_disabilities(mocker, supvisors_instance, server_opt):
     """ Test the SupvisorsServerOptions disabilities management. """
     # patch open
     mocked_open = mocker.patch('builtins.open', mocker.mock_open())
@@ -534,7 +566,7 @@ def test_server_options_disabilities(mocker, supvisors, server_opt):
     assert server_opt.disabilities == {}
     # disable program
     server_opt.disable_program('program_1')
-    mocked_open.assert_called_once_with(supvisors.options.disabilities_file, 'w+')
+    mocked_open.assert_called_once_with(supvisors_instance.options.disabilities_file, 'w+')
     handle = mocked_open()
     json_expected = '{"program_1": true}'
     assert handle.write.call_args_list == [call(json_expected)]
@@ -542,7 +574,7 @@ def test_server_options_disabilities(mocker, supvisors, server_opt):
     mocked_open.reset_mock()
     # enable program
     server_opt.enable_program('program_2')
-    mocked_open.assert_called_once_with(supvisors.options.disabilities_file, 'w+')
+    mocked_open.assert_called_once_with(supvisors_instance.options.disabilities_file, 'w+')
     json_expected = '{"program_1": true, "program_2": false}'
     assert handle.write.call_args_list == [call(json_expected)]
     handle.reset_mock()
@@ -558,11 +590,11 @@ def test_server_options_disabilities(mocker, supvisors, server_opt):
     server_opt.disabilities = {}
     server_opt.read_disabilities()
     assert server_opt.disabilities == {'program_1': True, 'program_2': False}
-    mocked_open.assert_called_once_with(supvisors.options.disabilities_file)
+    mocked_open.assert_called_once_with(supvisors_instance.options.disabilities_file)
     handle = mocked_open()
     assert handle.read.call_args_list == [call()]
     # test with disabilities files not set
-    supvisors.options.disabilities_file = None
+    supvisors_instance.options.disabilities_file = None
     server_opt.disabilities = {}
     server_opt.read_disabilities()
     assert server_opt.disabilities == {}

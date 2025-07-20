@@ -23,14 +23,14 @@ from supvisors.ttypes import *
 
 def test_supvisors_instance_states():
     """ Test the SupvisorsInstanceStates enumeration. """
-    expected = ['UNKNOWN', 'CHECKING', 'CHECKED', 'RUNNING', 'SILENT', 'ISOLATED']
+    expected = ['STOPPED', 'CHECKING', 'CHECKED', 'RUNNING', 'FAILED', 'ISOLATED']
     assert [x.name for x in SupvisorsInstanceStates] == expected
 
 
 def test_supvisors_states():
     """ Test the SupvisorsStates enumeration. """
-    expected = ['OFF', 'INITIALIZATION', 'DISTRIBUTION', 'OPERATION', 'CONCILIATION', 'RESTARTING',
-                'SHUTTING_DOWN', 'FINAL']
+    expected = ['OFF', 'SYNCHRONIZATION', 'ELECTION', 'DISTRIBUTION', 'OPERATION', 'CONCILIATION',
+                'RESTARTING', 'SHUTTING_DOWN', 'FINAL']
     assert [x.name for x in SupvisorsStates] == expected
 
 
@@ -70,6 +70,12 @@ def test_running_failure_strategies():
     assert [x.name for x in RunningFailureStrategies] == expected
 
 
+def test_supvisors_failure_strategies():
+    """ Test the SupvisorsFailureStrategies enumeration. """
+    expected = ['CONTINUE', 'RESYNC', 'SHUTDOWN']
+    assert [x.name for x in SupvisorsFailureStrategies] == expected
+
+
 def test_process_request_result():
     """ Test the ProcessRequestResult enumeration. """
     expected = ['IN_PROGRESS', 'SUCCESS', 'FAILED', 'TIMED_OUT']
@@ -104,14 +110,20 @@ def test_publication_headers():
 def test_request_headers():
     """ Test the RequestHeaders enumeration. """
     expected = ['CHECK_INSTANCE', 'START_PROCESS', 'STOP_PROCESS',
-                'RESTART', 'SHUTDOWN', 'RESTART_SEQUENCE', 'RESTART_ALL', 'SHUTDOWN_ALL']
+                'RESTART', 'SHUTDOWN', 'RESTART_ALL', 'SHUTDOWN_ALL']
     assert [x.name for x in RequestHeaders] == expected
 
 
 def test_notification_headers():
     """ Test the NotificationHeaders enumeration. """
-    expected = ['AUTHORIZATION', 'STATE', 'ALL_INFO', 'DISCOVERY', 'INSTANCE_FAILURE']
+    expected = ['IDENTIFICATION', 'AUTHORIZATION', 'STATE', 'ALL_INFO', 'DISCOVERY', 'INSTANCE_FAILURE']
     assert [x.name for x in NotificationHeaders] == expected
+
+
+def test_authorization_types():
+    """ Test the AuthorizationTypes enumeration. """
+    expected = ['UNKNOWN', 'AUTHORIZED', 'NOT_AUTHORIZED', 'INCONSISTENT']
+    assert [x.name for x in AuthorizationTypes] == expected
 
 
 def test_event_headers():
@@ -119,6 +131,12 @@ def test_event_headers():
     expected = ['SUPVISORS', 'INSTANCE', 'APPLICATION', 'PROCESS_EVENT', 'PROCESS_STATUS',
                 'HOST_STATISTICS', 'PROCESS_STATISTICS']
     assert [x.name for x in EventHeaders] == expected
+
+
+def test_stats_type():
+    """ Test the StatsType enumeration. """
+    expected = ['HOST_CPU', 'HOST_MEM', 'HOST_NET_IO', 'HOST_DISK_IO', 'HOST_DISK_USAGE', 'PROCESS_CPU', 'PROCESS_MEM']
+    assert [x.name for x in StatsType] == expected
 
 
 def test_invalid_transition():

@@ -27,10 +27,9 @@ from supvisors.ttypes import ProgramConfig
 
 
 @pytest.fixture
-def source(supervisor, supvisors):
+def source(supervisor_instance, supvisors_instance):
     """ Return the instance to test. """
-    supervisor.supvisors = supvisors
-    return SupervisorData(supvisors, supervisor)
+    return SupervisorData(supvisors_instance, supervisor_instance)
 
 
 @pytest.fixture
@@ -112,17 +111,17 @@ def test_mainlogtail_handler(mocker, source, medusa_request):
     assert medusa_request.outgoing[-1].sz == 976
 
 
-def test_unix_server(mocker, supervisor, supvisors):
+def test_unix_server(mocker, supervisor_instance, supvisors_instance):
     """ Test that using UNIX HTTP server is not compliant with the use of Supvisors. """
-    mocker.patch.dict(supervisor.options.server_configs[0], {'family': socket.AF_UNIX})
+    mocker.patch.dict(supervisor_instance.options.server_configs[0], {'family': socket.AF_UNIX})
     with pytest.raises(ValueError):
-        SupervisorData(supvisors, supervisor)
+        SupervisorData(supvisors_instance, supervisor_instance)
 
 
-def test_creation(supervisor, supvisors, source):
+def test_creation(supervisor_instance, supvisors_instance, source):
     """ Test the values set at construction. """
-    assert source.supervisord is supervisor
-    assert source.supvisors is supvisors
+    assert source.supervisord is supervisor_instance
+    assert source.supvisors is supvisors_instance
     assert source.server_config is source.supervisord.options.server_configs[0]
     assert source._system_rpc_interface is None
     assert source._supervisor_rpc_interface is None
@@ -151,63 +150,63 @@ def test_env(source):
                                 'SUPERVISOR_USERNAME': 'user', 'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
 
 
-def test_replace_tail_handlers(source, supervisor):
+def test_replace_tail_handlers(source, supervisor_instance):
     """ Test the replacement of the default handler so that the Supvisors pages replace the Supervisor pages. """
     # check handlers type
-    assert supervisor.options.httpserver.handlers[1].handler_name == 'tail_handler'
-    assert supervisor.options.httpserver.handlers[2].handler_name == 'main_tail_handler'
+    assert supervisor_instance.options.httpserver.handlers[1].handler_name == 'tail_handler'
+    assert supervisor_instance.options.httpserver.handlers[2].handler_name == 'main_tail_handler'
     # check method behaviour with authentication server
     source.replace_tail_handlers()
     # check handlers type
-    assert isinstance(supervisor.options.httpserver.handlers[1], supervisor_auth_handler)
-    assert isinstance(supervisor.options.httpserver.handlers[1].handler, LogtailHandler)
-    assert isinstance(supervisor.options.httpserver.handlers[2], supervisor_auth_handler)
-    assert isinstance(supervisor.options.httpserver.handlers[2].handler, MainLogtailHandler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[1], supervisor_auth_handler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[1].handler, LogtailHandler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[2], supervisor_auth_handler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[2].handler, MainLogtailHandler)
     # check method behaviour without authentication server
     with patch.dict(source.server_config, {'username': None}):
         source.replace_tail_handlers()
     # check handlers type
-    assert isinstance(supervisor.options.httpserver.handlers[1], LogtailHandler)
-    assert isinstance(supervisor.options.httpserver.handlers[2], MainLogtailHandler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[1], LogtailHandler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[2], MainLogtailHandler)
 
 
-def test_replace_default_handler(source, supervisor):
+def test_replace_default_handler(source, supervisor_instance):
     """ Test the replacement of the default handler so that the Supvisors pages replace the Supervisor pages. """
     # check handler type
-    assert isinstance(supervisor.options.httpserver.handlers[-1], Mock)
-    assert supervisor.options.httpserver.handlers[-1].handler_name == 'default_handler'
+    assert isinstance(supervisor_instance.options.httpserver.handlers[-1], Mock)
+    assert supervisor_instance.options.httpserver.handlers[-1].handler_name == 'default_handler'
     # check method behaviour with authentication server
     source.replace_default_handler()
     # check handler type
-    assert not isinstance(supervisor.options.httpserver.handlers[-1], Mock)
-    assert isinstance(supervisor.options.httpserver.handlers[-1], supervisor_auth_handler)
-    assert isinstance(supervisor.options.httpserver.handlers[-1].handler, default_handler.default_handler)
+    assert not isinstance(supervisor_instance.options.httpserver.handlers[-1], Mock)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[-1], supervisor_auth_handler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[-1].handler, default_handler.default_handler)
     # check method behaviour without authentication server
     with patch.dict(source.server_config, {'username': None}):
         source.replace_default_handler()
     # check handler type
-    assert isinstance(supervisor.options.httpserver.handlers[-1], default_handler.default_handler)
+    assert isinstance(supervisor_instance.options.httpserver.handlers[-1], default_handler.default_handler)
 
 
-def test_close_httpservers(source, supervisor):
+def test_close_httpservers(source, supervisor_instance):
     """ Test the closing of supervisord HTTP servers. """
     # keep reference to http servers
-    http_servers = supervisor.options.httpservers
-    assert supervisor.options.storage is None
+    http_servers = supervisor_instance.options.httpservers
+    assert supervisor_instance.options.storage is None
     # call the method
     source.close_httpservers()
     # test the result
-    assert supervisor.options.storage is not None
-    assert supervisor.options.storage is http_servers
-    assert supervisor.options.httpservers == ()
+    assert supervisor_instance.options.storage is not None
+    assert supervisor_instance.options.storage is http_servers
+    assert supervisor_instance.options.httpservers == ()
 
 
-def test_complete_internal_data(source, supervisor):
+def test_complete_internal_data(source, supervisor_instance):
     """ Test the SupervisorData.complete_internal_data method with no group name set. """
     new_attributes = ['laststart_monotonic', 'laststop_monotonic', 'obsolete', 'extra_args', 'supvisors_config']
     # initial check
-    assert 'dummy_application' in supervisor.process_groups
-    dummy_application = supervisor.process_groups['dummy_application']
+    assert 'dummy_application' in supervisor_instance.process_groups
+    dummy_application = supervisor_instance.process_groups['dummy_application']
     assert sorted(dummy_application.processes.keys()) == ['dummy_process_1', 'dummy_process_2']
     assert not any(hasattr(process, x)
                    for appli in source.supervisord.process_groups.values()
@@ -225,12 +224,12 @@ def test_complete_internal_data(source, supervisor):
                for x in new_attributes)
 
 
-def test_complete_internal_data_group(source, supervisor):
+def test_complete_internal_data_group(source, supervisor_instance):
     """ Test the SupervisorData.complete_internal_data method. """
     new_attributes = ['laststart_monotonic', 'laststop_monotonic', 'obsolete', 'extra_args', 'supvisors_config']
     # initial check
-    assert 'dummy_application' in supervisor.process_groups
-    dummy_application = supervisor.process_groups['dummy_application']
+    assert 'dummy_application' in supervisor_instance.process_groups
+    dummy_application = supervisor_instance.process_groups['dummy_application']
     assert sorted(dummy_application.processes.keys()) == ['dummy_process_1', 'dummy_process_2']
     assert not any(hasattr(process, x)
                    for appli in source.supervisord.process_groups.values()
@@ -436,7 +435,7 @@ def test_force_fatal(source):
     process_1.spawnerr = ''
 
 
-def test_enable_disable(mocker, supvisors, source):
+def test_enable_disable(mocker, source):
     """ Test the disabling / enabling of a program. """
     mocked_notify = mocker.patch('supvisors.supervisordata.notify')
     # not working until Supvisors-related attributes have been set

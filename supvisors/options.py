@@ -26,7 +26,8 @@ from supervisor.loggers import Logger
 from supervisor.options import (expand, make_namespec, ServerOptions,
                                 ProcessConfig, FastCGIProcessConfig, EventListenerConfig)
 
-from .ttypes import (ConciliationStrategies, EventLinks, StartingStrategies, SynchronizationOptions,
+from .ttypes import (ConciliationStrategies, StartingStrategies, SupvisorsFailureStrategies,
+                     EventLinks, SynchronizationOptions,
                      Ipv4Address, NameList, Payload, StatisticsTypes,
                      GroupConfigInfo, ProgramConfig, SupvisorsProcessConfig)
 
@@ -64,6 +65,7 @@ class SupvisorsOptions:
         - multicast_interface: UDP Multicast Group interface ;
         - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
+        - css_files: list of css files used to override the Supvisors default CSS ;
         - event_link: type of the event link used to publish all Supvisors events ;
         - event_port: port number used to publish all Supvisors events ;
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive ;
@@ -75,6 +77,7 @@ class SupvisorsOptions:
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program ;
         - starting_strategy: strategy used to start processes on Supvisors instances ;
+        - supvisors_failure_strategy: strategy used to decide the way forward after a node loss ;
         - host_stats_enabled: if False, no host statistics will be collected from this Supvisors instance ;
         - proc_stats_enabled: if False, no process statistics will be collected from this Supvisors instance ;
         - collecting_period: period of the statistics collection ;
@@ -120,8 +123,9 @@ class SupvisorsOptions:
         self.multicast_group = self._get_value(config, 'multicast_group', None, self.to_multicast_group)
         self.multicast_interface = self._get_value(config, 'multicast_interface', None, self.to_ip_address)
         self.multicast_ttl = self._get_value(config, 'multicast_ttl', 1, self.to_ttl)
-        # get the rules files
+        # get the rules and CSS files
         self.rules_files = self._get_value(config, 'rules_files', None, self.to_filepaths)
+        self.css_files = self._get_value(config, 'css_files', None, self.to_filepaths)
         # if event_port is not defined, it will be set later based on Supervisor HTTP port
         self.event_link = self._get_value(config, 'event_link', EventLinks.NONE, self.to_event_link)
         self.event_port = self._get_value(config, 'event_port', 0, self.to_port_num)
@@ -140,6 +144,9 @@ class SupvisorsOptions:
                                                      self.to_conciliation_strategy)
         self.starting_strategy = self._get_value(config, 'starting_strategy', StartingStrategies.CONFIG,
                                                  self.to_starting_strategy)
+        self.supvisors_failure_strategy = self._get_value(config, 'supvisors_failure_strategy',
+                                                          SupvisorsFailureStrategies.CONTINUE,
+                                                          self.to_supvisors_failure_strategy)
         # configure statistics
         # stats_enabled is deprecated
         stats_enabled = self._get_value(config, 'stats_enabled', (True, True), self.to_statistics_type)
@@ -152,12 +159,14 @@ class SupvisorsOptions:
         # configure log tail limits
         self.tail_limit = self._get_value(config, 'tail_limit', 1024, byte_size)
         self.tailf_limit = self._get_value(config, 'tailf_limit', 1024, byte_size)
-        # check synchro options consistence
-        self.check_synchro_options()
+        # check options consistency
+        self.check_options()
 
     def __str__(self):
         """ Contents as string. """
-        mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}' if self.multicast_group else None
+        mc_group = None
+        if self.multicast_group:
+            mc_group = f'{self.multicast_group[0]}:{self.multicast_group[1]}'
         return (f'software_name="{self.software_name}"'
                 f' software_icon={self.software_icon}'
                 f' supvisors_list={self.supvisors_list}'
@@ -166,6 +175,7 @@ class SupvisorsOptions:
                 f' multicast_interface={self.multicast_interface}'
                 f' multicast_ttl={self.multicast_ttl}'
                 f' rules_files={self.rules_files}'
+                f' css_files={self.css_files}'
                 f' event_link={self.event_link.name}'
                 f' event_port={self.event_port}'
                 f' auto_fence={self.auto_fence}'
@@ -176,6 +186,7 @@ class SupvisorsOptions:
                 f' disabilities_file={self.disabilities_file}'
                 f' conciliation_strategy={self.conciliation_strategy.name}'
                 f' starting_strategy={self.starting_strategy.name}'
+                f' supvisors_failure_strategy={self.supvisors_failure_strategy.name}'
                 f' host_stats_enabled={self.host_stats_enabled}'
                 f' process_stats_enabled={self.process_stats_enabled}'
                 f' collecting_period={self.collecting_period}'
@@ -193,21 +204,28 @@ class SupvisorsOptions:
         """
         return self.multicast_group is not None
 
-    def check_synchro_options(self):
-        """ Check the validity of the synchro_options wrt other options. """
+    def check_options(self):
+        """ Check the consistency of the options. """
         # when using CORE in synchro_options, core_identifiers cannot be empty
         if not self.core_identifiers and SynchronizationOptions.CORE in self.synchro_options:
-            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options CORE'
+            self.logger.warn('SupvisorsOptions:check_options: cancellation of synchro_options CORE'
                              ' with no core_identifiers')
             self.synchro_options.remove(SynchronizationOptions.CORE)
         # when using LIST in synchro_options, supvisors_list cannot be empty
         if not self.supvisors_list and SynchronizationOptions.STRICT in self.synchro_options:
-            self.logger.warn('SupvisorsOptions:check_synchro_options: cancellation of synchro_options STRICT'
+            self.logger.warn('SupvisorsOptions:check_options: cancellation of synchro_options STRICT'
                              ' with no supvisors_list')
             self.synchro_options.remove(SynchronizationOptions.STRICT)
-        # finally, synchro_options must not be empty
+        # synchro_options must not be empty
         if not self.synchro_options:
-            raise ValueError('synchro_options must not be empty')
+            raise ValueError('synchro_options shall not be empty')
+        # using TIMEOUT in synchro_options invalidates SupvisorsFailureStrategies
+        # otherwise the SynchronizedState._check_failure_strategy may always trigger
+        if (SynchronizationOptions.TIMEOUT in self.synchro_options
+                and self.supvisors_failure_strategy != SupvisorsFailureStrategies.CONTINUE):
+            self.logger.warn('SupvisorsOptions:check_options: force supvisors_failure_strategy=CONTINUE'
+                             ' because it is incompatible with synchro_options=TIMEOUT')
+            self.supvisors_failure_strategy = SupvisorsFailureStrategies.CONTINUE
 
     def check_dirpath(self, file_path: str) -> str:
         """ Check if the path provided exists and create the folder tree if necessary.
@@ -460,6 +478,16 @@ class SupvisorsOptions:
         except KeyError:
             raise ValueError(f'invalid value for starting_strategy: "{value}".'
                              f' expected in {[x.name for x in StartingStrategies]}')
+        return strategy
+
+    @staticmethod
+    def to_supvisors_failure_strategy(value: str) -> SupvisorsFailureStrategies:
+        """ Convert a string into a SupvisorsFailureStrategies enum. """
+        try:
+            strategy = SupvisorsFailureStrategies[value.upper()]
+        except KeyError:
+            raise ValueError(f'invalid value for supvisors_failure_strategy: "{value}".'
+                             f' expected in {[x.name for x in SupvisorsFailureStrategies]}')
         return strategy
 
     @staticmethod

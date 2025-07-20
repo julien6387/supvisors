@@ -58,7 +58,11 @@ Status
 
 ``sstate``
 
-    Get the |Supvisors| state.
+    Get the |Supvisors| global state and modes.
+
+``sstate identifier``
+
+    Get the |Supvisors| instance state and modes.
 
 ``master``
 

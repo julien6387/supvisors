@@ -36,46 +36,115 @@ Status
 
         .. automethod:: get_supvisors_state()
 
-            ================== ============= ===========
-            Key                Type          Description
-            ================== ============= ===========
-            'fsm_statecode'    ``int``       The |Supvisors| state, in [0;9].
-            'fsm_statename'    ``str``       The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
-                                             ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
-                                             ```'SHUTTING_DOWN'``, ``'FINAL'``].
-            'discovery_mode'   ``bool``      True if the |Supvisors| discovery mode is activated.
-            'starting_jobs'    ``list(str)`` The list of |Supvisors| instances having starting jobs in progress.
-            'stopping_jobs'    ``list(str)`` The list of |Supvisors| instances having stopping jobs in progress.
-            ================== ============= ===========
+            ================== ================= ===========
+            Key                Type              Description
+            ================== ================= ===========
+            'identifier'       ``str``           The |Supvisors| local instance identifier (``host_id:http_port``).
+            'nick_identifier'  ``str``           The |Supvisors| local instance nick name, or a copy of the |Supvisors|
+                                                 identifier if not set.
+            'now_monotonic'    ``float``         The monotonic time, in the reference time of the local host.
+            'fsm_statecode'    ``int``           The |Supvisors| state, in [0;8].
+            'fsm_statename'    ``str``           The |Supvisors| state as string, in [``'OFF'``, ``'SYNCHRONIZATION'``,
+                                                 ``'ELECTION'``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
+                                                 ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'FINAL'``].
+            'degraded_mode'    ``bool``          True if |Supvisors| is working with missing |Supvisors| instances.
+            'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
+            'starting_jobs'    ``list(str)``     The list of |Supvisors| instances having starting jobs in progress.
+            'stopping_jobs'    ``list(str)``     The list of |Supvisors| instances having stopping jobs in progress.
+            'instance_states'  ``dict(str,str)`` The state of every |Supvisors| instance, as seen by the local
+                                                 |Supvisors| instance.
+            ================== ================= ===========
+
+        .. automethod:: get_all_instances_state_modes()
+
+        .. automethod:: get_instance_state_modes()
+
+            ================== ================= ===========
+            Key                Type              Description
+            ================== ================= ===========
+            'identifier'       ``str``           The |Supvisors| instance identifier (``host_id:http_port``).
+            'nick_identifier'  ``str``           The |Supvisors| instance nick name, or a copy of the |Supvisors|
+                                                 identifier if not set.
+            'now_monotonic'    ``float``         The monotonic time, in the reference time of the local host.
+            'fsm_statecode'    ``int``           The |Supvisors| state, in [0;8].
+            'fsm_statename'    ``str``           The |Supvisors| state as string, in [``'OFF'``, ``'SYNCHRONIZATION'``,
+                                                 ``'ELECTION'``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
+                                                 ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'FINAL'``].
+            'degraded_mode'    ``bool``          True if |Supvisors| is working with missing |Supvisors| instances.
+            'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
+            'starting_jobs'    ``bool``          True if the |Supvisors| instance has starting jobs in progress.
+            'stopping_jobs'    ``bool``          True if the |Supvisors| instance has stopping jobs in progress.
+            'instance_states'  ``dict(str,str)`` The state of every |Supvisors| instance, as seen by the |Supvisors|
+                                                 instance.
+            ================== ================= ===========
 
         .. automethod:: get_master_identifier()
 
+            ================== ================= ===========
+            Key                Type              Description
+            ================== ================= ===========
+            'identifier'       ``str``           The |Supvisors| *Master* instance identifier (``host_id:http_port``).
+            'nick_identifier'  ``str``           The |Supvisors| *Master* instance nick name, or a copy
+                                                 of the |Supvisors| identifier if not set.
+            ================== ================= ===========
+
         .. automethod:: get_strategies()
 
-            ================== ========= ===========
-            Key                Type      Description
-            ================== ========= ===========
-            'auto-fencing'     ``bool``  The application status of the auto-fencing in |Supvisors|.
-            'conciliation'     ``str``   The conciliation strategy applied when |Supvisors| is in the ``CONCILIATION``
-                                         state.
-            'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DISTRIBUTION``
-                                         state.
-            ================== ========= ===========
+            =================== ========= ===========
+            Key                 Type      Description
+            =================== ========= ===========
+            'auto-fencing'      ``bool``  The application status of the auto-fencing in |Supvisors|.
+            'conciliation'      ``str``   The conciliation strategy applied when |Supvisors| is in the ``CONCILIATION``
+                                          state.
+            'supvisors_failure' ``str``   The strategy used when the initial conditions are not met anymore.
+            'starting'          ``str``   The starting strategy applied when |Supvisors| is in the ``DISTRIBUTION``
+                                          state.
+            =================== ========= ===========
 
-        .. automethod:: get_instance_info(instance)
+        .. automethod:: get_network_info(identifier)
+
+            ================== ================= ===========
+            Key                Type              Description
+            ================== ================= ===========
+            'identifier'       ``str``           The |Supvisors| instance identifier (``host_id:http_port``).
+            'nick_identifier'  ``str``           The |Supvisors| instance nick name, or a copy of the |Supvisors|
+                                                 identifier if not set.
+            'host_id'          ``str``           The configured |Supvisors| instance host identifier.
+            'http_port'        ``int``           The configured |Supervisor| HTTP port.
+            'stereotypes'      ``list(str)``     The stereotypes associated with the |Supvisors| instance configuration.
+            'network'          ``dict(str,any)`` The network details of the |Supvisors| instance, with keys in
+                                                 [``'fqdn'``, ``'machine_id'``, `'addresses'``].
+            'fqdn'             ``str``           The fully-qualified domain name of the |Supvisors| instance.
+            'machine_id'       ``str``           The UUID of the node where the |Supvisors| instance is running.
+            'addresses'        ``dict(str,any)`` The network interface details, where keys are NIC names (loopback
+                                                 excluded), and values are as follows.
+            'nic_info'         ``dict(str,str)`` The ``ioctl`` details of the network interface, with keys in
+                                                 [``'nic_name'``, ``'ipv4_address'``, `'netmask'``].
+            'nic_name'         ``str``           The name of the network interface.
+            'ipv4_address'     ``str``           The IPv4 address associated with the network interface.
+            'netmask'          ``str``           The netmask associated with the network interface.
+            'host_name'        ``str``           The host name given by the ``socket.gethostbyaddr(ipv4_address)``.
+            'aliases'          ``list(str)``     The host aliases given by the ``socket.gethostbyaddr(ipv4_address)``.
+            'ipv4_addresses'   ``list(str)``     The IPv4 addresses given by the ``socket.gethostbyaddr(ipv4_address)``.
+            ================== ================= ===========
+
+        .. automethod:: get_instance_info(identifier)
 
             ========================= ========= ===========
             Key                       Type      Description
             ========================= ========= ===========
-            'identifier'              ``str``   The |Supvisors| instance identifier (``host:http_port``).
+            'identifier'              ``str``   The |Supvisors| instance identifier (``host_id:http_port``).
             'nick_identifier'         ``str``   The |Supervisor| instance identifier, or a copy of the |Supvisors|
                                                 identifier if not set.
             'node_name'               ``str``   The name of the node where the |Supvisors| instance is running.
             'port'                    ``int``   The HTTP port of the |Supvisors| instance.
-            'statecode'	              ``int``   The |Supvisors| instance state, in [0;6].
-            'statename'	              ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
-                                                `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATED'``].
-            'discovery_mode'          ``bool``  True if the discovery mode is activated in the |Supvisors| instance.
+            'statecode'	              ``int``   The |Supvisors| instance state, in [0;5].
+            'statename'	              ``str``   The |Supvisors| instance state as string, in [``'STOPPED'``,
+                                                ``'CHECKING'``, `'CHECKED'``, ``'RUNNING'``, ``'FAILED'``,
+                                                ``'ISOLATED'``].
+            'loading'                 ``int``   The sum of the expected loading of the processes running on the
+                                                |Supvisors| instance, in [0;100]%.
+            'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
             'remote_sequence_counter' ``int``   The remote TICK counter, i.e. the number of TICK events received since
                                                 the remote |Supvisors| instance is running.
             'remote_mtime'            ``float`` The monotonic time received in the last heartbeat sent by the remote
@@ -88,15 +157,6 @@ Status
                                                 |Supvisors| instance, in seconds since the local host started.
             'local_time'              ``float`` The POSIX time when the latest TICK was received from the remote
                                                 |Supvisors| instance, in seconds and in the local reference time.
-            'loading'                 ``int``   The sum of the expected loading of the processes running on the |Supvisors|
-                                                instance, in [0;100]%.
-            'process_failure'         ``bool``  True if one of the local processes has crashed or has exited unexpectedly.
-            'fsm_statecode'           ``int``   The |Supvisors| state as seen by the |Supvisors| instance, in [0;9].
-            'fsm_statename'           ``str``   The |Supvisors| state as string, in [``'OFF'``, ``'INITIALIZATION'``,
-                                                ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
-                                                ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'FINAL'``].
-            'starting_jobs'           ``bool``  True if the |Supvisors| instance has starting jobs in progress.
-            'stopping_jobs'           ``bool``  True if the |Supvisors| instance has stopping jobs in progress.
             ========================= ========= ===========
 
         .. automethod:: get_all_instances_info()
@@ -107,6 +167,7 @@ Status
             Key                Type      Description
             ================== ========= ===========
             'application_name' ``str``   The Application name.
+            'now_monotonic'    ``float`` The monotonic time, in the reference time of the local host.
             'statecode'        ``int``   The Application state, in [0;4].
             'statename'        ``str``   The Application state as string, in [``'UNKNOWN'``, ``'STOPPED'``,
                                          ``'STARTING'``, ``'STOPPING'``, ``'RUNNING'``].
@@ -123,14 +184,15 @@ Status
             ================== =============== ===========
             'application_name' ``str``         The Application name the process belongs to.
             'process_name'     ``str``         The Process name.
+            'now_monotonic'    ``float``       The monotonic time, in the reference time of the local host.
+            'last_event_mtime' ``float``       The monotonic time of the last event received for this process,
+                                               in the reference time of the local host.
             'statecode'        ``int``         The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
             'statename'        ``str``         The Process state as string, in [``'STOPPED'``, ``'STARTING'``,
                                                ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``,
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
-            'last_event_time'  ``float``       The local monotonic time of the last event received for this process,
-                                               in seconds.
-            'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
+            'identifiers'      ``list(str)``   The identifiers of all |Supvisors| instances where the process is
                                                running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
@@ -143,7 +205,7 @@ Status
 
             .. note::
 
-                If there is more than one element in the 'identifiers' list, a conflict is in progress.
+                If there is more than one element in the 'identifiers' list, a process conflict is in progress.
 
 
         .. automethod:: get_all_process_info()
@@ -191,7 +253,7 @@ Status
             'distribution'              ``str``         The distribution rule of the Application,
                                                         in [``'ALL_INSTANCES'``, ``'SINGLE_INSTANCE'``,
                                                         ``'SINGLE_NODE'``].
-            'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
+            'identifiers'               ``list(str)``   The identifiers of all |Supvisors| instances where the
                                                         non-fully distributed Application processes can be started,
                                                         provided only if ``distribution`` is not ``ALL_INSTANCES``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
@@ -217,7 +279,7 @@ Status
             ========================== =============== ===========
             'application_name'         ``str``         The Application name the process belongs to.
             'process_name'             ``str``         The Process name.
-            'identifiers'              ``list(str)``   The deduced names of all |Supvisors| instances where the process
+            'identifiers'              ``list(str)``   The identifiers of all |Supvisors| instances where the process
                                                        can be started.
             'start_sequence'           ``int``         The Process starting rank when starting the related application,
                                                        in [0;127].

@@ -14,27 +14,28 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 import random
 import socket
-from socket import getfqdn, gethostname
+from socket import gethostname
 from unittest.mock import Mock
 
 from supervisor.loggers import getLogger, handle_stdout, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES, SupervisorStates, ProcessStates
 
-import supvisors
 from supvisors.context import Context
 from supvisors.initializer import LOGGER_FORMAT
 from supvisors.internal_com.mapper import SupvisorsMapper
+from supvisors.internal_com.rpchandler import RpcHandler
 from supvisors.options import SupvisorsOptions, SupvisorsServerOptions
 from supvisors.rpcinterface import RPCInterface
+from supvisors.statemodes import SupvisorsStateModes
 from supvisors.statscollector import StatisticsCollectorProcess
 from supvisors.statscompiler import HostStatisticsCompiler, ProcStatisticsCompiler
 from supvisors.supervisordata import SupervisorData
 from supvisors.supervisorupdater import SupervisorUpdater
 from supvisors.utils import extract_process_info
+from supvisors.web.sessionviews import SessionViews
 
 
 class MockedSupvisors:
@@ -47,37 +48,35 @@ class MockedSupvisors:
         self.options.rules_files = [config['rules_files']]
         # mock the supervisord source
         self.supervisor_data = SupervisorData(self, supervisord)
+        supervisord.supvisors = self
         self.supervisor_updater = SupervisorUpdater(self)
         self.mapper = SupvisorsMapper(self)
-        host_name = gethostname()
-        fqdn = getfqdn()
-        identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
-                       f'<{host_name}>{fqdn}:25000', f'<test>{fqdn}:15000']
+        identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5', '10.0.0.6']
         self.mapper.configure(identifiers, {'supvisors_test'}, [])
         self.server_options = SupvisorsServerOptions(self)
         # set real statistics collector and compilers
         self.stats_collector = StatisticsCollectorProcess(self)
         self.host_compiler = HostStatisticsCompiler(self)
         self.process_compiler = ProcStatisticsCompiler(self.options, self.logger)
-        # build context from node mapper
+        # create normal structures
+        self.state_modes = SupvisorsStateModes(self)
         self.context = Context(self)
+        self.rpc_handler = RpcHandler(self)
+        self.sessions = SessionViews(self)
         # mock by spec
         from supvisors.commander import Starter, Stopper, StarterModel
         from supvisors.strategy import RunningFailureHandler
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.listener import SupervisorListener
         from supvisors.sparser import Parser
-        from supvisors.internal_com.rpchandler import RpcHandler
         self.starter = Mock(spec=Starter)
         self.starter_model = Mock(spec=StarterModel)
         self.stopper = Mock(spec=Stopper)
         self.failure_handler = Mock(spec=RunningFailureHandler)
-        self.fsm = Mock(spec=FiniteStateMachine, redeploy_mark=False)
+        self.fsm = Mock(spec=FiniteStateMachine, force_distribution=False)
         self.listener = Mock(spec=SupervisorListener)
         self.parser = Mock(spec=Parser)
         # should be set in listener
-        self.rpc_handler = Mock(spec=RpcHandler)
-        self.rpc_handler.__init__()
         self.discovery_handler = None
         self.external_publisher = None
 
@@ -186,32 +185,6 @@ class DummySupervisor:
         self.process_groups = {'dummy_application': Mock(config=Mock(name='dummy_application'),
                                                          processes={'dummy_process_1': dummy_process_1,
                                                                     'dummy_process_2': dummy_process_2})}
-
-
-class DummyHttpContext:
-    """ Simple HTTP context for web ui views. """
-
-    def __init__(self, template=None):
-        supvisors_path = next(iter(supvisors.__path__), '.')
-        self.template = os.path.join(supvisors_path, template) if template else None
-        self.supervisord = DummySupervisor()
-        # create form and response
-        self.form = {'SERVER_URL': 'http://10.0.0.1:7777',
-                     'SERVER_PORT': 7777,
-                     'PATH_TRANSLATED': '/index.html',
-                     'action': 'test',
-                     'ident': '10.0.0.4:25000',
-                     'message': 'hi chaps',
-                     'gravity': 'none',
-                     'namespec': 'dummy_proc',
-                     'processname': 'dummy_proc',
-                     'appname': 'dummy_appli',
-                     'nic': 'eth0',
-                     'period': 5.1,
-                     'auto': 'false',
-                     'diskstats': 'io',
-                     'partition': '/', 'device': 'sda'}
-        self.response = {'headers': {'Location': None}}
 
 
 # note that all dates ('now') are different

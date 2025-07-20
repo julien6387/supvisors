@@ -16,8 +16,6 @@
 
 package org.supvisors.common;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 
 /**
@@ -26,6 +24,12 @@ import java.util.HashMap;
  * It gives a structured form to the process event received from a listener.
  */
 public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
+
+    /** The identifier of the Supvisors instance that published the event. */
+    private String identifier;
+
+    /** The nickname of the Supervisor instance that published the event. */
+    private String nick_identifier;
 
     /** The name of the process' application. */
     private String group;
@@ -39,17 +43,17 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /** A status telling if the process has exited expectantly. */
     private Boolean expected;
 
-    /** The date of the last event received for this process. */
+    /** The POSIX date (remote reference time) of the last event received for this process. */
     private Double now;
 
-    /** The monotonic time of the last event received for this process. */
+    /** The monotonic time (remote reference time) of the last event received for this process. */
     private Double now_monotonic;
+
+    /** The monotonic time (local reference time) of the last event received for this process. */
+    private Double event_mtime;
 
     /** The UNIX process id of the process. */
     private Integer pid;
-
-    /** The identifier of the Supvisors instance that published the event (TBC). */
-    private String identifier;
 
     /** The description in the case of an erroneous start. */
     private String spawnerr;
@@ -66,19 +70,48 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      * @param HashMap processInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsProcessEvent(HashMap processInfo)  {
+        this.identifier = (String) processInfo.get("identifier");
+        this.nick_identifier = (String) processInfo.get("nick_identifier");
         this.name = (String) processInfo.get("name");
         this.group = (String) processInfo.get("group");
         this.state = ProcessState.valueOf((Integer) processInfo.get("state"));
         this.expected = (Boolean) processInfo.get("expected");
         this.now = (Double) processInfo.get("now");
         this.now_monotonic = (Double) processInfo.get("now_monotonic");
+        this.event_mtime = (Double) processInfo.get("event_mtime");
         this.pid = (Integer) processInfo.get("pid");
-        // identifier is not set in this message
-        this.identifier = null;
         this.spawnerr = (String) processInfo.get("spawnerr");
         this.extra_args = (String) processInfo.get("extra_args");
         this.disabled = (Boolean) processInfo.get("disabled");
-   }
+    }
+
+    /**
+     * The getIdentifier method returns the identifier of the Supvisors instance.
+     *
+     * @return String: The identifier of the Supvisors instance.
+     */
+    public String getIdentifier() {
+        return this.identifier;
+    }
+
+    /**
+     * The getNickIdentifier method returns the nickname of the Supervisor instance.
+     *
+     * @return String: The nickname of the Supervisor instance.
+     */
+    public String getNickIdentifier() {
+        return this.nick_identifier;
+    }
+
+    /**
+     * The getSupvisorsIdentifier method returns the identification of the Supvisors instance,
+     * as a SupvisorsIdentifier instance.
+     *
+     * @return SupvisorsIdentifier: a SupvisorsIdentifier instance.
+     */
+    public SupvisorsIdentifier getSupvisorsIdentifier() {
+        return new SupvisorsIdentifier(this.identifier, this.nick_identifier);
+    }
 
     /**
      * The getGroup method returns the name of the process' application'.
@@ -127,7 +160,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNow method returns the date of the last event received for this process.
+     * The getNow method returns the POSIX date (remote reference time) of the last event received for this process.
      *
      * @return Double: The latest stop date.
      */
@@ -136,12 +169,23 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNowMonotonic method returns the monotonic time of the last event received for this process.
+     * The getNowMonotonic method returns the monotonic time (remote reference time) of the last event received
+     * for this process.
      *
-     * @return Double: The latest stop monotonic time.
+     * @return Double: The event monotonic time.
      */
     public Double getNowMonotonic() {
         return this.now_monotonic;
+    }
+
+    /**
+     * The getEventMonotonicTime method returns the monotonic time (local reference time) of the last event received
+     * for this process.
+     *
+     * @return Double: The event monotonic time.
+     */
+    public Double getEventMonotonicTime() {
+        return this.event_mtime;
     }
 
     /**
@@ -151,15 +195,6 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      */
     public Integer getPID() {
         return this.pid;
-    }
-
-    /**
-     * The getIdentifier method returns the identifier of the Supvisors instance that published the event.
-     *
-     * @return String: The identifier of the Supvisors instance that published the event.
-     */
-    public String getIdentifier() {
-        return this.identifier;
     }
 
     /**
@@ -197,18 +232,16 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String nowDate = "0";
-        if (this.now > 0) {
-            nowDate = "\"" + sdf.format(new Date(new Double(this.now * 1000L).longValue())) + "\"";
-        }
-        return "SupvisorsProcessEvent(namespec=" + this.getName()
+        return "SupvisorsProcessEvent(identifier=" + this.identifier
+            + " nickIdentifier=" + this.nick_identifier
+            + " namespec=" + this.getName()
             + " group=" + this.group
             + " name=" + this.name
             + " state=" + this.state
             + " expected=" + this.expected
-            + " now=" + nowDate
+            + " now=" + DataConversion.timestampToDate(this.now)
             + " nowMonotonic=" + this.now_monotonic
+            + " eventMonotonicTime=" + this.event_mtime
             + " pid=" + this.pid
             + " identifier=" + this.identifier
             + " spawnError=" + this.spawnerr

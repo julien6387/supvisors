@@ -16,8 +16,6 @@
 
 import multiprocessing
 import os
-import socket
-import time
 from unittest.mock import call, Mock
 
 import pytest
@@ -67,14 +65,14 @@ def test_trunc_depth():
 
 # Host Statistics part
 @pytest.fixture
-def host_statistics_instance(supvisors):
+def host_statistics_instance(logger_instance):
     # testing with period 12 and history depth 2
-    return HostStatisticsInstance('10.0.0.1', 12, 2, supvisors.logger)
+    return HostStatisticsInstance('10.0.0.1', 12, 2, logger_instance)
 
 
-def test_host_statistics_instance_creation(host_statistics_instance, supvisors):
+def test_host_statistics_instance_creation(host_statistics_instance, supvisors_instance):
     """ Test the creation of HostStatisticsInstance. """
-    assert host_statistics_instance.logger is supvisors.logger
+    assert host_statistics_instance.logger is supvisors_instance.logger
     assert host_statistics_instance.identifier == '10.0.0.1'
     assert host_statistics_instance.period == 12
     assert host_statistics_instance.depth == 2
@@ -213,6 +211,7 @@ def test_host_statistics_instance_integrate(host_statistics_instance):
 
 def test_host_statistics_instance_push_statistics(mocker, host_statistics_instance):
     """ Test the reception of new host statistics. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_stats = mocker.patch.object(host_statistics_instance, 'integrate')
     mocked_times = mocker.patch.object(host_statistics_instance, '_push_times_stats')
     mocked_cpu = mocker.patch.object(host_statistics_instance, '_push_cpu_stats')
@@ -269,6 +268,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     result = host_statistics_instance.push_statistics(stats3)
     # this update is taken into account
     assert result == {'identifier': '10.0.0.1',
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (0.0, 12.2),
                       'cpu': ['cpu_stats 3'],
@@ -310,6 +310,7 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
     result = host_statistics_instance.push_statistics(stats5)
     # this update is taken into account
     assert result == {'identifier': '10.0.0.1',
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (12.2, 26.4),
                       'cpu': ['cpu_stats 5'],
@@ -330,34 +331,57 @@ def test_host_statistics_instance_push_statistics(mocker, host_statistics_instan
 
 
 @pytest.fixture
-def host_statistics_compiler(supvisors):
-    return HostStatisticsCompiler(supvisors)
+def host_statistics_compiler(supvisors_instance):
+    return HostStatisticsCompiler(supvisors_instance)
 
 
-def test_host_statistics_compiler_creation(supvisors, host_statistics_compiler):
+def test_host_statistics_compiler_creation(supvisors_instance, host_statistics_compiler):
     """ Test the creation of HostStatisticsCompiler. """
+    assert host_statistics_compiler.supvisors is supvisors_instance
+    assert host_statistics_compiler.instance_map == {}
     assert host_statistics_compiler.nb_cores == {}
-    test_identifier = f'{socket.getfqdn()}:15000'
-    identifiers = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000', '10.0.0.4:25000', '10.0.0.5:25000',
-                   supvisors.mapper.local_identifier, test_identifier]
-    assert sorted(host_statistics_compiler.instance_map.keys()) == sorted(identifiers)
+
+
+def test_host_statistics_compiler_add_instance(supvisors_instance, host_statistics_compiler):
+    """ Test the HostStatisticsCompiler.add_instance method """
+    # add a first instance
+    host_statistics_compiler.add_instance('10.0.0.1:25000')
+    assert sorted(host_statistics_compiler.instance_map.keys()) == ['10.0.0.1:25000']
     for period_map in host_statistics_compiler.instance_map.values():
         assert sorted(period_map.keys()) == [5.0, 15.0, 60.0]
         for period, period_instances in period_map.items():
             assert isinstance(period_instances, HostStatisticsInstance)
             assert period_instances.period == period
-            assert period_instances.depth == supvisors.options.stats_histo
-            assert period_instances.logger is supvisors.logger
+            assert period_instances.depth == supvisors_instance.options.stats_histo
+            assert period_instances.logger is supvisors_instance.logger
+    # add a second instance
+    host_statistics_compiler.add_instance('10.0.0.2:25000')
+    assert sorted(host_statistics_compiler.instance_map.keys()) == ['10.0.0.1:25000', '10.0.0.2:25000']
+    for period_map in host_statistics_compiler.instance_map.values():
+        assert sorted(period_map.keys()) == [5.0, 15.0, 60.0]
+        for period, period_instances in period_map.items():
+            assert isinstance(period_instances, HostStatisticsInstance)
+            assert period_instances.period == period
+            assert period_instances.depth == supvisors_instance.options.stats_histo
+            assert period_instances.logger is supvisors_instance.logger
 
 
-def test_host_statistics_compiler_get_stats(host_statistics_compiler):
+@pytest.fixture
+def filled_host_statistics_compiler(supvisors_instance, host_statistics_compiler):
+    """ Add all declared Supvisors instances to the compiler. """
+    for identifier in supvisors_instance.mapper.instances:
+        host_statistics_compiler.add_instance(identifier)
+    return host_statistics_compiler
+
+
+def test_host_statistics_compiler_get_stats(filled_host_statistics_compiler):
     """ Test the HostStatisticsCompiler.get_stats method """
     # test with unknown identifier
-    assert host_statistics_compiler.get_stats('10.0.0.0:25000', 5.0) is None
+    assert filled_host_statistics_compiler.get_stats('10.0.0.0:25000', 5.0) is None
     # test with correct identifier but unknown period
-    assert host_statistics_compiler.get_stats('10.0.0.1:25000', 1.0) is None
+    assert filled_host_statistics_compiler.get_stats('10.0.0.1:25000', 1.0) is None
     # test with correct identifier and period
-    instance = host_statistics_compiler.get_stats('10.0.0.1:25000', 15.0)
+    instance = filled_host_statistics_compiler.get_stats('10.0.0.1:25000', 15.0)
     assert instance and instance.period == 15.0
 
 
@@ -373,28 +397,22 @@ def test_host_statistics_compiler_get_nb_cores(host_statistics_compiler):
     assert host_statistics_compiler.get_nb_cores('10.0.0.1:25000') == 4
 
 
-def test_host_statistics_compiler_push_statistics(mocker, host_statistics_compiler):
+def test_host_statistics_compiler_push_statistics(mocker, filled_host_statistics_compiler):
     """ Test the HostStatisticsCompiler.push_statistics method """
-    for identifier, period_maps in host_statistics_compiler.instance_map.items():
-        for instance in period_maps.values():
-            mocker.patch.object(instance, 'push_statistics')
-    # test with unknown identifier
+    mocker.patch('supvisors.statscompiler.HostStatisticsInstance.push_statistics',
+                 return_value={'cpu': [1.0]})
+    # test with unknown identifier: a new instance will be created
     host_stats = {'cpu': [1, 2, 3, 4, 5]}
-    host_statistics_compiler.push_statistics('10.0.0.0:25000', host_stats)
-    assert host_statistics_compiler.nb_cores == {}
-    assert all((not instance.push_statistics.called
-                for identifier, period_maps in host_statistics_compiler.instance_map.items()
-                for instance in period_maps.values()))
+    expected = [{'cpu': [1.0]}] * 3  # one per period
+    assert filled_host_statistics_compiler.push_statistics('10.0.0.0:25000', host_stats) == expected
+    assert filled_host_statistics_compiler.nb_cores == {'10.0.0.0:25000': 4,
+                                                        '10.0.0.1:25000': 1, '10.0.0.2:25000': 1, '10.0.0.3:25000': 1,
+                                                        '10.0.0.4:25000': 1, '10.0.0.5:25000': 1, '10.0.0.6:25000': 1}
     # test with known identifier
-    host_statistics_compiler.push_statistics('10.0.0.1:25000', host_stats)
-    assert host_statistics_compiler.nb_cores == {'10.0.0.1:25000': 4}
-    for identifier, period_maps in host_statistics_compiler.instance_map.items():
-        if identifier == '10.0.0.1:25000':
-            assert all((instance.push_statistics.call_args_list == [call(host_stats)]
-                        for instance in period_maps.values()))
-        else:
-            assert all((not instance.push_statistics.called
-                        for instance in period_maps.values()))
+    filled_host_statistics_compiler.push_statistics('10.0.0.1:25000', host_stats)
+    assert filled_host_statistics_compiler.nb_cores == {'10.0.0.0:25000': 4,
+                                                        '10.0.0.1:25000': 4, '10.0.0.2:25000': 1, '10.0.0.3:25000': 1,
+                                                        '10.0.0.4:25000': 1, '10.0.0.5:25000': 1, '10.0.0.6:25000': 1}
 
 
 # Process Statistics part
@@ -408,13 +426,14 @@ def test_cpu_process_statistics():
 @pytest.fixture
 def proc_statistics_instance():
     # testing with period 12 and history depth 2
-    return ProcStatisticsInstance('dummy_proc', '10.0.0.1', 12, 2)
+    return ProcStatisticsInstance(namespec='dummy_proc', identifier='10.0.0.1', pid=1234, period=12, depth=2)
 
 
 def test_proc_statistics_instance_creation(proc_statistics_instance):
     """ Test the creation of ProcStatisticsInstance. """
     assert proc_statistics_instance.namespec == 'dummy_proc'
     assert proc_statistics_instance.identifier == '10.0.0.1'
+    assert proc_statistics_instance.pid == 1234
     assert proc_statistics_instance.period == 12
     assert proc_statistics_instance.depth == 2
     assert proc_statistics_instance.ref_stats == {}
@@ -442,6 +461,7 @@ def test_proc_statistics_instance_integrate(proc_statistics_instance):
 
 def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instance):
     """ Test the ProcStatisticsInstance.push_statistics method. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_integ = mocker.patch.object(proc_statistics_instance, 'integrate')
     # push first set of measures to become the first reference statistics
     stats1 = {'now': 1.0}
@@ -471,6 +491,8 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     result = proc_statistics_instance.push_statistics(stats3)
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
+                      'pid': 1234,
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (0.0, 14.0),
                       'cpu': 5.2,
@@ -488,6 +510,8 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     result = proc_statistics_instance.push_statistics(stats4)
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
+                      'pid': 1234,
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (14.0, 29.0),
                       'cpu': 6.9,
@@ -505,6 +529,8 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
     result = proc_statistics_instance.push_statistics(stats5)
     assert result == {'namespec': 'dummy_proc',
                       'identifier': '10.0.0.1',
+                      'pid': 1234,
+                      'now_monotonic': 1234.56,
                       'target_period': 12,
                       'period': (29.0, 44.0),
                       'cpu': 4.4,
@@ -518,15 +544,15 @@ def test_proc_statistics_instance_push_statistics(mocker, proc_statistics_instan
 
 
 @pytest.fixture
-def proc_statistics_holder(supvisors):
-    return ProcStatisticsHolder('dummy_proc', supvisors.options, supvisors.logger)
+def proc_statistics_holder(supvisors_instance):
+    return ProcStatisticsHolder('dummy_proc', supvisors_instance.options, supvisors_instance.logger)
 
 
-def test_proc_statistics_holder_creation(supvisors, proc_statistics_holder):
+def test_proc_statistics_holder_creation(supvisors_instance, proc_statistics_holder):
     """ Test the creation of ProcStatisticsHolder. """
     assert proc_statistics_holder.namespec == 'dummy_proc'
-    assert proc_statistics_holder.options is supvisors.options
-    assert proc_statistics_holder.logger is supvisors.logger
+    assert proc_statistics_holder.options is supvisors_instance.options
+    assert proc_statistics_holder.logger is supvisors_instance.logger
     assert proc_statistics_holder.instance_map == {}
 
 
@@ -559,9 +585,10 @@ def test_proc_statistics_holder_get_stats(proc_statistics_holder):
 def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     """ Test the storage of the process instant statistics. """
     mocked_instance = mocker.patch('supvisors.statscompiler.ProcStatisticsInstance',
-                                   side_effect=lambda a, b, c, d: Mock(time_label=time.time(),
-                                                                       namespec=a, identifier=b, period=c, depth=d,
-                                                                       **{'push_statistics.return_value': None}))
+                                   side_effect=lambda a, b, c, d, e: Mock(time_label=time.time(),
+                                                                          namespec=a, identifier=b, pid=c,
+                                                                          period=d, depth=e,
+                                                                          **{'push_statistics.return_value': None}))
     # 1. test with running process not referenced yet
     proc_stats = {'pid': 118612}
     result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
@@ -574,6 +601,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.1'
+        assert instance.pid == 118612
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
@@ -590,6 +618,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.1'
+        assert instance.pid == 118612
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
@@ -600,14 +629,15 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.2'
+        assert instance.pid == 612
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
         instance.push_statistics.reset_mock()
     # 3. test with running process with a different pid on existing host
-    mocked_instance.side_effect = lambda a, b, c, d: Mock(time_label=time.time(),
-                                                          namespec=a, identifier=b, period=c, depth=d,
-                                                          **{'push_statistics.return_value': f'{b}_{c}'})
+    mocked_instance.side_effect = lambda a, b, c, d, e: Mock(time_label=time.time(),
+                                                             namespec=a, identifier=b, pid=c, period=d, depth=e,
+                                                             **{'push_statistics.return_value': f'{b}_{d}'})
     proc_stats = {'pid': 18612}
     result = proc_statistics_holder.push_statistics('10.0.0.1', proc_stats)
     assert result == ['10.0.0.1_5.0', '10.0.0.1_15.0', '10.0.0.1_60.0']
@@ -619,6 +649,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.1'
+        assert instance.pid == 18612
         assert instance.period == period
         assert instance.depth == 10
         assert instance.push_statistics.call_args_list == [call(proc_stats)]
@@ -630,6 +661,7 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.2'
+        assert instance.pid == 612
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
@@ -645,25 +677,26 @@ def test_proc_statistics_holder_push_statistics(mocker, proc_statistics_holder):
     for period, instance in identifier_instances.items():
         assert instance.namespec == 'dummy_proc'
         assert instance.identifier == '10.0.0.2'
+        assert instance.pid == 612
         assert instance.period == period
         assert instance.depth == 10
         assert not instance.push_statistics.called
 
 
 @pytest.fixture
-def proc_statistics_compiler(supvisors):
-    return ProcStatisticsCompiler(supvisors.options, supvisors.logger)
+def proc_statistics_compiler(supvisors_instance):
+    return ProcStatisticsCompiler(supvisors_instance.options, supvisors_instance.logger)
 
 
-def test_proc_statistics_compiler_creation(supvisors, proc_statistics_compiler):
+def test_proc_statistics_compiler_creation(supvisors_instance, proc_statistics_compiler):
     """ Test the creation of ProcStatisticsCompiler. """
-    assert proc_statistics_compiler.options is supvisors.options
-    assert proc_statistics_compiler.logger is supvisors.logger
+    assert proc_statistics_compiler.options is supvisors_instance.options
+    assert proc_statistics_compiler.logger is supvisors_instance.logger
     assert proc_statistics_compiler.holder_map == {}
     assert proc_statistics_compiler.nb_cores == {}
 
 
-def test_proc_statistics_compiler_get_stats(mocker, supvisors, proc_statistics_compiler):
+def test_proc_statistics_compiler_get_stats(mocker, supvisors_instance, proc_statistics_compiler):
     """ Test the ProcStatisticsCompiler.get_stats method """
     mocked_stats = mocker.patch('supvisors.statscompiler.ProcStatisticsHolder.get_stats')
     # test on unknown namespec
@@ -677,7 +710,7 @@ def test_proc_statistics_compiler_get_stats(mocker, supvisors, proc_statistics_c
     assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', 12.5, 1)]
     mocked_holder.get_stats.reset_mock()
     # test on known namespec and solaris mode (nb_cores not set)
-    supvisors.options.stats_irix_mode = False
+    supvisors_instance.options.stats_irix_mode = False
     assert proc_statistics_compiler.get_stats('dummy_proc', '10.0.0.1', 12.5) == 'some stats'
     assert mocked_holder.get_stats.call_args_list == [call('10.0.0.1', 12.5, 1)]
     mocked_holder.get_stats.reset_mock()

@@ -19,12 +19,12 @@ import multiprocessing.connection
 import os
 import time
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 import psutil
 from supervisor.loggers import Logger
 
-from .ttypes import DiskUsage, JiffiesList, InterfaceInstantStats, ProcessStats, PayloadList
+from .ttypes import DiskUsage, JiffiesList, InterfaceInstantStats, ProcessStats, Payload
 from .utils import mean
 
 # Default sleep time when nothing to do
@@ -113,7 +113,7 @@ class LocalNodeInfo:
         self.nb_core_logical: int = psutil.cpu_count()
         # get processor frequency
         frequency: float = psutil.cpu_freq().current  # MHz
-        self.frequency: str = f'{int(frequency)} MHz'
+        self.frequency: str = f'{round(frequency)} MHz'
         # get physical memory
         physical_memory: int = psutil.virtual_memory().total  # bytes
         for unit in ['KiB', 'MiB', 'GiB']:
@@ -121,6 +121,11 @@ class LocalNodeInfo:
             if physical_memory < 1024:
                 break
         self.physical_memory: str = f'{physical_memory:.2f} {unit}'
+
+    def refresh(self):
+        """ Refresh the CPU frequency value. """
+        frequency: float = psutil.cpu_freq().current  # MHz
+        self.frequency: str = f'{round(frequency)} MHz'
 
 
 class StatisticsCollector:
@@ -415,20 +420,18 @@ class StatisticsCollectorProcess:
         self.cmd_send.send((StatsMsgType.PID, (namespec, pid)))
 
     @staticmethod
-    def _get_stats(stats_conn: mp.connection.Connection) -> PayloadList:
+    def _get_stats(stats_conn: mp.connection.Connection) -> Iterator[Payload]:
         """ Get all statistics available from a given pipe connector. """
-        stats = []
         while stats_conn.poll():
-            stats.append(stats_conn.recv())
-        return stats
+            yield stats_conn.recv()
 
-    def get_host_stats(self) -> PayloadList:
+    def get_host_stats(self) -> Iterator[Payload]:
         """ Get all host statistics available. """
-        return self._get_stats(self.host_stats_recv)
+        yield from self._get_stats(self.host_stats_recv)
 
-    def get_process_stats(self) -> PayloadList:
+    def get_process_stats(self) -> Iterator[Payload]:
         """ Get all process statistics available. """
-        return self._get_stats(self.proc_stats_recv)
+        yield from self._get_stats(self.proc_stats_recv)
 
     def stop(self):
         """ Stop the collector process. """

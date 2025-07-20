@@ -14,10 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
-from types import FunctionType
 from unittest.mock import call
-
-import pytest
 
 from supvisors.web.webutils import *
 from .conftest import create_element
@@ -72,121 +69,64 @@ def test_print_message(mocker):
     assert message_mid.attrib['class'] == 'gravity'
 
 
-def check_message(func, gravity):
+def check_message(gravity: SupvisorsGravities):
     """ Test the formatting of any message. """
     # test without address
-    msg = func('a simple message')
-    assert type(msg) is tuple
-    assert len(msg) == 2
-    assert msg[0] == gravity
-    assert msg[1] == 'a simple message at ' + ctime()
+    msg = WebMessage('a simple message', gravity)
+    assert msg.message == 'a simple message at now'
+    assert msg.gravity_message == (gravity.value, 'a simple message at now')
+    cb = msg.delayed_message
+    assert cb() == (gravity.value, 'a simple message at now')
     # test with address
-    msg = func('another simple message', '10.0.0.1')
-    assert type(msg) is tuple
-    assert len(msg) == 2
-    assert msg[0] == gravity
-    assert msg[1] == 'another simple message at ' + ctime() + ' on 10.0.0.1'
+    msg = WebMessage('a simple message', gravity, identifier='10.0.0.1')
+    assert msg.message == 'a simple message at now on 10.0.0.1'
+    assert msg.gravity_message == (gravity.value, 'a simple message at now on 10.0.0.1')
+    cb = msg.delayed_message
+    assert cb() == (gravity.value, 'a simple message at now on 10.0.0.1')
 
 
-def check_delayed_message(func, gravity):
-    """ Test the callable returned for any delayed message. """
-    # test without address
-    msg_cb = func('a simple message')
-    assert type(msg_cb) is FunctionType
-    assert msg_cb.delay == 0.05
-    msg = msg_cb()
-    assert type(msg) is tuple
-    assert len(msg) == 2
-    assert msg[0] == gravity
-    assert msg[1] == 'a simple message at ' + ctime()
-    # test with address
-    msg_cb = func('another simple message', '10.0.0.1')
-    assert type(msg_cb) is FunctionType
-    assert msg_cb.delay == 0.05
-    msg = msg_cb()
-    assert type(msg) is tuple
-    assert len(msg) == 2
-    assert msg[0] == gravity
-    assert msg[1] == 'another simple message at ' + ctime() + ' on 10.0.0.1'
-
-
-def test_info_message():
+def test_web_message(mocker):
     """ Test the formatting of an information message. """
-    check_message(info_message, 'info')
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
+    for gravity in SupvisorsGravities:
+        check_message(gravity)
 
 
-def test_warn_message():
-    """ Test the formatting of a warning message. """
-    check_message(warn_message, 'warn')
-
-
-def test_error_message():
-    """ Test the formatting of an error message. """
-    check_message(error_message, 'erro')
-
-
-def test_delayed_info():
-    """ Test the callable returned for a delayed information message. """
-    check_delayed_message(delayed_info, 'info')
-
-
-def test_delayed_warn():
-    """ Test the callable returned for a delayed warning message. """
-    check_delayed_message(delayed_warn, 'warn')
-
-
-def test_delayed_error():
-    """ Test the callable returned for a delayed error message. """
-    check_delayed_message(delayed_error, 'erro')
-
-
-@pytest.fixture
-def messages(mocker):
-    """ Install patches on all message functions. """
-    patches = [mocker.patch('supvisors.web.webutils.delayed_error', return_value='Delayed err'),
-               mocker.patch('supvisors.web.webutils.delayed_info', return_value='Delayed info'),
-               mocker.patch('supvisors.web.webutils.error_message', return_value='Msg err'),
-               mocker.patch('supvisors.web.webutils.info_message', return_value='Msg info')]
-    [p.start() for p in patches]
-    yield
-    [p.stop() for p in patches]
-
-
-def test_generic_rpc(mocker, supvisors, messages):
+def test_generic_rpc(mocker, supvisors_instance):
     """ Test the generic_rpc. """
-    rpc_intf = supvisors.supervisor_data.supvisors_rpc_interface
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
+    rpc_intf = supvisors_instance.supervisor_data.supvisors_rpc_interface
     mocked_rpc = mocker.patch.object(rpc_intf, 'start_args')
     params = (0, 'dummy_proc', False)
     # test call with error on main RPC call
     mocked_rpc.side_effect = RPCError('failed RPC')
-    assert generic_rpc(rpc_intf, 'start_args', params, 'started') == 'Delayed err'
+    cb = generic_rpc(rpc_intf, 'start_args', params, 'started')
+    assert cb() == ('erro', 'start_args: UNKNOWN at now')
     assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
     mocked_rpc.reset_mock()
     # test call with direct result
     mocked_rpc.side_effect = None
     mocked_rpc.return_value = True
-    assert generic_rpc(rpc_intf, 'start_args', params, 'started') == 'Delayed info'
+    cb = generic_rpc(rpc_intf, 'start_args', params, 'started')
+    assert cb() == ('info', 'started at now')
     assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
     mocked_rpc.reset_mock()
     # test call with indirect result leading to internal RPC error
     mocked_rpc.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
     result = generic_rpc(rpc_intf, 'start_args', params, 'started')
-    assert callable(result)
-    assert result() == 'Msg err'
+    assert result() == ('erro', 'start_args: UNKNOWN at now')
     assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
     mocked_rpc.reset_mock()
     # test call with indirect result leading to unfinished job
     mocked_rpc.return_value = lambda: NOT_DONE_YET
     result = generic_rpc(rpc_intf, 'start_args', params, 'started')
-    assert callable(result)
     assert result() is NOT_DONE_YET
     assert mocked_rpc.call_args_list == [call(0, 'dummy_proc', False)]
     mocked_rpc.reset_mock()
     # test call with indirect result leading to failure
     mocked_rpc.return_value = lambda: True
     result = generic_rpc(rpc_intf, 'start_args', params, 'started')
-    assert callable(result)
-    assert result() == 'Msg info'
+    assert result() == ('info', 'started at now')
 
 
 def test_update_attrib():

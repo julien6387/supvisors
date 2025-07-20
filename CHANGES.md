@@ -1,6 +1,75 @@
 # Change Log
 
+## 0.19 (2025-07-20)
+
+* Python 3.9 becomes the minimal version.
+  Python 3.6 to Python 3.8 are not supported anymore.
+
+* Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.
+
+* Refactoring of the **Supvisors** internal state machine.
+  The state `INITIALIZATION` has been renamed as `SYNCHRONIZATION` and a new state `ELECTION` has been added
+  to get more stability in the *Master* election.
+
+* Implement the enhancement requested through the [Pull Request #120](https://github.com/julien6387/supvisors/pull/120).
+  **Supvisors** uses the `ioctl` functions to get the relevant network data on all network interfaces and matches
+  the local instance on the whole information available.
+  During the handshake, the local network data is shared with the other **Supvisors** instances using the new XML-RPC
+  `get_network_info`.
+
+* Take into account the network data in the **Supvisors** Web UI, so that the same network interface is used
+  when navigating to another node.
+
+* Constraint the handshake in time, so that late notifications are not considered.
+
+* Check the strategy consistency in the handshake.
+  If the options `auto_fence`, `starting_strategy`, `conciliation_strategy` and `supvisors_failure_strategy` are not
+  strictly identical, the local and remote Supvisors instances will isolate each other.
+
+* Add a session cookie to the **Supvisors** Web UI client.
+  All statistics images served by the **Supvisors** Web UI are renamed to allow multiple auto-refreshed views
+  in the browser tabs. 
+
+* Rework the XML-RPC `restart_sequence` logic, so that it does not require a **Supvisors** state change.
+
+* Add the XML-RPCs `get_instance_state_modes` and `get_all_instances_state_modes` in support of getting detailed state
+  and modes information from a single **Supvisors** instance.
+  This information has been removed from the XML-RPCs `get_instance_info` and `get_all_instances_info`.
+
+* Update the `stop_process` command, so that the XML-RPC request is sent only to running-like processes.
+
+* Update the `get_master_identifier` XML-RPC, so that it returns both the identifier and its nickname in a dictionary.
+  The `master` command is updated accordingly.
+
+* Add a new option `supvisors_failure_strategy` to decide what to do when the initial conditions are not met anymore.
+
+* Add a new option `css_files` to allow user CSS in the **Supvisors** Web UI.
+
+* Remove the **Supvisors** instance state `UNKNOWN`, and rename `SILENT` as `STOPPED` (default value).
+  **Supvisors** instances are `STOPPED` when created.
+
+* Add the process PID to the process statistics event.
+
+* Add a timestamp to the events of the **Supvisors** event interface.
+  This timestamp is also added to the XML-RPCs `get_supvisors_state`, `get_instance_state_modes`,
+  `get_all_instances_state_modes`, `get_application_info`, `get_all_applications_info`, `get_process_info`,
+  `get_all_process_info`.
+  The `last_event_time` in the Process status event is renamed as `last_event_mtime`.
+
+* Update the upper-left hyperlink of the **Supvisors** instance box in the main **Supvisors** Web page,
+  so that it leads to the same page, as provided by the other **Supvisors** instance, instead of leading
+  to the Supervisor page of the other **Supvisors** instance. 
+
+* Cancel individual subscriptions from the Supervisor events rather than perform a global clear.
+
+* Consider variable CPU frequency value returned by `psutil`.
+
+* Apply the XML-RPC updates on the JAVA client and the Flask interface.
+
+
 ## 0.18.7 (2025-01-10)
+
+* Last **Supvisors** version supporting Python 3.6 to Python 3.8.
 
 * Fix a random Python crash due to an I/O exception when the Supervisor log file is rolling over.
 

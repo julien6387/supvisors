@@ -14,10 +14,14 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Callable
+
+from supervisor.xmlrpc import RPCError
+
 from supvisors.ttypes import SupvisorsStates
 from .viewcontext import *
 from .viewhandler import ViewHandler
-from .webutils import *
+from .webutils import WebMessage, SupvisorsPages, SupvisorsGravities, update_attrib
 
 
 class MainView(ViewHandler):
@@ -42,25 +46,29 @@ class MainView(ViewHandler):
     def write_status(self, header_elt) -> None:
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state & modes
-        state_modes = self.sup_ctx.get_state_modes()
         elt = header_elt.findmeld('state_a_mid')
-        if state_modes['fsm_statecode'] == SupvisorsStates.CONCILIATION.value:
-            elt.attributes(href=CONCILIATION_PAGE)
-            statename = state_modes['fsm_statename']
+        statename = self.state_modes.state.name
+        if self.state_modes.state == SupvisorsStates.CONCILIATION:
+            elt.attributes(href=SupvisorsPages.CONCILIATION_PAGE)
             # blinking state until full conciliation performed
             if self.sup_ctx.conflicting():
                 statename += ' >>'
                 update_attrib(elt, 'class', 'on blink')
             elt.content(statename)
         else:
-            elt.replace(state_modes['fsm_statename'])
-        # set Supvisors modes
-        for mid, attr in [('starting_mid', 'starting_jobs'), ('stopping_mid', 'stopping_jobs')]:
-            elt = header_elt.findmeld(mid)
-            if state_modes[attr]:
-                update_attrib(elt, 'class', 'blink')
-            else:
-                elt.replace('')
+            elt.replace(statename)
+        # set Supvisors starting mode
+        elt = header_elt.findmeld('starting_mid')
+        if self.state_modes.starting_identifiers:
+            update_attrib(elt, 'class', 'blink')
+        else:
+            elt.replace('')
+        # set Supvisors starting mode
+        elt = header_elt.findmeld('stopping_mid')
+        if self.state_modes.stopping_identifiers:
+            update_attrib(elt, 'class', 'blink')
+        else:
+            elt.replace('')
         # write the Master nick identifier
         master_instance = self.sup_ctx.master_instance
         identifier = master_instance.supvisors_id.nick_identifier if master_instance else 'none'
@@ -71,11 +79,11 @@ class MainView(ViewHandler):
         super().write_actions(header_elt)
         # configure restart button
         elt = header_elt.findmeld('restart_a_mid')
-        url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'})
+        url = self.view_ctx.format_url('', SupvisorsPages.SUPVISORS_PAGE, **{ACTION: 'sup_restart'})
         elt.attributes(href=url)
         # configure shutdown button
         elt = header_elt.findmeld('shutdown_a_mid')
-        url = self.view_ctx.format_url('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})
+        url = self.view_ctx.format_url('', SupvisorsPages.SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})
         elt.attributes(href=url)
 
     def make_callback(self, namespec: str, action: str):
@@ -83,18 +91,18 @@ class MainView(ViewHandler):
         if action in self.global_methods:
             return self.global_methods[action]()
 
-    def sup_restart_action(self):
+    def sup_restart_action(self) -> Callable:
         """ Restart all Supervisor instances. """
         try:
             self.supvisors.supervisor_data.supvisors_rpc_interface.restart()
         except RPCError as e:
-            return delayed_error(f'restart: {e}')
-        return delayed_warn('Supvisors restart requested')
+            return WebMessage(f'restart: {e}', SupvisorsGravities.ERROR).delayed_message
+        return WebMessage('Supvisors restart requested', SupvisorsGravities.WARNING).delayed_message
 
-    def sup_shutdown_action(self):
+    def sup_shutdown_action(self) -> Callable:
         """ Stop all Supervisor instances. """
         try:
             self.supvisors.supervisor_data.supvisors_rpc_interface.shutdown()
         except RPCError as e:
-            return delayed_error(f'shutdown: {e}')
-        return delayed_warn('Supvisors shutdown requested')
+            return WebMessage(f'shutdown: {e}', SupvisorsGravities.ERROR).delayed_message
+        return WebMessage('Supvisors shutdown requested', SupvisorsGravities.WARNING).delayed_message

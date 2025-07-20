@@ -45,13 +45,16 @@ def test_write_navigation(mocker, view):
     assert mocked_nav.call_args_list == [call(mocked_root, source=view.local_identifier)]
 
 
-def test_write_status(mocker, supvisors, view):
+def test_write_status(mocker, supvisors_instance, view):
     """ Test the MainView.write_status method. """
     # patch context
-    mocker.patch.object(view.sup_ctx, 'get_state_modes',
-                        return_value={'fsm_statecode': SupvisorsStates.DISTRIBUTION.value,
-                                      'fsm_statename': SupvisorsStates.DISTRIBUTION.name,
-                                      'starting_jobs': True, 'stopping_jobs': False})
+    sm = {'fsm_statecode': SupvisorsStates.DISTRIBUTION.value,
+          'fsm_statename': SupvisorsStates.DISTRIBUTION.name,
+          'degraded_mode': False, 'discovery_mode': True,
+          'master_identifier': '10.0.0.1',
+          'starting_jobs': True, 'stopping_jobs': False,
+          'instance_states': {}}
+    supvisors_instance.state_modes.local_state_modes.update(sm)
     mocker.patch.object(view.sup_ctx, 'conflicting', return_value=False)
     # build root structure
     state_a_mid = create_element()
@@ -76,15 +79,16 @@ def test_write_status(mocker, supvisors, view):
     mocked_header.reset_all()
     mocker.resetall()
     # test call with master, in CONCILIATION, but without conflicts (expected solved)
-    view.sup_ctx.get_state_modes.return_value = {'fsm_statecode': SupvisorsStates.CONCILIATION.value,
-                                                 'fsm_statename': SupvisorsStates.CONCILIATION.name,
-                                                 'starting_jobs': False, 'stopping_jobs': True}
-    supvisors.context.local_status.state_modes.master_identifier = '10.0.0.1:25000'
+    sm.update({'fsm_statecode': SupvisorsStates.CONCILIATION.value,
+               'fsm_statename': SupvisorsStates.CONCILIATION.name,
+               'starting_jobs': False, 'stopping_jobs': True})
+    supvisors_instance.state_modes.local_state_modes.update(sm)
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
     view.write_status(mocked_header)
     assert mocked_header.findmeld.call_args_list == [call('state_a_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
     assert state_a_mid.content.call_args_list == [call('CONCILIATION')]
-    assert state_a_mid.attributes.call_args_list == [call(href=CONCILIATION_PAGE)]
+    assert state_a_mid.attributes.call_args_list == [call(href=SupvisorsPages.CONCILIATION_PAGE)]
     assert not state_a_mid.replace.called
     assert state_a_mid.attrib['class'] == ''
     assert starting_mid.attrib['class'] == ''
@@ -100,7 +104,7 @@ def test_write_status(mocker, supvisors, view):
     assert mocked_header.findmeld.call_args_list == [call('state_a_mid'), call('starting_mid'), call('stopping_mid'),
                                                      call('master_name_mid')]
     assert state_a_mid.content.call_args_list == [call('CONCILIATION >>')]
-    assert state_a_mid.attributes.call_args_list == [call(href=CONCILIATION_PAGE)]
+    assert state_a_mid.attributes.call_args_list == [call(href=SupvisorsPages.CONCILIATION_PAGE)]
     assert not state_a_mid.replace.called
     assert state_a_mid.attrib['class'] == 'on blink'
     assert starting_mid.attrib['class'] == ''
@@ -124,8 +128,9 @@ def test_write_actions(mocker, view):
     view.write_actions(mocked_header)
     assert mocked_super.call_args_list == [call(mocked_header)]
     assert mocked_header.findmeld.call_args_list == [call('restart_a_mid'), call('shutdown_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE, **{ACTION: 'sup_restart'}),
-                                                       call('', SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})]
+    expected = [call('', SupvisorsPages.SUPVISORS_PAGE, **{ACTION: 'sup_restart'}),
+                call('', SupvisorsPages.SUPVISORS_PAGE, **{ACTION: 'sup_shutdown'})]
+    assert view.view_ctx.format_url.call_args_list == expected
     assert restart_mid.attributes.call_args_list == [call(href='an url')]
     assert shutdown_mid.attributes.call_args_list == [call(href='an url')]
 
@@ -147,39 +152,29 @@ def test_make_callback(view):
 
 def test_sup_restart_action(mocker, view):
     """ Test the MainView.sup_shutdown_action method. """
-    mocked_methods = [mocker.patch('supvisors.web.viewmain.delayed_error', return_value='delayed error'),
-                      mocker.patch('supvisors.web.viewmain.delayed_warn', return_value='delayed warning'),
-                      mocker.patch('supvisors.web.viewmain.error_message', return_value='error'),
-                      mocker.patch('supvisors.web.viewmain.warn_message', return_value='warning')]
-    _check_sup_action(mocker, view, view.sup_restart_action, 'restart', *mocked_methods)
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
+    # test RPC error
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'restart',
+                        side_effect=RPCError('failed RPC'))
+    cb = view.sup_restart_action()
+    assert cb() == ('erro', "restart: code='failed RPC', text='UNKNOWN' at now")
+    # test direct result
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'restart',
+                        return_value='not callable object')
+    cb = view.sup_restart_action()
+    assert cb() == ('warn', 'Supvisors restart requested at now')
 
 
 def test_sup_shutdown_action(mocker, view):
     """ Test the MainView.sup_shutdown_action method. """
-    mocked_methods = [mocker.patch('supvisors.web.viewmain.delayed_error', return_value='delayed error'),
-                      mocker.patch('supvisors.web.viewmain.delayed_warn', return_value='delayed warning'),
-                      mocker.patch('supvisors.web.viewmain.error_message', return_value='error'),
-                      mocker.patch('supvisors.web.viewmain.warn_message', return_value='warning')]
-    _check_sup_action(mocker, view, view.sup_shutdown_action, 'shutdown', *mocked_methods)
-
-
-def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_dwarn, mocked_error, mocked_warn):
-    """ Test the MainView.sup_restart_action & sup_shutdown_action methods. """
+    mocker.patch('supvisors.web.webutils.ctime', return_value='now')
     # test RPC error
-    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name,
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'shutdown',
                         side_effect=RPCError('failed RPC'))
-    assert method_cb() == 'delayed error'
-    assert mocked_derror.called
-    assert not mocked_dwarn.called
-    assert not mocked_error.called
-    assert not mocked_warn.called
-    # reset mocks
-    mocked_derror.reset_mock()
+    cb = view.sup_shutdown_action()
+    assert cb() == ('erro', "shutdown: code='failed RPC', text='UNKNOWN' at now")
     # test direct result
-    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name,
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, 'shutdown',
                         return_value='not callable object')
-    assert method_cb() == 'delayed warning'
-    assert not mocked_derror.called
-    assert mocked_dwarn.called
-    assert not mocked_error.called
-    assert not mocked_warn.called
+    cb = view.sup_shutdown_action()
+    assert cb() == ('warn', 'Supvisors shutdown requested at now')

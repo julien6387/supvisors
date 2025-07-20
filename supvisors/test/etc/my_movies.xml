@@ -2,7 +2,7 @@
 <root>
 
     <!-- aliases -->
-    <alias name="distribute_sublist">@,supv02:60000,supv-03,supv04</alias>
+    <alias name="distribute_sublist">@,supv02:60000,supv-03,rocky54</alias>
     <alias name="consoles">supv02:60000,supv-01</alias>
 
     <!-- models -->

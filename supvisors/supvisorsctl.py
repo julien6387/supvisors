@@ -24,10 +24,10 @@ from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
 from supervisor.loggers import getLevelNumByDescription
 from supervisor.options import ClientOptions, make_namespec, split_namespec
-from supervisor.states import ProcessStates, getProcessStateDescription
+from supervisor.states import RUNNING_STATES, ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
-from . import __version__
+from . import supvisors_version
 from .plugin import expand_faults
 from .rpcinterface import RPCInterface
 from .ttypes import ConciliationStrategies, StartingStrategies, SupvisorsInstanceStates, PayloadList
@@ -100,50 +100,78 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the sversion command. """
         self.ctl.output('sversion\t\t\tGet the API version of Supvisors.')
 
-    def do_sstate(self, _):
+    def do_sstate(self, arg):
         """ Command to get the Supvisors state. """
         if self._upcheck():
+            state_modes = []
+            # check request args
+            identifiers = arg.split()
             try:
-                state_modes = self.supvisors().get_supvisors_state()
+                if identifiers:
+                    # get everything at once instead of doing multiple requests
+                    state_modes = self.supvisors().get_all_instances_state_modes()
+                else:
+                    state_modes = [self.supvisors().get_supvisors_state()]
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
-            else:
-                max_master = ControllerPlugin.max_template([state_modes], 'master_identifier', 'Master')
-                max_starting = ControllerPlugin.max_template([state_modes], 'starting_jobs', 'Starting')
-                max_stopping = ControllerPlugin.max_template([state_modes], 'stopping_jobs', 'Stopping')
-                template = (f'%(state)-16s%(discovery)-11s%(master)-{max_master}s%(starting)-{max_starting}s'
-                            f'%(stopping)-{max_stopping}s')
+            if state_modes:
+                # create template. identifier has variable length
+                max_nick_identifiers = ControllerPlugin.max_template(state_modes, 'nick_identifier', 'Nickname')
+                max_identifiers = ControllerPlugin.max_template(state_modes, 'identifier', 'Supvisors identifier')
+                max_master = ControllerPlugin.max_template(state_modes, 'master_identifier', 'Master')
+                max_starting = ControllerPlugin.max_template(state_modes, 'starting_jobs', 'Starting')
+                max_stopping = ControllerPlugin.max_template(state_modes, 'stopping_jobs', 'Stopping')
+                template = (f'%(nick_identifier)-{max_nick_identifiers}s%(identifier)-{max_identifiers}s'
+                            f'%(state)-16s%(degraded)-10s%(discovery)-11s%(master)-{max_master}s'
+                            f'%(starting)-{max_starting}s%(stopping)-{max_stopping}s')
                 # print title
-                payload = {'state': 'State', 'discovery': 'Discovery', 'master': 'Master',
+                payload = {'nick_identifier': 'Nickname', 'identifier': 'Supvisors identifier',
+                           'state': 'State', 'degraded': 'Degraded', 'discovery': 'Discovery',
+                           'master': 'Master',
                            'starting': 'Starting', 'stopping': 'Stopping'}
                 self.ctl.output(template % payload)
-                # print data
-                line = template % {'state': state_modes['fsm_statename'],
-                                   'discovery': state_modes['discovery_mode'],
-                                   'master': state_modes['master_identifier'],
-                                   'starting': state_modes['starting_jobs'],
-                                   'stopping': state_modes['stopping_jobs']}
-                self.ctl.output(line)
+                # check request args
+                output_all = not identifiers or 'all' in identifiers
+                # print filtered payloads
+                for sm in state_modes:
+                    if output_all or sm['identifier'] in identifiers or sm['nick_identifier'] in identifiers:
+                        # print data
+                        payload = {'nick_identifier': sm['nick_identifier'],
+                                   'identifier': sm['identifier'],
+                                   'state': sm['fsm_statename'],
+                                   'degraded': sm['degraded_mode'],
+                                   'discovery': sm['discovery_mode'],
+                                   'master': sm['master_identifier'],
+                                   'starting': sm['starting_jobs'],
+                                   'stopping': sm['stopping_jobs']}
+                        self.ctl.output(template % payload)
 
     def help_sstate(self):
         """ Print the help of the sstate command. """
-        self.ctl.output('sstate\t\t\t\tGet the Supvisors state.')
+        self.ctl.output('sstate\t\t\t\tGet the Supvisors state and modes.')
+        self.ctl.output('sstate <identifier>\t\t\tGet the Supvisors instance state and modes.')
+        self.ctl.output('sstate <identifier> <identifier>\tGet the state and modes for multiple Supvisors instances')
+        self.ctl.output('sstate all\t\t\tGet the state and modes for all Supvisors instances')
 
     def do_master(self, _):
         """ Command to get the Master Supvisors instance. """
         if self._upcheck():
             try:
-                identifier = self.supvisors().get_master_identifier()
+                payload = self.supvisors().get_master_identifier()
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output(identifier)
+                if payload:
+                    self.ctl.output(f"Nick identifier: {payload['nick_identifier']}")
+                    self.ctl.output(f"Identifier:      {payload['identifier']}")
+                else:
+                    self.ctl.output('No Supvisors Master')
 
     def help_master(self):
         """ Print the help of the master command. """
-        self.ctl.output('master\t\t\t\tGet the Master Supvisors instance.')
+        self.ctl.output('master\t\t\t\tGet the Supvisors Master identification.')
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
@@ -155,6 +183,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output(f"Auto-fencing: {strategies['auto-fencing']}")
+                self.ctl.output(f"Failure:      {strategies['supvisors_failure']}")
                 self.ctl.output(f"Conciliation: {strategies['conciliation']}")
                 self.ctl.output(f"Starting:     {strategies['starting']}")
 
@@ -193,41 +222,31 @@ class ControllerPlugin(ControllerPluginBase):
                 max_nick_identifiers = ControllerPlugin.max_template(info_list, 'nick_identifier', 'Nickname')
                 max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supvisors identifier')
                 max_hosts = ControllerPlugin.max_template(info_list, 'node_name', 'Host')
-                max_masters = ControllerPlugin.max_template(info_list, 'master_identifier', 'Master')
                 template = (f'%(nick_identifier)-{max_nick_identifiers}s%(identifier)-{max_identifiers}s'
                             f'%(node_name)-{max_hosts}s%(port)-7s'
-                            '%(state)-11s%(discovery)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
-                            '%(proc_failure)-11s'
-                            f'%(fsm_state)-16s%(discovery)-11s%(master)-{max_masters}s'
-                            '%(starting)-10s%(stopping)-10s')
+                            '%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
+                            '%(proc_failure)-11s')
                 # print title
                 payload = {'nick_identifier': 'Nickname', 'identifier': 'Supvisors identifier',
                            'node_name': 'Host', 'port': 'Port',
-                           'state': 'State', 'discovery': 'Discovery',
+                           'state': 'State',
                            'load': 'Load', 'ltime': 'Time', 'counter': 'Counter',
-                           'proc_failure': 'Processes',
-                           'fsm_state': 'FSM', 'master': 'Master',
-                           'starting': 'Starting', 'stopping': 'Stopping'}
+                           'proc_failure': 'Processes'}
                 self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
                 output_all = not identifiers or 'all' in identifiers
                 # print filtered payloads
                 for info in info_list:
-                    if output_all or info['identifier'] in identifiers:
+                    if output_all or info['identifier'] in identifiers or info['nick_identifier'] in identifiers:
                         payload = {'nick_identifier': info['nick_identifier'],
                                    'identifier': info['identifier'],
                                    'node_name': info['node_name'], 'port': info['port'],
                                    'state': info['statename'],
-                                   'discovery': info['discovery_mode'],
                                    'load': f"{info['loading']}%",
                                    'ltime': simple_localtime(info['local_time']),
                                    'counter': info['remote_sequence_counter'],
-                                   'proc_failure': 'error' if info['process_failure'] else 'ok',
-                                   'fsm_state': info['fsm_statename'],
-                                   'master': info['master_identifier'],
-                                   'starting': info['starting_jobs'],
-                                   'stopping': info['stopping_jobs']}
+                                   'proc_failure': 'error' if info['process_failure'] else 'ok'}
                         self.ctl.output(template % payload)
 
     def help_instance_status(self):
@@ -1018,7 +1037,8 @@ class ControllerPlugin(ControllerPluginBase):
             if not namespecs or 'all' in namespecs:
                 try:
                     namespecs = [make_namespec(info['application_name'], info['process_name'])
-                                 for info in self.supvisors().get_all_process_info()]
+                                 for info in self.supvisors().get_all_process_info()
+                                 if info['statecode'] in RUNNING_STATES]
                 except xmlrpclib.Fault as e:
                     self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
@@ -1143,7 +1163,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_lazy_update_numprocs(self):
         """ Print the help of the lazy_update_numprocs command. """
-        self.ctl.output('lazy_update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs (lazy mode).')
+        self.ctl.output('lazy_update_numprocs program_name numprocs\t\tUpdate the program numprocs (lazy mode).')
 
     def do_enable(self, arg):
         """ Command to enable the processes corresponding to the program.
@@ -1457,9 +1477,9 @@ class ControllerPlugin(ControllerPluginBase):
         """ Check of the API versions. """
         try:
             api = self.supvisors().get_api_version()
-            if api != __version__:
+            if api != supvisors_version:
                 self.ctl.output('ERROR: this version of supvisorsctl expects to talk to a server '
-                                'with API version %s, but the remote version is %s.' % (__version__, api))
+                                'with API version %s, but the remote version is %s.' % (supvisors_version, api))
                 self.ctl.exitstatus = LSBInitExitStatuses.NOT_INSTALLED
                 return False
         except xmlrpclib.Fault as e:

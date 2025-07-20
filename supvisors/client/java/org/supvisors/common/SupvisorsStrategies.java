@@ -36,6 +36,9 @@ public class SupvisorsStrategies {
     /** The strategy applied when Supvisors is in CONCILIATION state. */
     private ConciliationStrategy conciliationStrategy;
 
+    /** The strategy applied when Supvisors loses a mandatory Supvisors instance. */
+    private SupvisorsFailureStrategies supvisorsFailureStrategy;
+
     /**
      * The constructor gets all information from an HashMap.
      *
@@ -45,6 +48,7 @@ public class SupvisorsStrategies {
         this.autoFencing = (Boolean) info.get("auto-fencing");
         this.startingStrategy = StartingStrategy.valueOf((String) info.get("starting"));
         this.conciliationStrategy = ConciliationStrategy.valueOf((String) info.get("conciliation"));
+        this.supvisorsFailureStrategy = SupvisorsFailureStrategies.valueOf((String) info.get("supvisors_failure"));
     }
 
     /**
@@ -75,6 +79,16 @@ public class SupvisorsStrategies {
     }
 
     /**
+     * The getSupvisorsFailureStrategy method returns the strategy applied by Supvisors when losing
+     * a mandatory Supvisors instance.
+     *
+     * @return SupvisorsFailureStrategies: The strategy.
+     */
+    public SupvisorsFailureStrategies getSupvisorsFailureStrategy() {
+        return this.supvisorsFailureStrategy;
+    }
+
+    /**
      * The toString method returns a printable form of the contents of the instance.
      *
      * @return String: The contents of the instance.
@@ -82,7 +96,8 @@ public class SupvisorsStrategies {
     public String toString() {
         return "SupvisorsApplicationRules(autoFencing=" + this.autoFencing
             + " startingStrategy=" + this.startingStrategy 
-            + " conciliationStrategy=" + this.conciliationStrategy + ")";
+            + " conciliationStrategy=" + this.conciliationStrategy
+            + " supvisorsFailureStrategy=" + this.supvisorsFailureStrategy + ")";
     }
 
 }

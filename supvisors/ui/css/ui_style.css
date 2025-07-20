@@ -336,7 +336,7 @@ caption {
     color: black;
 }
 
-.state_cell.STOPPED, .state_cell.EXITED, .state_cell.SILENT {
+.state_cell.STOPPED, .state_cell.EXITED {
     background-image: linear-gradient(165deg, white, var(--stopped-color), var(--stopped-color), white);
     color: black;
 }
@@ -358,6 +358,11 @@ caption {
 
 .state_cell.RUNNING.crashed, .state_cell.CHECKED.crashed {
     background-image: linear-gradient(165deg, var(--crash-color), var(--running-color), var(--running-color), var(--crash-color));
+    color: black;
+}
+
+.state_cell.FAILED {
+    background-image: linear-gradient(165deg, white, var(--crash-color), var(--crash-color), white);
     color: black;
 }
 

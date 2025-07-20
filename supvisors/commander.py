@@ -60,7 +60,7 @@ class ProcessCommand:
         # the worst case is during a full restart with a minimal set of core identifiers
         # the DISTRIBUTION phase is in progress while there are still lots to Supvisors instances in CHECKING state
         self.minimum_ticks = max(ProcessCommand.DEFAULT_TICK_TIMEOUT,
-                                 len(self.supvisors.context.valid_instances()) // 10)
+                                 len(self.supvisors.context.valid_identifiers()) // 10)  # TBC
         self._wait_ticks: int = self.minimum_ticks
 
     @property
@@ -737,7 +737,7 @@ class ApplicationStartJobs(ApplicationJobs):
 
         :return: None
         """
-        # FIXME: what if any process of this application is already running (started manually) ?
+        # TBC: what if any process of this application is already running (started manually) ?
         # get all ProcessStartCommand of the application
         commands = [process for sequence in self.planned_jobs.values() for process in sequence]
         # find the applicable Supvisors instances iaw strategy
@@ -745,15 +745,15 @@ class ApplicationStartJobs(ApplicationJobs):
         identifiers = self.application.possible_node_identifiers()
         load_request_map = self.get_load_requests()
         # choose the node that can support the application load
-        node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load, load_request_map)
+        machine_id = get_node(self.supvisors, self.starting_strategy, identifiers, application_load, load_request_map)
         # intersect the identifiers running on the node and the application possible identifiers
         # comprehension based on iteration over application possible identifiers to keep the CONFIG order
-        node_identifiers = list(self.supvisors.mapper.nodes.get(node_name, []))
+        node_identifiers = list(self.supvisors.mapper.nodes.get(machine_id, []))
         self.identifiers = [identifier for identifier in identifiers if identifier in node_identifiers]
         if self.identifiers:
             load_request_map = self.get_load_requests()
             self.logger.trace(f'ApplicationStartJobs.distribute_to_single_node: Supvisors={self.identifiers}'
-                              f' of node={node_name} are selected to start {self.application_name}'
+                              f' of machine_id={machine_id} are selected to start {self.application_name}'
                               f' with load_request_map={load_request_map}')
             # for all commands, select an identifier from the chosen node
             for command in commands:
@@ -773,7 +773,7 @@ class ApplicationStartJobs(ApplicationJobs):
 
         :return: None
         """
-        # FIXME: what if any process of this application is already running (started manually) ?
+        # TBC: what if any process of this application is already running (started manually) ?
         # get all ProcessStartCommand of the application
         commands = [process for sequence in self.planned_jobs.values() for process in sequence]
         # find the applicable Supvisors instances iaw strategy
@@ -1006,13 +1006,12 @@ class Commander:
         # update context state and modes
         self.publish_state_modes()
 
-    def publish_state_modes(self):
+    def publish_state_modes(self) -> None:
         """ Triggers the publication of the states & modes status.
         This has been isolated in a separate method to avoid the publication with the StartModel.
 
         :return: None
         """
-        self.supvisors.context.publish_state_modes({self.class_name.lower(): self.in_progress()})
 
     # periodic check
     def check(self) -> None:
@@ -1051,17 +1050,17 @@ class Commander:
         In the same idea, clear the processes from failed_processes if their starting or stopping is planned.
         An additional automatic behaviour on the same entity may not be suitable or even consistent.
         This case may seem a bit far-fetched, but it has already happened actually in a degraded environment:
-            - let N1 and N2 be 2 running Supvisors instances ;
-            - let P be a process running on N2 ;
-            - N2 is lost (let's assume a network congestion, NOT a node crash) so P becomes FATAL ;
-            - P is requested to restart on N1 (automatic strategy, user action, etc.) ;
-            - while P is still in planned jobs, N2 comes back and thus P becomes RUNNING again ;
+            - let N1 and N2 be 2 running Supvisors instances;
+            - let P be a process running on N2;
+            - N2 is lost (let's assume a network congestion, NOT a node crash) so P becomes FATAL;
+            - P is requested to restart on N1 (automatic strategy, user action, etc.);
+            - while P is still in planned jobs, N2 comes back and thus P becomes RUNNING again;
             - N2 gets lost again. P becomes FATAL again whereas its starting on N1 is still in the pipe.
 
-        :param invalidated_identifiers: the identifiers of the Supvisors instances that have just been declared SILENT
+        :param invalidated_identifiers: the identifiers of the Supvisors instances that have just been declared SILENT.
         :param failed_processes: the processes that were running on the invalidated Supvisors instances and thus
-        declared in failure
-        :return: None
+        declared in failure.
+        :return: None.
         """
         # clear the invalidated Supvisors instances from the pending requests
         for application_jobs in list(self.current_jobs.values()):
@@ -1091,15 +1090,15 @@ class Starter(Commander):
     pickup_logic = min
 
     # command methods
-    def start_applications(self, forced: bool) -> None:
-        """ This method is called in the DEPLOYMENT phase.
-        Plan and start the necessary jobs to start all the applications having a start_sequence.
+    def start_applications(self) -> None:
+        """ Plan and start the necessary jobs to start all the applications having a start_sequence.
+
+        This method is called in the DISTRIBUTION state.
         It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file.
 
-        :param forced: a status telling if a full restart is required
-        :return: None
+        :return: None.
         """
-        self.logger.debug(f'Starter.start_applications: forced={forced}')
+        self.logger.debug(f'Starter.start_applications')
         # internal call: default strategy always used
         for application_name, application in self.supvisors.context.applications.items():
             self.logger.debug(f'Starter.start_applications: {str(application)}'
@@ -1107,7 +1106,9 @@ class Starter(Commander):
                               f' never_started={application.never_started()}')
             # auto-started applications (start_sequence > 0) are not restarted if they have been stopped intentionally
             # exception is made for applications in failure: give them a chance
-            if application.rules.start_sequence > 0 and (forced or application.never_started()
+            # TODO: never_started logic to be reviewed
+            #       do not forget the EXITED processes
+            if application.rules.start_sequence > 0 and (application.never_started()
                                                          or application.major_failure or application.minor_failure):
                 self.logger.debug(f'Starter.start_applications: starting {application_name} planned')
                 self.store_application(application)
@@ -1243,6 +1244,14 @@ class Starter(Commander):
         # sum the loadings per identifier
         return {identifier: sum(load_request.get(identifier, 0) for load_request in load_requests)
                 for identifier in identifiers}
+
+    def publish_state_modes(self) -> None:
+        """ Triggers the publication of the states & modes status.
+        This has been isolated in a separate method to avoid the publication with the StartModel.
+
+        :return: None
+        """
+        self.supvisors.state_modes.starting_jobs = self.in_progress()
 
 
 class Stopper(Commander):
@@ -1422,8 +1431,8 @@ class Stopper(Commander):
         """ Once an application has been properly stopped, unset the application start failure.
         Trigger any pending application / process start once all stopper jobs are completed.
 
-        :param application_job: the application stopper
-        :return: None
+        :param application_job: the application stopper.
+        :return: None.
         """
         # trigger pending application start requests
         appli_parameters = self.application_start_requests.pop(application_job.application_name, None)
@@ -1437,6 +1446,13 @@ class Stopper(Commander):
             for strategy, process, extra_args in process_list:
                 self.logger.debug(f'Stopper.after: apply pending start process={process.namespec}')
                 self.supvisors.starter.start_process(strategy, process, extra_args)
+
+    def publish_state_modes(self) -> None:
+        """ Triggers the publication of the states & modes status.
+
+        :return: None
+        """
+        self.supvisors.state_modes.stopping_jobs = self.in_progress()
 
 
 # Starter model

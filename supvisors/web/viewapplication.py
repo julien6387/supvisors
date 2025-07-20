@@ -14,43 +14,38 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Callable
+
 from supervisor.states import ProcessStates
 
 from supvisors.application import ApplicationStatus
 from supvisors.ttypes import PayloadList, Payload
 from .viewcontext import *
 from .viewhandler import ViewHandler
-from .webutils import *
+from .webutils import (SupvisorsPages, ProcessRowTypes, SupvisorsSymbols, WebMessage,
+                       apply_shade, update_attrib)
 
 
 class ApplicationView(ViewHandler):
     """ Supvisors Application page. """
 
     def __init__(self, context):
-        """ Call of the superclass constructors. """
+        """ Initialization of the attributes. """
         ViewHandler.__init__(self, context)
-        self.page_name = APPLICATION_PAGE
+        self.page_name = SupvisorsPages.APPLICATION_PAGE
         # init parameters
-        self.application_name: str = ''
+        self.application_name: Optional[str] = self.view_ctx.application_name
         self.application: Optional[ApplicationStatus] = None
-
-    def handle_parameters(self) -> None:
-        """ Retrieve the parameters selected on the web page.
-
-        :return: None
-        """
-        ViewHandler.handle_parameters(self)
-        # check if application name is available
-        self.application_name = self.view_ctx.application_name
         try:
             # store application
             self.application = self.sup_ctx.applications[self.application_name]
         except KeyError:
             # may happen when the user clicks from a page of the previous launch while the current Supvisors is still
-            # in INITIALIZATION stats or if wrong application_name set in URL
-            self.logger.error(f'ApplicationView.handle_parameters: unknown application_name={self.application_name}')
+            # in SYNCHRONIZATION state or if wrong application_name set in URL
+            self.logger.error(f'ApplicationView: unknown application_name={self.application_name}')
             # redirect page to main page to avoid infinite error loop
-            self.view_ctx.store_message = error_message(f'Unknown application: {self.application_name}')
+            self.view_ctx.store_message = WebMessage(f'Unknown application: {self.application_name}',
+                                                     SupvisorsGravities.ERROR).gravity_message
             self.view_ctx.redirect = True
 
     def write_navigation(self, root):
@@ -252,7 +247,7 @@ class ApplicationView(ViewHandler):
             elt.attrib['rowspan'] = str(info['nb_items'] + 1)
             apply_shade(elt, shaded_tr)
         elt = elt.findmeld('shex_a_mid')
-        elt.content(f'{SHEX_SHRINK if process_shex else SHEX_EXPAND}')
+        elt.content(f'{SupvisorsSymbols.SHEX_SHRINK if process_shex else SupvisorsSymbols.SHEX_EXPAND}')
         url = self.view_ctx.format_url('', self.page_name, **{PROC_SHRINK_EXPAND: inverted_shex})
         elt.attributes(href=url)
 
@@ -270,13 +265,13 @@ class ApplicationView(ViewHandler):
                 identifier = running_identifiers[0]
                 nick_identifier = self.supvisors.mapper.get_nick_identifier(identifier)
                 running_span_elt.content(nick_identifier)
-                url = self.view_ctx.format_url(identifier, PROC_INSTANCE_PAGE)
+                url = self.view_ctx.format_url(identifier, SupvisorsPages.PROC_INSTANCE_PAGE)
                 running_a_elt.attributes(href=url)
             else:
                 # multiple running instances: conflict
                 running_span_elt.content('Conciliate')
                 update_attrib(running_span_elt, 'class', 'blink')
-                url = self.view_ctx.format_url('', CONCILIATION_PAGE)
+                url = self.view_ctx.format_url('', SupvisorsPages.CONCILIATION_PAGE)
                 running_a_elt.attributes(href=url)
 
     # ACTIONS
@@ -293,7 +288,8 @@ class ApplicationView(ViewHandler):
                 return self.restart_application_action(strategy)
             if namespec:
                 if self.view_ctx.get_process_status(namespec) is None:
-                    return delayed_error(f'No such process named {namespec}')
+                    return WebMessage(f'No such process named {namespec}',
+                                      SupvisorsGravities.ERROR).delayed_message
                 if action == 'start':
                     return self.start_process_action(strategy, namespec)
                 if action == 'stop':
@@ -302,7 +298,8 @@ class ApplicationView(ViewHandler):
                     return self.restart_process_action(strategy, namespec)
                 if action == 'clearlog':
                     return self.clearlog_process_action(namespec)
-        return delayed_error('No application selected')
+        return WebMessage('No application selected',
+                          SupvisorsGravities.ERROR).delayed_message
 
     # Application actions
     def start_application_action(self, strategy: StartingStrategies) -> Callable:

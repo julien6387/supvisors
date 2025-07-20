@@ -19,8 +19,6 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 
-from supvisors import __version__
-from supvisors.instancestatus import StateModes
 from supvisors.rpcinterface import *
 from supvisors.statscollector import StatsMsgType
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, DistributionRules, SupvisorsStates,
@@ -30,77 +28,107 @@ from .conftest import create_application
 
 
 @pytest.fixture
-def rpc(supvisors) -> RPCInterface:
+def rpc(supvisors_instance) -> RPCInterface:
     """ create the instance to be tested. """
-    return RPCInterface(supvisors)
+    return RPCInterface(supvisors_instance)
 
 
-def test_creation(supvisors, rpc):
+def test_creation(supvisors_instance, rpc):
     """ Test the values set at construction. """
-    assert rpc.supvisors is supvisors
-    assert rpc.logger is supvisors.logger
+    assert rpc.supvisors is supvisors_instance
+    assert rpc.logger is supvisors_instance.logger
 
 
 def test_api_version(rpc):
     """ Test the get_api_version RPC. """
-    assert rpc.get_api_version() == __version__
+    assert rpc.get_api_version() == supvisors_version
 
 
-def test_supvisors_state(rpc):
+def test_supvisors_state(mocker, rpc):
     """ Test the get_supvisors_state RPC. """
-    assert rpc.get_supvisors_state() == {'fsm_statecode': 0, 'fsm_statename': 'OFF',
-                                         'discovery_mode': False,
+    mocker.patch('time.monotonic', return_value=1234.56)
+    assert rpc.get_supvisors_state() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                                         'now_monotonic': 1234.56,
+                                         'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                                         'discovery_mode': False, 'degraded_mode': False,
                                          'master_identifier': '',
-                                         'starting_jobs': [], 'stopping_jobs': []}
+                                         'starting_jobs': [], 'stopping_jobs': [],
+                                         'instance_states': {'10.0.0.1:25000': 'STOPPED',
+                                                             '10.0.0.2:25000': 'STOPPED',
+                                                             '10.0.0.3:25000': 'STOPPED',
+                                                             '10.0.0.4:25000': 'STOPPED',
+                                                             '10.0.0.5:25000': 'STOPPED',
+                                                             '10.0.0.6:25000': 'STOPPED'}}
 
 
-def test_master_node(supvisors, rpc):
-    """ Test the get_master_address RPC. """
-    # prepare context
-    supvisors.context.master_identifier = '10.0.0.1'
-    # test call
-    assert rpc.get_master_identifier() == '10.0.0.1'
+def test_master_node(supvisors_instance, rpc):
+    """ Test the get_master_identifier RPC. """
+    # test with no master
+    assert rpc.get_master_identifier() == {}
+    # test with master
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
+    assert rpc.get_master_identifier() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1'}
 
 
-def test_strategies(supvisors, rpc):
+def test_strategies(supvisors_instance, rpc):
     """ Test the get_strategies RPC. """
     # prepare context
-    supvisors.options.auto_fence = True
-    supvisors.options.conciliation_strategy = ConciliationStrategies.INFANTICIDE
-    supvisors.options.starting_strategy = StartingStrategies.MOST_LOADED
+    supvisors_instance.options.auto_fence = True
+    supvisors_instance.options.conciliation_strategy = ConciliationStrategies.INFANTICIDE
+    supvisors_instance.options.starting_strategy = StartingStrategies.MOST_LOADED
+    supvisors_instance.options.supvisors_failure_strategy = SupvisorsFailureStrategies.RESYNC
     # test call
-    assert rpc.get_strategies() == {'auto-fencing': True, 'starting': 'MOST_LOADED', 'conciliation': 'INFANTICIDE'}
+    assert rpc.get_strategies() == {'auto-fencing': True,
+                                    'starting': 'MOST_LOADED',
+                                    'conciliation': 'INFANTICIDE',
+                                    'supvisors_failure': 'RESYNC'}
 
 
-def test_statistics_status(supvisors, rpc):
+def test_statistics_status(supvisors_instance, rpc):
     """ Test the get_statistics_status RPC. """
     # test call
     assert rpc.get_statistics_status() == {'host_stats': True, 'process_stats': True, 'collecting_period': 5}
     # update options
-    supvisors.options.process_stats_enabled = False
-    supvisors.options.collecting_period = 7.5
+    supvisors_instance.options.process_stats_enabled = False
+    supvisors_instance.options.collecting_period = 7.5
     assert rpc.get_statistics_status() == {'host_stats': True, 'process_stats': False, 'collecting_period': 7.5}
     # delete statistics collector
-    supvisors.options.host_stats_enabled = False
-    supvisors.options.process_stats_enabled = True
-    supvisors.stats_collector = None
+    supvisors_instance.options.host_stats_enabled = False
+    supvisors_instance.options.process_stats_enabled = True
+    supvisors_instance.stats_collector = None
     assert rpc.get_statistics_status() == {'host_stats': False, 'process_stats': False, 'collecting_period': 7.5}
 
 
-def test_instance_info(supvisors, rpc):
+def test_network_info(rpc):
+    """ Test the get_network_info RPC. """
+    expected = {'identifier': '10.0.0.1:25000',
+                'nick_identifier': '10.0.0.1',
+                'host_id': '10.0.0.1',
+                'http_port': 25000,
+                'stereotypes': ['supvisors_test'],
+                'network': {'fqdn': 'supv01.bzh',
+                            'machine_id': '01:23:45:67:89:ab',
+                            'addresses': {'eth0': {'aliases': ['cliche01', 'supv01'],
+                                                   'host_name': 'supv01.bzh',
+                                                   'ipv4_addresses': ['10.0.0.1'],
+                                                   'nic_info': {'ipv4_address': '10.0.0.1',
+                                                                'netmask': '255.255.255.0',
+                                                                'nic_name': 'eth0'}}}}}
+    assert rpc.get_network_info(rpc.supvisors.mapper.local_identifier) == expected
+    # test with unknown identifier
+    with pytest.raises(RPCError) as exc:
+        rpc.get_network_info('10.0.0.0')
+    assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
+
+
+def test_instance_info(rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
-    instance = supvisors.context.instances['10.0.0.1:25000']
-    instance.state_modes = StateModes(SupvisorsStates.CONCILIATION, True, '10.0.0.2', False, True)
     # test with known identifier
     expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
                 'node_name': '10.0.0.1', 'port': 25000, 'loading': 0,
                 'local_mtime': 0.0, 'local_time': 0, 'local_sequence_counter': 0,
                 'remote_mtime': 0.0, 'remote_time': 0, 'remote_sequence_counter': 0,
-                'statecode': 0, 'statename': 'UNKNOWN', 'discovery_mode': True,
-                'process_failure': False,
-                'fsm_statecode': 4, 'fsm_statename': 'CONCILIATION',
-                'master_identifier': '10.0.0.2',
-                'starting_jobs': False, 'stopping_jobs': True}
+                'statecode': 0, 'statename': 'STOPPED', 'process_failure': False}
     assert rpc.get_instance_info('10.0.0.1') == [expected]
     # test with unknown identifier
     with pytest.raises(RPCError) as exc:
@@ -108,39 +136,96 @@ def test_instance_info(supvisors, rpc):
     assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
 
 
-def test_all_instances_info(supvisors, rpc):
+def test_all_instances_info(supvisors_instance, rpc):
     """ Test the get_all_instances_info RPC. """
-    supvisors.starter.in_progress.return_value = False
-    supvisors.stopper.in_progress.return_value = True
+    supvisors_instance.starter.in_progress.return_value = False
+    supvisors_instance.stopper.in_progress.return_value = True
     # prepare context
-    supvisors.mapper._instances = {'10.0.0.1:25000': Mock(),
-                                   '10.0.0.2:25000': Mock()}
-    supvisors.context.instances = {'10.0.0.1:25000': Mock(**{'serial.return_value': 'address_info_1'}),
-                                   '10.0.0.2:25000': Mock(**{'serial.return_value': 'address_info_2'})}
+    supvisors_instance.mapper._instances = {'10.0.0.1:25000': Mock(),
+                                            '10.0.0.2:25000': Mock()}
+    supvisors_instance.context.instances = {'10.0.0.1:25000': Mock(**{'serial.return_value': 'address_info_1'}),
+                                            '10.0.0.2:25000': Mock(**{'serial.return_value': 'address_info_2'})}
     # test call
     assert rpc.get_all_instances_info() == ['address_info_1', 'address_info_2']
 
 
-def test_application_info(mocker, supvisors, rpc):
+def test_instance_state_modes(mocker, rpc):
+    """ Test the get_instance_state_modes RPC. """
+    mocker.patch('time.monotonic', return_value=1234.56)
+    # test with known identifier
+    expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+                'now_monotonic': 1234.56,
+                'degraded_mode': False, 'discovery_mode': False,
+                'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                'instance_states': {'10.0.0.1:25000': 'STOPPED',
+                                    '10.0.0.2:25000': 'STOPPED',
+                                    '10.0.0.3:25000': 'STOPPED',
+                                    '10.0.0.4:25000': 'STOPPED',
+                                    '10.0.0.5:25000': 'STOPPED',
+                                    '10.0.0.6:25000': 'STOPPED'},
+                'master_identifier': '',
+                'starting_jobs': False, 'stopping_jobs': False}
+    assert rpc.get_instance_state_modes('10.0.0.1') == [expected]
+    # test with unknown identifier
+    with pytest.raises(RPCError) as exc:
+        rpc.get_instance_state_modes('10.0.0.0')
+    assert exc.value.args == (Faults.BAD_NAME, 'identifier=10.0.0.0 is unknown to Supvisors')
+
+
+def test_all_instances_state_modes(mocker, supvisors_instance, rpc):
+    """ Test the get_all_instances_state_modes RPC. """
+    mocker.patch('time.monotonic', return_value=1234.56)
+    self_expected = {'degraded_mode': False, 'discovery_mode': False,
+                     'now_monotonic': 1234.56,
+                     'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                     'instance_states': {'10.0.0.1:25000': 'STOPPED',
+                                         '10.0.0.2:25000': 'STOPPED',
+                                         '10.0.0.3:25000': 'STOPPED',
+                                         '10.0.0.4:25000': 'STOPPED',
+                                         '10.0.0.5:25000': 'STOPPED',
+                                         '10.0.0.6:25000': 'STOPPED'},
+                     'master_identifier': '',
+                     'starting_jobs': False, 'stopping_jobs': False}
+    other_base_expected = {'degraded_mode': False, 'discovery_mode': False,
+                           'now_monotonic': 1234.56,
+                           'fsm_statecode': 0, 'fsm_statename': 'OFF',
+                           'instance_states': {},
+                           'master_identifier': '',
+                           'starting_jobs': False, 'stopping_jobs': False}
+    result = rpc.get_all_instances_state_modes()
+    assert len(result) == 6
+    for single_result in result:
+        identifier = single_result.pop('identifier')
+        nick_identifier = single_result.pop('nick_identifier')
+        assert identifier in supvisors_instance.mapper.instances
+        if identifier == '10.0.0.1:25000' and nick_identifier == '10.0.0.1':
+            assert single_result == self_expected
+        else:
+            assert single_result == other_base_expected
+
+
+def test_application_info(mocker, supvisors_instance, rpc):
     """ Test the get_application_info RPC. """
-    application = create_application('TestApplication', supvisors)
+    application = create_application('TestApplication', supvisors_instance)
+    mocker.patch('time.monotonic', return_value=1234.56)
     mocked_serial = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
-    assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication', 'managed': False,
+    assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication',
+                                                 'managed': False, 'now_monotonic': 1234.56,
                                                  'major_failure': False, 'minor_failure': False,
                                                  'statecode': 0, 'statename': 'STOPPED'}
     assert mocked_check.call_args_list == [call()]
     assert mocked_serial.call_args_list == [call('dummy')]
 
 
-def test_all_applications_info(mocker, supvisors, rpc):
+def test_all_applications_info(mocker, supvisors_instance, rpc):
     """ Test the get_all_applications_info RPC. """
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface.get_application_info',
                               side_effect=[{'name': 'appli_1'}, {'name': 'appli_2'}])
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # prepare context
-    supvisors.context.applications = {'dummy_1': None, 'dummy_2': None}
+    supvisors_instance.context.applications = {'dummy_1': None, 'dummy_2': None}
     # test RPC call
     assert rpc.get_all_applications_info() == [{'name': 'appli_1'}, {'name': 'appli_2'}]
     assert mocked_check.call_args_list == [call()]
@@ -168,11 +253,11 @@ def test_process_info(mocker, rpc):
     assert mocked_get.call_args_list == [call('appli:*')]
 
 
-def test_all_process_info(mocker, supvisors, rpc):
+def test_all_process_info(mocker, supvisors_instance, rpc):
     """ Test the get_all_process_info RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # prepare context
-    supvisors.context.applications = {
+    supvisors_instance.context.applications = {
         'appli_1': Mock(processes={'proc_1_1': Mock(**{'serial.return_value': {'name': 'proc_1_1'}}),
                                    'proc_1_2': Mock(**{'serial.return_value': {'name': 'proc_1_2'}})}),
         'appli_2': Mock(processes={'proc_2': Mock(**{'serial.return_value': {'name': 'proc_2'}})})}
@@ -181,12 +266,12 @@ def test_all_process_info(mocker, supvisors, rpc):
     assert mocked_check.call_args_list == [call()]
 
 
-def test_local_process_info(mocker, supvisors, rpc):
+def test_local_process_info(mocker, supvisors_instance, rpc):
     """ Test the get_local_process_info RPC. """
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_local_info',
                               return_value={'group': 'group', 'name': 'name'})
     # prepare context
-    supervisor_data = supvisors.supervisor_data
+    supervisor_data = supvisors_instance.supervisor_data
     mocked_rpc = supervisor_data.supervisor_rpc_interface.getProcessInfo
     mocked_rpc.return_value = {'group': 'dummy_group', 'name': 'dummy_name'}
     # test RPC call with process namespec
@@ -209,7 +294,7 @@ def test_all_local_process_info(mocker, rpc):
     assert mocked_get.call_args_list == [call({'group': 'dummy_group', 'name': 'dummy_name'})]
 
 
-def test_inner_process_info(supvisors, rpc):
+def test_inner_process_info(supvisors_instance, rpc):
     """ Test the get_inner_process_info RPC. """
     # prepare context
     proc_1 = Mock(application_name='group',
@@ -217,11 +302,11 @@ def test_inner_process_info(supvisors, rpc):
                             '10.0.0.2:25000': {'name': 'proc_1', 'state': 'STOPPED'}})
     proc_2 = Mock(application_name='group',
                   info_map={'10.0.0.2:25000': {'name': 'proc_2', 'state': 'STARTING'}})
-    supvisors.context.instances['10.0.0.1:25000'].processes = {'proc_1': proc_1}
-    supvisors.context.instances['10.0.0.2:25000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
-    application = create_application('group', supvisors)
+    supvisors_instance.context.instances['10.0.0.1:25000'].processes = {'proc_1': proc_1}
+    supvisors_instance.context.instances['10.0.0.2:25000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
+    application = create_application('group', supvisors_instance)
     application.processes = {'proc_1': proc_1, 'proc_2': proc_2}
-    supvisors.context.applications['group'] = application
+    supvisors_instance.context.applications['group'] = application
     # test unknown identifier
     with pytest.raises(RPCError) as exc:
         rpc.get_inner_process_info('10.0.0.0', 'group:proc_1')
@@ -251,7 +336,7 @@ def test_inner_process_info(supvisors, rpc):
                                                                  {'name': 'proc_2', 'state': 'STARTING'}]
 
 
-def test_get_all_inner_process_info(supvisors, rpc):
+def test_get_all_inner_process_info(supvisors_instance, rpc):
     """ Test the get_all_inner_process_info RPC. """
     # prepare context
     proc_1 = Mock(application_name='group',
@@ -259,11 +344,11 @@ def test_get_all_inner_process_info(supvisors, rpc):
                             '10.0.0.2:25000': {'name': 'proc_1', 'state': 'STOPPED'}})
     proc_2 = Mock(application_name='group',
                   info_map={'10.0.0.2:25000': {'name': 'proc_2', 'state': 'STARTING'}})
-    supvisors.context.instances['10.0.0.1:25000'].processes = {'proc_1': proc_1}
-    supvisors.context.instances['10.0.0.2:25000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
-    application = create_application('group', supvisors)
+    supvisors_instance.context.instances['10.0.0.1:25000'].processes = {'proc_1': proc_1}
+    supvisors_instance.context.instances['10.0.0.2:25000'].processes = {'proc_1': proc_1, 'proc_2': proc_2}
+    application = create_application('group', supvisors_instance)
     application.processes = {'proc_1': proc_1, 'proc_2': proc_2}
-    supvisors.context.applications['group'] = application
+    supvisors_instance.context.applications['group'] = application
     # test unknown identifier
     with pytest.raises(RPCError) as exc:
         rpc.get_all_inner_process_info('10.0.0.0')
@@ -276,9 +361,9 @@ def test_get_all_inner_process_info(supvisors, rpc):
                                                           {'name': 'proc_2', 'state': 'STARTING'}]
 
 
-def test_application_rules(mocker, supvisors, rpc):
+def test_application_rules(mocker, supvisors_instance, rpc):
     """ Test the get_application_rules RPC. """
-    application = create_application('TestApplication', supvisors)
+    application = create_application('TestApplication', supvisors_instance)
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
     # test RPC call with application name and unmanaged application
@@ -345,15 +430,15 @@ def test_conflicts(mocker, rpc):
     assert mocked_check.call_args_list == [call()]
 
 
-def test_start_application(mocker, supvisors, rpc):
+def test_start_application(mocker, supvisors_instance, rpc):
     """ Test the start_application RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # prepare context
-    supvisors.context.applications = {'appli_1': Mock(**{'rules.managed': True}),
-                                      'appli_2': Mock(**{'rules.managed': False})}
+    supvisors_instance.context.applications = {'appli_1': Mock(**{'rules.managed': True}),
+                                               'appli_2': Mock(**{'rules.managed': False})}
     # get patches
-    mocked_start = supvisors.starter.start_application
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_application
+    mocked_progress = supvisors_instance.starter.in_progress
     # test RPC call with unknown strategy
     with pytest.raises(RPCError) as exc:
         rpc.start_application('strategy', 'appli')
@@ -441,14 +526,14 @@ def test_start_application(mocker, supvisors, rpc):
     assert mocked_progress.call_args_list == [call()]
 
 
-def test_test_start_application(mocker, supvisors, rpc):
+def test_test_start_application(mocker, supvisors_instance, rpc):
     """ Test the test_start_application RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # prepare context
-    supvisors.context.applications = {'appli_1': Mock(**{'rules.managed': True}),
-                                      'appli_2': Mock(**{'rules.managed': False})}
+    supvisors_instance.context.applications = {'appli_1': Mock(**{'rules.managed': True}),
+                                               'appli_2': Mock(**{'rules.managed': False})}
     # get patches
-    mocked_start = supvisors.starter_model.test_start_application
+    mocked_start = supvisors_instance.starter_model.test_start_application
     expected = [{'application_name': 'appli_1', 'process_name': 'proc_1',
                  'state': 'RUNNING', 'running_identifiers': ['10.0.0.1'], 'forced_reason': ''},
                 {'application_name': 'appli_1', 'process_name': 'proc_2',
@@ -494,15 +579,15 @@ def test_test_start_application(mocker, supvisors, rpc):
     assert mocked_start.call_args_list == [call(StartingStrategies.CONFIG, application)]
 
 
-def test_stop_application(mocker, supvisors, rpc):
+def test_stop_application(mocker, supvisors_instance, rpc):
     """ Test the stop_application RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating_conciliation')
     # prepare context
     appli_1 = Mock(**{'rules.managed': True, 'has_running_processes.return_value': False})
-    supvisors.context.applications = {'appli_1': appli_1, 'appli_2': Mock(**{'rules.managed': False})}
+    supvisors_instance.context.applications = {'appli_1': appli_1, 'appli_2': Mock(**{'rules.managed': False})}
     # get patches
-    mocked_stop = supvisors.stopper.stop_application
-    mocked_progress = supvisors.stopper.in_progress
+    mocked_stop = supvisors_instance.stopper.stop_application
+    mocked_progress = supvisors_instance.stopper.in_progress
     # test RPC call with unknown application
     with pytest.raises(RPCError) as exc:
         rpc.stop_application('appli')
@@ -520,7 +605,7 @@ def test_stop_application(mocker, supvisors, rpc):
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with stopped application
-    application = supvisors.context.applications['appli_1']
+    application = supvisors_instance.context.applications['appli_1']
     with pytest.raises(RPCError) as exc:
         rpc.stop_application('appli_1')
     assert exc.value.args == (Faults.NOT_RUNNING, 'failed to stop appli_1')
@@ -577,12 +662,12 @@ def test_stop_application(mocker, supvisors, rpc):
     assert mocked_progress.call_args_list == [call()]
 
 
-def test_restart_application_done(mocker, supvisors, rpc):
+def test_restart_application_done(mocker, supvisors_instance, rpc):
     """ Test the RPCInterface.restart_application RPC when no job has been queued. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    mocked_restart = mocker.patch.object(supvisors.stopper, 'restart_application')
-    supvisors.starter.in_progress.return_value = False
-    supvisors.stopper.in_progress.return_value = False
+    mocked_restart = mocker.patch.object(supvisors_instance.stopper, 'restart_application')
+    supvisors_instance.starter.in_progress.return_value = False
+    supvisors_instance.stopper.in_progress.return_value = False
     application = Mock()
     mocker.patch.object(rpc, '_get_application', return_value=application)
     # wait parameter doesn't matter
@@ -595,10 +680,10 @@ def test_restart_application_done(mocker, supvisors, rpc):
         mocker.resetall()
 
 
-def test_restart_application_no_wait(mocker, supvisors, rpc):
+def test_restart_application_no_wait(mocker, supvisors_instance, rpc):
     """ Test the RPCInterface.restart_application RPC when jobs have been queued but result is not requested. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    mocked_restart = mocker.patch.object(supvisors.stopper, 'restart_application', return_value=False)
+    mocked_restart = mocker.patch.object(supvisors_instance.stopper, 'restart_application', return_value=False)
     application = Mock()
     mocker.patch.object(rpc, '_get_application', return_value=application)
     # test with application
@@ -609,10 +694,10 @@ def test_restart_application_no_wait(mocker, supvisors, rpc):
     assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, application)]
 
 
-def test_restart_application_wait(mocker, supvisors, rpc):
-    """ Test the RPCInterface.restart_application RPC when jobs have been queued and result is requested. """
+def test_restart_application_wait(mocker, supvisors_instance, rpc):
+    """ Test the RPCInterface.supvisors_instance RPC when jobs have been queued and result is requested. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    mocked_restart = mocker.patch.object(supvisors.stopper, 'restart_application', return_value=False)
+    mocked_restart = mocker.patch.object(supvisors_instance.stopper, 'restart_application', return_value=False)
     application = Mock(**{'stopped.return_value': False})
     mocker.patch.object(rpc, '_get_application', return_value=application)
     # test with single process
@@ -623,11 +708,11 @@ def test_restart_application_wait(mocker, supvisors, rpc):
     check_restart_deferred_function(mocker, rpc, application, result)
 
 
-def test_start_args(mocker, supvisors, rpc):
+def test_start_args(mocker, supvisors_instance, rpc):
     """ Test the start_args RPC. """
     mocker.patch.object(rpc, '_get_application_process', return_value=(None, Mock(namespec='appli:proc')))
     # prepare context
-    supervisor_data = supvisors.supervisor_data
+    supervisor_data = supvisors_instance.supervisor_data
     mocked_extra = mocker.patch.object(supervisor_data, 'update_extra_args', side_effect=KeyError)
     mocked_force = mocker.patch.object(supervisor_data, 'force_process_fatal')
     mocked_start_process = supervisor_data.supervisor_rpc_interface.startProcess
@@ -684,12 +769,12 @@ def test_start_args(mocker, supvisors, rpc):
     assert not mocked_force.called
 
 
-def test_start_process_unknown_strategy(mocker, supvisors, rpc):
+def test_start_process_unknown_strategy(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using an unknown strategy. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter.start_process
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_process
+    mocked_progress = supvisors_instance.starter.in_progress
     # patch the instance
     mocker.patch.object(rpc, '_get_application_process')
     # test RPC call with unknown strategy
@@ -701,12 +786,12 @@ def test_start_process_unknown_strategy(mocker, supvisors, rpc):
     assert not mocked_progress.called
 
 
-def test_start_process_running_process(mocker, supvisors, rpc):
+def test_start_process_running_process(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using a running process. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter.start_process
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_process
+    mocked_progress = supvisors_instance.starter.in_progress
     # patch the instance
     mocked_get = mocker.patch.object(rpc, '_get_application_process')
     mocked_get.return_value = (None, Mock(namespec='proc1', **{'running.return_value': True}))
@@ -719,12 +804,12 @@ def test_start_process_running_process(mocker, supvisors, rpc):
     assert not mocked_progress.called
 
 
-def test_start_process_running_app_processes(mocker, supvisors, rpc):
+def test_start_process_running_app_processes(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using a group including at least one running process. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter.start_process
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_process
+    mocked_progress = supvisors_instance.starter.in_progress
     # patch the instance
     proc_1 = Mock(namespec='proc1', **{'running.return_value': False})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': True})
@@ -739,12 +824,12 @@ def test_start_process_running_app_processes(mocker, supvisors, rpc):
     assert not mocked_progress.called
 
 
-def test_start_process_stopped_processes_progress_nowait(mocker, supvisors, rpc):
+def test_start_process_stopped_processes_progress_nowait(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using stopped process / in progress and no wait. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter.start_process
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_process
+    mocked_progress = supvisors_instance.starter.in_progress
     # patch the instance
     proc_1 = Mock(namespec='proc1', **{'running.return_value': False, 'stopped.return_value': True})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': False, 'stopped.return_value': False})
@@ -760,12 +845,12 @@ def test_start_process_stopped_processes_progress_nowait(mocker, supvisors, rpc)
     assert mocked_progress.called
 
 
-def test_start_process_stopped_processes_done_nowait(mocker, supvisors, rpc):
+def test_start_process_stopped_processes_done_nowait(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using stopped process / done and no wait. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter.start_process
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_process
+    mocked_progress = supvisors_instance.starter.in_progress
     # patch the instance
     proc_1 = Mock(namespec='proc1', **{'running.return_value': False, 'stopped.return_value': True})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': False, 'stopped.return_value': False})
@@ -782,12 +867,12 @@ def test_start_process_stopped_processes_done_nowait(mocker, supvisors, rpc):
     assert mocked_progress.called
 
 
-def test_start_process_stopped_processes_done_wait(mocker, supvisors, rpc):
+def test_start_process_stopped_processes_done_wait(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using stopped process / done and wait. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter.start_process
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_process
+    mocked_progress = supvisors_instance.starter.in_progress
     # patch the instance
     proc_1 = Mock(namespec='proc1', **{'running.return_value': False, 'stopped.return_value': True})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': False, 'stopped.return_value': False})
@@ -804,12 +889,12 @@ def test_start_process_stopped_processes_done_wait(mocker, supvisors, rpc):
     assert mocked_progress.called
 
 
-def test_start_process_stopped_processes_progress_wait(mocker, supvisors, rpc):
+def test_start_process_stopped_processes_progress_wait(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using stopped process / done and wait. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter.start_process
-    mocked_progress = supvisors.starter.in_progress
+    mocked_start = supvisors_instance.starter.start_process
+    mocked_progress = supvisors_instance.starter.in_progress
     # patch the instance
     proc_1 = Mock(namespec='proc1', **{'running.return_value': False, 'stopped.return_value': True})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': False, 'stopped.return_value': False})
@@ -843,11 +928,11 @@ def test_start_process_stopped_processes_progress_wait(mocker, supvisors, rpc):
     assert mocked_progress.call_args_list == [call()]
 
 
-def test_test_start_process_unknown_strategy(mocker, supvisors, rpc):
+def test_test_start_process_unknown_strategy(mocker, supvisors_instance, rpc):
     """ Test the test_start_process RPC using an unknown strategy. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter_model.test_start_processes
+    mocked_start = supvisors_instance.starter_model.test_start_processes
     # patch the instance
     mocker.patch.object(rpc, '_get_application_process')
     # test RPC call with unknown strategy
@@ -858,11 +943,11 @@ def test_test_start_process_unknown_strategy(mocker, supvisors, rpc):
     assert not mocked_start.called
 
 
-def test_test_start_process_running_process(mocker, supvisors, rpc):
+def test_test_start_process_running_process(mocker, supvisors_instance, rpc):
     """ Test the test_start_process RPC using a running process. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter_model.test_start_processes
+    mocked_start = supvisors_instance.starter_model.test_start_processes
     # patch the instance
     mocked_get = mocker.patch.object(rpc, '_get_application_process')
     mocked_get.return_value = (None, Mock(namespec='proc1', **{'running.return_value': True}))
@@ -874,11 +959,11 @@ def test_test_start_process_running_process(mocker, supvisors, rpc):
     assert not mocked_start.called
 
 
-def test_test_start_process_running_app_processes(mocker, supvisors, rpc):
+def test_test_start_process_running_app_processes(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using a group including at least one running process. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter_model.test_start_processes
+    mocked_start = supvisors_instance.starter_model.test_start_processes
     # patch the instance
     proc_1 = Mock(namespec='proc1', **{'running.return_value': False})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': True})
@@ -892,11 +977,11 @@ def test_test_start_process_running_app_processes(mocker, supvisors, rpc):
     assert not mocked_start.called
 
 
-def test_test_start_process_stopped_app_processes(mocker, supvisors, rpc):
+def test_test_start_process_stopped_app_processes(mocker, supvisors_instance, rpc):
     """ Test the start_process RPC using stopped process / in progress and no wait. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # get patches
-    mocked_start = supvisors.starter_model.test_start_processes
+    mocked_start = supvisors_instance.starter_model.test_start_processes
     # patch the instance
     proc_1 = Mock(namespec='proc1', **{'running.return_value': False, 'stopped.return_value': True})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': False, 'stopped.return_value': False})
@@ -909,11 +994,11 @@ def test_test_start_process_stopped_app_processes(mocker, supvisors, rpc):
     assert mocked_start.call_args_list == [call(StartingStrategies.LESS_LOADED, [proc_1, proc_2])]
 
 
-def test_start_any_process_unknown_strategy(mocker, supvisors, rpc):
+def test_start_any_process_unknown_strategy(mocker, supvisors_instance, rpc):
     """ Test the start_any_process RPC using an unknown strategy. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes')
+    mocked_find = mocker.patch.object(supvisors_instance.context, 'find_runnable_processes')
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance')
     mocked_start = mocker.patch.object(rpc, 'start_process')
     # test RPC call with unknown strategy
@@ -926,11 +1011,11 @@ def test_start_any_process_unknown_strategy(mocker, supvisors, rpc):
     assert not mocked_start.called
 
 
-def test_start_any_process_no_process(mocker, supvisors, rpc):
+def test_start_any_process_no_process(mocker, supvisors_instance, rpc):
     """ Test the start_any_process RPC using a regex that doesn't match any process. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes', return_value=[])
+    mocked_find = mocker.patch.object(supvisors_instance.context, 'find_runnable_processes', return_value=[])
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance')
     mocked_start = mocker.patch.object(rpc, 'start_process')
     # test RPC call with running process
@@ -943,60 +1028,60 @@ def test_start_any_process_no_process(mocker, supvisors, rpc):
     assert not mocked_start.called
 
 
-def test_start_any_process_no_identifier(mocker, supvisors, rpc):
+def test_start_any_process_no_identifier(mocker, supvisors_instance, rpc):
     """ Test the start_any_process RPC using a regex that matches processes but no rule. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     process_1 = Mock(**{'rules.expected_load': 10, 'possible_identifiers.return_value': ['10.0.0.1']})
-    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes', return_value=[process_1])
+    mocked_find = mocker.patch.object(supvisors_instance.context, 'find_runnable_processes', return_value=[process_1])
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance', return_value=None)
     mocked_start = mocker.patch.object(rpc, 'start_process')
-    supvisors.starter.get_load_requests.return_value = {}
+    supvisors_instance.starter.get_load_requests.return_value = {}
     # test RPC call with running process
     with pytest.raises(RPCError) as exc:
         rpc.start_any_process(0, ':x')
     assert exc.value.args == (Faults.FAILED, 'no candidate process matching ":x"')
     assert mocked_check.call_args_list == [call()]
     assert mocked_find.call_args_list == [call(':x')]
-    assert mocked_instance.call_args_list == [call(supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
+    assert mocked_instance.call_args_list == [call(supvisors_instance, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
     assert not mocked_start.called
 
 
-def test_start_any_process_no_wait(mocker, supvisors, rpc):
+def test_start_any_process_no_wait(mocker, supvisors_instance, rpc):
     """ Test the start_any_process RPC using a regex that matches processes and rules / no wait. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     process_1 = Mock(namespec='process_1',
                      **{'rules.expected_load': 10, 'possible_identifiers.return_value': ['10.0.0.1']})
-    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes', return_value=[process_1])
+    mocked_find = mocker.patch.object(supvisors_instance.context, 'find_runnable_processes', return_value=[process_1])
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance', return_value='10.0.0.1')
     mocked_start = mocker.patch.object(rpc, 'start_process', return_value=True)
-    supvisors.starter.get_load_requests.return_value = {}
+    supvisors_instance.starter.get_load_requests.return_value = {}
     # test RPC call with running process
     assert rpc.start_any_process(0, ':x', '-x 2', False) == 'process_1'
     assert mocked_check.call_args_list == [call()]
     assert mocked_find.call_args_list == [call(':x')]
-    assert mocked_instance.call_args_list == [call(supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
+    assert mocked_instance.call_args_list == [call(supvisors_instance, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
     assert mocked_start.call_args_list == [call(0, 'process_1', '-x 2', False)]
 
 
-def test_start_any_process_wait(mocker, supvisors, rpc):
+def test_start_any_process_wait(mocker, supvisors_instance, rpc):
     """ Test the start_any_process RPC using a regex that matches processes and rules / no wait. """
     # get patches
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     process_1 = Mock(namespec='process_1',
                      **{'rules.expected_load': 10, 'possible_identifiers.return_value': ['10.0.0.1']})
-    mocked_find = mocker.patch.object(supvisors.context, 'find_runnable_processes', return_value=[process_1])
+    mocked_find = mocker.patch.object(supvisors_instance.context, 'find_runnable_processes', return_value=[process_1])
     mocked_instance = mocker.patch('supvisors.rpcinterface.get_supvisors_instance', return_value='10.0.0.1')
     start_job = Mock(**{'done.return_value': NOT_DONE_YET})
     mocked_start = mocker.patch.object(rpc, 'start_process', return_value=lambda: start_job.done())
-    supvisors.starter.get_load_requests.return_value = {}
+    supvisors_instance.starter.get_load_requests.return_value = {}
     # test RPC call with running process
     deferred = rpc.start_any_process(0, ':x', '-x 2', True)
     assert callable(deferred)
     assert mocked_check.call_args_list == [call()]
     assert mocked_find.call_args_list == [call(':x')]
-    assert mocked_instance.call_args_list == [call(supvisors, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
+    assert mocked_instance.call_args_list == [call(supvisors_instance, StartingStrategies.CONFIG, ['10.0.0.1'], 10, {})]
     assert mocked_start.call_args_list == [call(0, 'process_1', '-x 2', True)]
     # test the deferred function
     assert deferred() is NOT_DONE_YET
@@ -1362,20 +1447,20 @@ def test_update_numprocs_decrease_lazy(mocker, rpc):
     assert not mocked_decrease.called
 
 
-def test_decrease_numprocs_no_stop(mocker, supvisors, rpc):
+def test_decrease_numprocs_no_stop(mocker, supvisors_instance, rpc):
     """ Test the RPCInterface._decrease_numprocs method.
     This test case deals with a context where the processes to remove are already stopped. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_process_deletion')
-    mocked_stop = supvisors.stopper.stop_process
-    mocked_next = supvisors.stopper.next
-    mocked_progress = supvisors.stopper.in_progress
-    local_identifier = supvisors.mapper.local_identifier
+    mocked_stop = supvisors_instance.stopper.stop_process
+    mocked_next = supvisors_instance.stopper.next
+    mocked_progress = supvisors_instance.stopper.in_progress
+    local_identifier = supvisors_instance.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     process_3 = Mock(namespec='process_3', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     get_map = {'process_1': process_1, 'process_2': process_2, 'process_3': process_3}
-    mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocker.patch.object(supvisors_instance.context, 'get_process', side_effect=lambda x: get_map[x])
     mocked_progress.return_value = False
     # 1. test RPC call with known program, correct numprocs value and numprocs decrease (no process to stop) / no wait
     params = ['process_1', 'process_2', 'process_3']
@@ -1398,20 +1483,20 @@ def test_decrease_numprocs_no_stop(mocker, supvisors, rpc):
     assert mocked_check.called
 
 
-def test_decrease_numprocs_stop(mocker, supvisors, rpc):
+def test_decrease_numprocs_stop(mocker, supvisors_instance, rpc):
     """ Test the RPCInterface._decrease_numprocs method.
     This test case deals with a context where the processes to remove have to be stopped. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_process_deletion')
-    mocked_stop = supvisors.stopper.stop_process
-    mocked_next = supvisors.stopper.next
-    mocked_progress = supvisors.stopper.in_progress
-    local_identifier = supvisors.mapper.local_identifier
+    mocked_stop = supvisors_instance.stopper.stop_process
+    mocked_next = supvisors_instance.stopper.next
+    mocked_progress = supvisors_instance.stopper.in_progress
+    local_identifier = supvisors_instance.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}}, **{'running_on.return_value': True})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}}, **{'running_on.return_value': True})
     process_3 = Mock(namespec='process_3', info_map={local_identifier: {}}, **{'running_on.return_value': False})
     get_map = {'process_1': process_1, 'process_2': process_2, 'process_3': process_3}
-    mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocker.patch.object(supvisors_instance.context, 'get_process', side_effect=lambda x: get_map[x])
     mocked_progress.return_value = True
     # test RPC call with known program, correct numprocs value and numprocs decrease (one process to stop) / wait
     params = ['process_1', 'process_2', 'process_3']
@@ -1438,14 +1523,14 @@ def test_decrease_numprocs_stop(mocker, supvisors, rpc):
     assert not mocked_check.call_args_list == [call(['process_2', 'process_3'])]
 
 
-def test_check_process_insertion(mocker, supvisors, rpc):
+def test_check_process_insertion(mocker, supvisors_instance, rpc):
     """ Test the RPCInterface._check_process_insertion method. """
     # get patches
-    local_identifier = supvisors.mapper.local_identifier
+    local_identifier = supvisors_instance.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={})
     process_2 = Mock(namespec='process_2', info_map={})
     get_map = {'process_1': process_1, 'process_2': process_2}
-    mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocker.patch.object(supvisors_instance.context, 'get_process', side_effect=lambda x: get_map[x])
     # test with processes not added yet
     params = ['process_1', 'process_2']
     with pytest.raises(RPCError) as exc:
@@ -1461,14 +1546,14 @@ def test_check_process_insertion(mocker, supvisors, rpc):
     rpc._check_process_insertion(params)
 
 
-def test_check_process_deletion(mocker, supvisors, rpc):
+def test_check_process_deletion(mocker, supvisors_instance, rpc):
     """ Test the RPCInterface._check_process_deletion method. """
     # get patches
-    local_identifier = supvisors.mapper.local_identifier
+    local_identifier = supvisors_instance.mapper.local_identifier
     process_1 = Mock(namespec='process_1', info_map={local_identifier: {}})
     process_2 = Mock(namespec='process_2', info_map={local_identifier: {}})
     get_map = {'process_1': process_1, 'process_2': process_2}
-    mocket_get = mocker.patch.object(supvisors.context, 'get_process', side_effect=lambda x: get_map[x])
+    mocket_get = mocker.patch.object(supvisors_instance.context, 'get_process', side_effect=lambda x: get_map[x])
     # test with processes not removed yet
     params = ['process_1', 'process_2']
     with pytest.raises(RPCError) as exc:
@@ -1487,13 +1572,13 @@ def test_check_process_deletion(mocker, supvisors, rpc):
     rpc._check_process_deletion(params)
 
 
-def test_enable_unknown_program(mocker, supvisors, rpc):
+def test_enable_unknown_program(mocker, supvisors_instance, rpc):
     """ Test the enable RPC with unknown program. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_operating')
-    mocked_enable = mocker.patch.object(supvisors.supervisor_updater, 'enable_program')
+    mocked_enable = mocker.patch.object(supvisors_instance.supervisor_updater, 'enable_program')
     # test RPC call with unknown program
-    supvisors.server_options.program_configs = {}
+    supvisors_instance.server_options.program_configs = {}
     with pytest.raises(RPCError) as exc:
         rpc.enable('dummy_program')
     assert exc.value.args == (Faults.BAD_NAME, 'program=dummy_program unknown to Supvisors')
@@ -1501,13 +1586,13 @@ def test_enable_unknown_program(mocker, supvisors, rpc):
     assert not mocked_enable.called
 
 
-def test_enable_no_wait(mocker, supvisors, rpc):
+def test_enable_no_wait(mocker, supvisors_instance, rpc):
     """ Test the enable RPC / no wait. """
     # get patches
     mocked_check = mocker.patch.object(rpc, '_check_operating')
-    mocked_enable = mocker.patch.object(supvisors.supervisor_updater, 'enable_program')
+    mocked_enable = mocker.patch.object(supvisors_instance.supervisor_updater, 'enable_program')
     # test RPC call with unknown program
-    supvisors.server_options.program_configs = {'dummy_program': {}}
+    supvisors_instance.server_options.program_configs = {'dummy_program': {}}
     assert rpc.enable('dummy_program', False) is True
     assert mocked_check.call_args_list == [call()]
     assert mocked_enable.call_args_list == [call('dummy_program')]
@@ -1696,108 +1781,141 @@ def test_conciliate(mocker, rpc):
     assert mocked_conciliate.call_args_list == [call(rpc.supvisors, ConciliationStrategies.INFANTICIDE, [1, 2, 4])]
 
 
-def test_restart_sequence(mocker, rpc):
+def test_restart_sequence(mocker, rpc, supvisors_instance):
     """ Test the restart_sequence RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    # test no wait
+    mocked_start = supvisors_instance.starter.start_applications
+    mocked_progress = supvisors_instance.starter.in_progress
+    # test exception when starter in progress
+    rpc.supvisors.state_modes.local_state_modes.starting_jobs = True
+    with pytest.raises(RPCError) as exc:
+        rpc.restart_sequence(True)
+    assert exc.value.args[0] == SupvisorsFaults.BAD_SUPVISORS_STATE.value
+    assert mocked_check.call_args_list == [call()]
+    assert not mocked_progress.called
+    mocker.resetall()
+    rpc.supvisors.state_modes.local_state_modes.starting_jobs = False
+    # test exception when stopper in progress
+    rpc.supvisors.state_modes.local_state_modes.stopping_jobs = True
+    with pytest.raises(RPCError) as exc:
+        rpc.restart_sequence(True)
+    assert exc.value.args[0] == SupvisorsFaults.BAD_SUPVISORS_STATE.value
+    assert mocked_check.call_args_list == [call()]
+    assert not mocked_progress.called
+    mocker.resetall()
+    rpc.supvisors.state_modes.local_state_modes.stopping_jobs = False
+    # test failed no wait
+    mocked_progress.return_value = False
+    with pytest.raises(RPCError) as exc:
+        rpc.restart_sequence(False)
+    assert exc.value.args[0] == Faults.ABNORMAL_TERMINATION
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_start.call_args_list == [call()]
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_start.reset_mock()
+    mocked_progress.reset_mock()
+    # test successful no wait
+    mocked_progress.return_value = True
     assert rpc.restart_sequence(False)
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_restart_sequence.call_args_list == [call()]
-    mocked_check.reset_mock()
-    rpc.supvisors.fsm.on_restart_sequence.reset_mock()
-    # test wait and done
+    assert mocked_start.call_args_list == [call()]
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_start.reset_mock()
+    mocked_progress.reset_mock()
+    # test wait and not done
     deferred = rpc.restart_sequence()
     # result is a function for deferred result
     assert callable(deferred)
-    assert deferred.wait_state == SupvisorsStates.DISTRIBUTION
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_restart_sequence.call_args_list == [call()]
-    # test returned function: first wait for DEPLOYMENT state to be reached
-    rpc.supvisors.fsm.state = SupvisorsStates.OPERATION
+    assert mocked_start.call_args_list == [call()]
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_start.reset_mock()
+    mocked_progress.reset_mock()
+    # test returned function: return True when job in progress
     assert deferred() == NOT_DONE_YET
-    assert deferred.wait_state == SupvisorsStates.DISTRIBUTION
-    # test returned function: when DEPLOYMENT state reached, wait for OPERATION state to be reached
-    rpc.supvisors.fsm.state = SupvisorsStates.DISTRIBUTION
-    assert deferred() == NOT_DONE_YET
-    assert deferred.wait_state == SupvisorsStates.OPERATION
-    assert deferred() == NOT_DONE_YET
-    assert deferred.wait_state == SupvisorsStates.OPERATION
-    # test returned function: when DEPLOYMENT state reached, return true
-    rpc.supvisors.fsm.state = SupvisorsStates.OPERATION
+    assert mocked_progress.call_args_list == [call()]
+    mocker.resetall()
+    mocked_progress.reset_mock()
+    # test returned function: return True if job not in progress anymore
+    mocked_progress.return_value = False
     assert deferred()
+    assert mocked_progress.call_args_list == [call()]
 
 
-def test_restart(mocker, rpc):
+def test_restart(mocker, supvisors_instance, rpc):
     """ Test the restart RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
     assert rpc.restart()
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_restart.call_args_list == [call()]
+    assert supvisors_instance.fsm.on_restart.call_args_list == [call()]
 
 
-def test_shutdown(mocker, rpc):
+def test_shutdown(mocker, supvisors_instance, rpc):
     """ Test the shutdown RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_distribution')
     # test RPC call
     assert rpc.shutdown()
     assert mocked_check.call_args_list == [call()]
-    assert rpc.supvisors.fsm.on_shutdown.call_args_list == [call()]
+    assert supvisors_instance.fsm.on_shutdown.call_args_list == [call()]
 
 
-def test_end_sync(mocker, supvisors, rpc):
+def test_end_sync(mocker, supvisors_instance, rpc):
     """ Test the end_synchro RPC. """
     mocked_check = mocker.patch.object(rpc, '_check_state')
-    mocked_fsm = mocker.patch.object(supvisors.fsm, 'on_end_sync')
+    mocked_fsm = mocker.patch.object(supvisors_instance.fsm, 'on_end_sync')
     # test RPC call with Master already set
-    supvisors.context.master_identifier = '10.0.0.1:25000'
+    supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
     with pytest.raises(RPCError) as exc:
         rpc.end_sync()
     assert exc.value.args[0] == SupvisorsFaults.BAD_SUPVISORS_STATE.value
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER not in synchro_options
-    supvisors.context.master_identifier = ''
+    supvisors_instance.state_modes.master_identifier = ''
     with pytest.raises(RPCError) as exc:
         rpc.end_sync()
     assert exc.value.args[0] == SupvisorsFaults.NOT_APPLICABLE.value
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, no master parameter
-    supvisors.options.synchro_options = [SynchronizationOptions.USER]
+    supvisors_instance.options.synchro_options = [SynchronizationOptions.USER]
     assert rpc.end_sync()
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert mocked_fsm.call_args_list == [call('')]
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter unknown
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('dummy')
     assert exc.value.args[0] == Faults.BAD_NAME
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter resolves in multiple identifiers
-    supvisors.mapper.assign_stereotypes('10.0.0.1:25000', {'test_stereotype'})
-    supvisors.mapper.assign_stereotypes('10.0.0.2:25000', {'test_stereotype'})
+    supvisors_instance.mapper._assign_stereotypes('10.0.0.2:25000', {'test_stereotype'})
+    supvisors_instance.mapper._assign_stereotypes('10.0.0.3:25000', {'test_stereotype'})
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('test_stereotype')
     assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter known but not running
     with pytest.raises(RPCError) as exc:
         rpc.end_sync('10.0.0.1:25000')
     assert exc.value.args[0] == Faults.NOT_RUNNING
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert not mocked_fsm.called
     mocker.resetall()
     # test RPC call with no Master, USER in synchro_options, master parameter known running
-    supvisors.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_instance.context.instances['10.0.0.1:25000']._state = SupvisorsInstanceStates.RUNNING
     assert rpc.end_sync('10.0.0.1:25000')
-    assert mocked_check.call_args_list == [call([SupvisorsStates.INITIALIZATION])]
+    assert mocked_check.call_args_list == [call([SupvisorsStates.SYNCHRONIZATION])]
     assert mocked_fsm.call_args_list == [call('10.0.0.1:25000')]
 
 
@@ -1962,18 +2080,18 @@ def test_get_conciliation_strategy(rpc):
     assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
 
 
-def test_check_state(rpc):
+def test_check_state(supvisors_instance, rpc):
     """ Test the RPCInterface._check_state function. """
     # prepare context
-    rpc.supvisors.fsm.state = SupvisorsStates.DISTRIBUTION
+    supvisors_instance.fsm.state = SupvisorsStates.DISTRIBUTION
     # test there is no exception when internal state is in list
-    rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION])
+    rpc._check_state([SupvisorsStates.OFF, SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION])
     # test there is an exception when internal state is not in list
     with pytest.raises(RPCError) as exc:
-        rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.OPERATION])
+        rpc._check_state([SupvisorsStates.SYNCHRONIZATION, SupvisorsStates.OPERATION])
     assert exc.value.args == (SupvisorsFaults.BAD_SUPVISORS_STATE.value,
                               'invalid Supvisors state=DISTRIBUTION - state expected'
-                              " in ['INITIALIZATION', 'OPERATION']")
+                              " in ['SYNCHRONIZATION', 'OPERATION']")
 
 
 def test_check_from_distribution(mocker, rpc):
@@ -1981,7 +2099,8 @@ def test_check_from_distribution(mocker, rpc):
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_state')
     # test the call to _check_state
     rpc._check_from_distribution()
-    excluded_states = [SupvisorsStates.OFF, SupvisorsStates.INITIALIZATION, SupvisorsStates.FINAL]
+    excluded_states = [SupvisorsStates.OFF, SupvisorsStates.SYNCHRONIZATION, SupvisorsStates.ELECTION,
+                       SupvisorsStates.FINAL]
     expected = [x for x in SupvisorsStates if x not in excluded_states]
     assert mocked_check.call_args_list == [call(expected)]
 
@@ -2080,13 +2199,13 @@ def test_get_local_info(mocker, rpc):
                                          'start_monotonic': 123, 'stop_monotonic': 0}
 
 
-def test_start_process(mocker, supvisors):
+def test_start_process(mocker, supvisors_instance):
     """ Test the startProcess RPC.
     This RPC is designed to be added to Supervisor by monkeypatch. """
     SupervisorNamespaceRPCInterface._startProcess = SupervisorNamespaceRPCInterface.startProcess
     SupervisorNamespaceRPCInterface.startProcess = startProcess
     # patch the legacy startProcess
-    rpc = DummyRpcInterface(supvisors)
+    rpc = DummyRpcInterface(supvisors_instance)
     mocked_start_process = mocker.patch.object(rpc.supervisor, '_startProcess')
     mocked_update = mocker.patch.object(rpc.supervisor, '_update')
     mocked_get = mocker.patch.object(rpc.supervisor, '_getGroupAndProcess', return_value=('dummy_group', None))

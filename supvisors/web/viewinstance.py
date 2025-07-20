@@ -16,10 +16,10 @@
 
 from supervisor.web import StatusView
 
-from supvisors.instancestatus import SupvisorsInstanceStatus
+from supvisors.statemodes import StateModes
 from .viewcontext import *
 from .viewhandler import ViewHandler
-from .webutils import *
+from .webutils import SupvisorsSymbols, WebMessage, update_attrib
 
 
 class SupvisorsInstanceView(ViewHandler, StatusView):
@@ -51,19 +51,20 @@ class SupvisorsInstanceView(ViewHandler, StatusView):
     def write_status(self, header_elt):
         """ Rendering of the header part of the Supvisors Instance page. """
         # set Master symbol
-        if self.sup_ctx.is_master:
-            header_elt.findmeld('master_mid').content(MASTER_SYMBOL)
+        if self.state_modes.is_master():
+            header_elt.findmeld('master_mid').content(SupvisorsSymbols.MASTER_SYMBOL)
         # set Supvisors instance identifier
         header_elt.findmeld('instance_mid').content(self.local_nick_identifier)
         # set Supvisors instance state
-        status: SupvisorsInstanceStatus = self.sup_ctx.local_status
+        status: StateModes = self.sup_ctx.local_status
+        sm: StateModes = self.state_modes.local_state_modes
         header_elt.findmeld('state_mid').content(status.state.name)
         # set Supvisors discovery mode
-        if status.state_modes.discovery_mode:
+        if sm.discovery_mode:
             header_elt.findmeld('discovery_mid').content('discovery')
         # set Supvisors instance modes
-        for mid, progress in [('starting_mid', status.state_modes.starting_jobs),
-                              ('stopping_mid', status.state_modes.stopping_jobs)]:
+        for mid, progress in [('starting_mid', sm.starting_jobs),
+                              ('stopping_mid', sm.stopping_jobs)]:
             if progress:
                 elt = header_elt.findmeld(mid)
                 elt.content(mid.split('_')[0])
@@ -97,9 +98,9 @@ class SupvisorsInstanceView(ViewHandler, StatusView):
     def restart_sup_action(self):
         """ Restart the local supervisor. """
         self.supvisors.rpc_handler.send_restart(self.local_identifier)
-        return delayed_warn('Supervisor restart requested')
+        return WebMessage('Supervisor restart requested', SupvisorsGravities.WARNING).delayed_message
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
         self.supvisors.rpc_handler.send_shutdown(self.local_identifier)
-        return delayed_warn('Supervisor shutdown requested')
+        return WebMessage('Supervisor shutdown requested', SupvisorsGravities.WARNING).delayed_message

@@ -25,15 +25,15 @@ SUPVISORS_PUBLICATION = 'SupvisorsPublication'
 SUPVISORS_NOTIFICATION = 'SupvisorsNotification'
 
 
-# all enumerations
+# Supvisors states
 class SupvisorsInstanceStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance. """
-    UNKNOWN, CHECKING, CHECKED, RUNNING, SILENT, ISOLATED = range(6)
+    STOPPED, CHECKING, CHECKED, RUNNING, FAILED, ISOLATED = range(6)
 
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    OFF, INITIALIZATION, DISTRIBUTION, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(8)
+    OFF, SYNCHRONIZATION, ELECTION, DISTRIBUTION, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, FINAL = range(9)
 
 
 class ApplicationStates(Enum):
@@ -41,35 +41,36 @@ class ApplicationStates(Enum):
     STOPPED, STARTING, RUNNING, STOPPING, DELETED = range(5)
 
 
+# Supvisors options
 class EventLinks(Enum):
     """ Available link types used to publish all Supvisors events. """
     NONE, ZMQ, WS = range(3)
 
 
 class StartingStrategies(Enum):
-    """ Applicable strategies that can be applied to start processes. """
+    """ Strategies that can be applied to start processes. """
     CONFIG, LESS_LOADED, MOST_LOADED, LOCAL, LESS_LOADED_NODE, MOST_LOADED_NODE = range(6)
 
 
 class ConciliationStrategies(Enum):
-    """ Applicable strategies that can be applied during a conciliation. """
+    """ Strategies that can be applied during a conciliation. """
     SENICIDE, INFANTICIDE, USER, STOP, RESTART, RUNNING_FAILURE = range(6)
     # TODO: change to STOP+RESTART PROCESS and add STOP+RESTART APPLICATION ?
 
 
 class StartingFailureStrategies(Enum):
-    """ Applicable strategies that can be applied on a failure of a starting application. """
+    """ Strategies that can be applied on a failure of a starting application. """
     ABORT, STOP, CONTINUE = range(3)
 
 
 class RunningFailureStrategies(Enum):
-    """ Applicable strategies that can be applied on a failure of a running application. """
+    """ Strategies that can be applied on a failure of a running application. """
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION, SHUTDOWN, RESTART = range(6)
 
 
-class ProcessRequestResult(Enum):
-    """ The possible results after a process request. """
-    IN_PROGRESS, SUCCESS, FAILED, TIMED_OUT = range(4)
+class SupvisorsFailureStrategies(Enum):
+    """ Applicable strategies that can be applied when re-entering the SYNCHRONIZATION state. """
+    CONTINUE, RESYNC, SHUTDOWN = range(3)
 
 
 class DistributionRules(Enum):
@@ -87,24 +88,33 @@ class SynchronizationOptions(Enum):
     STRICT, LIST, TIMEOUT, CORE, USER = range(5)
 
 
-# for internal publish / subscribe
+# Supvisors internal
+class ProcessRequestResult(Enum):
+    """ The possible results after a process request. """
+    IN_PROGRESS, SUCCESS, FAILED, TIMED_OUT = range(4)
+
+
 class PublicationHeaders(Enum):
     """ Enumeration class for the publication headers in messages between Listener and MainLoop. """
     (TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, PROCESS_DISABILITY,
      HOST_STATISTICS, PROCESS_STATISTICS, STATE) = range(8)
 
 
-# for deferred XML-RPC requests
 class RequestHeaders(Enum):
     """ Enumeration class for the headers of deferred XML-RPC messages sent to SupervisorProxyServer. """
     (CHECK_INSTANCE,
      START_PROCESS, STOP_PROCESS,
-     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(8)
+     RESTART, SHUTDOWN, RESTART_ALL, SHUTDOWN_ALL) = range(7)
 
 
 class NotificationHeaders(Enum):
     """ Enumeration class for the notification headers in messages between Listener and MainLoop. """
-    AUTHORIZATION, STATE, ALL_INFO, DISCOVERY, INSTANCE_FAILURE = range(5)
+    IDENTIFICATION, AUTHORIZATION, STATE, ALL_INFO, DISCOVERY, INSTANCE_FAILURE = range(6)
+
+
+class AuthorizationTypes(Enum):
+    """ The possible results of authorization check. """
+    UNKNOWN, AUTHORIZED, NOT_AUTHORIZED, INCONSISTENT = range(4)
 
 
 class EventHeaders(Enum):
@@ -118,8 +128,14 @@ class EventHeaders(Enum):
     PROCESS_STATISTICS = 'pstats'
 
 
+class StatsType(Enum):
+    """ The Supvisors statistics types. """
+    HOST_CPU, HOST_MEM, HOST_NET_IO, HOST_DISK_IO, HOST_DISK_USAGE, PROCESS_CPU, PROCESS_MEM = range(7)
+
+
 # State lists commonly used
-WORKING_STATES = [SupvisorsStates.DISTRIBUTION, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
+WORKING_STATES = [SupvisorsStates.ELECTION, SupvisorsStates.DISTRIBUTION,
+                  SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
 CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.FINAL]
 
 
@@ -189,6 +205,7 @@ EnumType = TypeVar('EnumType', bound='Enum')
 Ipv4Address = Tuple[str, int]
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
+NameDict = Dict[str, str]
 NameList = List[str]
 NameSet = Set[str]
 LoadMap = Dict[str, int]

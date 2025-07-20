@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # ======================================================================
 # Copyright 2023 Julien LE CLEACH
 #
@@ -23,4 +20,4 @@ import os
 here = os.path.abspath(os.path.dirname(__file__))
 version_txt = os.path.join(here, 'version.txt')
 with open(version_txt, 'r') as ver:
-    __version__ = ver.read().split('=')[1].strip()
+    supvisors_version = ver.read().split('=')[1].strip()

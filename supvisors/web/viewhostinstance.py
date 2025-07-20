@@ -16,10 +16,10 @@
 
 from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.statscompiler import HostStatisticsInstance, InterfaceHistoryStats
+from .sessionviews import StatsType
 from .viewcontext import *
-from .viewimage import host_cpu_img, host_mem_img, host_net_io_img, host_disk_io_img, host_disk_usage_img
 from .viewinstance import SupvisorsInstanceView
-from .webutils import *
+from .webutils import SupvisorsPages, apply_shade
 
 
 class HostInstanceView(SupvisorsInstanceView):
@@ -27,7 +27,7 @@ class HostInstanceView(SupvisorsInstanceView):
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        SupvisorsInstanceView.__init__(self, context, HOST_INSTANCE_PAGE)
+        SupvisorsInstanceView.__init__(self, context, SupvisorsPages.HOST_INSTANCE_PAGE)
 
     def write_options(self, header_elt):
         """ Write configured periods for host statistics. """
@@ -41,7 +41,7 @@ class HostInstanceView(SupvisorsInstanceView):
         """ Configure the statistics view buttons. """
         # update process button
         elt = header_elt.findmeld('process_view_a_mid')
-        url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
+        url = self.view_ctx.format_url('', SupvisorsPages.PROC_INSTANCE_PAGE)
         elt.attributes(href=url)
         # update host button
         elt = header_elt.findmeld('host_view_a_mid')
@@ -62,11 +62,11 @@ class HostInstanceView(SupvisorsInstanceView):
             self.write_disk_statistics(contents_elt, stats_instance)
             # write CPU / Memory / Network plots
             try:
-                self._write_cpu_image(stats_instance.cpu, stats_instance.times)
-                self._write_mem_image(stats_instance.mem, stats_instance.times)
+                self._write_cpu_image(contents_elt, stats_instance.cpu, stats_instance.times)
+                self._write_mem_image(contents_elt, stats_instance.mem, stats_instance.times)
                 # other statistics include their own timeline
-                self._write_net_io_image(stats_instance.net_io)
-                self._write_disk_image(stats_instance)
+                self._write_net_io_image(contents_elt, stats_instance.net_io)
+                self._write_disk_image(contents_elt, stats_instance)
             except ImportError:
                 # matplotlib not installed: remove figure elements
                 for mid in ['cpu_image_fig_mid', 'mem_image_fig_mid', 'net_io_image_fig_mid',
@@ -264,74 +264,99 @@ class HostInstanceView(SupvisorsInstanceView):
             url = self.view_ctx.format_url('', self.page_name, **{DISK_STATS: 'usage'})
             contents_elt.findmeld('disk_io_view_mid').attributes(href=url)
 
-    def _write_cpu_image(self, cpu_stats, timeline):
+    def _write_cpu_image(self, contents_elt, cpu_stats, timeline):
         """ Write CPU data into the dedicated buffer. """
         from supvisors.web.plot import StatisticsPlot
         # get CPU data
         cpu_id = self.view_ctx.cpu_id
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
         cpu_data = cpu_stats[cpu_id]
+        # get image buffer
+        image_name, image = self.view_ctx.session.get_image(StatsType.HOST_CPU, self.local_identifier,
+                                                            self.view_ctx.period, specific=cpu_id_string)
         # build image from data
         plt = StatisticsPlot(self.logger)
         plt.add_timeline(timeline)
         plt.add_plot(f'CPU #{cpu_id_string}', '%', cpu_data)
-        plt.export_image(host_cpu_img)
+        plt.export_image(image)
+        # set session-dependent image name
+        contents_elt.findmeld('cpu_image_img_mid').attributes(src=image_name)
 
-    def _write_mem_image(self, mem_stats, timeline):
+    def _write_mem_image(self, contents_elt, mem_stats, timeline):
         """ Write MEM data into the dedicated buffer. """
-        # build image from data
         from supvisors.web.plot import StatisticsPlot
+        # get image buffer
+        image_name, image = self.view_ctx.session.get_image(StatsType.HOST_MEM, self.local_identifier,
+                                                            self.view_ctx.period)
+        # build image from data
         plt = StatisticsPlot(self.logger)
         plt.add_timeline(timeline)
         plt.add_plot('MEM', '%', mem_stats)
-        plt.export_image(host_mem_img)
+        plt.export_image(image)
+        # set session-dependent image name
+        contents_elt.findmeld('mem_image_img_mid').attributes(src=image_name)
 
-    def _write_net_io_image(self, net_io_stats):
+    def _write_net_io_image(self, contents_elt, net_io_stats):
         """ Write Network IO data into the dedicated buffer. """
         from supvisors.web.plot import StatisticsPlot
         # get IO data
         nic_name = self.view_ctx.nic_name
         if nic_name:
             timeline, [recv_data, sent_data] = net_io_stats[nic_name]
+            # get image buffer
+            image_name, image = self.view_ctx.session.get_image(StatsType.HOST_NET_IO, self.local_identifier,
+                                                                self.view_ctx.period, specific=nic_name)
             # build image from data
             plt = StatisticsPlot(self.logger)
             plt.add_timeline(timeline)
             plt.add_plot(f'{nic_name} received', 'kbits/s', recv_data)
             plt.add_plot(f'{nic_name} sent', 'kbits/s', sent_data)
-            plt.export_image(host_net_io_img)
+            plt.export_image(image)
+            # set session-dependent image name
+            contents_elt.findmeld('net_io_image_img_mid').attributes(src=image_name)
 
-    def _write_disk_image(self, stats_instance: HostStatisticsInstance):
+    def _write_disk_image(self, contents_elt, stats_instance: HostStatisticsInstance):
         """ Update the relevant Disk image depending on the display choice. """
         if self.view_ctx.disk_stats == 'usage':
             # update Disk usage image
-            self._write_disk_usage_image(stats_instance.disk_usage)
+            self._write_disk_usage_image(contents_elt, stats_instance.disk_usage)
         else:
             # update Disk IO image
-            self._write_disk_io_image(stats_instance.disk_io)
+            self._write_disk_io_image(contents_elt, stats_instance.disk_io)
 
-    def _write_disk_io_image(self, disk_io_stats):
+    def _write_disk_io_image(self, contents_elt, disk_io_stats):
         """ Write Disk IO data into the dedicated buffer. """
         from supvisors.web.plot import StatisticsPlot
         # get IO data
         device_name = self.view_ctx.device
         if device_name:
             timeline, [read_data, write_data] = disk_io_stats[device_name]
+            # get image buffer
+            image_name, image = self.view_ctx.session.get_image(StatsType.HOST_DISK_IO, self.local_identifier,
+                                                                self.view_ctx.period, specific=device_name)
             # build image from data
             plt = StatisticsPlot(self.logger)
             plt.add_timeline(timeline)
             plt.add_plot(f'{device_name} read', 'kbits/s', read_data)
             plt.add_plot(f'{device_name} written', 'kbits/s', write_data)
-            plt.export_image(host_disk_io_img)
+            plt.export_image(image)
+            # set session-dependent image name
+            contents_elt.findmeld('disk_io_image_img_mid').attributes(src=image_name)
 
-    def _write_disk_usage_image(self, usage_stats):
+    def _write_disk_usage_image(self, contents_elt, usage_stats):
         """ Write Disk usage data into the dedicated buffer. """
         from supvisors.web.plot import StatisticsPlot
         # get usage data
         partition = self.view_ctx.partition
         if partition:
             timeline, [usage_stats] = usage_stats[partition]
+            # get image buffer
+            image_name, image = self.view_ctx.session.get_image(StatsType.HOST_DISK_USAGE, self.local_identifier,
+                                                                self.view_ctx.period, specific=partition)
             # build image from data
             plt = StatisticsPlot(self.logger)
             plt.add_timeline(timeline)
             plt.add_plot(f'{partition}', '%', usage_stats)
-            plt.export_image(host_disk_usage_img)
+            plt.export_image(image)
+            # set session-dependent image name
+            contents_elt.findmeld('disk_usage_image_img_mid').attributes(src=image_name)

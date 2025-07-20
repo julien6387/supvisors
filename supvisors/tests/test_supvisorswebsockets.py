@@ -28,15 +28,16 @@ from supvisors.ttypes import EventHeaders
 
 
 @pytest.fixture
-def publisher(supvisors):
-    test_publisher = WsEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
+def publisher(supvisors_instance):
+    test_publisher = WsEventPublisher(supvisors_instance.mapper.local_instance, supvisors_instance.logger)
     yield test_publisher
     test_publisher.close()
 
 
 @pytest.fixture
-def subscriber(mocker, supvisors):
-    test_subscriber = SupvisorsWsEventInterface('localhost', supvisors.options.event_port, supvisors.logger)
+def subscriber(mocker, supvisors_instance):
+    test_subscriber = SupvisorsWsEventInterface('localhost', supvisors_instance.options.event_port,
+                                                supvisors_instance.logger)
     mocker.patch.object(test_subscriber, 'on_receive')
     # do NOT start the thread to let subscriptions happen
     yield test_subscriber
@@ -44,8 +45,9 @@ def subscriber(mocker, supvisors):
 
 
 @pytest.fixture
-def real_subscriber(supvisors):
-    test_subscriber = SupvisorsWsEventInterface('localhost', supvisors.options.event_port, supvisors.logger)
+def real_subscriber(supvisors_instance):
+    test_subscriber = SupvisorsWsEventInterface('localhost', supvisors_instance.options.event_port,
+                                                supvisors_instance.logger)
     test_subscriber.subscribe_all()
     yield test_subscriber
     test_subscriber.stop()
@@ -118,13 +120,13 @@ def check_subscription(subscriber: SupvisorsWsEventInterface, publisher: WsEvent
     subscriber.reset()
 
 
-def test_external_publish_subscribe(supvisors):
+def test_external_publish_subscribe(supvisors_instance):
     """ Test the opening and closing of the Websocket server/client used in the event interface of Supvisors. """
     # get event port
-    port = supvisors.options.event_port
+    port = supvisors_instance.options.event_port
     # create publisher and subscriber
-    publisher = WsEventPublisher(supvisors.mapper.local_instance, supvisors.logger)
-    subscriber = SupvisorsWsEventInterface('localhost', port, supvisors.logger)
+    publisher = WsEventPublisher(supvisors_instance.mapper.local_instance, supvisors_instance.logger)
+    subscriber = SupvisorsWsEventInterface('localhost', port, supvisors_instance.logger)
     subscriber.start()
     assert wait_thread_alive(publisher.thread)
     assert wait_thread_alive(subscriber.thread)

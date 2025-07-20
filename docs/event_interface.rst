@@ -10,10 +10,6 @@ The |Supvisors| Event Interface can be created either using a |ZeroMQ| socket or
 
 All messages consist in a header and a body.
 
-.. attention::
-
-    The |websockets| implementation requires a :command:`Python` version 3.7 or later.
-
 Message header
 --------------
 
@@ -44,17 +40,25 @@ Of course, the contents depends on the message type.
 |Supvisors| status
 ~~~~~~~~~~~~~~~~~~
 
-================== ================= ==================
-Key	               Type               Value
-================== ================= ==================
-'fsm_statecode'    ``int``           The state of |Supvisors|, in [0;6].
-'fsm_statename'    ``str``           The string state of |Supvisors|, among { ``'INITIALIZATION'``, ``'DISTRIBUTION'``,
-                                     ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
-                                     ``'FINAL'`` }.
-'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
-'starting_jobs'    ``list(str)``     The list of |Supvisors| instances having starting jobs in progress.
-'stopping_jobs'    ``list(str)``     The list of |Supvisors| instances having stopping jobs in progress.
-================== ================= ==================
+=================== ================= ==================
+Key	                Type               Value
+=================== ================= ==================
+'identifier'        ``str``           The identifier of the |Supvisors| instance.
+'nick_identifier'   ``str``           The |Supvisors| instance nick name, as set in the ``supvisors_list`` option,
+                                      or a copy of the |Supvisors| identifier if not set.
+'now_monotonic'     ``float``         The monotonic time of the event, in the reference time of the local host.
+'fsm_statecode'     ``int``           The state of |Supvisors|, in [0;7].
+'fsm_statename'     ``str``           The string state of |Supvisors|, among { ``'SYNCHRONIZATION'``, ``'ELECTION'``,
+                                      ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``,
+                                      ``'SHUTTING_DOWN'``, ``'FINAL'`` }.
+'master_identifier' ``str``           The identifier of the |Supvisors| *Master* instance.
+'degraded_mode'     ``bool``          True if |Supvisors| is working with missing |Supvisors| instances.
+'discovery_mode'    ``bool``          True if the |Supvisors| discovery mode is activated.
+'starting_jobs'     ``list(str)``     The list of |Supvisors| instances having starting jobs in progress.
+'stopping_jobs'     ``list(str)``     The list of |Supvisors| instances having stopping jobs in progress.
+'instance_states'   ``dict(str,str)`` The state of every |Supvisors| instance, as seen by the local |Supvisors|
+                                      instance.
+=================== ================= ==================
 
 
 |Supvisors| instance status
@@ -64,12 +68,13 @@ Key	               Type               Value
 Key	                      Type       Value
 ========================= ========== ==================
 'identifier'              ``str``    The identifier of the |Supvisors| instance.
+'nick_identifier'         ``str``    The |Supvisors| instance nick name, as set in the ``supvisors_list`` option,
+                                     or a copy of the |Supvisors| identifier if not set.
 'node_name'               ``str``    The name of the node where the |Supvisors| instance is running.
 'port'                    ``int``    The HTTP port of the |Supvisors| instance.
-'statecode'               ``int``    The |Supvisors| instance state, in [0;6].
-'statename'               ``str``    The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``,
-                                     `'CHECKED'``, ``'RUNNING'``, ``'SILENT'``, ``'FAILED'``, ``'ISOLATED'`` }.
-'discovery_mode'          ``bool``   True if the discovery mode is activated in the |Supvisors| instance.
+'statecode'               ``int``    The |Supvisors| instance state, in [0;5].
+'statename'               ``str``    The |Supvisors| instance state as string, among { ``'STOPPED'``, ``'CHECKING'``,
+                                     `'CHECKED'``, ``'RUNNING'``, ``'FAILED'``, ``'ISOLATED'`` }.
 'remote_sequence_counter' ``int``    The remote TICK counter, i.e. the number of TICK events received since
                                      the remote |Supvisors| instance is running.
 'remote_mtime'            ``float``  The monotonic time received in the last heartbeat sent by the remote
@@ -94,6 +99,8 @@ Application status
 Key	               Type              Value
 ================== ================= ==================
 'application_name' ``str``           The Application name.
+'managed'          ``bool``          True if the Application is managed in |Supvisors|.
+'now_monotonic'    ``float``         The monotonic time of the event, in the reference time of the local host.
 'statecode'        ``int``           The Application state, in [0;3].
 'statename'        ``str``           The Application state as string, among { ``'STOPPED'``, ``'STARTING'``,
                                      ``'RUNNING'``, ``'STOPPING'`` }.
@@ -111,6 +118,9 @@ Key	               Type              Value
 ================== ================= ==================
 'application_name' ``str``           The Application name.
 'process_name'     ``str``           The Process name.
+'now_monotonic'    ``float``         The monotonic time of the event, in the reference time of the local host.
+'last_event_mtime' ``float``         The local monotonic time of the last process event received for this process,
+                                     regardless of the |Supvisors| instance that sent the event.
 'statecode'        ``int``           The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
                                      A special value -1 means that the process has been deleted as a consequence
                                      of an XML-RPC ``update_numprocs``.
@@ -119,8 +129,6 @@ Key	               Type              Value
                                      A special value ``DELETED`` means that the process has been deleted as a consequence
                                      of an XML-RPC ``update_numprocs``.
 'expected_exit'    ``bool``          True if the exit status is expected (only when state is ``'EXITED'``).
-'last_event_time'  ``float``         The date of the last process event received for this process, regardless
-                                     of the originating |Supvisors| instance.
 'identifiers'      ``list(str)``     The identifiers of the |Supvisors| instances where the process is running.
 'extra_args'       ``str``           The additional arguments passed to the command line of the process.
 ================== ================= ==================
@@ -132,21 +140,27 @@ Key	               Type              Value
         * `#1150 - Why do event listeners not report the process exit status when stopped/crashed?
           <https://github.com/Supervisor/supervisor/issues/1150>`_
 
+
 Process event
 ~~~~~~~~~~~~~
 
 ================== ================= ==================
 Key                Type              Value
 ================== ================= ==================
+'identifier'       ``str``           The identifier of the |Supvisors| instance that sent the initial event.
+'nick_identifier'  ``str``           The |Supvisors| instance nick name, as set in the ``supvisors_list`` option,
+                                     or a copy of the |Supvisors| identifier if not set.
 'group'            ``str``           The Application name.
 'name'             ``str``           The Process name.
 'state'            ``int``           The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
                                      A special value -1 means that the process has been deleted as a consequence
                                      of an XML-RPC ``update_numprocs``.
 'expected'         ``bool``          True if the exit status is expected (only when state is 100 - ``EXITED``).
-'now'              ``float``         The monotonic time of the event in the reference time of the host.
+'spawnerr'         ``str``           The description of error that occurred during spawn, or empty string if none.
+'now'              ``float``         The POSIX time of the event, in the reference time of the remote host.
+'now_monotonic'    ``float``         The monotonic time of the event, in the reference time of the remote host.
+'event_mtime'      ``float``         The monotonic time of the event, in the reference time of the local host.
 'pid'              ``int``           The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
-'identifier'       ``str``           The identifier of the |Supvisors| instance that sent the initial event.
 'extra_args'       ``str``           The additional arguments passed to the command line of the process.
 'disabled'         ``bool``          True if the process is disabled on the |Supvisors| instance.
 ================== ================= ==================
@@ -159,6 +173,7 @@ Host statistics
 Key                Type                      Value
 ================== ========================= ==================
 'identifier'       ``str``                   The identifier of the |Supvisors| instance.
+'now_monotonic'    ``float``                 The monotonic time of the event, in the reference time of the local host.
 'target_period'    ``float``                 The configured integration period, in seconds.
 'period'           ``list(float)``           The start and end uptimes of the integration period, as a list of 2 values
                                              in seconds.
@@ -179,7 +194,9 @@ Process statistics
 Key                Type              Value
 ================== ================= ==================
 'namespec'         ``str``           The Process namespec.
-'identifier'       ``str``           The identifier of the |Supvisors| instance.
+'identifier'       ``str``           The identifier of the |Supvisors| instance where the process is running.
+'pid'              ``int``           The Process PID.
+'now_monotonic'    ``float``         The monotonic time of the event, in the reference time of the local host.
 'target_period'    ``float``         The configured integration period, in seconds.
 'period'           ``list(float)``   The start and end uptimes of the integration period, as a list of 2 values in seconds.
 'cpu'              ``float``         The CPU (IRIX mode) of the process on the node, in percent.
@@ -324,10 +341,6 @@ The binary JAR of :program:`Google Gson 2.8.6` is available in the
 
 |websockets| Implementation
 ---------------------------
-
-.. attention::
-
-    The |websockets| implementation requires a :command:`Python` version 3.7 or later.
 
 When the ``event_link`` option is set to ``WS``, |Supvisors| creates a |websockets| server that binds on all interfaces
 using the ``event_port`` option defined in the :ref:`supvisors_section` of the |Supervisor| configuration file.
