@@ -36,21 +36,21 @@ class ApplicationRules:
     """ Definition of the rules for starting an application, iaw rules file.
 
     Attributes are:
-        - managed: set to True when application rules are found from the rules file ;
-        - distribution: the distribution rule of the application ;
-        - identifiers: the Supervisors where the application can be started if not distributed (default: all) ;
-        - hash_identifiers: when # rule is used, the application can be started on one of the Supervisors identified ;
+        - managed: set to True when application rules are found from the rules file;
+        - distribution: the distribution rule of the application;
+        - identifiers: the Supervisors where the application can be started if not distributed (default: all);
+        - hash_identifiers: when # rule is used, the application can be started on one of the Supervisors identified;
         - start_sequence: defines the order of this application when starting all the applications
-          in the DEPLOYMENT state (0 means: no automatic start) ;
+          in the DEPLOYMENT state (0 means: no automatic start);
         - stop_sequence: defines the order of this application when stopping all the applications
-          (0 means: immediate stop) ;
+          (0 means: immediate stop);
         - starting_strategy: defines the strategy to apply when choosing the identifier where the process
-          shall be started during the starting of the application ;
+          shall be started during the starting of the application;
         - starting_failure_strategy: defines the strategy to apply when a required process cannot be started
-          during the starting of the application ;
+          during the starting of the application;
         - running_failure_strategy: defines the default strategy to apply when a required process crashes
-          when the application is running ;
-        - status_formula: the formula describing the application operational status ;
+          when the application is running;
+        - status_formula: the formula describing the application operational status;
         - status_tree: the AST-parsed formula describing the application operational status.
     """
 
@@ -107,8 +107,8 @@ class ApplicationRules:
         """ Check the stop_sequence value.
         If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
 
-        :param application_name: the name of the application considered.
-        :return: None
+        :param application_name: The name of the application considered.
+        :return: None.
         """
         if self.stop_sequence < 0:
             self.logger.trace(f'ApplicationRules.check_stop_sequence: {application_name}'
@@ -126,8 +126,8 @@ class ApplicationRules:
             - either ['*'] when all Supervisors are applicable
             - or any subset of these Supervisors.
 
-        :param application_name: the name of the application considered.
-        :return: None
+        :param application_name: The name of the application considered.
+        :return: None.
         """
         error = True
         result = re.match(r'.*[-_](\d+)$', application_name)
@@ -139,8 +139,7 @@ class ApplicationRules:
             if application_number < 0:
                 self.logger.error(f'ApplicationRules.check_hash_identifiers: index of {application_name} must be > 0')
             else:
-                self.logger.trace(f'ApplicationRules.check_hash_identifiers: application_name={application_name}'
-                                  f' application_number={application_number}')
+                self.logger.trace(f'ApplicationRules.check_hash_identifiers: {application_name=} {application_number=}')
                 if '*' in self.hash_identifiers:
                     # all identifiers defined in the supvisors section of the supervisor configuration are applicable
                     ref_identifiers = list(self.supvisors.mapper.instances.keys())
@@ -150,7 +149,7 @@ class ApplicationRules:
                 # if there are more application instances than possible identifiers, roll over
                 index = application_number % len(ref_identifiers)
                 self.identifiers = [ref_identifiers[index]]
-                self.logger.debug(f'ApplicationRules.check_hash_identifiers: application_name={application_name}'
+                self.logger.debug(f'ApplicationRules.check_hash_identifiers: {application_name=}'
                                   f' identifiers={self.identifiers}')
                 error = False
         if error:
@@ -212,8 +211,8 @@ class HomogeneousGroup:
     def __init__(self, program_name: str, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
-        :param program_name: the name of the homogeneous group
-        :param supvisors: the global Supvisors structure
+        :param program_name: The name of the homogeneous group.
+        :param supvisors: The global Supvisors structure.
         """
         self.supvisors = supvisors
         self.program_name = program_name
@@ -229,8 +228,8 @@ class HomogeneousGroup:
         """ Add a process to the homogeneous group.
         process is expected to have the correct program_name (not checked here).
 
-        :param process: the process belonging to the group
-        :return: None
+        :param process: the process belonging to the group.
+        :return: None.
         """
         self.processes.append(process)
         # check at/hash rule consistence
@@ -315,19 +314,19 @@ class HomogeneousGroup:
                 # filter the unknown identifiers (or remaining aliases)
                 ref_identifiers = self.supvisors.mapper.filter(self.at_identifiers)
             self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
-                              f' ref_identifiers={ref_identifiers}')
+                              f' {ref_identifiers=}')
             # the aim of at_identifiers is to distribute the processes over a list of Supvisors instances,
             #   without having 2 processes assigned to the same identifier
             # get assigned identifiers, assuming rules identifiers have size == 1
             assigned_identifiers = [process.rules.identifiers[0] for process in process_list
                                     if process.rules.identifiers]
             self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
-                              f' assigned_identifiers={assigned_identifiers}')
+                              f' {assigned_identifiers=}')
             # deduce unassigned identifiers
             unassigned_identifiers = [identifier for identifier in ref_identifiers
                                       if identifier not in assigned_identifiers]
             self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
-                              f' unassigned_identifiers={unassigned_identifiers}')
+                              f' {unassigned_identifiers=}')
             # resolve what can be done
             for process, identifier in zip(unassigned_processes, unassigned_identifiers):
                 process.rules.at_identifiers = []
@@ -361,7 +360,7 @@ class HomogeneousGroup:
                 # filter the unknown identifiers (or remaining aliases)
                 ref_identifiers = self.supvisors.mapper.filter(self.hash_identifiers)
             self.logger.debug(f'ProcessRules.assign_hash_identifiers: program={self.program_name}'
-                              f' ref_identifiers={ref_identifiers}')
+                              f' {ref_identifiers=}')
             # the aim of hash_identifiers is to distribute the processes over a list of Supvisors instances, so
             # unassigned processes will go to the least loaded Supvisors instance, wrt the homogeneous group considered
             process_count_per_instance = {identifier: [] for identifier in ref_identifiers}
@@ -373,7 +372,7 @@ class HomogeneousGroup:
             process_count = [[len(process_count_per_instance[identifier]), identifier]
                              for identifier in ref_identifiers]
             self.logger.debug(f'ProcessRules.assign_hash_identifiers: program={self.program_name}'
-                              f' process_count={process_count}')
+                              f' {process_count=}')
             for process in unassigned_processes:
                 # choose the Supvisors instance the least loaded (without sorting by identifier name)
                 count, identifier = identifier_count = min(process_count, key=lambda x: x[0])
@@ -475,8 +474,8 @@ class ApplicationStatus:
     def state(self, new_state: ApplicationStates) -> None:
         """ Setter of state attribute.
 
-        :param new_state: the new application state
-        :return: None
+        :param new_state: The new application state.
+        :return: None.
         """
         if self._state != new_state:
             self._state = new_state
@@ -486,7 +485,7 @@ class ApplicationStatus:
         """ Check if one of the application processes is running.
         The application state may be STOPPED in this case if the running process is out of the starting sequence.
 
-        :return: True if any of the application processes is running
+        :return: True if any of the application processes is running.
         """
         return any(process.running() for process in self.processes.values())
 
@@ -542,8 +541,8 @@ class ApplicationStatus:
     def remove_process(self, process_name: str) -> None:
         """ Remove a process from the process list.
 
-        :param process_name: the process to be removed from the application
-        :return: None
+        :param process_name: The process to be removed from the application.
+        :return: None.
         """
         self.logger.trace(f'ApplicationStatus.remove_process: {self.application_name}'
                           f' - removing process={process_name}')
@@ -593,7 +592,7 @@ class ApplicationStatus:
             # the common list is the intersection of all subsets
             actual_identifiers = actual_identifiers[0].intersection(*actual_identifiers)
         self.logger.debug(f'ApplicationStatus.possible_identifiers: application_name={self.application_name}'
-                          f' actual_identifiers={actual_identifiers}')
+                          f' {actual_identifiers=}')
         # intersect with rules
         return [identifier
                 for identifier in filtered_identifiers
@@ -620,32 +619,32 @@ class ApplicationStatus:
                                               if not info['disabled']}
                                              for process in self.processes.values()]
         self.logger.trace(f'ApplicationStatus.possible_node_identifiers: application_name={self.application_name}'
-                          f' actual_identifiers={actual_identifiers}')
+                          f' {actual_identifiers=}')
         # test nodes individually
         all_node_identifiers = set()
         for node, identifiers_list in self.supvisors.mapper.nodes.items():
             # from all node identifiers, intersect with rules identifiers
             filtered_node_identifiers = {x for x in identifiers_list if x in filtered_identifiers}
             self.logger.trace(f'ApplicationStatus.possible_node_identifiers: application_name={self.application_name}'
-                              f' node={node} filtered_node_identifiers={filtered_node_identifiers}')
+                              f' {node=} {filtered_node_identifiers=}')
             # check that every process has a solution on the node
             config_identifiers = set()
             for process_identifiers in actual_identifiers:
                 process_node_identifiers = filtered_node_identifiers & set(process_identifiers)
                 if not process_node_identifiers:
                     self.logger.debug('ApplicationStatus.possible_node_identifiers:'
-                                      f' application_name={self.application_name} has no solution on node={node}')
+                                      f' application_name={self.application_name} has no solution on {node=}')
                     break
                 # add remaining identifiers to the intersections union
                 config_identifiers.update(process_node_identifiers)
             else:
                 self.logger.debug('ApplicationStatus.possible_node_identifiers:'
-                                  f' application_name={self.application_name} node={node}'
+                                  f' application_name={self.application_name} {node=}'
                                   f' solution={config_identifiers}')
                 # add the node solution to the application solutions
                 all_node_identifiers.update(config_identifiers)
         self.logger.debug(f'ApplicationStatus.possible_node_identifiers: application_name={self.application_name}'
-                          f' all_node_identifiers={all_node_identifiers}')
+                          f' {all_node_identifiers=}')
         # return the node identifiers keeping the ordering defined in rules
         return [identifier
                 for identifier in filtered_identifiers
@@ -666,7 +665,7 @@ class ApplicationStatus:
         """ Get printable application sequence for log traces.
         Only the name of the process is kept.
 
-        :return: the simplified sequence
+        :return: The simplified sequence.
         """
         return {seq: [proc.process_name for proc in proc_list]
                 for seq, proc_list in application_sequence.items()}
@@ -675,7 +674,7 @@ class ApplicationStatus:
         """ Evaluate the sequencing of the starting / stopping application from its list of processes.
         This makes sense only for managed applications.
 
-        :return: None
+        :return: None.
         """
         self.start_sequence.clear()
         self.stop_sequence.clear()
@@ -707,7 +706,7 @@ class ApplicationStatus:
 
     def get_start_sequence_expected_load(self) -> int:
         """ Return the sum of the expected loading of the processes in the starting sequence.
-        This is used only in the event where the application is not distributed and the whole application loading
+        This is used only in the event where the application is not distributed, and the whole application loading
         has to be checked on a single Supervisor.
 
         :return: the expected loading of the application.
@@ -754,7 +753,7 @@ class ApplicationStatus:
             elif process.displayed_state == ProcessStates.STOPPING:
                 stopping = True
         self.logger.trace(f'ApplicationStatus.update_state: application_name={self.application_name}'
-                          f' - starting={starting} running={running} stopping={stopping}')
+                          f' - {starting=} {running=} {stopping=}')
         # apply rules for state
         if stopping:
             # if at least one process is STOPPING, let's consider that application is stopping
@@ -798,7 +797,7 @@ class ApplicationStatus:
                     possible_major_failure = True
         self.logger.trace(f'ApplicationStatus.update_status_required: application_name={self.application_name}'
                           f' major_failure={self.major_failure} minor_failure={self.minor_failure}'
-                          f' possible_major_failure={possible_major_failure}')
+                          f' {possible_major_failure=}')
         # possible major failure is confirmed if the application is not stopped
         if self.state != ApplicationStates.STOPPED:
             self.major_failure |= possible_major_failure
@@ -823,17 +822,15 @@ class ApplicationStatus:
         :param node: The current AST node.
         :return: Either a boolean value or a list a boolean values intended to be used by an upper Call.
         """
-        # handle string leaves (ast.Str is deprecated from Python < 3.8)
+        # handle string leaves
         leaf: Optional[str] = None
-        if type(node) is ast.Str:
-            leaf = node.s
-        elif type(node) is ast.Constant and type(node.value) is str:
+        if type(node) is ast.Constant and type(node.value) is str:
             leaf = node.value
         if leaf is not None:
             if leaf in self.processes:
                 return self._get_process_status(leaf)
             matches = self._get_matches(leaf)
-            self.logger.debug(f'ApplicationStatus.evaluate: leaf={leaf} matches={matches}')
+            self.logger.debug(f'ApplicationStatus.evaluate: {leaf=} {matches=}')
             if len(matches) == 1:
                 return self._get_process_status(matches[0])
             elif len(matches) >= 1:
@@ -851,7 +848,7 @@ class ApplicationStatus:
         if type(node) is ast.BoolOp:
             args_eval = [self.evaluate(x) for x in node.values]
             if any(type(x) is not bool for x in args_eval):
-                raise ApplicationStatusParseError(f'cannot apply BoolOp on unresolved expression')
+                raise ApplicationStatusParseError('cannot apply BoolOp on unresolved expression')
             if type(node.op) is ast.And:
                 return all(args_eval)
             if type(node.op) is ast.Or:
@@ -861,7 +858,7 @@ class ApplicationStatus:
             if type(node.op) is ast.Not:
                 args_eval = self.evaluate(node.operand)
                 if type(args_eval) is not bool:
-                    raise ApplicationStatusParseError(f'cannot apply UnaryOp on unresolved expression')
+                    raise ApplicationStatusParseError('cannot apply UnaryOp on unresolved expression')
                 return not args_eval
             raise ApplicationStatusParseError(f'unsupported UnaryOp={type(node.op).__name__}')
         raise ApplicationStatusParseError(f'unsupported Expr={type(node).__name__}')

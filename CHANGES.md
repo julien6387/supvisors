@@ -3,6 +3,7 @@
 ## 0.19 (2025-07-20)
 
 * Python 3.9 becomes the minimal version.
+  Python 3.6 to Python 3.8 are not supported anymore.
 
 * Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.
 
