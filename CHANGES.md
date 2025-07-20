@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.19 (2025-07-22)
+## 0.19 (2025-07-20)
 
 * Fix the statistics compiler, so that it manages the **Supvisors** instances discovered.
 

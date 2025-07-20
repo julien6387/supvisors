@@ -11,18 +11,18 @@ Overview
 The |Supvisors| software is born from a common need in embedded systems where applications are distributed over several
 nodes. The problematic comes with the following challenges:
 
-    * to have a status of the processes,
-    * to have a synthetic status of the applications based on the processes status,
-    * to have basic statistics about the resources taken by the applications,
-    * to have a basic status of the nodes,
-    * to control applications and processes dynamically,
+    * to have a status of the Processes,
+    * to have a synthetic Application status based on the Processes status,
+    * to have basic statistics about the resources taken by the Applications,
+    * to have a basic status of the Nodes,
+    * to control Applications and Processes dynamically,
     * to distribute the same application over different platforms (developer machine, integration platform, etc),
     * to deal with resources (CPU, memory, network, etc),
     * to deal with failures:
 
-        + missing node when starting,
-        + crash of a process,
-        + crash of a node.
+        + missing Node when starting,
+        + crash of a Process,
+        + crash of a Node.
 
 As a bonus:
 
@@ -44,7 +44,7 @@ Definitions
 
 Here follows a few definitions of terms are used throughout the present documentation.
 
-    The term *Node* refers to an UNIX operating system having a dedicated host name and IP address.
+    The term *Node* refers to an UNIX operating system having a dedicated host name and IPv4 address.
 
     A |Supervisor| *instance* is a |Supervisor| damon running on a *Node*, and with a distinct HTTP configuration.
 

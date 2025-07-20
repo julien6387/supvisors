@@ -155,7 +155,7 @@ The next card provides the |Supvisors| state and is displayed at the center of t
 
 ``ELECTION``
 
-    In this state, |Supvisors| is electing a *Master* instance among tha active |Supvisors| instances.
+    In this state, |Supvisors| is electing a *Master* instance among the active |Supvisors| instances.
 
     Like the previous state, the |Supvisors| :ref:`xml_rpc` is restricted.
 

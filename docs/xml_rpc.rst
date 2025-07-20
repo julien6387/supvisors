@@ -45,7 +45,7 @@ Status
             'now_monotonic'    ``float``         The monotonic time, in the reference time of the local host.
             'fsm_statecode'    ``int``           The |Supvisors| state, in [0;8].
             'fsm_statename'    ``str``           The |Supvisors| state as string, in [``'OFF'``, ``'SYNCHRONIZATION'``,
-                                                 ``ELECTION``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
+                                                 ``'ELECTION'``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
                                                  ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'FINAL'``].
             'degraded_mode'    ``bool``          True if |Supvisors| is working with missing |Supvisors| instances.
             'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.
@@ -68,7 +68,7 @@ Status
             'now_monotonic'    ``float``         The monotonic time, in the reference time of the local host.
             'fsm_statecode'    ``int``           The |Supvisors| state, in [0;8].
             'fsm_statename'    ``str``           The |Supvisors| state as string, in [``'OFF'``, ``'SYNCHRONIZATION'``,
-                                                 ``ELECTION``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
+                                                 ``'ELECTION'``, ``'DISTRIBUTION'``, ``'OPERATION'``, ``'CONCILIATION'``,
                                                  ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'FINAL'``].
             'degraded_mode'    ``bool``          True if |Supvisors| is working with missing |Supvisors| instances.
             'discovery_mode'   ``bool``          True if the |Supvisors| discovery mode is activated.

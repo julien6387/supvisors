@@ -44,8 +44,8 @@ UDP Multicast
 The second protocol implemented in |Supvisors| is based on an **UDP Multicast**. It relies on the following options
 in the ``[supvisors]`` section in the |Supervisor| configuration file:
 
-    * ``multicast_group`` ;
-    * ``multicast_interface`` ;
+    * ``multicast_group``;
+    * ``multicast_interface``;
     * ``multicast_ttl``.
 
 With this protocol, the |Supvisors| instances could be unknown at start-up and will be discovered on-the-fly.
@@ -68,10 +68,10 @@ are mutually aware of each other.
 The following options defined in the :ref:`supvisors_section` of the |Supervisor| configuration file are particularly
 used for synchronizing multiple instances of |Supervisor|:
 
-    * ``supvisors_list`` ;
-    * ``synchro_options`` ;
-    * ``synchro_timeout`` ;
-    * ``core_identifiers`` ;
+    * ``supvisors_list``;
+    * ``synchro_options``;
+    * ``synchro_timeout``;
+    * ``core_identifiers``;
     * ``auto_fence``.
 
 
@@ -85,8 +85,8 @@ At the beginning, all |Supvisors| instances are declared in an ``STOPPED`` state
 When the first ``TICK`` event is received from a remote |Supvisors| instance, a hand-shake is performed
 between the 2 |Supvisors| instances. The local |Supvisors| instance:
 
-    * sets the remote |Supvisors| instance state to ``CHECKING`` ;
-    * gets the remote |Supvisors| instance network details by a ``supvisors.get_local_supvisors_info()`` ;
+    * sets the remote |Supvisors| instance state to ``CHECKING``;
+    * gets the remote |Supvisors| instance network details by a ``supvisors.get_local_supvisors_info()``;
     * performs a ``supvisors.get_instance_info(local_identifier)`` XML-RPC to the remote |Supvisors| instance
       in order to know how the local |Supvisors| instance is perceived by the remote |Supvisors| instance.
 
@@ -94,12 +94,12 @@ At this stage, 2 possibilities:
 
     * the local |Supvisors| instance is seen as ``ISOLATED`` by the remote instance:
 
-        + the remote |Supvisors| instance status is then reciprocally set to ``ISOLATED`` ;
+        + the remote |Supvisors| instance status is then reciprocally set to ``ISOLATED``;
 
     * the local |Supvisors| instance is NOT seen as ``ISOLATED`` by the remote instance:
 
-        + a ``supervisor.getAllProcessInfo()`` XML-RPC is requested to the remote instance ;
-        + the processes information is loaded into the internal data structure ;
+        + a ``supervisor.getAllProcessInfo()`` XML-RPC is requested to the remote instance;
+        + the processes information is loaded into the internal data structure;
         + the remote |Supvisors| instance status is set to ``CHECKED``, then ``RUNNING``.
 
 What happens next will depend on the conditions selected in the ``synchro_options`` option.
@@ -140,7 +140,7 @@ When the ``TIMEOUT`` option is selected, each |Supvisors| instance waits for ``s
 to give a chance to all other instances to publish. When this delay is exceeded, all the |Supvisors| instances
 that are **not** identified as ``RUNNING`` or ``ISOLATED`` are set to:
 
-    * ``STOPPED`` if `Auto-Fencing`_ is **not** activated ;
+    * ``STOPPED`` if `Auto-Fencing`_ is **not** activated;
     * ``ISOLATED`` if `Auto-Fencing`_ is activated.
 
 This option prevails over all other ``synchro_options`` options if combined with them.
@@ -288,7 +288,7 @@ distributed applications.
 |Supvisors| introduces new XML-RPCs that are capable of taking into account extra arguments that are passed
 to the command line before the process is started:
 
-   * ``supvisors.start_args``: start a process in the local |Supvisors| instance ;
+   * ``supvisors.start_args``: start a process in the local |Supvisors| instance;
    * ``supvisors.start_process``: start a process using a starting strategy.
 
 .. note::
@@ -324,10 +324,10 @@ The following rules are applicable whatever the chosen strategy:
 
     * the process must not be already in a *running* state in a broad sense, i.e. ``RUNNING``, ``STARTING``
       or ``BACKOFF`` ;
-    * the process must be known to the |Supervisor| of the targeted |Supvisors| instance ;
-    * the related program must be enabled in the targeted |Supvisors| instance ;
-    * the targeted |Supvisors| instance must be ``RUNNING`` ;
-    * the targeted |Supvisors| instance must be allowed in the ``identifiers`` rule of the process ;
+    * the process must be known to the |Supervisor| of the targeted |Supvisors| instance;
+    * the related program must be enabled in the targeted |Supvisors| instance;
+    * the targeted |Supvisors| instance must be ``RUNNING``;
+    * the targeted |Supvisors| instance must be allowed in the ``identifiers`` rule of the process;
     * the *load* of the targeted node where multiple |Supvisors| instances may be running must not exceed 100%
       when adding the ``expected_loading`` of the program to be started.
 
@@ -394,10 +394,10 @@ The internal *Starter* of |Supvisors| applies the following logic to start a pro
 
 This single job is considered completed when:
 
-    * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not** set for this process ;
-    * an ``EXITED`` event is received with an expected exit code and the ``wait_exit`` rule is set for this process ;
-    * an error is encountered (``FATAL`` event, ``EXITED`` event with an unexpected exit code) ;
-    * no ``STARTING`` event has been received 2 ticks after the XML-RPC ;
+    * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not** set for this process;
+    * an ``EXITED`` event is received with an expected exit code and the ``wait_exit`` rule is set for this process;
+    * an error is encountered (``FATAL`` event, ``EXITED`` event with an unexpected exit code);
+    * no ``STARTING`` event has been received 2 ticks after the XML-RPC;
     * no ``RUNNING`` event has been received X+2 ticks after the XML-RPC, X corresponding to the number of ticks needed
       to cover the ``startsecs`` seconds of the program definition in the |Supvisors| instance where the process
       has been requested to start.
@@ -458,7 +458,7 @@ the ``start_sequence`` rule configured for the applications and processes.
 
 The global start sequence corresponds to a dictionary where:
 
-    * the keys correspond to the list of ``start_sequence`` values defined in the application rules ;
+    * the keys correspond to the list of ``start_sequence`` values defined in the application rules;
     * the value associated to a key is the list of application start sequences whose applications have this key
       as ``start_sequence``.
 
@@ -500,10 +500,10 @@ Starting Failure strategy
 
 When an application is starting, it may happen that any of its programs cannot be started due to various reasons:
 
-    * the program command line is wrong ;
-    * third parties are missing ;
-    * none of the |Supvisors| instances defined in the ``identifiers`` of the program rules are started ;
-    * the applicable |Supvisors| instances are already too much loaded ;
+    * the program command line is wrong;
+    * third parties are missing;
+    * none of the |Supvisors| instances defined in the ``identifiers`` of the program rules are started;
+    * the applicable |Supvisors| instances are already too much loaded;
     * etc.
 
 |Supvisors| uses the ``starting_failure_strategy`` option of the rules file to determine the behavior to apply
@@ -512,8 +512,8 @@ their absence is minor by definition.
 
 Possible values are:
 
-    * ``ABORT``: Abort the application starting ;
-    * ``STOP``: Stop the application ;
+    * ``ABORT``: Abort the application starting;
+    * ``STOP``: Stop the application;
     * ``CONTINUE``: Skip the failure and continue the application starting.
 
 
@@ -535,11 +535,11 @@ that some applications cannot survive if one of their processes is just restarte
 
 Possible values are:
 
-    * ``CONTINUE``: Skip the failure and the application keeps running ;
-    * ``RESTART_PROCESS``: Restart the lost process on another |Supvisors| instance ;
-    * ``STOP_APPLICATION``: Stop the application ;
-    * ``RESTART_APPLICATION``: Restart the application ;
-    * ``SHUTDOWN``: Shutdown |Supvisors| (i.e. all |Supvisors| instances) ;
+    * ``CONTINUE``: Skip the failure and the application keeps running;
+    * ``RESTART_PROCESS``: Restart the lost process on another |Supvisors| instance;
+    * ``STOP_APPLICATION``: Stop the application;
+    * ``RESTART_APPLICATION``: Restart the application;
+    * ``SHUTDOWN``: Shutdown |Supvisors| (i.e. all |Supvisors| instances);
     * ``RESTART``: Restart |Supvisors| (i.e. all |Supvisors| instances).
 
 .. important::
@@ -595,9 +595,9 @@ The internal *Stopper* of |Supvisors| applies the following logic to stop a proc
 
 This single job is considered completed when:
 
-    * a ``STOPPED`` event is received for this process ;
-    * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the exit code) ;
-    * no ``STOPPING`` event has been received 2 ticks after the XML-RPC ;
+    * a ``STOPPED`` event is received for this process;
+    * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the exit code);
+    * no ``STOPPING`` event has been received 2 ticks after the XML-RPC;
     * no ``STOPPED`` event has been received X+2 ticks after the XML-RPC, X corresponding to the number of ticks needed
       to cover the ``stopwaitsecs`` seconds of the program definition in the |Supvisors| instance where the process
       has been requested to stop.
@@ -656,7 +656,7 @@ using the ``stop_sequence`` rule configured for the applications and processes.
 
 The global stop sequence corresponds to a dictionary where:
 
-    * the keys correspond to the list of ``stop_sequence`` values defined in the application rules ;
+    * the keys correspond to the list of ``stop_sequence`` values defined in the application rules;
     * the value associated to a key is the list of application stop sequences whose applications have this key
       as ``stop_sequence``.
 
@@ -683,7 +683,7 @@ although all of them may have the capability to start it.
 
 Nevertheless, it is still likely to happen in a few cases:
 
-    * using a request to |Supervisor| itself (through Web UI, :program:`supervisorctl`, XML-RPC) ;
+    * using a request to |Supervisor| itself (through Web UI, :program:`supervisorctl`, XML-RPC);
     * upon a network failure.
 
 .. attention::
