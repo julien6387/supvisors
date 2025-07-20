@@ -259,7 +259,7 @@ class SupvisorsInstanceStatus:
         """ Return True if the Supvisors instance is in CHECKING state and the timestamp is later than the entry date
         in the CHECKING state.
 
-        :param timestamp: the message timestamp.
+        :param timestamp: The message timestamp.
         :return: True if the CHECKING state is valid.
         """
         return self.state == SupvisorsInstanceStates.CHECKING and timestamp > self.checking_time
@@ -268,10 +268,10 @@ class SupvisorsInstanceStatus:
                     local_sequence_counter: int = -1):
         """ Update the time attributes of the current object, including the time attributes of all its processes.
 
-        :param remote_sequence_counter: the TICK counter received from the Supvisors instance ;
-        :param remote_time: the timestamp received from the Supvisors instance ;
-        :param remote_mtime: the timestamp received from the Supvisors instance ;
-        :param local_sequence_counter: the last TICK counter received from the local Supvisors instance ;
+        :param remote_sequence_counter: the TICK counter received from the Supvisors instance.
+        :param remote_time: the timestamp received from the Supvisors instance.
+        :param remote_mtime: the timestamp received from the Supvisors instance.
+        :param local_sequence_counter: the last TICK counter received from the local Supvisors instance.
         :return: None
         """
         self.logger.debug(f'SupvisorsInstanceStatus.update_tick: update Supvisors={self.usage_identifier}' 
@@ -290,8 +290,8 @@ class SupvisorsInstanceStatus:
     def add_process(self, process: ProcessStatus) -> None:
         """ Add a new process to the process list.
 
-        :param process: the process status to be added to the Supvisors instance
-        :return: None
+        :param process: The process status to be added to the Supvisors instance.
+        :return: None.
         """
         self.processes[process.namespec] = process
         # update the collector withe process if it is already running
@@ -303,8 +303,8 @@ class SupvisorsInstanceStatus:
     def update_process(self, process: ProcessStatus) -> None:
         """ Upon a process state change, check if a pid is available to update the collector.
 
-        :param process: the process status that has been updated
-        :return: None
+        :param process: The process status that has been updated.
+        :return: None.
         """
         if self.stats_collector:
             pid = process.get_pid(self.identifier)
@@ -313,8 +313,8 @@ class SupvisorsInstanceStatus:
     def remove_process(self, process: ProcessStatus) -> None:
         """ Remove a process from the process list.
 
-        :param process: the process to be removed from the Supvisors instance
-        :return: None
+        :param process: The process to be removed from the Supvisors instance.
+        :return: None.
         """
         del self.processes[process.namespec]
         # update the collector
@@ -331,7 +331,7 @@ class SupvisorsInstanceStatus:
         """ Return the load of the Supvisors instance, by summing the declared load of the processes running
         on the Supvisors instance.
 
-        :return: the total load
+        :return: The total load.
         """
         instance_load = sum(process.rules.expected_load for process in self.running_processes())
         self.logger.trace(f'SupvisorsInstanceStatus.get_load: Supvisors={self.usage_identifier} load={instance_load}')
@@ -340,7 +340,7 @@ class SupvisorsInstanceStatus:
     def has_error(self) -> bool:
         """ Return True if any process managed by the local Supervisor is in failure.
 
-        :return: the error status
+        :return: The error status.
         """
         return (self.state == SupvisorsInstanceStates.RUNNING
                 and any(process.crashed(self.identifier)
