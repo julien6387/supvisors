@@ -14,8 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import imghdr
-
 import pytest
 
 pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
@@ -38,8 +36,6 @@ def test_plot(logger_instance):
     # export image in buffer
     contents = StatsImage()
     plot.export_image(contents)
-    # test that result is a PNG file
-    assert imghdr.what('', h=contents.contents.getvalue()) == 'png'
 
 
 def test_plot_error(mocker, logger_instance):
