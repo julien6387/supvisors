@@ -19,7 +19,6 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 
-from supvisors import __version__
 from supvisors.rpcinterface import *
 from supvisors.statscollector import StatsMsgType
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, DistributionRules, SupvisorsStates,
@@ -42,7 +41,7 @@ def test_creation(supvisors_instance, rpc):
 
 def test_api_version(rpc):
     """ Test the get_api_version RPC. """
-    assert rpc.get_api_version() == __version__
+    assert rpc.get_api_version() == supvisors_version
 
 
 def test_supvisors_state(mocker, rpc):
