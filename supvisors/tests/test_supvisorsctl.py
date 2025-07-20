@@ -21,7 +21,6 @@ from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.supervisorctl import DefaultControllerPlugin
 from supervisor.xmlrpc import Faults
 
-from supvisors import __version__
 from supvisors.supvisorsctl import *
 from supvisors.ttypes import SupvisorsFaults
 
@@ -1065,7 +1064,7 @@ def test_upcheck(controller, plugin):
     mocked_rpc.reset_mock()
     # test normal behaviour
     mocked_rpc.side_effect = None
-    mocked_rpc.return_value = __version__
+    mocked_rpc.return_value = supvisors_version
     assert plugin._upcheck()
     assert mocked_rpc.call_args_list == [call()]
 

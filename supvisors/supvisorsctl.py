@@ -27,7 +27,7 @@ from supervisor.options import ClientOptions, make_namespec, split_namespec
 from supervisor.states import RUNNING_STATES, ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
-from . import __version__
+from . import supvisors_version
 from .plugin import expand_faults
 from .rpcinterface import RPCInterface
 from .ttypes import ConciliationStrategies, StartingStrategies, SupvisorsInstanceStates, PayloadList
@@ -1477,9 +1477,9 @@ class ControllerPlugin(ControllerPluginBase):
         """ Check of the API versions. """
         try:
             api = self.supvisors().get_api_version()
-            if api != __version__:
+            if api != supvisors_version:
                 self.ctl.output('ERROR: this version of supvisorsctl expects to talk to a server '
-                                'with API version %s, but the remote version is %s.' % (__version__, api))
+                                'with API version %s, but the remote version is %s.' % (supvisors_version, api))
                 self.ctl.exitstatus = LSBInitExitStatuses.NOT_INSTALLED
                 return False
         except xmlrpclib.Fault as e:
