@@ -643,24 +643,24 @@ class _MasterSlaveState(_SynchronizedState):
     def _check_consistence(self) -> Optional[SupvisorsStates]:
         """ Check that the Master Supvisors instance is set, unique and is still RUNNING.
 
-        :return: the suggested state if the Master Supvisors instance is missing.
+        :return: The suggested state if the Master Supvisors instance is missing.
         """
         next_state: Optional[SupvisorsStates] = super()._check_consistence()
         if next_state:
             return next_state
         # check that the unique Master Supvisors instance is still RUNNING
-        # NOTE: this evaluation must be performed in a stable context. wait next period otherwise
-        if self.state_modes.is_stable():
-            if not self.state_modes.check_master(False):
-                self.logger.debug('WorkingState.check_consistence: Master not checked')
-                return SupvisorsStates.ELECTION
+        # NOTE: this evaluation could be based on the stable context, but it could take a few ticks to trigger
+        #       some reactivity is expected here
+        if not self.state_modes.check_master(False):
+            self.logger.debug('WorkingState.check_consistence: Master not checked')
+            return SupvisorsStates.ELECTION
         return None
 
 
 class DistributionState(_MasterSlaveState):
     """ In the DISTRIBUTION state, Supvisors starts automatically the applications having a starting model.
 
-    The distribution jobs are driven by the Supvisors Master instance only.
+    Only the Supvisors Master instance drives the distribution jobs.
     """
 
     def _activate_instances(self) -> Optional[SupvisorsStates]:

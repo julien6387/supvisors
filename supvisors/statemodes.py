@@ -400,7 +400,7 @@ class SupvisorsStateModes:
         """ Return True if a unique RUNNING Supvisors instance is considered as a Master by all Supvisors instances
         in a stable context.
 
-        :param election: add more logs when not in ELECTION state.
+        :param election: A flag for additional logs when not in ELECTION state.
         :return: True if one Master.
         """
         masters: NameSet = self.get_master_identifiers()

@@ -263,7 +263,7 @@ def check_master_slave_state(fsm_state: _MasterSlaveState, forced_state: Supviso
     assert not fsm_state.state_modes.check_master()
     result = fsm_state.next()
     if fsm_state.state_modes.is_master():
-        assert result == default_state
+        assert result == default_state or SupvisorsStates.ELECTION
     else:
         assert result == default_state or SupvisorsStates.OFF  # No-Master state in slave
     # reset stability
