@@ -691,6 +691,7 @@ def test_distribution_state_master(supvisors_ctx):
     assert isinstance(state, _OnState)
     assert isinstance(state, _SynchronizedState)
     assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _WorkingState)
 
     # test enter
     state.enter()
@@ -724,6 +725,7 @@ def test_distribution_state_slave(supvisors_ctx):
     assert isinstance(state, _OnState)
     assert isinstance(state, _SynchronizedState)
     assert isinstance(state, _MasterSlaveState)
+    assert isinstance(state, _WorkingState)
 
     # test enter
     state.enter()

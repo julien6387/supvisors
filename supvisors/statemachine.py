@@ -601,14 +601,14 @@ class _MasterSlaveState(_SynchronizedState):
 
         Must be redefined in subclasses.
 
-        :return: the next Supvisors state.
+        :return: The next Supvisors state.
         """
         return None
 
     def _slave_next(self) -> Optional[SupvisorsStates]:
         """ A Supvisors slave instance generally follows the Master state (that may be not defined yet).
 
-        :return: the Supvisors Master state.
+        :return: The Supvisors Master state.
         """
         return self.state_modes.master_state
 
@@ -657,7 +657,57 @@ class _MasterSlaveState(_SynchronizedState):
         return None
 
 
-class DistributionState(_MasterSlaveState):
+class _WorkingState(_MasterSlaveState):
+    """ Base class for working (DISTRIBUTION, OPERATION, CONCILIATION) states.
+
+    It transitions back to ELECTION when new Supvisors instances come into Supvisors.
+
+    It manages the impact on start/stop sequences when Supvisors instances are lost.
+    The Master may re-distribute the lost processes.
+    """
+
+    def _activate_instances(self) -> Optional[SupvisorsStates]:
+        """ Back to ELECTION when a new Supvisors instance is detected. """
+        checked_identifiers = self.context.activate_checked()
+        if checked_identifiers:
+            # call enter again to trigger a new distribution
+            self.logger.info('WorkingState.activate_instances: ELECTION required because of new'
+                             f' Supvisors instances={checked_identifiers}')
+            return SupvisorsStates.ELECTION
+        return None
+
+    def _common_next(self) -> None:
+        """ Operations to be performed by Master and Slaves.
+
+        :return: None.
+        """
+        # At this point, there may be a list of FAILED Supvisors instances
+        self.logger.debug(f'WorkingState.common_next: invalid={self.lost_instances}')
+        if self.lost_instances:
+            # inform Starter and Stopper because processes in failure may be removed if already in their pipes
+            # NOTE: any Supvisors instance can be requested by the user to plan and drive an application start sequence
+            #       only the automatic start sequence (DISTRIBUTION) is driven by the Master instance
+            self.supvisors.starter.on_instances_invalidation(self.lost_instances, self.lost_processes)
+            self.supvisors.stopper.on_instances_invalidation(self.lost_instances, self.lost_processes)
+
+    def _master_next(self) -> Optional[SupvisorsStates]:
+        """ A Master instance in a working state tries to re-distribute the processes that were running
+        on a Supvisors instance that has been lost.
+
+        :return: None.
+        """
+        # At this point, there may be a list of FAILED Supvisors instances
+        if self.lost_processes:
+            # the Master fixes failures if any
+            for process in self.lost_processes:
+                self.supvisors.failure_handler.add_default_job(process)
+            # trigger remaining jobs in RunningFailureHandler
+            self.supvisors.failure_handler.trigger_jobs()
+        # no state decision at this stage
+        return None
+
+
+class DistributionState(_WorkingState):
     """ In the DISTRIBUTION state, Supvisors starts automatically the applications having a starting model.
 
     Only the Supvisors Master instance drives the distribution jobs.
@@ -678,50 +728,13 @@ class DistributionState(_MasterSlaveState):
     def _master_next(self) -> Optional[SupvisorsStates]:
         """ Check if the starting tasks are completed.
 
-        :return: the next Supvisors state.
+        :return: The next Supvisors state.
         """
-        # WorkingState._master_next() returns always None
         super()._master_next()
         # Master goes to OPERATION when starting is completed
         if self.supvisors.starter.in_progress():
             return SupvisorsStates.DISTRIBUTION
         return SupvisorsStates.OPERATION
-
-
-class _WorkingState(_MasterSlaveState):
-    """ Base class for working (OPERATION, CONCILIATION) states.
-
-    It transitions back to ELECTION when new Supvisors instances come into Supvisors.
-
-    It manages the impact on start/stop sequences when Supvisors instances are lost.
-    The Master may re-distribute the lost processes.
-    """
-
-    def _activate_instances(self) -> Optional[SupvisorsStates]:
-        """ Back to ELECTION when a new Supvisors instance is detected. """
-        checked_identifiers = self.context.activate_checked()
-        if checked_identifiers:
-            # call enter again to trigger a new distribution
-            self.logger.info('WorkingState.activate_instances: ELECTION required because of new'
-                             f' Supvisors instances={checked_identifiers}')
-            return SupvisorsStates.ELECTION
-        return None
-
-    def _master_next(self) -> Optional[SupvisorsStates]:
-        """ A Master instance in a working state tries to re-distribute the processes that were running
-        on a Supvisors instance that has been lost.
-
-        :return: None.
-        """
-        # At this point, there may be a list of FAILED Supvisors instances
-        if self.lost_processes:
-            # the Master fixes failures if any
-            for process in self.lost_processes:
-                self.supvisors.failure_handler.add_default_job(process)
-            # trigger remaining jobs in RunningFailureHandler
-            self.supvisors.failure_handler.trigger_jobs()
-        # no state decision at this stage
-        return None
 
 
 class OperationState(_WorkingState):
@@ -816,7 +829,7 @@ class RestartingState(_EndingState):
     def _master_next(self) -> SupvisorsStates:
         """ The Master waits for all processes to be stopped.
 
-        :return: the next Supvisors state.
+        :return: The next Supvisors state.
         """
         # check if stopping jobs are in progress
         if self.supvisors.stopper.in_progress():
