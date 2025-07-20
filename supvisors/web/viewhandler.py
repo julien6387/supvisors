@@ -22,7 +22,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
-from supvisors import __version__
+from supvisors import supvisors_version
 from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.internal_com.mapper import SupvisorsInstanceId
 from supvisors.statemodes import StateModes, SupvisorsStateModes
@@ -134,7 +134,7 @@ class ViewHandler(MeldView):
             elt = root.findmeld('supvisors_mid')
             update_attrib(elt, 'class', 'failure')
         # set Supvisors version
-        root.findmeld('version_mid').content(__version__)
+        root.findmeld('version_mid').content(supvisors_version)
         # set bottom message
         footer_elt = root.findmeld('footer_mid')
         print_message(footer_elt, self.view_ctx.gravity, self.view_ctx.message,

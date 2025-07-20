@@ -16,7 +16,6 @@
 
 import pickle
 import random
-import sys
 from socket import getfqdn
 from unittest.mock import call
 
@@ -1021,34 +1020,9 @@ class Str:
         self.s = value
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_application_evaluate_strings_deprecated(filled_application):
+def test_application_evaluate_strings(filled_application):
     """ Test the ApplicationStatus.evaluate method with string expression from Python 3.8.
     ast.Str is obsolete since then and replaced by ast.Constant. """
-    # test string leaf error
-    expr = ast.Str('a string')
-    with pytest.raises(ApplicationStatusParseError):
-        filled_application.evaluate(expr)
-    # test string leaf with process status running (force ast.Str type because it )
-    expr = ast.Str('xfontsel')
-    assert filled_application.evaluate(expr) is True
-    # test string leaf with process status running
-    expr = ast.Str('xlogo')
-    assert filled_application.evaluate(expr) is False
-    # test pattern with single resolution
-    expr = ast.Str('xcl.ck')
-    assert filled_application.evaluate(expr) is False
-    # test pattern with multiple resolution
-    expr = ast.Str('(xlogo|sleep)')
-    assert filled_application.evaluate(expr) == [False, False]
-
-
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_application_evaluate_strings_38(filled_application):
-    """ Test the ApplicationStatus.evaluate method with string expression from Python 3.8.
-    ast.Str is obsolete since then and replaced by ast.Constant. """
-    # force ast.Str type because it is replaced by an ast.Constant at creation
-    ast.Str = Str
     # test string leaf error
     expr = ast.Constant('a string')
     with pytest.raises(ApplicationStatusParseError):
@@ -1070,7 +1044,7 @@ def test_application_evaluate_strings_38(filled_application):
 def test_application_evaluate_functions(filled_application):
     """ Test the ApplicationStatus.evaluate method with functions. """
     filled_application.processes['yeux_00'].expected_exit = False
-    # test all function
+    # test all functions
     tree = ast.parse('all("yeux.*")')
     assert filled_application.evaluate(tree.body[0].value) is False
     tree = ast.parse('all("yeux.*1")')

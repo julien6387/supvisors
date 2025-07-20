@@ -22,7 +22,7 @@ from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLev
 from supervisor.options import make_namespec, split_namespec, VERSION
 from supervisor.xmlrpc import Faults, RPCError
 
-from . import __version__
+from . import supvisors_version
 from .application import ApplicationStatus
 from .process import ProcessStatus
 from .strategy import get_supvisors_instance, conciliate_conflicts
@@ -64,7 +64,7 @@ class RPCInterface:
         :param Supvisors supvisors: the global Supvisors structure
         """
         self.supvisors = supvisors
-        self.logger.info(f'RPCInterface: using Supvisors={__version__} Supervisor={VERSION}')
+        self.logger.info(f'RPCInterface: using Supvisors={supvisors_version} Supervisor={VERSION}')
 
     @property
     def logger(self) -> Logger:
@@ -75,11 +75,11 @@ class RPCInterface:
     def get_api_version(self) -> str:
         """ Return the version of the RPC API used by **Supvisors**.
 
-        :return: the **Supvisors** version.
+        :return: The **Supvisors** version.
         :rtype: str
         """
         self.logger.blather('RPCInterface.get_api_version: do NOT make it static as it breaks the RPC Interface')
-        return __version__
+        return supvisors_version
 
     def get_supvisors_state(self) -> Payload:
         """ Return the state and modes of **Supvisors**.
