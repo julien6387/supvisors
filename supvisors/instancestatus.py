@@ -200,9 +200,9 @@ class SupvisorsInstanceStatus:
                                         f' transition rejected from {self.state.name} to {new_state.name}')
             self._state = new_state
             self.logger.warn(f'SupvisorsInstanceStatus.state: Supvisors={self.usage_identifier} is {self.state.name}')
-            # update the information in the local state & modes
+            # update the information in the local state and modes
             self.supvisors.state_modes.update_instance_state(self.identifier, new_state)
-            # TBC: test JLC
+            # mark the entry in CHECKING state
             if new_state == SupvisorsInstanceStates.CHECKING:
                 self.checking_time = time.monotonic()
 

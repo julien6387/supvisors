@@ -555,8 +555,8 @@ class Context:
 
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s.
 
-        :param event: the timer event.
-        :return: the identifiers of the invalidated Supvisors instances and the processes in failure.
+        :param event: The timer event.
+        :return: The identifiers of the invalidated Supvisors instances and the processes in failure.
         """
         # use the local TICK counter received as a reference
         sequence_counter = event['sequence_counter']
@@ -570,11 +570,10 @@ class Context:
     def on_instance_failure(self, status: SupvisorsInstanceStatus) -> None:
         """ Declare as FAILED a Supvisors instance that had an XML-RPC failure.
 
-        :param status: the Supvisors instance that sent the event.
+        :param status: The Supvisors instance that sent the event.
         :return: None.
         """
         # processes will be dealt in FAILED processing
-        self.logger.warn(f'Context.on_instance_failure: {status.usage_identifier} FAILED')
         status.state = SupvisorsInstanceStates.FAILED
         self.export_status(status)
 
@@ -584,8 +583,8 @@ class Context:
         of processes.
         A call to the XML-RPC removeProcessGroup triggers this event too.
 
-        :param status: the Supvisors instance from which the event has been received.
-        :param event: the event payload.
+        :param status: The Supvisors instance from which the event has been received.
+        :param event: The event payload.
         :return: None.
         """
         # accept events only in CHECKED / RUNNING state
