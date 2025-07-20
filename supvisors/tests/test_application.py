@@ -1015,11 +1015,6 @@ def test_application_get_matches(filled_application):
     assert sorted(filled_application._get_matches(r'yeux_[01]{2}')) == ['yeux_00', 'yeux_01']
 
 
-class Str:
-    def __init__(self, value):
-        self.s = value
-
-
 def test_application_evaluate_strings(filled_application):
     """ Test the ApplicationStatus.evaluate method with string expression from Python 3.8.
     ast.Str is obsolete since then and replaced by ast.Constant. """
