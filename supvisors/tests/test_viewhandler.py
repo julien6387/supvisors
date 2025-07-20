@@ -20,7 +20,6 @@ from unittest.mock import call, Mock
 import pytest
 from supervisor.states import SupervisorStates, ProcessStates
 
-from supvisors import __version__
 from supvisors.ttypes import ApplicationStates, SupvisorsInstanceStates
 from supvisors.web.viewhandler import *
 from .conftest import create_element, create_application
@@ -151,7 +150,7 @@ def test_write_common(mocker, supvisors_instance, handler):
     assert mocked_root.findmeld.call_args_list == [call('version_mid'), call('footer_mid')]
     assert not mocked_meta.deparent.called
     assert 'failure' not in mocked_supv.attrib['class']
-    assert mocked_version.content.call_args_list == [call(__version__)]
+    assert mocked_version.content.call_args_list == [call(supvisors_version)]
     assert mocked_msg.call_args_list == [call(footer_mid, 'severe', 'a message',
                                               handler.current_time, handler.local_nick_identifier)]
     # reset mocks
@@ -167,7 +166,7 @@ def test_write_common(mocker, supvisors_instance, handler):
                                                    call('footer_mid')]
     assert mocked_meta.deparent.called
     assert mocked_supv.attrib == {'class': 'failure'}
-    assert mocked_version.content.call_args_list == [call(__version__)]
+    assert mocked_version.content.call_args_list == [call(supvisors_version)]
     assert mocked_msg.call_args_list == [call(footer_mid, 'severe', 'a message',
                                               handler.current_time, handler.local_nick_identifier)]
 

@@ -40,9 +40,9 @@ WaitStringReturnType = Union[Callable[[], OnWaitStringReturnType], str]
 def startProcess(self, name: str, wait: bool = True):
     """ Overridden startProcess to handle a disabled process.
 
-    :param str name: the process namespec
-    :param bool wait: wait for the process to be fully started
-    :return: always ``True`` unless error.
+    :param str name: The process namespec.
+    :param bool wait: If set, wait for the process to be fully started.
+    :return: Always ``True`` unless error.
     :rtype: bool
     """
     # raise exception is process is disabled
@@ -61,7 +61,7 @@ class RPCInterface:
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes.
 
-        :param Supvisors supvisors: the global Supvisors structure
+        :param Supvisors supvisors: The global Supvisors structure.
         """
         self.supvisors = supvisors
         self.logger.info(f'RPCInterface: using Supvisors={supvisors_version} Supervisor={VERSION}')
