@@ -386,7 +386,7 @@ class SupvisorsStateModes:
         This method must be called only in a stable Supvisors context, otherwise there is no guarantee
         that the Supvisors Master instance seen locally as RUNNING is considered similarly in remote instances.
 
-        :return: the Master identifiers.
+        :return: The Master identifiers.
         """
         # it could directly return a set but useful to debug
         all_masters = {identifier: sm.master_identifier

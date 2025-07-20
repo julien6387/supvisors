@@ -733,6 +733,7 @@ class OperationState(_WorkingState):
 
         :return: The new Supvisors state.
         """
+        super()._master_next()
         # check if jobs are in progress
         if self.supvisors.starter.in_progress() or self.supvisors.stopper.in_progress():
             return SupvisorsStates.OPERATION
