@@ -247,8 +247,8 @@ Each box contains:
     * (on condition) a |star| star button allowing the user to ends the |Supvisors| synchronization phase and forcing
       the corresponding |Supvisors| instance as *Master* (only when |Supvisors| is in ``SYNCHRONIZATION`` state
       and ``USER`` is set in the ``synchro_options`` option);
-    * the |Supvisors| instance nick name, as a hyperlink to the corresponding `Supervisor Page`_
-      if the |Supvisors| instance is in the ``CHECKED`` or the ``RUNNING`` state ;
+    * the |Supvisors| instance nick name, as a hyperlink to the same page, but provided by
+      the targeted |Supvisors| instance, if the |Supvisors| instance is in the ``CHECKED`` or the ``RUNNING`` state ;
     * the |Supvisors| instance state, colored with the same rules used in the `Common Menu`_ ;
     * the |Supvisors| instance process loading ;
     * the list of all processes that are running in this |Supvisors| instance, whatever they belong to a *Managed*

@@ -60,10 +60,10 @@ class SupvisorsView(MainView):
     def _write_instance_box_title(self, instance_div_elt, status: SupvisorsInstanceStatus, user_sync: bool) -> None:
         """ Rendering of the Supvisors instance box title.
 
-        :param instance_div_elt: the Supvisors instance box element.
-        :param status: the Supvisors instance status.
-        :param user_sync: True if the Supvisors is configured to let the user end the synchronization phase.
-        :return: None
+        :param instance_div_elt: The Supvisors instance box element.
+        :param status: The Supvisors instance status.
+        :param user_sync: True if Supvisors is configured to let the user end the synchronization phase.
+        :return: None.
         """
         # remove the end_synchro button if appropriate
         th_elt = instance_div_elt.findmeld('user_sync_th_mid')
@@ -85,7 +85,7 @@ class SupvisorsView(MainView):
         elt = instance_div_elt.findmeld('identifier_a_mid')
         if status.has_active_state():
             # go to web page located hosted by the Supvisors instance
-            url = self.view_ctx.format_url(status.identifier, SupvisorsPages.PROC_INSTANCE_PAGE)
+            url = self.view_ctx.format_url(status.identifier, SupvisorsPages.SUPVISORS_PAGE)
             elt.attributes(href=url)
             update_attrib(elt, 'class', 'on')
         else:

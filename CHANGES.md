@@ -53,6 +53,10 @@
   `get_all_process_info`.
   The `last_event_time` in the Process status event is renamed as `last_event_mtime`.
 
+* Update the upper-left hyperlink of the **Supvisors** instance box in the main **Supvisors** Web page,
+  so that it leads to the same page, as provided by the other **Supvisors** instance, instead of leading
+  to the Supervisor page of the other **Supvisors** instance. 
+
 * Cancel individual subscriptions from the Supervisor events rather than perform a global clear.
 
 * Consider variable CPU frequency value returned by `psutil`.
