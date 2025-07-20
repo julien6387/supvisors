@@ -16,7 +16,7 @@
 
 import os
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 requires = ['supervisor >= 4.2.4, < 4.3']
 
@@ -66,7 +66,7 @@ setup(name='supvisors',
       platforms=[
           "Rocky 8.5"
       ],
-      packages=find_packages(),
+      packages=find_namespace_packages(),
       python_requires='>=3.6',
       install_requires=requires,
       extras_require={'statistics': statistics_require,
