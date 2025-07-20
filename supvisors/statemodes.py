@@ -356,11 +356,12 @@ class SupvisorsStateModes:
 
     def is_stable(self) -> bool:
         """ Return True if the Supvisors context is stable. """
-        # TBC: add condition all in same FSM state ?
+        # NOTE: decision NOT to consider that all Supvisors instances are in the same FSM state
+        #       because the Master is expected to transition before the slaves
         return len(self.stable_identifiers) > 0
 
     def evaluate_stability(self) -> None:
-        """ Evaluate the Supvisors stability, i.e. if all stable identifiers are identical for all Supvisors instances.
+        """ Evaluate the Supvisors stability, i.e., if all stable identifiers are identical for all Supvisors instances.
 
         This is called periodically from the Supvisors FSM.
         """

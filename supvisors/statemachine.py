@@ -458,6 +458,7 @@ class _SynchronizedState(_OnState):
         if global_failure:
             strategy = self.supvisors.options.supvisors_failure_strategy
             if strategy == SupvisorsFailureStrategies.RESYNC:
+                self.logger.info(f'SynchronizationState.exit: running_identifiers={self.context.running_identifiers()}')
                 return SupvisorsStates.SYNCHRONIZATION
             # NOTE: about SHUTDOWN strategy
             #       if the Master is set, it will just drive the other Supvisors instances, as usual
@@ -501,8 +502,10 @@ class ElectionState(_SynchronizedState):
         next_state: Optional[SupvisorsStates] = super().next()
         if next_state:
             return next_state
-        # exit only when ALL active Supvisors instances agree on the same identifier
+        # check the Supvisors stability
         if self.state_modes.is_stable():
+            # all Supvisors instances see the same list of running Supvisors instances
+            # check that every Supvisors instance agrees on the same Master
             if self.state_modes.check_master():
                 # WARN: a non-conditioned transition to DISTRIBUTION may loop infinitely
                 #       if the Master is still seen in ELECTION
@@ -510,8 +513,8 @@ class ElectionState(_SynchronizedState):
                 if self.state_modes.is_master():
                     return SupvisorsStates.DISTRIBUTION
                 # the Slave waits for the Master to transition
-                if self.state_modes.master_state != SupvisorsStates.ELECTION:
-                    return self.state_modes.master_state
+                if self.state_modes.master_state == SupvisorsStates.DISTRIBUTION:
+                    return SupvisorsStates.DISTRIBUTION
             # re-evaluate the context to possibly get a more relevant Master
             self.state_modes.select_master()
             # NOTE: after Master local selection, wait for selection to be shared and agreed

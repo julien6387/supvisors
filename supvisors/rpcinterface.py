@@ -85,7 +85,7 @@ class RPCInterface:
         """ Return the state and modes of **Supvisors**.
 
         The **Supvisors** state is the FSM state and is a reflection of the **Supvisors** *Master* instance state.
-        The **Supvisors** modes provides the identifiers of the **Supvisors** instances having starting
+        The **Supvisors** modes provide the identifiers of the **Supvisors** instances having starting
         or stopping jobs in progress.
 
         :return: the state and modes of **Supvisors**.
