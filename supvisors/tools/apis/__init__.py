@@ -53,10 +53,10 @@ def supervisor_error_handler(error):
                              Faults.NOT_RUNNING,
                              Faults.ALREADY_ADDED,
                              Faults.SHUTDOWN_STATE,
-                             SupvisorsFaults.NOT_MANAGED,
-                             SupvisorsFaults.DISABLED,
-                             SupvisorsFaults.NOT_APPLICABLE,
-                             SupvisorsFaults.BAD_SUPVISORS_STATE]:
+                             SupvisorsFaults.NOT_MANAGED.value,
+                             SupvisorsFaults.DISABLED.value,
+                             SupvisorsFaults.NOT_APPLICABLE.value,
+                             SupvisorsFaults.BAD_SUPVISORS_STATE.value]:
         # request rejected due to conflict with Supervisor / Supvisors internal state
         http_code = 409
     elif error.faultCode in [Faults.NOT_EXECUTABLE,
@@ -65,8 +65,8 @@ def supervisor_error_handler(error):
                              Faults.SPAWN_ERROR,
                              Faults.STILL_RUNNING,
                              Faults.CANT_REREAD,
-                             SupvisorsFaults.SUPVISORS_CONF_ERROR,
-                             SupvisorsFaults.NOT_INSTALLED]:
+                             SupvisorsFaults.SUPVISORS_CONF_ERROR.value,
+                             SupvisorsFaults.NOT_INSTALLED.value]:
         # something wrong with Supervisor / Supvisors configuration
         http_code = 500
     else:

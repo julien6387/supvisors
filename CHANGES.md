@@ -2,7 +2,8 @@
 
 ## 0.19.1 (202x-xx-xx)
 
-* Review HTTP error codes returned by `supvisorsflask`.
+* Review HTTP error codes returned by the REST API in `supvisorsflask`.
+
 
 ## 0.19 (2025-07-21)
 
