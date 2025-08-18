@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.19.1 (202x-xx-xx)
+
+* Review HTTP error codes returned by `supvisorsflask`.
+
 ## 0.19 (2025-07-21)
 
 * Python 3.9 becomes the minimal version.
