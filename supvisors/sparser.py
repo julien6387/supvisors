@@ -20,8 +20,7 @@ from os import path
 from sys import stderr
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from setuptools._distutils.util import strtobool
-from supervisor.datatypes import list_of_strings
+from supervisor.datatypes import list_of_strings, boolean
 from supervisor.loggers import Logger
 from supervisor.options import split_namespec
 
@@ -394,7 +393,7 @@ class Parser:
         str_value = elt.findtext(attr_string)
         if str_value:
             try:
-                value = bool(strtobool(str_value))
+                value = boolean(str_value)
                 setattr(rules, attr_string, value)
             except ValueError:
                 self.logger.warn(f'Parser.load_boolean: not a boolean-like for {Parser.get_element_name(elt)}'
