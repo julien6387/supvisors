@@ -1021,6 +1021,9 @@ def test_error_handlers():
     # test Supvisors exception (RPCError converted to xmlrpc.client.Fault) with code 500
     expected = {'message': 'wrong rules file', 'code': 100}, 500
     assert supervisor_error_handler(Fault(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, 'wrong rules file')) == expected
+    # test Supervisor exception (RPCError converted to xmlrpc.client.Fault) with code 400
+    expected = {'message': 'incorrect parameter', 'code': 2}, 400
+    assert supervisor_error_handler(Fault(Faults.INCORRECT_PARAMETERS, 'incorrect parameter')) == expected
 
 
 # test utilities
