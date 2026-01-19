@@ -63,6 +63,9 @@ def test_instant_all_cpu_statistics(mocker):
                      (83144, 765092),
                      (83100, 765103),
                      (82208, 766199)]
+    # test psutil issue
+    mocker.patch('psutil.cpu_times', side_effect=NotImplementedError)
+    assert instant_all_cpu_statistics() == []
 
 
 def test_instant_memory_statistics(mocker):
@@ -71,9 +74,12 @@ def test_instant_memory_statistics(mocker):
     mem = Mock(total=16481181696, available=9487249408, percent=42.4, used=6530781184, free=541007872,
                active=2982461440, inactive=11854032896, buffers=3313664, cached=9406078976, shared=117649408,
                slab=643690496)
-    mocker.patch('psutil.virtual_memory', return_value=mem)
+    mocked_mem = mocker.patch('psutil.virtual_memory', return_value=mem)
     stats = instant_memory_statistics()
     assert stats == 42.4
+    # test psutil issue
+    mocked_mem.side_effect = NotImplementedError
+    assert instant_memory_statistics() == 0.0
 
 
 def test_instant_net_io_statistics(mocker):
@@ -92,10 +98,16 @@ def test_instant_net_io_statistics(mocker):
                    'virbr0': Mock(bytes_sent=0, bytes_recv=0,
                                   packets_sent=0, packets_recv=0,
                                   errin=0, errout=0, dropin=0, dropout=0)}
-    mocker.patch('psutil.net_if_stats', return_value=if_stats)
-    mocker.patch('psutil.net_io_counters', return_value=io_counters)
+    mocked_stats = mocker.patch('psutil.net_if_stats', return_value=if_stats)
+    mocked_counters = mocker.patch('psutil.net_io_counters', return_value=io_counters)
     stats = instant_net_io_statistics()
     assert stats == {'ens33': (3224236577, 2661175503), 'lo': (5278203410, 5278203410)}
+    # test psutil issues
+    mocked_stats.side_effect = NotImplementedError
+    assert instant_net_io_statistics() == {}
+    mocked_stats.side_effect = None
+    mocked_counters.side_effect = NotImplementedError
+    assert instant_net_io_statistics() == {}
 
 
 def test_instant_disk_io_statistics(mocker):
@@ -110,11 +122,16 @@ def test_instant_disk_io_statistics(mocker):
                    'sda2': Mock(read_count=124676, write_count=2988904, read_bytes=5127436288,
                                 write_bytes=65656646656, read_time=2705435, write_time=7431913,
                                 read_merged_count=558, write_merged_count=203112, busy_time=3682449)}
-    mocker.patch('psutil.disk_io_counters', return_value=io_counters)
+    mocked_counters = mocker.patch('psutil.disk_io_counters', return_value=io_counters)
     stats = instant_disk_io_statistics()
     assert stats == {'sda': (5147740160, 65686229504),
                      'sda1': (18583552, 29582848),
                      'sda2': (5127436288, 65656646656)}
+    # test psutil issues
+    mocked_counters.side_effect = NotImplementedError
+    assert instant_disk_io_statistics() == {}
+    mocked_counters.side_effect = AttributeError
+    assert instant_disk_io_statistics() == {}
 
 
 def test_instant_disk_usage_statistics(mocker):
@@ -129,7 +146,7 @@ def test_instant_disk_usage_statistics(mocker):
                   Mock(device='/dev/sdb', mountpoint='/mnt', fstype='xfs',
                        opts='rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota',
                        maxfile=255, maxpath=4096)]
-    mocker.patch('psutil.disk_partitions', return_value=partitions)
+    mocked_partitions = mocker.patch('psutil.disk_partitions', return_value=partitions)
     # psutil sdiskusage is platform-dependent, so Mock needed to pass GitHub actions
     usage = {'/': Mock(total=37625499648, used=22722027520, free=14903472128, percent=60.4),
              '/boot': Mock(total=1063256064, used=453169152, free=610086912, percent=42.6)}
@@ -141,13 +158,16 @@ def test_instant_disk_usage_statistics(mocker):
     mocker.patch('psutil.disk_usage', side_effect=get_usage)
     stats = instant_disk_usage_statistics()
     assert stats == {'/': 60.4, '/boot': 42.6}
+    # test psutil issues
+    mocked_partitions.side_effect = NotImplementedError
+    assert instant_disk_usage_statistics() == {}
 
 
 def test_local_node_info(mocker):
     """ Test the LocalNodeInfo class method. """
     # patch psutil functions
     mocker.patch('psutil.cpu_count', side_effect=lambda logical=True: 8 if logical else 4)
-    mocker.patch('psutil.cpu_freq', return_value=Mock(current=3000.01))
+    mock_freq = mocker.patch('psutil.cpu_freq', return_value=Mock(current=3000.01))
     mocked_ram = mocker.patch('psutil.virtual_memory', return_value=Mock(total=16123456789))
     # test call
     info = LocalNodeInfo()
@@ -155,8 +175,7 @@ def test_local_node_info(mocker):
     assert info.nb_core_logical == 8
     assert info.frequency == '3000 MHz'
     assert info.physical_memory == '15.02 GiB'
-    info.refresh()
-    assert info.frequency == '3000 MHz'
+
     # test call with less RSS (even if it is very unlikely)
     mocked_ram.return_value = Mock(total=16123456)
     info = LocalNodeInfo()
@@ -171,6 +190,18 @@ def test_local_node_info(mocker):
     assert info.nb_core_logical == 8
     assert info.frequency == '3000 MHz'
     assert info.physical_memory == '15.75 KiB'
+    # test virtual memory error
+    mocked_ram.return_value = None
+    info = LocalNodeInfo()
+    assert info.nb_core_physical == 4
+    assert info.nb_core_logical == 8
+    assert info.frequency == '3000 MHz'
+    assert info.physical_memory == '--'
+    # test CPU freq error
+    mock_freq.return_value = None
+    info.refresh_cpu_freq()
+    assert info.frequency == '--'
+    assert info.physical_memory == '--'
 
 
 def test_statistics_collector():
@@ -243,6 +274,30 @@ def test_host_statistics_collector_enabled(mocker, pipes, host_collector):
     assert stats['disk_usage'] == disk_usage
 
 
+def test_get_process(mocker):
+    """ Test getting a process proxy from psutil. """
+    this_process = get_process()
+    assert this_process.pid == os.getpid()
+    # test errors
+    mocked_process = mocker.patch.object(psutil, 'Process', side_effect=psutil.NoSuchProcess(1234))
+    assert get_process() is None
+    mocked_process.side_effect = OSError
+    assert get_process() is None
+    mocked_process.side_effect = NotImplementedError
+    assert get_process() is None
+
+
+
+def test_get_process_children(mocker):
+    """ Test getting the process children proxies from psutil. """
+    this_process_as_child = psutil.Process()
+    mocked_process = mocker.patch('psutil.Process.children', return_value=[this_process_as_child])
+    assert get_process_children(this_process_as_child) == [this_process_as_child]
+    # test error
+    mocked_process.side_effect = NotImplementedError
+    assert get_process_children(this_process_as_child) == []
+
+
 def test_instant_process_statistics(mocker):
     """ Test the instant process statistics without children. """
     this_process = psutil.Process(os.getpid())
@@ -258,10 +313,13 @@ def test_instant_process_statistics(mocker):
     assert memory >= 0
     assert memory <= 100
     # check with exception PID
-    mocker.patch.object(this_process, 'as_dict', side_effect=psutil.NoSuchProcess(os.getpid()))
+    mocked_dict = mocker.patch.object(this_process, 'as_dict', side_effect=psutil.NoSuchProcess(os.getpid()))
     assert instant_process_statistics(this_process, False) is None
     # check with exception OSError
-    mocker.patch.object(this_process, 'as_dict', side_effect=OSError)
+    mocked_dict.side_effect = OSError
+    assert instant_process_statistics(this_process, False) == ()
+    # check with exception OSError
+    mocked_dict.side_effect = KeyError
     assert instant_process_statistics(this_process, False) == ()
 
 
@@ -273,6 +331,7 @@ def test_instant_process_statistics_children(mocker):
     # check with existing PID and children requested
     work, memory = instant_process_statistics(this_process)
     assert mocked_process.called
+    mocked_process.reset_mock()
     # test that a pair is returned with values in [0;100]
     # test cpu value
     assert type(work) is float
@@ -282,9 +341,11 @@ def test_instant_process_statistics_children(mocker):
     assert memory >= 0
     assert memory <= 100
     # check with existing PID, children requested but children dead
-    mocker.patch.object(this_process_as_child, 'as_dict', side_effect=psutil.NoSuchProcess(os.getpid()))
+    mocked_dict = mocker.patch.object(this_process_as_child, 'as_dict', side_effect=psutil.NoSuchProcess(os.getpid()))
     work, memory = instant_process_statistics(this_process)
     assert mocked_process.called
+    assert mocked_dict.call_args_list == [call(attrs=process_attributes)]
+    mocker.resetall()
     # test that a pair is returned with values in [0;100]
     # test cpu value
     assert type(work) is float
@@ -294,6 +355,17 @@ def test_instant_process_statistics_children(mocker):
     assert type(memory) is float
     assert memory >= 0
     assert memory <= 100
+    # check with existing PID, children requested but system issue
+    mocked_dict.side_effect = NotImplementedError
+    assert instant_process_statistics(this_process) == (work, memory)
+    assert mocked_process.called
+    assert mocked_dict.call_args_list == [call(attrs=process_attributes)]
+    mocker.resetall()
+    # check with existing PID, children requested but unexpected error
+    mocked_dict.side_effect = KeyError
+    assert instant_process_statistics(this_process) == (work, memory)
+    assert mocked_process.called
+    assert mocked_dict.call_args_list == [call(attrs=process_attributes)]
 
 
 def test_process_statistics_collector_creation(pipes, proc_collector):

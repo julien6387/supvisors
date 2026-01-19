@@ -5,6 +5,8 @@
 * Fix [Issue #134](https://github.com/julien6387/supvisors/issues/134).
   Reload the Supvisors process configuration after Supervisor is updated.
 
+* Strengthen robustness against `psutil` issues realted to certain operating systems.
+
 * Review HTTP error codes returned by the REST API in `supvisorsflask`.
 
 

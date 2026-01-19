@@ -50,16 +50,20 @@ def instant_all_cpu_statistics() -> JiffiesList:
     Guest times are included in user and nice on Linux. """
     stats: JiffiesList = []
     # CPU details
-    cpu_stats = psutil.cpu_times(percpu=True)
-    for cpu_stat in cpu_stats:
-        work = (cpu_stat.user + cpu_stat.nice + cpu_stat.system
-                + cpu_stat.irq + cpu_stat.softirq + cpu_stat.steal)
-        idle = cpu_stat.idle + cpu_stat.iowait
-        stats.append((work, idle))
-    # overall CPU average at the front of the list
-    avg_work = mean([x[0] for x in stats])
-    avg_idle = mean([x[1] for x in stats])
-    stats.insert(0, (avg_work, avg_idle))
+    try:
+        cpu_stats = psutil.cpu_times(percpu=True)
+        for cpu_stat in cpu_stats:
+            work = (cpu_stat.user + cpu_stat.nice + cpu_stat.system
+                    + cpu_stat.irq + cpu_stat.softirq + cpu_stat.steal)
+            idle = cpu_stat.idle + cpu_stat.iowait
+            stats.append((work, idle))
+        # overall CPU average at the front of the list
+        avg_work = mean([x[0] for x in stats])
+        avg_idle = mean([x[1] for x in stats])
+        stats.insert(0, (avg_work, avg_idle))
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
     return stats
 
 
@@ -68,38 +72,62 @@ def instant_memory_statistics() -> float:
     """ Return the instant value of the memory reserved.
     This is different from the memory used as it does not include the percent of memory that is available
     (in cache or swap). """
-    return psutil.virtual_memory().percent
+    try:
+        return psutil.virtual_memory().percent
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
+    return 0.0
 
 
 # Network statistics
 def instant_net_io_statistics() -> InterfaceInstantStats:
     """ Return the instant values of receive / sent bytes per network interface. """
-    # get active interfaces
-    active_nics = [key for key, value in psutil.net_if_stats().items()
-                   if value.isup]
-    # IO details (only if active)
-    return {nic: (io_stat.bytes_recv, io_stat.bytes_sent)
-            for nic, io_stat in psutil.net_io_counters(pernic=True).items()
-            if nic in active_nics}
+    result = {}
+    try:
+        # get active interfaces
+        active_nics = [key for key, value in psutil.net_if_stats().items()
+                       if value.isup]
+        # IO details (only if active)
+        for nic, io_stat in psutil.net_io_counters(pernic=True).items():
+            if nic in active_nics:
+                result[nic] = io_stat.bytes_recv, io_stat.bytes_sent
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
+    return result
 
 
 # Disk statistics
 def instant_disk_usage_statistics() -> DiskUsage:
     """ Return the instant value of the disk occupation per physical partition. """
     result = {}
-    for partition in psutil.disk_partitions():
-        try:
-            result[partition.mountpoint] = psutil.disk_usage(partition.mountpoint).percent
-        except PermissionError:
-            # can happen when the disk is not ready
-            pass
+    try:
+        for partition in psutil.disk_partitions():
+            try:
+                result[partition.mountpoint] = psutil.disk_usage(partition.mountpoint).percent
+            except PermissionError:
+                # can happen when the disk is not ready
+                pass
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
     return result
 
 
 def instant_disk_io_statistics() -> InterfaceInstantStats:
     """ Return the instant values of read / write bytes per device. """
-    return {disk: (disk_stat.read_bytes, disk_stat.write_bytes)
-            for disk, disk_stat in psutil.disk_io_counters(perdisk=True).items()}
+    result = {}
+    try:
+        for disk, disk_stat in psutil.disk_io_counters(perdisk=True).items():
+            result[disk] = disk_stat.read_bytes, disk_stat.write_bytes
+    except NotImplementedError:
+        # /proc/diskstats or /sys/block not available
+        pass
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
+    return result
 
 
 # Common
@@ -111,21 +139,30 @@ class LocalNodeInfo:
         Store as strings because their only purpose is to be displayed in the Web UI. """
         self.nb_core_physical: int = psutil.cpu_count(logical=False)
         self.nb_core_logical: int = psutil.cpu_count()
-        # get processor frequency
-        frequency: float = psutil.cpu_freq().current  # MHz
-        self.frequency: str = f'{round(frequency)} MHz'
-        # get physical memory
-        physical_memory: int = psutil.virtual_memory().total  # bytes
-        for unit in ['KiB', 'MiB', 'GiB']:
-            physical_memory /= 1024
-            if physical_memory < 1024:
-                break
-        self.physical_memory: str = f'{physical_memory:.2f} {unit}'
+        # get processor frequency (variable)
+        self.frequency: str = '--'
+        self.refresh_cpu_freq()
+        # get physical memory (fixed)
+        self.physical_memory: str = '--'
+        try:
+            physical_memory: int = psutil.virtual_memory().total  # bytes
+            for unit in ['KiB', 'MiB', 'GiB']:
+                physical_memory /= 1024
+                if physical_memory < 1024:
+                    break
+            self.physical_memory: str = f'{physical_memory:.2f} {unit}'
+        except AttributeError:
+            # just in case
+            pass
 
-    def refresh(self):
+    def refresh_cpu_freq(self):
         """ Refresh the CPU frequency value. """
-        frequency: float = psutil.cpu_freq().current  # MHz
-        self.frequency: str = f'{round(frequency)} MHz'
+        try:
+            frequency: float = psutil.cpu_freq().current  # MHz
+            self.frequency = f'{round(frequency)} MHz'
+        except AttributeError:
+            # cpu_freq() may return None on some platforms
+            self.frequency = '--'
 
 
 class StatisticsCollector:
@@ -178,6 +215,33 @@ class HostStatisticsCollector(StatisticsCollector):
 # Process statistics
 process_attributes = ['cpu_times', 'memory_percent']
 
+def get_process(pid: Optional[int] = None) -> Optional[psutil.Process]:
+    """ Return a psutil Process based on pid. """
+    try:
+        return psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        # process has been stopped in the gap
+        # no need to post the termination as the process died before anything has been sent
+        pass
+    except OSError:
+        # possibly Too many open files: '/proc/stat'
+        # still unclear why it happens
+        pass
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
+    return None
+
+
+def get_process_children(proc: psutil.Process) -> List[psutil.Process]:
+    """ Return a list psutil Process children. """
+    try:
+        return proc.children(recursive=True)
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
+    return []
+
 
 def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optional[Union[Tuple, ProcessStats]]:
     """ Return the instant jiffies and memory values for the process identified by pid. """
@@ -189,13 +253,19 @@ def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optio
         memory = proc_stats['memory_percent']
         # consider all children recursively
         if get_children:
-            for p in proc.children(recursive=True):
+            for p in get_process_children(proc):
                 try:
                     p_stats = p.as_dict(attrs=process_attributes)
                     work += sum(p_stats['cpu_times'][:2])
                     memory += p_stats['memory_percent']
-                except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
                     # child process may have disappeared in the interval
+                    pass
+                except (NotImplementedError, AttributeError, ValueError):
+                    # raised by psutil, may happen on some systems
+                    pass
+                except:
+                    # catch-all, just in case something went wrong in psutil
                     pass
         # take into account the number of processes for the process work
         return work, memory
@@ -203,9 +273,14 @@ def instant_process_statistics(proc: psutil.Process, get_children=True) -> Optio
         # process may have disappeared in the interval
         return None
     except OSError:
+        # random occurrence
         # possibly Too many open files: '/proc/stat'
         # still unclear why it happens
-        return ()
+        pass
+    except:
+        # catch-all, just in case something went wrong in psutil
+        pass
+    return ()
 
 
 class ProcessStatisticsCollector(StatisticsCollector):
@@ -217,9 +292,13 @@ class ProcessStatisticsCollector(StatisticsCollector):
         super().__init__(stats_conn, period, enabled)
         self.processes: List[Dict] = []
         # define the supervisor process and this collector process
-        self.supervisor_process: Dict = {'last': 0,
-                                         'supervisor': psutil.Process(supervisor_pid),
-                                         'collector': psutil.Process()}
+        self.supervisor_process: Dict = {'last': 0}
+        supervisor_process = get_process(supervisor_pid)
+        if supervisor_process:
+            self.supervisor_process['supervisor'] = supervisor_process
+        self_process = psutil.Process()
+        if self_process:
+            self.supervisor_process['collector'] = self_process
 
     def update_process_list(self, namespec: str, pid: int):
         """ Update the list of processes to be collected, considering that events may have been missed. """
@@ -240,17 +319,9 @@ class ProcessStatisticsCollector(StatisticsCollector):
                     found = False
         if not found:
             # add new entry in list so that it is processed in priority
-            try:
-                process = psutil.Process(pid)
+            process = get_process(pid)
+            if process:
                 self.processes.append({'namespec': namespec, 'last': 0, 'process': process})
-            except psutil.NoSuchProcess:
-                # process has been stopped in the gap
-                # no need to post the termination as the process died before anything has been sent
-                pass
-            except OSError:
-                # possibly Too many open files: '/proc/stat'
-                # still unclear why it happens
-                pass
 
     def collect_supervisor(self):
         """ Collect supervisor and collector statistics, without considering any other supervisor children. """

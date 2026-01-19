@@ -15,13 +15,14 @@
 # ======================================================================
 
 import math
-from distutils.util import strtobool
 from typing import Optional, Tuple
 from urllib.parse import ParseResult, quote, urlparse
 
+from supervisor.datatypes import boolean
 from supervisor.web import ViewContext
 
 from supvisors.process import ProcessStatus
+from supvisors.statscollector import LocalNodeInfo
 from supvisors.ttypes import StartingStrategies, NameList
 from supvisors.utils import get_bit, set_bit
 from .sessionviews import SupvisorsSession
@@ -401,7 +402,7 @@ class SupvisorsViewContext:
         str_value = self.http_context.form.get(param)
         if str_value:
             try:
-                value = strtobool(str_value)
+                value = boolean(str_value)
             except ValueError:
                 self.store_message = WebMessage(f'{param} is not a boolean-like: {str_value}',
                                                 SupvisorsGravities.ERROR).gravity_message
@@ -453,11 +454,11 @@ class SupvisorsViewContext:
             nb_cores = self.supvisors.process_compiler.get_nb_cores(identifier)
         return nb_cores
 
-    def get_node_characteristics(self):
+    def get_node_characteristics(self) -> Optional[LocalNodeInfo]:
         """ Get the node characteristics from the stats collector. """
         if self.supvisors.stats_collector:
-            node_info = self.supvisors.stats_collector.node_info
-            node_info.refresh()
+            node_info: LocalNodeInfo = self.supvisors.stats_collector.node_info
+            node_info.refresh_cpu_freq()
             return node_info
         return None
 
@@ -486,6 +487,7 @@ class SupvisorsViewContext:
             except KeyError:
                 self.logger.debug('SupvisorsViewContext.get_process_status: failed to get ProcessStatus'
                                   f' from {namespec}')
+        return None
 
     # shex access
     def get_application_shex(self, application_name: str) -> Tuple[bool, str]:

@@ -19,7 +19,6 @@ from unittest.mock import call, Mock
 
 import pytest
 
-from supvisors.statscollector import LocalNodeInfo
 from supvisors.web.viewcontext import *
 
 url_attr_template = r'(.+=.+)'
@@ -327,7 +326,7 @@ def test_update_auto_refresh(ctx):
     # reset parameter
     del ctx.parameters[AUTO]
     # test call with other valid value
-    ctx.http_context.form[AUTO] = 't'
+    ctx.http_context.form[AUTO] = 'on'
     ctx.update_auto_refresh()
     assert ctx.parameters[AUTO]
     # reset parameter
