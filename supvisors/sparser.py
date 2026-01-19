@@ -16,11 +16,11 @@
 
 import re
 from collections import OrderedDict
-from distutils.util import strtobool
 from os import path
 from sys import stderr
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from setuptools._distutils.util import strtobool
 from supervisor.datatypes import list_of_strings
 from supervisor.loggers import Logger
 from supervisor.options import split_namespec
