@@ -1,6 +1,9 @@
 # Change Log
 
-## 0.19.1 (202x-xx-xx)
+## 0.19.1 (2026-xx-xx)
+
+* Fix [Issue #134](https://github.com/julien6387/supvisors/issues/134).
+  Reload the Supvisors process configuration after Supervisor is updated.
 
 * Review HTTP error codes returned by the REST API in `supvisorsflask`.
 

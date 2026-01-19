@@ -54,9 +54,11 @@ def test_on_group_added(mocker, updater):
     """ Test the on_group_added method. """
     mocked_update = mocker.patch.object(updater.supervisor, 'complete_internal_data')
     mocked_write = mocker.patch.object(updater.server_options, 'write_disabilities')
+    mocked_config = mocker.patch.object(updater.server_options, 'process_config')
     updater.on_group_added('dummy_application')
     assert mocked_update.call_args_list == [call({}, 'dummy_application')]
     assert mocked_write.called
+    assert mocked_config.call_args_list == [call(do_usage=False)]
 
 
 def test_enable_program(mocker, updater):

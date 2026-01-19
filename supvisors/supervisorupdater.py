@@ -67,6 +67,10 @@ class SupervisorUpdater:
         :param group_name: the group newly added.
         :return: None.
         """
+        # NOTE: Quick fix of Issue #134
+        #       not optimal if the supervisor update involves multiple groups
+        # TODO: do better
+        self.server_options.process_config(do_usage=False)
         self.supervisor.complete_internal_data(self.server_options.process_configs, group_name)
         self.server_options.write_disabilities()
 
