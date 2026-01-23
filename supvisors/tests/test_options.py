@@ -155,7 +155,7 @@ def test_str(opt):
                         ' multicast_group=None multicast_interface=None multicast_ttl=1'
                         ' rules_files=None css_files=None'
                         ' event_link=NONE event_port=0'
-                        " auto_fence=False synchro_options=['TIMEOUT'] synchro_timeout=15"
+                        " auto_fence=False synchro_options=['STRICT', 'TIMEOUT'] synchro_timeout=15"
                         ' inactivity_ticks=2 core_identifiers=set()'
                         ' disabilities_file=None conciliation_strategy=USER starting_strategy=CONFIG'
                         ' supvisors_failure_strategy=CONTINUE'
@@ -198,10 +198,8 @@ def test_get_value(opt, config):
 
 def test_check_synchro_options(opt, config):
     """ Test the SupvisorsOptions.check_options method. """
-    opt.synchro_options = [SynchronizationOptions.STRICT, SynchronizationOptions.CORE]
-    assert not opt.supvisors_list
+    opt.synchro_options = [SynchronizationOptions.CORE]
     assert not opt.core_identifiers
-    # check that STRICT is disabled when no supvisors_list
     # check that CORE is disabled when no core_identifiers
     # check exception when no synchro_options
     with pytest.raises(ValueError):
@@ -216,7 +214,8 @@ def test_check_synchro_options(opt, config):
         opt.synchro_options = [option]
         opt.check_options()
         assert opt.synchro_options == [option]
-
+    # check minimum synchro timeout when LIST is used
+    # TODO
 
 def test_check_dirpath(opt):
     """ Minimal test of check_dirpath because mostly tested in Supervisor's existing_dirpath. """
@@ -373,12 +372,9 @@ def test_timeout():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_timeout('-1')
     with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_timeout('0')
-    with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_timeout('14')
-    with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_timeout('1201')
     # test valid values
+    assert SupvisorsOptions.to_timeout('0') == 0
     assert SupvisorsOptions.to_timeout('15') == 15
     assert SupvisorsOptions.to_timeout('1200') == 1200
 

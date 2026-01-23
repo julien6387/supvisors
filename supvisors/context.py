@@ -489,6 +489,7 @@ class Context:
                              f' from Supvisors={status.usage_identifier}')
             # go back to STOPPED to give it a chance at next TICK
             status.state = SupvisorsInstanceStates.STOPPED
+            self.export_status(status)
         elif authorization == AuthorizationTypes.NOT_AUTHORIZED:
             self.logger.warn('Context.on_authorization: the local Supvisors instance is isolated'
                              f' by Supvisors={status.usage_identifier}')
@@ -501,6 +502,12 @@ class Context:
             self.logger.info(f'Context.on_authorization: the local Supvisors instance is authorized to work with'
                              f' Supvisors={status.usage_identifier}')
             status.state = SupvisorsInstanceStates.CHECKED
+            self.export_status(status)
+            # if status is the local instance, go straight to RUNNING to speed up the entry in SYNCHRONIZATION state
+            if status.identifier == self.local_identifier:
+                status.state = SupvisorsInstanceStates.RUNNING
+                self.export_status(status)
+        return None
 
     def on_local_tick_event(self, event: Payload) -> None:
         """ Method called upon reception of a tick event from the local Supvisors instance.
@@ -710,3 +717,4 @@ class Context:
                         self.external_publisher.send_process_status(process.serial())
                         self.external_publisher.send_application_status(application.serial())
                     return process
+        return None

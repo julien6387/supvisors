@@ -162,6 +162,8 @@ class SupervisorListener:
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
             # Trigger the FSM
             self.fsm.next()
+            # Force first Tick to speed up the entry in SYNCHRONIZATION state
+            self.on_tick(events.TickEvent(time.time(), None))
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_running: {traceback.format_exc()}')

@@ -84,7 +84,15 @@ class StatisticsTypes(Enum):
 
 
 class SynchronizationOptions(Enum):
-    """ Options to stop the synchronization phase. """
+    """ Options to stop the synchronization phase, or in other words exit the INITIALIZATION state.
+
+    STRICT: transition when all the Supvisors instances declared in the supvisors_list option are in the RUNNING state.
+    LIST: transition when all known Supvisors instances (including those declared in the supvisors_list option
+          AND those discovered) are in the RUNNING state.
+    TIMEOUT: transition after the duration defined in the synchro_timeout option.
+    CORE: transition when all the Supvisors instances identified in the core_identifiers option are in a RUNNING state.
+    USER: transition as soon as the Master instance is set.
+    """
     STRICT, LIST, TIMEOUT, CORE, USER = range(5)
 
 

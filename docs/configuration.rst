@@ -278,7 +278,7 @@ behavior may happen. The present section details where it is applicable.
 ``synchro_timeout``
 
     The time in seconds that |Supvisors| waits for all expected |Supvisors| instances to publish their TICK.
-    Value in [``15`` ; ``1200``]. |br|
+    Value in [``0`` ; ``1200``]. |br|
     This option is taken into account only if ``TIMEOUT`` is selected in the ``synchro_options``. |br|
     The use of this option is more detailed in :ref:`synchronizing`.
 

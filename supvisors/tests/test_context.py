@@ -646,8 +646,9 @@ def test_on_identification_event(mocker, supvisors_instance, context):
     assert mocked_identify.call_args_list == [(call(payload))]
 
 
-def test_authorization_not_checking(supvisors_instance, context):
+def test_authorization_not_checking(mocker, supvisors_instance, context):
     """ Test the Context.on_authorization method with non-CHECKING identifier. """
+    mocked_export = mocker.patch.object(context, 'export_status')
     status = context.instances['10.0.0.1:25000']
     # check no change if no CHECKING state
     event = {'authorization': AuthorizationTypes.UNKNOWN.value,
@@ -661,6 +662,7 @@ def test_authorization_not_checking(supvisors_instance, context):
                     status._state = state
                     context.on_authorization(status, event)
                     assert status.state == state
+                    assert not mocked_export.called
     # check no change if CHECKING state but older timestamp
     status._state = SupvisorsInstanceStates.STOPPED
     status.state = SupvisorsInstanceStates.CHECKING
@@ -670,24 +672,29 @@ def test_authorization_not_checking(supvisors_instance, context):
             event['authorization'] = authorization.value
             context.on_authorization(status, event)
             assert status.state == SupvisorsInstanceStates.CHECKING
+            assert not mocked_export.called
 
 
 def test_authorization_checking_normal(mocker, context):
     """ Test the handling of an authorization event. """
+    mocked_export = mocker.patch.object(context, 'export_status')
     mocked_invalid = mocker.patch.object(context, 'invalidate')
     # test current state not CHECKING
-    status = context.instances['10.0.0.1:25000']
+    status = context.instances['10.0.0.2:25000']
     status._state = SupvisorsInstanceStates.RUNNING
     event = {'authorization': AuthorizationTypes.AUTHORIZED.value,
              'now_monotonic': time.monotonic()}
     context.on_authorization(status, event)
     assert not mocked_invalid.called
+    assert not mocked_export.called
     # test authorization UNKNOWN (error in handshake)
     status._state = SupvisorsInstanceStates.CHECKING
     event['authorization'] = AuthorizationTypes.UNKNOWN
     context.on_authorization(status, event)
     assert not mocked_invalid.called
     assert status.state == SupvisorsInstanceStates.STOPPED
+    assert mocked_export.call_args_list == [call(status)]
+    mocked_export.reset_mock()
     # test not authorized / unknown authorization code / inconsistency
     status._state = SupvisorsInstanceStates.CHECKING
     for auth_code in [AuthorizationTypes.NOT_AUTHORIZED.value, AuthorizationTypes.INCONSISTENT.value, 10]:
@@ -695,10 +702,49 @@ def test_authorization_checking_normal(mocker, context):
         context.on_authorization(status, event)
         assert mocked_invalid.call_args_list == [call(status, True)]
         mocked_invalid.reset_mock()
+        assert not mocked_export.called
     # test authorized
     event['authorization'] = AuthorizationTypes.AUTHORIZED
     context.on_authorization(status, event)
+    assert status.state == SupvisorsInstanceStates.CHECKED
     assert not mocked_invalid.called
+    assert mocked_export.call_args_list == [call(status)]
+
+
+def test_authorization_checking_local(mocker, context):
+    """ Test the handling of an authorization event. """
+    mocked_export = mocker.patch.object(context, 'export_status')
+    mocked_invalid = mocker.patch.object(context, 'invalidate')
+    # test current state not CHECKING
+    status = context.local_status
+    status._state = SupvisorsInstanceStates.RUNNING
+    event = {'authorization': AuthorizationTypes.AUTHORIZED.value,
+             'now_monotonic': time.monotonic()}
+    context.on_authorization(status, event)
+    assert not mocked_invalid.called
+    assert not mocked_export.called
+    # test authorization UNKNOWN (error in handshake)
+    status._state = SupvisorsInstanceStates.CHECKING
+    event['authorization'] = AuthorizationTypes.UNKNOWN
+    context.on_authorization(status, event)
+    assert not mocked_invalid.called
+    assert status.state == SupvisorsInstanceStates.STOPPED
+    assert mocked_export.call_args_list == [call(status)]
+    mocked_export.reset_mock()
+    # test not authorized / unknown authorization code / inconsistency
+    status._state = SupvisorsInstanceStates.CHECKING
+    for auth_code in [AuthorizationTypes.NOT_AUTHORIZED.value, AuthorizationTypes.INCONSISTENT.value, 10]:
+        event['authorization'] = auth_code
+        context.on_authorization(status, event)
+        assert mocked_invalid.call_args_list == [call(status, True)]
+        mocked_invalid.reset_mock()
+        assert not mocked_export.called
+    # test authorized
+    event['authorization'] = AuthorizationTypes.AUTHORIZED
+    context.on_authorization(status, event)
+    assert status.state == SupvisorsInstanceStates.RUNNING
+    assert not mocked_invalid.called
+    assert mocked_export.call_args_list == [call(status), call(status)]
 
 
 def test_on_local_tick_event(mocker, supvisors_instance, context):

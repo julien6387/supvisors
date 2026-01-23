@@ -551,6 +551,19 @@ def test_add_instance(mapper):
                                         '10.0.0.2': '10.0.0.2:25000', 'dummy_1': '10.0.0.3:25000'}
 
 
+def test_mapper_configure_empty(mocker, mapper):
+    """ Test the storage of the expected Supvisors instances when no default list is provided. """
+    mocked_find = mocker.patch.object(mapper, '_find_local_identifier')
+    # configure mapper with no element
+    mapper.configure([], set(), [])
+    assert list(mapper.instances.keys()) == ['supv01.bzh:25000']
+    assert mapper._nick_identifiers == {'supvisors01.cliche.bzh': 'supv01.bzh:25000'}
+    assert mapper._core_identifiers == []
+    assert mapper.core_identifiers == []
+    assert mapper.initial_identifiers == ['supv01.bzh:25000']
+    assert mocked_find.call_args_list == [call(set())]
+
+
 def test_mapper_configure(mocker, mapper):
     """ Test the storage of the expected Supvisors instances. """
     mocked_find = mocker.patch.object(mapper, '_find_local_identifier')
@@ -573,6 +586,7 @@ def test_mapper_configure(mocker, mapper):
     with pytest.raises(ValueError):
         mapper.configure(items, {''}, core_items)
     assert not mocked_find.called
+    mocked_find.reset_mock()
 
 
 def test_find_local_identifier(supvisors_instance):

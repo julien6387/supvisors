@@ -480,14 +480,14 @@ class SupvisorsMapper:
             # get Supervisor identification from each element
             for item in supvisors_list:
                 self.add_instance(item)
-            # keep information about the initial Supvisors identifiers added to the configuration
-            self.initial_identifiers = list(self._instances.keys())
         else:
             # if supvisors_list is empty, use self identification from supervisor internal data
             supervisor = self.supvisors.supervisor_data
             item = f'<{supervisor.identifier}>{socket.gethostname()}:{supervisor.server_port}'
             self.logger.info(f'SupvisorsMapper.configure: define local Supvisors as {item}')
             self.add_instance(item)
+        # keep information about the initial Supvisors identifiers added to the configuration
+        self.initial_identifiers = list(self._instances.keys())
         self.logger.info(f'SupvisorsMapper.configure: identifiers={self._nick_identifiers}')
         self.logger.info(f'SupvisorsMapper.configure: nodes={self.nodes}')
         # get local Supervisor identification from list

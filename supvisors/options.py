@@ -31,6 +31,11 @@ from .ttypes import (ConciliationStrategies, StartingStrategies, SupvisorsFailur
                      Ipv4Address, NameList, Payload, StatisticsTypes,
                      GroupConfigInfo, ProgramConfig, SupvisorsProcessConfig)
 
+# Constants
+SYNCHRO_TIMEOUT_MIN = 0
+SYNCHRO_LIST_TIMEOUT_MIN = 15
+SYNCHRO_TIMEOUT_MAX = 1200
+
 
 # Options of main section
 def get_logger_configuration(**config) -> Payload:
@@ -65,7 +70,7 @@ class SupvisorsOptions:
         - multicast_interface: UDP Multicast Group interface ;
         - multicast_ttl: UDP Multicast time-to-live ;
         - rules_files: list of absolute or relative paths to the XML rules files ;
-        - css_files: list of css files used to override the Supvisors default CSS ;
+        - css_files: list of CSS files used to override the Supvisors default CSS ;
         - event_link: type of the event link used to publish all Supvisors events ;
         - event_port: port number used to publish all Supvisors events ;
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive ;
@@ -87,9 +92,6 @@ class SupvisorsOptions:
         - tail_limit: the number of bytes used to display the log tail of the file in the Web UI (refresh mode) ;
         - tailf_limit: the number of bytes used to display the log tail of the file in the Web UI (tail -f mode).
     """
-
-    SYNCHRO_TIMEOUT_MIN = 15
-    SYNCHRO_TIMEOUT_MAX = 1200
 
     # default SynchronizationOptions list that is equivalent to previous Supvisors versions
     SYNCHRO_DEFAULT_OPTIONS = [SynchronizationOptions.STRICT,
@@ -132,7 +134,7 @@ class SupvisorsOptions:
         self.auto_fence = self._get_value(config, 'auto_fence', False, boolean)
         self.synchro_options = self._get_value(config, 'synchro_options', self.SYNCHRO_DEFAULT_OPTIONS,
                                                self.to_synchro_options)
-        self.synchro_timeout = self._get_value(config, 'synchro_timeout', self.SYNCHRO_TIMEOUT_MIN, self.to_timeout)
+        self.synchro_timeout = self._get_value(config, 'synchro_timeout', SYNCHRO_LIST_TIMEOUT_MIN, self.to_timeout)
         self.inactivity_ticks = self._get_value(config, 'inactivity_ticks', self.INACTIVITY_TICKS_MIN, self.to_ticks)
         # get the minimum list of identifiers to end the synchronization phase
         self.core_identifiers = self._get_value(config, 'core_identifiers', set(),
@@ -212,10 +214,10 @@ class SupvisorsOptions:
                              ' with no core_identifiers')
             self.synchro_options.remove(SynchronizationOptions.CORE)
         # when using LIST in synchro_options, supvisors_list cannot be empty
-        if not self.supvisors_list and SynchronizationOptions.STRICT in self.synchro_options:
-            self.logger.warn('SupvisorsOptions:check_options: cancellation of synchro_options STRICT'
-                             ' with no supvisors_list')
-            self.synchro_options.remove(SynchronizationOptions.STRICT)
+        #if not self.supvisors_list and SynchronizationOptions.STRICT in self.synchro_options:
+        #    self.logger.warn('SupvisorsOptions:check_options: cancellation of synchro_options STRICT'
+        #                     ' with no supvisors_list')
+        #    self.synchro_options.remove(SynchronizationOptions.STRICT)
         # synchro_options must not be empty
         if not self.synchro_options:
             raise ValueError('synchro_options shall not be empty')
@@ -226,6 +228,13 @@ class SupvisorsOptions:
             self.logger.warn('SupvisorsOptions:check_options: force supvisors_failure_strategy=CONTINUE'
                              ' because it is incompatible with synchro_options=TIMEOUT')
             self.supvisors_failure_strategy = SupvisorsFailureStrategies.CONTINUE
+        # use a minimum timeout of 15 seconds when LIST is in synchro_options to give a chance to discovered instances
+        #if (SynchronizationOptions.LIST in self.synchro_options
+        #    and SynchronizationOptions.TIMEOUT in self.synchro_options
+        #    and self.synchro_timeout < SYNCHRO_LIST_TIMEOUT_MIN):
+        #    self.logger.warn(f'SupvisorsOptions:check_options: force synchro_timeout={SYNCHRO_LIST_TIMEOUT_MIN}'
+        #                     ' to give a chance with synchro_options=TIMEOUT')
+        #    self.synchro_timeout = SYNCHRO_LIST_TIMEOUT_MIN
 
     def check_dirpath(self, file_path: str) -> str:
         """ Check if the path provided exists and create the folder tree if necessary.
@@ -418,20 +427,20 @@ class SupvisorsOptions:
 
     @staticmethod
     def to_timeout(value: str) -> int:
-        """ Convert a string into a timeout value, in [15;1200].
+        """ Convert a string into a timeout value, in [0;1200].
 
-        :param value: the timeout as a string
-        :return: the timeout as an integer
+        :param value: the timeout as a string.
+        :return: the timeout as an integer.
         """
         try:
             timeout = integer(value)
-            if SupvisorsOptions.SYNCHRO_TIMEOUT_MIN > timeout or timeout > SupvisorsOptions.SYNCHRO_TIMEOUT_MAX:
+            if SYNCHRO_TIMEOUT_MIN > timeout or timeout > SYNCHRO_TIMEOUT_MAX:
                 raise ValueError
             return timeout
         except ValueError:
             raise ValueError(f'invalid value for synchro_timeout: "{value}".'
-                             f' integer expected in [{SupvisorsOptions.SYNCHRO_TIMEOUT_MIN};'
-                             f'{SupvisorsOptions.SYNCHRO_TIMEOUT_MAX}] (seconds)')
+                             f' integer expected in [{SYNCHRO_TIMEOUT_MIN};'
+                             f'{SYNCHRO_TIMEOUT_MAX}] (seconds)')
 
     @staticmethod
     def to_ticks(value: str) -> int:

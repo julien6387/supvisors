@@ -263,7 +263,7 @@ class CheckSequenceTest(unittest.TestCase):
 
     HOST_01 = '17.0.1.11:60000'
     HOST_02 = 'supv02:60000'
-    HOST_03 = '192.168.1.70:30000'
+    HOST_03 = '192.168.1.15:30000'
     HOST_04 = 'supv04:60000'
 
     def setUp(self):

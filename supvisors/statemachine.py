@@ -21,13 +21,15 @@ from supervisor.loggers import Logger
 
 from .context import Context
 from .instancestatus import SupvisorsInstanceStatus
-from .options import SupvisorsOptions
 from .process import ProcessStatus
 from .statemodes import SupvisorsStateModes
 from .strategy import conciliate_conflicts
 from .ttypes import (SupvisorsInstanceStates, SupvisorsStates, SynchronizationOptions,
                      RunningFailureStrategies, SupvisorsFailureStrategies,
                      NameList, Payload, PayloadList)
+
+# Constants
+OFF_UPTIME = 10  # seconds
 
 
 # FSM base states
@@ -178,7 +180,7 @@ class OffState(_SupvisorsBaseState):
         # get duration from start date
         uptime: float = self.context.uptime
         # log current status
-        if uptime >= SupvisorsOptions.SYNCHRO_TIMEOUT_MIN:
+        if uptime >= OFF_UPTIME:
             self.logger.critical(f'OffState.next: local Supvisors={self.local_identifier} still'
                                  f' not RUNNING after {int(uptime)} seconds')
         else:
@@ -346,7 +348,7 @@ class SynchronizationState(_OnState):
             return False
         return None
 
-    def _check_end_sync_core(self, uptime: float) -> Optional[bool]:
+    def _check_end_sync_core(self) -> Optional[bool]:
         """ End of sync phase if the CORE option is set, and all core Supvisors instances are RUNNING.
 
         NOTE: If the condition is reached, the ELECTION state will eventually be reached with non-core Supvisors
@@ -360,13 +362,7 @@ class SynchronizationState(_OnState):
         failure = self._check_core_failure()
         if failure is False:
             # all core Supvisors instances are running
-            # in case of late start, a security limit of SYNCHRO_TIMEOUT_MIN is kept to give a chance
-            # to other Supvisors instances and limit the number of re-distributions
-            if uptime >= SupvisorsOptions.SYNCHRO_TIMEOUT_MIN:
-                return True
-            self.logger.info('SynchronizationState.check_end_sync_core: all core Supvisors instances are RUNNING,'
-                             f' waiting ({uptime} < {SupvisorsOptions.SYNCHRO_TIMEOUT_MIN})')
-            return False
+            return True
         return False if failure else None
 
     def _check_end_sync_user(self) -> Optional[bool]:
@@ -404,7 +400,7 @@ class SynchronizationState(_OnState):
         strict_sync = self._check_end_sync_strict()
         list_sync = self._check_end_sync_list()
         timeout_sync = self._check_end_sync_timeout(uptime)
-        core_sync = self._check_end_sync_core(uptime)
+        core_sync = self._check_end_sync_core()
         user_sync = self._check_end_sync_user()
         self.logger.debug(f'SynchronizationState.next: strict_sync={strict_sync} list_sync={list_sync}'
                           f' timeout_sync={timeout_sync} core_sync={core_sync} user_sync={user_sync}')
@@ -1028,6 +1024,8 @@ class FiniteStateMachine:
         self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={status.usage_identifier}'
                           f' event={event}')
         self.context.on_authorization(status, event)
+        # evaluate next immediately to speed up the start sequence
+        self.next()
 
     def on_process_state_event(self, status: SupvisorsInstanceStatus, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event sent from the Supvisors instance.
