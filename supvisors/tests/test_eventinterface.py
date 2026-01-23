@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+
 import time
 from unittest.mock import call, Mock
 
@@ -146,12 +147,9 @@ def subscriber(supvisors_instance, interface):
 
 def test_event_subscriber_mainloop(subscriber):
     """ Test the EventSubscriber mainloop abstract method. """
-    try:
-        loop = asyncio.get_event_loop_policy().get_event_loop()
-    except DeprecationWarning:
-        loop = asyncio.get_event_loop_policy().new_event_loop()
     coro = subscriber.mainloop(asyncio.Event(), 'localhost', 7777)
     with pytest.raises(NotImplementedError):
+        loop = asyncio.get_event_loop_policy().new_event_loop()
         loop.run_until_complete(coro)
 
 

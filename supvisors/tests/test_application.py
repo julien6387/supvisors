@@ -1022,9 +1022,6 @@ def test_application_evaluate_strings(filled_application):
     expr = ast.Constant('a string')
     with pytest.raises(ApplicationStatusParseError):
         filled_application.evaluate(expr)
-    # test string leaf with process status running (just to hit ast.Str)
-    expr = ast.Str('xfontsel')
-    assert filled_application.evaluate(expr) is True
     # test string leaf with process status running
     expr = ast.Constant('xlogo')
     assert filled_application.evaluate(expr) is False
