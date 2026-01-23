@@ -108,6 +108,7 @@ class SupervisorData:
         for config, hs in self.supervisord.options.httpservers:
             if config['family'] == socket.AF_INET:
                 return hs
+        return None
 
     @property
     def system_rpc_interface(self):
