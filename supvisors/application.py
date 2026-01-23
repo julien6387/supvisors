@@ -835,7 +835,7 @@ class ApplicationStatus:
                 return self._get_process_status(matches[0])
             elif len(matches) >= 1:
                 return [self._get_process_status(x) for x in matches]
-            raise ApplicationStatusParseError(f'no match for expression={node.s}')
+            raise ApplicationStatusParseError(f'no match for expression={node.value}')
         # handle any/all functions
         if type(node) is ast.Call:
             if node.func.id not in ['all', 'any']:
