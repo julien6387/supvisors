@@ -5,6 +5,8 @@
 * Fix [Issue #134](https://github.com/julien6387/supvisors/issues/134).
   Reload the **Supvisors** process configuration after Supervisor is updated.
 
+* Consider the case where process events are received and ignored during the **Supvisors** handshake.
+
 * Set the lower limit of the option `synchro_timeout` to 0 instead of 15 (Default value remains unchanged).
 
 * Speed-up the entry in SYNCHRONIZATION state.
@@ -12,6 +14,8 @@
 * Strengthen robustness against `psutil` issues related to certain operating systems.
 
 * Review HTTP error codes returned by the REST API in `supvisorsflask`.
+
+* CI target added for Python 3.14.
 
 
 ## 0.19 (2025-07-21)
@@ -79,6 +83,8 @@
 * Consider variable CPU frequency value returned by `psutil`.
 
 * Apply the XML-RPC updates on the JAVA client and the Flask interface.
+
+* CI target added for Python 3.13.
 
 
 ## 0.18.7 (2025-01-10)

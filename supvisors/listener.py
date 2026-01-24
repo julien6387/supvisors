@@ -292,7 +292,7 @@ class SupervisorListener:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {traceback.format_exc()}')
 
-    def _get_local_process_info(self, namespec: str) -> Payload:
+    def _get_local_process_info(self, namespec: str) -> Optional[Payload]:
         """ Use the Supvisors RPCInterface to get local information on this process.
 
         :param namespec: the process namespec.

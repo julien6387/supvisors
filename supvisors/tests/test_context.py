@@ -632,7 +632,6 @@ def test_on_identification_event(mocker, supvisors_instance, context):
     payload = {'event': 'data', 'identifier': '10.0.0.2:25000', 'now_monotonic': time.monotonic()}
     status = context.instances[payload['identifier']]
     status._state = SupvisorsInstanceStates.STOPPED
-    assert status.checking_time == 0.0
     context.on_identification_event(payload)
     assert not mocked_identify.called
     # test in CHECKING state with older timestamp
@@ -651,8 +650,7 @@ def test_authorization_not_checking(mocker, supvisors_instance, context):
     mocked_export = mocker.patch.object(context, 'export_status')
     status = context.instances['10.0.0.1:25000']
     # check no change if no CHECKING state
-    event = {'authorization': AuthorizationTypes.UNKNOWN.value,
-             'now_monotonic': time.monotonic()}
+    event = {'now_monotonic': time.monotonic()}
     for fencing in [True, False]:
         supvisors_instance.options.auto_fence = fencing
         for authorization in AuthorizationTypes:
@@ -683,30 +681,60 @@ def test_authorization_checking_normal(mocker, context):
     status = context.instances['10.0.0.2:25000']
     status._state = SupvisorsInstanceStates.RUNNING
     event = {'authorization': AuthorizationTypes.AUTHORIZED.value,
-             'now_monotonic': time.monotonic()}
+             'now_monotonic': time.monotonic(),
+             'info_monotonic': None}
+    context.on_authorization(status, event)
+    assert not mocked_invalid.called
+    assert not mocked_export.called
+    # test current state CHECKING but message obsolete
+    status._state = SupvisorsInstanceStates.STOPPED
+    status.state = SupvisorsInstanceStates.CHECKING
     context.on_authorization(status, event)
     assert not mocked_invalid.called
     assert not mocked_export.called
     # test authorization UNKNOWN (error in handshake)
-    status._state = SupvisorsInstanceStates.CHECKING
-    event['authorization'] = AuthorizationTypes.UNKNOWN
+    event.update({'authorization': AuthorizationTypes.UNKNOWN.value,
+                  'now_monotonic': time.monotonic()})
     context.on_authorization(status, event)
     assert not mocked_invalid.called
     assert status.state == SupvisorsInstanceStates.STOPPED
     assert mocked_export.call_args_list == [call(status)]
     mocked_export.reset_mock()
     # test not authorized / unknown authorization code / inconsistency
-    status._state = SupvisorsInstanceStates.CHECKING
+    status.state = SupvisorsInstanceStates.CHECKING
     for auth_code in [AuthorizationTypes.NOT_AUTHORIZED.value, AuthorizationTypes.INCONSISTENT.value, 10]:
-        event['authorization'] = auth_code
+        event.update({'authorization': auth_code,
+                      'now_monotonic': time.monotonic()})
         context.on_authorization(status, event)
         assert mocked_invalid.call_args_list == [call(status, True)]
         mocked_invalid.reset_mock()
         assert not mocked_export.called
-    # test authorized
+    # test authorized / no ignored events
     event['authorization'] = AuthorizationTypes.AUTHORIZED
+    event['info_monotonic'] = 1234.56
+    assert not status.checking_event_time
     context.on_authorization(status, event)
     assert status.state == SupvisorsInstanceStates.CHECKED
+    assert not mocked_invalid.called
+    assert mocked_export.call_args_list == [call(status)]
+    mocked_export.reset_mock()
+    # test authorized / ignored events BEFORE info timestamp
+    status._state = SupvisorsInstanceStates.STOPPED
+    status.state = SupvisorsInstanceStates.CHECKING
+    status.checking_event_time = 1234
+    event['now_monotonic'] = time.monotonic()
+    context.on_authorization(status, event)
+    assert status.state == SupvisorsInstanceStates.CHECKED
+    assert not mocked_invalid.called
+    assert mocked_export.call_args_list == [call(status)]
+    mocked_export.reset_mock()
+    # test authorized / ignored events AFTER info timestamp
+    status._state = SupvisorsInstanceStates.STOPPED
+    status.state = SupvisorsInstanceStates.CHECKING
+    status.checking_event_time = 1235
+    event['now_monotonic'] = time.monotonic()
+    context.on_authorization(status, event)
+    assert status.state == SupvisorsInstanceStates.STOPPED
     assert not mocked_invalid.called
     assert mocked_export.call_args_list == [call(status)]
 
@@ -719,32 +747,62 @@ def test_authorization_checking_local(mocker, context):
     status = context.local_status
     status._state = SupvisorsInstanceStates.RUNNING
     event = {'authorization': AuthorizationTypes.AUTHORIZED.value,
-             'now_monotonic': time.monotonic()}
+             'now_monotonic': time.monotonic(),
+             'info_monotonic': None}
+    context.on_authorization(status, event)
+    assert not mocked_invalid.called
+    assert not mocked_export.called
+    # test current state CHECKING but message obsolete
+    status._state = SupvisorsInstanceStates.STOPPED
+    status.state = SupvisorsInstanceStates.CHECKING
     context.on_authorization(status, event)
     assert not mocked_invalid.called
     assert not mocked_export.called
     # test authorization UNKNOWN (error in handshake)
-    status._state = SupvisorsInstanceStates.CHECKING
-    event['authorization'] = AuthorizationTypes.UNKNOWN
+    event.update({'authorization': AuthorizationTypes.UNKNOWN.value,
+                  'now_monotonic': time.monotonic()})
     context.on_authorization(status, event)
     assert not mocked_invalid.called
     assert status.state == SupvisorsInstanceStates.STOPPED
     assert mocked_export.call_args_list == [call(status)]
     mocked_export.reset_mock()
     # test not authorized / unknown authorization code / inconsistency
-    status._state = SupvisorsInstanceStates.CHECKING
+    status.state = SupvisorsInstanceStates.CHECKING
     for auth_code in [AuthorizationTypes.NOT_AUTHORIZED.value, AuthorizationTypes.INCONSISTENT.value, 10]:
-        event['authorization'] = auth_code
+        event.update({'authorization': auth_code,
+                      'now_monotonic': time.monotonic()})
         context.on_authorization(status, event)
         assert mocked_invalid.call_args_list == [call(status, True)]
         mocked_invalid.reset_mock()
         assert not mocked_export.called
-    # test authorized
+    # test authorized / no ignored events
     event['authorization'] = AuthorizationTypes.AUTHORIZED
+    event['info_monotonic'] = 1234.56
+    assert not status.checking_event_time
     context.on_authorization(status, event)
     assert status.state == SupvisorsInstanceStates.RUNNING
     assert not mocked_invalid.called
     assert mocked_export.call_args_list == [call(status), call(status)]
+    mocked_export.reset_mock()
+    # test authorized / ignored events BEFORE info timestamp
+    status._state = SupvisorsInstanceStates.STOPPED
+    status.state = SupvisorsInstanceStates.CHECKING
+    status.checking_event_time = 1234
+    event['now_monotonic'] = time.monotonic()
+    context.on_authorization(status, event)
+    assert status.state == SupvisorsInstanceStates.RUNNING
+    assert not mocked_invalid.called
+    assert mocked_export.call_args_list == [call(status), call(status)]
+    mocked_export.reset_mock()
+    # test authorized / ignored events AFTER info timestamp
+    status._state = SupvisorsInstanceStates.STOPPED
+    status.state = SupvisorsInstanceStates.CHECKING
+    status.checking_event_time = 1235
+    event['now_monotonic'] = time.monotonic()
+    context.on_authorization(status, event)
+    assert status.state == SupvisorsInstanceStates.STOPPED
+    assert not mocked_invalid.called
+    assert mocked_export.call_args_list == [call(status)]
 
 
 def test_on_local_tick_event(mocker, supvisors_instance, context):
@@ -999,17 +1057,35 @@ def test_process_removed_event_not_running(supvisors_instance, context):
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1:25000']
     # check no change with known instance not RUNNING
-    for state in SupvisorsInstanceStates:
-        if state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
-            instance_status._state = state
-            context.on_process_removed_event(instance_status, {})
-            assert not mocked_publisher.send_process_event.called
-            assert not mocked_publisher.send_process_status.called
-            assert not mocked_publisher.send_application_status.called
+    for state in [SupvisorsInstanceStates.STOPPED, SupvisorsInstanceStates.FAILED, SupvisorsInstanceStates.ISOLATED]:
+        instance_status._state = state
+        context.on_process_removed_event(instance_status, {})
+        assert not instance_status.checking_event_time
+        assert not mocked_publisher.send_process_event.called
+        assert not mocked_publisher.send_process_status.called
+        assert not mocked_publisher.send_application_status.called
+
+
+def test_process_removed_event_checking(mocker, supvisors_instance, context):
+    """ Test the Context.on_process_removed_event with a CHECKING Supvisors instance. """
+    mocker.patch('time.monotonic', return_value=1234.56)
+    supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = supvisors_instance.external_publisher
+    # get instance status used for tests
+    instance_status = context.instances['10.0.0.1:25000']
+    # check no change with known instance RUNNING
+    instance_status._state = SupvisorsInstanceStates.CHECKING
+    assert not instance_status.checking_event_time
+    context.on_process_removed_event(instance_status, {})
+    assert instance_status.checking_event_time == 1234.56
+    assert not mocked_publisher.send_process_event.called
+    assert not mocked_publisher.send_process_status.called
+    assert not mocked_publisher.send_application_status.called
 
 
 def test_process_removed_event_running_process_unknown(mocker, supvisors_instance, context):
-    """ Test the Context.on_process_removed_event with a RUNNING Supvisors instance and an unknown process. """
+    """ Test the Context.on_process_removed_event with a CHECKED or RUNNING Supvisors instance
+    and an unknown process. """
     mocker.patch.object(context, 'check_process', return_value=None)
     supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
     mocked_publisher = supvisors_instance.external_publisher
@@ -1017,12 +1093,14 @@ def test_process_removed_event_running_process_unknown(mocker, supvisors_instanc
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1:25000']
-    instance_status._state = SupvisorsInstanceStates.RUNNING
-    # check no change with unknown process
-    context.on_process_removed_event(instance_status, event)
-    assert not mocked_publisher.send_process_event.called
-    assert not mocked_publisher.send_process_status.called
-    assert not mocked_publisher.send_application_status.called
+    for state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+        instance_status._state = state
+        # check no change with unknown process
+        context.on_process_removed_event(instance_status, event)
+        assert not instance_status.checking_event_time
+        assert not mocked_publisher.send_process_event.called
+        assert not mocked_publisher.send_process_status.called
+        assert not mocked_publisher.send_application_status.called
 
 
 def test_on_process_removed_event_running_process(mocker, supvisors_instance, context):
@@ -1053,7 +1131,7 @@ def test_on_process_removed_event_running_process(mocker, supvisors_instance, co
     status_10002.processes[process_1.namespec] = process_1
     status_10002.processes[process_2.namespec] = process_2
     # get instances status used for tests
-    status_10001._state = SupvisorsInstanceStates.RUNNING
+    status_10001._state = SupvisorsInstanceStates.CHECKED
     status_10002._state = SupvisorsInstanceStates.RUNNING
     # update sequences for the test
     application.rules.managed = True
@@ -1066,6 +1144,8 @@ def test_on_process_removed_event_running_process(mocker, supvisors_instance, co
     # check normal behaviour in RUNNING state when process_1 is removed from 10.0.0.1
     # as process will still include a definition on 10.0.0.2, no impact expected on process and application
     context.on_process_removed_event(status_10001, dummy_event)
+    assert not status_10001.checking_event_time
+    assert not status_10002.checking_event_time
     assert sorted(process_1.info_map.keys()) == ['10.0.0.2:25000']
     assert sorted(process_2.info_map.keys()) == ['10.0.0.2:25000']
     assert application.state == ApplicationStates.STOPPED
@@ -1080,6 +1160,8 @@ def test_on_process_removed_event_running_process(mocker, supvisors_instance, co
     # check normal behaviour in RUNNING state when process_1 is removed from 10.0.0.2
     # process_1 is removed from application and instance status but application is still STARTING due to process_2
     context.on_process_removed_event(status_10002, dummy_event)
+    assert not status_10001.checking_event_time
+    assert not status_10002.checking_event_time
     assert list(process_1.info_map.keys()) == []
     assert sorted(process_2.info_map.keys()) == ['10.0.0.2:25000']
     assert application.state == ApplicationStates.STOPPED
@@ -1104,6 +1186,8 @@ def test_on_process_removed_event_running_process(mocker, supvisors_instance, co
     dummy_event = {'group': 'dummy_application', 'name': 'dummy_process_2'}
     mocker.patch.object(context, 'check_process', return_value=(application, process_2))
     context.on_process_removed_event(status_10002, dummy_event)
+    assert not status_10001.checking_event_time
+    assert not status_10002.checking_event_time
     assert list(process_1.info_map.keys()) == []
     assert list(process_2.info_map.keys()) == []
     assert application.state == ApplicationStates.DELETED
@@ -1160,6 +1244,8 @@ def test_on_process_removed_event_running_group(mocker, supvisors_instance, cont
     # check normal behaviour in RUNNING state when dummy_application is removed from 10.0.0.1
     # as processes still includes a definition on 10.0.0.2, no impact expected on process and application
     context.on_process_removed_event(status_10001, dummy_event)
+    assert not status_10001.checking_event_time
+    assert not status_10002.checking_event_time
     assert sorted(process_1.info_map.keys()) == ['10.0.0.2:25000']
     assert sorted(process_2.info_map.keys()) == ['10.0.0.2:25000']
     assert application.state == ApplicationStates.STOPPED
@@ -1174,6 +1260,8 @@ def test_on_process_removed_event_running_group(mocker, supvisors_instance, cont
     # check normal behaviour in RUNNING state when dummy_application is removed from 10.0.0.2
     # no more process in application and instance status so application is removed
     context.on_process_removed_event(status_10002, dummy_event)
+    assert not status_10001.checking_event_time
+    assert not status_10002.checking_event_time
     assert list(process_1.info_map.keys()) == []
     assert list(process_2.info_map.keys()) == []
     assert application.state == ApplicationStates.DELETED
@@ -1202,11 +1290,26 @@ def test_on_process_disability_event_not_running_instance(supvisors_instance, co
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1:25000']
     # check no change with known node not RUNNING
-    for state in SupvisorsInstanceStates:
-        if state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
-            instance_status._state = state
-            context.on_process_disability_event(instance_status, {})
-            assert not mocked_publisher.send_process_event.called
+    for state in [SupvisorsInstanceStates.STOPPED, SupvisorsInstanceStates.FAILED, SupvisorsInstanceStates.ISOLATED]:
+        instance_status._state = state
+        context.on_process_disability_event(instance_status, {})
+        assert not instance_status.checking_event_time
+        assert not mocked_publisher.send_process_event.called
+
+
+def test_process_disability_event_checking(mocker, supvisors_instance, context):
+    """ Test the Context.on_process_removed_event with a CHECKING Supvisors instance. """
+    mocker.patch('time.monotonic', return_value=1234.56)
+    supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = supvisors_instance.external_publisher
+    # get instance status used for tests
+    instance_status = context.instances['10.0.0.1:25000']
+    # check no change but risk with known instance CHECKING
+    instance_status._state = SupvisorsInstanceStates.CHECKING
+    assert not instance_status.checking_event_time
+    context.on_process_disability_event(instance_status, {})
+    assert instance_status.checking_event_time == 1234.56
+    assert not mocked_publisher.send_process_event.called
 
 
 def test_on_process_disability_event_running_process_unknown(mocker, supvisors_instance, context):
@@ -1218,10 +1321,12 @@ def test_on_process_disability_event_running_process_unknown(mocker, supvisors_i
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1:25000']
-    instance_status._state = SupvisorsInstanceStates.RUNNING
-    # check no change with unknown process
-    context.on_process_disability_event(instance_status, event)
-    assert not mocked_publisher.send_process_event.called
+    for state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+        instance_status._state = state
+        # check no change with unknown process
+        context.on_process_disability_event(instance_status, event)
+        assert not instance_status.checking_event_time
+        assert not mocked_publisher.send_process_event.called
 
 
 def test_on_process_disability_event(mocker, supvisors_instance, context):
@@ -1243,6 +1348,7 @@ def test_on_process_disability_event(mocker, supvisors_instance, context):
     mocker.patch.object(context, 'check_process', return_value=(None, process))
     # check that process disabled status is not updated if the process has no information from the Supvisors instance
     context.on_process_disability_event(instance_status, event)
+    assert not instance_status.checking_event_time
     assert '10.0.0.1:25000' not in process.info_map
     assert not process.info_map['10.0.0.2:25000']['disabled']
     assert mocked_publisher.send_process_event.call_args_list == [call(event)]
@@ -1250,6 +1356,7 @@ def test_on_process_disability_event(mocker, supvisors_instance, context):
     # check that process disabled status is updated if the process has information from the Supvisors instance
     process.add_info('10.0.0.1:25000', dummy_info)
     context.on_process_disability_event(instance_status, event)
+    assert not instance_status.checking_event_time
     assert process.info_map['10.0.0.1:25000']['disabled']
     assert mocked_publisher.send_process_event.call_args_list == [call(event)]
 
@@ -1262,14 +1369,32 @@ def test_on_process_state_event_not_running_instance(mocker, supvisors_instance,
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1:25000']
     # check no change with known node not RUNNING
-    for state in SupvisorsInstanceStates:
-        if state not in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
-            instance_status._state = state
-            assert context.on_process_state_event(instance_status, {}) is None
-            assert not mocked_update_args.called
-            assert not mocked_publisher.send_process_event.called
-            assert not mocked_publisher.send_process_status.called
-            assert not mocked_publisher.send_application_status.called
+    for state in [SupvisorsInstanceStates.STOPPED, SupvisorsInstanceStates.FAILED, SupvisorsInstanceStates.ISOLATED]:
+        instance_status._state = state
+        assert context.on_process_state_event(instance_status, {}) is None
+        assert not instance_status.checking_event_time
+        assert not mocked_update_args.called
+        assert not mocked_publisher.send_process_event.called
+        assert not mocked_publisher.send_process_status.called
+        assert not mocked_publisher.send_application_status.called
+
+
+def test_on_process_state_event_checking_instance(mocker, supvisors_instance, context):
+    """ Test the handling of a process state event coming from a non-running Supvisors instance. """
+    mocker.patch('time.monotonic', return_value=1234.56)
+    supvisors_instance.external_publisher = Mock(spec=EventPublisherInterface)
+    mocked_publisher = supvisors_instance.external_publisher
+    mocked_update_args = mocker.patch.object(supvisors_instance.supervisor_data, 'update_extra_args')
+    # get instance status used for tests
+    instance_status = context.instances['10.0.0.1:25000']
+    # check no change but risk set with known node CHECKING
+    instance_status._state = SupvisorsInstanceStates.CHECKING
+    assert context.on_process_state_event(instance_status, {}) is None
+    assert instance_status.checking_event_time == 1234.56
+    assert not mocked_update_args.called
+    assert not mocked_publisher.send_process_event.called
+    assert not mocked_publisher.send_process_status.called
+    assert not mocked_publisher.send_application_status.called
 
 
 def test_on_process_state_event_running_process_unknown(mocker, supvisors_instance, context):
@@ -1281,12 +1406,14 @@ def test_on_process_state_event_running_process_unknown(mocker, supvisors_instan
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1:25000']
-    instance_status._state = SupvisorsInstanceStates.RUNNING
-    # check no change with unknown application
-    assert context.on_process_state_event(instance_status, event) is None
-    assert not mocked_publisher.send_process_event.called
-    assert not mocked_publisher.send_process_status.called
-    assert not mocked_publisher.send_application_status.called
+    for state in [SupvisorsInstanceStates.CHECKED, SupvisorsInstanceStates.RUNNING]:
+        instance_status._state = state
+        # check no change with unknown application
+        assert context.on_process_state_event(instance_status, event) is None
+        assert not instance_status.checking_event_time
+        assert not mocked_publisher.send_process_event.called
+        assert not mocked_publisher.send_process_status.called
+        assert not mocked_publisher.send_application_status.called
 
 
 def test_on_process_state_event_locally_unknown_forced(mocker, supvisors_instance, context):
@@ -1322,6 +1449,7 @@ def test_on_process_state_event_locally_unknown_forced(mocker, supvisors_instanc
              'now': 1234, 'now_monotonic': 234, 'pid': 0,
              'expected': False, 'spawnerr': 'bad luck', 'extra_args': '-h'}
     assert context.on_process_state_event(instance_status, event) is process
+    assert not instance_status.checking_event_time
     assert instance_status.state == SupvisorsInstanceStates.RUNNING
     assert application.state == ApplicationStates.STOPPED
     expected = {'group': 'dummy_application', 'name': 'dummy_process', 'pid': 0, 'expected': False,
@@ -1371,6 +1499,7 @@ def test_on_process_state_event_locally_known_forced_dismissed(supvisors_instanc
              'identifier': '10.0.0.1:25000', 'forced': True, 'now': 1230, 'now_monotonic': 230, 'pid': 0,
              'expected': False, 'spawnerr': 'bad luck', 'extra_args': '-h'}
     assert context.on_process_state_event(instance_status, event) is None
+    assert not instance_status.checking_event_time
     assert instance_status.state == SupvisorsInstanceStates.RUNNING
     assert application.state == ApplicationStates.RUNNING
     assert not mocked_publisher.send_process_event.called
@@ -1404,6 +1533,7 @@ def test_on_process_state_event(mocker, supvisors_instance, context):
     # check normal behaviour in RUNNING state
     instance_status._state = SupvisorsInstanceStates.RUNNING
     result = context.on_process_state_event(instance_status, dummy_event)
+    assert not instance_status.checking_event_time
     assert result is process
     assert process.state == 10
     assert application.state == ApplicationStates.STARTING
@@ -1429,6 +1559,7 @@ def test_on_process_state_event(mocker, supvisors_instance, context):
     # basically same check as previous, just being confident that no exception is raised by the method
     mocked_update_args.side_effect = KeyError
     result = context.on_process_state_event(instance_status, dummy_event)
+    assert not instance_status.checking_event_time
     assert result is process
     assert process.state == 10
     assert application.state == ApplicationStates.STARTING

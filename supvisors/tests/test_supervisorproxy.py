@@ -195,7 +195,7 @@ def test_proxy_check_instance(mocker, proxy_server, mocked_rpc, proxy):
     mocked_auth = mocker.patch.object(proxy, '_is_authorized', return_value=AuthorizationTypes.NOT_AUTHORIZED)
     mocked_netw = mocker.patch.object(proxy, '_transfer_network_info')
     mocked_mode = mocker.patch.object(proxy, '_transfer_states_modes')
-    mocked_info = mocker.patch.object(proxy, '_transfer_process_info')
+    mocked_info = mocker.patch.object(proxy, '_transfer_process_info', return_value=1234.67)
     mocked_send = mocker.patch.object(proxy_server, 'push_notification')
     # test with no authorization
     proxy.check_instance()
@@ -204,7 +204,8 @@ def test_proxy_check_instance(mocker, proxy_server, mocked_rpc, proxy):
     assert not mocked_mode.called
     assert not mocked_info.called
     expected = NotificationHeaders.AUTHORIZATION.value, {'authorization': AuthorizationTypes.NOT_AUTHORIZED.value,
-                                                         'now_monotonic': 1234.56}
+                                                         'now_monotonic': 1234.56,
+                                                         'info_monotonic': None}
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
     mocked_netw.reset_mock()
     mocked_send.reset_mock()
@@ -217,7 +218,8 @@ def test_proxy_check_instance(mocker, proxy_server, mocked_rpc, proxy):
     assert mocked_mode.call_args_list == [call()]
     assert mocked_info.call_args_list == [call()]
     expected = NotificationHeaders.AUTHORIZATION.value, {'authorization': AuthorizationTypes.AUTHORIZED.value,
-                                                         'now_monotonic': 1234.56}
+                                                         'now_monotonic': 1234.56,
+                                                         'info_monotonic': 1234.67}
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
 
 
@@ -305,6 +307,7 @@ def test_proxy_transfer_network_info(mocker, proxy_server, mocked_rpc, proxy):
 
 def test_proxy_transfer_process_info(mocker, proxy_server, mocked_rpc, proxy):
     """ Test the SupervisorProxy._transfer_process_info method. """
+    mocker.patch('time.monotonic', return_value=1234.56)
     info_rpc = proxy.proxy.supvisors.get_all_local_process_info
     mocked_send = mocker.patch.object(proxy_server, 'push_notification')
     # test with transport failure
@@ -316,7 +319,7 @@ def test_proxy_transfer_process_info(mocker, proxy_server, mocked_rpc, proxy):
     info_rpc.reset_mock()
     # test with XML-RPC application failure
     info_rpc.side_effect = RPCError(Faults.ABNORMAL_TERMINATION)
-    proxy._transfer_process_info()
+    assert proxy._transfer_process_info() == 1234.56
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.ALL_INFO.value, None
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
@@ -326,7 +329,7 @@ def test_proxy_transfer_process_info(mocker, proxy_server, mocked_rpc, proxy):
     all_info = [{'name': 'dummy_1'}, {'name': 'dummy_2'}]
     info_rpc.side_effect = None
     info_rpc.return_value = all_info
-    proxy._transfer_process_info()
+    assert proxy._transfer_process_info() == 1234.56
     assert info_rpc.call_args_list == [call()]
     expected = NotificationHeaders.ALL_INFO.value, all_info
     assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]

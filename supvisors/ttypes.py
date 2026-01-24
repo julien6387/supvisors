@@ -121,7 +121,13 @@ class NotificationHeaders(Enum):
 
 
 class AuthorizationTypes(Enum):
-    """ The possible results of authorization check. """
+    """ The possible results of authorization check.
+
+    UNKNOWN: could not get information from the remote Supvisors instance.
+    AUTHORIZED: the local Supvisors instance is authorized to work with the remote Supvisors instance.
+    NOT_AUTHORIZED: the local Supvisors instance is NOT authorized to work with the remote Supvisors instance.
+    INCONSISTENT: the configurations of the local and remote Supvisors instances are incompatible.
+    """
     UNKNOWN, AUTHORIZED, NOT_AUTHORIZED, INCONSISTENT = range(4)
 
 

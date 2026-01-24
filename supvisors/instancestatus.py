@@ -15,7 +15,7 @@
 # ======================================================================
 
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
@@ -144,8 +144,10 @@ class SupvisorsInstanceStatus:
     Attributes:
         - supvisors_id: the parameters identifying where the Supvisors instance is expected to be running ;
         - state: the state of the Supvisors instance in SupvisorsInstanceStates ;
-        - time: the counter, time and clock of the remote Supvisors instance associated to the local ones ;
-        - processes: the list of processes that are configured in the Supervisor of the Supvisors instance.
+        - times: the counter, time and clock of the remote Supvisors instance associated to the local ones ;
+        - processes: the list of processes that are configured in the Supervisor of the Supvisors instance ;
+        - checking_time: timestamp used to avoid obsolete messages (typically related to previous handshake) ;
+        - stats_collector: the optional statistics collector.
     """
 
     def __init__(self, supvisors_id: SupvisorsInstanceId, supvisors: Any):
@@ -157,7 +159,10 @@ class SupvisorsInstanceStatus:
         self.times: SupvisorsTimes = SupvisorsTimes(self.identifier, self.logger)
         self.processes: Dict[str, ProcessStatus] = {}
         # store the time when the CHECKING state is reached to detect obsolete notifications
-        self.checking_time: float = 0.0
+        self.checking_time: Optional[float] = None
+        # any process event received while in CHECKING state may not be reflected in the overall ProcessInfo
+        # if detected, a new handshake will be triggered
+        self.checking_event_time: Optional[float] = None
         # the local instance may use the process statistics collector
         self.stats_collector = None
         if supvisors.mapper.local_identifier == self.identifier:
@@ -205,6 +210,9 @@ class SupvisorsInstanceStatus:
             # mark the entry in CHECKING state
             if new_state == SupvisorsInstanceStates.CHECKING:
                 self.checking_time = time.monotonic()
+            else:
+                self.checking_time = None
+                self.checking_event_time = None
 
     @property
     def running(self) -> bool:
