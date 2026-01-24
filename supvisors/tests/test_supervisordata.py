@@ -144,6 +144,12 @@ def test_accessors(source):
     assert source.supervisor_state == SupervisorStates.RUNNING
 
 
+def test_empty_httpservers(source):
+    """ Test http_server in the unlikely event that Supervisor httpservers is empty (code coverage). """
+    source.supervisord.options.httpservers = []
+    assert source.http_server is None
+
+
 def test_env(source):
     """ Test the environment build. """
     assert source.get_env() == {'SUPERVISOR_SERVER_URL': f'http://{gethostname()}:25000',
