@@ -7,6 +7,8 @@
 
 * Consider the case where process events are received and ignored during the **Supvisors** handshake.
 
+* Add the XML-RPC `get_core_identifiers` to return the resolved **Supvisors** core instances.
+
 * Set the lower limit of the option `synchro_timeout` to 0 instead of 15 (Default value remains unchanged).
 
 * Speed-up the entry in SYNCHRONIZATION state.

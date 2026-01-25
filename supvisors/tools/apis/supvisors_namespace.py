@@ -87,6 +87,14 @@ class SupvisorsMasterIdentifier(Resource):
         return g.proxy.supvisors.get_master_identifier()
 
 
+@api.route('/core_identifiers', methods=('GET',))
+@api.doc(description=get_docstring_description(RPCInterface.get_core_identifiers))
+class SupvisorsCoreIdentifiers(Resource):
+    @staticmethod
+    def get():
+        return jsonify(g.proxy.supvisors.get_core_identifiers())
+
+
 @api.route('/strategies', methods=('GET',))
 @api.doc(description=get_docstring_description(RPCInterface.get_strategies))
 class SupvisorsStrategies(Resource):

@@ -80,7 +80,7 @@ public class SupvisorsXmlRpc {
      * identified by a stereotype.
      *
      * @param String identifier: The identifier of the Supvisors instance, or a stereotype.
-     * @return HashMap<String, SupvisorsStateModes>: Information for the Supvisors instances, sorted by name.
+     * @return HashMap<String, SupvisorsStateModes>: Information about the Supvisors instances, sorted by name.
      * @throws XmlRpcException: with code BAD_NAME if identifier is unknown to Supvisors.
      */
     public HashMap<String, SupvisorsStateModes> getInstanceStateModes(final String identifier) throws XmlRpcException {
@@ -110,6 +110,16 @@ public class SupvisorsXmlRpc {
     public SupvisorsIdentifier getMasterIdentifier() throws XmlRpcException {
         HashMap result = client.rpcCall(Namespace + "get_master_identifier", null, HashMap.class);
         return new SupvisorsIdentifier(result);
+    }
+
+    /**
+     * The getCoreIdentifiers method returns the identifier of the Supvisors Core instances.
+     *
+     * @return HashMap<String, SupvisorsIdentifier>: Information about the Supvisors instances, sorted by name.
+     */
+    public HashMap<String, SupvisorsIdentifier> getCoreIdentifiers() throws XmlRpcException {
+        Object[] objectsArray = client.rpcCall(Namespace + "get_core_identifiers", null, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsIdentifier.class);
     }
 
     /**
@@ -661,6 +671,9 @@ public class SupvisorsXmlRpc {
         SupvisorsIdentifier master = supvisors.getMasterIdentifier();
         System.out.println(master);
         System.out.println(master.getName());
+        System.out.println("### Testing supvisors.getCoreIdentifiers(...) ###");
+        HashMap<String, SupvisorsIdentifier> core = supvisors.getCoreIdentifiers();
+        System.out.println(core);
         System.out.println("### Testing supvisors.getStrategies(...) ###");
         System.out.println(supvisors.getStrategies());
 

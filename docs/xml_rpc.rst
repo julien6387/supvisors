@@ -88,6 +88,16 @@ Status
                                                  of the |Supvisors| identifier if not set.
             ================== ================= ===========
 
+        .. automethod:: get_core_identifiers()
+
+            ================== ================= ===========
+            Key                Type              Description
+            ================== ================= ===========
+            'identifier'       ``str``           The |Supvisors| *Core* instance identifier (``host_id:http_port``).
+            'nick_identifier'  ``str``           The |Supvisors| *Core* instance nick name, or a copy
+                                                 of the |Supvisors| identifier if not set.
+            ================== ================= ===========
+
         .. automethod:: get_strategies()
 
             =================== ========= ===========

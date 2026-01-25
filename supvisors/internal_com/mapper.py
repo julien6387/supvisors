@@ -404,7 +404,7 @@ class SupvisorsMapper:
         self.local_network: LocalNetwork = LocalNetwork(supvisors.logger)
         self._instances: SupvisorsMapper.InstancesMap = OrderedDict()  # {identifier: supvisors_id}
         self._nick_identifiers: Dict[str, str] = {}  # {nick_identifier: identifier}
-        self.nodes: Dict[str, NameList] = {}  # {machine_id: identifier}
+        self.nodes: Dict[str, NameList] = {}  # {machine_id: [identifier]}
         self._core_identifiers: NameList = []
         self.local_identifier: Optional[str] = None
         self.initial_identifiers: NameList = []

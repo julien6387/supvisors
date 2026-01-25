@@ -155,7 +155,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('sstate all\t\t\tGet the state and modes for all Supvisors instances')
 
     def do_master(self, _):
-        """ Command to get the Master Supvisors instance. """
+        """ Command to get the Supvisors Master instance. """
         if self._upcheck():
             try:
                 payload = self.supvisors().get_master_identifier()
@@ -172,6 +172,33 @@ class ControllerPlugin(ControllerPluginBase):
     def help_master(self):
         """ Print the help of the master command. """
         self.ctl.output('master\t\t\t\tGet the Supvisors Master identification.')
+
+    def do_core(self, _):
+        """ Command to get the Supvisors Core instances. """
+        if self._upcheck():
+            try:
+                all_info: PayloadList = self.supvisors().get_core_identifiers()
+            except xmlrpclib.Fault as e:
+                self.ctl.output(f'ERROR ({e.faultString})')
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
+            else:
+                if all_info:
+                    # create template. identifier has variable length
+                    max_nick_identifiers = ControllerPlugin.max_template(all_info, 'nick_identifier', 'Nickname')
+                    max_identifiers = ControllerPlugin.max_template(all_info, 'identifier', 'Supvisors identifier')
+                    template = f'%(nick_identifier)-{max_nick_identifiers}s%(identifier)-{max_identifiers}s'
+                    # print title
+                    payload = {'nick_identifier': 'Nickname', 'identifier': 'Supvisors identifier'}
+                    self.ctl.output(template % payload)
+                    # print payloads
+                    for info in all_info:
+                        self.ctl.output(template % info)
+                else:
+                    self.ctl.output('No Supvisors Core instances')
+
+    def help_core(self):
+        """ Print the help of the core command. """
+        self.ctl.output('core\t\t\t\tGet the Supvisors Core identifiers.')
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """

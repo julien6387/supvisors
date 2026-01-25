@@ -134,6 +134,16 @@ class RPCInterface:
                     'nick_identifier': master_instance.supvisors_id.nick_identifier}
         return {}
 
+    def get_core_identifiers(self) -> PayloadList:
+        """ Get the identification of the **Supvisors** core instances.
+
+        :return: the identifiers of the **Supvisors** core instances and their nickname.
+        :rtype: dict[str, str].
+        """
+        return [{'identifier': identifier,
+                 'nick_identifier': self.supvisors.mapper.get_nick_identifier(identifier)}
+                for identifier in self.supvisors.mapper.core_identifiers]
+
     def get_strategies(self) -> Payload:
         """ Get the default strategies applied by **Supvisors**:
 

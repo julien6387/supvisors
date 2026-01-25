@@ -61,13 +61,27 @@ def test_supvisors_state(mocker, rpc):
                                                              '10.0.0.6:25000': 'STOPPED'}}
 
 
-def test_master_node(supvisors_instance, rpc):
+def test_master_identifier(supvisors_instance, rpc):
     """ Test the get_master_identifier RPC. """
     # test with no master
     assert rpc.get_master_identifier() == {}
     # test with master
     supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
     assert rpc.get_master_identifier() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1'}
+
+
+def test_core_identifiers(supvisors_instance, rpc):
+    """ Test the get_core_identifiers RPC. """
+    # test with no core instances
+    assert rpc.get_core_identifiers() == []
+    # test with core instances
+    items = ['127.0.0.1', '<supervisor_05>10.0.0.5:7777', '10.0.0.4:15000', '10.0.0.5:9999']
+    core_items = ['127.0.0.1', 'supervisor_05', '10.0.0.4:15000', 'supervisor_06', '10.0.0.4']
+    supvisors_instance.mapper.configure(items, set(), core_items)
+    assert rpc.get_core_identifiers() == [{'identifier': '127.0.0.1:25000', 'nick_identifier': '127.0.0.1'},
+                                          {'identifier': '10.0.0.5:7777', 'nick_identifier': 'supervisor_05'},
+                                          {'identifier': '10.0.0.4:15000', 'nick_identifier': '10.0.0.4:15000'},
+                                          {'identifier': '10.0.0.4:25000', 'nick_identifier': '10.0.0.4'}]
 
 
 def test_strategies(supvisors_instance, rpc):

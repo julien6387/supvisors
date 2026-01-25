@@ -22,13 +22,15 @@ from xmlrpc.client import Fault
 from flask_restx import Api
 from supervisor.xmlrpc import Faults
 
+from supvisors import supvisors_version
 from supvisors.ttypes import SupvisorsFaults
 from .supervisor_namespace import api as supervisor_api
 from .supvisors_namespace import api as supvisors_api
 from .system_namespace import api as system_api
 
 # create Api with all namespaces
-api = Api(title='Supvisors Flask interface')
+api = Api(version=supvisors_version,
+          title='Supvisors Flask interface')
 api.add_namespace(system_api)
 api.add_namespace(supervisor_api)
 api.add_namespace(supvisors_api)

@@ -249,7 +249,7 @@ class SupervisorProxy:
         self.logger.debug(f'SupervisorProxy.is_authorized: strategies_payload={strategies_payload}')
         if strategies_payload != RPCInterface(self.supvisors).get_strategies():
             return AuthorizationTypes.INCONSISTENT
-        # TODO: check core identifiers
+        # TODO: check core identifiers : need update of RPCInterface
         # authorization is granted
         return AuthorizationTypes.AUTHORIZED
 

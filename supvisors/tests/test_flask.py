@@ -503,7 +503,16 @@ def test_supvisors_master_identifier(xml_rpc, client):
     """ Check the master_identifier REST API. """
     base_url = '/supvisors/master_identifier'
     mocked_func = xml_rpc.supvisors.get_master_identifier
-    check_get_success(client, f'{base_url}', mocked_func, [call()], 'server_01')
+    check_get_success(client, f'{base_url}', mocked_func, [call()], {'identifier': 'server_01:5505',
+                                                                     'nick_identifier': 'server_01'})
+
+
+def test_supvisors_core_identifiers(xml_rpc, client):
+    """ Check the core_identifiers REST API. """
+    base_url = '/supvisors/core_identifiers'
+    mocked_func = xml_rpc.supvisors.get_core_identifiers
+    check_get_success(client, f'{base_url}', mocked_func, [call()], [{'identifier': 'server_01:5505',
+                                                                      'nick_identifier': 'server_01'}])
 
 
 def test_supvisors_strategies(xml_rpc, client):
