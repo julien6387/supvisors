@@ -48,7 +48,7 @@ class SupervisorUpdater:
         """ Get the Supervisor internal data wrapper. """
         return self.supvisors.supervisor_data
 
-    def on_supervisor_start(self):
+    def on_supervisor_start(self) -> None:
         """ Update Supervisor internal data for Supvisors support.
 
         :return: None
@@ -61,16 +61,12 @@ class SupervisorUpdater:
         self.supervisor.complete_internal_data(self.server_options.process_configs)
         self.server_options.write_disabilities()
 
-    def on_group_added(self, group_name: str):
+    def on_group_added(self, group_name: str) -> None:
         """ Update Supervisor internal data for Supvisors support (impact limited on the group).
 
         :param group_name: the group newly added.
         :return: None.
         """
-        # NOTE: Quick fix of Issue #134
-        #       not optimal if the supervisor update involves multiple groups
-        # TODO: do better
-        self.server_options.process_config(do_usage=False)
         self.supervisor.complete_internal_data(self.server_options.process_configs, group_name)
         self.server_options.write_disabilities()
 
@@ -108,8 +104,8 @@ class SupervisorUpdater:
         """
         program = self.server_options.program_configs[program_name]
         ref_numprocs = program.numprocs
-        self.logger.debug(f'SupervisorUpdater.update_numprocs: {program_name} ref_numprocs={ref_numprocs}'
-                          f' new_numprocs={new_numprocs}')
+        self.logger.info(f'SupervisorUpdater.update_numprocs: {program_name} ref_numprocs={ref_numprocs}'
+                          f' new_numprocs={new_numprocs}')  # debug
         # increase or decrease logic
         if ref_numprocs > new_numprocs:
             # return the processes to stop if numprocs decreases, based on the current config

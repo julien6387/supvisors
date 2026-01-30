@@ -571,21 +571,36 @@ class SupvisorsOptions:
                              f' integer expected in [10;1500] (seconds)')
 
 
-class SupvisorsServerOptions(ServerOptions):
-    """ Class used to parse the options of the 'supvisors' section in the supervisor configuration file.
+def supvisors_processes_from_section(self, parser, section: str, group_name: str, klass=None) -> List[ProcessConfig]:
+    """ Monkeypatch of Supervisor ServerOptions._processes_from_section to allow additional functions. """
+    # call super behaviour
+    process_configs = self._processes_from_section_ref(parser, section, group_name, klass)
+    # use Supervisor results to store additional information
+    if hasattr(self, 'supvisors_options'):
+        self.supvisors_options.supervisor_options = self
+        self.supvisors_options.parser = parser
+        self.supvisors_options.complete_options(parser, section, group_name, process_configs, klass)
+    # return super result
+    return process_configs
+
+
+class SupvisorsServerOptions:
+    """ Class used to parse the Supervisor options from the configuration files.
 
     Attributes are:
         - parser: the config parser ;
         - program_configs: the program configuration not retained by Supervisor ;
-        - process_configs: the process configuration not retained by Supervisor.
+        - process_configs: the process configuration not retained by Supervisor ;
+        - disabilities: the programs enabled / disabled.
     """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
-        ServerOptions.__init__(self)
         self.supvisors = supvisors
-        # attributes
+        # Supervisor instances
+        self.supervisor_options: Optional[ServerOptions] = None
         self.parser = None
+        # attributes
         self.program_configs: Dict[str, ProgramConfig] = {}  # {program_name: ProgramConfig}
         self.process_configs: Dict[str, SupvisorsProcessConfig] = {}  # {process_name: SupvisorsProcessConfig}
         # disabilities for local processes (Supervisor issue #591)
@@ -653,23 +668,22 @@ class SupvisorsServerOptions(ServerOptions):
         self.write_disabilities()
 
     # Get additional information not stored by Supervisor when parsing the configuration files
-    def _processes_from_section(self, parser, section: str, group_name: str, klass=None) -> List[ProcessConfig]:
-        """ This method is overridden to store the configuration information not kept by Supervisor.
+    def complete_options(self, parser, section: str, group_name: str, process_configs, klass=None) -> None:
+        """ This method is a complement from Supervisor.
 
         This is originally used in Supervisor to set the real program name from the format defined in the ini file.
         However, Supervisor does not keep this information in its internal structure.
 
-        :param parser: the config parser
-        :param section: the program section
-        :param group_name: the group that embeds the program definition
-        :param klass: the ProcessConfig class (or EventListenerConfig or FastCGIProcessConfig)
-        :return: the list of ProcessConfig
+        :param parser: the config parser.
+        :param section: the program section.
+        :param group_name: the group that embeds the program definition.
+        :param process_configs: Supervisor's parsing results.
+        :param klass: the ProcessConfig class (or EventListenerConfig or FastCGIProcessConfig).
+        :return: None.
         """
         # keep a reference to the parser, so that it is not garbage-collected
         # it will be needed to re-evaluate procnums
         self.parser = parser
-        # call super behaviour
-        process_configs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
         # store process configurations and groups
         program_name = section.split(':', 1)[1]
         if program_name in self.program_configs:
@@ -691,8 +705,6 @@ class SupvisorsServerOptions(ServerOptions):
                 self.process_configs[process_config.name] = alt_process_config
         # associate the group to the program
         program_config.group_config_info[group_name] = process_configs
-        # return super result
-        return process_configs
 
     def get_section(self, program_name: str):
         """ Get the Supervisor relevant section name depending on the program name.
@@ -740,5 +752,6 @@ class SupvisorsServerOptions(ServerOptions):
             for process in process_list:
                 self.process_configs.pop(process.name, None)
             # build the new configuration
-            group_configs[group_name] = self.processes_from_section(self.parser, section, group_name, program.klass)
+            group_configs[group_name] = self.supervisor_options.processes_from_section(self.parser, section,
+                                                                                       group_name, program.klass)
         return group_configs

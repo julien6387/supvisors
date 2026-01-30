@@ -20,6 +20,7 @@ from unittest.mock import call
 
 import pytest
 from supervisor.loggers import LevelsByName
+from supervisor.options import UnhosedConfigParser
 
 from supvisors.options import *
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies
@@ -539,21 +540,6 @@ def test_histo():
     assert SupvisorsOptions.to_histo('1500') == 1500
 
 
-def create_server(mocker, server_opt, config):
-    """ Create a SupvisorsServerOptions instance using patches on Supervisor source code.
-    This is required because the unit test does not include existing files. """
-    mocker.patch.object(ServerOptions, 'default_configfile', return_value='supervisord.conf')
-    mocker.patch.object(ServerOptions, 'exists', return_value=True)
-    mocker.patch.object(ServerOptions, 'usage', side_effect=ValueError)
-    # this flag is required for supervisor to cope with unittest arguments
-    server_opt.positional_args_allowed = 1
-    # remove pytest cov options
-    mocker.patch.object(sys, 'argv', [sys.argv[0]])
-    mocker.patch.object(ServerOptions, 'open', return_value=config)
-    server_opt.realize()
-    return server_opt
-
-
 def test_server_options_disabilities(mocker, supvisors_instance, server_opt):
     """ Test the SupvisorsServerOptions disabilities management. """
     # patch open
@@ -615,16 +601,35 @@ def check_process_config(process_config: SupvisorsProcessConfig, result: Payload
     assert result['program_config'] is process_config.program_config
 
 
-def test_server_options(mocker, server_opt):
+@pytest.fixture
+def supervisor_server_opt(mocker, server_opt):
+    """ Create a SupvisorsServerOptions instance using patches on Supervisor source code.
+    This is required because the unit test does not include existing files. """
+    srv_options = ServerOptions()
+    mocker.patch.object(ServerOptions, 'default_configfile', return_value='supervisord.conf')
+    mocker.patch.object(ServerOptions, 'exists', return_value=True)
+    mocker.patch.object(ServerOptions, 'usage', side_effect=ValueError)
+    # this flag is required for supervisor to cope with unittest arguments
+    srv_options.positional_args_allowed = 1
+    # remove pytest cov options
+    mocker.patch.object(sys, 'argv', [sys.argv[0]])
+    mocker.patch.object(ServerOptions, 'open', return_value=ProgramConfiguration)
+    # monkeypatch ServerOptions (similarly to supvisors.plugin.patch_134)
+    ServerOptions._processes_from_section_ref = ServerOptions._processes_from_section
+    ServerOptions._processes_from_section = supvisors_processes_from_section
+    # parse the configuration
+    srv_options.supvisors_options = server_opt
+    srv_options.realize()
+    yield srv_options
+    ServerOptions._processes_from_section = ServerOptions._processes_from_section_ref
+    delattr(ServerOptions, '_processes_from_section_ref')
+
+
+def test_server_options(supervisor_server_opt, server_opt):
     """ Test that the internal numbers of homogeneous programs are stored.
-    WARN: All in one test because it doesn't work when create_server is called twice.
+    WARN: All in one test because it doesn't work when supervisor_server_opt is called twice.
     """
-    # test attributes
-    assert server_opt.parser is None
-    assert server_opt.program_configs == {}
-    assert server_opt.process_configs == {}
-    # call realize
-    server = create_server(mocker, server_opt, ProgramConfiguration)
+    assert type(server_opt.parser) is UnhosedConfigParser
     # check program configurations
     assert sorted(server_opt.program_configs.keys()) == ['dumber', 'dummies', 'dummy', 'dummy_ears']
     expected = {'name': 'dumber', 'klass': FastCGIProcessConfig, 'numprocs': 2, 'disabled': False,
@@ -674,8 +679,8 @@ def test_server_options(mocker, server_opt):
     assert server_opt.get_subprocesses('dummy') == ['dummy_group:dummy']
     assert server_opt.get_subprocesses('dummy_ears') == ['dummy_ears:dummy_ears_20', 'dummy_ears:dummy_ears_21']
     # udpate procnums of a program
-    result = server.update_numprocs('dummies', 1)
-    assert server.parser['program:dummies']['numprocs'] == '1'
+    result = server_opt.update_numprocs('dummies', 1)
+    assert server_opt.parser['program:dummies']['numprocs'] == '1'
     assert sorted(result.keys()) == ['dummy_group']
     assert len(result['dummy_group']) == 1
     assert result['dummy_group'][0].name == 'dummy_0'
@@ -690,8 +695,8 @@ def test_server_options(mocker, server_opt):
     assert 'dummy_2' not in server_opt.process_configs
     assert server_opt.get_subprocesses('dummies') == ['dummy_group:dummy_0']
     # udpate procnums of a FastCGI program
-    result = server.update_numprocs('dumber', 1)
-    assert server.parser['fcgi-program:dumber']['numprocs'] == '1'
+    result = server_opt.update_numprocs('dumber', 1)
+    assert server_opt.parser['fcgi-program:dumber']['numprocs'] == '1'
     assert sorted(result.keys()) == ['dumber']
     assert len(result['dumber']) == 1
     assert result['dumber'][0].name == 'dumber_10'
@@ -705,8 +710,8 @@ def test_server_options(mocker, server_opt):
     assert 'dumber_11' not in server_opt.process_configs
     assert server_opt.get_subprocesses('dumber') == ['dumber:dumber_10']
     # udpate procnums of an event listener
-    result = server.update_numprocs('dummy_ears', 3)
-    assert server.parser['eventlistener:dummy_ears']['numprocs'] == '3'
+    result = server_opt.update_numprocs('dummy_ears', 3)
+    assert server_opt.parser['eventlistener:dummy_ears']['numprocs'] == '3'
     assert sorted(result.keys()) == ['dummy_ears']
     assert len(result['dummy_ears']) == 3
     assert result['dummy_ears'][0].name == 'dummy_ears_20'

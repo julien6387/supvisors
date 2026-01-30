@@ -7,8 +7,8 @@ test_dir=$(dirname "$(readlink -f "$0")")
 HOSTS=${@:-rocky51 rocky52 rocky53}
 
 # configure 3 applications
-SRV_CONFIG_CMD="supvisors_breed -d etc -t template_etc -p server/*.ini -b scen2_srv=3 -x -v"
-HCI_CONFIG_CMD="supvisors_breed -d etc -t template_etc -p console/*ini -b scen2_hci=3 -x -v"
+SRV_CONFIG_CMD="python -m supvisors.tools.breed -d etc -t template_etc -p server/*.ini -b scen2_srv=3 -x -v"
+HCI_CONFIG_CMD="python -m supvisors.tools.breed -d etc -t template_etc -p console/*ini -b scen2_hci=3 -x -v"
 
 # clear logs / configure / start server + console on each host
 for host in $HOSTS

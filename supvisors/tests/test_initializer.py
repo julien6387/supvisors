@@ -14,7 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
-from unittest.mock import Mock
+from unittest.mock import call
 
 import pytest
 
@@ -25,8 +25,7 @@ from supvisors.statscollector import StatisticsCollectorProcess
 def test_creation(mocker, supervisor_instance):
     """ Test the values set at construction. """
     mocked_parser = mocker.patch('supvisors.initializer.Parser', return_value='Parser')
-    mocked_srv_options = Mock(procnumbers={})
-    mocked_options = mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_srv_options)
+    mocked_options = mocker.patch.object(supervisor_instance.options, 'process_config')
     # create the instance to test, using default empty configuration
     supv = Supvisors(supervisor_instance)
     # test calls
@@ -36,7 +35,7 @@ def test_creation(mocker, supervisor_instance):
     assert supv.discovery_handler is None
     assert supv.external_publisher is None
     assert isinstance(supv.options, SupvisorsOptions)
-    assert mocked_srv_options.realize.called
+    assert mocked_options.call_args_list == [call(do_usage=False)]
     assert isinstance(supv.logger, Logger)
     assert isinstance(supv.supervisor_data, SupervisorData)
     assert isinstance(supv.supervisor_updater, SupervisorUpdater)

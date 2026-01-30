@@ -34,6 +34,7 @@ from supvisors.web.viewmaintail import MainTailView
 from supvisors.web.viewprocinstance import ProcInstanceView
 from supvisors.web.viewsupvisors import SupvisorsView
 from .initializer import Supvisors
+from .options import supvisors_processes_from_section
 from .rpcinterface import RPCInterface, startProcess
 from .supervisordata import spawn
 from .ttypes import SupvisorsFaults
@@ -91,7 +92,7 @@ def patch_logger():
 def patch_591() -> None:
     """ Apply on-the-fly patches to Supervisor to implement Supervisor issue #591.
 
-    :return: None
+    :return: None.
     """
     # monkeypatch SupervisorNamespaceRPCInterface.startProcess
     if not hasattr(SupervisorNamespaceRPCInterface, '_startProcess'):
@@ -100,6 +101,17 @@ def patch_591() -> None:
     # monkeypatch Subprocess.spawn
     if not hasattr(Subprocess, '_spawn'):
         Subprocess._spawn, Subprocess.spawn = Subprocess.spawn, spawn
+
+
+def patch_134() -> None:
+    """ Apply on-the-fly patches to Supervisor to implement Supvisors issue #134.
+
+    :return: None.
+    """
+    # monkeypatch ServerOptions._processes_from_section
+    if not hasattr(ServerOptions, '_processes_from_section_ref'):
+        ServerOptions._processes_from_section_ref = ServerOptions._processes_from_section
+        ServerOptions._processes_from_section = supvisors_processes_from_section
 
 
 def update_views() -> None:
@@ -123,6 +135,7 @@ def update_views() -> None:
 
 
 def apply_patches():
+    """ On-the-fly updates within Supervisor. """
     # update Supervisor Fault definition
     expand_faults()
     # patch the Supervisor ServerOptions.cleanup_fds
@@ -131,6 +144,8 @@ def apply_patches():
     patch_logger()
     # apply patch for Supervisor issue #591
     patch_591()
+    # apply patch for Supervisor issue #134
+    patch_134()
     # replace Supervisor http web pages
     update_views()
     # patch the Supervisor gettags to handle Supervisor and Supvisors docstring
@@ -140,9 +155,9 @@ def apply_patches():
 def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterface:
     """ Supervisor entry point for Supvisors plugin.
 
-    :param supervisord: the global Supervisor structure
-    :param config: the config attributes read from the Supvisors section
-    :return: the Supvisors XML-RPC interface
+    :param supervisord: the global Supervisor structure.
+    :param config: the config attributes read from the Supvisors section.
+    :return: the Supvisors XML-RPC interface.
     """
     # store the Supvisors instance within supervisord to ensure persistence and uniqueness
     if not hasattr(supervisord, 'supvisors'):

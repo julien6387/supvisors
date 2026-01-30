@@ -459,9 +459,12 @@ class SupervisorData:
 
     def obsolete_processes(self, group_processes: GroupConfigInfo) -> NameList:
         """ Mark the selected processes as obsolete. """
+        self.logger.info(f'SupervisorData.obsolete_processes: group_processes={group_processes}')  # debug
         obsolete_processes = []
         for group_name, candidates in group_processes.items():
             group = self.supervisord.process_groups[group_name]
+            self.logger.info(f'SupervisorData.obsolete_processes: group_name={group_name} candidates={candidates}')  # debug
+            self.logger.info(f'SupervisorData.obsolete_processes: group.processes={group.processes}')  # debug
             for process_name in candidates:
                 process = group.processes[process_name]
                 if process.state in STOPPED_STATES:

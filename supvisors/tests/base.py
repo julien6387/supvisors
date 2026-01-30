@@ -142,6 +142,9 @@ class DummyServerOptions:
         # prepare storage for close_httpservers test
         self.storage = None
 
+    def process_config(self, do_usage=True):
+        pass
+
     def close_httpservers(self):
         self.storage = self.httpservers
 

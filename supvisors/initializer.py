@@ -14,9 +14,6 @@
 # limitations under the License.
 # ======================================================================
 
-import sys
-
-from supervisor import supervisord
 from supervisor.loggers import Logger, getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 
@@ -83,7 +80,6 @@ class Supvisors:
         """
         # WARN: The Supvisors communication objects cannot be created at this level.
         #       Before running, Supervisor forks when daemonized and the sockets would be lost.
-        self.rpc_handler = None
         self.discovery_handler = None
         self.external_publisher = None
         # create logger using option from config
@@ -91,9 +87,10 @@ class Supvisors:
         self.logger = create_logger(supervisor, logger_config)
         # get options from config
         self.options = SupvisorsOptions(supervisor, self.logger, **config)
-        # re-realize configuration to get process configuration not stored within Supervisor options
+        # store Supvisors options in Supervisor to allow additional processing when reading the configuration files
         self.server_options = SupvisorsServerOptions(self)
-        self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
+        supervisor.options.supvisors_options = self.server_options
+        supervisor.options.process_config(do_usage=False)
         # configure supervisor data wrapper
         self.supervisor_data = SupervisorData(self, supervisor)
         self.supervisor_updater = SupervisorUpdater(self)
