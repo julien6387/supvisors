@@ -48,7 +48,7 @@ class ProcessCommand:
     def __init__(self, process: ProcessStatus) -> None:
         """ Initialization of the attributes.
 
-        :param process: the ProcessStatus of the process to command
+        :param process: the ProcessStatus of the process to command.
         """
         self.process: ProcessStatus = process
         self.identifier: Optional[str] = None
@@ -116,8 +116,8 @@ class ProcessCommand:
     def update_identifier(self, identifier: str):
         """ Assign the targeted Supvisors instance.
 
-        :param identifier: the identifier of the targeted Supvisors instance
-        :return: None
+        :param identifier: the identifier of the targeted Supvisors instance.
+        :return: None.
         """
         self.identifier = identifier
         self.instance_status = self.supvisors.context.instances[identifier]
@@ -130,7 +130,7 @@ class ProcessCommand:
         """
         self.request_sequence_counter = self.instance_status.sequence_counter
 
-    def get_instance_info(self):
+    def get_instance_info(self) -> Optional[dict]:
         """ Return the process info corresponding to the targeted Supvisors instance.
 
         :return: the current status of the process on the targeted Supvisors instance
@@ -144,7 +144,7 @@ class ProcessCommand:
         """
         raise NotImplementedError
 
-    def on_event(self):
+    def on_event(self) -> ProcessRequestResult:
         """ Evaluate the result of the Process request against the current state of the Process on the Supvisors
         instance where the request has been sent.
 
@@ -198,7 +198,7 @@ class ProcessStartCommand(ProcessCommand):
         self.wait_ticks = self.get_instance_info()['startsecs']
 
     def start(self) -> None:
-        """ Use an asynchronous xml rpc to start the process.
+        """ Use a deferred XML-RPC to start the process.
 
         :return: None.
         """
@@ -212,7 +212,7 @@ class ProcessStartCommand(ProcessCommand):
 
         :return: the request status.
         """
-        instance_info = self.get_instance_info()
+        instance_info: dict = self.get_instance_info()
         process_state = instance_info['state']
         if process_state == ProcessStates.STARTING:
             # all right, on the way
@@ -246,16 +246,16 @@ class ProcessStartCommand(ProcessCommand):
         if process_state == ProcessStates.FATAL:
             self.logger.error(f'ProcessStartCommand.on_event: crash of {self.process.namespec} on {self.identifier}')
             return ProcessRequestResult.FAILED
-        if process_state in (ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN):
-            # STOPPED should be impossible as it wouldn't be compliant to ProcessStates transitions logic
-            # STOPPING would mean that someone has requested to stop the process as it is starting
-            # UNKNOWN is unlikely as it corresponds to an internal supervisord error
-            self.logger.error('ProcessStartCommand.on_event:'
-                              f' unexpected event={getProcessStateDescription(process_state)}'
-                              f' while starting {self.process.namespec} on {self.identifier}')
-            return ProcessRequestResult.FAILED
+        # process_state in (ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN)
+        # STOPPED should be impossible as it wouldn't be compliant to ProcessStates transitions logic
+        # STOPPING would mean that someone has requested to stop the process as it is starting
+        # UNKNOWN is unlikely as it corresponds to an internal supervisord error
+        self.logger.error('ProcessStartCommand.on_event:'
+                          f' unexpected event={getProcessStateDescription(process_state)}'
+                          f' while starting {self.process.namespec} on {self.identifier}')
+        return ProcessRequestResult.FAILED
 
-    def timed_out(self) -> Tuple[ProcessStates, ProcessRequestResult, int]:
+    def timed_out(self) -> tuple[int, ProcessRequestResult, int]:
         """ Check if the request has not been acknowledged in a reasonable time.
 
         :return: the event expected, the timeout status and the date of the last event received
@@ -320,7 +320,7 @@ class ProcessStopCommand(ProcessCommand):
         # identifier is known right from the start
         self.update_identifier(identifier)
 
-    def update_identifier(self, identifier: str):
+    def update_identifier(self, identifier: str) -> None:
         """ Assign the targeted Supvisors instance and the number of ticks to wait.
 
         :param identifier: the identifier of the targeted Supvisors instance
@@ -331,7 +331,7 @@ class ProcessStopCommand(ProcessCommand):
         self.wait_ticks = self.get_instance_info()['stopwaitsecs']
 
     def stop(self) -> None:
-        """ Use an asynchronous xml rpc to stop the process.
+        """ Use a deferred XML-RPC to stop the process.
 
         :return: None.
         """
@@ -356,7 +356,7 @@ class ProcessStopCommand(ProcessCommand):
         return ProcessRequestResult.IN_PROGRESS
         # RUNNING_STATES: should be impossible as it wouldn't be compliant to ProcessStates transitions logic
 
-    def timed_out(self) -> Tuple[ProcessStates, ProcessRequestResult, int]:
+    def timed_out(self) -> tuple[int, ProcessRequestResult, int]:
         """ Check if the request has not been acknowledged in a reasonable time.
 
         :return: the event expected and the timeout status
@@ -391,19 +391,20 @@ class ProcessStopCommand(ProcessCommand):
         return expected_state, ProcessRequestResult.IN_PROGRESS, process_state_time
 
 
+# Annotation types
+CommandList = List[ProcessCommand]
+PlannedJobs = Dict[int, CommandList]  # {proc_seq: [proc_cmd]}
+
+
 class ApplicationJobs:
     """ Manages the lifecycle of an application start/stop sequence. """
-
-    # Annotation types
-    CommandList = List[ProcessCommand]
-    PlannedJobs = Dict[int, CommandList]  # {proc_seq: [proc_cmd]}
 
     # pickup logic is used to pop a subgroup from a sequence
     pickup_logic = None
     # failure_state is used to force the process state upon failure
     failure_state = ProcessStates.UNKNOWN
 
-    def __init__(self, application: ApplicationStatus, jobs: PlannedJobs, supvisors: Any) -> None:
+    def __init__(self, application: ApplicationStatus, jobs: PlannedJobs, supvisors: Any):
         """ Initialization of the attributes.
 
         :param application: the Supvisors application structure
@@ -417,11 +418,11 @@ class ApplicationJobs:
         self.application: ApplicationStatus = application
         self.application_name: str = application.application_name
         # attributes
-        self.planned_jobs: ApplicationJobs.PlannedJobs = jobs
-        self.current_jobs: ApplicationJobs.CommandList = []
+        self.planned_jobs: PlannedJobs = jobs
+        self.current_jobs: CommandList = []
 
     # miscellaneous methods
-    def __repr__(self):
+    def __repr__(self) -> str:
         """ Get the applications jobs as string.
 
         :return: the representation of a process command
@@ -595,7 +596,7 @@ class ApplicationJobs:
         # first check if event is in the sequence logic, i.e. it corresponds to a process in current jobs
         command = self.get_current_command(process.process_name, identifier)
         if command:
-            result = command.on_event()
+            result: ProcessRequestResult = command.on_event()
             if result in [ProcessRequestResult.SUCCESS, ProcessRequestResult.FAILED]:
                 # on completion, remove the command from current jobs
                 self.current_jobs.remove(command)
@@ -665,9 +666,11 @@ class ApplicationStartJobs(ApplicationJobs):
     # override default pickup logic
     pickup_logic = min
     # override default process failure state
-    failure_state = ProcessStates.FATAL
+    failure_state: int = ProcessStates.FATAL
+    # used to assess the load of pending requests from the relevant Starter instance
+    model: bool = False
 
-    def __init__(self, application: ApplicationStatus, jobs: ApplicationJobs.PlannedJobs,
+    def __init__(self, application: ApplicationStatus, jobs: PlannedJobs,
                  starting_strategy: StartingStrategies, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
@@ -684,6 +687,12 @@ class ApplicationStartJobs(ApplicationJobs):
         # flags for use at Starter level
         self.stop_request: bool = False
 
+    @property
+    def starter_instance(self):
+        if not self.model:
+            return self.supvisors.starter
+        return self.supvisors.starter_model
+
     # miscellaneous methods
     def on_command_added(self, command: ProcessCommand) -> None:
         """ Notification that a command has been added to the planned jobs.
@@ -693,49 +702,51 @@ class ApplicationStartJobs(ApplicationJobs):
         """
         # in the case of a non-distributed application, one of the selected Supvisors instances must be applied
         if self.distribution != DistributionRules.ALL_INSTANCES:
-            if not self.identifiers:
+            if self.identifiers:
+                load = command.process.rules.expected_load
+                # NOTE: all pending starting requests at Starter level must be considered into global load
+                load_request_map = self.starter_instance.get_load_requests()
+                # check that one of the chosen Supvisors instances can support the new process
+                # in a non-distributed application, the application starting_strategy applies
+                self.logger.trace('ApplicationStartJobs.on_command_added: searching a Supvisors instance among'
+                                  f' {self.identifiers} to start {command.process.namespec} with load={load}'
+                                  f' / load_request_map={load_request_map}')
+                identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, self.identifiers,
+                                                    load, load_request_map)
+                if identifier:
+                    self.logger.debug(f'ApplicationStartJobs.on_command_added: {command.process.namespec} is planned'
+                                      f' to start on Supvisors={identifier}')
+                    command.update_identifier(identifier)
+                else:
+                    self.logger.debug(f'ApplicationStartJobs.on_command_added: {command.process.namespec} cannot'
+                                      f' be started on any of the chosen Supvisors among {self.identifiers}')
+            else:
                 self.logger.debug('ApplicationStartJobs.on_command_added: no candidate Supvisors instance to start'
                                   f' {command.process.namespec}')
-                return None
-            load = command.process.rules.expected_load
-            # consider all pending starting requests into global load
-            load_request_map = self.get_load_requests()
-            # check that one of the chosen Supvisors instances can support the new process
-            # in a non-distributed application, the application starting_strategy applies
-            self.logger.trace('ApplicationStartJobs.on_command_added: searching a Supvisors instance among'
-                              f' {self.identifiers} to start {command.process.namespec} with load={load}'
-                              f' / load_request_map={load_request_map}')
-            identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, self.identifiers,
-                                                load, load_request_map)
-            if identifier:
-                self.logger.debug(f'ApplicationStartJobs.on_command_added: {command.process.namespec} is planned to'
-                                  f' start on Supvisors={identifier}')
-                command.update_identifier(identifier)
-            else:
-                self.logger.debug(f'ApplicationStartJobs.on_command_added: {command.process.namespec} cannot'
-                                  f' be started on any of the chosen Supvisors among {self.identifiers}')
 
     def get_load_requests(self) -> LoadMap:
         """ Extract by Supvisors instance the processes that are planned to start but still stopped
         and sum their expected load.
 
-        :return: the additional loading per Supvisors instance
+        :return: the additional loading per Supvisors instance.
         """
         load_request_map = {}
         # sum the loading of all jobs having a targeted Supvisors instance and whose process is not fully started yet
-        for command in self.current_jobs + sum(self.planned_jobs.values(), []):
+        commands = sum(self.planned_jobs.values(), self.current_jobs)
+        for command in commands:
             # if process is not stopped, its loading is already considered through SupvisorsInstanceStatus
             if command.process.stopped() and command.identifier:
                 identifier = command.identifier
                 load_request_map.setdefault(identifier, []).append(command.process.rules.expected_load)
-        return {identifier: sum(load_list) for identifier, load_list in load_request_map.items()}
+        return {identifier: sum(load_list)
+                for identifier, load_list in load_request_map.items()}
 
     # lifecycle methods
     def distribute_to_single_node(self) -> None:
         """ Assign Supvisors instances to each process of the non-distributed application, with the assumption
         that all processes must run in Supvisors instances that are running on the same node.
 
-        :return: None
+        :return: None.
         """
         # TBC: what if any process of this application is already running (started manually) ?
         # get all ProcessStartCommand of the application
@@ -743,7 +754,8 @@ class ApplicationStartJobs(ApplicationJobs):
         # find the applicable Supvisors instances iaw strategy
         application_load = self.application.get_start_sequence_expected_load()
         identifiers = self.application.possible_node_identifiers()
-        load_request_map = self.get_load_requests()
+        # NOTE: all pending starting requests at Starter level must be considered into global load
+        load_request_map = self.starter_instance.get_load_requests()
         # choose the node that can support the application load
         machine_id = get_node(self.supvisors, self.starting_strategy, identifiers, application_load, load_request_map)
         # intersect the identifiers running on the node and the application possible identifiers
@@ -751,7 +763,8 @@ class ApplicationStartJobs(ApplicationJobs):
         node_identifiers = list(self.supvisors.mapper.nodes.get(machine_id, []))
         self.identifiers = [identifier for identifier in identifiers if identifier in node_identifiers]
         if self.identifiers:
-            load_request_map = self.get_load_requests()
+            # TBC: why re-calculate?
+            # load_request_map = self.get_load_requests()
             self.logger.trace(f'ApplicationStartJobs.distribute_to_single_node: Supvisors={self.identifiers}'
                               f' of machine_id={machine_id} are selected to start {self.application_name}'
                               f' with load_request_map={load_request_map}')
@@ -771,7 +784,7 @@ class ApplicationStartJobs(ApplicationJobs):
         """ Assign a Supvisors instance to each process of the non-distributed application, with the assumption
         that all processes must run in the same Supvisors instance.
 
-        :return: None
+        :return: None.
         """
         # TBC: what if any process of this application is already running (started manually) ?
         # get all ProcessStartCommand of the application
@@ -779,10 +792,12 @@ class ApplicationStartJobs(ApplicationJobs):
         # find the applicable Supvisors instances iaw strategy
         application_load = self.application.get_start_sequence_expected_load()
         identifiers = self.application.possible_identifiers()
-        load_request_map = self.get_load_requests()
+        # NOTE: all pending starting requests at Starter level must be considered into global load
+        load_request_map = self.starter_instance.get_load_requests()
         self.logger.trace(f'ApplicationStartJobs.distribute_to_single_instance: searching a Supvisors instance among'
-                          f' {self.identifiers} to start {self.application_name} with load={application_load}'
-                          f' with load_request_map={load_request_map}')
+                          f' {identifiers} to start {self.application_name} with load={application_load}'
+                          f' with load_request_map={load_request_map}'
+                          f' using strategy={self.starting_strategy.name}')
         # choose the Supvisors instance that can support the application load
         identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, identifiers,
                                             application_load, load_request_map)
@@ -802,7 +817,7 @@ class ApplicationStartJobs(ApplicationJobs):
         More particularly, in the case of a non-distributed application, the Supvisors instance must be found
         at this stage, considering the load of the whole application at once.
 
-        :return: None
+        :return: None.
         """
         if self.distribution == DistributionRules.SINGLE_NODE:
             self.distribute_to_single_node()
@@ -822,8 +837,8 @@ class ApplicationStartJobs(ApplicationJobs):
             # TODO: now that load request is in place, selection could be all done before
             # identifier has already been decided for a non-distributed application
             if self.distribution == DistributionRules.ALL_INSTANCES:
-                # consider all pending starting requests into global load
-                load_request_map = self.get_load_requests()
+                # NOTE: all pending starting requests at Starter level must be considered into global load
+                load_request_map = self.starter_instance.get_load_requests()
                 # find Supvisors instance iaw strategy
                 identifier = get_supvisors_instance(self.supvisors, command.strategy, process.possible_identifiers(),
                                                     process.rules.expected_load, load_request_map)
@@ -872,7 +887,7 @@ class ApplicationStartJobs(ApplicationJobs):
 class ApplicationStopJobs(ApplicationJobs):
     """ Specialization of ApplicationJobs to stop applications. """
 
-    def __init__(self, application: ApplicationStatus, jobs: ApplicationJobs.PlannedJobs, supvisors: Any) -> None:
+    def __init__(self, application: ApplicationStatus, jobs: PlannedJobs, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
         :param application: the Supvisors application structure.
@@ -899,7 +914,11 @@ class ApplicationStopJobs(ApplicationJobs):
         if running:
             command.stop()
             return True
+        return False
 
+# Annotation types
+ApplicationJobsMap = Dict[str, ApplicationJobs]  # {app_name: app_jobs}
+Plan = Dict[int, ApplicationJobsMap]  # {app_seq: {app_name: app_jobs}}
 
 class Commander:
     """ Base class handling the starting / stopping of processes and applications.
@@ -908,10 +927,6 @@ class Commander:
         - planned_jobs: the application sequences to be commanded, grouped by application sequence order ;
         - current_jobs: the application sequences being commanded.
     """
-
-    # Annotation types
-    ApplicationJobsMap = Dict[str, ApplicationJobs]  # {app_name: app_jobs}
-    Plan = Dict[int, ApplicationJobsMap]  # {app_seq: {app_name: app_jobs}}
 
     # ProcessCommand & ApplicationJobs classes
     command_class = None
@@ -928,8 +943,8 @@ class Commander:
         self.supvisors = supvisors
         self.logger = supvisors.logger
         # attributes
-        self.planned_jobs: Commander.Plan = {}
-        self.current_jobs: Commander.ApplicationJobsMap = {}
+        self.planned_jobs: Plan = {}
+        self.current_jobs: ApplicationJobsMap = {}
         # used for Logger so that Starter / Stopper are printed instead of Commander
         self.class_name = type(self).__name__
 
@@ -1132,7 +1147,7 @@ class Starter(Commander):
         :param strategy: the strategy to be used to start the application.
         :param application: the application to start.
         :param trigger: a status telling if the jobs have to be triggered directly or not.
-        :return: None
+        :return: None.
         """
         self.logger.debug(f'Starter.start_application: {application.application_name}')
         # push program list in job list and start work
@@ -1174,6 +1189,7 @@ class Starter(Commander):
             application.resolve_rules()
             return True
         self.logger.warn(f'Starter.store_application: {application.application_name} has no valid start_sequence')
+        return False
 
     def default_start_process(self, process: ProcessStatus, trigger: bool = True) -> None:
         """ Plan and start the necessary job to start the process in parameter, with the default strategy.
@@ -1235,14 +1251,17 @@ class Starter(Commander):
     def get_load_requests(self) -> LoadMap:
         """ Get the requested load from all current ApplicationJobs.
 
-        :return: the additional loading per Supvisors instance
+        :return: the additional loading per Supvisors instance.
         """
         load_requests = [application_job.get_load_requests()
                          for application_job in self.current_jobs.values()]
         # get all identifiers found
-        identifiers = {identifier for load_request in load_requests for identifier in load_request}
+        identifiers = {identifier
+                       for load_request in load_requests
+                       for identifier in load_request}
         # sum the loadings per identifier
-        return {identifier: sum(load_request.get(identifier, 0) for load_request in load_requests)
+        return {identifier: sum(load_request.get(identifier, 0)
+                                for load_request in load_requests)
                 for identifier in identifiers}
 
     def publish_state_modes(self) -> None:
@@ -1481,6 +1500,9 @@ class ProcessStartCommandModel(ProcessStartCommand):
 
 class ApplicationStartJobsModel(ApplicationStartJobs):
     """ Model of a ApplicationStartJobs without any extern interaction. """
+
+    # override model to get the StarterModel to assess the load of pending requests
+    model = True
 
     def fail_command(self, process: ProcessStatus, identifier: str, event_time: float, reason: str) -> None:
         """ Replace the force_process_state command by a direct update on ProcessStatus. """

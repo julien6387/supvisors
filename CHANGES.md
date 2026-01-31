@@ -5,6 +5,9 @@
 * Fix [Issue #134](https://github.com/julien6387/supvisors/issues/134).
   Reload the **Supvisors** process configuration after Supervisor is updated.
 
+* Fix the distribution logic when multiple applications are in the same starting stage, especially when `LESS_LOADED`
+  or `MOST_LOADED` strategies are used.
+
 * Consider the case where process events are received and ignored during the **Supvisors** handshake.
 
 * Add the XML-RPC `get_core_identifiers` to return the resolved **Supvisors** core instances.

@@ -320,7 +320,7 @@ def create_process_command(info, supvisors_instance):
 
 
 @pytest.fixture
-def sample_test_1(supvisors_instance) -> ApplicationJobs.CommandList:
+def sample_test_1(supvisors_instance) -> CommandList:
     """ Create a command list with the processes of sample_test_1 of the database. """
     cmd_list = []
     for process_name in ['xclock', 'xlogo', 'xfontsel']:
@@ -333,7 +333,7 @@ def sample_test_1(supvisors_instance) -> ApplicationJobs.CommandList:
 
 
 @pytest.fixture
-def sample_test_2(supvisors_instance) -> ApplicationJobs.CommandList:
+def sample_test_2(supvisors_instance) -> CommandList:
     """ Create a command list with the processes of sample_test_2 of the database. """
     cmd_list = []
     for process_name in ['sleep', 'yeux_00', 'yeux_01']:
@@ -658,7 +658,7 @@ def create_process_start_command(info, supvisors_instance):
 
 
 @pytest.fixture
-def start_sample_test_1(supvisors_instance) -> ApplicationJobs.CommandList:
+def start_sample_test_1(supvisors_instance) -> CommandList:
     """ Create a command list with the processes of sample_test_1 of the database. """
     cmd_list = []
     for process_name, load in [('xclock', 10), ('xlogo', 20), ('xfontsel', 30)]:
@@ -693,12 +693,16 @@ def test_application_start_job_creation(supvisors_instance, application_start_jo
     assert application_start_job_1.distribution == DistributionRules.ALL_INSTANCES
     assert application_start_job_1.identifiers == []
     assert not application_start_job_1.stop_request
+    assert not application_start_job_1.model
 
 
 def test_application_start_job_on_command_added(mocker, supvisors_instance,
                                                 application_start_job_1, start_sample_test_1):
     """ Test the ApplicationStartJobs.on_command_added method. """
     mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
+    mocker.patch.object(supvisors_instance.starter, 'get_load_requests', return_value={})
+    mocker.patch.object(supvisors_instance.starter_model, 'get_load_requests',
+                        return_value={'10.0.0.1:25000': 30})
     xclock = start_sample_test_1[0]
     xclock.process.rules.expected_load = 7
     # test with application distributed, application identifier unset and command identifiers unset
@@ -707,32 +711,38 @@ def test_application_start_job_on_command_added(mocker, supvisors_instance,
     assert xclock.identifier is None
     assert not mocked_get_instance.called
     # set application non-distributed and retry
-    for distribution in [DistributionRules.SINGLE_INSTANCE, DistributionRules.SINGLE_NODE]:
-        application_start_job_1.distribution = distribution
-        # this case corresponds to a non-distributed application for which no node has been found
-        application_start_job_1.identifiers = []
-        application_start_job_1.on_command_added(xclock)
-        assert xclock.identifier is None
-        assert not mocked_get_instance.called
-        # set application identifier and retry
-        application_start_job_1.identifiers = ['10.0.0.1:25000']
-        # this case corresponds to a non-distributed application for which a node has been found and the job has been
-        # added in superclass (otherwise command identifiers would be set)
-        # first, consider that there's no resource available anymore
-        mocked_get_instance.return_value = None
-        application_start_job_1.on_command_added(xclock)
-        assert xclock.identifier is None
-        assert mocked_get_instance.call_args_list == [call(supvisors_instance, StartingStrategies.LESS_LOADED,
-                                                           ['10.0.0.1:25000'], 7, {})]
-        mocked_get_instance.reset_mock()
-        # then, consider that the node can accept the additional loading
-        mocked_get_instance.return_value = '10.0.0.1:25000'
-        application_start_job_1.on_command_added(xclock)
-        assert xclock.identifier == '10.0.0.1:25000'
-        assert mocked_get_instance.call_args_list == [call(supvisors_instance, StartingStrategies.LESS_LOADED,
-                                                           ['10.0.0.1:25000'], 7, {})]
-        mocked_get_instance.reset_mock()
-        xclock.identifier = None
+    for model in [True, False]:
+        application_start_job_1.model = model
+        assert application_start_job_1.starter_instance is supvisors_instance.starter_model \
+            if model else supvisors_instance.starter
+        load_requests = {'10.0.0.1:25000': 30} if model else {}
+        for distribution in [DistributionRules.SINGLE_INSTANCE, DistributionRules.SINGLE_NODE]:
+            application_start_job_1.distribution = distribution
+            # this case corresponds to a non-distributed application for which no node has been found
+            application_start_job_1.identifiers = []
+            application_start_job_1.on_command_added(xclock)
+            assert xclock.identifier is None
+            assert not mocked_get_instance.called
+            # set application identifier and retry
+            application_start_job_1.identifiers = ['10.0.0.1:25000']
+            # this case corresponds to a non-distributed application for which a node has been found and the job has been
+            # added in superclass (otherwise command identifiers would be set)
+            # first, consider that there's no resource available anymore
+            mocked_get_instance.return_value = None
+            application_start_job_1.on_command_added(xclock)
+            assert xclock.identifier is None
+            assert mocked_get_instance.call_args_list == [call(supvisors_instance,
+                                                               StartingStrategies.LESS_LOADED,
+                                                               ['10.0.0.1:25000'], 7, load_requests)]
+            mocked_get_instance.reset_mock()
+            # then, consider that the node can accept the additional loading
+            mocked_get_instance.return_value = '10.0.0.1:25000'
+            application_start_job_1.on_command_added(xclock)
+            assert xclock.identifier == '10.0.0.1:25000'
+            assert mocked_get_instance.call_args_list == [call(supvisors_instance, StartingStrategies.LESS_LOADED,
+                                                               ['10.0.0.1:25000'], 7, load_requests)]
+            mocked_get_instance.reset_mock()
+            xclock.identifier = None
 
 
 def test_application_start_job_get_load_requests(application_start_job_1, start_sample_test_1):
@@ -758,6 +768,7 @@ def test_application_start_job_distribute_to_single_node(mocker, supvisors_insta
     """ Test the ApplicationStartJobs.distribute_to_single_node method. """
     mocked_get_node = mocker.patch('supvisors.commander.get_node')
     mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
+    mocker.patch.object(supvisors_instance.starter, 'get_load_requests', return_value={})
     test_identifier = '10.0.0.1:25000'
     possible_identifiers = ['10.0.0.3:25000', '10.0.0.2:25000', supvisors_instance.mapper.local_identifier]
     mocker.patch.object(application_start_job_1.application, 'possible_node_identifiers',
@@ -804,6 +815,7 @@ def test_application_start_job_distribute_to_single_instance(mocker, supvisors_i
     mocker.patch.object(application_start_job_1.application, 'possible_identifiers',
                         return_value=['10.0.0.1:25000', '10.0.0.2:25000'])
     mocker.patch.object(application_start_job_1.application, 'get_start_sequence_expected_load', return_value=27)
+    mocker.patch.object(supvisors_instance.starter, 'get_load_requests', return_value={})
     # set context
     application_start_job_1.distribution = DistributionRules.SINGLE_NODE
     # test no resource found
@@ -859,6 +871,7 @@ def test_application_start_job_process_job(mocker, supvisors_instance, applicati
     mocked_force = supvisors_instance.listener.force_process_state
     mocked_pusher = mocker.patch.object(supvisors_instance.rpc_handler, 'send_start_process')
     mocked_failure = mocker.patch.object(application_start_job_1, 'process_failure')
+    mocker.patch.object(supvisors_instance.starter, 'get_load_requests', return_value={})
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1:25000'
     # 1. xfontsel is running
@@ -983,7 +996,7 @@ def create_process_stop_command(info, supvisors_instance):
 
 
 @pytest.fixture
-def stop_sample_test_1(supvisors_instance) -> ApplicationJobs.CommandList:
+def stop_sample_test_1(supvisors_instance) -> CommandList:
     """ Create a command list with the processes of sample_test_1 of the database. """
     cmd_list = []
     for process_name in ['xclock', 'xlogo', 'xfontsel']:
@@ -2057,6 +2070,7 @@ def test_application_start_jobs_model(supvisors_instance, start_command, start_s
     supvisors_instance.context.applications['dummy_application'] = application
     jobs = {0: start_sample_test_1[0:2], 1: start_sample_test_1[2:]}
     jobs_model = ApplicationStartJobsModel(application, jobs, StartingStrategies.LESS_LOADED, supvisors_instance)
+    assert jobs_model.model
     # test overridden fail command
     ref_time = start_command.process.info_map['10.0.0.1:25000']['event_time']
     jobs_model.fail_command(start_command.process, '10.0.0.1:25000', ref_time + 1.0, 'error')
@@ -2065,7 +2079,7 @@ def test_application_start_jobs_model(supvisors_instance, start_command, start_s
     assert start_command.process.forced_reason == 'error'
 
 
-def test_starter_model(supvisors_instance, start_command, sample_test_1):
+def test_starter_model(mocker, supvisors_instance, start_command, sample_test_1):
     """ Test the StarterModel class. """
     # test creation
     supvisors_instance.starter_model = starter = StarterModel(supvisors_instance)

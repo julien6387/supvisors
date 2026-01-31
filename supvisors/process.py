@@ -203,7 +203,7 @@ class ProcessStatus:
         - application_name: the application name, or group name from a Supervisor point of view ;
         - process_name: the process name ;
         - namespec: the process namespec ;
-        - state: the synthetic state of the process, same enumeration as Supervisor ;
+        - state: the synthetic state of the process, same enumeration-like as Supervisor ;
         - forced_state: the state forced by Supvisors upon unexpected event ;
         - forced_reason: the reason why the state would be forced ;
         - expected_exit: a status telling if the process has exited expectantly ;
@@ -217,8 +217,8 @@ class ProcessStatus:
     """
 
     # attributes
-    _state: ProcessStates = ProcessStates.UNKNOWN
-    forced_state: Optional[ProcessStates] = None
+    _state: int = ProcessStates.UNKNOWN
+    forced_state: Optional[int] = None
     forced_reason: str = ''
     expected_exit: bool = True
     last_event_mtime: float = 0.0
@@ -253,27 +253,27 @@ class ProcessStatus:
         return self.supvisors.logger
 
     @property
-    def state(self) -> ProcessStates:
+    def state(self) -> int:
         """ Getter of state attribute.
 
-        :return: the process state.
+        :return: the Supervisor ProcessStates.
         """
         return self._state
 
     @property
-    def displayed_state(self) -> ProcessStates:
+    def displayed_state(self) -> int:
         """ Getter of state attribute for display to the user.
         Returns forced state in priority if set.
 
-        :return: the process state
+        :return: the Supervisor ProcessStates.
         """
         return self.state if self.forced_state is None else self.forced_state
 
     @state.setter
-    def state(self, new_state: ProcessStates) -> None:
+    def state(self, new_state: int) -> None:
         """ Setter of state attribute.
 
-        :param new_state: the new process state.
+        :param new_state: the new Supervisor ProcessStates.
         :return: None.
         """
         if self._state != new_state:
@@ -308,10 +308,11 @@ class ProcessStatus:
             self.logger.debug(f'ProcessStatus.force_state: forced event dismissed for {self.namespec}')
         return force_state
 
-    def reset_forced_state(self, state: ProcessStates = None):
+    def reset_forced_state(self, state: int = None):
         """ Reset forced_state upon reception of new information only if not STOPPED (default state in Supervisor).
 
-        :param state: the new state (provided only when Supervisor information is added for the first time).
+        :param state: the new Supervisor ProcessStates (provided only when Supervisor information
+                      is added for the first time).
         :return: None.
         """
         if self.forced_state is not None and state != ProcessStates.STOPPED:
