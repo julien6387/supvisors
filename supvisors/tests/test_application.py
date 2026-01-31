@@ -434,6 +434,8 @@ def test_application_create(supvisors_instance):
     assert not application.processes
     assert not application.start_sequence
     assert not application.stop_sequence
+    # check application log trace limitation
+    assert not application.sequence_alert
     # check application default rules
     assert not application.rules.managed
     assert application.rules.distribution == DistributionRules.ALL_INSTANCES
@@ -778,12 +780,14 @@ def filled_application(supvisors_instance):
 def test_application_update_sequences(filled_application):
     """ Test the sequencing of the update_sequences method. """
     # call the sequencer
+    assert not filled_application.rules.managed
     filled_application.update_sequences()
     # check the sequencing of the starting
     sequences = sorted({process.rules.start_sequence for process in filled_application.processes.values()})
     # by default, applications are unmanaged so start sequence is empty
     assert not filled_application.start_sequence
     assert filled_application.stop_sequence
+    assert filled_application.sequence_alert
     # stop sequence contents is tested afterwards
     # force application to managed and call sequencer again
     filled_application.rules.managed = True

@@ -432,6 +432,8 @@ class ApplicationStatus:
         self.process_groups: ApplicationStatus.HomogeneousGroupsMap = {}
         self.start_sequence: ApplicationStatus.ApplicationSequence = {}
         self.stop_sequence: ApplicationStatus.ApplicationSequence = {}
+        # flags to limit the log traces
+        self.sequence_alert: bool = False
 
     @property
     def logger(self) -> Logger:
@@ -686,8 +688,12 @@ class ApplicationStatus:
             self.logger.debug(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
                               f' start_sequence={self.printable_sequence(self.start_sequence)}')
         else:
-            self.logger.info(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
-                             ' is not managed so start sequence is undefined')
+            # this log trace is not needed everytime the sequence is evaluated
+            # the rules will not change once the supervisor daemon is started
+            if not self.sequence_alert:
+                self.logger.info(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
+                                 ' is not managed so start sequence is undefined')
+                self.sequence_alert = True
         # stop sequence is applicable to all applications
         for process in self.processes.values():
             # fill ordering iaw process rules
