@@ -57,7 +57,7 @@ It will likely work fine on most UNIX systems.
 
 **Supvisors** will not run at all under any version of Windows.
 
-From the version 0.19, **Supvisors** works with `Python 3.9` to `Python 3.12`.
+**Supvisors** works with `Python 3.9` to `Python 3.14`.
 
 Due to the lack of support of `Python 3.6` and `Python 3.7` in the Ubuntu releases provided in the Standard
 GitHub-hosted runners, **Supvisors** is now based on the minimal `Python` release provided in RedHat 9,
