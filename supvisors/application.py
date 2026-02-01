@@ -146,9 +146,11 @@ class ApplicationRules:
                 else:
                     # the subset of applicable identifiers is the hash_identifiers
                     ref_identifiers = self.hash_identifiers
+                # consider stereotypes and aliases
+                filtered_identifiers = self.supvisors.mapper.filter(ref_identifiers)
                 # if there are more application instances than possible identifiers, roll over
-                index = application_number % len(ref_identifiers)
-                self.identifiers = [ref_identifiers[index]]
+                index = application_number % len(filtered_identifiers)
+                self.identifiers = [filtered_identifiers[index]]
                 self.logger.debug(f'ApplicationRules.check_hash_identifiers: {application_name=}'
                                   f' identifiers={self.identifiers}')
                 error = False
@@ -297,7 +299,7 @@ class HomogeneousGroup:
         If the number of candidate processes is greater than the candidate identifiers, the processes in excess
         cannot be started using Supvisors.
 
-        :return: None
+        :return: None.
         """
         # get process list ordered by process_index
         process_list = sorted(self.processes, key=lambda x: x.process_index)
@@ -315,8 +317,8 @@ class HomogeneousGroup:
                 ref_identifiers = self.supvisors.mapper.filter(self.at_identifiers)
             self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
                               f' {ref_identifiers=}')
-            # the aim of at_identifiers is to distribute the processes over a list of Supvisors instances,
-            #   without having 2 processes assigned to the same identifier
+            # NOTE: the aim of at_identifiers is to distribute the processes over a list of Supvisors instances,
+            #       without having 2 processes assigned to the same identifier
             # get assigned identifiers, assuming rules identifiers have size == 1
             assigned_identifiers = [process.rules.identifiers[0] for process in process_list
                                     if process.rules.identifiers]
@@ -343,7 +345,7 @@ class HomogeneousGroup:
         If the number of candidate processes is greater than the candidate `identifiers`, the assignment is performed
         by rolling over the identifiers list.
 
-        :return: None
+        :return: None.
         """
         # get process list ordered by process_index
         process_list = sorted(self.processes, key=lambda x: x.process_index)
@@ -382,7 +384,7 @@ class HomogeneousGroup:
                                  f' identifiers={process.rules.identifiers}')
                 # increment identifier counter
                 identifier_count[0] = count + 1
-            # WARN: even if not in discovery mode, do NOT remove the 'at' status from homogeneous group
+            # WARN: even if not in discovery mode, do NOT remove the 'hash' status from homogeneous group
             #       the assignment is final but the number of processes in a homogeneous group can change
             #       (through the update_numprocs XML-RPC)
 

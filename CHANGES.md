@@ -10,6 +10,11 @@
 
 * Consider the case where process events are received and ignored during the **Supvisors** handshake.
 
+* In the application rules of a **Supvisors** rules file, in combination with the use of an application `pattern`,
+  allow the use of stereotypes and aliases associated with the hashtag symbol '#' in the application `identifiers`.
+
+* Set the local **Supvisors** nickname with the Supervisor identifier when available.
+
 * Add the XML-RPC `get_core_identifiers` to return the resolved **Supvisors** core instances.
 
 * Set the lower limit of the option `synchro_timeout` to 0 instead of 15 (Default value remains unchanged).
@@ -675,7 +680,7 @@
 
 ## 0.9 (2021-08-31)
 
-* Enable the hash '#' for the `addresses` of a non-distributed application.
+* Enable the hashtag '#' for the `addresses` of a non-distributed application.
 
 * Add `supvisorsctl` to pally the lack of support of `supervisorctl` when used with `--serverurl URL` option.
   See related [Supervisor Issue #1455](https://github.com/Supervisor/supervisor/issues/1455).

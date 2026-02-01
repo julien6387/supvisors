@@ -72,14 +72,14 @@ def test_rules_check_hash_identifiers(rules_instance):
     rules_instance.start_sequence = 1
     # 1. test with application without ending index
     rules_instance.check_hash_identifiers('crash')
-    # identifiers is unchanged and start_sequence is invalidated
+    # the identifiers attribute is unchanged and start_sequence is invalidated
     assert rules_instance.hash_identifiers == ['*']
     assert rules_instance.identifiers == []
     assert rules_instance.start_sequence == 0
     # 2. test with application with 0-ending index
     rules_instance.start_sequence = 1
     rules_instance.check_hash_identifiers('sample_test_0')
-    # identifiers is unchanged and start_sequence is invalidated
+    # the identifiers attribute is unchanged and start_sequence is invalidated
     assert rules_instance.hash_identifiers == ['*']
     assert rules_instance.identifiers == []
     assert rules_instance.start_sequence == 0
@@ -92,15 +92,15 @@ def test_rules_check_hash_identifiers(rules_instance):
     # 4. update rules to test '#' with a subset of instances available
     rules_instance.hash_identifiers = ['10.0.0.0:25000', '10.0.0.3:25000', '10.0.0.5:25000']
     rules_instance.identifiers = []
-    # here, at index 2-1 of this list, '10.0.0.5' can be found
+    # here, at index 2-1 of this list, '10.0.0.5' can be found ('10.0.0.0' being filtered)
     rules_instance.check_hash_identifiers('sample_test_2')
-    assert rules_instance.identifiers == ['10.0.0.3:25000']
+    assert rules_instance.identifiers == ['10.0.0.5:25000']
     assert rules_instance.start_sequence == 1
-    # 5. test the case where procnumber is greater than the subset list of instances available
-    rules_instance.hash_identifiers = ['10.0.0.1:25000']
+    # 5. test the case where procnumber is greater than the subset list of instances available (roll-over expected)
+    rules_instance.hash_identifiers = ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000']
     rules_instance.identifiers = []
-    rules_instance.check_hash_identifiers('sample_test_2')
-    assert rules_instance.identifiers == ['10.0.0.1:25000']
+    rules_instance.check_hash_identifiers('sample_test_6')
+    assert rules_instance.identifiers == ['10.0.0.5:25000']
     assert rules_instance.start_sequence == 1
 
 
