@@ -24,6 +24,12 @@ However, if the updates under consideration are involving ``CSS`` only, such as:
 
 an option ``css_files`` has been added to the :ref:`supvisors_section` of the |Supervisor| configuration file.
 
+.. code-block:: ini
+
+    [rpcinterface:supvisors]
+    supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+    css_files = user.css
+
 Every Supvisors ``XHTML`` page include a style instruction that can be used to inject user ``CSS``.
 It is placed after the inclusion of all ``CSS`` files, so that the user ``CSS`` may overwrite anything.
 
