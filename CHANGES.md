@@ -15,6 +15,8 @@
 
 * Set the local **Supvisors** nickname with the Supervisor identifier when available.
 
+* Prevent a **Supvisors** instance to be internally registered more than once at node level.
+
 * Add the XML-RPC `get_core_identifiers` to return the resolved **Supvisors** core instances.
 
 * Set the lower limit of the option `synchro_timeout` to 0 instead of 15 (Default value remains unchanged).

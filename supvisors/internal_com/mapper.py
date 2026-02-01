@@ -590,7 +590,9 @@ class SupvisorsMapper:
             sup_id.local_view = local_view = LocalNetwork(self.logger)
             local_view.from_network(remote_view)
         # update nodes using machine id as a key
-        self.nodes.setdefault(remote_view.machine_id, []).append(sup_id.identifier)
+        machines_entries = self.nodes.setdefault(remote_view.machine_id, [])
+        if sup_id.identifier not in machines_entries:
+            machines_entries.append(sup_id.identifier)
         # assign the stereotypes
         self._assign_stereotypes(identifier, payload['stereotypes'])
 
