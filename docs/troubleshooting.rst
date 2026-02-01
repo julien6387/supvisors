@@ -23,7 +23,7 @@ Otherwise, this is the symptom of an improper |Supvisors| installation.
 
 .. important::
 
-    |Supvisors| requires a :program:`Python` version greater than 3.6 and must be available from the :program:`Python`
+    |Supvisors| requires a :program:`Python` version greater than 3.9 and must be available from the :program:`Python`
     interpreter used by |Supervisor|'s :command:`supervisord` command.
 
 Upon any doubt, check the :program:`Python` version and start the interpreter in a terminal to test the import

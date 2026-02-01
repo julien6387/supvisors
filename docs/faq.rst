@@ -22,40 +22,39 @@ However, if the updates under consideration are involving ``CSS`` only, such as:
     * reorganizing HTML elements (``div`` sizes and positions),
     * hiding some existing parts,
 
-the following hint will provide a way to do it without updating |Supvisors|, based on a simple bootstrap
-and monkeypatch.
+an option ``css_files`` has been added to the :ref:`supvisors_section` of the |Supervisor| configuration file.
 
-Every Supvisors ``XHTML`` page include a style instruction that can be used to inject user ``CSS`` by code.
+Every Supvisors ``XHTML`` page include a style instruction that can be used to inject user ``CSS``.
 It is placed after the inclusion of all ``CSS`` files, so that the user ``CSS`` may overwrite anything.
 
 .. code-block:: html
 
     <style meld:id="style_mid"> </style>
 
-The bootstrap consists in inserting some user code between the |Supervisor| plugin factory and the |Supvisors| plugin
-creation. The code will create the |Supvisors| plugin and monkeypatch the ``ViewHandler.write_style`` method,
-so that the style instruction above is filled with ``CSS`` instructions that can be hardcoded as shown below
-or simply read from a file.
+When the option is set, |Supvisors| concatenates all user CSS files and inserts the content in the HTML file.
+
+
+Monkeypatching |Supvisors|
+--------------------------
+
+As Python is an interpreted language, and provided that the user has a good understanding of |Supvisors| and
+|Supervisor|, the following bootstrap makes it possible to add / update fonctions to |Supvisors| on-the-fly.
+
+|Supvisors| itself relies on monkeypatching |Supervisor| in a few places.
+
+.. attention::
+
+    This is obviously **at your own risk**!
 
 .. code-block:: python
 
     from supvisors.plugin import make_supvisors_rpcinterface
-    from supvisors.web.viewhandler import ViewHandler
-
-    USER_CSS = """
-    div {
-        background-color: black;
-    }
-    """
-
-    def write_style(self, root):
-        """ Insert additional CSS instructions into the pages. """
-        root.findmeld('style_mid').content(USER_CSS)
 
     def make_user_rpcinterface(supervisord, **config):
-        """ Create the Supvisors plugin and monkeypatch the write_style method. """
+        """ Create the Supvisors plugin and monkeypatch. """
         intf = make_supvisors_rpcinterface(supervisord, **config)
-        ViewHandler.write_style = write_style
+        # INSERT USER CODE
+        # ...
         return inf
 
 
