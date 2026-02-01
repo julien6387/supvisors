@@ -177,18 +177,21 @@ class RPCInterface:
                 'process_stats': options.process_stats_enabled and has_collector,
                 'collecting_period': options.collecting_period}
 
-    def get_network_info(self, identifier: str) -> Payload:
+    def get_network_info(self, identifier: str) -> PayloadList:
         """ Get network information about the **Supvisors** instance.
 
+        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
         :return: a structure containing network information about the **Supvisors** instance.
-        :rtype: dict[str, Any].
+        :rtype: list[dict[str, Any]].
         :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
         """
         identifiers = self.supvisors.mapper.filter([identifier])
         if not identifiers:
             self._raise(Faults.BAD_NAME, 'get_network_info',
                         f'identifier={identifier} is unknown to Supvisors')
-        return self.supvisors.mapper.instances[identifiers[0]].serial()
+        # return a list because the parameter may be a stereotype and result in multiple identifiers
+        return [self.supvisors.mapper.instances[ident].serial()
+                for ident in identifiers]
 
     def get_all_instances_info(self) -> PayloadList:
         """ Get information about all **Supvisors** instances.
@@ -214,6 +217,7 @@ class RPCInterface:
         if not identifiers:
             self._raise(Faults.BAD_NAME, 'get_instance_info',
                         f'identifier={identifier} is unknown to Supvisors')
+        # return a list because the parameter may be a stereotype and result in multiple identifiers
         return [self.supvisors.context.instances[identifier].serial()
                 for identifier in identifiers]
 

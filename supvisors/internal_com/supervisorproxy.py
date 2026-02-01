@@ -259,17 +259,25 @@ class SupervisorProxy:
         :param timestamp: the handshake timestamp.
         :return: None.
         """
-        network_info = self.xml_rpc('supvisors.get_network_info',
-                                    self.proxy.supvisors.get_network_info,
-                                    (self.status.identifier,))
-        self.logger.debug(f'SupervisorProxy.transfer_network_info: network_info={network_info}')
-        # provide the local Supvisors with the remote Supvisors instance network information
-        # NOTE: use the proxy server to switch to the relevant proxy thread
-        origin = self._get_origin(self.status.identifier)
-        if network_info:
-            network_info['now_monotonic'] = timestamp
-        message = NotificationHeaders.IDENTIFICATION.value, network_info
-        self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+        all_network_info = self.xml_rpc('supvisors.get_network_info',
+                                        self.proxy.supvisors.get_network_info,
+                                        (self.status.identifier,))
+        self.logger.debug(f'SupervisorProxy.transfer_network_info: network_info={all_network_info}')
+        if all_network_info:
+            if len(all_network_info) != 1:
+                self.logger.error('SupervisorProxy.transfer_network_info: unexpected multiple Network Information'
+                                  f' from {self.status.identifier}')
+            else:
+                # provide the local Supvisors with the remote Supvisors instance network information
+                # NOTE: use the proxy server to switch to the relevant proxy thread
+                origin = self._get_origin(self.status.identifier)
+                network_info = all_network_info[0]
+                network_info['now_monotonic'] = timestamp
+                message = NotificationHeaders.IDENTIFICATION.value, network_info
+                self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+        else:
+            self.logger.error('SupervisorProxy.transfer_network_info: unable to get Network Information'
+                              f' from {self.status.identifier}')
 
     def _transfer_states_modes(self) -> None:
         """ Get the states and modes from the remote Supvisors instance and post it to the local Supvisors instance.

@@ -93,13 +93,13 @@ public class SupvisorsXmlRpc {
      * The getNetworkInfo method returns network information about the host where a Supvisors instance is running.
      *
      * @param String identifier: The identifier of the Supvisors instance.
-     * @return SupvisorsNetworkInfo: Network information about the host.
+     * @return HashMap<String, SupvisorsNetworkInfo>: Network information about the host.
      * @throws XmlRpcException: with code BAD_NAME if identifier is unknown to Supvisors.
      */
-    public SupvisorsNetworkInfo getNetworkInfo(final String identifier) throws XmlRpcException {
+    public HashMap<String, SupvisorsNetworkInfo> getNetworkInfo(final String identifier) throws XmlRpcException {
         Object[] params = new Object[]{identifier};
-        HashMap result = client.rpcCall(Namespace + "get_network_info", params, HashMap.class);
-        return new SupvisorsNetworkInfo(result);
+        Object[] objectsArray = client.rpcCall(Namespace + "get_network_info", params, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsNetworkInfo.class);
     }
 
     /**

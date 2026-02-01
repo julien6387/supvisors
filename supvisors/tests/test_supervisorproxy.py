@@ -289,18 +289,29 @@ def test_proxy_transfer_network_info(mocker, proxy_server, mocked_rpc, proxy):
     info_rpc.side_effect = RPCError(Faults.ABNORMAL_TERMINATION)
     proxy._transfer_network_info(1234.56)
     assert info_rpc.call_args_list == [call('10.0.0.2:25000')]
-    expected = NotificationHeaders.IDENTIFICATION.value, None
-    assert mocked_send.call_args_list == [call((('10.0.0.2:25000', '10.0.0.2', ('10.0.0.2', 25000)), expected))]
+    assert not mocked_send.called
     info_rpc.reset_mock()
-    mocked_send.reset_mock()
     # test with a mocked rpc interface
-    netw_info = {'identifier': '10.0.0.1:25000',
-                'nick_identifier': '10.0.0.1',
-                'host_id': '10.0.0.1',
-                'http_port': 25000,
-                 'now_monotonic': 1234.56}
     info_rpc.side_effect = None
-    info_rpc.return_value = netw_info
+    netw_info = {'identifier': '10.0.0.1:25000',
+                 'nick_identifier': '10.0.0.1',
+                 'host_id': '10.0.0.1',
+                 'http_port': 25000,
+                 'now_monotonic': 1234.56}
+    # no response (unexpected)
+    info_rpc.return_value = []
+    proxy._transfer_network_info(1234.56)
+    assert info_rpc.call_args_list == [call('10.0.0.2:25000')]
+    assert not mocked_send.called
+    info_rpc.reset_mock()
+    # multiple responses (unexpected)
+    info_rpc.return_value = [netw_info, netw_info]
+    proxy._transfer_network_info(1234.56)
+    assert info_rpc.call_args_list == [call('10.0.0.2:25000')]
+    assert not mocked_send.called
+    info_rpc.reset_mock()
+    # unique response (expected)
+    info_rpc.return_value = [netw_info]
     proxy._transfer_network_info(1234.56)
     assert info_rpc.call_args_list == [call('10.0.0.2:25000')]
     expected = NotificationHeaders.IDENTIFICATION.value, netw_info

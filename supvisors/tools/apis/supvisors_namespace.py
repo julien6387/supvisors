@@ -116,7 +116,7 @@ class SupvisorsStatisticsStatus(Resource):
 class SupvisorsNetworkInfo(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.get_network_info))
     def get(self, identifier):
-        return g.proxy.supvisors.get_network_info(identifier)
+        return jsonify(g.proxy.supvisors.get_network_info(identifier))
 
 
 @api.route('/all_instances_info', methods=('GET',))
@@ -132,7 +132,7 @@ class SupvisorsAllInstancesInfo(Resource):
 class SupvisorsInstanceInfo(Resource):
     @api.doc(params=get_docstring_parameters(RPCInterface.get_instance_info))
     def get(self, identifier):
-        return g.proxy.supvisors.get_instance_info(identifier)
+        return jsonify(g.proxy.supvisors.get_instance_info(identifier))
 
 
 @api.route('/all_applications_info', methods=('GET',))
