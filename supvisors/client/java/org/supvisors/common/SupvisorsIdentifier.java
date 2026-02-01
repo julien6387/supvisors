@@ -28,7 +28,7 @@ import java.util.Map;
  * It groups the identifier and nickname of the Supvisors instance received from XML-RPC or the event interface.
  * To benefit from the automatic JSON unmarshalling, the attributes must be written exactly as in the payload.
  */
-public class SupvisorsIdentifier {
+public class SupvisorsIdentifier implements SupvisorsAnyInfo {
 
     /** The identifier of the Supvisors instance. */
     private String identifier;
@@ -41,6 +41,7 @@ public class SupvisorsIdentifier {
      *
      * @param HashMap info: The untyped structure got from the XML-RPC.
      */
+    @SuppressWarnings({"unchecked"})
     public SupvisorsIdentifier(HashMap info)  {
         this.identifier = (String) info.get("identifier");
         this.nick_identifier = (String) info.get("nick_identifier");

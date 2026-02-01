@@ -513,7 +513,6 @@ def test_get_nick_identifier(supvisors_instance):
     """ Test the SupvisorsMapper.get_nick_identifier method. """
     smapper = supvisors_instance.mapper
     assert smapper.get_nick_identifier(smapper.local_identifier) == smapper.local_nick_identifier
-    assert smapper.get_nick_identifier('10.0.0.1:25000') == '10.0.0.1'
     assert smapper.get_nick_identifier('10.0.0.2:25000') == '10.0.0.2'
     assert smapper.get_nick_identifier('10.0.0.3:25000') == '10.0.0.3'
     assert smapper.get_nick_identifier('10.0.0.4:25000') == '10.0.0.4'
@@ -551,6 +550,20 @@ def test_add_instance(mapper):
                                         '10.0.0.2': '10.0.0.2:25000', 'dummy_1': '10.0.0.3:25000'}
 
 
+def test_mapper_configure_empty(mocker, supvisors_instance, mapper):
+    """ Test the storage of the expected Supvisors instances when no default list is provided. """
+    mocked_find = mocker.patch.object(mapper, '_find_local_identifier')
+    supvisors_instance.supervisor_data.supervisord.options.identifier = 'dummy'
+    # configure mapper with no element
+    mapper.configure([], set(), [])
+    assert list(mapper.instances.keys()) == ['supv01.bzh:25000']
+    assert mapper._nick_identifiers == {'dummy': 'supv01.bzh:25000'}
+    assert mapper._core_identifiers == []
+    assert mapper.core_identifiers == []
+    assert mapper.initial_identifiers == ['supv01.bzh:25000']
+    assert mocked_find.call_args_list == [call(set())]
+
+
 def test_mapper_configure(mocker, mapper):
     """ Test the storage of the expected Supvisors instances. """
     mocked_find = mocker.patch.object(mapper, '_find_local_identifier')
@@ -573,6 +586,7 @@ def test_mapper_configure(mocker, mapper):
     with pytest.raises(ValueError):
         mapper.configure(items, {''}, core_items)
     assert not mocked_find.called
+    mocked_find.reset_mock()
 
 
 def test_find_local_identifier(supvisors_instance):
@@ -587,7 +601,7 @@ def test_find_local_identifier(supvisors_instance):
     expected = {'host_id': '10.0.0.1',
                 'http_port': 25000,
                 'identifier': '10.0.0.1:25000',
-                'nick_identifier': '10.0.0.1',
+                'nick_identifier': smapper.local_nick_identifier,
                 'stereotypes': ['supvisors_test'],
                 'network': {'fqdn': 'supv01.bzh',
                             'machine_id': '01:23:45:67:89:ab',
@@ -762,7 +776,7 @@ def test_identify(mapper):
     assert not sup_id_1.remote_view
     payload = sup_id_1.serial()
     assert payload == {'identifier': '10.0.0.1:25000',
-                       'nick_identifier': '10.0.0.1',
+                       'nick_identifier': mapper.local_nick_identifier,
                        'host_id': '10.0.0.1',
                        'http_port': 25000,
                        'stereotypes': ['test'],

@@ -18,7 +18,7 @@ import os
 
 from setuptools import setup, find_namespace_packages
 
-requires = ['supervisor >= 4.2.4, < 4.3']
+requires = ['supervisor >= 4.2.4, < 4.4']
 
 statistics_require = ['psutil >= 5.9.0', 'pyparsing >= 2.4.7, < 3', 'matplotlib >= 3.5.1']
 xml_valid_require = ['lxml >= 4.8.0']
@@ -45,6 +45,7 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Boot",
     "Topic :: System :: Monitoring",
     "Topic :: System :: Software Distribution"

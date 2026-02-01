@@ -17,15 +17,20 @@
 # limitations under the License.
 # ======================================================================
 
-from flask_restx import Api
-from supervisor.compat import xmlrpclib
+from xmlrpc.client import Fault
 
-from .system_namespace import api as system_api
+from flask_restx import Api
+from supervisor.xmlrpc import Faults
+
+from supvisors import supvisors_version
+from supvisors.ttypes import SupvisorsFaults
 from .supervisor_namespace import api as supervisor_api
 from .supvisors_namespace import api as supvisors_api
+from .system_namespace import api as system_api
 
 # create Api with all namespaces
-api = Api(title='Supvisors Flask interface')
+api = Api(version=supvisors_version,
+          title='Supvisors Flask interface')
 api.add_namespace(system_api)
 api.add_namespace(supervisor_api)
 api.add_namespace(supvisors_api)
@@ -37,8 +42,36 @@ def default_error_handler(error):
     return {'message': str(error)}, getattr(error, 'code', 500)
 
 
-@api.errorhandler(xmlrpclib.Fault)
+@api.errorhandler(Fault)
 def supervisor_error_handler(error):
-    """ Supervisor error handler. """
-    return {'message': error.faultString, 'code': error.faultCode}, 400
-
+    """ Supervisor default error handler. """
+    if error.faultCode in [Faults.UNKNOWN_METHOD,
+                           Faults.SIGNATURE_UNSUPPORTED,
+                           Faults.BAD_NAME,
+                           Faults.NO_FILE]:
+        # resource not found
+        http_code = 404
+    elif error.faultCode in [Faults.ALREADY_STARTED,
+                             Faults.NOT_RUNNING,
+                             Faults.ALREADY_ADDED,
+                             Faults.SHUTDOWN_STATE,
+                             SupvisorsFaults.NOT_MANAGED.value,
+                             SupvisorsFaults.DISABLED.value,
+                             SupvisorsFaults.NOT_APPLICABLE.value,
+                             SupvisorsFaults.BAD_SUPVISORS_STATE.value]:
+        # request rejected due to conflict with Supervisor / Supvisors internal state
+        http_code = 409
+    elif error.faultCode in [Faults.NOT_EXECUTABLE,
+                             Faults.FAILED,
+                             Faults.ABNORMAL_TERMINATION,
+                             Faults.SPAWN_ERROR,
+                             Faults.STILL_RUNNING,
+                             Faults.CANT_REREAD,
+                             SupvisorsFaults.SUPVISORS_CONF_ERROR.value,
+                             SupvisorsFaults.NOT_INSTALLED.value]:
+        # something wrong with Supervisor / Supvisors configuration
+        http_code = 500
+    else:
+        # INCORRECT_PARAMETERS, BAD_ARGUMENTS, BAD_SIGNAL (, SUCCESS)
+        http_code = 400
+    return {'message': error.faultString, 'code': error.faultCode}, http_code

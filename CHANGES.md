@@ -1,5 +1,37 @@
 # Change Log
 
+## 0.19.1 (2026-02-01)
+
+* Fix [Issue #134](https://github.com/julien6387/supvisors/issues/134).
+  Reload the **Supvisors** process configuration after Supervisor is updated.
+
+* Fix the distribution logic when multiple applications are in the same starting stage, especially when `LESS_LOADED`
+  or `MOST_LOADED` strategies are used.
+
+* Fix `get_network_info` when used with a **Supvisors** nickname.
+
+* Consider the case where process events are received and ignored during the **Supvisors** handshake.
+
+* In the application rules of a **Supvisors** rules file, in combination with the use of an application `pattern`,
+  allow the use of stereotypes and aliases associated with the hashtag symbol '#' in the application `identifiers`.
+
+* Set the local **Supvisors** nickname with the Supervisor identifier when available.
+
+* Prevent a **Supvisors** instance to be internally registered more than once at node level.
+
+* Add the XML-RPC `get_core_identifiers` to return the resolved **Supvisors** core instances.
+
+* Set the lower limit of the option `synchro_timeout` to 0 instead of 15 (Default value remains unchanged).
+
+* Speed-up the entry in SYNCHRONIZATION state.
+
+* Strengthen robustness against `psutil` issues related to certain operating systems.
+
+* Review HTTP error codes returned by the REST API in `supvisorsflask`.
+
+* CI target added for Python 3.14.
+
+
 ## 0.19 (2025-07-21)
 
 * Python 3.9 becomes the minimal version.
@@ -65,6 +97,8 @@
 * Consider variable CPU frequency value returned by `psutil`.
 
 * Apply the XML-RPC updates on the JAVA client and the Flask interface.
+
+* CI target added for Python 3.13.
 
 
 ## 0.18.7 (2025-01-10)
@@ -650,7 +684,7 @@
 
 ## 0.9 (2021-08-31)
 
-* Enable the hash '#' for the `addresses` of a non-distributed application.
+* Enable the hashtag '#' for the `addresses` of a non-distributed application.
 
 * Add `supvisorsctl` to pally the lack of support of `supervisorctl` when used with `--serverurl URL` option.
   See related [Supervisor Issue #1455](https://github.com/Supervisor/supervisor/issues/1455).

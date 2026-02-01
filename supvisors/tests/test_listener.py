@@ -65,16 +65,19 @@ def test_creation(supvisors_instance, listener):
     assert (RemoteCommunicationEvent, listener.on_remote_event) in callbacks
 
 
-def test_on_running_exception(mocker, listener):
+def test_on_running_exception(mocker, supvisors_instance, listener):
     """ Test the protection of the Supervisor thread in case of exception while processing a SupervisorRunningEvent. """
-    mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler', side_effect=TypeError)
+    mocker.patch.object(supvisors_instance.supervisor_updater, 'on_supervisor_start', side_effect=TypeError)
+    mocked_tick = mocker.patch.object(listener, 'on_tick')
     listener.on_running('')
+    assert not mocked_tick.called
 
 
 def test_on_running_external(mocker, supvisors_instance, listener):
     """ Test the reception of a Supervisor RUNNING event.
     No discovery service, but an external publisher. """
     mocked_prepare = mocker.patch.object(supvisors_instance.supervisor_updater, 'on_supervisor_start')
+    mocked_tick = mocker.patch.object(listener, 'on_tick')
     mocked_external_publisher = Mock()
     mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
                                              return_value=mocked_external_publisher)
@@ -87,6 +90,7 @@ def test_on_running_external(mocker, supvisors_instance, listener):
     assert listener.external_publisher is mocked_external_publisher
     assert supvisors_instance.external_publisher is listener.external_publisher
     assert mocked_collect.called
+    assert mocked_tick.called
 
 
 def test_on_running_discovery(mocker, supvisors_instance, discovery_listener):
@@ -96,6 +100,7 @@ def test_on_running_discovery(mocker, supvisors_instance, discovery_listener):
     mocked_publisher_creation = mocker.patch('supvisors.listener.create_external_publisher',
                                              return_value=None)
     mocked_collect = mocker.patch.object(supvisors_instance.stats_collector, 'start')
+    mocked_tick = mocker.patch.object(discovery_listener, 'on_tick')
     discovery_listener.on_running('')
     # test attributes and calls
     assert mocked_prepare.called
@@ -104,6 +109,7 @@ def test_on_running_discovery(mocker, supvisors_instance, discovery_listener):
     assert discovery_listener.external_publisher is None
     assert supvisors_instance.external_publisher is discovery_listener.external_publisher
     assert mocked_collect.called
+    assert mocked_tick.called
 
 
 def test_on_stopping_exception(mocker, listener):
@@ -788,7 +794,7 @@ def test_force_process_state(mocker, supvisors_instance, listener):
     process = Mock(application_name='appli', process_name='process', extra_args='-h')
     listener.force_process_state(process, '10.0.0.1:25000', 56, ProcessStates.FATAL, 'bad luck')
     expected = {'identifier': '10.0.0.1:25000',
-                'nick_identifier': '10.0.0.1',
+                'nick_identifier': listener.supvisors.mapper.local_nick_identifier,
                 'name': 'process', 'group': 'appli', 'state': ProcessStates.FATAL,
                 'forced': True, 'extra_args': '-h',
                 'now': 45.6, 'now_monotonic': 56,

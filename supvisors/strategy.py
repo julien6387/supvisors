@@ -14,7 +14,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 from supvisors.internal_com.mapper import SupvisorsMapper
 from .application import ApplicationStatus
@@ -22,10 +22,10 @@ from .process import ProcessStatus
 from .ttypes import NameList, NameSet, LoadMap, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
 # annotation types
-LoadDetails = Tuple[LoadMap, LoadMap, LoadMap]
+LoadDetails = tuple[LoadMap, LoadMap, LoadMap]
 
 
-class AbstractStrategy(object):
+class AbstractStrategy:
     """ Base class for a common constructor. """
 
     def __init__(self, supvisors: Any):
@@ -42,9 +42,9 @@ class AbstractStartingStrategy(AbstractStrategy):
     """ Base class for a starting strategy. """
 
     # Annotation types
-    LoadingValidity = Tuple[bool, int, int]
-    LoadingValidityMap = Dict[str, LoadingValidity]
-    IdentifierLoadMap = List[Tuple[str, int, int]]
+    LoadingValidity = tuple[bool, int, int]
+    LoadingValidityMap = dict[str, LoadingValidity]
+    IdentifierLoadMap = list[tuple[str, int, int]]
 
     def is_loading_valid(self, identifier: str, expected_load: int, load_details: LoadDetails) -> LoadingValidity:
         """ Check if the node hosting the Supvisors instance can support the additional load.
@@ -78,10 +78,10 @@ class AbstractStartingStrategy(AbstractStrategy):
                                  load_details: LoadDetails) -> LoadingValidityMap:
         """ Return the report of loading capability of all iSupvisors instances iaw the additional load required.
 
-        :param identifiers: the identifiers of the Supvisors instances considered
-        :param expected_load: the additional load to consider for the program to be started
-        :param load_details: the load details per identifier and node
-        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+        :param identifiers: the identifiers of the Supvisors instances considered.
+        :param expected_load: the additional load to consider for the program to be started.
+        :param load_details: the load details per identifier and node.
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load.
         """
         loading_validity_map = {identifier: self.is_loading_valid(identifier, expected_load, load_details)
                                 for identifier in identifiers}
@@ -93,8 +93,8 @@ class AbstractStartingStrategy(AbstractStrategy):
         """ Sort the loading report by instance load and considering only valid identifiers.
         If multiple instances have an equivalent load, the node load is considered.
 
-        :param loading_validity_map: the loading report
-        :return: the valid identifiers sorted by instance load
+        :param loading_validity_map: the loading report.
+        :return: the valid identifiers sorted by instance load.
         """
         result = sorted([(identifier, node_load, instance_load)
                          for identifier, (validity, node_load, instance_load) in loading_validity_map.items()
@@ -269,7 +269,7 @@ def get_node_load_request_map(mapper: SupvisorsMapper, load_request_map: LoadMap
     return node_load_request_map
 
 
-def create_strategy(supvisors: Any, strategy: StartingStrategies) -> AbstractStartingStrategy:
+def create_strategy(supvisors: Any, strategy: StartingStrategies) -> Optional[AbstractStartingStrategy]:
     """ Factory for starting strategies.
 
     :param supvisors: the global Supvisors structure
@@ -288,6 +288,7 @@ def create_strategy(supvisors: Any, strategy: StartingStrategies) -> AbstractSta
         return LessLoadedNodeStrategy(supvisors)
     if strategy == StartingStrategies.MOST_LOADED_NODE:
         return MostLoadedNodeStrategy(supvisors)
+    return None
 
 
 def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identifiers: NameList,
@@ -337,6 +338,7 @@ def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList
     # get the corresponding machine identifier
     if identifier:
         return supvisors.mapper.instances[identifier].local_view.machine_id
+    return None
 
 
 # Strategy management for Conciliation
@@ -477,10 +479,10 @@ class RunningFailureHandler(AbstractStrategy):
     def __init__(self, supvisors):
         AbstractStrategy.__init__(self, supvisors)
         # the initial jobs
-        self.stop_application_jobs: Set[ApplicationStatus] = set()
-        self.restart_application_jobs: Set[ApplicationStatus] = set()
-        self.restart_process_jobs: Set[ProcessStatus] = set()
-        self.continue_process_jobs: Set[ProcessStatus] = set()
+        self.stop_application_jobs: set[ApplicationStatus] = set()
+        self.restart_application_jobs: set[ApplicationStatus] = set()
+        self.restart_process_jobs: set[ProcessStatus] = set()
+        self.continue_process_jobs: set[ProcessStatus] = set()
 
     def abort(self):
         """ Clear all sets. """

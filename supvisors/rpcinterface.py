@@ -15,7 +15,7 @@
 # ======================================================================
 
 import traceback
-from typing import Callable, NoReturn, Optional, Type, Union
+from typing import Callable, NoReturn, Optional, Union
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
@@ -134,6 +134,16 @@ class RPCInterface:
                     'nick_identifier': master_instance.supvisors_id.nick_identifier}
         return {}
 
+    def get_core_identifiers(self) -> PayloadList:
+        """ Get the identification of the **Supvisors** core instances.
+
+        :return: the identifiers of the **Supvisors** core instances and their nickname.
+        :rtype: dict[str, str].
+        """
+        return [{'identifier': identifier,
+                 'nick_identifier': self.supvisors.mapper.get_nick_identifier(identifier)}
+                for identifier in self.supvisors.mapper.core_identifiers]
+
     def get_strategies(self) -> Payload:
         """ Get the default strategies applied by **Supvisors**:
 
@@ -167,18 +177,21 @@ class RPCInterface:
                 'process_stats': options.process_stats_enabled and has_collector,
                 'collecting_period': options.collecting_period}
 
-    def get_network_info(self, identifier: str) -> str:
+    def get_network_info(self, identifier: str) -> PayloadList:
         """ Get network information about the **Supvisors** instance.
 
+        :param str identifier: the identifier of the Supvisors instance where the Supervisor daemon is running.
         :return: a structure containing network information about the **Supvisors** instance.
-        :rtype: dict[str, Any].
+        :rtype: list[dict[str, Any]].
         :raises RPCError: with code ``Faults.BAD_NAME`` if ``identifier`` is unknown to **Supvisors**.
         """
         identifiers = self.supvisors.mapper.filter([identifier])
         if not identifiers:
             self._raise(Faults.BAD_NAME, 'get_network_info',
                         f'identifier={identifier} is unknown to Supvisors')
-        return self.supvisors.mapper.instances[identifier].serial()
+        # return a list because the parameter may be a stereotype and result in multiple identifiers
+        return [self.supvisors.mapper.instances[ident].serial()
+                for ident in identifiers]
 
     def get_all_instances_info(self) -> PayloadList:
         """ Get information about all **Supvisors** instances.
@@ -204,6 +217,7 @@ class RPCInterface:
         if not identifiers:
             self._raise(Faults.BAD_NAME, 'get_instance_info',
                         f'identifier={identifier} is unknown to Supvisors')
+        # return a list because the parameter may be a stereotype and result in multiple identifiers
         return [self.supvisors.context.instances[identifier].serial()
                 for identifier in identifiers]
 
@@ -1291,7 +1305,7 @@ class RPCInterface:
                     'type string or integer expected')
 
     @staticmethod
-    def get_logger_levels() -> Dict[LevelsByName, str]:
+    def get_logger_levels() -> dict[LevelsByName, str]:
         """ Return a dictionary of Supervisor Logger levels.
 
         :return: the Supervisor Logger levels
@@ -1355,7 +1369,7 @@ class RPCInterface:
                         f'invalid Supvisors state={self.supvisors.fsm.state.name}',
                         f'state expected in {[state.name for state in states]}')
 
-    def _get_application_process(self, namespec: str) -> Tuple[ApplicationStatus, Optional[ProcessStatus]]:
+    def _get_application_process(self, namespec: str) -> tuple[ApplicationStatus, Optional[ProcessStatus]]:
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.
         A BAD_NAME exception is raised if the application or the process is not found. """
         application_name, process_name = split_namespec(namespec)

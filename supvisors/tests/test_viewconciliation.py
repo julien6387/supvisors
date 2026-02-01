@@ -246,7 +246,7 @@ def test_write_conflict_identifier(view):
     view._write_conflict_identifier(mocked_root, {'identifier': '10.0.0.1:25000'})
     assert mocked_root.findmeld.call_args_list == [call('conflict_instance_a_mid')]
     assert mocked_addr_mid.attributes.call_args_list == [call(href='an url')]
-    assert mocked_addr_mid.content.call_args_list == [call('10.0.0.1')]
+    assert mocked_addr_mid.content.call_args_list == [call(view.supvisors.mapper.local_nick_identifier)]
     assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', SupvisorsPages.PROC_INSTANCE_PAGE)]
 
 

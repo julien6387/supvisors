@@ -72,14 +72,14 @@ def test_rules_check_hash_identifiers(rules_instance):
     rules_instance.start_sequence = 1
     # 1. test with application without ending index
     rules_instance.check_hash_identifiers('crash')
-    # identifiers is unchanged and start_sequence is invalidated
+    # the identifiers attribute is unchanged and start_sequence is invalidated
     assert rules_instance.hash_identifiers == ['*']
     assert rules_instance.identifiers == []
     assert rules_instance.start_sequence == 0
     # 2. test with application with 0-ending index
     rules_instance.start_sequence = 1
     rules_instance.check_hash_identifiers('sample_test_0')
-    # identifiers is unchanged and start_sequence is invalidated
+    # the identifiers attribute is unchanged and start_sequence is invalidated
     assert rules_instance.hash_identifiers == ['*']
     assert rules_instance.identifiers == []
     assert rules_instance.start_sequence == 0
@@ -92,15 +92,15 @@ def test_rules_check_hash_identifiers(rules_instance):
     # 4. update rules to test '#' with a subset of instances available
     rules_instance.hash_identifiers = ['10.0.0.0:25000', '10.0.0.3:25000', '10.0.0.5:25000']
     rules_instance.identifiers = []
-    # here, at index 2-1 of this list, '10.0.0.5' can be found
+    # here, at index 2-1 of this list, '10.0.0.5' can be found ('10.0.0.0' being filtered)
     rules_instance.check_hash_identifiers('sample_test_2')
-    assert rules_instance.identifiers == ['10.0.0.3:25000']
+    assert rules_instance.identifiers == ['10.0.0.5:25000']
     assert rules_instance.start_sequence == 1
-    # 5. test the case where procnumber is greater than the subset list of instances available
-    rules_instance.hash_identifiers = ['10.0.0.1:25000']
+    # 5. test the case where procnumber is greater than the subset list of instances available (roll-over expected)
+    rules_instance.hash_identifiers = ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000']
     rules_instance.identifiers = []
-    rules_instance.check_hash_identifiers('sample_test_2')
-    assert rules_instance.identifiers == ['10.0.0.1:25000']
+    rules_instance.check_hash_identifiers('sample_test_6')
+    assert rules_instance.identifiers == ['10.0.0.5:25000']
     assert rules_instance.start_sequence == 1
 
 
@@ -434,6 +434,8 @@ def test_application_create(supvisors_instance):
     assert not application.processes
     assert not application.start_sequence
     assert not application.stop_sequence
+    # check application log trace limitation
+    assert not application.sequence_alert
     # check application default rules
     assert not application.rules.managed
     assert application.rules.distribution == DistributionRules.ALL_INSTANCES
@@ -778,12 +780,14 @@ def filled_application(supvisors_instance):
 def test_application_update_sequences(filled_application):
     """ Test the sequencing of the update_sequences method. """
     # call the sequencer
+    assert not filled_application.rules.managed
     filled_application.update_sequences()
     # check the sequencing of the starting
     sequences = sorted({process.rules.start_sequence for process in filled_application.processes.values()})
     # by default, applications are unmanaged so start sequence is empty
     assert not filled_application.start_sequence
     assert filled_application.stop_sequence
+    assert filled_application.sequence_alert
     # stop sequence contents is tested afterwards
     # force application to managed and call sequencer again
     filled_application.rules.managed = True
@@ -1022,9 +1026,6 @@ def test_application_evaluate_strings(filled_application):
     expr = ast.Constant('a string')
     with pytest.raises(ApplicationStatusParseError):
         filled_application.evaluate(expr)
-    # test string leaf with process status running (just to hit ast.Str)
-    expr = ast.Str('xfontsel')
-    assert filled_application.evaluate(expr) is True
     # test string leaf with process status running
     expr = ast.Constant('xlogo')
     assert filled_application.evaluate(expr) is False

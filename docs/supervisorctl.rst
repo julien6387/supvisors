@@ -33,19 +33,20 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    all_start             local_status            start_application
-    all_start_args        loglevel                start_args
-    application_info      master                  start_process
-    application_rules     process_rules           start_process_args
-    conciliate            restart_application     stats_period
-    conflicts             restart_process         stats_status
-    disable               restart_sequence        stop_application
-    disable_stats         sreload                 stop_process
-    enable                sshutdown               strategies
-    enable_stats          sstate                  sversion
-    end_sync              sstatus                 test_start_application
-    instance_status       start_any_process       test_start_process
-    lazy_update_numprocs  start_any_process_args  update_numprocs
+    all_start             local_status            start_args
+    all_start_args        loglevel                start_process
+    application_info      master                  start_process_args
+    application_rules     process_rules           stats_period
+    conciliate            restart_application     stats_status
+    conflicts             restart_process         stop_application
+    core                  restart_sequence        stop_process
+    disable               sreload                 strategies
+    disable_stats         sshutdown               sversion
+    enable                sstate                  test_start_application
+    enable_stats          sstatus                 test_start_process
+    end_sync              start_any_process       update_numprocs
+    instance_status       start_any_process_args
+    lazy_update_numprocs  start_application
 
 .. _extended_status:
 
@@ -66,7 +67,11 @@ Status
 
 ``master``
 
-    Get the deduced name of the |Supvisors| *Master* instance.
+    Get the identifier and nick identifier of the |Supvisors| *Master* instance.
+
+``core``
+
+    Get the identifiers of the |Supvisors| *Core* instances.
 
 ``strategies``
 
@@ -78,11 +83,11 @@ Status
 
 ``instance_status identifier``
 
-    Get the status of the |Supvisors| instance identified by its deduced name.
+    Get the status of the |Supvisors| instance from its identifier.
 
 ``instance_status identifier1 identifier2``
 
-    Get the status for multiple |Supervisor| instances identified by their deduced name.
+    Get the status for multiple |Supervisor| instances from their identifiers.
 
 ``application_info``
 

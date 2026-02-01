@@ -46,7 +46,7 @@ def add_process_events() -> None:
     """ Register new events in Supervisor EventTypes.
     The new events are in support of Supervisor issue #177.
 
-    :return: None
+    :return: None.
     """
     events.register('PROCESS', ProcessEvent)  # abstract
     events.register('PROCESS_ADDED', ProcessAddedEvent)
@@ -162,6 +162,8 @@ class SupervisorListener:
             self.supvisors.external_publisher = create_external_publisher(self.supvisors)
             # Trigger the FSM
             self.fsm.next()
+            # Force first Tick to speed up the entry in SYNCHRONIZATION state
+            self.on_tick(events.TickEvent(time.time(), None))
         except Exception:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_running: {traceback.format_exc()}')
@@ -290,7 +292,7 @@ class SupervisorListener:
             # Supvisors shall never endanger the Supervisor thread
             self.logger.critical(f'SupervisorListener.on_process_state: {traceback.format_exc()}')
 
-    def _get_local_process_info(self, namespec: str) -> Payload:
+    def _get_local_process_info(self, namespec: str) -> Optional[Payload]:
         """ Use the Supvisors RPCInterface to get local information on this process.
 
         :param namespec: the process namespec.

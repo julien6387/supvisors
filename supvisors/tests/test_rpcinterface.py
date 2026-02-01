@@ -47,7 +47,8 @@ def test_api_version(rpc):
 def test_supvisors_state(mocker, rpc):
     """ Test the get_supvisors_state RPC. """
     mocker.patch('time.monotonic', return_value=1234.56)
-    assert rpc.get_supvisors_state() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+    assert rpc.get_supvisors_state() == {'identifier': '10.0.0.1:25000',
+                                         'nick_identifier': rpc.supvisors.mapper.local_nick_identifier,
                                          'now_monotonic': 1234.56,
                                          'fsm_statecode': 0, 'fsm_statename': 'OFF',
                                          'discovery_mode': False, 'degraded_mode': False,
@@ -61,13 +62,28 @@ def test_supvisors_state(mocker, rpc):
                                                              '10.0.0.6:25000': 'STOPPED'}}
 
 
-def test_master_node(supvisors_instance, rpc):
+def test_master_identifier(supvisors_instance, rpc):
     """ Test the get_master_identifier RPC. """
     # test with no master
     assert rpc.get_master_identifier() == {}
     # test with master
     supvisors_instance.state_modes.master_identifier = '10.0.0.1:25000'
-    assert rpc.get_master_identifier() == {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1'}
+    assert rpc.get_master_identifier() == {'identifier': '10.0.0.1:25000',
+                                           'nick_identifier': rpc.supvisors.mapper.local_nick_identifier}
+
+
+def test_core_identifiers(supvisors_instance, rpc):
+    """ Test the get_core_identifiers RPC. """
+    # test with no core instances
+    assert rpc.get_core_identifiers() == []
+    # test with core instances
+    items = ['127.0.0.1', '<supervisor_05>10.0.0.5:7777', '10.0.0.4:15000', '10.0.0.5:9999']
+    core_items = ['127.0.0.1', 'supervisor_05', '10.0.0.4:15000', 'supervisor_06', '10.0.0.4']
+    supvisors_instance.mapper.configure(items, set(), core_items)
+    assert rpc.get_core_identifiers() == [{'identifier': '127.0.0.1:25000', 'nick_identifier': '127.0.0.1'},
+                                          {'identifier': '10.0.0.5:7777', 'nick_identifier': 'supervisor_05'},
+                                          {'identifier': '10.0.0.4:15000', 'nick_identifier': '10.0.0.4:15000'},
+                                          {'identifier': '10.0.0.4:25000', 'nick_identifier': '10.0.0.4'}]
 
 
 def test_strategies(supvisors_instance, rpc):
@@ -102,7 +118,7 @@ def test_statistics_status(supvisors_instance, rpc):
 def test_network_info(rpc):
     """ Test the get_network_info RPC. """
     expected = {'identifier': '10.0.0.1:25000',
-                'nick_identifier': '10.0.0.1',
+                'nick_identifier': rpc.supvisors.mapper.local_nick_identifier,
                 'host_id': '10.0.0.1',
                 'http_port': 25000,
                 'stereotypes': ['supvisors_test'],
@@ -114,7 +130,7 @@ def test_network_info(rpc):
                                                    'nic_info': {'ipv4_address': '10.0.0.1',
                                                                 'netmask': '255.255.255.0',
                                                                 'nic_name': 'eth0'}}}}}
-    assert rpc.get_network_info(rpc.supvisors.mapper.local_identifier) == expected
+    assert rpc.get_network_info(rpc.supvisors.mapper.local_identifier) == [expected]
     # test with unknown identifier
     with pytest.raises(RPCError) as exc:
         rpc.get_network_info('10.0.0.0')
@@ -124,7 +140,8 @@ def test_network_info(rpc):
 def test_instance_info(rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
     # test with known identifier
-    expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+    expected = {'identifier': '10.0.0.1:25000',
+                'nick_identifier': rpc.supvisors.mapper.local_nick_identifier,
                 'node_name': '10.0.0.1', 'port': 25000, 'loading': 0,
                 'local_mtime': 0.0, 'local_time': 0, 'local_sequence_counter': 0,
                 'remote_mtime': 0.0, 'remote_time': 0, 'remote_sequence_counter': 0,
@@ -153,7 +170,8 @@ def test_instance_state_modes(mocker, rpc):
     """ Test the get_instance_state_modes RPC. """
     mocker.patch('time.monotonic', return_value=1234.56)
     # test with known identifier
-    expected = {'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1',
+    expected = {'identifier': '10.0.0.1:25000',
+                'nick_identifier': rpc.supvisors.mapper.local_nick_identifier,
                 'now_monotonic': 1234.56,
                 'degraded_mode': False, 'discovery_mode': False,
                 'fsm_statecode': 0, 'fsm_statename': 'OFF',
@@ -198,7 +216,7 @@ def test_all_instances_state_modes(mocker, supvisors_instance, rpc):
         identifier = single_result.pop('identifier')
         nick_identifier = single_result.pop('nick_identifier')
         assert identifier in supvisors_instance.mapper.instances
-        if identifier == '10.0.0.1:25000' and nick_identifier == '10.0.0.1':
+        if identifier == '10.0.0.1:25000' and nick_identifier == rpc.supvisors.mapper.local_nick_identifier:
             assert single_result == self_expected
         else:
             assert single_result == other_base_expected

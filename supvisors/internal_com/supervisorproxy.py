@@ -194,7 +194,8 @@ class SupervisorProxy:
 
         :return: None.
         """
-        timestamp = time.monotonic()
+        timestamp: float = time.monotonic()
+        info_timestamp: Optional[float] = None
         # always send the remote network information
         self._transfer_network_info(timestamp)
         # additional information sent internally depends on the actual authorization
@@ -204,11 +205,13 @@ class SupervisorProxy:
         if authorization == AuthorizationTypes.AUTHORIZED:
             # state & modes and process info already include a 'now_monotonic' field
             self._transfer_states_modes()
-            self._transfer_process_info()
+            info_timestamp = self._transfer_process_info()
         # inform local Supvisors that authorization result is available
         # NOTE: use the proxy server to switch to the relevant proxy thread
         origin = self._get_origin(self.status.identifier)
-        auth_info = {'authorization': authorization.value, 'now_monotonic': timestamp}
+        auth_info = {'authorization': authorization.value,
+                     'now_monotonic': timestamp,
+                     'info_monotonic': info_timestamp}
         message = NotificationHeaders.AUTHORIZATION.value, auth_info
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
 
@@ -246,7 +249,7 @@ class SupervisorProxy:
         self.logger.debug(f'SupervisorProxy.is_authorized: strategies_payload={strategies_payload}')
         if strategies_payload != RPCInterface(self.supvisors).get_strategies():
             return AuthorizationTypes.INCONSISTENT
-        # TODO: check core identifiers
+        # NOTE: core identifiers cannot be checked because of discovery mode with stereotypes
         # authorization is granted
         return AuthorizationTypes.AUTHORIZED
 
@@ -256,17 +259,25 @@ class SupervisorProxy:
         :param timestamp: the handshake timestamp.
         :return: None.
         """
-        network_info = self.xml_rpc('supvisors.get_network_info',
-                                    self.proxy.supvisors.get_network_info,
-                                    (self.status.identifier,))
-        self.logger.debug(f'SupervisorProxy.transfer_network_info: network_info={network_info}')
-        # provide the local Supvisors with the remote Supvisors instance network information
-        # NOTE: use the proxy server to switch to the relevant proxy thread
-        origin = self._get_origin(self.status.identifier)
-        if network_info:
-            network_info['now_monotonic'] = timestamp
-        message = NotificationHeaders.IDENTIFICATION.value, network_info
-        self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+        all_network_info = self.xml_rpc('supvisors.get_network_info',
+                                        self.proxy.supvisors.get_network_info,
+                                        (self.status.identifier,))
+        self.logger.debug(f'SupervisorProxy.transfer_network_info: network_info={all_network_info}')
+        if all_network_info:
+            if len(all_network_info) != 1:
+                self.logger.error('SupervisorProxy.transfer_network_info: unexpected multiple Network Information'
+                                  f' from {self.status.identifier}')
+            else:
+                # provide the local Supvisors with the remote Supvisors instance network information
+                # NOTE: use the proxy server to switch to the relevant proxy thread
+                origin = self._get_origin(self.status.identifier)
+                network_info = all_network_info[0]
+                network_info['now_monotonic'] = timestamp
+                message = NotificationHeaders.IDENTIFICATION.value, network_info
+                self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+        else:
+            self.logger.error('SupervisorProxy.transfer_network_info: unable to get Network Information'
+                              f' from {self.status.identifier}')
 
     def _transfer_states_modes(self) -> None:
         """ Get the states and modes from the remote Supvisors instance and post it to the local Supvisors instance.
@@ -286,20 +297,24 @@ class SupervisorProxy:
         else:
             self.logger.error(f'SupervisorProxy.transfer_states_modes: unexpected state_modes={state_modes}')
 
-    def _transfer_process_info(self) -> None:
+    def _transfer_process_info(self) -> float:
         """ Get the process information from the remote Supvisors instance and post it to the local Supvisors instance.
 
-        :return: None.
+        :return: The monotonic time of the process information.
         """
         # get information about all processes handled by the remote Supervisor
         all_info = self.xml_rpc('supvisors.get_all_local_process_info',
                                 self.proxy.supvisors.get_all_local_process_info,
                                 ())
+        info_mtime = time.monotonic()
+        # NOTE: from this point, any process event received before ALL_INFO is processed in the main thread
+        #       would be lost, and leading to an incomplete context
         # inform local Supvisors about the processes available remotely
         # NOTE: use the proxy server to switch to the relevant proxy thread
         origin = self._get_origin(self.status.identifier)
         message = NotificationHeaders.ALL_INFO.value, all_info
         self.supvisors.rpc_handler.proxy_server.push_notification((origin, message))
+        return info_mtime
 
     def start_process(self, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """

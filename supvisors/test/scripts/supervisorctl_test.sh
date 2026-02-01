@@ -24,6 +24,7 @@ sendRequest sstate
 sendRequest sstate all
 sendRequest sstate supv-01
 sendRequest master
+sendRequest core
 sendRequest strategies
 sendRequest stats_status
 

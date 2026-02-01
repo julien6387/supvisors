@@ -21,7 +21,7 @@ from typing import Union
 from unittest.mock import call, patch
 
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.xmlrpc import RPCError, Faults
+from supervisor.xmlrpc import RPCError
 from werkzeug.exceptions import MethodNotAllowed
 
 from supvisors.rpcinterface import RPCInterface
@@ -503,7 +503,16 @@ def test_supvisors_master_identifier(xml_rpc, client):
     """ Check the master_identifier REST API. """
     base_url = '/supvisors/master_identifier'
     mocked_func = xml_rpc.supvisors.get_master_identifier
-    check_get_success(client, f'{base_url}', mocked_func, [call()], 'server_01')
+    check_get_success(client, f'{base_url}', mocked_func, [call()], {'identifier': 'server_01:5505',
+                                                                     'nick_identifier': 'server_01'})
+
+
+def test_supvisors_core_identifiers(xml_rpc, client):
+    """ Check the core_identifiers REST API. """
+    base_url = '/supvisors/core_identifiers'
+    mocked_func = xml_rpc.supvisors.get_core_identifiers
+    check_get_success(client, f'{base_url}', mocked_func, [call()], [{'identifier': 'server_01:5505',
+                                                                      'nick_identifier': 'server_01'}])
 
 
 def test_supvisors_strategies(xml_rpc, client):
@@ -1012,9 +1021,18 @@ def test_error_handlers():
     # test werkzeug exception (BadRequest)
     expected = {'message': '405 Method Not Allowed: The method is not allowed for the requested URL.'}, 405
     assert default_error_handler(MethodNotAllowed()) == expected
-    # test Supervisor exception (RPCError converted to xmlrpclib.Fault)
-    expected = {'message': 'already started', 'code': 60}, 400
-    assert supervisor_error_handler(xmlrpclib.Fault(Faults.ALREADY_STARTED, 'already started')) == expected
+    # test Supervisor exception (RPCError converted to xmlrpc.client.Fault) with code 409
+    expected = {'message': 'already started', 'code': 60}, 409
+    assert supervisor_error_handler(Fault(Faults.ALREADY_STARTED, 'already started')) == expected
+    # test Supervisor exception (RPCError converted to xmlrpc.client.Fault) with code 404
+    expected = {'message': 'file not found', 'code': 20}, 404
+    assert supervisor_error_handler(Fault(Faults.NO_FILE, 'file not found')) == expected
+    # test Supvisors exception (RPCError converted to xmlrpc.client.Fault) with code 500
+    expected = {'message': 'wrong rules file', 'code': 100}, 500
+    assert supervisor_error_handler(Fault(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, 'wrong rules file')) == expected
+    # test Supervisor exception (RPCError converted to xmlrpc.client.Fault) with code 400
+    expected = {'message': 'incorrect parameter', 'code': 2}, 400
+    assert supervisor_error_handler(Fault(Faults.INCORRECT_PARAMETERS, 'incorrect parameter')) == expected
 
 
 # test utilities

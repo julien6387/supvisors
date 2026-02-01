@@ -95,6 +95,21 @@ def test_patch_591():
     assert Subprocess.spawn is spawn
 
 
+def test_patch_134():
+    """ Test the patch_134 function. """
+    # check initial context
+    assert not hasattr(ServerOptions, '_processes_from_section_ref')
+    ref_start_process = ServerOptions._processes_from_section
+    # check monkeypatch
+    patch_134()
+    assert ServerOptions._processes_from_section_ref is ref_start_process
+    assert ServerOptions._processes_from_section is supvisors_processes_from_section
+    # check again monkeypatch to ensure that Supvisors patches do not override renamed Supervisor functions
+    patch_134()
+    assert ServerOptions._processes_from_section_ref is ref_start_process
+    assert ServerOptions._processes_from_section is supvisors_processes_from_section
+
+
 def test_update_views():
     """ Test the update_views function. """
     # update Supervisor views

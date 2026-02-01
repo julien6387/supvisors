@@ -9,6 +9,7 @@
 
     introduction.rst
     configuration.rst
+    rules.rst
     dashboard.rst
     xml_rpc.rst
     flask.rst

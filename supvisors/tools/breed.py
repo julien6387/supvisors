@@ -63,7 +63,7 @@ class KeyValue(Action):
             getattr(namespace, self.dest)[key] = int_value
 
 
-class Breed(object):
+class Breed:
     """ Create X group definitions based on group template.
     This is typically useful when an application could be started X times.
     As there's no concept of homogeneous group in Supervisor, this script duplicates X times the definition of a group
@@ -207,3 +207,7 @@ def main():
     # back to previous directory and write files
     os.chdir(ref_directory)
     breed.write_config_files(args.destination)
+
+
+if __name__ == '__main__':
+    main()

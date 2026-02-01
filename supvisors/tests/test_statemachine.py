@@ -101,8 +101,8 @@ def test_on_state(supvisors_ctx):
     # reset FAILED and call next to get lost instances
     supvisors_ctx.context.instances['10.0.0.4:25000']._state = SupvisorsInstanceStates.FAILED
     assert state.next() is None
-    # test options - none set by default
-    assert state._check_strict_failure() is None
+    # test options - STRICT and TIMEOUT set by default
+    assert state._check_strict_failure() is True
     assert state._check_list_failure() is None
     assert state._check_core_failure() is None
     assert state._check_user_failure() is None
@@ -157,9 +157,11 @@ def test_on_state(supvisors_ctx):
 def check_synchronized_state(fsm_state: _SynchronizedState, forced_state: SupvisorsStates = None,
                              default_state: SupvisorsStates = None):
     """ Test the transitions from any state inheriting from SynchronizedState. """
+    # store synchro_options
+    ref_synchro_options = fsm_state.supvisors.options.synchro_options
     # OnState test is applicable
     check_on_state(fsm_state, forced_state, default_state)
-    assert not fsm_state.supvisors.state_modes.degraded_mode
+    assert fsm_state.supvisors.state_modes.degraded_mode
     # SynchronizedState specific
     # test no transition with STRICT failure and CONTINUE strategy
     fsm_state.context.local_status._state = SupvisorsInstanceStates.RUNNING
@@ -210,7 +212,7 @@ def check_synchronized_state(fsm_state: _SynchronizedState, forced_state: Supvis
     assert fsm_state._check_core_failure()
     assert fsm_state.state_modes.degraded_mode
     # reset options for next tests
-    fsm_state.supvisors.options.synchro_options = []
+    fsm_state.supvisors.options.synchro_options = ref_synchro_options
     fsm_state.supvisors.options.supvisors_failure_strategy = SupvisorsFailureStrategies.CONTINUE
 
 
@@ -490,7 +492,7 @@ def test_off_state(supvisors_ctx):
     state.context.local_status._state = SupvisorsInstanceStates.CHECKING
     assert state.next() == SupvisorsStates.OFF
     # increase uptime for code coverage
-    state.context.start_date -= SupvisorsOptions.SYNCHRO_TIMEOUT_MIN * 2
+    state.context.start_date -= OFF_UPTIME * 2
     assert state.next() == SupvisorsStates.OFF
 
 
@@ -566,26 +568,22 @@ def test_synchronization_state_check_end_sync_core(supvisors_instance, sync_stat
     """ Test the SynchronizationState state of the Supvisors FSM / _check_end_sync_core method. """
     # test with option CORE not set
     supvisors_instance.options.synchro_options = []
-    assert sync_state._check_end_sync_core(80) is None
+    assert sync_state._check_end_sync_core() is None
     # test with option CORE set
     supvisors_instance.options.synchro_options = [SynchronizationOptions.CORE]
     assert supvisors_instance.mapper.core_identifiers == []
     # test when with no core instances (unexpected)
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
+    assert sync_state._check_end_sync_core() is False
     # test with NOT all core instances running
     supvisors_instance.mapper._core_identifiers = ['10.0.0.1:25000', '10.0.0.2:25000']
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
+    assert sync_state._check_end_sync_core() is False
     # test with all core instances running / unstable
     supvisors_instance.mapper._core_identifiers = ['10.0.0.2:25000']
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1) is False
+    assert sync_state._check_end_sync_core() is False
     # test with all core instances running / stable
     supvisors_instance.state_modes.stable_identifiers = {identifier for identifier in supvisors_instance.mapper.instances}
     supvisors_instance.state_modes.local_state_modes.instance_states['10.0.0.2:25000'] = SupvisorsInstanceStates.RUNNING
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN - 1) is False
-    assert sync_state._check_end_sync_core(SupvisorsOptions.SYNCHRO_TIMEOUT_MIN + 1)
+    assert sync_state._check_end_sync_core()
 
 
 def test_synchronization_state_check_end_sync_user(supvisors_instance, sync_state):

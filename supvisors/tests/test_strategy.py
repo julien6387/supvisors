@@ -191,6 +191,32 @@ def test_local_strategy(filled_instances, load_details):
     assert strategy.get_supvisors_instance(instances, 0, load_details) is None
 
 
+def test_get_node_load_request_map(supvisors_instance):
+    """ Test the get_node_load_request_map function. """
+    assert get_node_load_request_map(supvisors_instance.mapper, {}) == {'01:23:45:67:89:ab': 0,
+                                                                        'ab:cd:ef:01:23:45': 0}
+    assert get_node_load_request_map(supvisors_instance.mapper, {'10.0.0.1:25000': 5,
+                                                                 '10.0.0.2:25000': 10,
+                                                                 '10.0.0.3:25000': 15,
+                                                                 '10.0.0.4:25000': 20,
+                                                                 '10.0.0.5:25000': 25,
+                                                                 '10.0.0.6:25000': 30}) == {'01:23:45:67:89:ab': 45,
+                                                                                            'ab:cd:ef:01:23:45': 60}
+
+
+def test_create_strategy(supvisors_instance):
+    """ Test the create_strategy function. """
+    for strategy, klass in [(StartingStrategies.CONFIG, ConfigStrategy),
+                            (StartingStrategies.LESS_LOADED, LessLoadedStrategy),
+                            (StartingStrategies.MOST_LOADED, MostLoadedStrategy),
+                            (StartingStrategies.LOCAL, LocalStrategy),
+                            (StartingStrategies.LESS_LOADED_NODE, LessLoadedNodeStrategy),
+                            (StartingStrategies.MOST_LOADED_NODE, MostLoadedNodeStrategy),
+                            (None, type(None))]:
+        instance = create_strategy(supvisors_instance, strategy)
+        assert isinstance(instance, klass)
+
+
 def test_get_supvisors_instance_no_candidate(supvisors_instance):
     """ Test the choice of a Supvisors instance according to a strategy when no candidate is available. """
     instances = ['10.0.0.1:25000', '10.0.0.3:25000', '10.0.0.5:25000', '10.0.0.6:25000']

@@ -95,7 +95,7 @@ def test_write_status(mocker, supvisors_instance, view):
     assert starting_mid.replace.call_args_list == [call('')]
     assert stopping_mid.attrib['class'] == 'blink'
     assert not stopping_mid.replace.called
-    assert master_mid.content.call_args_list == [call('10.0.0.1')]
+    assert master_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
     mocked_header.reset_all()
     mocker.resetall()
     # test call with master, in CONCILIATION, and with conflicts
@@ -111,7 +111,7 @@ def test_write_status(mocker, supvisors_instance, view):
     assert starting_mid.replace.call_args_list == [call('')]
     assert stopping_mid.attrib['class'] == 'blink'
     assert not stopping_mid.replace.called
-    assert master_mid.content.call_args_list == [call('10.0.0.1')]
+    assert master_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
 
 
 def test_write_actions(mocker, view):

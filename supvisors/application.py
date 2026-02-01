@@ -146,9 +146,11 @@ class ApplicationRules:
                 else:
                     # the subset of applicable identifiers is the hash_identifiers
                     ref_identifiers = self.hash_identifiers
+                # consider stereotypes and aliases
+                filtered_identifiers = self.supvisors.mapper.filter(ref_identifiers)
                 # if there are more application instances than possible identifiers, roll over
-                index = application_number % len(ref_identifiers)
-                self.identifiers = [ref_identifiers[index]]
+                index = application_number % len(filtered_identifiers)
+                self.identifiers = [filtered_identifiers[index]]
                 self.logger.debug(f'ApplicationRules.check_hash_identifiers: {application_name=}'
                                   f' identifiers={self.identifiers}')
                 error = False
@@ -297,7 +299,7 @@ class HomogeneousGroup:
         If the number of candidate processes is greater than the candidate identifiers, the processes in excess
         cannot be started using Supvisors.
 
-        :return: None
+        :return: None.
         """
         # get process list ordered by process_index
         process_list = sorted(self.processes, key=lambda x: x.process_index)
@@ -315,8 +317,8 @@ class HomogeneousGroup:
                 ref_identifiers = self.supvisors.mapper.filter(self.at_identifiers)
             self.logger.debug(f'ProcessRules.assign_at_identifiers: program={self.program_name}'
                               f' {ref_identifiers=}')
-            # the aim of at_identifiers is to distribute the processes over a list of Supvisors instances,
-            #   without having 2 processes assigned to the same identifier
+            # NOTE: the aim of at_identifiers is to distribute the processes over a list of Supvisors instances,
+            #       without having 2 processes assigned to the same identifier
             # get assigned identifiers, assuming rules identifiers have size == 1
             assigned_identifiers = [process.rules.identifiers[0] for process in process_list
                                     if process.rules.identifiers]
@@ -343,7 +345,7 @@ class HomogeneousGroup:
         If the number of candidate processes is greater than the candidate `identifiers`, the assignment is performed
         by rolling over the identifiers list.
 
-        :return: None
+        :return: None.
         """
         # get process list ordered by process_index
         process_list = sorted(self.processes, key=lambda x: x.process_index)
@@ -382,7 +384,7 @@ class HomogeneousGroup:
                                  f' identifiers={process.rules.identifiers}')
                 # increment identifier counter
                 identifier_count[0] = count + 1
-            # WARN: even if not in discovery mode, do NOT remove the 'at' status from homogeneous group
+            # WARN: even if not in discovery mode, do NOT remove the 'hash' status from homogeneous group
             #       the assignment is final but the number of processes in a homogeneous group can change
             #       (through the update_numprocs XML-RPC)
 
@@ -432,6 +434,8 @@ class ApplicationStatus:
         self.process_groups: ApplicationStatus.HomogeneousGroupsMap = {}
         self.start_sequence: ApplicationStatus.ApplicationSequence = {}
         self.stop_sequence: ApplicationStatus.ApplicationSequence = {}
+        # flags to limit the log traces
+        self.sequence_alert: bool = False
 
     @property
     def logger(self) -> Logger:
@@ -686,8 +690,12 @@ class ApplicationStatus:
             self.logger.debug(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
                               f' start_sequence={self.printable_sequence(self.start_sequence)}')
         else:
-            self.logger.info(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
-                             ' is not managed so start sequence is undefined')
+            # this log trace is not needed everytime the sequence is evaluated
+            # the rules will not change once the supervisor daemon is started
+            if not self.sequence_alert:
+                self.logger.info(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
+                                 ' is not managed so start sequence is undefined')
+                self.sequence_alert = True
         # stop sequence is applicable to all applications
         for process in self.processes.values():
             # fill ordering iaw process rules
@@ -835,7 +843,7 @@ class ApplicationStatus:
                 return self._get_process_status(matches[0])
             elif len(matches) >= 1:
                 return [self._get_process_status(x) for x in matches]
-            raise ApplicationStatusParseError(f'no match for expression={node.s}')
+            raise ApplicationStatusParseError(f'no match for expression={node.value}')
         # handle any/all functions
         if type(node) is ast.Call:
             if node.func.id not in ['all', 'any']:

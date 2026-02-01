@@ -146,7 +146,8 @@ def test_create_no_collector(supvisors_instance, supvisors_id, status):
     assert status.times.local_time == 0.0
     assert status.times.start_local_mtime == -1.0
     assert status.processes == {}
-    assert status.checking_time == 0.0
+    assert status.checking_time is None
+    assert status.checking_event_time is None
     # process_collector is None because local_identifier is different in supvisors_mapper and in SupvisorsInstanceId
     assert status.stats_collector is None
 
@@ -168,7 +169,8 @@ def test_create_collector(supvisors_instance, local_supvisors_id, local_status):
     assert local_status.times.local_time == 0.0
     assert local_status.times.start_local_mtime == -1.0
     assert local_status.processes == {}
-    assert local_status.checking_time == 0.0
+    assert local_status.checking_time is None
+    assert local_status.checking_event_time is None
     # process_collector is set as SupvisorsInstanceId and supvisors_mapper's local_identifier are identical
     #  and the option process_stats_enabled is True
     assert local_status.stats_collector is not None
@@ -211,6 +213,27 @@ def test_transitions(status):
             else:
                 with pytest.raises(InvalidTransition):
                     status.state = state2
+
+
+def test_checking_attributes(status):
+    """ Test the transition of CHECKING state. """
+    # check initial data
+    assert status.state == SupvisorsInstanceStates.STOPPED
+    assert status.checking_time is None
+    assert status.checking_event_time is None
+    # transition to CHECKING
+    status.state = SupvisorsInstanceStates.CHECKING
+    assert status.checking_time is not None and status.checking_time > 0.0
+    assert status.checking_event_time is None
+    t1 = status.checking_time
+    # check reset of checking_risk
+    status.checking_event_time = time.monotonic()
+    status.state = SupvisorsInstanceStates.STOPPED
+    assert status.checking_time is None
+    assert status.checking_event_time is None
+    status.state = SupvisorsInstanceStates.CHECKING
+    assert status.checking_time is not None and status.checking_time > t1
+    assert status.checking_event_time is None
 
 
 def test_has_active_state(status):

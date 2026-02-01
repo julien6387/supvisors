@@ -354,7 +354,7 @@ def test_write_process(view):
     assert running_a_mid.findmeld.call_args_list == [call('running_span_mid')]
     assert running_a_mid.replace.call_args_list == []
     assert running_a_mid.attributes.call_args_list == [call(href='an url')]
-    assert running_span_mid.content.call_args_list == [call('10.0.0.1')]
+    assert running_span_mid.content.call_args_list == [call(view.supvisors.mapper.local_nick_identifier)]
     # reset mock elements
     view.view_ctx.format_url.reset_mock()
     tr_elt.reset_all()

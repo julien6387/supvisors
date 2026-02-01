@@ -16,7 +16,6 @@
 
 import random
 import socket
-from socket import gethostname
 from unittest.mock import Mock
 
 from supervisor.loggers import getLogger, handle_stdout, Logger
@@ -118,7 +117,7 @@ class DummyServerOptions:
         # build a fake server config
         server_config = {'section': 'inet_http_server',
                          'family': socket.AF_INET,
-                         'host': gethostname(),
+                         'host': 'supv01.bzh',
                          'port': 25000,
                          'username': 'user',
                          'password': 'p@$$w0rd'}
@@ -127,7 +126,7 @@ class DummyServerOptions:
         self.server_configs = [server_config]
         self.here = '.'
         self.environ_expansions = {}
-        self.identifier = gethostname()
+        self.identifier = 'supv01.bzh'
         self.serverurl = 'unix://tmp/supervisor.sock'
         self.mood = SupervisorStates.RUNNING
         self.nodaemon = True
@@ -141,6 +140,9 @@ class DummyServerOptions:
         self.httpservers = [(server_config, self.httpserver)]
         # prepare storage for close_httpservers test
         self.storage = None
+
+    def process_config(self, do_usage=True):
+        pass
 
     def close_httpservers(self):
         self.storage = self.httpservers

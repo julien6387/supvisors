@@ -300,15 +300,28 @@ def test_master(controller, plugin, mocked_check):
     # test with no Master instance set
     mocked_rpc.return_value = {}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_master, plugin.do_master, '', [call()])
-    # test with no Master instance
+    # test with Master instance
     mocked_rpc.return_value = {'identifier': '10.0.0.1:25000', 'nick_identifier': 'supv-01'}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_master, plugin.do_master, '', [call()])
+
+
+def test_core(controller, plugin, mocked_check):
+    """ Test the master command. """
+    mocked_rpc = plugin.supvisors().get_core_identifiers
+    # test with no Core instance set
+    mocked_rpc.return_value = []
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_core, plugin.do_core, '', [call()])
+    # test with Core instances
+    mocked_rpc.return_value = [{'identifier': '10.0.0.1:25000', 'nick_identifier': '10.0.0.1'},
+                               {'identifier': 'supv-01:12000', 'nick_identifier': 'supv-01'}]
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_core, plugin.do_core, '', [call()])
 
 
 def test_strategies(controller, plugin, mocked_check):
     """ Test the master command. """
     mocked_rpc = plugin.supvisors().get_strategies
-    mocked_rpc.return_value = {'conciliation': 'hard', 'starting': 'easy', 'auto-fencing': True, 'supvisors_failure': 'resync'}
+    mocked_rpc.return_value = {'conciliation': 'hard', 'starting': 'easy', 'auto-fencing': True,
+                               'supvisors_failure': 'resync'}
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_strategies, plugin.do_strategies, '', [call()])
 
 

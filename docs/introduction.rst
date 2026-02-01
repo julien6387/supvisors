@@ -44,16 +44,22 @@ Definitions
 
 Here follows a few definitions of terms are used throughout the present documentation.
 
-    The term *Node* refers to an UNIX operating system having a dedicated host name and IPv4 address.
+    The term *Node* refers to an UNIX operating system having a dedicated host name and an IPv4 address.
 
     A |Supervisor| *instance* is a |Supervisor| damon running on a *Node*, and with a distinct HTTP configuration.
 
     A |Supvisors| *instance* refers to a |Supervisor| *instance* including a |Supvisors| extension.
 
+    A |Supvisors| *identifier* is a string like ``host_id:http_port`` used by |Supvisors| to identify a |Supvisors|
+    *instance*. |br|
+    Depending on the configuration, the |Supvisors| *instances* may use different |Supvisors| *identifiers* to identify
+    each other, but any |Supvisors| *identifier* always refer to one |Supvisors| *instance*.
+
+    A |Supvisors| *nickname* is a name that is optionally given by the user to address a |Supvisors| *instance*
+    in a more user-friendly way. Every |Supvisors| *nickname* must be unique in |Supvisors|.
+
     |Supvisors| corresponds to the distributed software grouping all the |Supvisors| *instances* configured to work
     together.
-
-    Multiple |Supvisors| *instances* running on the same *Node* do not necessarily belong to the same |Supvisors|.
 
     A |Supervisor| *Process* is a structure whose configuration is described in a |Supervisor| *Program*
     (or *Homogeneous Process Group*). It is managed by a single |Supervisor| *instance*. |br|
@@ -69,9 +75,42 @@ Here follows a few definitions of terms are used throughout the present document
     A |Supvisors| *Application* is the collection of all |Supvisors| *Processes* sharing the name |Supervisor| *Group*
     name within |Supvisors|.
 
-    The definitions of all |Supvisors| *Processes* and |Supvisors| *Applications* are shared across |Supvisors| and
-    all |Supvisors| *instances* have control over them, even if the process definition is unknown to their respective
-    hosting |Supervisor| *instance*.
+    A |Supvisors| *Conflict* is a situation where a |Supvisors| *Process* includes more than one running |Supervisor|
+    *Process*.
+
+
+Overall principles
+------------------
+
+    Multiple |Supvisors| may run on the same set of *Nodes*, without interfering with each other.
+
+    |Supvisors| *instances* running on the same *Node* do not necessarily belong to the same |Supvisors|.
+
+    All |Supvisors| *instances* have knowledge and control over all |Supvisors| *Processes* and |Supvisors|
+    *Applications* in the same |Supvisors|, even if the program or group definition is unknown to their respective
+    |Supervisor| *instance*.
+
+    The |Supervisor| *Processes* belonging to a |Supvisors| *Application* are not necessarily defined
+    in all |Supervisor| *instances* where the |Supervisor| *Group* is defined.
+
+    As an example, let's consider:
+
+        * |Supervisor| *Group* APP, running on *Node* N1, with |Supervisor| *Programs* \{ A, B, C \},
+        * |Supervisor| *Group* APP, running on *Node* N2, with |Supervisor| *Programs* \{ C, D, E \}.
+
+    The resulting |Supvisors| *Application* APP is made of |Supervisor| *Programs* \{ A, B, C, D, E \} where:
+
+        * |Supervisor| *Programs* \{ A, B \} can only run on *Node* N1,
+        * |Supervisor| *Programs* \{ D, E \} can only run on *Node* N2,
+        * |Supervisor| *Program* C can run either on *Node* N1 or *Node* N2.
+
+    |Supvisors| is designed to ensure that only one |Supervisor| *Process* within a |Supvisors| *Process* is running
+    over all its |Supvisors| *instances* at a given time. |br|
+    No |Supvisors| command will allow to break this uniqueness.
+
+    However, |Supvisors| does NOT prevent the user to perform |Supervisor| commands. |br|
+    In the example above, it is possible to use |Supervisor| commands to run |Supervisor| *Program* C on both *Node* N1
+    and *Node* N2, and thus create a |Supvisors| *Conflict*.
 
 
 Platform Requirements
@@ -81,8 +120,7 @@ Platform Requirements
 
 |Supvisors| will not run at all under any version of Windows.
 
-|Supvisors| works with :command:`Python 3.6` to :command:`Python 3.12`.
-From the version 0.19, |Supvisors|  works with :command:`Python 3.9` to :command:`Python 3.12`.
+|Supvisors| works with :command:`Python 3.9` to :command:`Python 3.14`.
 
 Due to the lack of support of :command:`Python 3.6` and :command:`Python 3.7` in the Ubuntu releases provided
 in the Standard GitHub-hosted runners, |Supvisors| is now based on the minimal :command:`Python` release provided

@@ -257,14 +257,14 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     # Trigger Master selection (no core identifiers)
     assert not supvisors_instance.mapper.core_identifiers
     simple_sm.select_master()
-    assert simple_sm.master_identifier == '10.0.0.1:25000'
-    assert simple_sm.is_master()
-    assert simple_sm.master_state_modes is simple_sm.instance_state_modes['10.0.0.1:25000']
+    assert simple_sm.master_identifier == '10.0.0.2:25000'
+    assert not simple_sm.is_master()
+    assert simple_sm.master_state_modes is simple_sm.instance_state_modes['10.0.0.2:25000']
     assert simple_sm.master_state == SupvisorsStates.ELECTION
-    assert simple_sm.get_master_identifiers() == {'10.0.0.1:25000', ''}
+    assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000', ''}
     assert not simple_sm.check_master()
     assert not simple_sm.check_master(False)
-    expected.update({'master_identifier': '10.0.0.1:25000'})
+    expected.update({'master_identifier': '10.0.0.2:25000'})
     assert supvisors_instance.rpc_handler.send_state_event.call_args_list == [call(expected)]
     published = dict(expected, **{'starting_jobs': [], 'stopping_jobs': []})
     assert supvisors_instance.external_publisher.send_supvisors_status.call_args_list == [call(published)]
@@ -279,10 +279,10 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     supvisors_instance.rpc_handler.send_state_event.reset_mock()
     supvisors_instance.external_publisher.send_supvisors_status.reset_mock()
     # Notification of remote state & modes event including stopping jobs and Master update
-    event.update({'master_identifier': '10.0.0.1:25000', 'stopping_jobs': True})
+    event.update({'master_identifier': '10.0.0.2:25000', 'stopping_jobs': True})
     simple_sm.on_instance_state_event('10.0.0.2:25000', event)
     assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == event
-    assert simple_sm.get_master_identifiers() == {'10.0.0.1:25000'}
+    assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000'}
     assert simple_sm.check_master()
     assert simple_sm.check_master(False)
     assert not supvisors_instance.rpc_handler.send_state_event.called
@@ -299,10 +299,10 @@ def test_supvisors_state_modes_normal(mocker, supvisors_instance, simple_sm):
     supvisors_instance.rpc_handler.send_state_event.reset_mock()
     supvisors_instance.external_publisher.send_supvisors_status.reset_mock()
     # Notification of remote state & modes event including stopping jobs and Master update
-    event.update({'master_identifier': '10.0.0.1:25000', 'stopping_jobs': True})
+    event.update({'master_identifier': '10.0.0.2:25000', 'stopping_jobs': True})
     simple_sm.on_instance_state_event('10.0.0.2:25000', event)
     assert simple_sm.instance_state_modes['10.0.0.2:25000'].serial() == event
-    assert simple_sm.get_master_identifiers() == {'10.0.0.1:25000'}
+    assert simple_sm.get_master_identifiers() == {'10.0.0.2:25000'}
     assert simple_sm.check_master()
     assert simple_sm.check_master(False)
     assert not supvisors_instance.rpc_handler.send_state_event.called

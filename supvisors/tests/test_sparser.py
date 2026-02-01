@@ -15,7 +15,6 @@
 # ======================================================================
 
 import ast
-import sys
 from io import BytesIO
 
 import pytest
@@ -285,7 +284,6 @@ def lxml_import():
     return pytest.importorskip('lxml')
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="ast.Str is replaced by ast.Constant from Python 3.8")
 def test_valid_lxml(mocker, lxml_import, supvisors_instance):
     """ Test the parsing using lxml (optional dependency). """
     mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
@@ -297,38 +295,6 @@ def test_valid_lxml(mocker, lxml_import, supvisors_instance):
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
     status_tree = "BoolOp(op=And(), values=[Constant(value='.*B1'), Constant(value='dummy_program_B2')])"
-    assert ast.dump(rules.status_tree) == status_tree
-
-
-@pytest.mark.skipif(sys.version_info < (3, 8) or sys.version_info >= (3, 9),
-                    reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_lxml_38_deprecated(mocker, lxml_import, supvisors_instance):
-    """ Test the parsing using lxml (optional dependency). """
-    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
-    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors_instance)
-    check_valid(parser)
-    # check status formula in the second application
-    rules = load_application_rules(parser, 'dummy_application_B')
-    status_tree = ("BoolOp(op=And(), values=[Constant(value='.*B1', kind=None),"
-                   " Constant(value='dummy_program_B2', kind=None)])")
-    assert ast.dump(rules.status_tree) == status_tree
-
-
-@pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_lxml_deprecated(mocker, lxml_import, supvisors_instance):
-    """ Test the parsing using lxml (optional dependency). """
-    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
-    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors_instance)
-    check_valid(parser)
-    # check status formula in the second application
-    rules = load_application_rules(parser, 'dummy_application_B')
-    status_tree = "BoolOp(op=And(), values=[Str(s='.*B1'), Str(s='dummy_program_B2')])"
     assert ast.dump(rules.status_tree) == status_tree
 
 
@@ -354,7 +320,6 @@ def test_no_parser(mocker, supvisors_instance, lxml_fail_import):
         Parser(supvisors_instance)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="ast.Str is replaced by ast.Constant from Python 3.8")
 def test_valid_element_tree(mocker, supvisors_instance, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
@@ -367,40 +332,6 @@ def test_valid_element_tree(mocker, supvisors_instance, lxml_fail_import):
     # check status formula in the second application
     rules = load_application_rules(parser, 'dummy_application_B')
     status_tree = "BoolOp(op=And(), values=[Constant(value='.*B1'), Constant(value='dummy_program_B2')])"
-    assert ast.dump(rules.status_tree) == status_tree
-
-
-@pytest.mark.skipif(sys.version_info < (3, 8) or sys.version_info >= (3, 9),
-                    reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_element_tree_38_deprecated(mocker, supvisors_instance, lxml_fail_import):
-    """ Test the parsing of a valid XML using ElementTree. """
-    # create Parser instance
-    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
-    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors_instance)
-    check_valid(parser)
-    # check status formula in the second application
-    rules = load_application_rules(parser, 'dummy_application_B')
-    status_tree = ("BoolOp(op=And(), values=[Constant(value='.*B1', kind=None),"
-                   " Constant(value='dummy_program_B2', kind=None)])")
-    assert ast.dump(rules.status_tree) == status_tree
-
-
-@pytest.mark.skipif(sys.version_info >= (3, 8), reason="ast.Str is replaced by ast.Constant from Python 3.8")
-def test_valid_element_tree_deprecated(mocker, supvisors_instance, lxml_fail_import):
-    """ Test the parsing of a valid XML using ElementTree. """
-    # create Parser instance
-    mocker.patch.object(supvisors_instance.options, 'rules_files', [BytesIO(XmlTest)])
-    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_at_identifiers')
-    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
-    parser = Parser(supvisors_instance)
-    check_valid(parser)
-    # check status formula in the second application
-    rules = load_application_rules(parser, 'dummy_application_B')
-    status_tree = "BoolOp(op=And(), values=[Str(s='.*B1'), Str(s='dummy_program_B2')])"
     assert ast.dump(rules.status_tree) == status_tree
 
 
