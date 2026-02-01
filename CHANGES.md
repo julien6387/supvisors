@@ -8,6 +8,8 @@
 * Fix the distribution logic when multiple applications are in the same starting stage, especially when `LESS_LOADED`
   or `MOST_LOADED` strategies are used.
 
+* Fix `get_network_info` when used with a **Supvisors** nickname.
+
 * Consider the case where process events are received and ignored during the **Supvisors** handshake.
 
 * In the application rules of a **Supvisors** rules file, in combination with the use of an application `pattern`,

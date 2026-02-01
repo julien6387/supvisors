@@ -74,7 +74,7 @@ printResult POST 'supervisor/sendProcessStdin/'$NAMESPEC'/hello'
 printResult POST 'supervisor/sendRemoteCommEvent/hello/world'
 
 printResult POST 'supervisor/restart'
-sleep 60
+sleep 80
 
 # !!! NOT TESTED !!!
 # printResult POST 'supervisor/shutdown'
@@ -96,7 +96,7 @@ printResult GET 'supvisors/master_identifier'
 printResult GET 'supvisors/core_identifiers'
 printResult GET 'supvisors/strategies'
 printResult GET 'supvisors/statistics_status'
-printResult GET 'supvisors/local_supvisors_info'
+printResult GET 'supvisors/network_info/'$IDENTIFIER
 
 printResult GET 'supvisors/all_instances_state_modes'
 printResult GET 'supvisors/instance_state_modes/'$IDENTIFIER
