@@ -130,7 +130,7 @@ def test_network_info(rpc):
                                                    'nic_info': {'ipv4_address': '10.0.0.1',
                                                                 'netmask': '255.255.255.0',
                                                                 'nic_name': 'eth0'}}}}}
-    assert rpc.get_network_info(rpc.supvisors.mapper.local_identifier) == expected
+    assert rpc.get_network_info(rpc.supvisors.mapper.local_identifier) == [expected]
     # test with unknown identifier
     with pytest.raises(RPCError) as exc:
         rpc.get_network_info('10.0.0.0')

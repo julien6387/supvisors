@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.19.1 (2026-xx-xx)
+## 0.19.1 (2026-02-01)
 
 * Fix [Issue #134](https://github.com/julien6387/supvisors/issues/134).
   Reload the **Supvisors** process configuration after Supervisor is updated.
