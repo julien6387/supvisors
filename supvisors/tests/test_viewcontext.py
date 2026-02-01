@@ -19,6 +19,7 @@ from unittest.mock import call, Mock
 
 import pytest
 
+from supvisors.statscollector import LocalNodeInfo
 from supvisors.web.viewcontext import *
 
 url_attr_template = r'(.+=.+)'

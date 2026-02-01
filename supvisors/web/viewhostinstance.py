@@ -50,7 +50,7 @@ class HostInstanceView(SupvisorsInstanceView):
     def write_contents(self, contents_elt):
         """ Rendering of tables and figures for address statistics. """
         # get node characteristics
-        info: LocalNodeInfo = self.view_ctx.get_node_characteristics()
+        info = self.view_ctx.get_node_characteristics()
         if info:
             self.write_node_characteristics(contents_elt, info)
         # get data from statistics module iaw period selection
@@ -73,7 +73,7 @@ class HostInstanceView(SupvisorsInstanceView):
                             'disk_io_image_fig_mid', 'disk_usage_image_fig_mid']:
                     contents_elt.findmeld(mid).replace('')
 
-    def write_node_characteristics(self, contents_elt, info: LocalNodeInfo):
+    def write_node_characteristics(self, contents_elt, info):
         """ Rendering of the node characteristics. """
         # write Node section
         supvisors_id: SupvisorsInstanceId = self.sup_ctx.local_status.supvisors_id

@@ -110,7 +110,7 @@ class Context:
                  ipv4_address: Ipv4Address) -> Optional[SupvisorsInstanceStatus]:
         """ Check the validity of the message emitter.
 
-        Validity is ok if:
+        Validity is OK if:
             * the identifier is known (at least as a nick identifier) ;
             * the IP address and port fit the corresponding Supvisors instance ;
             * the corresponding Supvisors instance is not declared ISOLATED.

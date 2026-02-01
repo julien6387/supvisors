@@ -209,8 +209,10 @@ def test_write_nav_instances_identifier_error(supvisors_instance, handler):
     # test call with no address status in context
     handler.write_nav_instances(mocked_root, '10.0.0.0', None)
     assert mocked_root.findmeld.call_args_list == [call('instance_li_mid')]
-    expected = ['10.0.0.1:25000', '10.0.0.2:25000', '10.0.0.3:25000',
-                '10.0.0.4:25000', '10.0.0.5:25000', '10.0.0.6:25000']
+    # WARN: this sequence may not always work
+    expected = ['10.0.0.2:25000', '10.0.0.3:25000',
+                '10.0.0.4:25000', '10.0.0.5:25000', '10.0.0.6:25000',
+                supvisors_instance.mapper.local_identifier]
     assert mocked_mid.repeat.call_args_list == [call(expected)]
     assert address_elt.findmeld.call_args_list == []
 
@@ -234,7 +236,7 @@ def test_write_nav_instances_stopped_instance(supvisors_instance, handler):
     assert instance_elt.attrib['class'] == 'STOPPED'
     assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
     assert instance_a_mid.attrib['class'] == 'off'
-    assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+    assert instance_sp_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
     assert not master_sp_mid.content.called
     instance_elt.reset_all()
     mocked_root.reset_all()
@@ -245,7 +247,7 @@ def test_write_nav_instances_stopped_instance(supvisors_instance, handler):
     assert instance_elt.attrib['class'] == 'STOPPED active'
     assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
     assert instance_a_mid.attrib['class'] == 'off'
-    assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+    assert instance_sp_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
     assert not master_sp_mid.content.called
     instance_elt.reset_all()
     mocked_root.reset_all()
@@ -256,7 +258,7 @@ def test_write_nav_instances_stopped_instance(supvisors_instance, handler):
     assert instance_elt.attrib['class'] == 'STOPPED local'
     assert instance_elt.findmeld.call_args_list == [call('instance_a_mid')]
     assert instance_a_mid.attrib['class'] == 'off'
-    assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+    assert instance_sp_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
     assert not master_sp_mid.content.called
 
 
@@ -292,7 +294,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors_instance, handle
         assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', 'proc_instance.html')]
         assert instance_a_mid.attributes.call_args_list == [call(href='an url')]
         assert instance_a_mid.attrib['class'] == 'on'
-        assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+        assert instance_sp_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
         assert not master_sp_mid.content.called
         mocker.resetall()
         instance_elt.reset_all()
@@ -312,7 +314,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors_instance, handle
         assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', 'proc_instance.html')]
         assert instance_a_mid.attributes.call_args_list == [call(href='an url')]
         assert instance_a_mid.attrib['class'] == 'blink on'
-        assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+        assert instance_sp_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
         assert master_sp_mid.content.call_args_list == [call(SupvisorsSymbols.MASTER_SYMBOL)]
         assert instance_h_mid.attrib['class'] == ''
         mocker.resetall()
@@ -335,7 +337,7 @@ def test_write_nav_instances_running_instance(mocker, supvisors_instance, handle
         assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1:25000', 'proc_instance.html')]
         assert instance_a_mid.attributes.call_args_list == [call(href='an url')]
         assert instance_a_mid.attrib['class'] == 'blink on'
-        assert instance_sp_mid.content.call_args_list == [call('10.0.0.1')]
+        assert instance_sp_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
         assert master_sp_mid.content.call_args_list == [call(SupvisorsSymbols.MASTER_SYMBOL)]
         assert instance_h_mid.attrib['class'] == ('failure' if is_running else '')
         mocker.resetall()

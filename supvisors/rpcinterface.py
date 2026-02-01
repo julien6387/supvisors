@@ -15,7 +15,7 @@
 # ======================================================================
 
 import traceback
-from typing import Callable, NoReturn, Optional, Type, Union
+from typing import Callable, NoReturn, Optional, Union
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
@@ -1301,7 +1301,7 @@ class RPCInterface:
                     'type string or integer expected')
 
     @staticmethod
-    def get_logger_levels() -> Dict[LevelsByName, str]:
+    def get_logger_levels() -> dict[LevelsByName, str]:
         """ Return a dictionary of Supervisor Logger levels.
 
         :return: the Supervisor Logger levels
@@ -1365,7 +1365,7 @@ class RPCInterface:
                         f'invalid Supvisors state={self.supvisors.fsm.state.name}',
                         f'state expected in {[state.name for state in states]}')
 
-    def _get_application_process(self, namespec: str) -> Tuple[ApplicationStatus, Optional[ProcessStatus]]:
+    def _get_application_process(self, namespec: str) -> tuple[ApplicationStatus, Optional[ProcessStatus]]:
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.
         A BAD_NAME exception is raised if the application or the process is not found. """
         application_name, process_name = split_namespec(namespec)

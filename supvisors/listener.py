@@ -46,7 +46,7 @@ def add_process_events() -> None:
     """ Register new events in Supervisor EventTypes.
     The new events are in support of Supervisor issue #177.
 
-    :return: None
+    :return: None.
     """
     events.register('PROCESS', ProcessEvent)  # abstract
     events.register('PROCESS_ADDED', ProcessAddedEvent)

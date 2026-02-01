@@ -794,7 +794,7 @@ def test_force_process_state(mocker, supvisors_instance, listener):
     process = Mock(application_name='appli', process_name='process', extra_args='-h')
     listener.force_process_state(process, '10.0.0.1:25000', 56, ProcessStates.FATAL, 'bad luck')
     expected = {'identifier': '10.0.0.1:25000',
-                'nick_identifier': '10.0.0.1',
+                'nick_identifier': listener.supvisors.mapper.local_nick_identifier,
                 'name': 'process', 'group': 'appli', 'state': ProcessStates.FATAL,
                 'forced': True, 'extra_args': '-h',
                 'now': 45.6, 'now_monotonic': 56,

@@ -22,7 +22,6 @@ from supervisor.datatypes import boolean
 from supervisor.web import ViewContext
 
 from supvisors.process import ProcessStatus
-from supvisors.statscollector import LocalNodeInfo
 from supvisors.ttypes import StartingStrategies, NameList
 from supvisors.utils import get_bit, set_bit
 from .sessionviews import SupvisorsSession
@@ -63,7 +62,7 @@ LOCATION = 'Location'
 
 class SupvisorsViewContext:
     """ Class used to retrieve the parameters selected on the web page.
-    It is also used to format href in html pages. """
+    It is also used to format href in HTML pages. """
 
     def __init__(self, context: ViewContext):
         """ Define attributes for statistics selection. """
@@ -454,10 +453,10 @@ class SupvisorsViewContext:
             nb_cores = self.supvisors.process_compiler.get_nb_cores(identifier)
         return nb_cores
 
-    def get_node_characteristics(self) -> Optional[LocalNodeInfo]:
+    def get_node_characteristics(self):
         """ Get the node characteristics from the stats collector. """
         if self.supvisors.stats_collector:
-            node_info: LocalNodeInfo = self.supvisors.stats_collector.node_info
+            node_info = self.supvisors.stats_collector.node_info
             node_info.refresh_cpu_freq()
             return node_info
         return None

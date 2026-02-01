@@ -706,6 +706,7 @@ def test_serialization(mocker, supvisors_instance):
 
 def test_get_applicable_details(supvisors_instance):
     """ Test the ViewContext.get_applicable_details method. """
+    local_nickname = supvisors_instance.mapper.local_nick_identifier
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors_instance)
     process.info_map = {'10.0.0.1:25000': {'local_time': 10, 'start': 25, 'stop': 32, 'description': 'desc1', 'state': 0,
@@ -716,7 +717,7 @@ def test_get_applicable_details(supvisors_instance):
                                            'now': 53, 'event_time': 50, 'has_stdout': True, 'has_stderr': True}}
     # state is not forced by default
     # test method return on non-running process
-    assert process.get_applicable_details() == ('10.0.0.1:25000', 'desc1 on 10.0.0.1',  True, False)
+    assert process.get_applicable_details() == ('10.0.0.1:25000', f'desc1 on {local_nickname}',  True, False)
     # test method return on running process
     process.running_identifiers.add('10.0.0.3:25000')
     assert process.get_applicable_details() == ('10.0.0.3:25000', 'desc3 on 10.0.0.3', True, True)

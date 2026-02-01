@@ -15,7 +15,7 @@
 # ======================================================================
 
 from enum import Enum
-from typing import Any, Dict, List, Set, Tuple, TypeVar
+from typing import Any, TypeVar, Type
 
 from supervisor.events import Event
 from supervisor.options import ProcessConfig
@@ -216,36 +216,36 @@ class ProcessDisabledEvent(ProcessEvent):
 # General annotation types
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
-Ipv4Address = Tuple[str, int]
-Payload = Dict[str, Any]
-PayloadList = List[Payload]
-NameDict = Dict[str, str]
-NameList = List[str]
-NameSet = Set[str]
-LoadMap = Dict[str, int]
+Ipv4Address = tuple[str, int]
+Payload = dict[str, Any]
+PayloadList = list[Payload]
+NameDict = dict[str, str]
+NameList = list[str]
+NameSet = set[str]
+LoadMap = dict[str, int]
 
 # Annotation types for statistics
-Jiffies = Tuple[float, float]  # (work, idle)
-JiffiesList = List[Jiffies]  # one entry per processor + 1 for average (first element)
-CPUInstantStats = List[float]  # in percent. one entry per processor + 1 for average (first element)
-TimesHistoryStats = List[float]  # in seconds
-CPUHistoryStats = List[List[float]]  # in percent. one list per processor + 1 for average (first element)
-MemHistoryStats = List[float]  # in percent
-IOBytes = Tuple[int, int]  # recv_bytes, sent_bytes
-BytesList = List[float]  # in kilobytes per second
-DiskUsage = Dict[str, float]  # {disk_path: percent}
-DiskUsageHistoryStats = Dict[str, List[float]]  # {disk_path: [percent]}
-InterfaceInstantStats = Dict[str, IOBytes]  # {interface: (recv/read bytes, sent/write bytes)}
-InterfaceIntegratedStats = Dict[str, List[float]]  # {interface: [bytes rate]}
-InterfaceHistoryStats = Dict[str, Tuple[TimesHistoryStats, List[BytesList]]]  # {interface: ([uptimes], [[bytes]])}
-ProcessStats = Tuple[float, float]  # work jiffies, memory
-ProcessCPUHistoryStats = List[float]  # in percent
+Jiffies = tuple[float, float]  # (work, idle)
+JiffiesList = list[Jiffies]  # one entry per processor + 1 for average (first element)
+CPUInstantStats = list[float]  # in percent. one entry per processor + 1 for average (first element)
+TimesHistoryStats = list[float]  # in seconds
+CPUHistoryStats = list[list[float]]  # in percent. one list per processor + 1 for average (first element)
+MemHistoryStats = list[float]  # in percent
+IOBytes = tuple[int, int]  # recv_bytes, sent_bytes
+BytesList = list[float]  # in kilobytes per second
+DiskUsage = dict[str, float]  # {disk_path: percent}
+DiskUsageHistoryStats = dict[str, list[float]]  # {disk_path: [percent]}
+InterfaceInstantStats = dict[str, IOBytes]  # {interface: (recv/read bytes, sent/write bytes)}
+InterfaceIntegratedStats = dict[str, list[float]]  # {interface: [bytes rate]}
+InterfaceHistoryStats = dict[str, tuple[TimesHistoryStats, list[BytesList]]]  # {interface: ([uptimes], [[bytes]])}
+ProcessStats = tuple[float, float]  # work jiffies, memory
+ProcessCPUHistoryStats = list[float]  # in percent
 ProcessMemHistoryStats = MemHistoryStats  # in percent
 
 
 # Program config annotation types
-ProcessConfigList = List[ProcessConfig]
-GroupConfigInfo = Dict[str, ProcessConfigList]  # {group_name: [process_config]}
+ProcessConfigList = list[ProcessConfig]
+GroupConfigInfo = dict[str, ProcessConfigList]  # {group_name: [process_config]}
 ProcessConfigType = TypeVar('ProcessConfigType', bound='Type[ProcessConfig]')
 
 

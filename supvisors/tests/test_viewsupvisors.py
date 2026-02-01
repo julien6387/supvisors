@@ -97,7 +97,7 @@ def test_write_instance_box_title(mocker, supvisors_instance, view):
     assert mocked_identifier_mid.attrib['class'] == 'on active'
     expected_url = 'http://10.0.0.1:25000/index.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
-    assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
+    assert mocked_identifier_mid.content.call_args_list == [call(supvisors_instance.mapper.local_nick_identifier)]
     # test state element
     assert mocked_state_mid.attrib['class'] == 'RUNNING'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
@@ -121,7 +121,8 @@ def test_write_instance_box_title(mocker, supvisors_instance, view):
     assert mocked_identifier_mid.attrib['class'] == 'on active'
     expected_url = 'http://10.0.0.1:25000/index.html'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href=expected_url)]
-    assert mocked_identifier_mid.content.call_args_list == [call(f'{SupvisorsSymbols.MASTER_SYMBOL} 10.0.0.1')]
+    assert mocked_identifier_mid.content.call_args_list == [call(f'{SupvisorsSymbols.MASTER_SYMBOL}'
+                                                                 f' {supvisors_instance.mapper.local_nick_identifier}')]
     # test state element
     assert mocked_state_mid.attrib['class'] == 'RUNNING'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
@@ -145,7 +146,8 @@ def test_write_instance_box_title(mocker, supvisors_instance, view):
     # test Supvisors instance element
     assert mocked_identifier_mid.attrib['class'] == 'off active'
     assert not mocked_identifier_mid.attributes.called
-    assert mocked_identifier_mid.content.call_args_list == [call(f'{SupvisorsSymbols.MASTER_SYMBOL} 10.0.0.1')]
+    assert mocked_identifier_mid.content.call_args_list == [call(f'{SupvisorsSymbols.MASTER_SYMBOL}'
+                                                                 f' {supvisors_instance.mapper.local_nick_identifier}')]
     # test state element
     assert mocked_state_mid.attrib['class'] == 'STOPPED'
     assert mocked_state_mid.content.call_args_list == [call('STOPPED')]
@@ -388,5 +390,6 @@ def test_sup_sync_action(mocker, view):
     mocked_rpc.reset_mock()
     # test success with parameter
     cb = view.sup_sync_action('10.0.0.1:25000')
-    assert cb() == ('warn', 'Supvisors end of sync requested with Master=10.0.0.1 at now')
+    assert cb() == ('warn', f'Supvisors end of sync requested'
+                            f' with Master={view.supvisors.mapper.local_nick_identifier} at now')
     assert mocked_rpc.call_args_list == [call('10.0.0.1:25000')]

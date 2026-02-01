@@ -102,7 +102,9 @@ def test_get_origin(supvisors_instance, proxy):
     """ Test the SupervisorProxy._get_origin method. """
     local_instance = supvisors_instance.mapper.local_instance
     assert proxy._get_origin(proxy.local_identifier) == local_instance.source
-    assert proxy._get_origin('10.0.0.1:25000') == ('10.0.0.1:25000', '10.0.0.1', ('10.0.0.1', 25000))
+    assert proxy._get_origin('10.0.0.1:25000') == ('10.0.0.1:25000',
+                                                   local_instance.nick_identifier,
+                                                   ('10.0.0.1', 25000))
 
 
 def test_proxy_xml_rpc(proxy):

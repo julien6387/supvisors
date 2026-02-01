@@ -91,7 +91,7 @@ def get_network_info() -> Iterator[NicInformation]:
 class NetworkAddress:
     """ All address representations for one network interface. """
 
-    def __init__(self, logger: Logger, nic_info: Optional[NicInformation] = None, host_id: Optional[str] = None):
+    def __init__(self, logger: Logger, *, nic_info: Optional[NicInformation] = None, host_id: Optional[str] = None):
         """ Declare attributes. """
         self.logger: Logger = logger
         # the address information
@@ -256,6 +256,8 @@ class SupvisorsInstanceId:
     http_port: int = None
     event_port: int = None
 
+    user_nickname: bool = False
+
     simple_address: NetworkAddress = None
     remote_view: LocalNetwork = None  # as received from remote
     local_view: LocalNetwork = None  # local view from remote
@@ -309,11 +311,16 @@ class SupvisorsInstanceId:
         # define common identifier
         if self.host_id:
             self.identifier = f'{self.host_id}:{http_port}'
-            # if nick_identifier is not set or default Supervisor identifier is used, assign an automatic identifier
-            if not self.nick_identifier or self.nick_identifier == DEFAULT_IDENTIFIER:
+            # mark the nickname as set by the user or assign one automatically
+            if self.nick_identifier and self.nick_identifier != DEFAULT_IDENTIFIER:
+                self.user_nickname = True
+            else:
+                # if nick_identifier is not set or default Supervisor identifier is used, assign an automatic identifier
                 if self.http_port:
                     self.nick_identifier = self.identifier
                 else:
+                    # HTTP port is not necessarily defined if only one Supvisors instance per node
+                    # keep the nickname simple
                     self.nick_identifier = self.host_id
         # if http_port is not provided, use the local http_port value
         if not self.http_port:
@@ -356,11 +363,11 @@ class SupvisorsInstanceId:
 
         :return: the instance parameters in a dictionary.
         """
-        payload = {'identifier': self.identifier,
-                   'nick_identifier': self.nick_identifier,
-                   'host_id': self.host_id,
-                   'http_port': self.http_port,
-                   'stereotypes': self.stereotypes}
+        payload: Payload = {'identifier': self.identifier,
+                            'nick_identifier': self.nick_identifier,
+                            'host_id': self.host_id,
+                            'http_port': self.http_port,
+                            'stereotypes': self.stereotypes}
         if self.local_view and with_network:
             payload['network'] = self.local_view.serial()
         return payload
@@ -516,12 +523,19 @@ class SupvisorsMapper:
             self.logger.info(f'SupvisorsMapper.find_local_identifier: {str(self.local_instance)}')
             # assign the local network to the instance
             self.local_instance.local_view = self.local_network
-            # check consistence with Supervisor configuration
+            # check / update nickname
             configured_identifier = self.supvisors.supervisor_data.identifier
-            if configured_identifier not in [DEFAULT_IDENTIFIER, self.local_nick_identifier]:
-                self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
-                                 f' "{configured_identifier}" and local Supvisors identified in supvisors_list'
-                                 f' "{self.local_nick_identifier}"')
+            if configured_identifier != DEFAULT_IDENTIFIER:
+                # check if nickname has been set by the user
+                if self.local_instance.user_nickname:
+                    # check consistence with Supervisor configuration
+                    if configured_identifier != self.local_nick_identifier:
+                        self.logger.warn('SupvisorsMapper.find_local_identifier: mismatch between Supervisor identifier'
+                                         f' "{configured_identifier}" and local Supvisors identified in supvisors_list'
+                                         f' "{self.local_nick_identifier}"')
+                else:
+                    # apply the nickname set at supervisor level
+                    self.local_instance.nick_identifier = configured_identifier
             # assign the generic Supvisors instance stereotype
             self._assign_stereotypes(self.local_identifier, stereotypes)
         else:

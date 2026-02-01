@@ -15,7 +15,6 @@
 # ======================================================================
 
 import stat
-from socket import gethostname
 from unittest.mock import call, patch, Mock
 
 import pytest
@@ -135,12 +134,12 @@ def test_accessors(source):
     assert source.system_rpc_interface.rpc_name == 'system_RPC'
     assert source.supervisor_rpc_interface.rpc_name == 'supervisor_RPC'
     assert source.supvisors_rpc_interface.rpc_name == 'supvisors_RPC'
-    assert source.identifier == gethostname()
-    assert source.server_host == gethostname()
+    assert source.identifier == 'supv01.bzh'
+    assert source.server_host == 'supv01.bzh'
     assert source.server_port == 25000
     assert source.username == 'user'
     assert source.password == 'p@$$w0rd'
-    assert source.server_url == f'http://{gethostname()}:25000'
+    assert source.server_url == f'http://supv01.bzh:25000'
     assert source.supervisor_state == SupervisorStates.RUNNING
 
 
@@ -152,7 +151,7 @@ def test_empty_httpservers(source):
 
 def test_env(source):
     """ Test the environment build. """
-    assert source.get_env() == {'SUPERVISOR_SERVER_URL': f'http://{gethostname()}:25000',
+    assert source.get_env() == {'SUPERVISOR_SERVER_URL': f'http://supv01.bzh:25000',
                                 'SUPERVISOR_USERNAME': 'user', 'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
 
 
